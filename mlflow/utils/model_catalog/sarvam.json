@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "sarvam-m": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 0,
+        "output_per_token": 0,
+        "cache_read_per_token": 0,
+        "cache_write_per_token": 0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

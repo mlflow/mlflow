@@ -1,0 +1,117 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "deepseek-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 2.8e-07,
+        "output_per_token": 4.2e-07,
+        "cache_read_per_token": 2.8e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "deepseek-coder": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.4e-07,
+        "output_per_token": 2.8e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "deepseek-r1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 5.5e-07,
+        "output_per_token": 2.19e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "deepseek-reasoner": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_token": 2.8e-07,
+        "output_per_token": 4.2e-07,
+        "cache_read_per_token": 2.8e-08
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "deepseek-v3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 2.7e-07,
+        "output_per_token": 1.1e-06,
+        "cache_read_per_token": 7e-08,
+        "cache_write_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "deepseek-v3.2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 2.8e-07,
+        "output_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    }
+  }
+}

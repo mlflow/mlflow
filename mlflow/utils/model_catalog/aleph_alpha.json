@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "luminous-base": {
+      "mode": "completion",
+      "pricing": {
+        "input_per_token": 3e-05,
+        "output_per_token": 3.3e-05
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "luminous-base-control": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_token": 3.75e-05,
+        "output_per_token": 4.125e-05
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "luminous-extended": {
+      "mode": "completion",
+      "pricing": {
+        "input_per_token": 4.5e-05,
+        "output_per_token": 4.95e-05
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "luminous-extended-control": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_token": 5.625e-05,
+        "output_per_token": 6.1875e-05
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "luminous-supreme": {
+      "mode": "completion",
+      "pricing": {
+        "input_per_token": 0.000175,
+        "output_per_token": 0.0001925
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "luminous-supreme-control": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_token": 0.00021875,
+        "output_per_token": 0.000240625
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

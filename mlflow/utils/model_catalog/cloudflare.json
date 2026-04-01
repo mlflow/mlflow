@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "@cf/meta/llama-2-7b-chat-fp16": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 3072,
+        "max_output": 3072
+      },
+      "pricing": {
+        "input_per_token": 1.923e-06,
+        "output_per_token": 1.923e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "@cf/meta/llama-2-7b-chat-int8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2048,
+        "max_output": 2048
+      },
+      "pricing": {
+        "input_per_token": 1.923e-06,
+        "output_per_token": 1.923e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "@cf/mistral/mistral-7b-instruct-v0.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 1.923e-06,
+        "output_per_token": 1.923e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "@hf/thebloke/codellama-7b-instruct-awq": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.923e-06,
+        "output_per_token": 1.923e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

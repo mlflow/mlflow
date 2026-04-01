@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "morph-v3-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16000,
+        "max_output": 16000
+      },
+      "pricing": {
+        "input_per_token": 8e-07,
+        "output_per_token": 1.2e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "morph-v3-large": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16000,
+        "max_output": 16000
+      },
+      "pricing": {
+        "input_per_token": 9e-07,
+        "output_per_token": 1.9e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

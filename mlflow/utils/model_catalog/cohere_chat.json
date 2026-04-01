@@ -1,0 +1,131 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "command-a-03-2025": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 8000
+      },
+      "pricing": {
+        "input_per_token": 2.5e-06,
+        "output_per_token": 1e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "command-light": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "command-r": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "command-r-08-2024": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "command-r-plus": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 2.5e-06,
+        "output_per_token": 1e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "command-r-plus-08-2024": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 2.5e-06,
+        "output_per_token": 1e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "command-r7b-12-2024": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 3.75e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

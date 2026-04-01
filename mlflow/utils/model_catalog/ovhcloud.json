@@ -1,0 +1,275 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "DeepSeek-R1-Distill-Llama-70B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131000,
+        "max_output": 131000
+      },
+      "pricing": {
+        "input_per_token": 6.7e-07,
+        "output_per_token": 6.7e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "Llama-3.1-8B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131000,
+        "max_output": 131000
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 1e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "Meta-Llama-3_1-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131000,
+        "max_output": 131000
+      },
+      "pricing": {
+        "input_per_token": 6.7e-07,
+        "output_per_token": 6.7e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Meta-Llama-3_3-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131000,
+        "max_output": 131000
+      },
+      "pricing": {
+        "input_per_token": 6.7e-07,
+        "output_per_token": 6.7e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "Mistral-7B-Instruct-v0.3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 127000,
+        "max_output": 127000
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 1e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "Mistral-Nemo-Instruct-2407": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 118000,
+        "max_output": 118000
+      },
+      "pricing": {
+        "input_per_token": 1.3e-07,
+        "output_per_token": 1.3e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "Mistral-Small-3.2-24B-Instruct-2506": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 9e-08,
+        "output_per_token": 2.8e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "Mixtral-8x7B-Instruct-v0.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 6.3e-07,
+        "output_per_token": 6.3e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "Qwen2.5-Coder-32B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 8.7e-07,
+        "output_per_token": 8.7e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "Qwen2.5-VL-72B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 9.1e-07,
+        "output_per_token": 9.1e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "Qwen3-32B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 8e-08,
+        "output_per_token": 2.3e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131000,
+        "max_output": 131000
+      },
+      "pricing": {
+        "input_per_token": 8e-08,
+        "output_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "gpt-oss-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131000,
+        "max_output": 131000
+      },
+      "pricing": {
+        "input_per_token": 4e-08,
+        "output_per_token": 1.5e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "llava-v1.6-mistral-7b-hf": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 2.9e-07,
+        "output_per_token": 2.9e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "mamba-codestral-7B-v0.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 256000
+      },
+      "pricing": {
+        "input_per_token": 1.9e-07,
+        "output_per_token": 1.9e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    }
+  }
+}

@@ -1,0 +1,507 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "databricks-bge-large-en": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 512
+      },
+      "pricing": {
+        "input_per_token": 1.0003e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-claude-3-7-sonnet": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 2.9999900000000002e-06,
+        "output_per_token": 1.5000020000000002e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-claude-haiku-4-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 1.00002e-06,
+        "output_per_token": 5.00003e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-claude-opus-4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 1.5000020000000002e-05,
+        "output_per_token": 7.500003000000001e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-claude-opus-4-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 1.5000020000000002e-05,
+        "output_per_token": 7.500003000000001e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-claude-opus-4-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 5.00003e-06,
+        "output_per_token": 2.5000010000000002e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-claude-sonnet-4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 2.9999900000000002e-06,
+        "output_per_token": 1.5000020000000002e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-claude-sonnet-4-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 2.9999900000000002e-06,
+        "output_per_token": 1.5000020000000002e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-claude-sonnet-4-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 2.9999900000000002e-06,
+        "output_per_token": 1.5000020000000002e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gemini-2-5-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535
+      },
+      "pricing": {
+        "input_per_token": 3.0001999999999996e-07,
+        "output_per_token": 2.49998e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gemini-2-5-pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_token": 1.24999e-06,
+        "output_per_token": 9.999990000000002e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gemma-3-12b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 1.5000999999999998e-07,
+        "output_per_token": 5.0001e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gpt-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 1.24999e-06,
+        "output_per_token": 9.999990000000002e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gpt-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 1.24999e-06,
+        "output_per_token": 9.999990000000002e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gpt-5-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 2.4997000000000006e-07,
+        "output_per_token": 1.9999700000000004e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gpt-5-nano": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 4.998e-08,
+        "output_per_token": 3.9998000000000007e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 1.5000999999999998e-07,
+        "output_per_token": 5.9997e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gpt-oss-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 7e-08,
+        "output_per_token": 3.0001999999999996e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-gte-large-en": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8192
+      },
+      "pricing": {
+        "input_per_token": 1.2999000000000001e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-llama-2-70b-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 5.0001e-07,
+        "output_per_token": 1.5000300000000002e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-llama-4-maverick": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 5.0001e-07,
+        "output_per_token": 1.5000300000000002e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-meta-llama-3-1-405b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 5.00003e-06,
+        "output_per_token": 1.5000020000000002e-05
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-meta-llama-3-1-8b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 1.5000999999999998e-07,
+        "output_per_token": 4.5003000000000007e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-meta-llama-3-3-70b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 5.0001e-07,
+        "output_per_token": 1.5000300000000002e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-meta-llama-3-70b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 1.00002e-06,
+        "output_per_token": 2.9999900000000002e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-mixtral-8x7b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 5.0001e-07,
+        "output_per_token": 1.00002e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-mpt-30b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 1.00002e-06,
+        "output_per_token": 1.00002e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "databricks-mpt-7b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 5.0001e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

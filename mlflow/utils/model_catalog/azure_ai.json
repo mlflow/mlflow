@@ -1,0 +1,1126 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "Cohere-embed-v3-english": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 512
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Cohere-embed-v3-multilingual": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 512
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Llama-3.2-11B-Vision-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 2048
+      },
+      "pricing": {
+        "input_per_token": 3.7e-07,
+        "output_per_token": 3.7e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Llama-3.2-90B-Vision-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 2048
+      },
+      "pricing": {
+        "input_per_token": 2.04e-06,
+        "output_per_token": 2.04e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Llama-3.3-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 2048
+      },
+      "pricing": {
+        "input_per_token": 7.1e-07,
+        "output_per_token": 7.1e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Llama-4-Maverick-17B-128E-Instruct-FP8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 16384
+      },
+      "pricing": {
+        "input_per_token": 1.41e-06,
+        "output_per_token": 3.5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Llama-4-Scout-17B-16E-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 10000000,
+        "max_output": 16384
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 7.8e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "MAI-DS-R1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 1.35e-06,
+        "output_per_token": 5.4e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Meta-Llama-3-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 2048
+      },
+      "pricing": {
+        "input_per_token": 1.1e-06,
+        "output_per_token": 3.7e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Meta-Llama-3.1-405B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 2048
+      },
+      "pricing": {
+        "input_per_token": 5.33e-06,
+        "output_per_token": 1.6e-05
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Meta-Llama-3.1-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 2048
+      },
+      "pricing": {
+        "input_per_token": 2.68e-06,
+        "output_per_token": 3.54e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Meta-Llama-3.1-8B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 2048
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 6.1e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-3-medium-128k-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.7e-07,
+        "output_per_token": 6.8e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-3-medium-4k-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.7e-07,
+        "output_per_token": 6.8e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-3-mini-128k-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.3e-07,
+        "output_per_token": 5.2e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-3-mini-4k-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.3e-07,
+        "output_per_token": 5.2e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-3-small-128k-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-3-small-8k-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-3.5-MoE-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.6e-07,
+        "output_per_token": 6.4e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-3.5-mini-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.3e-07,
+        "output_per_token": 5.2e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-3.5-vision-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.3e-07,
+        "output_per_token": 5.2e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16384,
+        "max_output": 16384
+      },
+      "pricing": {
+        "input_per_token": 1.25e-07,
+        "output_per_token": 5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-4-mini-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 7.5e-08,
+        "output_per_token": 3e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-4-mini-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 8e-08,
+        "output_per_token": 3.2e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-4-multimodal-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 8e-08,
+        "output_per_token": 3.2e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Phi-4-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.25e-07,
+        "output_per_token": 5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "claude-haiku-4-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 5e-06,
+        "cache_read_per_token": 1e-07,
+        "cache_write_per_token": 1.25e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-opus-4-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 1.5e-05,
+        "output_per_token": 7.5e-05,
+        "cache_read_per_token": 1.5e-06,
+        "cache_write_per_token": 1.875e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-opus-4-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 5e-06,
+        "output_per_token": 2.5e-05,
+        "cache_read_per_token": 5e-07,
+        "cache_write_per_token": 6.25e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-opus-4-6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 5e-06,
+        "output_per_token": 2.5e-05,
+        "cache_read_per_token": 5e-07,
+        "cache_write_per_token": 6.25e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-sonnet-4-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05,
+        "cache_read_per_token": 3e-07,
+        "cache_write_per_token": 3.75e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-sonnet-4-6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05,
+        "cache_read_per_token": 3e-07,
+        "cache_write_per_token": 3.75e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "deepseek-r1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 1.35e-06,
+        "output_per_token": 5.4e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-v3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 1.14e-06,
+        "output_per_token": 4.56e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-v3-0324": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 1.14e-06,
+        "output_per_token": 4.56e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-v3.2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 5.8e-07,
+        "output_per_token": 1.68e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "deepseek-v3.2-speciale": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 5.8e-07,
+        "output_per_token": 1.68e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "embed-v-4-0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 128000
+      },
+      "pricing": {
+        "input_per_token": 1.2e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "global/grok-3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "global/grok-3-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2.5e-07,
+        "output_per_token": 1.27e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "grok-3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "grok-3-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2.5e-07,
+        "output_per_token": 1.27e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "grok-4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "grok-4-1-fast-non-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "grok-4-1-fast-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "grok-4-fast-non-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "grok-4-fast-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "grok-code-fast-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 1.5e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "jais-30b-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 0.0032,
+        "output_per_token": 0.00971
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "jamba-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 70000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 5e-07,
+        "output_per_token": 7e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "kimi-k2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 6e-07,
+        "output_per_token": 3e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "ministral-3b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 4e-08,
+        "output_per_token": 4e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-large": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 8191
+      },
+      "pricing": {
+        "input_per_token": 4e-06,
+        "output_per_token": 1.2e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-large-2407": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 2e-06,
+        "output_per_token": 6e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-large-3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 8191
+      },
+      "pricing": {
+        "input_per_token": 5e-07,
+        "output_per_token": 1.5e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-large-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 2e-06,
+        "output_per_token": 6e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-medium-2505": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 8191
+      },
+      "pricing": {
+        "input_per_token": 4e-07,
+        "output_per_token": 2e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-nemo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 1.5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-small": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 8191
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 3e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-small-2503": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 3e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "model_router": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_token": 1.4e-07,
+        "output_per_token": 0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

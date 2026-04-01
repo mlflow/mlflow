@@ -1,0 +1,257 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "Qwen/Qwen3-235B-A22B-Instruct-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 0.01,
+        "output_per_token": 0.01
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-235B-A22B-Thinking-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 0.01,
+        "output_per_token": 0.01
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-Coder-480B-A35B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 0.1,
+        "output_per_token": 0.15
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-R1-0528": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 161000,
+        "max_output": 161000
+      },
+      "pricing": {
+        "input_per_token": 0.135,
+        "output_per_token": 0.54
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-V3-0324": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 161000,
+        "max_output": 161000
+      },
+      "pricing": {
+        "input_per_token": 0.114,
+        "output_per_token": 0.275
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-V3.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 0.055,
+        "output_per_token": 0.165
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-3.1-8B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 0.022,
+        "output_per_token": 0.022
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-3.3-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 0.071,
+        "output_per_token": 0.071
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-4-Scout-17B-16E-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 64000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 0.017,
+        "output_per_token": 0.066
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "microsoft/Phi-4-mini-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 0.008,
+        "output_per_token": 0.035
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "moonshotai/Kimi-K2-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 6e-07,
+        "output_per_token": 2.5e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "openai/gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 0.015,
+        "output_per_token": 0.06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "openai/gpt-oss-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 0.005,
+        "output_per_token": 0.02
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "zai-org/GLM-4.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 0.055,
+        "output_per_token": 0.2
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

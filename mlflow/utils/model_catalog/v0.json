@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "v0-1.0-md": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "v0-1.5-lg": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 512000,
+        "max_output": 512000
+      },
+      "pricing": {
+        "input_per_token": 1.5e-05,
+        "output_per_token": 7.5e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "v0-1.5-md": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

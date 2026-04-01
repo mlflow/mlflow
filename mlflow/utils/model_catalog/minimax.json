@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "MiniMax-M2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 1.2e-06,
+        "cache_read_per_token": 3e-08,
+        "cache_write_per_token": 3.75e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "MiniMax-M2.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 1.2e-06,
+        "cache_read_per_token": 3e-08,
+        "cache_write_per_token": 3.75e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "MiniMax-M2.1-lightning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 2.4e-06,
+        "cache_read_per_token": 3e-08,
+        "cache_write_per_token": 3.75e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "MiniMax-M2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 1.2e-06,
+        "cache_read_per_token": 3e-08,
+        "cache_write_per_token": 3.75e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "MiniMax-M2.5-lightning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 2.4e-06,
+        "cache_read_per_token": 3e-08,
+        "cache_write_per_token": 3.75e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    }
+  }
+}

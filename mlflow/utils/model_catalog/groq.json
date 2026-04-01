@@ -1,0 +1,207 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "gemma-7b-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 5e-08,
+        "output_per_token": 8e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama-3.1-8b-instant": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 5e-08,
+        "output_per_token": 8e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama-3.3-70b-versatile": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_token": 5.9e-07,
+        "output_per_token": 7.9e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/llama-4-maverick-17b-128e-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "meta-llama/llama-4-scout-17b-16e-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 1.1e-07,
+        "output_per_token": 3.4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "meta-llama/llama-guard-4-12b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 2e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "moonshotai/kimi-k2-instruct-0905": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 16384
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 3e-06,
+        "cache_read_per_token": 5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "openai/gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 32766
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 6e-07,
+        "cache_read_per_token": 7.5e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "openai/gpt-oss-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_token": 7.5e-08,
+        "output_per_token": 3e-07,
+        "cache_read_per_token": 3.75e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "openai/gpt-oss-safeguard-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_token": 7.5e-08,
+        "output_per_token": 3e-07,
+        "cache_read_per_token": 3.7e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "qwen/qwen3-32b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131000,
+        "max_output": 131000
+      },
+      "pricing": {
+        "input_per_token": 2.9e-07,
+        "output_per_token": 5.9e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

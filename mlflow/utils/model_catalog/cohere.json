@@ -1,0 +1,177 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "command": {
+      "mode": "completion",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 2e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "command-nightly": {
+      "mode": "completion",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 2e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "embed-english-light-v2.0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 1024
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "embed-english-light-v3.0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 1024
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "embed-english-v2.0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 4096
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "embed-english-v3.0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 1024
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "embed-multilingual-light-v3.0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 1024
+      },
+      "pricing": {
+        "input_per_token": 0.0001,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "embed-multilingual-v2.0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 768
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "embed-multilingual-v3.0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 1024
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "embed-v4.0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 128000
+      },
+      "pricing": {
+        "input_per_token": 1.2e-07,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

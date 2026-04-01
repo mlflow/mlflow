@@ -1,0 +1,1217 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "Gryphe/MythoMax-L2-13b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 8e-08,
+        "output_per_token": 9e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "NousResearch/Hermes-3-Llama-3.1-405B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 1e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "NousResearch/Hermes-3-Llama-3.1-70B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 3e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/QwQ-32B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen2.5-72B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_token": 1.2e-07,
+        "output_per_token": 3.9e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen2.5-7B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_token": 4e-08,
+        "output_per_token": 1e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen2.5-VL-32B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-14B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 40960,
+        "max_output": 40960
+      },
+      "pricing": {
+        "input_per_token": 6e-08,
+        "output_per_token": 2.4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-235B-A22B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 40960,
+        "max_output": 40960
+      },
+      "pricing": {
+        "input_per_token": 1.8e-07,
+        "output_per_token": 5.4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-235B-A22B-Instruct-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 9e-08,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-235B-A22B-Thinking-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 2.9e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-30B-A3B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 40960,
+        "max_output": 40960
+      },
+      "pricing": {
+        "input_per_token": 8e-08,
+        "output_per_token": 2.9e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-32B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 40960,
+        "max_output": 40960
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 2.8e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-Coder-480B-A35B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 4e-07,
+        "output_per_token": 1.6e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 2.9e-07,
+        "output_per_token": 1.2e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-Next-80B-A3B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 1.4e-07,
+        "output_per_token": 1.4e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Qwen/Qwen3-Next-80B-A3B-Thinking": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 1.4e-07,
+        "output_per_token": 1.4e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Sao10K/L3-8B-Lunaris-v1-Turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 4e-08,
+        "output_per_token": 5e-08
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Sao10K/L3.1-70B-Euryale-v2.2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 6.5e-07,
+        "output_per_token": 7.5e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Sao10K/L3.3-70B-Euryale-v2.3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 6.5e-07,
+        "output_per_token": 7.5e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "allenai/olmOCR-7B-0725-FP8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16384,
+        "max_output": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.7e-07,
+        "output_per_token": 1.5e-06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "anthropic/claude-3-7-sonnet-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 200000
+      },
+      "pricing": {
+        "input_per_token": 3.3e-06,
+        "output_per_token": 1.65e-05,
+        "cache_read_per_token": 3.3e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "anthropic/claude-4-opus": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 200000
+      },
+      "pricing": {
+        "input_per_token": 1.65e-05,
+        "output_per_token": 8.25e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "anthropic/claude-4-sonnet": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 200000
+      },
+      "pricing": {
+        "input_per_token": 3.3e-06,
+        "output_per_token": 1.65e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-R1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 7e-07,
+        "output_per_token": 2.4e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-R1-0528": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 5e-07,
+        "output_per_token": 2.15e-06,
+        "cache_read_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-R1-0528-Turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 3e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2.7e-07,
+        "output_per_token": 2.7e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-R1-Turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 40960,
+        "max_output": 40960
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 3e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-V3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 3.8e-07,
+        "output_per_token": 8.9e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-V3-0324": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 2.5e-07,
+        "output_per_token": 8.8e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-V3.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 2.7e-07,
+        "output_per_token": 1e-06,
+        "cache_read_per_token": 2.16e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-ai/DeepSeek-V3.1-Terminus": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 2.7e-07,
+        "output_per_token": 1e-06,
+        "cache_read_per_token": 2.16e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "google/gemini-2.0-flash-001": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 1000000
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-06-01"
+    },
+    "google/gemini-2.5-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 1000000
+      },
+      "pricing": {
+        "input_per_token": 3e-07,
+        "output_per_token": 2.5e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "google/gemini-2.5-pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 1000000
+      },
+      "pricing": {
+        "input_per_token": 1.25e-06,
+        "output_per_token": 1e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "google/gemma-3-12b-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 5e-08,
+        "output_per_token": 1e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "google/gemma-3-27b-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 9e-08,
+        "output_per_token": 1.6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "google/gemma-3-4b-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 4e-08,
+        "output_per_token": 8e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-3.2-11B-Vision-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 4.9e-08,
+        "output_per_token": 4.9e-08
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-3.2-3B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2e-08,
+        "output_per_token": 2e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-3.3-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2.3e-07,
+        "output_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 1.3e-07,
+        "output_per_token": 3.9e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_token": 1.5e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-4-Scout-17B-16E-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 327680,
+        "max_output": 327680
+      },
+      "pricing": {
+        "input_per_token": 8e-08,
+        "output_per_token": 3e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-Guard-3-8B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 5.5e-08,
+        "output_per_token": 5.5e-08
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Llama-Guard-4-12B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_token": 1.8e-07,
+        "output_per_token": 1.8e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Meta-Llama-3-8B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_token": 3e-08,
+        "output_per_token": 6e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Meta-Llama-3.1-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 4e-07,
+        "output_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 2.8e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Meta-Llama-3.1-8B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 3e-08,
+        "output_per_token": 5e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2e-08,
+        "output_per_token": 3e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "microsoft/WizardLM-2-8x22B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_token": 4.8e-07,
+        "output_per_token": 4.8e-07
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "microsoft/phi-4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16384,
+        "max_output": 16384
+      },
+      "pricing": {
+        "input_per_token": 7e-08,
+        "output_per_token": 1.4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistralai/Mistral-Nemo-Instruct-2407": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 2e-08,
+        "output_per_token": 4e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistralai/Mistral-Small-24B-Instruct-2501": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_token": 5e-08,
+        "output_per_token": 8e-08
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 7.5e-08,
+        "output_per_token": 2e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistralai/Mixtral-8x7B-Instruct-v0.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_token": 4e-07,
+        "output_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "moonshotai/Kimi-K2-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 5e-07,
+        "output_per_token": 2e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "moonshotai/Kimi-K2-Instruct-0905": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_token": 5e-07,
+        "output_per_token": 2e-06,
+        "cache_read_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "nvidia/Llama-3.1-Nemotron-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 6e-07,
+        "output_per_token": 6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "nvidia/Llama-3.3-Nemotron-Super-49B-v1.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 1e-07,
+        "output_per_token": 4e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "nvidia/NVIDIA-Nemotron-Nano-9B-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 4e-08,
+        "output_per_token": 1.6e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "openai/gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 5e-08,
+        "output_per_token": 4.5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "openai/gpt-oss-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 4e-08,
+        "output_per_token": 1.5e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "zai-org/GLM-4.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_token": 4e-07,
+        "output_per_token": 1.6e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

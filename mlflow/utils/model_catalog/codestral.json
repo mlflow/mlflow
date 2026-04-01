@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "codestral-2405": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 8191
+      },
+      "pricing": {
+        "input_per_token": 0.0,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "codestral-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 8191
+      },
+      "pricing": {
+        "input_per_token": 0.0,
+        "output_per_token": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

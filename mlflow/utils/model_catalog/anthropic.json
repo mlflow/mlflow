@@ -1,0 +1,370 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "claude-3-7-sonnet-20250219": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05,
+        "cache_read_per_token": 3e-07,
+        "cache_write_per_token": 3.75e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-02-19"
+    },
+    "claude-3-haiku-20240307": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 2.5e-07,
+        "output_per_token": 1.25e-06,
+        "cache_read_per_token": 3e-08,
+        "cache_write_per_token": 3e-07
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-3-opus-20240229": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_token": 1.5e-05,
+        "output_per_token": 7.5e-05,
+        "cache_read_per_token": 1.5e-06,
+        "cache_write_per_token": 1.875e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-05-01"
+    },
+    "claude-4-opus-20250514": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 1.5e-05,
+        "output_per_token": 7.5e-05,
+        "cache_read_per_token": 1.5e-06,
+        "cache_write_per_token": 1.875e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-4-sonnet-20250514": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05,
+        "cache_read_per_token": 3e-07,
+        "cache_write_per_token": 3.75e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-haiku-4-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 5e-06,
+        "cache_read_per_token": 1e-07,
+        "cache_write_per_token": 1.25e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-haiku-4-5-20251001": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 1e-06,
+        "output_per_token": 5e-06,
+        "cache_read_per_token": 1e-07,
+        "cache_write_per_token": 1.25e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-opus-4-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 1.5e-05,
+        "output_per_token": 7.5e-05,
+        "cache_read_per_token": 1.5e-06,
+        "cache_write_per_token": 1.875e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-opus-4-1-20250805": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 1.5e-05,
+        "output_per_token": 7.5e-05,
+        "cache_read_per_token": 1.5e-06,
+        "cache_write_per_token": 1.875e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-08-05"
+    },
+    "claude-opus-4-20250514": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 32000
+      },
+      "pricing": {
+        "input_per_token": 1.5e-05,
+        "output_per_token": 7.5e-05,
+        "cache_read_per_token": 1.5e-06,
+        "cache_write_per_token": 1.875e-05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-05-14"
+    },
+    "claude-opus-4-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 5e-06,
+        "output_per_token": 2.5e-05,
+        "cache_read_per_token": 5e-07,
+        "cache_write_per_token": 6.25e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-opus-4-5-20251101": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 5e-06,
+        "output_per_token": 2.5e-05,
+        "cache_read_per_token": 5e-07,
+        "cache_write_per_token": 6.25e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-opus-4-6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 5e-06,
+        "output_per_token": 2.5e-05,
+        "cache_read_per_token": 5e-07,
+        "cache_write_per_token": 6.25e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-opus-4-6-20260205": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_token": 5e-06,
+        "output_per_token": 2.5e-05,
+        "cache_read_per_token": 5e-07,
+        "cache_write_per_token": 6.25e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-sonnet-4-20250514": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05,
+        "cache_read_per_token": 3e-07,
+        "cache_write_per_token": 3.75e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-05-14"
+    },
+    "claude-sonnet-4-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05,
+        "cache_read_per_token": 3e-07,
+        "cache_write_per_token": 3.75e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-sonnet-4-5-20250929": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05,
+        "cache_read_per_token": 3e-07,
+        "cache_write_per_token": 3.75e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "claude-sonnet-4-6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000
+      },
+      "pricing": {
+        "input_per_token": 3e-06,
+        "output_per_token": 1.5e-05,
+        "cache_read_per_token": 3e-07,
+        "cache_write_per_token": 3.75e-06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    }
+  }
+}
