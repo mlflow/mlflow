@@ -3,7 +3,7 @@ import ErrorUtils from '../../common/utils/ErrorUtils';
 import { FormProvider } from 'react-hook-form';
 import { Breadcrumb, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { Link, useNavigate } from '../../common/utils/RoutingUtils';
+import { Link, useLocation, useNavigate } from '../../common/utils/RoutingUtils';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { useCreateEndpointForm } from '../hooks/useCreateEndpointForm';
 import { getReadableErrorMessage } from '../utils/errorUtils';
@@ -13,6 +13,13 @@ import GatewayRoutes from '../routes';
 const CreateEndpointPage = () => {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = location.state as {
+    provider?: string;
+    model?: string;
+    endpointName?: string;
+    secretName?: string;
+  } | null;
 
   const {
     form,
@@ -25,6 +32,10 @@ const CreateEndpointPage = () => {
     handleCancel,
     handleNameBlur,
   } = useCreateEndpointForm({
+    defaultProvider: prefill?.provider,
+    defaultModel: prefill?.model,
+    defaultName: prefill?.endpointName,
+    defaultSecretName: prefill?.secretName,
     onSuccess: (endpoint) => navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)),
     onCancel: () => navigate(GatewayRoutes.gatewayPageRoute),
   });

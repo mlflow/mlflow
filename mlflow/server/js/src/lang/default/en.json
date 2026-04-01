@@ -435,10 +435,6 @@
     "defaultMessage": "Cancel",
     "description": "Cancel text to cancel the flow to copy the model"
   },
-  "0trCaF": {
-    "defaultMessage": "Use the \"Create endpoint\" button to create a new endpoint",
-    "description": "Empty state message for endpoints list explaining how to create"
-  },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
@@ -574,6 +570,10 @@
   "1l/c+M": {
     "defaultMessage": "User frustration",
     "description": "LLM template option"
+  },
+  "1q0tQB": {
+    "defaultMessage": "Create endpoint",
+    "description": "Gateway > Quick start card > Create endpoint link text"
   },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
@@ -1017,10 +1017,6 @@
   "4yjF8O": {
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
-  },
-  "5+bcQe": {
-    "defaultMessage": "No endpoints created",
-    "description": "Empty state title for endpoints list"
   },
   "53b+wP": {
     "defaultMessage": "Step",
@@ -3945,6 +3941,10 @@
   "OEGyWZ": {
     "defaultMessage": "Predict on a Spark DataFrame.",
     "description": "Code comment which states on how we can predict using spark DataFrame"
+  },
+  "OFXnE1": {
+    "defaultMessage": "Quick-start with a popular model, or choose from 60+ providers and all their supported models.",
+    "description": "Gateway > Endpoints > Quick start description"
   },
   "OH7hV5": {
     "defaultMessage": "Value",
@@ -9063,6 +9063,10 @@
     "defaultMessage": "Pending",
     "description": "Issue status tag label for pending issues"
   },
+  "ueI+tl": {
+    "defaultMessage": "Or browse all providers and models →",
+    "description": "Gateway > Quick start > Link to create endpoint with full model selection"
+  },
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",
     "description": "Page title for the compare runs page"
@@ -9318,6 +9322,10 @@
   "wY58OE": {
     "defaultMessage": "Retrieval groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval groundedness: moderately grounded\""
+  },
+  "wY8GPK": {
+    "defaultMessage": "Get started with AI Gateway",
+    "description": "Gateway > Endpoints > Quick start title"
   },
   "wZtuCR": {
     "defaultMessage": "AutoML",
