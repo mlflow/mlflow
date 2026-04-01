@@ -72,5 +72,7 @@ os.environ["MLFLOW_TRACKING_URI"] = "http://localhost:5000"
 os.environ["MLFLOW_EXPERIMENT_ID"] = "123"
 
 # Configure the other OpenTelemetry-compatible backend OTLP endpoint
-os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "http://other-backend-otlp-endpoint:4317/v1/traces"
+os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = (
+    "http://other-backend-otlp-endpoint:4317/v1/traces"
+)
 ```
