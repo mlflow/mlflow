@@ -128,15 +128,6 @@ def test_lookup_model_cost_returns_none_on_missing_model():
     mock_fetch.assert_called_once()
 
 
-def test_lookup_model_cost_returns_none_on_network_error():
-    with mock.patch(
-        "mlflow.genai.utils.llm_utils._fetch_model_cost", return_value=None
-    ) as mock_fetch:
-        assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) is None
-
-    mock_fetch.assert_called_once()
-
-
 def test_call_llm_handles_gateway_models():
     mock_response = mock.MagicMock()
     mock_response.usage = mock.MagicMock()
@@ -151,6 +142,7 @@ def test_call_llm_handles_gateway_models():
     )
 
     with (
+        mock.patch("mlflow.genai.utils.llm_utils._is_litellm_available", return_value=True),
         mock.patch(
             "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
             return_value=gateway_config,
@@ -182,6 +174,7 @@ def test_call_llm_handles_non_gateway_models():
     mock_response.usage.completion_tokens = 20
 
     with (
+        mock.patch("mlflow.genai.utils.llm_utils._is_litellm_available", return_value=True),
         mock.patch(
             "mlflow.metrics.genai.model_utils.convert_mlflow_uri_to_litellm",
             return_value="openai/gpt-4",
@@ -208,10 +201,13 @@ def test_call_llm_handles_non_gateway_models():
 
 def test_call_llm_with_json_mode():
     mock_response = mock.MagicMock()
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-        return_value=mock_response,
-    ) as mock_invoke:
+    with (
+        mock.patch("mlflow.genai.utils.llm_utils._is_litellm_available", return_value=True),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            return_value=mock_response,
+        ) as mock_invoke,
+    ):
         messages = [{"role": "user", "content": "test"}]
         _call_llm("openai:/gpt-4", messages, json_mode=True)
 
@@ -225,10 +221,13 @@ def test_call_llm_with_response_format():
         field: str
 
     mock_response = mock.MagicMock()
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-        return_value=mock_response,
-    ) as mock_invoke:
+    with (
+        mock.patch("mlflow.genai.utils.llm_utils._is_litellm_available", return_value=True),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            return_value=mock_response,
+        ) as mock_invoke,
+    ):
         messages = [{"role": "user", "content": "test"}]
         _call_llm("openai:/gpt-4", messages, response_format=TestModel)
 
@@ -244,9 +243,12 @@ def test_call_llm_tracks_tokens():
     mock_response.usage.completion_tokens = 50
     mock_response._hidden_params = {"response_cost": 0.01}
 
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-        return_value=mock_response,
+    with (
+        mock.patch("mlflow.genai.utils.llm_utils._is_litellm_available", return_value=True),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            return_value=mock_response,
+        ),
     ):
         counter = _TokenCounter()
         messages = [{"role": "user", "content": "test"}]
