@@ -1,5 +1,7 @@
 import base64
 
+from pydantic import BaseModel
+
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.attachments import Attachment
 
@@ -337,11 +339,10 @@ def test_extracts_base64_from_pydantic_model():
     plain dicts after JSON serialization. The second pass should extract
     the base64 data from the serialized form.
     """
-    from pydantic import BaseModel
 
     class AudioOutput(BaseModel):
         transcript: str
-        audio: dict
+        audio: dict[str, str]
 
     audio_b64 = base64.b64encode(b"RIFF\x00\x00\x00\x00WAVEfmt ").decode()
     output = AudioOutput(
@@ -364,7 +365,6 @@ def test_two_pass_with_explicit_attachment_and_pydantic():
     """When a span has both an explicit Attachment (first pass) AND a Pydantic
     model with base64 (second pass), both should be extracted.
     """
-    from pydantic import BaseModel
 
     class ImageResult(BaseModel):
         b64_json: str

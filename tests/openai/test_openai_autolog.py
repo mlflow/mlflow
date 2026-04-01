@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 from unittest import mock
 
 import httpx
@@ -910,8 +911,6 @@ async def test_images_generate_autolog(client):
     # Disable tracing header injection — safe_patch rejects the extra_headers
     # dict as a "new input" because it's not an ExceptionSafe-wrapped object.
     # This is a known limitation shared with other non-chat endpoints.
-    import sys
-
     openai_autolog_module = sys.modules["mlflow.openai.autolog"]
     with mock.patch.object(openai_autolog_module, "_inject_tracing_headers"):
         response = client.images.generate(

@@ -1,4 +1,5 @@
 import argparse
+import base64
 import json
 from typing import Any
 
@@ -467,8 +468,6 @@ def embeddings(payload: EmbeddingsPayload):
 
 @app.post("/images/generations")
 def images_generate():
-    import base64
-
     # Return a minimal DALL-E-style response with a tiny PNG
     png_b64 = base64.b64encode(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01").decode()
     return {
