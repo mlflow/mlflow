@@ -55,7 +55,11 @@ async def chat_completions(req: ChatRequest):
         "created": int(time.time()),
         "model": req.model,
         "choices": [
-            {"index": 0, "message": {"role": "assistant", "content": "Hello!"}, "finish_reason": "stop"}
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello!"},
+                "finish_reason": "stop",
+            }
         ],
         "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }

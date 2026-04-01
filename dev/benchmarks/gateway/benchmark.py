@@ -17,7 +17,14 @@ from dataclasses import dataclass, field
 
 import aiohttp
 from rich.console import Console
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
 
 console = Console()
@@ -133,7 +140,9 @@ def run_benchmark(
     ) as progress:
         for i in range(runs):
             task_id = progress.add_task(f"  Run {i + 1}/{runs}", total=n_requests, live="")
-            results.append(asyncio.run(_run_once(url, n_requests, max_concurrent, progress, task_id)))
+            results.append(
+                asyncio.run(_run_once(url, n_requests, max_concurrent, progress, task_id))
+            )
     return results
 
 
@@ -207,7 +216,9 @@ def main():
     args = parser.parse_args()
 
     console.print(f"\n[bold]Benchmarking[/bold] {args.url}")
-    console.print(f"  {args.requests} requests · {args.max_concurrent} concurrent · {args.runs} runs\n")
+    console.print(
+        f"  {args.requests} requests · {args.max_concurrent} concurrent · {args.runs} runs\n"
+    )
     results = run_benchmark(args.url, args.requests, args.max_concurrent, args.runs)
     print_results(results)
 

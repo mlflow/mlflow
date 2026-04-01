@@ -36,12 +36,12 @@ Connection pooling and HTTP keep-alive are enabled, so TCP handshake cost is amo
 
 ### What is NOT measured
 
-| Factor | In this benchmark | In production |
-|---|---|---|
-| Network latency | ~0 ms (loopback) | 1–100 ms per hop |
-| TLS/SSL | None (plain HTTP) | ~5–20 ms per new connection |
-| Provider inference | Fixed fake delay (`--fake-delay-ms`) | Variable (50 ms – 60 s+) |
-| Authentication | Disabled (`--disable-security-middleware`) | Token validation, RBAC |
+| Factor             | In this benchmark                          | In production               |
+| ------------------ | ------------------------------------------ | --------------------------- |
+| Network latency    | ~0 ms (loopback)                           | 1–100 ms per hop            |
+| TLS/SSL            | None (plain HTTP)                          | ~5–20 ms per new connection |
+| Provider inference | Fixed fake delay (`--fake-delay-ms`)       | Variable (50 ms – 60 s+)    |
+| Authentication     | Disabled (`--disable-security-middleware`) | Token validation, RBAC      |
 
 ### Isolating pure proxy overhead
 
@@ -95,34 +95,34 @@ DB schema before the others join. All instances share one PostgreSQL database.
 
 ### `single`
 
-| Flag | Default | Description |
-|---|---|---|
-| `--url URL` | — | Benchmark this URL directly, skip all setup |
-| `--workers N` | 4 | MLflow server worker processes |
-| `--backend sqlite\|postgres` | `sqlite` | Database backend |
-| `--mlflow-port N` | 5731 | MLflow server port |
-| `--fake-server-port N` | 9137 | Fake OpenAI server port |
-| `--no-usage-tracking` | — | Disable usage tracking (tracing) on the endpoint |
-| `--requests N` | 2000 | Requests per run |
-| `--max-concurrent N` | 50 | Max concurrent requests |
-| `--runs N` | 3 | Number of benchmark runs |
-| `--fake-delay-ms N` | 50 | Simulated provider latency in ms (0 = pure overhead) |
+| Flag                         | Default  | Description                                          |
+| ---------------------------- | -------- | ---------------------------------------------------- |
+| `--url URL`                  | —        | Benchmark this URL directly, skip all setup          |
+| `--workers N`                | 4        | MLflow server worker processes                       |
+| `--backend sqlite\|postgres` | `sqlite` | Database backend                                     |
+| `--mlflow-port N`            | 5731     | MLflow server port                                   |
+| `--fake-server-port N`       | 9137     | Fake OpenAI server port                              |
+| `--no-usage-tracking`        | —        | Disable usage tracking (tracing) on the endpoint     |
+| `--requests N`               | 2000     | Requests per run                                     |
+| `--max-concurrent N`         | 50       | Max concurrent requests                              |
+| `--runs N`                   | 3        | Number of benchmark runs                             |
+| `--fake-delay-ms N`          | 50       | Simulated provider latency in ms (0 = pure overhead) |
 
 ### `multi`
 
-| Flag | Default | Description |
-|---|---|---|
-| `--url URL` | — | Benchmark this URL directly, skip all setup |
-| `--instances N` | 4 | Number of MLflow instances |
-| `--workers N` | 4 | Workers per instance |
-| `--lb-port N` | 5731 | nginx load balancer port |
-| `--base-port N` | 5800 | First MLflow instance port (rest are +1, +2, …) |
-| `--fake-server-port N` | 9137 | Fake OpenAI server port |
-| `--no-usage-tracking` | — | Disable usage tracking on the endpoint |
-| `--requests N` | 10000 | Requests per run |
-| `--max-concurrent N` | 200 | Max concurrent requests |
-| `--runs N` | 3 | Number of benchmark runs |
-| `--fake-delay-ms N` | 50 | Simulated provider latency in ms |
+| Flag                   | Default | Description                                     |
+| ---------------------- | ------- | ----------------------------------------------- |
+| `--url URL`            | —       | Benchmark this URL directly, skip all setup     |
+| `--instances N`        | 4       | Number of MLflow instances                      |
+| `--workers N`          | 4       | Workers per instance                            |
+| `--lb-port N`          | 5731    | nginx load balancer port                        |
+| `--base-port N`        | 5800    | First MLflow instance port (rest are +1, +2, …) |
+| `--fake-server-port N` | 9137    | Fake OpenAI server port                         |
+| `--no-usage-tracking`  | —       | Disable usage tracking on the endpoint          |
+| `--requests N`         | 10000   | Requests per run                                |
+| `--max-concurrent N`   | 200     | Max concurrent requests                         |
+| `--runs N`             | 3       | Number of benchmark runs                        |
+| `--fake-delay-ms N`    | 50      | Simulated provider latency in ms                |
 
 All flags can also be set via environment variables (same name, uppercased):
 `REQUESTS`, `MAX_CONCURRENT`, `RUNS`, `FAKE_RESPONSE_DELAY_MS`, `MLFLOW_PORT`,
@@ -145,8 +145,8 @@ All flags can also be set via environment variables (same name, uppercased):
 
 ## Files
 
-| File | Purpose |
-|---|---|
-| `run.py` | Main entry point — orchestrates servers, Docker, endpoint setup, and benchmark |
-| `benchmark.py` | Async HTTP benchmark client (standalone or imported by `run.py`) |
-| `fake_server.py` | Fake OpenAI-compatible server for controlled latency simulation |
+| File             | Purpose                                                                        |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `run.py`         | Main entry point — orchestrates servers, Docker, endpoint setup, and benchmark |
+| `benchmark.py`   | Async HTTP benchmark client (standalone or imported by `run.py`)               |
+| `fake_server.py` | Fake OpenAI-compatible server for controlled latency simulation                |
