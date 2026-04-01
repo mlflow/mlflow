@@ -98,6 +98,7 @@ def make_judge(
     inference_params: dict[str, Any] | None = None,
     base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
+    include_timing_in_conversation: bool = False,
 ) -> Judge:
     """
 
@@ -152,6 +153,10 @@ def make_judge(
                         Not supported for Databricks-backed models (including Databricks
                         endpoints, the default managed judge model, or "databricks:/..."
                         model URIs).
+        include_timing_in_conversation: If True, append timing information (duration and
+                        slowest spans) to assistant responses when evaluating conversations.
+                        Useful for latency-aware evaluation. Default is False for backward
+                        compatibility. Only applies when using {{ conversation }} template variable.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -253,6 +258,7 @@ def make_judge(
         model=model,
         description=description,
         feedback_value_type=feedback_value_type,
+        include_timing_in_conversation=include_timing_in_conversation,
         inference_params=inference_params,
         base_url=base_url,
         extra_headers=extra_headers,

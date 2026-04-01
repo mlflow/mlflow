@@ -751,6 +751,7 @@ mlflow.gateway.base_models.ConfigModel
 mlflow.gateway.config.AI21LabsConfig
 mlflow.gateway.config.AI21LabsConfig.validate_ai21labs_api_key
 mlflow.gateway.config.AWSBaseConfig
+mlflow.gateway.config.AWSBearerToken
 mlflow.gateway.config.AWSIdAndKey
 mlflow.gateway.config.AWSRole
 mlflow.gateway.config.AliasedConfigModel
@@ -798,6 +799,7 @@ mlflow.gateway.config.RouteDestinationConfig
 mlflow.gateway.config.TogetherAIConfig
 mlflow.gateway.config.TogetherAIConfig.validate_togetherai_api_key
 mlflow.gateway.config.TrafficRouteConfig
+mlflow.gateway.config.VertexAIConfig
 mlflow.gateway.get_gateway_uri
 mlflow.gateway.set_gateway_uri
 mlflow.gemini.autolog

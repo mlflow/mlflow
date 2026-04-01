@@ -7,13 +7,13 @@ import { TrafficSplitModelItem } from './TrafficSplitModelItem';
 export interface TrafficSplitConfiguratorProps {
   value: TrafficSplitModel[];
   onChange: (value: TrafficSplitModel[]) => void;
-  componentIdPrefix?: string;
+  componentId?: string;
 }
 
 export const TrafficSplitConfigurator = ({
   value,
   onChange,
-  componentIdPrefix = 'mlflow.gateway.traffic-split',
+  componentId = 'mlflow.gateway.traffic-split',
 }: TrafficSplitConfiguratorProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -75,12 +75,12 @@ export const TrafficSplitConfigurator = ({
           onModelChange={handleModelChange}
           onWeightChange={handleWeightChange}
           onRemove={handleRemoveModel}
-          componentIdPrefix={componentIdPrefix}
+          componentId={componentId}
         />
       ))}
 
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Button componentId={`${componentIdPrefix}.add`} icon={<PlusIcon />} onClick={handleAddModel}>
+        <Button componentId={`${componentId}.add`} icon={<PlusIcon />} onClick={handleAddModel}>
           <FormattedMessage
             defaultMessage="Add model for traffic split"
             description="Button to add model for traffic split"

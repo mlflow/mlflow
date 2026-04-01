@@ -29,6 +29,7 @@ class OtelSchemaTranslator:
     OUTPUT_VALUE_KEYS: list[str] | None = None
     MODEL_NAME_KEYS: list[str] | None = None
     LLM_PROVIDER_KEY: str | None = None
+    TOOL_DEFINITION_KEYS: list[str] | None = None
 
     def get_message_format(self, attributes: dict[str, Any]) -> str | None:
         """
@@ -172,6 +173,18 @@ class OtelSchemaTranslator:
             Output value or None if not found
         """
         return self.get_attribute_value(attributes, self.OUTPUT_VALUE_KEYS)
+
+    def get_tool_definitions(self, attributes: dict[str, Any]) -> Any:
+        """
+        Get tool definitions from OTEL attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Tool definitions or None if not found
+        """
+        return self.get_attribute_value(attributes, self.TOOL_DEFINITION_KEYS)
 
     def get_attribute_value(
         self, attributes: dict[str, Any], keys_to_check: list[str] | None = None

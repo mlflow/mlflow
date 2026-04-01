@@ -145,6 +145,10 @@ def _get_converter(
             from mlflow.gemini.genai_semconv_converter import GeminiConverter
 
             return GeminiConverter()
+        case "bedrock":
+            from mlflow.bedrock.genai_semconv_converter import BedrockConverseConverter
+
+            return BedrockConverseConverter()
         case _:
             from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
 

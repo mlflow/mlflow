@@ -6,7 +6,6 @@ import { FormattedMessage } from 'react-intl';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { DetectIssuesButton } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
-import { useIssueDetectionNotification } from '../../components/experiment-page/components/traces-v3/hooks/useIssueDetectionNotification';
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import {
@@ -15,6 +14,7 @@ import {
   DEFAULT_START_TIME_LABEL,
 } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
+import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
 import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
@@ -36,6 +36,9 @@ import { generateTimeBuckets } from './utils/chartUtils';
 import { OverviewChartProvider } from './OverviewChartContext';
 import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 
+const DEMO_START_TIME_TAG = 'mlflow.demo.start_time_ms';
+const DEMO_END_TIME_TAG = 'mlflow.demo.end_time_ms';
+
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
@@ -43,13 +46,44 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
   const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
   const isFileStore = useIsFileStore();
-  const { showIssueDetectionNotification, notificationContextHolder } = useIssueDetectionNotification(experimentId);
 
   invariant(experimentId, 'Experiment ID must be defined');
+
+  // Fetch experiment data to check for demo time tags
+  const { data: experiment } = useGetExperimentQuery({ experimentId });
 
   // Get the current time range from monitoring filters
   const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
   const monitoringConfig = useMonitoringConfig();
+
+  // Initialize with demo time range if this is a demo experiment
+  useEffect(() => {
+    if (!experiment || monitoringFilters.startTimeLabel !== DEFAULT_START_TIME_LABEL) {
+      return;
+    }
+
+    // Check if this is a demo experiment by looking for demo version tags
+    const hasDemoVersionTag = experiment.tags?.some((tag) => tag.key?.startsWith('mlflow.demo.version.'));
+
+    if (hasDemoVersionTag) {
+      const startTimeTag = experiment.tags?.find((tag) => tag.key === DEMO_START_TIME_TAG);
+      const endTimeTag = experiment.tags?.find((tag) => tag.key === DEMO_END_TIME_TAG);
+
+      if (startTimeTag?.value && endTimeTag?.value) {
+        const startTime = new Date(parseInt(startTimeTag.value, 10)).toISOString();
+        const endTime = new Date(parseInt(endTimeTag.value, 10)).toISOString();
+
+        setMonitoringFilters(
+          {
+            startTimeLabel: 'CUSTOM',
+            startTime,
+            endTime,
+          },
+          true,
+        );
+      }
+    }
+  }, [experiment, monitoringFilters.startTimeLabel, setMonitoringFilters]);
 
   // 'ALL' is excluded from the date selector on this page since charts require
   // start_time_ms and end_time_ms. If the user navigates here with ?startTimeLabel=ALL,
@@ -174,7 +208,6 @@ const ExperimentGenAIOverviewPageImpl = () => {
               <DetectIssuesButton
                 componentId="mlflow.experiment.overview.detect-issues-button"
                 onClick={() => setIsIssueDetectionModalOpen(true)}
-                guidanceStorageKey="mlflow.detectIssues.overview.guidanceShown"
               />
             </div>
           )}
@@ -240,13 +273,8 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </OverviewChartProvider>
       </Tabs.Root>
       {isIssueDetectionModalOpen && (
-        <IssueDetectionModal
-          onClose={() => setIsIssueDetectionModalOpen(false)}
-          experimentId={experimentId}
-          onSubmitSuccess={showIssueDetectionNotification}
-        />
+        <IssueDetectionModal onClose={() => setIsIssueDetectionModalOpen(false)} experimentId={experimentId} />
       )}
-      {notificationContextHolder}
     </div>
   );
 };

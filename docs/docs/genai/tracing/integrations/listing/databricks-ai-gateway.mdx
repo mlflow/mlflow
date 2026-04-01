@@ -1,6 +1,9 @@
 ---
+title: Tracing Databricks AI Gateway
+description: Trace Databricks AI Gateway requests with MLflow for full observability into governed access to generative AI models and serving endpoints.
 sidebar_position: 101
 sidebar_label: Databricks
+keywords: [databricks, ai gateway, tracing, mlflow, model serving, governance]
 ---
 
 import Tabs from "@theme/Tabs";
@@ -59,7 +62,7 @@ If you want to trace LLM calls as part of your application traces, you can use M
 <Tabs groupId="programming-language">
   <TabItem value="python" label="Python" default>
 ```bash
-pip install 'mlflow[genai]' openai
+pip install mlflow openai
 ```
   </TabItem>
   <TabItem value="typescript" label="TypeScript">
