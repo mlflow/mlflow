@@ -15,16 +15,19 @@ so results reflect pure MLflow processing time rather than provider variance.
 cd dev/benchmarks/gateway
 
 # Single instance, SQLite (no Docker needed)
-UV_NO_SOURCES=1 uv run run.py single
+uv run run.py single
 
 # Single instance, PostgreSQL (auto-starts Docker container)
-UV_NO_SOURCES=1 uv run run.py single --backend postgres
+uv run run.py single --backend postgres
 
 # 4 instances behind nginx load balancer
-UV_NO_SOURCES=1 uv run run.py multi
+uv run run.py multi
 
 # Benchmark an existing endpoint directly (skips all setup)
-UV_NO_SOURCES=1 uv run run.py single --url http://your-server/gateway/my-endpoint/mlflow/invocations
+uv run run.py single --url http://your-server/gateway/my-endpoint/mlflow/invocations
+
+# If uv tries to pull from custom package sources and fails (Databricks-internal environments):
+UV_NO_SOURCES=1 uv run run.py single
 ```
 
 ## What is measured
@@ -43,29 +46,21 @@ Connection pooling and HTTP keep-alive are enabled, so TCP handshake cost is amo
 | Provider inference | Fixed fake delay (`--fake-delay-ms`)       | Variable (50 ms – 60 s+)    |
 | Authentication     | Disabled (`--disable-security-middleware`) | Token validation, RBAC      |
 
-### Isolating pure proxy overhead
-
-Set `--fake-delay-ms 0` to remove simulated provider latency entirely. The resulting numbers
-represent MLflow's irreducible per-request processing cost (~10–15 ms on a modern laptop with
-config caching enabled).
-
 ## What MLflow does per request
 
 Each invocation through the tracking-server gateway runs these steps:
 
 ```
-1. Budget check          (in-memory)
-2. Config resolution     (3–5 DB queries, cached after first hit)
-3. Secret decryption     (cached, 60 s TTL)
-4. Provider instantiation
-5. Tracing               (if usage_tracking=True)
-6. aiohttp upstream call → fake OpenAI server
-7. Budget callback
+1. Config resolution     (DB-backed, cached after first hit)
+2. Secret decryption     (cached, 60 s TTL)
+3. Provider instantiation
+4. Tracing               (if usage_tracking=True)
+5. HTTP call to LLM API
 ```
 
-Steps 2 (config DB queries) and 5 (tracing) have historically been the dominant bottlenecks.
-With config caching enabled (default) and the batch span processor active, both are reduced
-to near-zero overhead, leaving steps 1/3/4/6/7 at roughly 10–15 ms combined.
+Steps 1 (config resolution) and 4 (tracing) have historically been the dominant bottlenecks.
+Config caching (enabled by default) eliminates most of step 1's cost. Tracing overhead
+depends on the span processor in use.
 
 ## Architecture
 

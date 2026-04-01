@@ -35,7 +35,12 @@ SCRIPT_DIR = Path(__file__).parent
 FAKE_SERVER_PORT = 9137
 MLFLOW_LB_PORT = 5731
 INSTANCE_BASE_PORT = 5800
+POSTGRES_PORT = 5432
 ENDPOINT_NAME = "benchmark-chat"
+
+_API_SECRET_CREATE = "gateway/secrets/create"
+_API_MODEL_DEF_CREATE = "gateway/model-definitions/create"
+_API_ENDPOINT_CREATE = "gateway/endpoints/create"
 
 console = Console()
 
@@ -200,7 +205,7 @@ def _start_postgres(container_name: str = "benchmark-postgres") -> str:
                 "-e",
                 "POSTGRES_DB=mlflow",
                 "-p",
-                "5432:5432",
+                f"{POSTGRES_PORT}:{POSTGRES_PORT}",
                 "postgres:16-alpine",
                 "-c",
                 "max_connections=500",
@@ -227,7 +232,7 @@ def _start_postgres(container_name: str = "benchmark-postgres") -> str:
             sys.exit(1)
 
     console.print("  [green]✓[/green] PostgreSQL ready")
-    return "postgresql://postgres:benchmarkpass@127.0.0.1:5432/mlflow"
+    return f"postgresql://postgres:benchmarkpass@127.0.0.1:{POSTGRES_PORT}/mlflow"
 
 
 def _install_psycopg2():
@@ -249,26 +254,27 @@ def _install_psycopg2():
     console.print("  [green]✓[/green] psycopg2-binary ready")
 
 
+def _api_post(tracking_uri: str, path: str, body: dict) -> dict:
+    url = f"{tracking_uri.rstrip('/')}/api/3.0/mlflow/{path}"
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        console.print(f"  [red]API error {e.code} at {url}: {e.read().decode()}[/red]")
+        sys.exit(1)
+
+
 def _setup_endpoint(
     tracking_uri: str, fake_server_url: str, endpoint_name: str, usage_tracking: bool
 ) -> str:
     """Create secret → model definition → endpoint. Returns the invocation URL."""
-
-    def api_post(path: str, body: dict) -> dict:
-        url = f"{tracking_uri.rstrip('/')}/api/3.0/mlflow/{path}"
-        req = urllib.request.Request(
-            url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
-        )
-        try:
-            with urllib.request.urlopen(req) as resp:
-                return json.loads(resp.read())
-        except urllib.error.HTTPError as e:
-            console.print(f"  [red]API error {e.code} at {url}: {e.read().decode()}[/red]")
-            sys.exit(1)
-
     console.print("  Creating secret...")
-    secret_id = api_post(
-        "gateway/secrets/create",
+    secret_id = _api_post(
+        tracking_uri,
+        _API_SECRET_CREATE,
         {
             "secret_name": "benchmark-secret",
             "secret_value": {"api_key": "fake-benchmark-key"},
@@ -278,8 +284,9 @@ def _setup_endpoint(
     )["secret"]["secret_id"]
 
     console.print("  Creating model definition...")
-    model_def_id = api_post(
-        "gateway/model-definitions/create",
+    model_def_id = _api_post(
+        tracking_uri,
+        _API_MODEL_DEF_CREATE,
         {
             "name": "benchmark-model",
             "secret_id": secret_id,
@@ -289,8 +296,9 @@ def _setup_endpoint(
     )["model_definition"]["model_definition_id"]
 
     console.print(f"  Creating endpoint '{endpoint_name}' (usage_tracking={usage_tracking})...")
-    api_post(
-        "gateway/endpoints/create",
+    _api_post(
+        tracking_uri,
+        _API_ENDPOINT_CREATE,
         {
             "name": endpoint_name,
             "model_configs": [
