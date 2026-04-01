@@ -11,13 +11,6 @@ from mlflow.genai.discovery.constants import (
 )
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.utils.llm_utils import (  # noqa: F401 — re-exported for backwards compatibility
-    _call_llm,
-    _lookup_model_cost,
-    _ModelCost,
-    _pydantic_to_response_format,
-    _TokenCounter,
-)
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
 
