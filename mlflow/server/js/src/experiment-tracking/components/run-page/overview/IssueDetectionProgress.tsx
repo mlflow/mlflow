@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
   CheckCircleIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   ParagraphSkeleton,
   XCircleIcon,
   Typography,
@@ -16,6 +18,7 @@ import Utils from '../../../../common/utils/Utils';
 import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
 import { JobStatus, isJobComplete } from '../hooks/useFetchJobStatus';
 import { useCancelJob } from '../hooks/useCancelJob';
+import { useLogTelemetryEvent } from '../../../../telemetry/hooks/useLogTelemetryEvent';
 
 export interface IssueJobResult {
   issues?: number;
@@ -55,6 +58,7 @@ export const IssueDetectionProgress = ({
 }: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const logTelemetryEvent = useLogTelemetryEvent();
   const navigate = useNavigate();
   const { experimentId, runUuid } = useParams<{ experimentId: string; runUuid: string }>();
   const { cancelJob, isCancelling } = useCancelJob();
@@ -104,6 +108,25 @@ export const IssueDetectionProgress = ({
   });
 
   const identifiedIssues = issues.length;
+
+  const hasLoggedTelemetry = useRef(false);
+  useEffect(() => {
+    if (isJobSucceeded && !hasLoggedTelemetry.current) {
+      hasLoggedTelemetry.current = true;
+      logTelemetryEvent({
+        componentId: 'mlflow.issue-detection.completed',
+        componentType: DesignSystemEventProviderComponentTypes.Button,
+        // Use runUuid as componentViewId to track the same eval result across sessions
+        componentViewId: runUuid ?? '',
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnValueChange,
+        value: JSON.stringify({
+          totalTraces,
+          identifiedIssues,
+          totalCostUsd: result?.total_cost_usd,
+        }),
+      });
+    }
+  }, [isJobSucceeded, totalTraces, identifiedIssues, result?.total_cost_usd]);
 
   if (isLoadingJobStatus) {
     return (
