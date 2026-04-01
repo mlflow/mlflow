@@ -1,4 +1,5 @@
 import functools
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -12,6 +13,17 @@ from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
 class DummyResponseModel(BaseModel):
     answer: str
     score: int
+
+
+@pytest.fixture(autouse=True)
+def _mock_litellm_module():
+    if "litellm" not in sys.modules:
+        mock = Mock()
+        mock.acompletion = Mock()
+        with patch.dict(sys.modules, {"litellm": mock}):
+            yield mock
+    else:
+        yield
 
 
 @pytest.fixture
@@ -90,12 +102,13 @@ def test_create_ragas_model_gateway_uses_partial_with_api_base_and_key():
         model="openai/my-endpoint",
         extra_headers=None,
     )
+    mock_litellm = Mock()
     with (
+        patch.dict(sys.modules, {"litellm": mock_litellm}),
         patch(
             "mlflow.genai.scorers.ragas.models.get_gateway_litellm_config",
             return_value=mock_config,
         ),
-        patch("mlflow.genai.scorers.ragas.models.litellm") as mock_litellm,
         patch("mlflow.genai.scorers.ragas.models.instructor") as mock_instructor,
     ):
         mock_instructor.from_litellm.return_value = Mock()

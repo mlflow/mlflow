@@ -140,6 +140,14 @@ def _autolog(
     for task in (AsyncChatCompletions, AsyncCompletions, AsyncEmbeddings):
         safe_patch(FLAVOR_NAME, task, "create", async_patched_call)
 
+    try:
+        from openai.resources.images import AsyncImages, Images
+
+        safe_patch(FLAVOR_NAME, Images, "generate", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncImages, "generate", async_patched_call)
+    except ImportError:
+        pass
+
     if hasattr(AsyncChatCompletions, "parse"):
         # In openai>=1.92.0, `AsyncChatCompletions` has a `parse` method:
         # https://github.com/openai/openai-python/commit/0e358ed66b317038705fb38958a449d284f3cb88
@@ -178,6 +186,14 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
         Embeddings: SpanType.EMBEDDING,
         AsyncEmbeddings: SpanType.EMBEDDING,
     }
+
+    try:
+        from openai.resources.images import AsyncImages, Images
+
+        span_type_mapping[Images] = SpanType.TOOL
+        span_type_mapping[AsyncImages] = SpanType.TOOL
+    except ImportError:
+        pass
 
     try:
         # Only available in openai>=1.40.0

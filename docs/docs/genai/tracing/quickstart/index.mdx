@@ -9,7 +9,7 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Zap, FlaskConical, TestTube } from "lucide-react";
+import { Zap, TestTube, Search } from "lucide-react";
 
 # Tracing Quickstart
 
@@ -48,7 +48,7 @@ To connect your LLM application or AI agent to the MLflow server, you will need 
 <Tabs groupId="programming-language">
 <TabItem value="python" label="Python(OpenAI)" default>
 ```bash
-pip install --upgrade 'mlflow[genai]' openai>=1.0.0
+pip install --upgrade mlflow openai>=1.0.0
 ```
 </TabItem>
 
@@ -245,13 +245,6 @@ Congrats on sending your first trace with MLflow! Now that you've got the basics
 
 <TilesGrid>
   <TileCard
-    icon={TestTube}
-    title="Evaluation Quickstart"
-    description="Learn how to systematically evaluate your GenAI application's quality with LLM judges and automated testing"
-    href="/genai/eval-monitor/quickstart"
-    linkText="Start evaluating →"
-  />
-  <TileCard
     icon={Zap}
     title="Automatic Tracing"
     description="Explore one-line automatic tracing for popular LLM and AI agent frameworks"
@@ -259,10 +252,17 @@ Congrats on sending your first trace with MLflow! Now that you've got the basics
     linkText="Enable auto-tracing →"
   />
   <TileCard
-    icon={FlaskConical}
-    title="Quality Test Traces"
-    description="Run quality evaluations on your logged traces to ensure response accuracy"
-    href="/genai/eval-monitor/running-evaluation/traces/"
-    linkText="Evaluate traces →"
+    icon={Search}
+    title="Automatic Issue Detection"
+    description="Use AI to automatically identify quality and operational issues across your traces"
+    href="/genai/eval-monitor/ai-insights/detect-issues"
+    linkText="Detect issues →"
+  />
+  <TileCard
+    icon={TestTube}
+    title="Evaluation Quickstart"
+    description="Learn how to systematically evaluate your GenAI application's quality with LLM judges and automated testing"
+    href="/genai/eval-monitor/quickstart"
+    linkText="Start evaluating →"
   />
 </TilesGrid>

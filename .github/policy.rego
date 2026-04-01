@@ -211,6 +211,30 @@ deny_interpolation_in_github_script contains msg if {
 	)
 }
 
+deny_interpolation_in_job_if contains msg if {
+	some job_id, job in input.jobs
+	is_string(job["if"])
+	regex.match(`\$\{\{`, job["if"])
+	msg := sprintf(
+		"Unnecessary ${{ }} in 'if' of job '%s'. Use quotes instead if the expression starts with '!' (e.g., if: \"!expr\").",
+		[job_id],
+	)
+}
+
+deny_interpolation_in_step_if contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	is_string(step["if"])
+	regex.match(`\$\{\{`, step["if"])
+	msg := sprintf(
+		concat("", [
+			"Unnecessary ${{ }} in 'if' of step '%s' in job '%s'. ",
+			"Use quotes instead if the expression starts with '!' (e.g., if: \"!expr\").",
+		]),
+		[step.name, job_id],
+	)
+}
+
 contains_github_token(value) if {
 	regex.match(`\$\{\{\s*github\.token\s*\}\}`, value)
 }
@@ -265,6 +289,48 @@ job_has_repo_check(job) if {
 	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
 }
 
+deny_secrets_in_top_level_env contains msg if {
+	some key, value in input.env
+	contains_secret(value)
+	msg := sprintf(
+		"Secret in top-level env.%s. Move secrets to step-level env for least-privilege scope.",
+		[key],
+	)
+}
+
+deny_secrets_in_job_level_env contains msg if {
+	some job_id, job in input.jobs
+	some key, value in job.env
+	contains_secret(value)
+	msg := sprintf(
+		"Secret in job-level env.%s of job '%s'. Move secrets to step-level env for least-privilege scope.",
+		[key, job_id],
+	)
+}
+
+contains_secret(value) if {
+	regex.match(`\$\{\{\s*secrets\.`, value)
+}
+
+deny_checkout_missing_persist_credentials contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/checkout@")
+	not has_explicit_persist_credentials(step)
+	msg := sprintf(
+		"actions/checkout in job '%s' must set 'persist-credentials' explicitly (false for read-only, true if pushing).",
+		[job_id],
+	)
+}
+
+has_explicit_persist_credentials(step) if {
+	step["with"]["persist-credentials"] == false
+}
+
+has_explicit_persist_credentials(step) if {
+	step["with"]["persist-credentials"] == true
+}
+
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps
@@ -278,10 +344,10 @@ deny_mutable_install contains msg if {
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps
-	regex.match(`\byarn install\b`, step.run)
+	regex.match(`(?m)^\s*yarn(\s+install)?\s*(?:#.*)?$`, step.run)
 	not regex.match(`\byarn install\s+--immutable\b`, step.run)
 	msg := sprintf(
-		"'yarn install' in job '%s' may modify the lockfile. Use 'yarn install --immutable' for reproducible builds.",
+		"yarn or yarn install in job '%s' may modify the lockfile. Use 'yarn install --immutable'.",
 		[job_id],
 	)
 }

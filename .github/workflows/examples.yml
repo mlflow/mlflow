@@ -64,6 +64,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
@@ -90,16 +91,16 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true'
         run: |
           source ./dev/install-common-deps.sh --ml
-          pip install fastapi uvicorn
-          sudo apt-get update -y
+          uv pip install --system fastapi uvicorn
           # Required for the transformers example that uses the Whisper model
+          sudo apt-get update
           sudo apt-get install -y ffmpeg
 
       - name: Run example tests
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true'
         env:
           SPARK_LOCAL_IP: localhost
           SPLITS: ${{ matrix.splits }}
@@ -124,6 +125,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - name: Show disk usage

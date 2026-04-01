@@ -1,15 +1,13 @@
 import functools
-import importlib.util
+import importlib.resources
+import json
 import logging
 from collections.abc import Iterator
 from typing import Any, TypedDict
 
-import requests
 from typing_extensions import NotRequired
 
 _logger = logging.getLogger(__name__)
-
-_PROVIDER_BACKEND_AVAILABLE = importlib.util.find_spec("litellm") is not None
 
 _SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
 
@@ -51,10 +49,97 @@ class ProviderConfigResponse(TypedDict):
     default_mode: str
 
 
-def _get_model_cost():
-    from litellm import model_cost
+class ModelInfo(TypedDict, total=False):
+    # Used by _build_model_dict
+    supports_function_calling: bool
+    supports_vision: bool
+    supports_reasoning: bool
+    supports_prompt_caching: bool
+    supports_response_schema: bool
+    max_input_tokens: int
+    max_output_tokens: int
+    input_cost_per_token: float
+    output_cost_per_token: float
+    deprecation_date: str
+    # Used by cost_per_token
+    cache_read_input_token_cost: float
+    cache_creation_input_token_cost: float
+    # Used by get_all_providers / get_models / _extract_models
+    mode: str
 
-    return model_cost
+
+@functools.lru_cache(maxsize=1)
+def _get_model_cost() -> dict[tuple[str | None, str], ModelInfo]:
+    """Load model cost data keyed by ``(provider, model_name)``.
+
+    Each JSON key is split on the first ``/`` to derive provider and model name.
+    """
+    ref = importlib.resources.files(__package__).joinpath("model_prices_and_context_window.json")
+    try:
+        with importlib.resources.as_file(ref) as path, path.open(encoding="utf-8") as f:
+            raw = json.load(f)
+    except FileNotFoundError:
+        return {}
+    model_info_keys = ModelInfo.__annotations__
+    result: dict[tuple[str | None, str], ModelInfo] = {}
+    for key, info in raw.items():
+        provider = info.get("litellm_provider")
+        model_name = key.split("/", 1)[-1]
+        filtered = {k: v for k, v in info.items() if k in model_info_keys}
+        if provider:
+            result.setdefault((provider, model_name), filtered)
+        result.setdefault((None, model_name), filtered)
+    return result
+
+
+def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
+    """Look up model cost info by ``(provider, model)``."""
+    index = _get_model_cost()
+    bare_model = model.split("/", 1)[-1]
+    if info := index.get((custom_llm_provider, bare_model)):
+        return info
+    if custom_llm_provider:
+        return index.get((None, bare_model))
+    return None
+
+
+def cost_per_token(
+    model: str,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    custom_llm_provider: str | None = None,
+    cache_read_input_tokens: int | None = None,
+    cache_creation_input_tokens: int | None = None,
+) -> tuple[float, float] | None:
+    """Calculate cost per token using the bundled model price data.
+
+    Returns:
+        A tuple of (input_cost, output_cost) in USD, or None if the model is not found.
+    """
+    info = _lookup_model_info(model, custom_llm_provider)
+    if info is None:
+        return None
+
+    input_cost_per_token = info.get("input_cost_per_token", 0.0)
+    output_cost_per_token = info.get("output_cost_per_token", 0.0)
+
+    # In this function, prompt_tokens is expected to include cache tokens, so we subtract
+    # cache_read and cache_creation to get the regular (non-cached) portion, then price each
+    # category at its own rate.
+    cache_read = cache_read_input_tokens or 0
+    cache_creation = cache_creation_input_tokens or 0
+    regular_input_tokens = max(prompt_tokens - cache_read - cache_creation, 0)
+
+    input_cost = regular_input_tokens * input_cost_per_token
+    if cache_read > 0:
+        input_cost += cache_read * info.get("cache_read_input_token_cost", input_cost_per_token)
+    if cache_creation > 0:
+        input_cost += cache_creation * info.get(
+            "cache_creation_input_token_cost", input_cost_per_token
+        )
+    output_cost = completion_tokens * output_cost_per_token
+
+    return input_cost, output_cost
 
 
 # Auth modes for providers with multiple authentication options.
@@ -86,6 +171,12 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "secret": True,
                     "required": True,
                 },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region",
+                    "secret": False,
+                    "required": True,
+                },
             ],
         },
         "access_keys": {
@@ -114,31 +205,14 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
         },
         "iam_role": {
             "display_name": "IAM Role Assumption",
-            "description": "Assume an IAM role using base credentials (for cross-account access)",
+            "description": "Assume an IAM role using the server's ambient credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
             "fields": [
-                {
-                    "name": "aws_access_key_id",
-                    "description": "AWS Access Key ID (for assuming role)",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_secret_access_key",
-                    "description": "AWS Secret Access Key",
-                    "secret": True,
-                    "required": True,
-                },
                 {
                     "name": "aws_role_name",
                     "description": "IAM Role ARN to assume",
                     "secret": False,
                     "required": True,
-                },
-                {
-                    "name": "aws_session_name",
-                    "description": "Session name for assumed role",
-                    "secret": False,
-                    "required": False,
                 },
                 {
                     "name": "aws_region_name",
@@ -255,7 +329,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "vertex_project",
                     "description": "GCP Project ID",
                     "secret": False,
-                    "required": False,
+                    "required": True,
                 },
                 {
                     "name": "vertex_location",
@@ -527,70 +601,24 @@ def _normalize_provider(provider: str) -> str:
     return provider
 
 
-def _iter_model_catalog_api(*, model: str | None = None) -> Iterator[dict[str, Any]]:
-    """Yield entries from the LiteLLM model catalog API with pagination.
-
-    Performance (page_size=500, measured 2026-03-18):
-        No filter          -> 6 pages, ~2600 records, ~8s
-        model=gpt-4o       -> 1 page,  ~80 records,   <1s
-    Always pass ``model`` when possible to avoid exhausting all pages.
-    """
-    page = 1
-    while True:
-        params = {"page": page, "page_size": 500}
-        if model:
-            params["model"] = model
-        try:
-            resp = requests.get(
-                "https://api.litellm.ai/model_catalog",
-                params=params,
-                timeout=10,
-            )
-            resp.raise_for_status()
-            body = resp.json()
-        except Exception:
-            _logger.debug("Failed to fetch model catalog from API", exc_info=True)
-            return
-
-        yield from body.get("data", [])
-
-        if not body.get("has_more", False):
-            return
-        page += 1
-
-
-@functools.lru_cache(maxsize=64)
-def _fetch_model_catalog_from_api(model: str | None = None) -> tuple[dict[str, Any], ...]:
-    return tuple(_iter_model_catalog_api(model=model))
-
-
 def get_all_providers() -> list[str]:
     """
-    Get a list of all LiteLLM providers that have chat, completion, or embedding capabilities.
+    Get a list of all providers that have chat, completion, or embedding capabilities.
 
     Only returns providers that have at least one chat, completion, or embedding model,
     excluding providers that only offer image generation, audio, or other non-text services.
 
     Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
     variants are returned as just vertex_ai).
-
-    Returns:
-        List of provider names that support chat/completion/embedding
     """
-    if _PROVIDER_BACKEND_AVAILABLE:
-        model_cost = _get_model_cost()
-        providers = set()
-        for _, info in model_cost.items():
-            mode = info.get("mode")
-            if mode in _SUPPORTED_MODEL_MODES:
-                if provider := info.get("litellm_provider"):
-                    if provider not in _EXCLUDED_PROVIDERS:
-                        providers.add(_normalize_provider(provider))
-        return list(providers)
-
-    # When LiteLLM is not installed, only return providers that have native
-    # gateway adapters so users can actually invoke endpoints they create.
-    return [p for p in _CORE_PROVIDER_ENV_VARS if p != "bedrock"]
+    providers = set()
+    for (provider, _), info in _get_model_cost().items():
+        if provider is None:
+            continue
+        mode = info.get("mode")
+        if mode in _SUPPORTED_MODEL_MODES and provider not in _EXCLUDED_PROVIDERS:
+            providers.add(_normalize_provider(provider))
+    return list(providers)
 
 
 def get_models(provider: str | None = None) -> list[dict[str, Any]]:
@@ -621,24 +649,11 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - output_cost_per_token: Cost per output token (USD)
             - deprecation_date: Date when model will be deprecated (if known)
     """
-    if _PROVIDER_BACKEND_AVAILABLE:
-        entries = (
-            (
-                name,
-                info.get("litellm_provider"),
-                info,
-            )
-            for name, info in _get_model_cost().items()
-        )
-    else:
-        entries = (
-            (
-                entry.get("id", ""),
-                entry.get("provider"),
-                entry,
-            )
-            for entry in _fetch_model_catalog_from_api()
-        )
+    entries = (
+        (model_name, provider, info)
+        for (provider, model_name), info in _get_model_cost().items()
+        if provider is not None
+    )
     return _extract_models(entries, provider_filter=provider)
 
 
@@ -698,13 +713,23 @@ def _build_model_dict(
     }
 
 
+# Azure OpenAI environment variable names (matching litellm convention)
+AZURE_API_KEY_ENV_VAR = "AZURE_API_KEY"
+AZURE_API_BASE_ENV_VAR = "AZURE_API_BASE"
+AZURE_API_VERSION_ENV_VAR = "AZURE_API_VERSION"
+
 # Mapping of core providers to their environment variable names for API keys
 _CORE_PROVIDER_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
-    "azure": "AZURE_OPENAI_API_KEY",
+    "azure": AZURE_API_KEY_ENV_VAR,
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "mistral": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "xai": "XAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "togetherai": "TOGETHERAI_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",

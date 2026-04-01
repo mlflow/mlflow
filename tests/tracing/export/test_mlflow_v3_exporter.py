@@ -504,3 +504,34 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
         exporter.export([otel_span])
         mock_upload_trace_data.assert_not_called()
         mock_start_trace.assert_called_once()
+
+
+def test_batch_write_skipped_when_store_unsupported():
+    otel_span = create_mock_otel_span(name="root", trace_id=66666, span_id=1, parent_id=None)
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ) as mock_start_trace,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+        mock.patch("mlflow.tracing.client.TracingClient.log_spans") as mock_log_spans,
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter._store_supports_log_spans = False
+        exporter.export([otel_span])
+
+        mock_start_trace.assert_called_once()
+        # log_spans should NOT be called when store doesn't support it
+        mock_log_spans.assert_not_called()
+        # Artifact upload should still happen as fallback
+        mock_upload_trace_data.assert_called_once()
