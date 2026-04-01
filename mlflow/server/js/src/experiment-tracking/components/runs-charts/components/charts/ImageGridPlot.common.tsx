@@ -54,7 +54,7 @@ export const ImageGridRunHeader = ({
         {paramsText && (
           <div
             css={{
-              fontSize: theme.typography.fontSizeXs,
+              fontSize: theme.typography.fontSizeSm,
               color: theme.colors.textSecondary,
               whiteSpace: 'normal',
               lineHeight: 1.3,
