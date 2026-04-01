@@ -9,9 +9,10 @@ MLflow overhead rather than provider latency.
 
 Run standalone:
     uv run fake_server.py
+    PORT=9200 uv run fake_server.py
 
-Or via gunicorn (as launched by run.py):
-    gunicorn -k uvicorn.workers.UvicornWorker -w 8 -b 0.0.0.0:9000 fake_server:app
+Or with multiple workers (as launched by run.py):
+    uvicorn fake_server:app --workers 8 --port 9137
 """
 
 import asyncio
@@ -35,17 +36,6 @@ class ChatRequest(BaseModel):
     max_tokens: int = 50
 
 
-class CompletionsRequest(BaseModel):
-    model: str = "gpt-3.5-turbo"
-    prompt: str = ""
-    max_tokens: int = 50
-
-
-class EmbeddingsRequest(BaseModel):
-    model: str = "text-embedding-ada-002"
-    input: str | list = ""
-
-
 @app.post("/v1/chat/completions")
 async def chat_completions(req: ChatRequest):
     await asyncio.sleep(DELAY_MS / 1000)
@@ -65,34 +55,12 @@ async def chat_completions(req: ChatRequest):
     }
 
 
-@app.post("/v1/completions")
-async def completions(req: CompletionsRequest):
-    await asyncio.sleep(DELAY_MS / 1000)
-    return {
-        "id": "cmpl-fake",
-        "object": "text_completion",
-        "created": int(time.time()),
-        "model": req.model,
-        "choices": [{"text": "Hello!", "index": 0, "finish_reason": "stop"}],
-        "usage": {"prompt_tokens": 5, "completion_tokens": 3, "total_tokens": 8},
-    }
-
-
-@app.post("/v1/embeddings")
-async def embeddings(req: EmbeddingsRequest):
-    await asyncio.sleep(DELAY_MS / 1000)
-    return {
-        "object": "list",
-        "data": [{"object": "embedding", "index": 0, "embedding": [0.001] * 1536}],
-        "model": "text-embedding-ada-002",
-        "usage": {"prompt_tokens": 5, "total_tokens": 5},
-    }
-
-
 @app.get("/health")
 async def health():
+    # Polled by run.py's _wait_for_port to detect when the server is ready.
     return {"status": "ok"}
 
 
 if __name__ == "__main__":
-    uvicorn.run("fake_server:app", host="0.0.0.0", port=9137, log_level="warning")
+    port = int(os.environ.get("PORT", "9137"))
+    uvicorn.run("fake_server:app", host="0.0.0.0", port=port, log_level="warning")

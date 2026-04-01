@@ -207,12 +207,56 @@ def print_results(results: list[RunResult]):
             console.print(f"  {reason}: {count}")
 
 
+def check_thresholds(
+    results: list[RunResult],
+    min_rps: float | None = None,
+    max_p99_ms: float | None = None,
+) -> bool:
+    """Check results against performance thresholds. Returns True if all pass."""
+    avg_rps = statistics.mean(r.throughput for r in results)
+    avg_p99 = statistics.mean(r.percentile(99) for r in results)
+    passed = True
+
+    if min_rps is not None and avg_rps < min_rps:
+        console.print(
+            f"\n[red]THRESHOLD FAILED:[/red] avg throughput {avg_rps:.0f} req/s"
+            f" < minimum {min_rps:.0f} req/s"
+        )
+        passed = False
+
+    if max_p99_ms is not None and avg_p99 > max_p99_ms:
+        console.print(
+            f"\n[red]THRESHOLD FAILED:[/red] avg P99 {avg_p99:.1f} ms"
+            f" > maximum {max_p99_ms:.1f} ms"
+        )
+        passed = False
+
+    if passed and (min_rps is not None or max_p99_ms is not None):
+        console.print("\n[green]All thresholds passed.[/green]")
+
+    return passed
+
+
 def main():
     parser = argparse.ArgumentParser(description="Async HTTP benchmark client for MLflow Gateway")
     parser.add_argument("--url", required=True, help="Gateway invocation URL")
     parser.add_argument("--requests", type=int, default=2000)
     parser.add_argument("--max-concurrent", type=int, default=50)
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument(
+        "--min-rps",
+        type=float,
+        default=None,
+        metavar="N",
+        help="Fail (exit 1) if average throughput falls below N req/s",
+    )
+    parser.add_argument(
+        "--max-p99-ms",
+        type=float,
+        default=None,
+        metavar="N",
+        help="Fail (exit 1) if average P99 latency exceeds N ms",
+    )
     args = parser.parse_args()
 
     console.print(f"\n[bold]Benchmarking[/bold] {args.url}")
@@ -221,6 +265,9 @@ def main():
     )
     results = run_benchmark(args.url, args.requests, args.max_concurrent, args.runs)
     print_results(results)
+
+    if not check_thresholds(results, min_rps=args.min_rps, max_p99_ms=args.max_p99_ms):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
