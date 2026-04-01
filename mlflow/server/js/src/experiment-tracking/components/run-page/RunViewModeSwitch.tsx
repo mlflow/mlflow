@@ -1,6 +1,6 @@
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
@@ -71,6 +71,7 @@ export const RunViewModeSwitch = ({
 }: RunViewModeSwitchProps) => {
   const { experimentId, runUuid } = useParams<{ runUuid: string; experimentId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { theme } = useDesignSystemTheme();
   const currentTab = useRunViewActiveTab();
   const [removeTabMargin, setRemoveTabMargin] = useState(TABS_WITHOUT_MARGIN.includes(currentTab));
@@ -82,15 +83,18 @@ export const RunViewModeSwitch = ({
 
     setRemoveTabMargin(TABS_WITHOUT_MARGIN.includes(newTabKey as RunPageTabName));
 
+    const queryString = searchParams.toString();
+    const withSearchParams = (route: string) => (queryString ? `${route}?${queryString}` : route);
+
     if (newTabKey === RunPageTabName.OVERVIEW) {
       const route = getBaseRoute ? getBaseRoute(experimentId, runUuid) : Routes.getRunPageRoute(experimentId, runUuid);
-      navigate(route);
+      navigate(withSearchParams(route));
       return;
     }
     const route = getTabRoute
       ? getTabRoute(experimentId, runUuid, newTabKey)
       : Routes.getRunPageTabRoute(experimentId, runUuid, newTabKey);
-    navigate(route);
+    navigate(withSearchParams(route));
   };
 
   return (
