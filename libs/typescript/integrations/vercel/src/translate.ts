@@ -74,6 +74,14 @@ function translateSpan(span: ReadableSpan): void {
     attrs['mlflow.spanType'] = spanType;
   }
 
+  // Span name — use tool name for tool calls instead of generic "ai.toolCall"
+  if (operationId === 'ai.toolCall') {
+    const toolName = toStr(attrs['ai.toolCall.name']);
+    if (toolName) {
+      (span as { name: string }).name = toolName;
+    }
+  }
+
   // Inputs
   if (!attrs['mlflow.spanInputs']) {
     const inputs = extractInputs(attrs, operationId);
@@ -132,16 +140,11 @@ function extractInputs(attrs: Record<string, unknown>, operationId: string): unk
     }
   }
 
-  // Non-chat spans: return first matching raw value wrapped in a named object
-  const inputKeys: [string, string][] = [
-    ['ai.prompt', 'prompt'],
-    ['ai.toolCall.args', 'args'],
-    ['ai.value', 'value'],
-    ['ai.values', 'value'],
-  ];
-  for (const [attrKey, wrapKey] of inputKeys) {
+  // Non-chat spans: return first matching raw value (no wrapping)
+  const inputKeys = ['ai.prompt', 'ai.toolCall.args', 'ai.value', 'ai.values'];
+  for (const attrKey of inputKeys) {
     if (attrs[attrKey] !== undefined) {
-      return { [wrapKey]: safeParse(attrs[attrKey]) };
+      return safeParse(attrs[attrKey]);
     }
   }
 
@@ -159,17 +162,17 @@ function extractOutputs(attrs: Record<string, unknown>, operationId: string): un
     }
   }
 
-  // Non-chat spans: return first matching raw value wrapped in a named object
-  const outputKeys: [string, string][] = [
-    ['ai.response.text', 'text'],
-    ['ai.toolCall.result', 'result'],
-    ['ai.response.object', 'object'],
-    ['ai.embedding', 'embedding'],
-    ['ai.embeddings', 'embeddings'],
+  // Non-chat spans: return first matching raw value (no wrapping)
+  const outputKeys = [
+    'ai.response.text',
+    'ai.toolCall.result',
+    'ai.response.object',
+    'ai.embedding',
+    'ai.embeddings',
   ];
-  for (const [attrKey, wrapKey] of outputKeys) {
+  for (const attrKey of outputKeys) {
     if (attrs[attrKey] !== undefined) {
-      return { [wrapKey]: safeParse(attrs[attrKey]) };
+      return safeParse(attrs[attrKey]);
     }
   }
 
@@ -180,20 +183,36 @@ function extractOutputs(attrs: Record<string, unknown>, operationId: string): un
  * Extract token usage from ai.usage.* attributes into the mlflow.chat.tokenUsage
  * JSON format: {"input_tokens": N, "output_tokens": N, "total_tokens": N}.
  */
-function extractTokenUsage(attrs: Record<string, unknown>): string | undefined {
-  const promptTokens = toNumber(attrs['ai.usage.promptTokens']);
-  const completionTokens = toNumber(attrs['ai.usage.completionTokens']);
+function firstNumber(attrs: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const v = toNumber(attrs[key]);
+    if (v !== undefined) return v;
+  }
+  return undefined;
+}
 
-  if (promptTokens === undefined && completionTokens === undefined) {
+function extractTokenUsage(attrs: Record<string, unknown>): string | undefined {
+  const inputTokens = firstNumber(attrs, [
+    'gen_ai.usage.input_tokens',
+    'ai.usage.inputTokens',
+    'ai.usage.promptTokens',
+  ]);
+  const outputTokens = firstNumber(attrs, [
+    'gen_ai.usage.output_tokens',
+    'ai.usage.outputTokens',
+    'ai.usage.completionTokens',
+  ]);
+
+  if (inputTokens === undefined && outputTokens === undefined) {
     return undefined;
   }
 
-  const inputTokens = promptTokens ?? 0;
-  const outputTokens = completionTokens ?? 0;
+  const input = inputTokens ?? 0;
+  const output = outputTokens ?? 0;
   return safeStringify({
-    input_tokens: inputTokens,
-    output_tokens: outputTokens,
-    total_tokens: inputTokens + outputTokens,
+    input_tokens: input,
+    output_tokens: output,
+    total_tokens: input + output,
   });
 }
 

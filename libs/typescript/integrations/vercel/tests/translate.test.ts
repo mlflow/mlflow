@@ -1,10 +1,10 @@
 import type { ReadableSpan } from '@opentelemetry/sdk-trace-base';
 import { translateSpansForMlflow } from '../src/translate';
 
-function makeSpan(attributes: Record<string, unknown> = {}): ReadableSpan {
+function makeSpan(attributes: Record<string, unknown> = {}, name = 'test-span'): ReadableSpan {
   return {
     attributes,
-    name: 'test-span',
+    name,
     spanContext: () => ({
       traceId: 'abc123',
       spanId: Math.random().toString(16).slice(2, 18),
@@ -103,7 +103,7 @@ describe('translateSpansForMlflow', () => {
       });
       translateSpansForMlflow([span]);
       expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
-        prompt: { messages: [{ role: 'user', content: 'hi' }] },
+        messages: [{ role: 'user', content: 'hi' }],
       });
     });
 
@@ -113,9 +113,7 @@ describe('translateSpansForMlflow', () => {
         'ai.toolCall.args': '{"query":"weather"}',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
-        args: { query: 'weather' },
-      });
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({ query: 'weather' });
     });
 
     it('extracts ai.value for embed spans', () => {
@@ -124,9 +122,7 @@ describe('translateSpansForMlflow', () => {
         'ai.value': '"some text to embed"',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
-        value: 'some text to embed',
-      });
+      expect(parseAttr(span, 'mlflow.spanInputs')).toBe('some text to embed');
     });
 
     it('extracts ai.values for embedMany spans', () => {
@@ -135,9 +131,7 @@ describe('translateSpansForMlflow', () => {
         'ai.values': '["text1","text2"]',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
-        value: ['text1', 'text2'],
-      });
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual(['text1', 'text2']);
     });
 
     it('decodes tools array with individually stringified elements', () => {
@@ -166,7 +160,7 @@ describe('translateSpansForMlflow', () => {
       });
       translateSpansForMlflow([span]);
       expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
-        prompt: { messages: [{ role: 'user', content: 'hi' }] },
+        messages: [{ role: 'user', content: 'hi' }],
       });
     });
 
@@ -206,9 +200,7 @@ describe('translateSpansForMlflow', () => {
         'ai.response.text': 'plain text response',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual({
-        text: 'plain text response',
-      });
+      expect(parseAttr(span, 'mlflow.spanOutputs')).toBe('plain text response');
     });
 
     it('extracts ai.toolCall.result for tool spans', () => {
@@ -218,9 +210,7 @@ describe('translateSpansForMlflow', () => {
         'ai.toolCall.result': '{"temp":72}',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual({
-        result: { temp: 72 },
-      });
+      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual({ temp: 72 });
     });
 
     it('extracts ai.response.object for object generation', () => {
@@ -229,9 +219,7 @@ describe('translateSpansForMlflow', () => {
         'ai.response.object': '{"name":"test"}',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual({
-        object: { name: 'test' },
-      });
+      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual({ name: 'test' });
     });
 
     it('extracts ai.embedding for embed spans', () => {
@@ -241,9 +229,7 @@ describe('translateSpansForMlflow', () => {
         'ai.embedding': '[0.1,0.2,0.3]',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual({
-        embedding: [0.1, 0.2, 0.3],
-      });
+      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual([0.1, 0.2, 0.3]);
     });
 
     it('extracts ai.embeddings for embedMany spans', () => {
@@ -253,12 +239,10 @@ describe('translateSpansForMlflow', () => {
         'ai.embeddings': '[[0.1,0.2],[0.3,0.4]]',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual({
-        embeddings: [
-          [0.1, 0.2],
-          [0.3, 0.4],
-        ],
-      });
+      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual([
+        [0.1, 0.2],
+        [0.3, 0.4],
+      ]);
     });
 
     it('does not set outputs when no matching keys exist', () => {
@@ -433,6 +417,119 @@ describe('translateSpansForMlflow', () => {
         output_tokens: 75,
         total_tokens: 225,
       });
+    });
+
+    it('reads gen_ai.usage.input_tokens and gen_ai.usage.output_tokens', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'gen_ai.usage.input_tokens': 80,
+        'gen_ai.usage.output_tokens': 40,
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.chat.tokenUsage')).toEqual({
+        input_tokens: 80,
+        output_tokens: 40,
+        total_tokens: 120,
+      });
+    });
+
+    it('reads ai.usage.inputTokens and ai.usage.outputTokens (v4 naming)', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'ai.usage.inputTokens': 60,
+        'ai.usage.outputTokens': 30,
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.chat.tokenUsage')).toEqual({
+        input_tokens: 60,
+        output_tokens: 30,
+        total_tokens: 90,
+      });
+    });
+
+    it('prefers gen_ai input over v4 and v3 input keys', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'gen_ai.usage.input_tokens': 10,
+        'ai.usage.inputTokens': 20,
+        'ai.usage.promptTokens': 30,
+        'gen_ai.usage.output_tokens': 5,
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.chat.tokenUsage')).toEqual({
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+      });
+    });
+
+    it('prefers v4 output over v3 output keys', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'ai.usage.outputTokens': 25,
+        'ai.usage.completionTokens': 50,
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.chat.tokenUsage')).toEqual({
+        input_tokens: 0,
+        output_tokens: 25,
+        total_tokens: 25,
+      });
+    });
+
+    it('resolves input and output tokens independently across sources', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'gen_ai.usage.input_tokens': 100,
+        'ai.usage.completionTokens': 50,
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.chat.tokenUsage')).toEqual({
+        input_tokens: 100,
+        output_tokens: 50,
+        total_tokens: 150,
+      });
+    });
+  });
+
+  // ── Tool call span naming ─────────────────────────────────────────
+
+  describe('tool call span naming', () => {
+    it('renames ai.toolCall span to the tool name', () => {
+      const span = makeSpan(
+        {
+          'ai.operationId': 'ai.toolCall',
+          'ai.toolCall.name': 'get_weather',
+          'ai.toolCall.args': '{"city":"SF"}',
+        },
+        'ai.toolCall'
+      );
+      translateSpansForMlflow([span]);
+      expect(span.name).toBe('get_weather');
+    });
+
+    it('does not rename when ai.toolCall.name is absent', () => {
+      const span = makeSpan(
+        {
+          'ai.operationId': 'ai.toolCall',
+          'ai.toolCall.args': '{"city":"SF"}',
+        },
+        'ai.toolCall'
+      );
+      translateSpansForMlflow([span]);
+      expect(span.name).toBe('ai.toolCall');
+    });
+
+    it('does not rename non-toolCall spans even if ai.toolCall.name is present', () => {
+      const span = makeSpan(
+        {
+          'ai.operationId': 'ai.generateText',
+          'ai.toolCall.name': 'get_weather',
+        },
+        'ai.generateText'
+      );
+      translateSpansForMlflow([span]);
+      expect(span.name).toBe('ai.generateText');
     });
   });
 
@@ -623,9 +720,7 @@ describe('translateSpansForMlflow', () => {
       });
       translateSpansForMlflow([span]);
       // Triple-encoded: only 2 levels decoded, so the innermost JSON string is preserved
-      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
-        prompt: '{"key":"value"}',
-      });
+      expect(parseAttr(span, 'mlflow.spanInputs')).toBe('{"key":"value"}');
     });
 
     it('passes boolean values through unchanged', () => {
@@ -704,9 +799,7 @@ describe('translateSpansForMlflow', () => {
         'ai.toolCall.args': '{"q":"test"}',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
-        prompt: { messages: [] },
-      });
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({ messages: [] });
     });
 
     it('prefers ai.response.text over ai.toolCall.result for outputs', () => {
@@ -716,9 +809,7 @@ describe('translateSpansForMlflow', () => {
         'ai.toolCall.result': '{"temp":72}',
       });
       translateSpansForMlflow([span]);
-      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual({
-        text: 'hello',
-      });
+      expect(parseAttr(span, 'mlflow.spanOutputs')).toBe('hello');
     });
   });
 
@@ -748,8 +839,8 @@ describe('translateSpansForMlflow', () => {
       translateSpansForMlflow([span]);
       // toStr rejects null → no model set
       expect(getAttr(span, 'mlflow.llm.model')).toBeUndefined();
-      // null !== undefined → ai.prompt matches, wraps null as {prompt: null}
-      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({ prompt: null });
+      // null !== undefined → ai.prompt matches, returns null directly
+      expect(parseAttr(span, 'mlflow.spanInputs')).toBeNull();
     });
   });
 
