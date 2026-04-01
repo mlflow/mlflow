@@ -11,28 +11,6 @@ export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
   const { theme } = useDesignSystemTheme();
   const { openLogTracesDrawer } = useHomePageViewState();
 
-  const containerStyles = {
-    overflow: 'hidden',
-    border: `1px solid ${theme.colors.borderDecorative}`,
-    borderRadius: theme.borders.borderRadiusMd,
-    background: theme.colors.backgroundPrimary,
-    padding: theme.spacing.sm + theme.spacing.xs,
-    display: 'flex',
-    gap: theme.spacing.sm,
-    minWidth: 240,
-    flex: 1,
-    boxSizing: 'border-box' as const,
-    boxShadow: theme.shadows.sm,
-    cursor: 'pointer',
-    transition: 'background 150ms ease',
-    '&:hover': {
-      background: theme.colors.actionDefaultBackgroundHover,
-    },
-    '&:active': {
-      background: theme.colors.actionDefaultBackgroundPress,
-    },
-  };
-
   const iconWrapperStyles = {
     borderRadius: theme.borders.borderRadiusSm,
     background: theme.colors.actionDefaultBackgroundHover,
@@ -53,24 +31,36 @@ export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
     minWidth: 0,
   };
 
-  // Reset all Button styles so it acts as an invisible wrapper,
-  // letting the inner <div> handle all card styling.
-  const buttonResetStyles = {
+  // Invisible Button overlay that captures clicks and handles telemetry
+  // via built-in componentId support. Positioned on top of the card.
+  const buttonOverlayStyles = {
     '&&&': {
-      all: 'unset' as const,
+      position: 'absolute' as const,
+      inset: 0,
+      opacity: 0,
+      width: '100%',
+      height: '100%',
+      padding: 0,
       cursor: 'pointer',
-      display: 'block',
-      flex: 1,
-      minWidth: 240,
-    },
-    // Remove layout effects of Button's inner span wrapper
-    '&&& > *': {
-      display: 'contents',
     },
   };
 
   const card = (
-    <div css={containerStyles}>
+    <div
+      css={{
+        overflow: 'hidden',
+        border: `1px solid ${theme.colors.borderDecorative}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        background: theme.colors.backgroundPrimary,
+        padding: theme.spacing.sm + theme.spacing.xs,
+        display: 'flex',
+        gap: theme.spacing.sm,
+        boxSizing: 'border-box' as const,
+        boxShadow: theme.shadows.sm,
+        transition: 'background 150ms ease',
+        height: '100%',
+      }}
+    >
       <div css={iconWrapperStyles}>
         <feature.icon />
       </div>
@@ -94,24 +84,39 @@ export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
     </div>
   );
 
+  const wrapperStyles = {
+    position: 'relative' as const,
+    flex: 1,
+    minWidth: 240,
+    cursor: 'pointer',
+    '&:hover > div': {
+      background: theme.colors.actionDefaultBackgroundHover,
+    },
+    '&:active > div': {
+      background: theme.colors.actionDefaultBackgroundPress,
+    },
+  };
+
   if (feature.hasDrawer) {
     return (
-      <Button componentId={componentId} type="tertiary" onClick={openLogTracesDrawer} css={buttonResetStyles}>
+      <div css={wrapperStyles}>
         {card}
-      </Button>
+        <Button componentId={componentId} type="tertiary" onClick={openLogTracesDrawer} css={buttonOverlayStyles} />
+      </div>
     );
   }
 
   return (
-    <Button
-      componentId={componentId}
-      type="tertiary"
-      href={feature.docsLink}
-      target="_blank"
-      rel="noopener noreferrer"
-      css={buttonResetStyles}
-    >
+    <div css={wrapperStyles}>
       {card}
-    </Button>
+      <Button
+        componentId={componentId}
+        type="tertiary"
+        href={feature.docsLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        css={buttonOverlayStyles}
+      />
+    </div>
   );
 };
