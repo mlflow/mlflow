@@ -63,7 +63,7 @@ export const IssueDetectionRunDetailsPage = () => {
       tabSwitchProps={{
         getBaseRoute: Routes.getIssueDetectionRunDetailsRoute,
         getTabRoute: Routes.getIssueDetectionRunDetailsTabRoute,
-        visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES, RunPageTabName.ISSUES],
+        visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.ISSUES, RunPageTabName.TRACES],
       }}
       onDeleteSuccess={handleDeleteSuccess}
       hideTracesCompareSelector

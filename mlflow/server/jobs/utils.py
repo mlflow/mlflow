@@ -136,7 +136,8 @@ def _start_huey_consumer_proc(
 
     cmd = [
         sys.executable,
-        shutil.which("huey_consumer.py"),
+        "-m",
+        "huey.bin.huey_consumer",
         "mlflow.server.jobs._huey_consumer.huey_instance",
         "-w",
         str(max_job_parallelism),
@@ -523,7 +524,8 @@ def _launch_periodic_tasks_consumer() -> None:
 def _start_periodic_tasks_consumer_proc():
     cmd = [
         sys.executable,
-        shutil.which("huey_consumer.py"),
+        "-m",
+        "huey.bin.huey_consumer",
         "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
         "-w",
         str(PERIODIC_TASKS_WORKER_COUNT),

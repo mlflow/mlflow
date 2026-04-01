@@ -27,8 +27,7 @@ module.exports = createConfig({})({
     // Apollo client separate from workspace console and thus doesn't need a workspace-scoped provider
     // '@databricks/no-singleton-apollo-client': 'off',
     // '@databricks/no-apollo-client-provider': 'off',
-    // TODO: Migrate to AlertUtils.log
-    'no-console': 'warn',
+    'no-console': 'error',
   },
   overrides: [
     {

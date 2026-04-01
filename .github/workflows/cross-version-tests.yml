@@ -69,14 +69,15 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install -r dev/requirements.txt
-          pip install pytest pytest-cov
+          uv pip install --system -r dev/requirements.txt
+          uv pip install --system pytest pytest-cov
       - name: Check labels
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         id: check-labels
@@ -111,11 +112,13 @@ jobs:
           VERSIONS: ${{ github.event.inputs.versions }}
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/$BASE_REF/mlflow/ml-package-versions.yml"
+            REF_VERSIONS_YAML=/tmp/ref-versions.yml
+            git fetch origin "$BASE_REF" --depth=1
+            git show "origin/$BASE_REF:mlflow/ml-package-versions.yml" > "$REF_VERSIONS_YAML"
             CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -v '^mlflow/server/js' || true)
             NO_DEV_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--no-dev")
             ONLY_LATEST_FLAG=$([ "$ONLY_LATEST" == "true" ] && echo "--only-latest" || echo "")
-            python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files "$CHANGED_FILES" $NO_DEV_FLAG $ONLY_LATEST_FLAG
+            python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES" $NO_DEV_FLAG $ONLY_LATEST_FLAG
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             python dev/set_matrix.py --flavors "$FLAVORS" --versions "$VERSIONS"
           else
@@ -124,7 +127,7 @@ jobs:
 
   test1:
     needs: set-matrix
-    if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
+    if: needs.set-matrix.outputs.is_matrix1_empty == 'false'
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
     permissions:
@@ -135,6 +138,7 @@ jobs:
     steps: &test-steps
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
@@ -152,12 +156,13 @@ jobs:
         run: |
           # Remove any constraints for the current package to prevent installation conflicts
           sed -i '/^'"$PACKAGE"'/d' requirements/constraints.txt
+          sed -i '/^constraint-dependencies = \[/,/^\]/{ /'"$PACKAGE"'/d }' pyproject.toml
 
-          if ! git diff --exit-code requirements/constraints.txt; then
+          if ! git diff --exit-code requirements/constraints.txt pyproject.toml; then
             git diff
             git config user.name 'mlflow-app[bot]'
             git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-            git add requirements/constraints.txt
+            git add requirements/constraints.txt pyproject.toml
             git commit -m "Remove constraints for testing"
           fi
       - name: Install mlflow & test dependencies
@@ -165,15 +170,15 @@ jobs:
           MATRIX_CATEGORY: ${{ matrix.category }}
         run: |
           # setuptools 82.0.0 removed pkg_resources, this breaking change breaks some packages like transformers
-          pip install -U pip wheel "setuptools<82"
+          uv pip install --system -U wheel "setuptools<82"
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "$MATRIX_CATEGORY" == "tracing-sdk" ]]; then
-            pip install libs/tracing
-            pip install pytest pytest-asyncio pytest-cov
+            uv pip install --system libs/tracing
+            uv pip install --system pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
           else
-            pip install .[extras]
-            pip install -r requirements/test-requirements.txt
+            uv pip install --system .[extras]
+            uv pip install --system -r requirements/test-requirements.txt
           fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:
@@ -192,7 +197,6 @@ jobs:
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
-          JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
           HF_HUB_ENABLE_HF_TRANSFER: 1
           MATRIX_RUN: ${{ matrix.run }}
         run: |
@@ -200,7 +204,7 @@ jobs:
 
   test2:
     needs: set-matrix
-    if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
+    if: needs.set-matrix.outputs.is_matrix2_empty == 'false'
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
     permissions:

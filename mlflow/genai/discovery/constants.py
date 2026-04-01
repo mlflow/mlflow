@@ -19,16 +19,27 @@ TRACE_CONTENT_TRUNCATION = 1000
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
+# Default number of slowest spans to include in timing information
+DEFAULT_TOP_N_SLOWEST_SPANS = 3
+
+# Category name constants
+CATEGORY_CORRECTNESS = "correctness"
+CATEGORY_LATENCY = "latency"
+CATEGORY_EXECUTION = "execution"
+CATEGORY_ADHERENCE = "adherence"
+CATEGORY_RELEVANCE = "relevance"
+CATEGORY_SAFETY = "safety"
+
 DEFAULT_CATEGORY_DESCRIPTIONS = {
-    "correctness": "Output is factually accurate and grounded in provided data",
-    "latency": "Agent responds within acceptable time bounds",
-    "execution": "Agent successfully completes actions (tool calls, API steps)",
-    "adherence": "Response follows instructions, constraints, policies, and formatting",
-    "relevance": (
+    CATEGORY_CORRECTNESS: "Output is factually accurate and grounded in provided data",
+    CATEGORY_LATENCY: "Agent responds within acceptable time bounds",
+    CATEGORY_EXECUTION: "Agent successfully completes actions (tool calls, API steps)",
+    CATEGORY_ADHERENCE: "Response follows instructions, constraints, policies, and formatting",
+    CATEGORY_RELEVANCE: (
         "Output is useful, directly addresses the user's request, "
         "and leaves the user satisfied with the interaction"
     ),
-    "safety": "Response avoids harmful, sensitive, or inappropriate content",
+    CATEGORY_SAFETY: "Response avoids harmful, sensitive, or inappropriate content",
 }
 DEFAULT_CATEGORIES = list(DEFAULT_CATEGORY_DESCRIPTIONS)
 
@@ -43,6 +54,23 @@ A goal is an outcome the user was trying to accomplish through their interaction
 assistant. A goal is NOT simply the topic of the {context_noun} or the specific question(s) the \
 user asked! Correcting for an assistant's mistakes or shortcomings is also NOT a user goal. \
 Goals should always be independent of the agent's behavior.\
+"""
+
+LATENCY_CHECK_INSTRUCTIONS = """
+LATENCY CHECK: If trace timing information is provided (e.g. "Total duration: X.XXs" \
+and/or "Slowest spans: ..."), evaluate whether the response time was reasonable for \
+the task{latency_context}. Consider latency problematic if ANY of the following apply:
+  (a) The user explicitly complains about speed/wait time with phrases like:
+      - "that took forever" / "taking too long" / "so slow" / "speed this up"
+      - "still waiting" / "hurry up" / "faster" / "this is slow"
+      - Expressing impatience, frustration about wait time, or asking if system is working
+  (b) Duration significantly exceeds typical performance for this dataset (if timing \
+      context is provided, use it: e.g., >2x the p90 is very slow, >p95 is slow)
+  (c) Trace includes error messages related to timeouts or performance issues
+When user feedback about slowness is present (condition a), ALWAYS tag latency even if \
+duration seems reasonable by thresholds — user perception is ground truth. If "Slowest spans" \
+information is provided and latency is problematic, cite the specific slow operations \
+in your rationale to help identify bottlenecks.
 """
 
 SATISFACTION_INSTRUCTIONS_BODY = """
@@ -67,7 +95,7 @@ provided initially
 Exhibiting even a single behavior from the list above is sufficient to conclude that goals \
 were NOT achieved efficiently, even if the assistant later corrected the issue. The user \
 should not have to fix the assistant's mistakes.
-
+{latency_check}
 If you are unsure, then also consider the goals achieved efficiently. Do NOT guess \
 what the user thinks or feels — rely only on explicit signals in their messages.
 
@@ -130,7 +158,7 @@ application actually perform that task?
 - If the input contains a system prompt defining the assistant's capabilities or \
 limitations, do NOT mark it as failing for things outside its defined scope. \
 Evaluate only against what the assistant is designed to do.
-
+{latency_check}
 When in doubt, consider it passed. Only mark as failed for clear, unambiguous \
 failures — not stylistic preferences, minor omissions, or responses that are \
 correct but could be improved. The bar is whether the output *fails* the request, \
@@ -165,9 +193,27 @@ def _format_category_list(categories: list[str]) -> str:
     return ", ".join(parts)
 
 
-def build_satisfaction_instructions(*, use_conversation: bool, categories: list[str]) -> str:
+def build_satisfaction_instructions(
+    *, use_conversation: bool, categories: list[str], latency_stats: dict[str, float] | None = None
+) -> str:
+    include_latency = CATEGORY_LATENCY in categories
+
+    latency_check = ""
+    if include_latency:
+        latency_context = (
+            (
+                f" using this dataset's latency distribution (p50={latency_stats['p50']}s, "
+                f"p75={latency_stats['p75']}s, p90={latency_stats['p90']}s, "
+                f"p95={latency_stats['p95']}s from {latency_stats['count']} traces)"
+            )
+            if latency_stats
+            else ""
+        )
+        latency_check = "\n" + LATENCY_CHECK_INSTRUCTIONS.format(latency_context=latency_context)
+
     if not use_conversation:
-        return TRACE_QUALITY_INSTRUCTIONS + CATEGORIES_INSTRUCTIONS.format(
+        trace_instructions = TRACE_QUALITY_INSTRUCTIONS.replace("{latency_check}", latency_check)
+        return trace_instructions + CATEGORIES_INSTRUCTIONS.format(
             categories=_format_category_list(categories)
         )
 
@@ -180,6 +226,7 @@ def build_satisfaction_instructions(*, use_conversation: bool, categories: list[
         ),
         template_var="{{ conversation }}",
         context_noun="conversation",
+        latency_check=latency_check,
         extra_donts=(
             "\n- Consider abrupt topic changes as failure "
             "unless preceding messages indicate unmet expectations"

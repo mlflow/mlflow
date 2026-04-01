@@ -1,4 +1,12 @@
+const { getCloseReason } = require("./auto-close-pr.js");
+
 module.exports = async ({ context, github }) => {
+  const closeReason = await getCloseReason({ github, context });
+  if (closeReason) {
+    console.log("PR will be auto-closed. Skipping labeling.");
+    return;
+  }
+
   const { owner, repo } = context.repo;
   const number = context.payload.pull_request.number;
 

@@ -37,6 +37,12 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
+      type: 'doc',
+      id: 'eval-monitor/ai-insights/detect-issues',
+      label: 'Automatic Issue Detection',
+      className: 'sidebar-top-level-category',
+    },
+    {
       type: 'html',
       value: '<b>Core Components</b>',
       defaultStyle: true,
@@ -328,6 +334,27 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'category',
+              label: 'Coding Agents',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_code',
+                  label: 'Claude Code',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/opencode',
+                  label: 'OpenCode',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/openhands',
+                  label: 'OpenHands',
+                },
+              ],
+            },
+            {
+              type: 'category',
               label: 'Model Providers',
               items: [
                 {
@@ -428,18 +455,8 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'tracing/integrations/listing/claude_code',
-                  label: 'Claude Code',
-                },
-                {
-                  type: 'doc',
                   id: 'tracing/integrations/listing/instructor',
                   label: 'Instructor',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracing/integrations/listing/opencode',
-                  label: 'OpenCode',
                 },
               ],
             },
@@ -554,6 +571,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'eval-monitor/quickstart',
           label: 'Quickstart',
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/ai-insights/detect-issues',
+          label: 'Automatic Issue Detection',
         },
         {
           type: 'category',
@@ -846,7 +868,7 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'eval-monitor/ai-insights/ai-issue-discovery',
-              label: 'AI Issue Discovery',
+              label: 'AI Issue Discovery (MCP)',
             },
           ],
         },

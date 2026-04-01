@@ -21,6 +21,7 @@ from mlflow.genai.discovery.clustering import (
     summarize_cluster,
 )
 from mlflow.genai.discovery.constants import (
+    CATEGORY_LATENCY,
     DEFAULT_CATEGORIES,
     DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
@@ -42,10 +43,9 @@ from mlflow.genai.discovery.extraction import (
 )
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.genai.discovery.utils import (
-    _call_llm,
-    _TokenCounter,
     build_summary,
     collect_affected_trace_ids,
+    compute_latency_percentiles,
     format_annotation_prompt,
     format_trace_content,
     get_session_id,
@@ -55,6 +55,7 @@ from mlflow.genai.discovery.utils import (
 )
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
 from mlflow.telemetry.events import DiscoverIssuesEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
@@ -157,9 +158,15 @@ def _annotate_issue_traces(
     if not work_items:
         return
 
+    include_timing = CATEGORY_LATENCY in (categories or [])
+
     def _annotate_one(item: _AnnotationWorkItem) -> str | None:
         trace = trace_lookup.get(item.trace_id)
-        trace_content = format_trace_content(trace) if trace else "(trace not available)"
+        trace_content = (
+            format_trace_content(trace, include_timing=include_timing)
+            if trace
+            else "(trace not available)"
+        )
         user_content = format_annotation_prompt(
             item.issue,
             trace_content,
@@ -463,17 +470,22 @@ def build_issue_discovery_scorer(
     categories: list[str] | None = None,
     model: str | None = None,
     use_conversation: bool = True,
+    latency_stats: dict[str, float] | None = None,
 ) -> Scorer:
     model = model or DEFAULT_MODEL
     categories = categories if categories is not None else DEFAULT_CATEGORIES
+
+    include_timing = use_conversation and CATEGORY_LATENCY in categories
+
     instructions = build_satisfaction_instructions(
-        use_conversation=use_conversation, categories=categories
+        use_conversation=use_conversation, categories=categories, latency_stats=latency_stats
     )
     return make_judge(
         name=DEFAULT_SCORER_NAME,
         instructions=instructions,
         model=model,
         feedback_value_type=dict[str, str],
+        include_timing_in_conversation=include_timing,
     )
 
 
@@ -523,8 +535,8 @@ def discover_issues(
     from mlflow.server.jobs.progress import update_status_details
 
     pipeline_start = time.time()
-    token_counter = _TokenCounter()
     model = model or DEFAULT_MODEL
+    token_counter = _TokenCounter(model=model)
 
     exp_id = experiment_id or _get_experiment_id()
 
@@ -564,8 +576,16 @@ def discover_issues(
         use_conversation = any(get_session_id(trace) for trace in triage_traces)
         if not use_conversation:
             _logger.debug("No session IDs found, falling back to trace-level scorer")
+
+        latency_stats = (
+            compute_latency_percentiles(triage_traces) if CATEGORY_LATENCY in categories else None
+        )
+
         default_scorer = build_issue_discovery_scorer(
-            categories=categories, model=model, use_conversation=use_conversation
+            categories=categories,
+            model=model,
+            use_conversation=use_conversation,
+            latency_stats=latency_stats,
         )
         scorers = [default_scorer]
 
@@ -611,7 +631,7 @@ def discover_issues(
                 if meta.get(AssessmentMetadataKey.SOURCE_RUN_ID) != triage_eval.run_id:
                     continue
                 if cost := meta.get(AssessmentMetadataKey.JUDGE_COST):
-                    token_counter.cost_usd += float(cost)
+                    token_counter.add_cost(float(cost))
                 if input_tok := meta.get(AssessmentMetadataKey.JUDGE_INPUT_TOKENS):
                     token_counter.input_tokens += int(input_tok)
                 if output_tok := meta.get(AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS):
@@ -634,7 +654,7 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
-            total_cost_usd=token_counter.cost_usd or None,
+            total_cost_usd=token_counter.cost_usd,
         )
 
     # ---- Phase 2: Build analyses ----
@@ -659,7 +679,7 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
-            total_cost_usd=token_counter.cost_usd or None,
+            total_cost_usd=token_counter.cost_usd,
         )
 
     # ---- Phase 4: Build issues & annotate ----
@@ -699,7 +719,7 @@ def discover_issues(
         triage_run_id=triage_eval.run_id,
         summary=summary,
         total_traces_analyzed=len(triage_traces),
-        total_cost_usd=token_counter.cost_usd or None,
+        total_cost_usd=token_counter.cost_usd,
     )
 
     # Log artifacts to the triage run

@@ -43,6 +43,46 @@ mlflow db migrate-to-default-workspace <database_uri> --dry-run
 
 Use `--verbose` to list all conflicts instead of a truncated sample.
 
+### Admin Utility: move resources between workspaces
+
+To selectively move resources from one workspace to another, use:
+
+```bash
+mlflow db move-resources <database_uri> \
+  --from <source_workspace> --to <target_workspace> \
+  --resource-type <table_name>
+```
+
+The `--resource-type` value is the database table name (`experiments`, `registered_models`,
+`evaluation_datasets`, `webhooks`, `jobs`).
+
+:::note Gateway resources not supported
+Gateway resources (`secrets`, `endpoints`, `model_definitions`, `budget_policies`) are not
+supported by this command because they have inter-table foreign-key dependencies that make moving
+them independently unsafe.
+:::
+
+Filter which resources to move by name or tag:
+
+```bash
+# Move specific experiments by name
+mlflow db move-resources <database_uri> \
+  --from default --to team-a --resource-type experiments \
+  --name training-v1 --name training-v2
+
+# Move experiments matching tags (AND logic when multiple tags are given)
+mlflow db move-resources <database_uri> \
+  --from default --to team-a --resource-type experiments \
+  --tag team=team-a --tag env=prod
+```
+
+When neither `--name` nor `--tag` is specified, all resources of the given type in the source
+workspace are moved. Tag filtering is supported for `experiments` and `registered_models` only.
+
+Use `--dry-run` to preview what would be moved without making changes, and `-y` to skip the
+confirmation prompt. The command aborts if any resource name would conflict with an existing
+resource in the target workspace.
+
 ## Client Workspace Selection (summary)
 
 - Explicit: `mlflow.set_workspace("team-a")`

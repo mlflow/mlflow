@@ -302,7 +302,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import workspace_context
-from mlflow.utils.crypto import KEKManager
+from mlflow.utils.crypto import CRYPTO_KEK_PASSPHRASE_ENV_VAR
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -314,7 +314,6 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.providers import (
-    _PROVIDER_BACKEND_AVAILABLE,
     get_all_providers,
     get_models,
     get_provider_config_response,
@@ -5608,15 +5607,10 @@ def _get_provider_config():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_secrets_config():
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        return jsonify({
-            "secrets_available": False,
-            "using_default_passphrase": False,
-        })
-    kek_manager = KEKManager()
+    using_default_passphrase = not os.environ.get(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
     return jsonify({
         "secrets_available": True,
-        "using_default_passphrase": kek_manager.using_default_passphrase,
+        "using_default_passphrase": using_default_passphrase,
     })
 
 
@@ -5683,7 +5677,7 @@ def _invoke_scorer_handler():
 
 
 def _get_rest_path(base_path, version=2):
-    return f"/api/{version}.0{base_path}"
+    return _add_static_prefix(f"/api/{version}.0{base_path}")
 
 
 def _get_ajax_path(base_path, version=2):
@@ -5755,9 +5749,9 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
-        # NB: Use _get_paths() (not _add_static_prefix()) so that the endpoint is reachable
-        # both at /api/3.0/mlflow/server-info (for the Python client, unaffected by static prefix)
-        # and at <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
+        # NB: Use _get_paths() so that the endpoint is reachable at both
+        # <static-prefix>/api/3.0/mlflow/server-info (for the Python client)
+        # and <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
         + [
             (_path, _get_server_info, ["GET"])
             for _path in _get_paths("/mlflow/server-info", version=3)

@@ -201,8 +201,8 @@ export const AssessmentsPaneFeedbackSection = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          marginTop: theme.spacing.sm,
           marginBottom: theme.spacing.sm,
-          height: theme.spacing.lg,
           flexShrink: 0,
         }}
       >
@@ -213,15 +213,10 @@ export const AssessmentsPaneFeedbackSection = ({
           />{' '}
           {!isEmpty(groupedFeedbacks) && <>({visibleFeedbacks.length})</>}
         </Typography.Text>
-      </div>
-
-      {!isSectionEmpty && (
-        <div
-          css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
-        >
+        {!isSectionEmpty && (
           <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
-        </div>
-      )}
+        )}
+      </div>
 
       {currentTraceEvaluationErrors.map((evaluation) => (
         <div key={evaluation.requestKey} css={{ marginBottom: theme.spacing.sm }}>
@@ -326,7 +321,7 @@ export const AssessmentsPaneFeedbackSection = ({
         <AssessmentCreateForm
           spanId={activeSpanId}
           traceId={traceId}
-          initialAssessmentType="feedback"
+          assessmentType="feedback"
           setExpanded={() => setCreateFormVisible(false)}
         />
       )}

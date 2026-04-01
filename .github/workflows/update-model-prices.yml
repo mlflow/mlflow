@@ -1,0 +1,62 @@
+name: Update Model Prices
+
+on:
+  schedule:
+    # Run weekly on Monday at 00:00 UTC
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  update-model-prices:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: true
+
+      - name: Download latest model prices
+        run: |
+          curl -fsSL \
+            https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json \
+            -o mlflow/utils/model_prices_and_context_window.json
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet mlflow/utils/model_prices_and_context_window.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          branch="update-model-prices-$(date +%Y%m%d)"
+          git checkout -b "$branch"
+          git add mlflow/utils/model_prices_and_context_window.json
+          git commit -m "Update model prices and context window metadata"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "Update model prices and context window metadata" \
+            --body "Weekly refresh of model pricing and context window data." \
+            --label "automation"
