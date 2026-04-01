@@ -5,6 +5,7 @@ import json
 from deepeval.models.base_model import DeepEvalBaseLLM
 from pydantic import ValidationError
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -119,9 +120,10 @@ def create_deepeval_model(model_uri: str):
     # otherwise fall back to litellm
     try:
         _get_provider_instance(provider, model_name)
-        return GatewayDeepEvalLLM(provider, model_name)
-    except Exception:
+    except MlflowException:
         pass
+    else:
+        return GatewayDeepEvalLLM(provider, model_name)
 
     from deepeval.models import LiteLLMModel
 
