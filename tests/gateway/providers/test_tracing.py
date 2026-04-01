@@ -121,7 +121,7 @@ async def test_chat_stream_captures_usage_from_final_chunk(mock_provider):
     assert "provider/MockProvider/mock-model" in span_name_to_span
 
     provider_span = span_name_to_span["provider/MockProvider/mock-model"]
-    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "mockprovider"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
     assert provider_span.attributes.get("method") == "chat_stream"
     assert provider_span.attributes.get("streaming") is True
@@ -375,7 +375,7 @@ async def test_chat_non_streaming(mock_provider):
     span_name_to_span = {span.name: span for span in trace.data.spans}
     provider_span = span_name_to_span["provider/MockProvider/mock-model"]
 
-    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "mockprovider"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
     assert provider_span.attributes.get("method") == "chat"
     # Non-streaming should not have streaming attribute
@@ -440,7 +440,7 @@ async def test_embeddings(mock_provider):
     span_name_to_span = {span.name: span for span in trace.data.spans}
     provider_span = span_name_to_span["provider/MockProvider/mock-model"]
 
-    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "mockprovider"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
     assert provider_span.attributes.get("method") == "embeddings"
 
@@ -467,7 +467,7 @@ async def test_passthrough_with_tracing(mock_provider):
     assert "provider/MockProvider/mock-model" in span_name_to_span
 
     passthrough_span = span_name_to_span["provider/MockProvider/mock-model"]
-    assert passthrough_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    assert passthrough_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "mockprovider"
     assert passthrough_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
     assert passthrough_span.attributes.get("action") == "openai_chat"
 

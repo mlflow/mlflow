@@ -227,7 +227,7 @@ class BaseProvider(ABC):
         Returns:
             The provider name string.
         """
-        return self.NAME
+        return self.NAME.lower()
 
     def _get_span_name(self) -> str:
         """Generate span name based on provider and model."""

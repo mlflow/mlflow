@@ -29,6 +29,9 @@ class VertexAIProvider(GeminiProvider):
     NAME = "Vertex AI"
     CONFIG_TYPE = VertexAIConfig
 
+    def get_provider_name(self) -> str:
+        return "vertex_ai"
+
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         if not isinstance(config.model.config, VertexAIConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")

@@ -294,6 +294,9 @@ class TogetherAIProvider(BaseProvider):
     NAME = "TogetherAI"
     CONFIG_TYPE = TogetherAIConfig
 
+    def get_provider_name(self) -> str:
+        return "together_ai"
+
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, TogetherAIConfig):

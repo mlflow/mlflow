@@ -15,6 +15,9 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
     NAME = "Hugging Face Text Generation Inference"
     CONFIG_TYPE = HuggingFaceTextGenerationInferenceConfig
 
+    def get_provider_name(self) -> str:
+        return "huggingface"
+
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(
