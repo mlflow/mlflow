@@ -26,7 +26,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointType
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.provider_registry import is_supported_provider
-from mlflow.genai.discovery.utils import _pydantic_to_response_format
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
     AdapterInvocationOutput,
@@ -47,6 +46,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
 )
+from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.metrics.genai.model_utils import (
     _call_llm_provider_api,
     _get_provider_instance,
@@ -310,7 +310,7 @@ def _invoke_via_gateway(
         )
 
     _, model_name = _parse_model_uri(model_uri)
-    rf_dict = _pydantic_to_response_format(response_format) if response_format else None
+    rf_dict = pydantic_to_response_format(response_format) if response_format else None
     return _call_llm_provider_api(
         provider,
         model_name,
