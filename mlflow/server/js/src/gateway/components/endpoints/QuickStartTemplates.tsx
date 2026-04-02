@@ -18,28 +18,28 @@ const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
     model: 'gpt-5.4',
     endpointName: 'openai-gpt-5.4-endpoint',
     secretName: 'openai-api-key',
-    capabilities: 'Tools · Vision · JSON mode',
+    capabilities: 'Tools, Reasoning',
   },
   {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
     endpointName: 'anthropic-claude-sonnet-endpoint',
     secretName: 'anthropic-api-key',
-    capabilities: 'Tools · Vision · Extended thinking',
+    capabilities: 'Tools, Reasoning',
   },
   {
     provider: 'gemini',
     model: 'gemini-2.5-pro',
     endpointName: 'gemini-2.5-pro-endpoint',
     secretName: 'gemini-api-key',
-    capabilities: 'Tools · Vision · 1M context',
+    capabilities: 'Tools, Reasoning',
   },
   {
     provider: 'databricks',
     model: 'databricks-gpt-5',
     endpointName: 'databricks-gpt-5-endpoint',
     secretName: 'databricks-api-key',
-    capabilities: 'Tools · Enterprise-grade',
+    capabilities: 'Tools, Reasoning, Enterprise-grade',
   },
 ];
 
@@ -125,9 +125,11 @@ export const QuickStartTemplates = () => {
               <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                 {template.model}
               </Typography.Text>
-              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                {template.capabilities}
-              </Typography.Text>
+              {template.capabilities && (
+                <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                  {template.capabilities}
+                </Typography.Text>
+              )}
             </div>
           </Link>
         ))}
