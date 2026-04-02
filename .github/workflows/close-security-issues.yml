@@ -16,13 +16,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
           REPO: ${{ github.repository }}
         run: |
           title_lower=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]')
-          body_lower=$(echo "$ISSUE_BODY" | tr '[:upper:]' '[:lower:]')
 
-          if echo "$title_lower" | grep -q "security vulnerability" || echo "$body_lower" | grep -q "security vulnerability"; then
+          if echo "$title_lower" | grep -q "security vulnerability"; then
             gh issue close "$ISSUE_NUMBER" --repo "$REPO" --comment "$(cat <<'EOF'
           This issue has been automatically closed because it appears to report a security vulnerability.
 
