@@ -208,7 +208,12 @@ export function MlflowSidebar({
                 to: GatewayRoutes.gatewayPageRoute,
                 isActive: (location: Location) => !enableWorkflowBasedNavigation && isGatewayActive(location),
                 children: (
-                  <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />
+                  <>
+                    <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />
+                    <Tag componentId="mlflow.sidebar.gateway_new_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
+                      <FormattedMessage defaultMessage="New" description="Sidebar > AI Gateway > New feature tag" />
+                    </Tag>
+                  </>
                 ),
               },
               componentId: 'mlflow.sidebar.gateway_tab_link',
