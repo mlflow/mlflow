@@ -82,6 +82,11 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
         # separate task and ContextVar mutations don't propagate back.
         provider_duration_ms = int(getattr(request.state, "gateway_provider_duration_ms", 0))
 
+        # For non-streaming responses, duration_ms covers the full round-trip.
+        # For streaming responses, duration_ms covers only gateway setup time
+        # (until the StreamingResponse object is returned, before the stream body
+        # is iterated), so it reflects time-to-first-stream rather than total
+        # streaming duration.
         response.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
         if provider_duration_ms > 0:
             response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(

@@ -9,7 +9,8 @@ from mlflow.gateway.constants import (
 from mlflow.utils.uri import append_to_uri_path
 
 # Accumulates the total time (ms) spent waiting for provider HTTP responses in the current
-# request context. Set to 0.0 at the start of each request by _record_gateway_invocation.
+# request context. Reset to 0.0 at the start of each request by the gateway timing middleware
+# (add_gateway_timing_middleware in fastapi_app.py).
 provider_call_duration_ms: ContextVar[float] = ContextVar("provider_call_duration_ms", default=0.0)
 
 # Request gzip/deflate only so upstream never sends Brotli; aiohttp fails to decode
