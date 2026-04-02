@@ -359,6 +359,19 @@ def _end_span_on_success(
             _process_last_chunk(span, chunk, inputs, output, is_responses_api)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
+    elif _is_async_api_response(result):
+        # When OpenAI Agent SDK uses streaming via `with_streaming_response`, the result
+        # is an AsyncAPIResponse. Its `parse()` method returns the actual stream object
+        # (e.g. AsyncStream). We wrap `parse()` so that once the parsed result is available,
+        # it is properly traced like any other stream or response.
+        original_parse = result.parse
+
+        async def _wrapped_parse(*args, **kwargs):
+            parsed = await original_parse(*args, **kwargs)
+            _end_span_on_success(span, inputs, parsed, is_responses_api)
+            return parsed
+
+        result.parse = _wrapped_parse
     else:
         try:
             set_span_chat_attributes(span, inputs, result)
@@ -490,6 +503,22 @@ def _is_response_output_item_done_event(chunk: Any) -> bool:
         from openai.types.responses import ResponseOutputItemDoneEvent
 
         return isinstance(chunk, ResponseOutputItemDoneEvent)
+    except ImportError:
+        return False
+
+
+def _is_async_api_response(result: Any) -> bool:
+    """Check if the result is an AsyncAPIResponse from the OpenAI SDK.
+
+    When the OpenAI Agent SDK fetches streaming responses, it uses
+    ``with_streaming_response`` which returns an ``AsyncAPIResponse`` instead of
+    the parsed stream directly.  We need to detect this so we can defer tracing
+    until ``parse()`` is called and the actual stream is available.
+    """
+    try:
+        from openai._response import AsyncAPIResponse
+
+        return isinstance(result, AsyncAPIResponse)
     except ImportError:
         return False
 
