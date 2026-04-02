@@ -60,7 +60,7 @@ def _create_gateway_provider(backend: ScorerLLMClient, **kwargs: Any):
 
     class GatewayProvider(LLMProvider):
         def __init__(self):
-            endpoint = Endpoint(name=f"gateway-{backend._provider}")
+            endpoint = Endpoint(name=f"gateway-{backend.provider}")
             super().__init__(model_engine=backend.model_name, endpoint=endpoint)
 
         def _create_chat_completion(
@@ -102,7 +102,7 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
 
     backend = ScorerLLMClient(model_uri)
 
-    if backend._route == "databricks":
+    if backend.route == "databricks":
         return _create_databricks_provider(backend, **kwargs)
 
     if backend.is_native:
@@ -112,8 +112,8 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
         from trulens.providers.litellm import LiteLLM
 
         litellm_model = backend.model_name
-        if backend._provider == "litellm":
-            litellm_model = backend._model_name
+        if backend.provider == "litellm":
+            litellm_model = backend.raw_model_name
         return LiteLLM(model_engine=litellm_model, **kwargs)
     except ImportError:
         raise MlflowException.invalid_parameter_value(

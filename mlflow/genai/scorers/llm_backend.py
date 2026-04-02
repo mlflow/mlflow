@@ -69,6 +69,19 @@ class ScorerLLMClient:
         return f"{self._provider}/{self._model_name}"
 
     @property
+    def provider(self) -> str | None:
+        return self._provider
+
+    @property
+    def raw_model_name(self) -> str | None:
+        """The model name without provider prefix (e.g. 'gpt-4' not 'openai/gpt-4')."""
+        return self._model_name
+
+    @property
+    def route(self) -> str:
+        return self._route
+
+    @property
     def is_native(self) -> bool:
         """True if using a native provider (not litellm fallback)."""
         return self._route in ("databricks", "native", "endpoints")
@@ -77,7 +90,7 @@ class ScorerLLMClient:
         self,
         messages: list[dict[str, str]],
         *,
-        response_format: type[pydantic.BaseModel] | None = None,
+        response_format: type[pydantic.BaseModel] | dict[str, Any] | None = None,
         num_retries: int = 0,
         **kwargs: Any,
     ) -> str:
@@ -85,7 +98,8 @@ class ScorerLLMClient:
 
         Args:
             messages: List of message dicts (e.g. ``[{"role": "user", "content": "..."}]``).
-            response_format: Optional Pydantic model class for structured output.
+            response_format: Optional Pydantic model class or pre-converted
+                dict for structured output.
             num_retries: Number of retries on transient failures (default 0).
             kwargs: Additional parameters passed to the LLM (e.g. temperature).
 
@@ -216,10 +230,12 @@ class ScorerLLMClient:
 
     @staticmethod
     def _convert_response_format(
-        response_format: type[pydantic.BaseModel] | None,
+        response_format: type[pydantic.BaseModel] | dict[str, Any] | None,
     ) -> dict[str, Any] | None:
         if response_format is None:
             return None
+        if isinstance(response_format, dict):
+            return response_format
         from mlflow.genai.utils.message_utils import pydantic_to_response_format
 
         return pydantic_to_response_format(response_format)

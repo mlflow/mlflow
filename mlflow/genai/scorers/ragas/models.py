@@ -52,7 +52,7 @@ def create_ragas_model(model_uri: str):
     return LiteLLMStructuredLLM(
         client=client,
         model=backend.model_name,
-        provider=backend._provider,
+        provider=backend.provider,
         drop_params=True,
     )
 
