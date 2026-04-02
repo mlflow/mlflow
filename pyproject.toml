@@ -209,7 +209,6 @@ test = [
   "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
-torch = ["torch>=1.11.0", "torchvision>=0.12.0,!=0.24.0", "lightning>=1.8.1"]
 docs = [
   "sphinx==4.2.0",
   "sphinx-autobuild",
@@ -399,6 +398,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
+"dev/benchmarks/*" = ["T20"]
 "examples/*" = ["T20", "RET504", "E501"]
 "docs/*" = ["T20", "RET504", "E501"]
 "mlflow/*" = ["PT018"]

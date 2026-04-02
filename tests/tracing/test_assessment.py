@@ -299,14 +299,25 @@ def test_log_feedback_with_value_and_error(trace_id, legacy_api):
     assert assessment.rationale is None
 
 
-def test_log_feedback_invalid_parameters():
-    with pytest.raises(MlflowException, match=r"Either `value` or `error` must be provided."):
-        Feedback(
-            trace_id="1234",
-            name="faithfulness",
-            source=_LLM_ASSESSMENT_SOURCE,
-        )
+def test_log_feedback_none_value(trace_id):
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="faithfulness",
+        value=None,
+        source=_LLM_ASSESSMENT_SOURCE,
+    )
 
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 1
+    assessment = trace.info.assessments[0]
+    assert isinstance(assessment, Feedback)
+    assert assessment.trace_id == trace_id
+    assert assessment.name == "faithfulness"
+    assert assessment.feedback.value is None
+    assert assessment.feedback.error is None
+
+
+def test_log_feedback_invalid_parameters():
     # Test with a non-AssessmentSource object that is not None
     with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         Feedback(

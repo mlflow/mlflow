@@ -1,4 +1,5 @@
 import argparse
+import base64
 import json
 from typing import Any
 
@@ -462,6 +463,21 @@ def embeddings(payload: EmbeddingsPayload):
         ],
         "model": "text-embedding-ada-002",
         "usage": {"prompt_tokens": 8, "total_tokens": 8},
+    }
+
+
+@app.post("/images/generations")
+def images_generate():
+    # Return a minimal DALL-E-style response with a tiny PNG
+    png_b64 = base64.b64encode(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01").decode()
+    return {
+        "created": 1677652288,
+        "data": [
+            {
+                "b64_json": png_b64,
+                "revised_prompt": "a test image",
+            }
+        ],
     }
 
 

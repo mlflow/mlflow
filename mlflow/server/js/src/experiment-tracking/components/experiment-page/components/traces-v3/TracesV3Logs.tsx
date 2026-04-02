@@ -7,6 +7,7 @@ import type {
   TraceActions,
   GetTraceFunction,
   TableFilter,
+  TraceTablePageSource,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   shouldUseTracesV4API,
@@ -68,7 +69,6 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
-import { useIssueDetectionNotification } from './hooks/useIssueDetectionNotification';
 
 const JudgeContextProvider = ({
   children,
@@ -117,7 +117,7 @@ const TracesV3LogsImpl = React.memo(
     forceGroupBySession = false,
     initialGroupBySession = false,
     columnStorageKeyPrefix,
-    detectIssuesButtonComponentId,
+    pageSource = 'experiment-traces',
     additionalFilters,
     disableActions = false,
     customDefaultSelectedColumns,
@@ -141,10 +141,10 @@ const TracesV3LogsImpl = React.memo(
      */
     columnStorageKeyPrefix?: string;
     /**
-     * Optional component ID for the detect issues button.
-     * Use this to differentiate between traces and sessions contexts.
+     * Optional param to differentiate the context of the traces table
+     * Currently used to log different componentIds for the detect issues button
      */
-    detectIssuesButtonComponentId?: string;
+    pageSource?: TraceTablePageSource;
     additionalFilters?: TableFilter[];
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
@@ -166,8 +166,6 @@ const TracesV3LogsImpl = React.memo(
     const enableTraceInsights = shouldEnableTraceInsights();
     const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
-    const { showIssueDetectionNotification, notificationContextHolder } =
-      useIssueDetectionNotification(singleExperimentId);
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
@@ -498,7 +496,7 @@ const TracesV3LogsImpl = React.memo(
             }}
           >
             <GenAITracesTableToolbar
-              detectIssuesButtonComponentId={detectIssuesButtonComponentId}
+              pageSource={pageSource}
               experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -535,11 +533,9 @@ const TracesV3LogsImpl = React.memo(
                 .filter(([, isSelected]) => isSelected)
                 .map(([traceId]) => traceId)}
               availableTraceIds={traceInfos?.map((trace) => trace.trace_id) ?? []}
-              onSubmitSuccess={showIssueDetectionNotification}
               defaultGroupBySession={forceGroupBySession || isGroupedBySession}
             />
           )}
-          {notificationContextHolder}
         </GenAITracesTableProvider>
       </ModelTraceExplorerContextProvider>
     );

@@ -1,7 +1,6 @@
 import time
 from unittest import mock
 
-import pydantic
 import pytest
 
 from mlflow.entities.issue import Issue, IssueStatus
@@ -13,11 +12,6 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.genai.discovery.constants import CATEGORY_LATENCY, build_satisfaction_instructions
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
-    _call_llm,
-    _lookup_model_cost,
-    _ModelCost,
-    _pydantic_to_response_format,
-    _TokenCounter,
     build_summary,
     collect_affected_trace_ids,
     compute_latency_percentiles,
@@ -27,9 +21,9 @@ from mlflow.genai.discovery.utils import (
     group_traces_by_session,
     log_discovery_artifacts,
 )
-from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
+from mlflow.genai.utils.gateway_utils import GatewayConfig
 from mlflow.genai.utils.trace_utils import _extract_trace_timing_info
-from mlflow.types.chat import ChatChoice, ChatCompletionResponse, ChatMessage, ChatUsage
+from mlflow.metrics.genai.model_utils import _get_provider_instance
 
 
 def test_format_trace_content_includes_errors(make_trace):
@@ -225,56 +219,6 @@ def test_build_summary_with_issues():
     assert "Network instability; Upstream service issues" in result
 
 
-def test_token_counter_tracks_usage():
-    counter = _TokenCounter()
-    assert counter.input_tokens == 0
-    assert counter.output_tokens == 0
-    assert counter.cost_usd is None
-
-    mock_response = mock.MagicMock()
-    mock_response.usage = mock.MagicMock()
-    mock_response.usage.prompt_tokens = 100
-    mock_response.usage.completion_tokens = 50
-    mock_response._hidden_params = {"response_cost": 0.005}
-
-    counter.track(mock_response)
-
-    assert counter.input_tokens == 100
-    assert counter.output_tokens == 50
-    assert counter.cost_usd == 0.005
-
-
-def test_token_counter_tracks_gateway_response_without_hidden_params():
-    counter = _TokenCounter(model="openai:/gpt-5-mini")
-    response = ChatCompletionResponse(
-        created=0,
-        model="gpt-5-mini",
-        choices=[ChatChoice(index=0, message=ChatMessage(role="assistant", content="hi"))],
-        usage=ChatUsage(prompt_tokens=200, completion_tokens=80, total_tokens=280),
-    )
-
-    counter.track(response)
-
-    assert counter.input_tokens == 200
-    assert counter.output_tokens == 80
-    assert counter._cost_usd == 0.0
-    assert counter._model == "openai:/gpt-5-mini"
-
-
-def test_token_counter_to_dict_looks_up_cost_when_zero():
-    counter = _TokenCounter(input_tokens=100, output_tokens=50, model="openai:/gpt-5-mini")
-
-    with mock.patch(
-        "mlflow.genai.discovery.utils._lookup_model_cost",
-        return_value=0.0042,
-    ) as mock_lookup:
-        result = counter.to_dict()
-
-    mock_lookup.assert_called_once()
-    assert result["cost_usd"] == 0.0042
-    assert result["total_tokens"] == 150
-
-
 def test_group_traces_by_session_groups_by_session_id(make_trace):
     traces = [
         make_trace(session_id="session-1"),
@@ -323,79 +267,6 @@ def test_group_traces_by_session_sorts_by_timestamp(make_trace):
     assert session_traces[0].info.trace_id == trace1.info.trace_id
     assert session_traces[1].info.trace_id == trace2.info.trace_id
     assert session_traces[2].info.trace_id == trace3.info.trace_id
-
-
-def test_call_llm_uses_gateway_when_litellm_unavailable():
-    with (
-        mock.patch(
-            "mlflow.genai.discovery.utils._is_litellm_available", return_value=False
-        ) as mock_avail,
-        mock.patch(
-            "mlflow.genai.discovery.utils._call_llm_via_gateway",
-        ) as mock_gw,
-    ):
-        _call_llm("openai:/gpt-5-mini", [{"role": "user", "content": "hi"}])
-
-    mock_avail.assert_called_once()
-    mock_gw.assert_called_once()
-
-
-def test_call_llm_uses_litellm_when_available():
-    with (
-        mock.patch(
-            "mlflow.genai.discovery.utils._is_litellm_available", return_value=True
-        ) as mock_avail,
-        mock.patch(
-            "mlflow.genai.discovery.utils._call_llm_via_litellm",
-        ) as mock_ll,
-    ):
-        _call_llm("openai:/gpt-5-mini", [{"role": "user", "content": "hi"}])
-
-    mock_avail.assert_called_once()
-    mock_ll.assert_called_once()
-
-
-def test_pydantic_to_response_format():
-    class MySchema(pydantic.BaseModel):
-        name: str
-        score: int
-
-    result = _pydantic_to_response_format(MySchema)
-
-    assert result["type"] == "json_schema"
-    assert result["json_schema"]["name"] == "MySchema"
-    schema = result["json_schema"]["schema"]
-    assert "name" in schema["properties"]
-    assert "score" in schema["properties"]
-
-
-def test_lookup_model_cost_returns_calculated_cost():
-    cost_info = _ModelCost(input_cost_per_token=0.00001, output_cost_per_token=0.00003)
-    with mock.patch(
-        "mlflow.genai.discovery.utils._fetch_model_cost", return_value=cost_info
-    ) as mock_fetch:
-        cost = _lookup_model_cost("openai:/gpt-5-mini", 1000, 500)
-
-    mock_fetch.assert_called_once()
-    assert cost == pytest.approx(1000 * 0.00001 + 500 * 0.00003)
-
-
-def test_lookup_model_cost_returns_none_on_missing_model():
-    with mock.patch(
-        "mlflow.genai.discovery.utils._fetch_model_cost", return_value=None
-    ) as mock_fetch:
-        assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) is None
-
-    mock_fetch.assert_called_once()
-
-
-def test_lookup_model_cost_returns_none_on_network_error():
-    with mock.patch(
-        "mlflow.genai.discovery.utils._fetch_model_cost", return_value=None
-    ) as mock_fetch:
-        assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) is None
-
-    mock_fetch.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -484,121 +355,20 @@ def test_build_satisfaction_instructions_latency_variations(
             assert expected_text not in result
 
 
-def test_call_llm_handles_gateway_models():
-    mock_response = mock.MagicMock()
-    mock_response.usage = mock.MagicMock()
-    mock_response.usage.prompt_tokens = 10
-    mock_response.usage.completion_tokens = 20
-
-    gateway_config = GatewayLiteLLMConfig(
-        model="openai/test-endpoint",
-        api_base="http://localhost:5000/gateway",
-        api_key="test-key",
+def test_get_mlflow_gateway_provider():
+    gateway_config = GatewayConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        endpoint_name="chat",
         extra_headers={"X-Custom": "header"},
     )
 
-    with (
-        mock.patch(
-            "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
-            return_value=gateway_config,
-        ) as mock_get_config,
-        mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-            return_value=mock_response,
-        ) as mock_invoke,
-    ):
-        messages = [{"role": "user", "content": "test"}]
-        result = _call_llm("gateway:/test-endpoint", messages)
-
-        mock_get_config.assert_called_once_with("test-endpoint")
-        mock_invoke.assert_called_once()
-
-        call_kwargs = mock_invoke.call_args[1]
-        assert call_kwargs["litellm_model"] == "openai/test-endpoint"
-        assert call_kwargs["api_base"] == "http://localhost:5000/gateway"
-        assert call_kwargs["api_key"] == "test-key"
-        assert call_kwargs["extra_headers"] == {"X-Custom": "header"}
-        assert call_kwargs["messages"] == messages
-        assert result == mock_response
-
-
-def test_call_llm_handles_non_gateway_models():
-    mock_response = mock.MagicMock()
-    mock_response.usage = mock.MagicMock()
-    mock_response.usage.prompt_tokens = 10
-    mock_response.usage.completion_tokens = 20
-
-    with (
-        mock.patch(
-            "mlflow.metrics.genai.model_utils.convert_mlflow_uri_to_litellm",
-            return_value="openai/gpt-4",
-        ) as mock_convert,
-        mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-            return_value=mock_response,
-        ) as mock_invoke,
-    ):
-        messages = [{"role": "user", "content": "test"}]
-        result = _call_llm("openai:/gpt-4", messages)
-
-        mock_convert.assert_called_once_with("openai:/gpt-4")
-        mock_invoke.assert_called_once()
-
-        call_kwargs = mock_invoke.call_args[1]
-        assert call_kwargs["litellm_model"] == "openai/gpt-4"
-        assert call_kwargs["api_base"] is None
-        assert call_kwargs["api_key"] is None
-        assert call_kwargs["extra_headers"] is None
-        assert call_kwargs["messages"] == messages
-        assert result == mock_response
-
-
-def test_call_llm_with_json_mode():
-    mock_response = mock.MagicMock()
     with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-        return_value=mock_response,
-    ) as mock_invoke:
-        messages = [{"role": "user", "content": "test"}]
-        _call_llm("openai:/gpt-4", messages, json_mode=True)
+        "mlflow.metrics.genai.model_utils.get_gateway_config",
+        return_value=gateway_config,
+    ) as mock_get_config:
+        provider = _get_provider_instance("gateway", "chat")
 
-        call_kwargs = mock_invoke.call_args[1]
-        assert call_kwargs["response_format"] == {"type": "json_object"}
-        assert call_kwargs["include_response_format"] is True
-
-
-def test_call_llm_with_response_format():
-    class TestModel(pydantic.BaseModel):
-        field: str
-
-    mock_response = mock.MagicMock()
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-        return_value=mock_response,
-    ) as mock_invoke:
-        messages = [{"role": "user", "content": "test"}]
-        _call_llm("openai:/gpt-4", messages, response_format=TestModel)
-
-        call_kwargs = mock_invoke.call_args[1]
-        assert call_kwargs["response_format"] == TestModel
-        assert call_kwargs["include_response_format"] is True
-
-
-def test_call_llm_tracks_tokens():
-    mock_response = mock.MagicMock()
-    mock_response.usage = mock.MagicMock()
-    mock_response.usage.prompt_tokens = 100
-    mock_response.usage.completion_tokens = 50
-    mock_response._hidden_params = {"response_cost": 0.01}
-
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-        return_value=mock_response,
-    ):
-        counter = _TokenCounter()
-        messages = [{"role": "user", "content": "test"}]
-        _call_llm("openai:/gpt-4", messages, token_counter=counter)
-
-        assert counter.input_tokens == 100
-        assert counter.output_tokens == 50
-        assert counter.cost_usd == 0.01
+    mock_get_config.assert_called_once_with("chat")
+    assert provider.get_endpoint_url("llm/v1/chat").endswith("/chat/completions")
+    assert provider.headers == {"X-Custom": "header"}
+    assert provider.config.model.name == "chat"

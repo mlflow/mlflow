@@ -7,11 +7,13 @@ import {
   ChevronRightIcon,
   ChevronUpIcon,
   LightbulbIcon,
+  Spinner,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import { attachmentAwareUrlTransform, isAttachmentUri, useAttachmentUrl } from '../attachment-utils';
 
 import { ModelTraceExplorerChatMessageHeader } from './ModelTraceExplorerChatMessageHeader';
 import {
@@ -22,6 +24,24 @@ import {
 import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
 import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
+
+function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
+  const { url, loading, error } = useAttachmentUrl(src ?? null);
+  if (loading) {
+    return <Spinner size="small" />;
+  }
+  if (error || !url) {
+    return <span>{`[${alt ?? 'Failed to load image'}]`}</span>;
+  }
+  return <img src={url} alt={alt} css={{ maxWidth: '100%' }} />;
+}
+
+const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }) => {
+  if (src && isAttachmentUri(src)) {
+    return <AttachmentImage src={src} alt={alt} />;
+  }
+  return <img src={src} alt={alt} css={{ maxWidth: '100%' }} />;
+};
 
 const tryGetJsonContent = (content: string) => {
   try {
@@ -73,7 +93,12 @@ function ModelTraceExplorerChatMessageContent({
         marginBottom: -theme.typography.fontSizeBase,
       }}
     >
-      <GenAIMarkdownRenderer>{content}</GenAIMarkdownRenderer>
+      <GenAIMarkdownRenderer
+        components={{ img: attachmentAwareImgRenderer }}
+        urlTransform={attachmentAwareUrlTransform}
+      >
+        {content}
+      </GenAIMarkdownRenderer>
     </div>
   );
 }
@@ -149,6 +174,25 @@ function getAudioMimeType(format: string): string {
   }
 }
 
+function AttachmentAudioPlayer({ uri }: { uri: string }) {
+  const { url, loading, error } = useAttachmentUrl(uri);
+  if (loading) {
+    return <Spinner size="small" />;
+  }
+  if (error || !url) {
+    return (
+      <Typography.Text color="error">
+        <FormattedMessage
+          defaultMessage="Failed to load audio attachment"
+          description="Error message when trace audio attachment fails to load"
+        />
+      </Typography.Text>
+    );
+  }
+  // eslint-disable-next-line jsx-a11y/media-has-caption
+  return <audio controls css={{ width: '100%', maxWidth: 500 }} src={url} />;
+}
+
 function ModelTraceExplorerAudioPlayer({ audioParts }: { audioParts: ModelTraceInputAudio[] }) {
   const { theme } = useDesignSystemTheme();
 
@@ -162,12 +206,16 @@ function ModelTraceExplorerAudioPlayer({ audioParts }: { audioParts: ModelTraceI
             paddingTop: 0,
           }}
         >
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <audio
-            controls
-            css={{ width: '100%', maxWidth: 500 }}
-            src={`data:${getAudioMimeType(audio.format)};base64,${audio.data}`}
-          />
+          {isAttachmentUri(audio.data) ? (
+            <AttachmentAudioPlayer uri={audio.data} />
+          ) : (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <audio
+              controls
+              css={{ width: '100%', maxWidth: 500 }}
+              src={`data:${getAudioMimeType(audio.format)};base64,${audio.data}`}
+            />
+          )}
         </div>
       ))}
     </>
@@ -190,10 +238,13 @@ export function ModelTraceExplorerChatMessage({
   const shouldDisplayCodeSnippet = isJson && (message.role === 'tool' || message.role === 'function');
   // if the content is JSON, truncation will be handled by the code
   // snippet. otherwise, we need to truncate the content manually.
-  const isExpandable = !shouldDisplayCodeSnippet && getDisplayLength(content) > CONTENT_TRUNCATION_LIMIT;
+  // Increase truncation limit when attachment refs are present since the refs themselves
+  // are lightweight (~120 chars each) and truncating mid-ref breaks markdown rendering.
+  const attachmentRefCount = content.split('mlflow-attachment://').length - 1;
+  const effectiveLimit = CONTENT_TRUNCATION_LIMIT + attachmentRefCount * 150;
+  const isExpandable = !shouldDisplayCodeSnippet && getDisplayLength(content) > effectiveLimit;
 
-  const displayedContent =
-    isExpandable && !expanded ? truncatePreservingImages(content, CONTENT_TRUNCATION_LIMIT) : content;
+  const displayedContent = isExpandable && !expanded ? truncatePreservingImages(content, effectiveLimit) : content;
 
   return (
     <div

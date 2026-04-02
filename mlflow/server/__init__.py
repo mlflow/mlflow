@@ -20,7 +20,6 @@ from packaging.version import Version
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
-    MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
 )
@@ -382,11 +381,6 @@ def _run_server(
 
     if secret_key := MLFLOW_FLASK_SERVER_SECRET_KEY.get():
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
-
-    # Disable incremental span export by default to reduce DB contention from
-    # concurrent gateway requests. Users can override by setting the env var explicitly.
-    if not MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.is_set():
-        env_map[MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.name] = "false"
 
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None

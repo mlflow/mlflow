@@ -4,12 +4,12 @@ Base provider for OpenAI-compatible APIs.
 Many LLM providers (Groq, DeepSeek, xAI, etc.) expose APIs that follow the
 OpenAI chat/completions/embeddings format. This module provides a reusable
 base class so that adding a new such provider requires only a config class,
-a NAME, and a default base URL.
+a DISPLAY_NAME, and a default base URL.
 """
 
 from typing import Any, AsyncIterable
 
-from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.config import EndpointConfig, EndpointType
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, embeddings
@@ -171,7 +171,7 @@ class OpenAICompatibleProvider(BaseProvider):
     Base provider for APIs that follow the OpenAI format.
 
     Subclasses must set:
-        - NAME: Provider display name (e.g., "Groq")
+        - DISPLAY_NAME: Provider display name (e.g., "Groq")
         - CONFIG_TYPE: The provider's config class
         - DEFAULT_API_BASE: Default base URL for the API (e.g., "https://api.groq.com/openai/v1")
 
@@ -210,6 +210,16 @@ class OpenAICompatibleProvider(BaseProvider):
     @property
     def adapter_class(self) -> type[ProviderAdapter]:
         return OpenAICompatibleAdapter
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        path_map = {
+            EndpointType.LLM_V1_CHAT: "chat/completions",
+            EndpointType.LLM_V1_COMPLETIONS: "completions",
+            EndpointType.LLM_V1_EMBEDDINGS: "embeddings",
+        }
+        if (path := path_map.get(route_type)) is None:
+            raise ValueError(f"Invalid route type {route_type}")
+        return f"{self._api_base}/{path}"
 
     def _get_headers(
         self,

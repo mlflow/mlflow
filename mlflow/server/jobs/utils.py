@@ -127,31 +127,6 @@ def is_process_alive(pid: int) -> bool:
         return True
 
 
-def _find_huey_consumer_script() -> str:
-    """
-    Find the huey_consumer.py script path.
-
-    The script is typically installed in the same bin directory as sys.executable
-    (e.g., in the virtual environment's bin/). We check there first before
-    falling back to PATH lookup via shutil.which(), since the venv bin dir may
-    not be on PATH when the server is launched via tools like 'uv tool install'.
-    """
-    python_bin_dir = os.path.dirname(sys.executable)
-    candidate = os.path.join(python_bin_dir, "huey_consumer.py")
-    if os.path.isfile(candidate):
-        return candidate
-    found = shutil.which("huey_consumer.py")
-    if found is None:
-        raise MlflowException(
-            f"Could not find huey_consumer.py. Looked for '{candidate}' next to the current "
-            f"Python executable ('{sys.executable}') and via PATH lookup (shutil.which). "
-            "Ensure the 'huey' package is installed in the same Python environment as MLflow, "
-            "and that its huey_consumer.py script is either colocated with the Python "
-            "executable or discoverable on your PATH."
-        )
-    return found
-
-
 def _start_huey_consumer_proc(
     huey_instance_key: str,
     max_job_parallelism: int,
@@ -161,7 +136,8 @@ def _start_huey_consumer_proc(
 
     cmd = [
         sys.executable,
-        _find_huey_consumer_script(),
+        "-m",
+        "huey.bin.huey_consumer",
         "mlflow.server.jobs._huey_consumer.huey_instance",
         "-w",
         str(max_job_parallelism),
@@ -548,7 +524,8 @@ def _launch_periodic_tasks_consumer() -> None:
 def _start_periodic_tasks_consumer_proc():
     cmd = [
         sys.executable,
-        _find_huey_consumer_script(),
+        "-m",
+        "huey.bin.huey_consumer",
         "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
         "-w",
         str(PERIODIC_TASKS_WORKER_COUNT),

@@ -72,7 +72,8 @@ def test_headers_use_bearer_token():
 
 def test_name():
     provider = _make_provider()
-    assert provider.NAME == "Vertex AI"
+    assert provider.DISPLAY_NAME == "Vertex AI"
+    assert provider.get_provider_name() == "vertex_ai"
 
 
 @pytest.mark.asyncio

@@ -29,10 +29,8 @@ env:
 
 jobs:
   notify:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      false
-      && github.event_name != 'push'
+      github.event_name != 'push'
       && github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
       && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -70,9 +68,7 @@ jobs:
           fi
 
   build:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      false &&
       github.event_name == 'push'
       || (
         github.event.action != 'closed'
@@ -153,8 +149,6 @@ jobs:
           retention-days: 1
 
   deploy:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false
     needs: build
     runs-on: ubuntu-ui-preview
     permissions:
@@ -276,10 +270,8 @@ jobs:
           fi
 
   cleanup:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      false
-      && github.event_name != 'push'
+      github.event_name != 'push'
       && github.event.action == 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
     runs-on: ubuntu-ui-preview
