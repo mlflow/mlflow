@@ -572,11 +572,5 @@ timeout = "1200"
 python_version = "3.10"
 strict = true
 exclude_gitignore = true
-
-[[tool.mypy.overrides]]
-# fake_server.py uses fastapi/uvicorn, which are available as runtime dependencies but
-# are not included when mypy is run in CI via `uv run --only-group lint`. Ignores are
-# therefore valid in CI but can appear unused locally, so we disable warn_unused_ignores
-# for this file.
-module = ["fake_server"]
-warn_unused_ignores = false
+# fake_server.py uses fastapi/uvicorn which are not in the lint dependency group
+exclude = ["dev/benchmarks/gateway/fake_server\\.py"]

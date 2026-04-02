@@ -436,7 +436,7 @@ def _start_nginx(
     try:
         yield
     finally:
-        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+        subprocess.run(["docker", "kill", container_name], capture_output=True)
 
 
 def cmd_bench(args: argparse.Namespace) -> None:
