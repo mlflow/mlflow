@@ -593,16 +593,14 @@ type SearchMlflowTracesResponse = {
  * Fetches traces using useInfiniteQuery, loading one page at a time.
  * Enabled only when shouldUseInfinitePaginatedTraces() is true.
  */
-const useSearchMlflowTracesInfinite = (
-  {
-    locations,
-    filter,
-    orderBy,
-    loggedModelId,
-    sqlWarehouseId,
-  }: Omit<UseSearchMlflowTracesInnerParams, 'limit' | 'pageSize'>,
-  { enabled = true }: { enabled?: boolean } = {},
-): UseSearchMlflowTracesInnerResult => {
+const useSearchMlflowTracesInfinite = ({
+  locations,
+  filter,
+  orderBy,
+  loggedModelId,
+  sqlWarehouseId,
+  enabled = true,
+}: Omit<UseSearchMlflowTracesInnerParams, 'limit' | 'pageSize'>): UseSearchMlflowTracesInnerResult => {
   const { data, isLoading, isFetching, isFetchingNextPage, fetchNextPage, hasNextPage, refetch, error } =
     useInfiniteQuery<SearchMlflowTracesResponse, NetworkRequestError>({
       keepPreviousData: true,
@@ -688,10 +686,14 @@ const useSearchMlflowTracesInner = ({
   const sqlWarehouseQueryKey = usingV4APIs ? sqlWarehouseId : undefined;
 
   // Infinite paginated search (only active when feature flag is enabled)
-  const infiniteResult = useSearchMlflowTracesInfinite(
-    { locations, filter, orderBy, loggedModelId, sqlWarehouseId, enabled },
-    { enabled: enabled && usingInfinitePagination },
-  );
+  const infiniteResult = useSearchMlflowTracesInfinite({
+    locations,
+    filter,
+    orderBy,
+    loggedModelId,
+    sqlWarehouseId,
+    enabled: enabled && usingInfinitePagination,
+  });
 
   // Standard synchronous search (only active when not using long-running API or infinite pagination)
   const syncResult = useQuery<ModelTraceInfoV3[], NetworkRequestError>({
