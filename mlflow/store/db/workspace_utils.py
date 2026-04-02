@@ -16,6 +16,11 @@ MODEL_CHILD_TABLES = [
     "registered_model_tags",
     "model_version_tags",
     "registered_model_aliases",
+]
+
+# Tables that carry a workspace column but belong to non-model root resources.
+# They must also be migrated explicitly during workspace operations.
+OTHER_WORKSPACE_CHILD_TABLES = [
     "guardrail_configs",
 ]
 

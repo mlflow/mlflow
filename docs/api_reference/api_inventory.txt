@@ -403,6 +403,14 @@ mlflow.entities.GatewayEndpointModelMapping.to_proto
 mlflow.entities.GatewayEndpointTag
 mlflow.entities.GatewayEndpointTag.from_proto
 mlflow.entities.GatewayEndpointTag.to_proto
+mlflow.entities.GatewayGuardrail
+mlflow.entities.GatewayGuardrail.from_proto
+mlflow.entities.GatewayGuardrail.to_proto
+mlflow.entities.GatewayGuardrailConfig
+mlflow.entities.GatewayGuardrailConfig.from_proto
+mlflow.entities.GatewayGuardrailConfig.to_proto
+mlflow.entities.GuardrailAction
+mlflow.entities.GuardrailStage
 mlflow.entities.GatewayModelDefinition
 mlflow.entities.GatewayModelDefinition.from_proto
 mlflow.entities.GatewayModelDefinition.to_proto
@@ -635,6 +643,10 @@ mlflow.entities.gateway_budget_policy.BudgetDurationUnit
 mlflow.entities.gateway_budget_policy.BudgetTargetScope
 mlflow.entities.gateway_budget_policy.BudgetUnit
 mlflow.entities.gateway_budget_policy.GatewayBudgetPolicy
+mlflow.entities.gateway_guardrail.GatewayGuardrail
+mlflow.entities.gateway_guardrail.GatewayGuardrailConfig
+mlflow.entities.gateway_guardrail.GuardrailAction
+mlflow.entities.gateway_guardrail.GuardrailStage
 mlflow.entities.gateway_endpoint.FallbackConfig
 mlflow.entities.gateway_endpoint.FallbackStrategy
 mlflow.entities.gateway_endpoint.GatewayEndpoint

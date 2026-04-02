@@ -2,13 +2,18 @@ import sqlalchemy as sa
 
 from mlflow.store.db.workspace_utils import (
     MODEL_CHILD_TABLES,
+    OTHER_WORKSPACE_CHILD_TABLES,
     format_truncated_list,
     get_workspace_table,
 )
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-_WORKSPACE_TABLES = [model.__tablename__ for model in _WORKSPACE_ROOT_MODELS] + MODEL_CHILD_TABLES
+_WORKSPACE_TABLES = (
+    [model.__tablename__ for model in _WORKSPACE_ROOT_MODELS]
+    + MODEL_CHILD_TABLES
+    + OTHER_WORKSPACE_CHILD_TABLES
+)
 
 _CONFLICT_SPECS = [
     ("experiments", ("name",), "experiments with the same name"),
