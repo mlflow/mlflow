@@ -1,6 +1,5 @@
 """MLflow tracing integration for Aider CLI interactions."""
 
-import json
 import logging
 import os
 import re
