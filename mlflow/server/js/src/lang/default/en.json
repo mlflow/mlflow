@@ -319,10 +319,6 @@
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
   },
-  "0/VlrO": {
-    "defaultMessage": "Pick a model, add your API key, and call it from your agents. Every request is automatically traced for debugging and evaluation.",
-    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
-  },
   "02+DX/": {
     "defaultMessage": "Provider cannot be changed.",
     "description": "Tooltip explaining why provider field is disabled"
@@ -3997,6 +3993,10 @@
   "OiNC9u": {
     "defaultMessage": "No budget policies created",
     "description": "Empty state title for budgets list"
+  },
+  "OibOvX": {
+    "defaultMessage": "An endpoint connects your agents to an AI model. Pick a model, add your API key, and start calling it. Every request is automatically traced for debugging and evaluation, with built-in usage tracking and budget controls.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
   "OilzZP": {
     "defaultMessage": "Conversation",
