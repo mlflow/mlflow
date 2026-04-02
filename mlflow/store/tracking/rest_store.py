@@ -1001,13 +1001,9 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         body = {
             "name": view.name,
-            "input_path": view.input_path,
-            "output_path": view.output_path,
             "created_by": view.created_by,
-            "description": view.description,
+            "ranges": [r.to_dict() for r in view.ranges],
         }
-        if view.span_filter is not None:
-            body["span_filter"] = view.span_filter.to_dict()
         resp = self._call_json_api(base, "POST", json_body=body)
         return TraceView.from_dict(resp["trace_view"])
 
@@ -1027,34 +1023,15 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         resp = self._call_json_api(base, "GET")
         return [TraceView.from_dict(v) for v in resp.get("trace_views", [])]
 
-    def update_trace_view(
-        self,
-        trace_id=None,
-        experiment_id=None,
-        view_id="",
-        name=None,
-        span_filter=None,
-        input_path=None,
-        output_path=None,
-        description=None,
-    ):
+    def update_trace_view(self, view_id="", name=None, ranges=None):
         from mlflow.entities.trace_view import TraceView
 
-        base = self._get_trace_view_base_path(
-            trace_id=trace_id, experiment_id=experiment_id
-        )
-        endpoint = f"{base}/{view_id}"
+        endpoint = f"/ajax-api/2.0/mlflow/traces/_/views/{view_id}"
         body = {}
         if name is not None:
             body["name"] = name
-        if span_filter is not None:
-            body["span_filter"] = span_filter.to_dict()
-        if input_path is not None:
-            body["input_path"] = input_path
-        if output_path is not None:
-            body["output_path"] = output_path
-        if description is not None:
-            body["description"] = description
+        if ranges is not None:
+            body["ranges"] = [r.to_dict() for r in ranges]
         resp = self._call_json_api(endpoint, "PATCH", json_body=body)
         return TraceView.from_dict(resp["trace_view"])
 

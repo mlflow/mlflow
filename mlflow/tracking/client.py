@@ -6715,11 +6715,8 @@ class MlflowClient:
         trace_id=None,
         experiment_id=None,
         name="",
-        span_filter=None,
-        input_path=None,
-        output_path=None,
+        ranges=None,
         created_by=None,
-        description=None,
     ):
         from mlflow.entities.trace_view import TraceView
 
@@ -6727,11 +6724,8 @@ class MlflowClient:
             name=name,
             trace_id=trace_id,
             experiment_id=experiment_id,
-            span_filter=span_filter,
-            input_path=input_path,
-            output_path=output_path,
+            ranges=ranges or [],
             created_by=created_by,
-            description=description,
         )
         return self._tracking_client.create_trace_view(view)
 
@@ -6743,26 +6737,11 @@ class MlflowClient:
     def get_trace_view(self, trace_id, view_id):
         return self._tracking_client.get_trace_view(trace_id, view_id)
 
-    def update_trace_view(
-        self,
-        trace_id=None,
-        experiment_id=None,
-        view_id="",
-        name=None,
-        span_filter=None,
-        input_path=None,
-        output_path=None,
-        description=None,
-    ):
+    def update_trace_view(self, view_id="", name=None, ranges=None):
         return self._tracking_client.update_trace_view(
-            trace_id=trace_id,
-            experiment_id=experiment_id,
             view_id=view_id,
             name=name,
-            span_filter=span_filter,
-            input_path=input_path,
-            output_path=output_path,
-            description=description,
+            ranges=ranges,
         )
 
     def delete_trace_view(self, trace_id=None, experiment_id=None, view_id=""):

@@ -156,6 +156,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetrics,
     SqlTraceTag,
     SqlTraceView,
+    SqlTraceViewRange,
 )
 from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStoreMixin
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
@@ -4214,6 +4215,21 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             view.validate_scope()
             if view.trace_id is not None:
                 self._validate_trace_accessible(session, view.trace_id)
+                # Verify trace exists in the database (required by FK constraint)
+                trace_exists = (
+                    session.query(SqlTraceInfo)
+                    .filter(SqlTraceInfo.request_id == view.trace_id)
+                    .first()
+                    is not None
+                )
+                if not trace_exists:
+                    raise MlflowException(
+                        f"Trace with ID '{view.trace_id}' not found in the tracking store. "
+                        f"Trace-scoped views require the trace to exist in the database. "
+                        f"If this trace was fetched from a remote backend, try creating an "
+                        f"experiment-scoped view with experiment_id instead.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
             sql_view = SqlTraceView.from_mlflow_entity(view)
             session.add(sql_view)
             session.flush()
@@ -4272,17 +4288,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 views = []
             return [v.to_mlflow_entity() for v in views]
 
-    def update_trace_view(
-        self,
-        trace_id=None,
-        experiment_id=None,
-        view_id="",
-        name=None,
-        span_filter=None,
-        input_path=None,
-        output_path=None,
-        description=None,
-    ):
+    def update_trace_view(self, view_id="", name=None, ranges=None):
         with self.ManagedSessionMaker() as session:
             sql_view = (
                 session.query(SqlTraceView)
@@ -4297,16 +4303,26 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             if name is not None:
                 sql_view.name = name
-            if span_filter is not None:
-                sql_view.span_filter = span_filter.to_json()
-            if input_path is not None:
-                sql_view.input_path = input_path
-            if output_path is not None:
-                sql_view.output_path = output_path
-            if description is not None:
-                sql_view.description = description
-            sql_view.last_updated_timestamp = get_current_time_millis()
 
+            if ranges is not None:
+                sql_view.ranges.clear()
+                session.flush()
+                for i, r in enumerate(ranges):
+                    sql_view.ranges.append(
+                        SqlTraceViewRange(
+                            range_id=r.range_id or f"tvr-{uuid.uuid4().hex[:12]}",
+                            view_id=sql_view.view_id,
+                            position=i,
+                            label=r.label,
+                            description=r.description,
+                            from_selector=r.from_selector.to_json(),
+                            to_selector=r.to_selector.to_json() if r.to_selector else None,
+                            input_path=r.input_path,
+                            output_path=r.output_path,
+                        )
+                    )
+
+            sql_view.last_updated_timestamp = get_current_time_millis()
             session.flush()
             return sql_view.to_mlflow_entity()
 

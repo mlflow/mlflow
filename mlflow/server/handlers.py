@@ -4185,19 +4185,31 @@ def _search_issues():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_trace_view(trace_id=None, experiment_id=None):
-    from mlflow.entities.trace_view import SpanFilter, TraceView
+    from mlflow.entities.trace_view import SpanRange, SpanSelector, TraceView
 
     body = request.get_json(force=True)
-    span_filter_data = body.get("span_filter")
+    ranges = []
+    for i, rd in enumerate(body.get("ranges", [])):
+        from_sel = SpanSelector.from_dict(rd["from_selector"])
+        to_sel_data = rd.get("to_selector")
+        to_sel = SpanSelector.from_dict(to_sel_data) if to_sel_data else None
+        ranges.append(
+            SpanRange(
+                from_selector=from_sel,
+                to_selector=to_sel,
+                label=rd.get("label", ""),
+                description=rd.get("description", ""),
+                input_path=rd.get("input_path"),
+                output_path=rd.get("output_path"),
+                position=i,
+            )
+        )
     view = TraceView(
         name=body["name"],
         trace_id=trace_id,
         experiment_id=experiment_id,
-        span_filter=SpanFilter.from_dict(span_filter_data) if span_filter_data else None,
-        input_path=body.get("input_path"),
-        output_path=body.get("output_path"),
+        ranges=ranges,
         created_by=body.get("created_by"),
-        description=body.get("description"),
     )
     created_view = _get_tracking_store().create_trace_view(view)
     return jsonify({"trace_view": created_view.to_dict()})
@@ -4222,25 +4234,32 @@ def _list_trace_views(trace_id=None, experiment_id=None):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_trace_view(trace_id=None, experiment_id=None, view_id=None):
-    from mlflow.entities.trace_view import SpanFilter
+    from mlflow.entities.trace_view import SpanRange, SpanSelector
 
     body = request.get_json(force=True)
     kwargs = {}
     if "name" in body:
         kwargs["name"] = body["name"]
-    if "span_filter" in body:
-        sf = body["span_filter"]
-        kwargs["span_filter"] = SpanFilter.from_dict(sf) if sf else None
-    if "input_path" in body:
-        kwargs["input_path"] = body["input_path"]
-    if "output_path" in body:
-        kwargs["output_path"] = body["output_path"]
-    if "description" in body:
-        kwargs["description"] = body["description"]
+    if "ranges" in body:
+        ranges = []
+        for i, rd in enumerate(body["ranges"]):
+            from_sel = SpanSelector.from_dict(rd["from_selector"])
+            to_sel_data = rd.get("to_selector")
+            to_sel = SpanSelector.from_dict(to_sel_data) if to_sel_data else None
+            ranges.append(
+                SpanRange(
+                    from_selector=from_sel,
+                    to_selector=to_sel,
+                    label=rd.get("label", ""),
+                    description=rd.get("description", ""),
+                    input_path=rd.get("input_path"),
+                    output_path=rd.get("output_path"),
+                    position=i,
+                )
+            )
+        kwargs["ranges"] = ranges
 
     updated_view = _get_tracking_store().update_trace_view(
-        trace_id=trace_id,
-        experiment_id=experiment_id,
         view_id=view_id,
         **kwargs,
     )

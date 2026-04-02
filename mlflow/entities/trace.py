@@ -295,17 +295,14 @@ class Trace(_MlflowObject):
             and (type is None or validate_type(assessment))
         ]
 
-    def create_view(self, name, span_filter=None, input_path=None, output_path=None, created_by=None, description=None):
+    def create_view(self, name, ranges=None, created_by=None):
         from mlflow.tracking import MlflowClient
 
         return MlflowClient().create_trace_view(
             trace_id=self.info.trace_id,
             name=name,
-            span_filter=span_filter,
-            input_path=input_path,
-            output_path=output_path,
+            ranges=ranges or [],
             created_by=created_by,
-            description=description,
         )
 
     @property
@@ -324,16 +321,19 @@ class Trace(_MlflowObject):
 
         prompt = "Summarize this trace concisely. Focus on what the agent did, key decisions, and the outcome."
         if view:
-            from mlflow.tracing.utils.view_utils import apply_view
+            from mlflow.tracing.utils.view_utils import resolve_view
 
-            spans_data = [s.to_dict() for s in self.data.spans]
-            filtered_in, filtered_out = apply_view(
-                spans_data,
-                view,
-                fallback_input=self.data.request,
-                fallback_output=self.data.response,
-            )
-            prompt += f"\n\nFiltered input:\n{filtered_in}\n\nFiltered output:\n{filtered_out}"
+            root_span = self.data.spans[0].to_dict() if self.data.spans else None
+            if root_span:
+                results = resolve_view(root_span, view)
+                summary_parts = []
+                for r in results:
+                    summary_parts.append(f"**{r['label']}**: {r['description']}")
+                    if r["extracted_input"]:
+                        summary_parts.append(f"  Input: {r['extracted_input']}")
+                    if r["extracted_output"]:
+                        summary_parts.append(f"  Output: {r['extracted_output']}")
+                prompt += "\n\nView summary:\n" + "\n".join(summary_parts)
         feedback = invoke_judge_model(
             model_uri=model,
             prompt=prompt,
@@ -347,16 +347,19 @@ class Trace(_MlflowObject):
 
         prompt = question
         if view:
-            from mlflow.tracing.utils.view_utils import apply_view
+            from mlflow.tracing.utils.view_utils import resolve_view
 
-            spans_data = [s.to_dict() for s in self.data.spans]
-            filtered_in, filtered_out = apply_view(
-                spans_data,
-                view,
-                fallback_input=self.data.request,
-                fallback_output=self.data.response,
-            )
-            prompt += f"\n\nFiltered input:\n{filtered_in}\n\nFiltered output:\n{filtered_out}"
+            root_span = self.data.spans[0].to_dict() if self.data.spans else None
+            if root_span:
+                results = resolve_view(root_span, view)
+                summary_parts = []
+                for r in results:
+                    summary_parts.append(f"**{r['label']}**: {r['description']}")
+                    if r["extracted_input"]:
+                        summary_parts.append(f"  Input: {r['extracted_input']}")
+                    if r["extracted_output"]:
+                        summary_parts.append(f"  Output: {r['extracted_output']}")
+                prompt += "\n\nView summary:\n" + "\n".join(summary_parts)
         feedback = invoke_judge_model(
             model_uri=model,
             prompt=prompt,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
@@ -35,6 +36,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTraceInfo,
     SqlTraceView,
+    SqlTraceViewRange,
 )
 from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
@@ -591,17 +593,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 views = []
             return [v.to_mlflow_entity() for v in views]
 
-    def update_trace_view(
-        self,
-        trace_id=None,
-        experiment_id=None,
-        view_id="",
-        name=None,
-        span_filter=None,
-        input_path=None,
-        output_path=None,
-        description=None,
-    ):
+    def update_trace_view(self, view_id="", name=None, ranges=None):
         with self.ManagedSessionMaker() as session:
             workspace_experiment_ids = (
                 session
@@ -638,16 +630,26 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
             if name is not None:
                 sql_view.name = name
-            if span_filter is not None:
-                sql_view.span_filter = span_filter.to_json()
-            if input_path is not None:
-                sql_view.input_path = input_path
-            if output_path is not None:
-                sql_view.output_path = output_path
-            if description is not None:
-                sql_view.description = description
-            sql_view.last_updated_timestamp = get_current_time_millis()
 
+            if ranges is not None:
+                sql_view.ranges.clear()
+                session.flush()
+                for i, r in enumerate(ranges):
+                    sql_view.ranges.append(
+                        SqlTraceViewRange(
+                            range_id=r.range_id or f"tvr-{uuid.uuid4().hex[:12]}",
+                            view_id=sql_view.view_id,
+                            position=i,
+                            label=r.label,
+                            description=r.description,
+                            from_selector=r.from_selector.to_json(),
+                            to_selector=r.to_selector.to_json() if r.to_selector else None,
+                            input_path=r.input_path,
+                            output_path=r.output_path,
+                        )
+                    )
+
+            sql_view.last_updated_timestamp = get_current_time_millis()
             session.flush()
             return sql_view.to_mlflow_entity()
 

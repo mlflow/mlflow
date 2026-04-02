@@ -611,17 +611,7 @@ class AbstractStore(GatewayStoreMixin):
     def list_trace_views(self, trace_id=None, experiment_id=None):
         raise NotImplementedError
 
-    def update_trace_view(
-        self,
-        trace_id=None,
-        experiment_id=None,
-        view_id="",
-        name=None,
-        span_filter=None,
-        input_path=None,
-        output_path=None,
-        description=None,
-    ):
+    def update_trace_view(self, view_id="", name=None, ranges=None):
         raise NotImplementedError
 
     def delete_trace_view(self, trace_id=None, experiment_id=None, view_id=""):
