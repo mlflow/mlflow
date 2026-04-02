@@ -36,7 +36,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22, 24]
+        # 22.22.2 has a regression where `npm install -g` fails
+        # See: https://github.com/nodejs/node/issues/62425
+        node-version: [20, 22.22.1, 24]
     runs-on: ubuntu-latest
     defaults:
       run:

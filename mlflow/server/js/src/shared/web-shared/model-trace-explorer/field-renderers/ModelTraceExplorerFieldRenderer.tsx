@@ -8,7 +8,7 @@ import { ModelTraceExplorerAttachmentRenderer } from './ModelTraceExplorerAttach
 import { ModelTraceExplorerChatToolsRenderer } from './ModelTraceExplorerChatToolsRenderer';
 import { ModelTraceExplorerRetrieverFieldRenderer } from './ModelTraceExplorerRetrieverFieldRenderer';
 import { ModelTraceExplorerTextFieldRenderer } from './ModelTraceExplorerTextFieldRenderer';
-import { parseAttachmentUri } from './attachment-utils';
+import { parseAttachmentUri } from '../attachment-utils';
 import type { Assessment } from '../ModelTrace.types';
 import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';

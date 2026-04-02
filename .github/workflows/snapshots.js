@@ -1,36 +1,21 @@
-import { readFileSync, existsSync, readdirSync, statSync } from "fs";
-import { join, basename } from "path";
-import type { getOctokit } from "@actions/github";
-import type { context as ContextType } from "@actions/github";
-
-type GitHub = ReturnType<typeof getOctokit>;
-type Context = typeof ContextType;
-type GitHubAsset = Awaited<
-  ReturnType<GitHub["rest"]["repos"]["listReleaseAssets"]>
->["data"][number];
-type GitHubRelease = Awaited<ReturnType<GitHub["rest"]["repos"]["getReleaseByTag"]>>["data"];
+const { readFileSync, existsSync, readdirSync, statSync } = require("fs");
+const { join, basename } = require("path");
 
 // Constants
 const RELEASE_TAG = "nightly";
 const DAYS_TO_KEEP = 3;
 
-interface SnapshotParams {
-  github: GitHub;
-  context: Context;
-  artifactDir: string;
-}
-
 /**
  * Check if artifact file type is supported
  */
-function isSupportedArtifact(filename: string): boolean {
+function isSupportedArtifact(filename) {
   return /\.(whl|jar|tar\.gz)$/.test(filename);
 }
 
 /**
  * Get content type based on file extension
  */
-function getContentType(filename: string): string {
+function getContentType(filename) {
   if (filename.match(/\.whl$/)) {
     return "application/zip";
   } else if (filename.match(/\.tar\.gz$/)) {
@@ -46,7 +31,7 @@ function getContentType(filename: string): string {
 /**
  * Check if asset should be deleted based on age
  */
-function shouldDeleteAsset(asset: GitHubAsset, daysToKeep: number): boolean {
+function shouldDeleteAsset(asset, daysToKeep) {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
   const assetDate = new Date(asset.created_at);
@@ -56,7 +41,7 @@ function shouldDeleteAsset(asset: GitHubAsset, daysToKeep: number): boolean {
 /**
  * Add commit SHA to filename based on file type
  */
-function addShaToFilename(filename: string, sha: string): string {
+function addShaToFilename(filename, sha) {
   const shortSha = sha.substring(0, 7);
 
   // Match .whl files
@@ -89,11 +74,7 @@ function addShaToFilename(filename: string, sha: string): string {
 /**
  * Upload artifacts to a GitHub release
  */
-export async function uploadSnapshots({
-  github,
-  context,
-  artifactDir,
-}: SnapshotParams): Promise<void> {
+async function uploadSnapshots({ github, context, artifactDir }) {
   if (!existsSync(artifactDir)) {
     throw new Error(`Artifacts directory not found: ${artifactDir}`);
   }
@@ -117,7 +98,7 @@ export async function uploadSnapshots({
 
   // Check if the release already exists
   const { owner, repo } = context.repo;
-  let release: GitHubRelease;
+  let release;
   let releaseExists = false;
   try {
     const { data } = await github.rest.repos.getReleaseByTag({
@@ -128,7 +109,7 @@ export async function uploadSnapshots({
     release = data;
     releaseExists = true;
     console.log(`Found existing release: ${release.id}`);
-  } catch (error: any) {
+  } catch (error) {
     if (error.status !== 404) {
       throw error;
     }
@@ -147,14 +128,14 @@ export async function uploadSnapshots({
 
 **Note:** This release is automatically updated daily with the latest changes from the master branch.`,
     prerelease: true,
-    make_latest: "false" as const,
+    make_latest: "false",
   };
 
   if (releaseExists) {
     console.log("Updating existing nightly release...");
     const { data: updatedRelease } = await github.rest.repos.updateRelease({
       ...releaseParams,
-      release_id: release!.id,
+      release_id: release.id,
     });
     release = updatedRelease;
     console.log(`Updated existing release: ${release.id}`);
@@ -166,7 +147,7 @@ export async function uploadSnapshots({
   }
 
   console.log("Fetching all existing assets...");
-  const allAssets: GitHubAsset[] = await github.paginate(github.rest.repos.listReleaseAssets, {
+  const allAssets = await github.paginate(github.rest.repos.listReleaseAssets, {
     owner,
     repo,
     release_id: release.id,
@@ -208,7 +189,7 @@ export async function uploadSnapshots({
       repo,
       release_id: release.id,
       name: nameWithSha,
-      data: artifactData as unknown as string,
+      data: artifactData,
       headers: {
         "content-type": contentType,
         "content-length": artifactData.length,
@@ -220,3 +201,5 @@ export async function uploadSnapshots({
 
   console.log("All artifacts uploaded successfully");
 }
+
+module.exports = { uploadSnapshots };

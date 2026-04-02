@@ -99,6 +99,8 @@ from mlflow.protos.service_pb2 import (
     DeleteScorer,
     DeleteTraceTag,
     DeleteTraceTagV3,
+    GatewayEndpoint,
+    GetGatewayEndpoint,
     GetScorer,
     GetTrace,
     LinkPromptsToTrace,
@@ -124,6 +126,7 @@ from mlflow.server import (
 )
 from mlflow.server.handlers import (
     ARTIFACT_STREAM_CHUNK_SIZE,
+    STATIC_PREFIX_ENV_VAR,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
     _batch_get_trace_infos,
@@ -150,9 +153,11 @@ from mlflow.server.handlers import (
     _delete_trace_tag_v3,
     _deprecated_search_traces_v2,
     _download_artifact,
+    _get_ajax_path,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
     _get_dataset_records_handler,
+    _get_gateway_endpoint,
     _get_issue,
     _get_latest_versions,
     _get_model_version,
@@ -161,6 +166,7 @@ from mlflow.server.handlers import (
     _get_presigned_download_url,
     _get_registered_model,
     _get_request_message,
+    _get_rest_path,
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
@@ -2952,6 +2958,41 @@ def test_update_gateway_endpoint_rejects_invalid_name(mock_get_request_message, 
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
 
 
+def test_get_gateway_endpoint_by_endpoint_id(mock_get_request_message, mock_tracking_store):
+    request_msg = GetGatewayEndpoint()
+    request_msg.endpoint_id = "ep-123"
+    mock_get_request_message.return_value = request_msg
+
+    mock_endpoint = mock.MagicMock()
+    mock_endpoint.to_proto.return_value = GatewayEndpoint(endpoint_id="ep-123")
+    mock_tracking_store.get_gateway_endpoint.return_value = mock_endpoint
+
+    response = _get_gateway_endpoint()
+
+    mock_tracking_store.get_gateway_endpoint.assert_called_once_with(
+        endpoint_id="ep-123", name=None
+    )
+    assert response.status_code == 200
+
+
+def test_get_gateway_endpoint_by_name(mock_get_request_message, mock_tracking_store):
+
+    request_msg = GetGatewayEndpoint()
+    request_msg.name = "my-endpoint"
+    mock_get_request_message.return_value = request_msg
+
+    mock_endpoint = mock.MagicMock()
+    mock_endpoint.to_proto.return_value = GatewayEndpoint(endpoint_id="ep-456", name="my-endpoint")
+    mock_tracking_store.get_gateway_endpoint.return_value = mock_endpoint
+
+    response = _get_gateway_endpoint()
+
+    mock_tracking_store.get_gateway_endpoint.assert_called_once_with(
+        endpoint_id=None, name="my-endpoint"
+    )
+    assert response.status_code == 200
+
+
 def test_query_trace_metrics_handler(mock_get_request_message, mock_tracking_store):
     experiment_ids = ["exp1", "exp2"]
     metric_name = "latency"
@@ -5009,3 +5050,19 @@ def test_cancel_job_success(mock_job_store):
 
         assert json_response["status"] == "CANCELED"
         mock_cancel.assert_called_once_with("job-123")
+
+
+def test_get_rest_path_respects_static_prefix(monkeypatch):
+    # Without prefix, both return bare paths
+    assert _get_rest_path("/mlflow/experiments/search") == "/api/2.0/mlflow/experiments/search"
+    assert _get_ajax_path("/mlflow/experiments/search") == "/ajax-api/2.0/mlflow/experiments/search"
+
+    # With prefix, both should include the prefix
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myapp")
+    assert (
+        _get_rest_path("/mlflow/experiments/search") == "/myapp/api/2.0/mlflow/experiments/search"
+    )
+    assert (
+        _get_ajax_path("/mlflow/experiments/search")
+        == "/myapp/ajax-api/2.0/mlflow/experiments/search"
+    )

@@ -18,7 +18,7 @@ import LLMScorerFormRenderer, { type LLMScorerFormData } from './LLMScorerFormRe
 import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
+import { SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
 
 interface ScorerFormRendererProps {
   mode: ScorerFormMode;

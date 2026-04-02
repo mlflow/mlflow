@@ -4226,14 +4226,17 @@ def _invoke_issue_detection_handler():
 
     # Create the run upfront so we can return run_id immediately
     model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
+    tags = {
+        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+        "categories": ",".join(categories),
+        "model": model_name,
+        "total_traces": len(trace_ids),
+    }
+    if endpoint_name:
+        tags["endpoint_name"] = endpoint_name
     run = mlflow.start_run(
         experiment_id=experiment_id,
-        tags={
-            MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
-            "categories": ",".join(categories),
-            "model": model_name,
-            "total_traces": len(trace_ids),
-        },
+        tags=tags,
     )
     run_id = run.info.run_id
 
@@ -4983,10 +4986,14 @@ def _get_gateway_endpoint():
     request_message = _get_request_message(
         GetGatewayEndpoint(),
         schema={
-            "endpoint_id": [_assert_required, _assert_string],
+            "endpoint_id": [_assert_string],
+            "name": [_assert_string],
         },
     )
-    endpoint = _get_tracking_store().get_gateway_endpoint(request_message.endpoint_id)
+    endpoint = _get_tracking_store().get_gateway_endpoint(
+        endpoint_id=request_message.endpoint_id or None,
+        name=request_message.name or None,
+    )
     response_message = GetGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
     return _wrap_response(response_message)
@@ -5677,7 +5684,7 @@ def _invoke_scorer_handler():
 
 
 def _get_rest_path(base_path, version=2):
-    return f"/api/{version}.0{base_path}"
+    return _add_static_prefix(f"/api/{version}.0{base_path}")
 
 
 def _get_ajax_path(base_path, version=2):
@@ -5749,9 +5756,9 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
-        # NB: Use _get_paths() (not _add_static_prefix()) so that the endpoint is reachable
-        # both at /api/3.0/mlflow/server-info (for the Python client, unaffected by static prefix)
-        # and at <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
+        # NB: Use _get_paths() so that the endpoint is reachable at both
+        # <static-prefix>/api/3.0/mlflow/server-info (for the Python client)
+        # and <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
         + [
             (_path, _get_server_info, ["GET"])
             for _path in _get_paths("/mlflow/server-info", version=3)

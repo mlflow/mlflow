@@ -45,22 +45,32 @@ def get_endpoint_type(endpoint_uri: str) -> str | None:
 
 # TODO: improve this name
 def score_model_on_payload(
-    model_uri,
-    payload,
-    eval_parameters=None,
-    extra_headers=None,
-    proxy_url=None,
-    endpoint_type=None,
+    model_uri: str,
+    payload: str,
+    eval_parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
+    endpoint_type: str | None = None,
 ):
     """Call the model identified by the given uri with the given string prompt."""
-    from mlflow.deployments import get_deploy_client
-
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
 
     prefix, suffix = _parse_model_uri(model_uri)
 
-    if prefix in ["gateway", "endpoints"]:
+    if prefix == "gateway":
+        return _call_llm_provider_api(
+            "gateway",
+            suffix,
+            input_data=payload,
+            eval_parameters=eval_parameters,
+            extra_headers=extra_headers,
+            proxy_url=proxy_url,
+        )
+
+    elif prefix == "endpoints":
+        from mlflow.deployments import get_deploy_client
+
         if isinstance(payload, str) and endpoint_type is None:
             client = get_deploy_client()
             endpoint_type = client.get_endpoint(suffix).endpoint_type
@@ -322,15 +332,21 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
     # new ones as requested, as long as the provider support chat endpoints.
     if provider == Provider.OPENAI:
-        # Empty string default allows provider construction without a key; the error
-        # surfaces at HTTP call time (401) rather than at construction time, matching
-        # the behavior of the previous _get_api_config/_OAITokenHolder code path.
-        config = OpenAIConfig(openai_api_key=os.environ.get("OPENAI_API_KEY", ""))
+        if not os.environ.get("OPENAI_API_KEY"):
+            raise MlflowException.invalid_parameter_value(
+                "OPENAI_API_KEY environment variable must be set to use the openai provider."
+            )
+        config = OpenAIConfig(openai_api_key=os.environ["OPENAI_API_KEY"])
         return OpenAIProvider(_get_route_config(config))
 
     elif provider == Provider.AZURE:
+        if not os.environ.get(AZURE_API_KEY_ENV_VAR):
+            raise MlflowException.invalid_parameter_value(
+                f"{AZURE_API_KEY_ENV_VAR} environment variable must be set "
+                "to use the azure provider."
+            )
         config = OpenAIConfig(
-            openai_api_key=os.environ.get(AZURE_API_KEY_ENV_VAR),
+            openai_api_key=os.environ[AZURE_API_KEY_ENV_VAR],
             openai_api_type="azure",
             openai_api_base=os.environ.get(AZURE_API_BASE_ENV_VAR),
             openai_api_version=os.environ.get(AZURE_API_VERSION_ENV_VAR),

@@ -2253,7 +2253,10 @@ def test_search_traces_with_sql_warehouse_id(mock_client):
 
 @skip_when_testing_trace_sdk
 @pytest.mark.flaky(attempts=3, condition=sys.platform == "win32")
-def test_set_destination_in_threads(async_logging_enabled):
+@pytest.mark.parametrize("use_batch_processor", [False, True])
+def test_set_destination_in_threads(async_logging_enabled, use_batch_processor, monkeypatch):
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", str(use_batch_processor))
+
     # This test makes sure `set_destination` obeys thread-local behavior.
     class TestModel:
         def predict(self, x):
@@ -2950,7 +2953,7 @@ def test_flush_trace_async_logging_calls_flush_when_async_queue_exists():
 
 def test_flush_trace_async_logging_skips_when_async_queue_missing():
     # A bare SpanExporter (as used by StrandsSpanProcessor, mlflow/strands/autolog.py:40)
-    # has no _async_queue attribute. flush_trace_async_logging() should return without
+    # has no _async_queue attribute. flush_trace_async_logging(terminate=True) should return without
     # reaching the error handler.
     exporter = SpanExporter()
     assert not hasattr(exporter, "_async_queue")
@@ -2967,5 +2970,5 @@ def test_flush_trace_async_logging_skips_when_async_queue_missing():
 def test_flush_trace_async_logging_no_spurious_error_when_tracing_disabled():
     mlflow.tracing.disable()
     with mock.patch("mlflow.tracking.fluent._logger") as mock_logger:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
     mock_logger.error.assert_not_called()

@@ -23,7 +23,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
 import { isScorerModelSelectionEnabled } from '../../../common/utils/FeatureUtils';
 import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
-import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
+import { type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE, isGuidelinesTemplate, type JudgeOutputTypeKind, type JudgePrimitiveOutputType } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSection from './EvaluateTracesSection';
@@ -299,7 +299,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>
       <DropdownMenu.Item
-        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
+        componentId="mlflow.experiment-scorers.add-variable-expectations"
         onClick={(e) => {
           e.stopPropagation();
           appendVariable('{{ expectations }}');
@@ -479,7 +479,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
             values={{
               learnMore: (
                 <Typography.Link
-                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  componentId="mlflow.experiment-scorers.guidelines-learn-more-link"
                   href={getLlmJudgeDocUrl()}
                   openInNewTab
                 >
@@ -495,7 +495,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
             values={{
               learnMore: (
                 <Typography.Link
-                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  componentId="mlflow.experiment-scorers.guidelines-learn-more-link"
                   href={getLlmJudgeDocUrl()}
                   openInNewTab
                 >
@@ -516,7 +516,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
           <>
             <Input.TextArea
               {...field}
-              componentId={`${COMPONENT_ID_PREFIX}.guidelines-text-area`}
+              componentId="mlflow.experiment-scorers.guidelines-text-area"
               id="mlflow-experiment-scorers-guidelines"
               readOnly={mode === SCORER_FORM_MODE.DISPLAY}
               rows={3}
