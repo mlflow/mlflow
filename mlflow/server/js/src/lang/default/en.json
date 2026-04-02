@@ -135,10 +135,6 @@
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
   },
-  "//TaNF": {
-    "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking and budget controls. {br}{br}All requests are automatically logged as MLflow Traces for debugging and evaluation.",
-    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
-  },
   "/2InJv": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
@@ -4580,6 +4576,10 @@
   "Sd7sQi": {
     "defaultMessage": "Traces are only available for experiment-scoped prompts.",
     "description": "Message when prompt is not experiment-scoped"
+  },
+  "SdMjuh": {
+    "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking, budget controls, and automatic MLflow Trace logging for debugging and evaluation.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
   "Shv28w": {
     "defaultMessage": "Save",
