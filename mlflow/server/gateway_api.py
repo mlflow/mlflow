@@ -7,13 +7,12 @@ functionality directly into the MLflow tracking server.
 """
 
 import functools
-import inspect
 import logging
 import time
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
@@ -36,10 +35,9 @@ from mlflow.gateway.config import (
 )
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CALLER_HEADER,
-    MLFLOW_GATEWAY_DURATION_HEADER,
-    MLFLOW_GATEWAY_OVERHEAD_HEADER,
     GatewayCaller,
 )
+from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -48,7 +46,6 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     TrafficRouteProvider,
 )
-from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
@@ -122,18 +119,13 @@ def _get_user_metadata(request: Request) -> dict[str, Any]:
     return metadata
 
 
-def _instrument_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
+def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
     """
-    Decorator for gateway invocation endpoints that handles two concerns:
+    Decorator for gateway invocation endpoints that records telemetry:
+    success/failure status, duration, streaming mode, and caller.
 
-    1. Telemetry: records success/failure status, duration, streaming mode, and caller.
-    2. Timing headers: injects X-MLflow-Gateway-Duration-Ms and (when provider timing is
-       available) X-MLflow-Gateway-Overhead-Duration-Ms into every HTTP response, including
-       HTTPException error responses.
-
-    Provider timing is only available for non-streaming aiohttp calls (via send_request).
-    Streaming responses and providers that bypass aiohttp (e.g. LiteLLM) receive only the
-    duration header; the overhead header is omitted to avoid reporting misleading values.
+    Timing headers (X-MLflow-Gateway-Duration-Ms, X-MLflow-Gateway-Overhead-Duration-Ms)
+    are injected by gateway_timing_middleware in fastapi_app.py.
 
     Args:
         invocation_type: The type of invocation endpoint.
@@ -145,15 +137,6 @@ def _instrument_gateway_invocation(invocation_type: GatewayInvocationType) -> Ca
             start_time = time.perf_counter()
             success = True
             result = None
-            duration_ms = 0
-
-            # FastAPI injects a mutable Response via the _timing_response parameter
-            # (added to wrapper.__signature__ below). Popping it here keeps it out of
-            # the args/kwargs forwarded to the actual handler.
-            timing_response: Response | None = kwargs.pop("_timing_response", None)
-
-            # Reset provider call duration for this request context.
-            provider_call_duration_ms.set(0.0)
 
             # Extract caller header from the Request object if present,
             # only accepting known caller values to avoid logging arbitrary input.
@@ -164,13 +147,8 @@ def _instrument_gateway_invocation(invocation_type: GatewayInvocationType) -> Ca
                 if raw_caller in {e.value for e in GatewayCaller}:
                     caller = raw_caller
 
-            http_exc: HTTPException | None = None
             try:
                 result = await func(*args, **kwargs)
-            except HTTPException as e:
-                success = False
-                http_exc = e
-                raise
             except Exception:
                 success = False
                 raise
@@ -188,50 +166,15 @@ def _instrument_gateway_invocation(invocation_type: GatewayInvocationType) -> Ca
                     success=success,
                     duration_ms=duration_ms,
                 )
-
-                # Inject timing headers on every response, including error paths.
-                # overhead_ms is only set when provider timing is available (non-streaming
-                # calls via aiohttp); omit it for providers that don't use those helpers
-                # (e.g. LiteLLM) to avoid reporting overhead ≈ duration misleadingly.
-                provider_duration_ms = int(provider_call_duration_ms.get())
-                is_streaming = isinstance(result, StreamingResponse)
-                overhead_ms = (
-                    max(0, duration_ms - provider_duration_ms) if provider_duration_ms > 0 else None
-                )
-                if http_exc is not None:
-                    # FastAPI builds error responses from the HTTPException; mutate its
-                    # headers here so timing headers are included even on error paths.
-                    http_exc.headers = (http_exc.headers or {}) | {
-                        MLFLOW_GATEWAY_DURATION_HEADER: str(duration_ms),
-                    }
-                    if overhead_ms is not None:
-                        http_exc.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
-                elif is_streaming:
-                    # StreamingResponse is returned directly; FastAPI does not merge the
-                    # injected Response headers into it, so set headers on the result.
-                    result.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
-                    if overhead_ms is not None:
-                        result.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
-                elif timing_response is not None:
-                    timing_response.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
-                    if overhead_ms is not None:
-                        timing_response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
+                # Relay provider timing to the middleware via request.state.
+                # ContextVar values set in the handler task don't propagate back
+                # to the middleware task (Starlette copies the context for call_next).
+                if request is not None:
+                    request.state.gateway_provider_duration_ms = int(
+                        provider_call_duration_ms.get()
+                    )
 
             return result
-
-        # Augment the wrapper's signature with a Response parameter so FastAPI
-        # injects a mutable response object. Headers set on it are merged into
-        # the final HTTP response regardless of what the handler returns.
-        orig_sig = inspect.signature(func)
-        timing_param = inspect.Parameter(
-            "_timing_response",
-            inspect.Parameter.KEYWORD_ONLY,
-            annotation=Response,
-            default=None,
-        )
-        wrapper.__signature__ = orig_sig.replace(
-            parameters=[*orig_sig.parameters.values(), timing_param]
-        )
 
         return wrapper
 
@@ -572,7 +515,7 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
 
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
-@_instrument_gateway_invocation(GatewayInvocationType.MLFLOW_INVOCATIONS)
+@_record_gateway_invocation(GatewayInvocationType.MLFLOW_INVOCATIONS)
 async def invocations(endpoint_name: str, request: Request):
     """
     Unified invocations endpoint handler that supports both chat and embeddings.
@@ -659,7 +602,7 @@ async def invocations(endpoint_name: str, request: Request):
 
 @gateway_router.post("/mlflow/v1/chat/completions", response_model=None)
 @translate_http_exception
-@_instrument_gateway_invocation(GatewayInvocationType.MLFLOW_CHAT_COMPLETIONS)
+@_record_gateway_invocation(GatewayInvocationType.MLFLOW_CHAT_COMPLETIONS)
 async def chat_completions(request: Request):
     """
     OpenAI-compatible chat completions endpoint.
@@ -724,7 +667,7 @@ async def chat_completions(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
 @translate_http_exception
-@_instrument_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_CHAT)
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_CHAT)
 async def openai_passthrough_chat(request: Request):
     """
     OpenAI passthrough endpoint for chat completions.
@@ -795,7 +738,7 @@ async def openai_passthrough_chat(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
 @translate_http_exception
-@_instrument_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_EMBEDDINGS)
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_EMBEDDINGS)
 async def openai_passthrough_embeddings(request: Request):
     """
     OpenAI passthrough endpoint for embeddings.
@@ -840,7 +783,7 @@ async def openai_passthrough_embeddings(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
 @translate_http_exception
-@_instrument_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_RESPONSES)
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_RESPONSES)
 async def openai_passthrough_responses(request: Request):
     """
     OpenAI passthrough endpoint for the Responses API.
@@ -911,7 +854,7 @@ async def openai_passthrough_responses(request: Request):
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
 @translate_http_exception
-@_instrument_gateway_invocation(GatewayInvocationType.ANTHROPIC_PASSTHROUGH_MESSAGES)
+@_record_gateway_invocation(GatewayInvocationType.ANTHROPIC_PASSTHROUGH_MESSAGES)
 async def anthropic_passthrough_messages(request: Request):
     """
     Anthropic passthrough endpoint for the Messages API.
@@ -984,7 +927,7 @@ async def anthropic_passthrough_messages(request: Request):
     PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_GENERATE_CONTENT], response_model=None
 )
 @translate_http_exception
-@_instrument_gateway_invocation(GatewayInvocationType.GEMINI_PASSTHROUGH_GENERATE_CONTENT)
+@_record_gateway_invocation(GatewayInvocationType.GEMINI_PASSTHROUGH_GENERATE_CONTENT)
 async def gemini_passthrough_generate_content(endpoint_name: str, request: Request):
     """
     Gemini passthrough endpoint for generateContent API (non-streaming).
@@ -1032,7 +975,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT], response_model=None
 )
 @translate_http_exception
-@_instrument_gateway_invocation(GatewayInvocationType.GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT)
+@_record_gateway_invocation(GatewayInvocationType.GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT)
 async def gemini_passthrough_stream_generate_content(endpoint_name: str, request: Request):
     """
     Gemini passthrough endpoint for streamGenerateContent API (streaming).
