@@ -572,5 +572,3 @@ timeout = "1200"
 python_version = "3.10"
 strict = true
 exclude_gitignore = true
-# fake_server.py uses fastapi/uvicorn which are not in the lint dependency group
-exclude = ["dev/benchmarks/gateway/fake_server\\.py"]
