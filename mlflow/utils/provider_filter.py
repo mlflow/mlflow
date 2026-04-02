@@ -8,10 +8,12 @@ from mlflow.exceptions import MlflowException
 
 _logger = logging.getLogger(__name__)
 
+_SENTINEL = object()
+
 _cached_allowed: set[str] | None = None
 _cached_blocked: set[str] | None = None
-_cached_allowed_raw: str | None = object()  # sentinel distinct from None/str
-_cached_blocked_raw: str | None = object()
+_cached_allowed_raw: object | str | None = _SENTINEL  # sentinel distinct from None/str
+_cached_blocked_raw: object | str | None = _SENTINEL
 
 
 def _parse_provider_list(value: str | None) -> set[str]:
@@ -62,10 +64,10 @@ def filter_providers(providers: list[str]) -> list[str]:
     for p in providers:
         name = p.lower()
         if allowed is not None and name not in allowed:
-            _logger.info("Provider '%s' is not in MLFLOW_GATEWAY_ALLOWED_PROVIDERS", p)
+            _logger.debug("Provider '%s' is not in MLFLOW_GATEWAY_ALLOWED_PROVIDERS", p)
             continue
         if blocked is not None and name in blocked:
-            _logger.info("Provider '%s' is blocked by MLFLOW_GATEWAY_BLOCKED_PROVIDERS", p)
+            _logger.debug("Provider '%s' is blocked by MLFLOW_GATEWAY_BLOCKED_PROVIDERS", p)
             continue
         result.append(p)
     return result

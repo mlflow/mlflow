@@ -222,7 +222,7 @@ def _build_endpoint_config(
     provider_name = _provider_key_to_str(model_config.provider)
     if not is_provider_allowed(provider_name):
         raise MlflowException.invalid_parameter_value(
-            f"Provider '{model_config.provider}' is not allowed by the current gateway "
+            f"Provider '{provider_name}' is not allowed by the current gateway "
             "provider policy. Check MLFLOW_GATEWAY_ALLOWED_PROVIDERS and "
             "MLFLOW_GATEWAY_BLOCKED_PROVIDERS."
         )
