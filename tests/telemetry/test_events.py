@@ -767,6 +767,10 @@ def test_update_issue_parse_result(source_run_id, expected_params):
     assert UpdateIssueEvent.parse_result(mock_issue) == expected_params
 
 
+def test_update_issue_parse_result_none():
+    assert UpdateIssueEvent.parse_result(None) == {}
+
+
 @pytest.mark.parametrize(
     ("arguments", "expected_eval_data_type"),
     [

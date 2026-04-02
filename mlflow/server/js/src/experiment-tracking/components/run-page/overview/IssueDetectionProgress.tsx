@@ -20,8 +20,6 @@ import { JobStatus, isJobComplete } from '../hooks/useFetchJobStatus';
 import { useCancelJob } from '../hooks/useCancelJob';
 import { useLogTelemetryEvent } from '../../../../telemetry/hooks/useLogTelemetryEvent';
 
-const loggedRunUuids = new Set<string>();
-
 export interface IssueJobResult {
   issues?: number;
   summary?: string;
@@ -112,14 +110,13 @@ export const IssueDetectionProgress = ({
   const identifiedIssues = issues.length;
 
   useEffect(() => {
-    if (isJobSucceeded && runUuid && !loggedRunUuids.has(runUuid)) {
-      loggedRunUuids.add(runUuid);
+    if (isJobSucceeded && runUuid) {
       logTelemetryEvent({
         componentId: 'mlflow.issue-detection.completed',
-        componentType: DesignSystemEventProviderComponentTypes.Button,
+        componentType: DesignSystemEventProviderComponentTypes.Card,
         // Use runUuid as componentViewId to track the same eval result across sessions
         componentViewId: runUuid ?? '',
-        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnValueChange,
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnView,
         value: JSON.stringify({
           totalTraces,
           identifiedIssues: result?.issues,

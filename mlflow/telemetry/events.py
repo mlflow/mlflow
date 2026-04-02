@@ -757,5 +757,5 @@ class UpdateIssueEvent(Event):
         }
 
     @classmethod
-    def parse_result(cls, result: Any) -> dict[str, Any] | None:
-        return {"source_run_id": result.source_run_id}
+    def parse_result(cls, result: Any) -> dict[str, Any]:
+        return {"source_run_id": result.source_run_id} if result else {}
