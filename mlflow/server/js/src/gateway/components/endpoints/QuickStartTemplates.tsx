@@ -12,6 +12,8 @@ interface QuickStartTemplate {
   model: string;
   endpointName: string;
   secretName: string;
+  /** Override capabilities instead of deriving from the model catalog */
+  capabilitiesOverride?: string;
 }
 
 /**
@@ -48,6 +50,7 @@ const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
     model: 'databricks-gpt-5',
     endpointName: 'databricks-gpt-5-endpoint',
     secretName: 'databricks-api-key',
+    capabilitiesOverride: 'Tools, Reasoning, Caching, Structured, Enterprise-grade',
   },
 ];
 
@@ -79,6 +82,7 @@ const useTemplateCapabilities = (templates: QuickStartTemplate[]) => {
     () =>
       new Map(
         templates.map((t) => {
+          if (t.capabilitiesOverride) return [t.provider, t.capabilitiesOverride];
           const model = allModels.get(`${t.provider}/${t.model}`);
           return [t.provider, getModelCapabilities(model)];
         }),
