@@ -681,7 +681,7 @@ const useSearchMlflowTracesInner = ({
 }: UseSearchMlflowTracesInnerParams): UseSearchMlflowTracesInnerResult => {
   const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
   const usingLongRunningAPI = usingV4APIs && shouldUseLongRunningTracesAPI();
-  const usingInfinitePagination = shouldUseInfinitePaginatedTraces();
+  const usingInfinitePagination = !usingV4APIs && shouldUseInfinitePaginatedTraces();
 
   const queryCacheConfig = useMemo(() => getSearchMlflowTracesQueryCacheConfig(Boolean(usingV4APIs)), [usingV4APIs]);
 
