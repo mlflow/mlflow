@@ -2,15 +2,24 @@ import functools
 import importlib.resources
 import json
 import logging
+import threading
+import time
+import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TypedDict
 
 from typing_extensions import NotRequired
 
+from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URL
+
 _logger = logging.getLogger(__name__)
 
 _SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
+
+# Per-provider remote cache: {provider: (models, timestamp)}
+_remote_provider_cache: dict[str, tuple[dict[str, "ModelInfo"], float]] = {}
+_remote_provider_lock = threading.Lock()
 
 
 class FieldDict(TypedDict):
@@ -189,18 +198,55 @@ def _list_provider_names() -> list[str]:
         return []
 
 
+def _parse_catalog_models(catalog: CatalogFile) -> dict[str, ModelInfo]:
+    return {
+        name: _flatten_catalog_entry(entry) for name, entry in catalog.get("models", {}).items()
+    }
+
+
+def _fetch_remote_provider(provider: str) -> dict[str, ModelInfo] | None:
+    """Try to fetch a single provider's catalog from the remote URL with TTL caching."""
+    base_url = MLFLOW_MODEL_CATALOG_URL.get()
+    if not base_url:
+        return None
+
+    ttl = MLFLOW_MODEL_CATALOG_CACHE_TTL.get()
+
+    with _remote_provider_lock:
+        if cached := _remote_provider_cache.get(provider):
+            if (time.time() - cached[1]) < ttl:
+                return cached[0]
+
+    try:
+        url = f"{base_url.rstrip('/')}/{provider}.json"
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            catalog: CatalogFile = json.loads(resp.read().decode("utf-8"))
+        result = _parse_catalog_models(catalog)
+        with _remote_provider_lock:
+            _remote_provider_cache[provider] = (result, time.time())
+        return result
+    except Exception:
+        _logger.debug("Failed to fetch remote catalog for %s", provider, exc_info=True)
+        return None
+
+
 @functools.lru_cache(maxsize=128)
-def _load_provider(provider: str) -> dict[str, ModelInfo]:
-    """Load a single provider's catalog file, returning ``{model_name: ModelInfo}``."""
+def _load_bundled_provider(provider: str) -> dict[str, ModelInfo]:
+    """Load a single provider's catalog from the bundled package resources."""
     resource = _catalog_pkg().joinpath(f"{provider}.json")
     try:
         with importlib.resources.as_file(resource) as path, path.open(encoding="utf-8") as f:
             catalog: CatalogFile = json.load(f)
+            return _parse_catalog_models(catalog)
     except (FileNotFoundError, TypeError):
         return {}
-    return {
-        name: _flatten_catalog_entry(entry) for name, entry in catalog.get("models", {}).items()
-    }
+
+
+def _load_provider(provider: str) -> dict[str, ModelInfo]:
+    """Load a provider's model catalog, trying remote first then bundled fallback."""
+    if remote := _fetch_remote_provider(provider):
+        return remote
+    return _load_bundled_provider(provider)
 
 
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
