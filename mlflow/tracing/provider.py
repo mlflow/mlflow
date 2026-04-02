@@ -770,6 +770,16 @@ def _get_mlflow_span_processor(tracking_uri: str):
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
+    # When async logging is active on a SQL-backed (SqlAlchemyStore) backend, write
+    # spans alongside the trace in a single start_trace transaction. This eliminates
+    # the race between concurrent _log_spans and _log_trace async tasks that causes
+    # TOKEN_USAGE to be double-counted. Restricted to SQL backends because other
+    # stores (FileStore, REST) do not implement the spans parameter.
+    _SQL_URI_SCHEMES = {"sqlite", "postgresql", "mysql", "mssql"}
+    uri_scheme = (tracking_uri or "").split("://")[0] if "://" in (tracking_uri or "") else ""
+    exporter._write_spans_with_trace = (
+        exporter._is_async_enabled and uri_scheme in _SQL_URI_SCHEMES
+    )
     return MlflowV3SpanProcessor(
         span_exporter=exporter,
         export_metrics=should_export_otlp_metrics(),

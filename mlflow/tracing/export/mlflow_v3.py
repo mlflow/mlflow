@@ -12,7 +12,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.exceptions import RestException
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import SpansLocation, TraceTagKey
+from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
@@ -36,7 +36,9 @@ class MlflowV3SpanExporter(SpanExporter):
     using the V3 trace schema and API.
     """
 
-    def __init__(self, tracking_uri: str | None = None) -> None:
+    def __init__(
+        self, tracking_uri: str | None = None, write_spans_with_trace: bool = False
+    ) -> None:
         self._client = TracingClient(tracking_uri)
         self._is_async_enabled = self._should_enable_async_logging()
         if self._is_async_enabled:
@@ -49,6 +51,12 @@ class MlflowV3SpanExporter(SpanExporter):
         # if log_spans() raises NotImplementedError or returns a 501.
         self._store_supports_log_spans = True
 
+        # When True, skip incremental span export and instead pass spans to start_trace
+        # so both are written in a single DB transaction. This eliminates the race
+        # between concurrent _log_spans and _log_trace async tasks that causes
+        # TOKEN_USAGE to be double-counted.
+        self._write_spans_with_trace = write_spans_with_trace
+
     def export(self, spans: Sequence[ReadableSpan]) -> None:
         """
         Export the spans to the destination.
@@ -58,7 +66,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 a span processor. All spans (root and non-root) are exported.
         """
 
-        if self._store_supports_log_spans:
+        if self._store_supports_log_spans and not self._write_spans_with_trace:
             self._export_spans_incrementally(spans)
 
         self._export_traces(spans)
@@ -167,16 +175,17 @@ class MlflowV3SpanExporter(SpanExporter):
             if not maybe_get_request_id(is_evaluate=True):
                 self._display_handler.display_traces([trace])
 
+            spans_to_write = list(trace.data.spans) if self._write_spans_with_trace else None
             if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_trace,
-                        args=(trace, manager_trace.prompts),
+                        args=(trace, manager_trace.prompts, spans_to_write),
                         error_msg="Failed to log trace to the trace server.",
                     )
                 )
             else:
-                self._log_trace(trace, prompts=manager_trace.prompts)
+                self._log_trace(trace, prompts=manager_trace.prompts, spans=spans_to_write)
 
     def _log_spans(self, experiment_id: str, spans: list[Span]) -> None:
         """
@@ -204,7 +213,12 @@ class MlflowV3SpanExporter(SpanExporter):
         except Exception as e:
             _logger.debug(f"Failed to log span to MLflow backend: {e}")
 
-    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]) -> None:
+    def _log_trace(
+        self,
+        trace: Trace,
+        prompts: Sequence[PromptVersion],
+        spans: list[Span] | None = None,
+    ) -> None:
         """
         Handles exporting a trace to MLflow using the V3 API and blob storage.
         Steps:
@@ -215,7 +229,7 @@ class MlflowV3SpanExporter(SpanExporter):
         try:
             if trace:
                 add_size_stats_to_trace_metadata(trace)
-                returned_trace_info = self._client.start_trace(trace.info)
+                returned_trace_info = self._client.start_trace(trace.info, spans=spans)
 
                 if self._should_log_spans_to_artifacts(returned_trace_info):
                     self._client._upload_trace_data(returned_trace_info, trace.data)

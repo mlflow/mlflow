@@ -618,6 +618,7 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
         ) as mock_upload_trace_data,
     ):
         exporter = MlflowV3SpanExporter()
+        exporter._is_async_enabled = False
         exporter.export([otel_span])
         mock_upload_trace_data.assert_not_called()
         mock_start_trace.assert_called_once()
@@ -644,6 +645,7 @@ def test_batch_write_skipped_when_store_unsupported():
         mock.patch("mlflow.tracing.client.TracingClient.log_spans") as mock_log_spans,
     ):
         exporter = MlflowV3SpanExporter()
+        exporter._is_async_enabled = False
         exporter._store_supports_log_spans = False
         exporter.export([otel_span])
 

@@ -3247,12 +3247,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
         return SqlTraceTag(request_id=trace_id, key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
-    def start_trace(self, trace_info: "TraceInfo") -> TraceInfo:
+    def start_trace(self, trace_info: "TraceInfo", spans=None) -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
 
         Args:
             trace_info: The TraceInfo object to create in the backend.
+            spans: Optional list of Span objects to write in the same DB transaction.
+                When provided, spans are bulk-upserted atomically with the trace, and
+                SPANS_LOCATION=TRACKING_STORE is set so artifacts are not re-uploaded.
 
         Returns:
             The created TraceInfo object from the backend.
@@ -3279,6 +3282,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             tags = [
                 SqlTraceTag(request_id=trace_id, key=k, value=v) for k, v in trace_info.tags.items()
             ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
+            if spans:
+                tags.append(
+                    SqlTraceTag(
+                        request_id=trace_id,
+                        key=TraceTagKey.SPANS_LOCATION,
+                        value=SpansLocation.TRACKING_STORE.value,
+                    )
+                )
             sql_trace_info.tags = tags
 
             # Build metadata and metrics but don't attach to sql_trace_info yet —
@@ -3377,6 +3388,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     session.merge(SqlTraceMetadata(request_id=trace_id, key=k, value=v))
                 for k, v in trace_metrics.items():
                     session.merge(SqlTraceMetrics(request_id=trace_id, key=k, value=v))
+
+            if spans:
+                span_rows, metric_rows = self._build_span_rows(
+                    spans, trace_id, trace_info.experiment_id
+                )
+                _bulk_upsert(session, SqlSpan, span_rows)
+                _bulk_upsert(session, SqlSpanMetrics, metric_rows)
 
             return sql_trace_info.to_mlflow_entity()
 
@@ -4482,6 +4500,44 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             filter2_count=filter2_count,
             joint_count=joint_count,
         )
+
+    def _build_span_rows(
+        self, spans: list[Span], trace_id: str, experiment_id: str
+    ) -> tuple[list[dict], list[dict]]:
+        """Build SqlSpan and SqlSpanMetrics row dicts for use with _bulk_upsert."""
+        span_rows = []
+        metric_rows = []
+        for span in spans:
+            span_dict = translate_span_when_storing(span)
+            span_attributes = span_dict.get("attributes", {})
+            content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
+            dimension_attributes = {}
+            for key in [SpanAttributeKey.MODEL, SpanAttributeKey.MODEL_PROVIDER]:
+                if value := span_attributes.get(key):
+                    dimension_attributes[key] = _try_parse_json_string(value)
+            span_rows.append({
+                "trace_id": trace_id,
+                "experiment_id": experiment_id,
+                "span_id": span.span_id,
+                "parent_span_id": span.parent_id,
+                "name": span.name,
+                "type": span.span_type,
+                "status": span.status.status_code,
+                "start_time_unix_nano": span.start_time_ns,
+                "end_time_unix_nano": span.end_time_ns,
+                "content": content_json,
+                "dimension_attributes": dimension_attributes or None,
+            })
+            if span_cost_raw := span_attributes.get(SpanAttributeKey.LLM_COST):
+                span_cost = json.loads(span_cost_raw)
+                for cost_key, cost_value in span_cost.items():
+                    metric_rows.append({
+                        "trace_id": trace_id,
+                        "span_id": span.span_id,
+                        "key": cost_key,
+                        "value": float(cost_value),
+                    })
+        return span_rows, metric_rows
 
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
