@@ -135,6 +135,10 @@
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
   },
+  "//TaNF": {
+    "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking and budget controls. {br}{br}All requests are automatically logged as MLflow Traces for debugging and evaluation.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
+  },
   "/2InJv": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
@@ -6886,10 +6890,6 @@
   "gt4t2m": {
     "defaultMessage": "Issue detection completed",
     "description": "Issue detection progress > Step label when completed"
-  },
-  "gzndut": {
-    "defaultMessage": "A Gateway endpoint lets your agents call any AI model through a single API. Just pick a model, add your API key, and you're ready to go, with usage tracking and budget controls built in. {br}{br}Every request is automatically logged as an MLflow Trace, so you can debug and evaluate later.",
-    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
