@@ -196,9 +196,7 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 provider_duration_ms = int(provider_call_duration_ms.get())
                 is_streaming = isinstance(result, StreamingResponse)
                 overhead_ms = (
-                    max(0, duration_ms - provider_duration_ms)
-                    if provider_duration_ms > 0
-                    else None
+                    max(0, duration_ms - provider_duration_ms) if provider_duration_ms > 0 else None
                 )
                 if http_exc is not None:
                     # FastAPI builds error responses from the HTTPException; mutate its
