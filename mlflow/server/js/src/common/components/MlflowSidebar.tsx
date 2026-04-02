@@ -25,6 +25,7 @@ import { Link, matchPath, useLocation, useParams, useSearchParams } from '../uti
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
+import { GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
 import { useWorkflowType, WorkflowType } from '../contexts/WorkflowTypeContext';
@@ -210,9 +211,7 @@ export function MlflowSidebar({
                 children: (
                   <>
                     <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />
-                    <Tag componentId="mlflow.sidebar.gateway_new_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
-                      <FormattedMessage defaultMessage="New" description="Sidebar > AI Gateway > New feature tag" />
-                    </Tag>
+                    <GatewayNewTag />
                   </>
                 ),
               },

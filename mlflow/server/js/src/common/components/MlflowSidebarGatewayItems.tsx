@@ -1,12 +1,6 @@
-import {
-  ChainIcon,
-  ChartLineIcon,
-  CloudModelIcon,
-  CreditCardIcon,
-  Tag,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { ChainIcon, ChartLineIcon, CloudModelIcon, CreditCardIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { GatewayNewTag } from './GatewayNewTag';
 import GatewayRoutes from '../../gateway/routes';
 import { matchPath } from '../utils/RoutingUtils';
 import type { Location } from '../utils/RoutingUtils';
@@ -40,9 +34,7 @@ export const MlflowSidebarGatewayItems = ({ collapsed }: { collapsed: boolean })
         {!collapsed && (
           <>
             <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway" />
-            <Tag componentId="mlflow.sidebar.gateway_new_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
-              <FormattedMessage defaultMessage="New" description="Sidebar > AI Gateway > New feature tag" />
-            </Tag>
+            <GatewayNewTag />
           </>
         )}
       </div>
