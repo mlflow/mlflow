@@ -57,7 +57,7 @@ def test_headers():
 
 def test_name():
     provider = _make_provider()
-    assert provider.NAME == "Groq"
+    assert provider.DISPLAY_NAME == "Groq"
 
 
 @pytest.mark.asyncio

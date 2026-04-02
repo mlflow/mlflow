@@ -26,7 +26,7 @@ class VertexAIProvider(GeminiProvider):
     Anthropic Messages API) and are not yet supported by this provider.
     """
 
-    NAME = "Vertex AI"
+    DISPLAY_NAME = "Vertex AI"
     CONFIG_TYPE = VertexAIConfig
 
     def get_provider_name(self) -> str:

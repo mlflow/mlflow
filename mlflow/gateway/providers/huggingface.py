@@ -12,7 +12,7 @@ from mlflow.gateway.schemas import completions
 
 
 class HFTextGenerationInferenceServerProvider(BaseProvider):
-    NAME = "Hugging Face Text Generation Inference"
+    DISPLAY_NAME = "Hugging Face Text Generation Inference"
     CONFIG_TYPE = HuggingFaceTextGenerationInferenceConfig
 
     def get_provider_name(self) -> str:

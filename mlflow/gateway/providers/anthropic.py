@@ -465,7 +465,7 @@ class AnthropicAdapter(ProviderAdapter):
 
 
 class AnthropicProvider(BaseProvider, AnthropicAdapter):
-    NAME = "Anthropic"
+    DISPLAY_NAME = "Anthropic"
     CONFIG_TYPE = AnthropicConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {

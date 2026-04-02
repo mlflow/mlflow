@@ -291,7 +291,7 @@ class TogetherAIAdapter(ProviderAdapter):
 
 
 class TogetherAIProvider(BaseProvider):
-    NAME = "TogetherAI"
+    DISPLAY_NAME = "TogetherAI"
     CONFIG_TYPE = TogetherAIConfig
 
     def get_provider_name(self) -> str:

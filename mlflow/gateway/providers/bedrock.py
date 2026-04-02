@@ -179,7 +179,7 @@ AWS_MODEL_PROVIDER_TO_ADAPTER = {
 
 
 class AmazonBedrockProvider(BaseProvider):
-    NAME = "Amazon Bedrock"
+    DISPLAY_NAME = "Amazon Bedrock"
     CONFIG_TYPE = AmazonBedrockConfig
 
     def get_provider_name(self) -> str:

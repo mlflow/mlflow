@@ -57,7 +57,7 @@ def completions_response():
 def test_get_provider_name():
     config = completions_config()
     provider = TogetherAIProvider(EndpointConfig(**config))
-    assert provider.NAME == "TogetherAI"
+    assert provider.DISPLAY_NAME == "TogetherAI"
     assert provider.get_provider_name() == "together_ai"
 
 

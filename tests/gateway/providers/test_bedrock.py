@@ -320,7 +320,7 @@ def _assert_any_call_at_least(mobj, *args, **kwargs):
 
 def test_get_provider_name():
     provider = AmazonBedrockProvider.__new__(AmazonBedrockProvider)
-    assert provider.NAME == "Amazon Bedrock"
+    assert provider.DISPLAY_NAME == "Amazon Bedrock"
     assert provider.get_provider_name() == "bedrock"
 
 

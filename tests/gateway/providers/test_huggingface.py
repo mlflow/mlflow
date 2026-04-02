@@ -67,7 +67,7 @@ def completions_response():
 def test_get_provider_name():
     config = completions_config()
     provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
-    assert provider.NAME == "Hugging Face Text Generation Inference"
+    assert provider.DISPLAY_NAME == "Hugging Face Text Generation Inference"
     assert provider.get_provider_name() == "huggingface"
 
 

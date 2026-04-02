@@ -25,7 +25,7 @@ class _TestConfig(_OpenAICompatibleConfig):
 
 
 class _TestProvider(OpenAICompatibleProvider):
-    NAME = "TestProvider"
+    DISPLAY_NAME = "TestProvider"
     CONFIG_TYPE = _TestConfig
     DEFAULT_API_BASE = "https://api.test-provider.com/v1"
 

@@ -77,7 +77,7 @@ def test_headers_from_sdk():
 
 def test_name():
     provider = _make_provider()
-    assert provider.NAME == "Databricks"
+    assert provider.DISPLAY_NAME == "Databricks"
 
 
 def test_sdk_receives_explicit_credentials():

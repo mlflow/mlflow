@@ -20,7 +20,7 @@ def get_traces():
 class MockProvider(BaseProvider):
     """Mock provider for testing tracing functionality built into BaseProvider."""
 
-    NAME = "MockProvider"
+    DISPLAY_NAME = "MockProvider"
 
     class MockConfig:
         pass
