@@ -9,7 +9,6 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
 import { OverviewChartContext } from '../OverviewChartContext';
 import Routes from '../../../routes';
