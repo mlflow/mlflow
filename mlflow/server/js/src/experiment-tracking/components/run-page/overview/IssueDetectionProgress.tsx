@@ -44,6 +44,10 @@ export interface IssueDetectionProgressProps {
   jobStatusError?: Error | null;
   /** Error message from backend when job failed */
   jobErrorMessage?: string;
+  /** Callback to retry the job when it failed */
+  onRetry?: () => void;
+  /** Whether a retry is in progress */
+  isRetrying?: boolean;
 }
 
 export const IssueDetectionProgress = ({
@@ -55,6 +59,8 @@ export const IssueDetectionProgress = ({
   isLoadingJobStatus,
   jobStatusError,
   jobErrorMessage,
+  onRetry,
+  isRetrying,
 }: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -160,6 +166,16 @@ export const IssueDetectionProgress = ({
             loading={isCancelling}
           >
             <FormattedMessage defaultMessage="Cancel" description="Issue detection progress > Cancel button" />
+          </Button>
+        )}
+        {(isJobFailed || isJobCanceled) && onRetry && (
+          <Button
+            componentId="mlflow.traces.issue-detection.retry-button"
+            type="primary"
+            onClick={onRetry}
+            loading={isRetrying}
+          >
+            <FormattedMessage defaultMessage="Retry" description="Issue detection progress > Retry button" />
           </Button>
         )}
       </div>

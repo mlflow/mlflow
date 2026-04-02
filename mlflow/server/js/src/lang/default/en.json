@@ -1398,6 +1398,10 @@
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
     "description": "Step 1 description for defining judge function"
   },
+  "7ODRz9": {
+    "defaultMessage": "Failed to retry issue detection: {error}",
+    "description": "Error message when retry fails"
+  },
   "7PCvDy": {
     "defaultMessage": "OK",
     "description": "Confirmation button text on the model version stage transition request/approval modal"
@@ -3093,6 +3097,10 @@
   "IdxSB8": {
     "defaultMessage": "images",
     "description": "Experiment tracking > runs charts > charts > image grid multiple key > table header text"
+  },
+  "If/CwS": {
+    "defaultMessage": "Retry",
+    "description": "Issue detection progress > Retry button"
   },
   "IfcpiM": {
     "defaultMessage": "Step",

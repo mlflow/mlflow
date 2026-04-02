@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Tag, useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { useIntl } from 'react-intl';
-import { Link } from '../../../../common/utils/RoutingUtils';
+import { Link, useNavigate } from '../../../../common/utils/RoutingUtils';
 import Utils from '../../../../common/utils/Utils';
 import { DetailsPageLayout } from '../../../../common/components/details-page-layout/DetailsPageLayout';
 import { DetailsOverviewCopyableIdBox } from '../../DetailsOverviewCopyableIdBox';
@@ -16,6 +16,7 @@ import type { RunInfoEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 import { runStatusToJobStatus } from '../../../utils/statusMapping';
+import { useRetryIssueDetection } from '../hooks/useRetryIssueDetection';
 import {
   MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG,
   MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG,
@@ -40,6 +41,7 @@ export const IssueDetectionRunOverview = ({
 }: IssueDetectionRunOverviewProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
 
   const {
     status: jobStatus,
@@ -53,7 +55,8 @@ export const IssueDetectionRunOverview = ({
   });
 
   // Parse issue-specific result format from job if available
-  const isFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT;
+  const isFailed =
+    jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT || jobStatus === JobStatus.CANCELED;
   const jobErrorMessage = isFailed && typeof rawResult === 'string' ? rawResult : undefined;
   const jobResult =
     !isFailed && typeof rawResult === 'object' && rawResult !== null ? (rawResult as IssueJobResult) : undefined;
@@ -89,6 +92,34 @@ export const IssueDetectionRunOverview = ({
   const endpointId = endpointData?.endpoint?.endpoint_id;
   const categoriesStr = tags['categories']?.value;
   const categories = categoriesStr ? categoriesStr.split(',').map((c) => c.trim()) : undefined;
+
+  const { retryIssueDetection, isRetrying } = useRetryIssueDetection();
+
+  const handleRetry = async () => {
+    if (!categories || !runInfo.experimentId || !runInfo.runUuid) return;
+    try {
+      const { run_id } = await retryIssueDetection({
+        experimentId: runInfo.experimentId,
+        runUuid: runInfo.runUuid,
+        endpointName,
+        model,
+        categories: categories as any,
+      });
+      navigate(Routes.getIssueDetectionRunDetailsRoute(runInfo.experimentId, run_id));
+    } catch (error: any) {
+      Utils.logErrorAndNotifyUser(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to retry issue detection: {error}',
+            description: 'Error message when retry fails',
+          },
+          { error: error.message },
+        ),
+      );
+    }
+  };
+
+  const canRetry = isFailed && !!(endpointName || model) && !!categories && !!runInfo.experimentId && !!runInfo.runUuid;
   // Use total_traces_analyzed from result if available, otherwise fall back to total_traces tag
   const totalTraces =
     result?.total_traces_analyzed ??
@@ -236,6 +267,8 @@ export const IssueDetectionRunOverview = ({
         isLoadingJobStatus={jobId ? isLoadingJobStatus : false}
         jobStatusError={jobStatusError}
         jobErrorMessage={jobErrorMessage}
+        onRetry={canRetry ? handleRetry : undefined}
+        isRetrying={isRetrying}
       />
     </DetailsPageLayout>
   );
