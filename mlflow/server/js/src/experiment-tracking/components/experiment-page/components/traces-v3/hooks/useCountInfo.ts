@@ -4,7 +4,12 @@ import {
   getEvalTabTotalTracesLimit,
 } from '@databricks/web-shared/genai-traces-table';
 import { useTraceMetricsQuery } from '../../../../../pages/experiment-overview/hooks/useTraceMetricsQuery';
-import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
+import {
+  MetricViewType,
+  AggregationType,
+  TraceMetricKey,
+  createTraceMetadataFilter,
+} from '@databricks/web-shared/model-trace-explorer';
 import {
   getAbsoluteStartEndTime,
   useMonitoringFilters,
@@ -23,18 +28,24 @@ import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hook
  */
 export function useCountInfo({
   experimentIds,
+  runUuid,
   traceInfosCount,
   traceInfosLoading,
   metadataTotalCount,
   disabled,
 }: {
   experimentIds: string[];
+  runUuid?: string;
   traceInfosCount: number | undefined;
   traceInfosLoading: boolean;
   metadataTotalCount: number;
   disabled: boolean;
 }) {
   const usingInfinitePagination = shouldUseInfinitePaginatedTraces();
+  const filters = useMemo(
+    () => (runUuid ? [createTraceMetadataFilter('mlflow.sourceRun', runUuid)] : undefined),
+    [runUuid],
+  );
 
   // Use getAbsoluteStartEndTime to properly compute time range from labels
   const [monitoringFilters] = useMonitoringFilters();
@@ -56,6 +67,7 @@ export function useCountInfo({
     startTimeMs,
     endTimeMs,
     enabled: usingInfinitePagination && !disabled,
+    filters,
   });
   const metricsTotal = traceCountMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT];
 
