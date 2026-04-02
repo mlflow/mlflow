@@ -1348,10 +1348,17 @@ def test_discover_issues(mock_requests, mock_telemetry_client: TelemetryClient):
         mock.MagicMock(spec=Trace),
     ]
 
+    mock_triage_run_id = "abc123"
+    mock_eval_result = mock.MagicMock()
+    mock_eval_result.run_id = mock_triage_run_id
+
     with (
         patch("mlflow.genai.discovery.pipeline.get_session_id", return_value=None),
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
-        patch("mlflow.genai.discovery.pipeline.mlflow.genai.evaluate"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=mock_eval_result,
+        ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
             return_value=_TriageResult([], {}, {}),
@@ -1369,9 +1376,11 @@ def test_discover_issues(mock_requests, mock_telemetry_client: TelemetryClient):
         "model": "openai:/gpt-4",
         "trace_count": 3,
         "categories": ["hallucination", "accuracy"],
+        "source_run_id": None,
         "issue_count": 0,
         "total_traces_analyzed": 3,
         "total_cost_usd": None,
+        "triage_run_id": mock_triage_run_id,
     }
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, DiscoverIssuesEvent.name, expected_params
@@ -2306,5 +2315,6 @@ def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryC
             "has_name": True,
             "has_description": True,
             "severity": "high",
+            "source_run_id": None,
         },
     )
