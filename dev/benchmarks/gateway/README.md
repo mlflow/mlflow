@@ -7,7 +7,7 @@ so results reflect pure MLflow processing time rather than provider variance.
 ## Prerequisites
 
 - Python 3.10+ with [`uv`](https://docs.astral.sh/uv/) — all scripts must be run via `uv run`, which handles dependency installation automatically via inline script metadata
-- Docker (required for `--backend postgres` and `multi` mode)
+- Docker (required for `--database postgres` and `multi` mode)
 
 ## Quick start
 
@@ -21,7 +21,7 @@ uv run run.py
 uv run run.py --instances 1
 
 # Single instance, PostgreSQL
-uv run run.py --instances 1 --backend postgres
+uv run run.py --instances 1 --database postgres
 
 # Scale up
 uv run run.py --instances 8 --workers 8
@@ -94,7 +94,7 @@ DB schema before the others join. All instances share one PostgreSQL database.
 | `--url URL`                  | —        | Benchmark this URL directly, skip all setup                             |
 | `--instances N`              | 4        | MLflow instances. Use 1 for single-instance (no nginx, optional SQLite) |
 | `--workers N`                | 4        | MLflow worker processes per instance                                    |
-| `--backend sqlite\|postgres` | `sqlite` | DB backend — only applies when `--instances 1`                          |
+| `--database sqlite\|postgres` | `sqlite` | Database to use — only applies when `--instances 1`                    |
 | `--no-usage-tracking`        | —        | Disable usage tracking (tracing) on the endpoint                        |
 | `--port N`                   | 5731     | Port to benchmark (MLflow port for single, nginx LB port for multi)     |
 | `--base-port N`              | 5800     | First MLflow instance port in multi mode (rest are +1, +2, …)           |
@@ -104,7 +104,8 @@ DB schema before the others join. All instances share one PostgreSQL database.
 | `--runs N`                   | 3        | Number of benchmark runs                                                |
 | `--fake-delay-ms N`          | 50       | Simulated provider latency in ms                                        |
 | `--min-rps N`                | —        | Fail (exit 1) if average throughput falls below N req/s                 |
-| `--max-p99-ms N`             | —        | Fail (exit 1) if average P99 latency exceeds N ms                       |
+| `--max-p50-ms N`             | —        | Fail (exit 1) if average P50 latency exceeds N ms (CI threshold)        |
+| `--max-p99-ms N`             | —        | Fail (exit 1) if average P99 latency exceeds N ms (CI threshold)        |
 
 All flags can also be set via environment variables (same name, uppercased):
 `INSTANCES`, `WORKERS_PER_INSTANCE`, `REQUESTS`, `MAX_CONCURRENT`, `RUNS`,

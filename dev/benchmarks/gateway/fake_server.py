@@ -30,7 +30,7 @@ DELAY_MS = int(os.environ.get("FAKE_RESPONSE_DELAY_MS", "50"))
 
 
 class ChatRequest(BaseModel):
-    model: str = "gpt-3.5-turbo"
+    model: str = "gpt-4o-mini"
     messages: list[dict[str, str]] = Field(default_factory=list)
     stream: bool = False
     temperature: float = 1.0

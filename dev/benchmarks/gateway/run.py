@@ -10,7 +10,7 @@ nginx (via Docker), then runs the async benchmark client.
 Usage:
     uv run run.py                              # 4 instances, PostgreSQL, nginx (Docker)
     uv run run.py --instances 1               # single instance, SQLite, no Docker
-    uv run run.py --instances 1 --backend postgres
+    uv run run.py --instances 1 --database postgres
     uv run run.py --instances 8 --workers 8
     uv run run.py --url http://...            # benchmark an existing endpoint directly
 """
@@ -44,9 +44,11 @@ from rich.progress import (  # type: ignore[import-not-found]
 SCRIPT_DIR = Path(__file__).parent
 
 FAKE_SERVER_PORT = 9137
+FAKE_SERVER_WORKERS = 8
 MLFLOW_PORT = 5731
 INSTANCE_BASE_PORT = 5800
 POSTGRES_PORT = int(os.environ.get("GATEWAY_BENCH_POSTGRES_PORT", "5432"))
+POSTGRES_PASSWORD = "benchmarkpass"
 ENDPOINT_NAME = "benchmark-chat"
 
 _API_SECRET_CREATE = "gateway/secrets/create"
@@ -101,7 +103,7 @@ def _wait_for_port(port: int, label: str, log_file: Path | None = None, timeout:
 
 @contextlib.contextmanager
 def _start_fake_server(
-    work_dir: str, port: int = FAKE_SERVER_PORT, workers: int = 8
+    work_dir: str, port: int = FAKE_SERVER_PORT, workers: int = FAKE_SERVER_WORKERS
 ) -> Generator[None, None, None]:
     prefix = _uv_prefix()
     log_file = Path(work_dir) / "fake_server.log"
@@ -203,7 +205,7 @@ def _start_postgres(container_name: str = "benchmark-postgres") -> Generator[str
                 "--name",
                 container_name,
                 "-e",
-                "POSTGRES_PASSWORD=benchmarkpass",
+                f"POSTGRES_PASSWORD={POSTGRES_PASSWORD}",
                 "-e",
                 "POSTGRES_DB=mlflow",
                 "-p",
@@ -233,7 +235,7 @@ def _start_postgres(container_name: str = "benchmark-postgres") -> Generator[str
 
     console.print("  [green]✓[/green] PostgreSQL ready")
     try:
-        yield f"postgresql://postgres:benchmarkpass@127.0.0.1:{POSTGRES_PORT}/mlflow"
+        yield f"postgresql://postgres:{POSTGRES_PASSWORD}@127.0.0.1:{POSTGRES_PORT}/mlflow"
     finally:
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
 
@@ -321,11 +323,14 @@ def _run_benchmark(
     max_concurrent: int,
     runs: int,
     min_rps: float | None = None,
+    max_p50_ms: float | None = None,
     max_p99_ms: float | None = None,
 ) -> None:
     results = bm.run_benchmark(url, n_requests, max_concurrent, runs)
     bm.print_results(results)
-    if not bm.check_thresholds(results, min_rps=min_rps, max_p99_ms=max_p99_ms):
+    if not bm.check_thresholds(
+        results, min_rps=min_rps, max_p50_ms=max_p50_ms, max_p99_ms=max_p99_ms
+    ):
         raise SystemExit(1)
 
 
@@ -451,11 +456,12 @@ def cmd_bench(args: argparse.Namespace) -> None:
             args.max_concurrent,
             args.runs,
             args.min_rps,
+            args.max_p50_ms,
             args.max_p99_ms,
         )
         return
 
-    needs_docker = instances > 1 or args.backend == "postgres"
+    needs_docker = instances > 1 or args.database == "postgres"
     if needs_docker:
         _check_docker()
 
@@ -467,7 +473,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
         if instances == 1:
             panel = (
                 f"[bold]Gateway Benchmark[/bold] ({mode})\n"
-                f"Workers: {args.workers}  ·  DB: {args.backend}  ·  "
+                f"Workers: {args.workers}  ·  DB: {args.database.upper()}  ·  "
                 f"Usage tracking: {args.usage_tracking}\n"
                 f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
                 f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
@@ -490,7 +496,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
             stack.callback(lambda: console.print("\n[dim]Cleaning up...[/dim]"))
 
             # Backend
-            if instances > 1 or args.backend == "postgres":
+            if instances > 1 or args.database == "postgres":
                 console.print("\n[bold]PostgreSQL[/bold]")
                 backend_uri = stack.enter_context(_start_postgres())
             else:
@@ -501,7 +507,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
             # Servers
             console.print("\n[bold]Starting servers[/bold]")
             stack.enter_context(
-                _start_fake_server(work_dir, port=fake_port, workers=8 if instances == 1 else 16)
+                _start_fake_server(work_dir, port=fake_port, workers=FAKE_SERVER_WORKERS)
             )
 
             if instances == 1:
@@ -562,6 +568,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
                 args.max_concurrent,
                 args.runs,
                 args.min_rps,
+                args.max_p50_ms,
                 args.max_p99_ms,
             )
 
@@ -596,11 +603,11 @@ def main() -> None:
         help="Gunicorn/uvicorn worker processes per MLflow instance (default: 4)",
     )
     parser.add_argument(
-        "--backend",
+        "--database",
         choices=["sqlite", "postgres"],
         default="sqlite",
         help=(
-            "Database backend — only applies when --instances 1. "
+            "Database to use — only applies when --instances 1. "
             "'postgres' auto-starts a Docker container. (default: sqlite)"
         ),
     )
@@ -676,6 +683,13 @@ def main() -> None:
         default=None,
         metavar="N",
         help="Exit 1 if average throughput across runs falls below N req/s (CI threshold)",
+    )
+    parser.add_argument(
+        "--max-p50-ms",
+        type=float,
+        default=None,
+        metavar="N",
+        help="Exit 1 if average P50 latency across runs exceeds N ms (CI threshold)",
     )
     parser.add_argument(
         "--max-p99-ms",

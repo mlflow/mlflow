@@ -31,6 +31,7 @@ from rich.table import Table  # type: ignore[import-not-found]
 console = Console()
 
 _BODY = {
+    "model": "gpt-4o-mini",
     "messages": [{"role": "user", "content": "benchmark request"}],
     "temperature": 0.0,
     "max_tokens": 50,
@@ -219,10 +220,12 @@ def print_results(results: list[RunResult]) -> None:
 def check_thresholds(
     results: list[RunResult],
     min_rps: float | None = None,
+    max_p50_ms: float | None = None,
     max_p99_ms: float | None = None,
 ) -> bool:
     """Check results against performance thresholds. Returns True if all pass."""
     avg_rps = statistics.mean(r.throughput for r in results)
+    avg_p50 = statistics.mean(r.percentile(50) for r in results)
     avg_p99 = statistics.mean(r.percentile(99) for r in results)
     passed = True
 
@@ -233,13 +236,19 @@ def check_thresholds(
         )
         passed = False
 
+    if max_p50_ms is not None and avg_p50 > max_p50_ms:
+        console.print(
+            f"\n[red]THRESHOLD FAILED:[/red] avg P50 {avg_p50:.1f} ms > maximum {max_p50_ms:.1f} ms"
+        )
+        passed = False
+
     if max_p99_ms is not None and avg_p99 > max_p99_ms:
         console.print(
             f"\n[red]THRESHOLD FAILED:[/red] avg P99 {avg_p99:.1f} ms > maximum {max_p99_ms:.1f} ms"
         )
         passed = False
 
-    if passed and (min_rps is not None or max_p99_ms is not None):
+    if passed and (min_rps is not None or max_p50_ms is not None or max_p99_ms is not None):
         console.print("\n[green]All thresholds passed.[/green]")
 
     return passed
@@ -259,6 +268,13 @@ def main() -> None:
         help="Fail (exit 1) if average throughput falls below N req/s",
     )
     parser.add_argument(
+        "--max-p50-ms",
+        type=float,
+        default=None,
+        metavar="N",
+        help="Fail (exit 1) if average P50 latency exceeds N ms",
+    )
+    parser.add_argument(
         "--max-p99-ms",
         type=float,
         default=None,
@@ -274,7 +290,9 @@ def main() -> None:
     results = run_benchmark(args.url, args.requests, args.max_concurrent, args.runs)
     print_results(results)
 
-    if not check_thresholds(results, min_rps=args.min_rps, max_p99_ms=args.max_p99_ms):
+    if not check_thresholds(
+        results, min_rps=args.min_rps, max_p50_ms=args.max_p50_ms, max_p99_ms=args.max_p99_ms
+    ):
         raise SystemExit(1)
 
 
