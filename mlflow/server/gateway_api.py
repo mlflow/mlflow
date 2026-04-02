@@ -221,10 +221,13 @@ def _build_endpoint_config(
     """
     provider_name = _provider_key_to_str(model_config.provider)
     if not is_provider_allowed(provider_name):
+        _logger.info(
+            "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS "
+            "or MLFLOW_GATEWAY_BLOCKED_PROVIDERS",
+            provider_name,
+        )
         raise MlflowException.invalid_parameter_value(
-            f"Provider '{provider_name}' is not allowed by the current gateway "
-            "provider policy. Check MLFLOW_GATEWAY_ALLOWED_PROVIDERS and "
-            "MLFLOW_GATEWAY_BLOCKED_PROVIDERS."
+            f"Provider '{provider_name}' is not allowed by the current gateway provider policy."
         )
 
     provider_config = None
@@ -297,7 +300,7 @@ def _build_endpoint_config(
             config_kwargs["token"] = model_config.secret_value.get(_AuthConfigKey.API_KEY)
         provider_config = DatabricksConfig(**config_kwargs)
         model_config.provider = Provider.DATABRICKS
-    elif model_config.provider in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
+    elif model_config.provider.canonical() == Provider.BEDROCK:
         auth_config = model_config.auth_config or {}
         auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "api_key")
         if auth_mode == "api_key":

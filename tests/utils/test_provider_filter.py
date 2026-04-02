@@ -11,15 +11,17 @@ from mlflow.utils.provider_filter import (
 @pytest.mark.parametrize(
     ("input_value", "expected"),
     [
-        (None, set()),
-        ("", set()),
-        ("openai", {"openai"}),
-        ("openai,anthropic", {"openai", "anthropic"}),
-        ("openai, anthropic, gemini", {"openai", "anthropic", "gemini"}),
-        (" openai , anthropic ", {"openai", "anthropic"}),
-        ("OpenAI,Anthropic", {"openai", "anthropic"}),
-        ("openai,,anthropic", {"openai", "anthropic"}),
-        ("  ,  ,  ", set()),
+        (None, frozenset()),
+        ("", frozenset()),
+        ("openai", frozenset({"openai"})),
+        ("openai,anthropic", frozenset({"openai", "anthropic"})),
+        ("openai, anthropic, gemini", frozenset({"openai", "anthropic", "gemini"})),
+        (" openai , anthropic ", frozenset({"openai", "anthropic"})),
+        ("OpenAI,Anthropic", frozenset({"openai", "anthropic"})),
+        ("openai,,anthropic", frozenset({"openai", "anthropic"})),
+        ("  ,  ,  ", frozenset()),
+        ("amazon-bedrock", frozenset({"bedrock"})),
+        ("amazon-bedrock,openai", frozenset({"bedrock", "openai"})),
     ],
 )
 def test_parse_provider_list(input_value, expected):
@@ -97,3 +99,28 @@ def test_mutual_exclusion_raises_error_on_filter(monkeypatch):
     monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "litellm")
     with pytest.raises(MlflowException, match="cannot be set at the same time"):
         filter_providers(["openai", "litellm"])
+
+
+def test_is_provider_allowed_normalizes_bedrock_alias(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "bedrock")
+    assert is_provider_allowed("bedrock") is False
+    assert is_provider_allowed("amazon-bedrock") is False
+
+
+def test_is_provider_allowed_normalizes_bedrock_alias_in_env(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "amazon-bedrock")
+    assert is_provider_allowed("bedrock") is False
+    assert is_provider_allowed("amazon-bedrock") is False
+
+
+def test_is_provider_allowed_bedrock_in_allowed_list(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "bedrock")
+    assert is_provider_allowed("bedrock") is True
+    assert is_provider_allowed("amazon-bedrock") is True
+    assert is_provider_allowed("openai") is False
+
+
+def test_filter_providers_normalizes_bedrock_alias(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "bedrock")
+    result = filter_providers(["openai", "bedrock", "amazon-bedrock"])
+    assert result == ["openai"]

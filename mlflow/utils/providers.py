@@ -778,9 +778,13 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
         raise ValueError("Provider parameter is required")
 
     if not is_provider_allowed(provider):
+        _logger.info(
+            "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS "
+            "or MLFLOW_GATEWAY_BLOCKED_PROVIDERS",
+            provider,
+        )
         raise MlflowException.invalid_parameter_value(
-            f"Provider '{provider}' is not allowed by the current gateway provider policy. "
-            "Check MLFLOW_GATEWAY_ALLOWED_PROVIDERS and MLFLOW_GATEWAY_BLOCKED_PROVIDERS."
+            f"Provider '{provider}' is not allowed by the current gateway provider policy."
         )
 
     config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider

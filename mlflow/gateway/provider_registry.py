@@ -1,8 +1,12 @@
+import logging
+
 from mlflow import MlflowException
 from mlflow.gateway.config import Provider
 from mlflow.gateway.providers import BaseProvider
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.provider_filter import filter_providers, is_provider_allowed
+
+_logger = logging.getLogger(__name__)
 
 
 def _provider_key_to_str(key: str | Provider) -> str:
@@ -26,9 +30,13 @@ class ProviderRegistry:
 
         provider_str = _provider_key_to_str(name)
         if not is_provider_allowed(provider_str):
+            _logger.info(
+                "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS "
+                "or MLFLOW_GATEWAY_BLOCKED_PROVIDERS",
+                provider_str,
+            )
             raise MlflowException.invalid_parameter_value(
-                f"Provider '{provider_str}' is not allowed by the current gateway provider policy. "
-                "Check MLFLOW_GATEWAY_ALLOWED_PROVIDERS and MLFLOW_GATEWAY_BLOCKED_PROVIDERS."
+                f"Provider '{provider_str}' is not allowed by the current gateway provider policy."
             )
         return self._providers[name]
 

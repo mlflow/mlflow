@@ -256,7 +256,7 @@ def _call_llm_provider_api(
         # re-apply them. When messages is not None, they're already in the payload.
         chat_payload.update(eval_parameters)
 
-    if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
+    if provider_name.canonical() == Provider.BEDROCK:
         if proxy_url or extra_headers:
             _logger.warning(
                 "Proxy URL and extra headers are not supported for Bedrock LLMs. "
@@ -360,7 +360,7 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         config = AnthropicConfig(anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"))
         return AnthropicProvider(_get_route_config(config))
 
-    elif provider in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
+    elif provider.canonical() == Provider.BEDROCK:
         from mlflow.gateway.config import AWSBearerToken, AWSIdAndKey, AWSRole
         from mlflow.gateway.providers.bedrock import AmazonBedrockConfig, AmazonBedrockProvider
 

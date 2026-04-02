@@ -1,52 +1,59 @@
 import logging
+import threading
+
+from cachetools import LRUCache
+from cachetools.func import cached
 
 from mlflow.environment_variables import (
     MLFLOW_GATEWAY_ALLOWED_PROVIDERS,
     MLFLOW_GATEWAY_BLOCKED_PROVIDERS,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.config import PROVIDER_ALIASES
 
 _logger = logging.getLogger(__name__)
 
-_SENTINEL = object()
-
-_cached_allowed: set[str] | None = None
-_cached_blocked: set[str] | None = None
-_cached_allowed_raw: object | str | None = _SENTINEL  # sentinel distinct from None/str
-_cached_blocked_raw: object | str | None = _SENTINEL
+_provider_filter_cache = LRUCache(maxsize=16)
+_provider_filter_cache_lock = threading.RLock()
 
 
-def _parse_provider_list(value: str | None) -> set[str]:
+def _normalize_provider_name(name: str) -> str:
+    return PROVIDER_ALIASES.get(name, name)
+
+
+def _parse_provider_list(value: str | None) -> frozenset[str]:
     if not value:
-        return set()
-    return {p.strip().lower() for p in value.split(",") if p.strip()}
+        return frozenset()
+    return frozenset(
+        _normalize_provider_name(p.strip().lower()) for p in value.split(",") if p.strip()
+    )
 
 
-def _get_provider_filter() -> tuple[set[str] | None, set[str] | None]:
-    global _cached_allowed, _cached_blocked, _cached_allowed_raw, _cached_blocked_raw
-
-    allowed_raw = MLFLOW_GATEWAY_ALLOWED_PROVIDERS.get()
-    blocked_raw = MLFLOW_GATEWAY_BLOCKED_PROVIDERS.get()
-
-    if allowed_raw == _cached_allowed_raw and blocked_raw == _cached_blocked_raw:
-        return _cached_allowed, _cached_blocked
-
+@cached(cache=_provider_filter_cache, lock=_provider_filter_cache_lock)
+def _parse_provider_filter(
+    allowed_raw: str | None, blocked_raw: str | None
+) -> tuple[frozenset[str] | None, frozenset[str] | None]:
     if allowed_raw and blocked_raw:
         raise MlflowException.invalid_parameter_value(
             "MLFLOW_GATEWAY_ALLOWED_PROVIDERS and MLFLOW_GATEWAY_BLOCKED_PROVIDERS "
             "cannot be set at the same time. Use one or the other."
         )
 
-    _cached_allowed_raw = allowed_raw
-    _cached_blocked_raw = blocked_raw
-    _cached_allowed = _parse_provider_list(allowed_raw) or None
-    _cached_blocked = _parse_provider_list(blocked_raw) or None
-    return _cached_allowed, _cached_blocked
+    allowed = _parse_provider_list(allowed_raw) or None
+    blocked = _parse_provider_list(blocked_raw) or None
+    return allowed, blocked
+
+
+def _get_provider_filter() -> tuple[frozenset[str] | None, frozenset[str] | None]:
+    return _parse_provider_filter(
+        MLFLOW_GATEWAY_ALLOWED_PROVIDERS.get(),
+        MLFLOW_GATEWAY_BLOCKED_PROVIDERS.get(),
+    )
 
 
 def is_provider_allowed(provider_name: str) -> bool:
     allowed, blocked = _get_provider_filter()
-    name = provider_name.lower()
+    name = _normalize_provider_name(provider_name.lower())
 
     if allowed is not None:
         return name in allowed
@@ -62,7 +69,7 @@ def filter_providers(providers: list[str]) -> list[str]:
 
     result = []
     for p in providers:
-        name = p.lower()
+        name = _normalize_provider_name(p.lower())
         if allowed is not None and name not in allowed:
             _logger.debug("Provider '%s' is not in MLFLOW_GATEWAY_ALLOWED_PROVIDERS", p)
             continue
