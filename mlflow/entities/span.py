@@ -711,6 +711,42 @@ class LiveSpan(Span):
                     "audio": {**audio, "data": ref},
                 }
 
+        # Bedrock converse API: {"image": {"format": "png", "source": {"bytes": "<base64>"}}}
+        if isinstance(image := value.get("image"), dict):
+            source = image.get("source")
+            if isinstance(source, dict):
+                data = source.get("bytes")
+                fmt = image.get("format", "png")
+                if isinstance(data, str) and data:
+                    try:
+                        content_bytes = base64.b64decode(data, validate=True)
+                    except Exception:
+                        return None
+                    ref = self._store_attachment(
+                        Attachment(content_type=f"image/{fmt}", content_bytes=content_bytes)
+                    )
+                    return {
+                        **value,
+                        "image": {**image, "source": {**source, "bytes": ref}},
+                    }
+
+        # Google Gemini: {"inline_data": {"mime_type": "image/png", "data": "<base64>"}}
+        if isinstance(inline := value.get("inline_data"), dict):
+            data = inline.get("data")
+            mime_type = inline.get("mime_type", "application/octet-stream")
+            if isinstance(data, str) and data:
+                try:
+                    content_bytes = base64.b64decode(data, validate=True)
+                except Exception:
+                    return None
+                ref = self._store_attachment(
+                    Attachment(content_type=mime_type, content_bytes=content_bytes)
+                )
+                return {
+                    **value,
+                    "inline_data": {**inline, "data": ref},
+                }
+
         return None
 
     def set_attributes(self, attributes: dict[str, Any]):
