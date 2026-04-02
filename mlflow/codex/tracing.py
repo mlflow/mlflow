@@ -218,7 +218,10 @@ def _create_llm_and_tool_spans(
             continue
 
         timestamp_ns = parse_timestamp_to_ns(entry.get("timestamp"))
-        if next_ts := _get_next_timestamp_ns(transcript, i):
+        if not timestamp_ns:
+            continue
+
+        if (next_ts := _get_next_timestamp_ns(transcript, i)) and next_ts > timestamp_ns:
             duration_ns = next_ts - timestamp_ns
         else:
             duration_ns = int(1000 * NANOSECONDS_PER_MS)

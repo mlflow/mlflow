@@ -23,20 +23,12 @@ from mlflow.codex.hooks import (
     type=click.Path(file_okay=False, dir_okay=True),
     help="Directory to set up tracing in (default: current directory)",
 )
-@click.option(
-    "--tracking-uri", "-u", help="MLflow tracking URI (e.g., 'databricks' or 'file://mlruns')"
-)
-@click.option("--experiment-id", "-e", help="MLflow experiment ID")
-@click.option("--experiment-name", "-n", help="MLflow experiment name")
 @click.option("--disable", is_flag=True, help="Disable Codex tracing in the specified directory")
 @click.option("--status", is_flag=True, help="Show current tracing status")
 @click.pass_context
 def codex(
     ctx: click.Context,
     directory: str,
-    tracking_uri: str | None,
-    experiment_id: str | None,
-    experiment_name: str | None,
     disable: bool,
     status: bool,
 ) -> None:
@@ -46,11 +38,13 @@ def codex(
     to MLflow. After setup, use the regular 'codex' command and traces will be
     automatically created.
 
+    Set MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID environment variables
+    in your shell to configure where traces are stored.
+
     Examples:
 
       mlflow autolog codex
       mlflow autolog codex -d ~/my-project
-      mlflow autolog codex -u databricks -e 123456789
       mlflow autolog codex --disable
     """
     if ctx.invoked_subcommand is not None:
@@ -77,13 +71,6 @@ def codex(
     click.echo("Codex CLI hooks configured")
 
     click.echo(f"\nDirectory: {target_dir}")
-    if tracking_uri:
-        click.echo(f"Tracking URI: {tracking_uri}")
-    if experiment_id:
-        click.echo(f"Experiment ID: {experiment_id}")
-    elif experiment_name:
-        click.echo(f"Experiment Name: {experiment_name}")
-
     click.echo("\nRun 'codex' in this directory to start tracing.")
 
 
