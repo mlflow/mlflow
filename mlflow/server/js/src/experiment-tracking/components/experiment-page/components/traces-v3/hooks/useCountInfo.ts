@@ -57,7 +57,7 @@ export function useCountInfo({
 
   // Convert ISO strings to milliseconds for the API
   const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
-  const endTimeMs = endTime ? new Date(endTime).getTime() : 0;
+  const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
 
   const { data: traceCountMetrics, isLoading: traceCountLoading } = useTraceMetricsQuery({
     experimentIds,
