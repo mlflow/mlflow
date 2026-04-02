@@ -937,3 +937,33 @@ def test_proactive_pruning_triggers_during_tool_loop(mock_trace):
 
     mock_prune.assert_called_once()
     assert json.loads(output.response) == {"result": "yes"}
+
+
+# --- Output field population tests ---
+
+
+def test_invoke_with_tools_populates_output_fields(mock_trace):
+    adapter = GatewayAdapter()
+    mock_output = InvokeOutput(
+        response=json.dumps({"result": "yes", "rationale": "Looks good"}),
+        request_id="req-123",
+        num_prompt_tokens=10,
+        num_completion_tokens=5,
+    )
+
+    input_params = AdapterInvocationInput(
+        model_uri="openai:/gpt-4",
+        prompt=[ChatMessage(role="user", content="evaluate this")],
+        assessment_name="test_metric",
+        trace=mock_trace,
+    )
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
+    ):
+        result = adapter.invoke(input_params)
+
+    assert result.request_id == "req-123"
+    assert result.num_prompt_tokens == 10
+    assert result.num_completion_tokens == 5

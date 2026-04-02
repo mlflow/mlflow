@@ -557,18 +557,42 @@ class LiveSpan(Span):
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
-        inputs = self._extract_attachments(inputs)
+        extract_base64 = self._should_extract_base64()
+        inputs = self._extract_attachments(inputs, extract_base64)
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
+        # Second pass on the serialized form handles framework objects
+        # (e.g., Pydantic models, LangChain BaseMessage) that only become
+        # plain dicts after JSON serialization by set_attribute.
+        if extract_base64:
+            self._extract_attachments_from_serialized(SpanAttributeKey.INPUTS)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
-        outputs = self._extract_attachments(outputs)
+        extract_base64 = self._should_extract_base64()
+        outputs = self._extract_attachments(outputs, extract_base64)
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
+        if extract_base64:
+            self._extract_attachments_from_serialized(SpanAttributeKey.OUTPUTS)
 
-    def _extract_attachments(self, value: Any) -> Any:
+    def _extract_attachments_from_serialized(self, attr_key: str):
+        """Re-extract attachments from the serialized attribute value.
+
+        Handles cases where the first extraction pass couldn't recurse into
+        framework-specific objects (e.g., LangChain BaseMessage) that only
+        become plain dicts after JSON serialization.
+        """
+        serialized = self._attributes.get(attr_key)
+        if serialized is None:
+            return
+        attachments_before = len(self._attachments)
+        extracted = self._extract_attachments(serialized, extract_base64=True)
+        if len(self._attachments) > attachments_before:
+            self.set_attribute(attr_key, extracted)
+
+    def _extract_attachments(self, value: Any, extract_base64: bool) -> Any:
         if isinstance(value, Attachment):
             return self._store_attachment(value)
-        if self._should_extract_base64():
+        if extract_base64:
             if isinstance(value, str):
                 converted = self._try_convert_data_uri(value)
                 if converted is not None:
@@ -576,11 +600,18 @@ class LiveSpan(Span):
             if isinstance(value, dict):
                 converted = self._try_convert_structured_content(value)
                 if converted is not None:
+                    # Recurse into the converted dict to catch remaining patterns
+                    # in sibling keys (e.g. a data URI in another field)
+                    if isinstance(converted, dict):
+                        return {
+                            k: self._extract_attachments(v, extract_base64)
+                            for k, v in converted.items()
+                        }
                     return converted
         if isinstance(value, dict):
-            return {k: self._extract_attachments(v) for k, v in value.items()}
+            return {k: self._extract_attachments(v, extract_base64) for k, v in value.items()}
         if isinstance(value, (list, tuple)):
-            return [self._extract_attachments(item) for item in value]
+            return [self._extract_attachments(item, extract_base64) for item in value]
         return value
 
     def _store_attachment(self, attachment: Attachment) -> str:
@@ -602,12 +633,17 @@ class LiveSpan(Span):
         if not mime:
             return None
         try:
-            content_bytes = base64.b64decode(b64data)
+            content_bytes = base64.b64decode(b64data, validate=True)
         except Exception:
             return None
         return self._store_attachment(Attachment(content_type=mime, content_bytes=content_bytes))
 
     def _try_convert_structured_content(self, value: dict[str, Any]) -> dict[str, Any] | str | None:
+        # TODO: If this grows unwieldy, consider either (a) splitting into per-provider
+        # helpers (parse_openai_audio, parse_anthropic_image, etc.) or (b) moving
+        # extraction into individual autolog integrations as post-execution hooks.
+        # See: https://github.com/mlflow/mlflow/pull/21955#discussion_r2999432747
+
         # OpenAI input_audio content part
         if value.get("type") == "input_audio" and isinstance(
             audio := value.get("input_audio"), dict
@@ -616,27 +652,64 @@ class LiveSpan(Span):
             fmt = audio.get("format", "wav")
             if isinstance(data, str) and data:
                 try:
-                    content_bytes = base64.b64decode(data)
+                    content_bytes = base64.b64decode(data, validate=True)
                 except Exception:
                     return None
+                content_type = "audio/mpeg" if fmt == "mp3" else f"audio/{fmt}"
                 ref = self._store_attachment(
-                    Attachment(content_type=f"audio/{fmt}", content_bytes=content_bytes)
+                    Attachment(content_type=content_type, content_bytes=content_bytes)
                 )
                 return {
                     **value,
                     "input_audio": {**audio, "data": ref},
                 }
 
+        # Anthropic image content part
+        if value.get("type") == "image" and isinstance(source := value.get("source"), dict):
+            if source.get("type") == "base64":
+                data = source.get("data")
+                media_type = source.get("media_type", "image/png")
+                if isinstance(data, str) and data:
+                    try:
+                        content_bytes = base64.b64decode(data, validate=True)
+                    except Exception:
+                        return None
+                    ref = self._store_attachment(
+                        Attachment(content_type=media_type, content_bytes=content_bytes)
+                    )
+                    return {
+                        **value,
+                        "source": {**source, "data": ref},
+                    }
+
         # DALL-E output: {"b64_json": "<base64>", ...}
+        # DALL-E always returns PNG; other APIs using b64_json are not known
         if isinstance(b64 := value.get("b64_json"), str) and b64:
             try:
-                content_bytes = base64.b64decode(b64)
+                content_bytes = base64.b64decode(b64, validate=True)
             except Exception:
                 return None
             ref = self._store_attachment(
                 Attachment(content_type="image/png", content_bytes=content_bytes)
             )
             return {**value, "b64_json": ref}
+
+        # OpenAI audio output: {"audio": {"data": "<base64>", "transcript": "..."}, ...}
+        # Returned by gpt-4o-audio-preview with modalities=["text", "audio"]
+        if isinstance(audio := value.get("audio"), dict):
+            data = audio.get("data")
+            if isinstance(data, str) and data and not data.startswith("mlflow-attachment://"):
+                try:
+                    content_bytes = base64.b64decode(data, validate=True)
+                except Exception:
+                    return None
+                ref = self._store_attachment(
+                    Attachment(content_type="audio/wav", content_bytes=content_bytes)
+                )
+                return {
+                    **value,
+                    "audio": {**audio, "data": ref},
+                }
 
         return None
 

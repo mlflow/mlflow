@@ -1,5 +1,7 @@
 import base64
 
+from pydantic import BaseModel
+
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.attachments import Attachment
 
@@ -81,6 +83,15 @@ def test_handles_invalid_base64_gracefully():
     assert len(span._attachments) == 0
 
 
+def test_rejects_base64_with_trailing_garbage():
+    # "Zg==!!!" is silently accepted by b64decode without validate=True
+    span = _make_live_span()
+    bad_uri = "data:image/png;base64,Zg==!!!"
+    span.set_inputs({"image": bad_uri})
+    assert span.inputs["image"] == bad_uri
+    assert len(span._attachments) == 0
+
+
 def test_handles_empty_mime_type():
     span = _make_live_span()
     bad_uri = "data:;base64,dGVzdA=="
@@ -154,6 +165,23 @@ def test_input_audio_with_invalid_base64():
     audio_part = span.inputs["content"][0]
     assert audio_part["input_audio"]["data"] == "!!!bad!!!"
     assert len(span._attachments) == 0
+
+
+def test_structured_content_with_sibling_data_uri():
+    span = _make_live_span()
+    span.set_inputs({
+        "content": [
+            {
+                "type": "input_audio",
+                "input_audio": {"data": WAV_B64, "format": "wav"},
+                "extra_image": PNG_DATA_URI,
+            }
+        ]
+    })
+    part = span.inputs["content"][0]
+    assert part["input_audio"]["data"].startswith("mlflow-attachment://")
+    assert part["extra_image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 2
 
 
 def test_mixed_content_parts():
@@ -300,6 +328,58 @@ def test_extracts_b64_json_multiple():
     assert output["data"][1]["b64_json"].startswith("mlflow-attachment://")
     assert output["data"][0]["revised_prompt"] == "a circle"
     assert output["data"][1]["revised_prompt"] == "a triangle"
+    assert len(span._attachments) == 2
+
+
+# --- Two-pass serialization extraction ---
+
+
+def test_extracts_base64_from_pydantic_model():
+    """Pydantic models aren't traversable in the first pass but become
+    plain dicts after JSON serialization. The second pass should extract
+    the base64 data from the serialized form.
+    """
+
+    class AudioOutput(BaseModel):
+        transcript: str
+        audio: dict[str, str]
+
+    audio_b64 = base64.b64encode(b"RIFF\x00\x00\x00\x00WAVEfmt ").decode()
+    output = AudioOutput(
+        transcript="Hello",
+        audio={"data": audio_b64, "id": "audio_123"},
+    )
+
+    span = _make_live_span()
+    span.set_outputs({"result": output})
+
+    outputs = span.outputs
+    assert outputs["result"]["audio"]["data"].startswith("mlflow-attachment://")
+    assert outputs["result"]["transcript"] == "Hello"
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "audio/wav"
+
+
+def test_two_pass_with_explicit_attachment_and_pydantic():
+    """When a span has both an explicit Attachment (first pass) AND a Pydantic
+    model with base64 (second pass), both should be extracted.
+    """
+
+    class ImageResult(BaseModel):
+        b64_json: str
+        revised_prompt: str
+
+    img_b64 = base64.b64encode(PNG_BYTES).decode()
+    pydantic_output = ImageResult(b64_json=img_b64, revised_prompt="a sunset")
+    explicit_att = Attachment(content_type="image/png", content_bytes=PNG_BYTES)
+
+    span = _make_live_span()
+    span.set_outputs({"image": pydantic_output, "thumbnail": explicit_att})
+
+    outputs = span.outputs
+    assert outputs["thumbnail"].startswith("mlflow-attachment://")
+    assert outputs["image"]["b64_json"].startswith("mlflow-attachment://")
     assert len(span._attachments) == 2
 
 
