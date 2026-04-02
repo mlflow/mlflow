@@ -368,7 +368,7 @@ def test_get_repl_id():
     with (
         mock.patch(
             "mlflow.utils.databricks_utils._get_runtime_integration_client",
-            side_effect=Exception("unavailable"),
+            return_value=None,
         ),
         mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
     ):
@@ -1075,14 +1075,14 @@ def test_get_databricks_nfs_temp_dir():
         assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user/grpc"
         mock_client.getUserNFSTempDir.assert_called_once()
 
-    # When runtime_integration_client raises, fall back to entry_point.getUserNFSTempDir
+    # When runtime_integration_client is unavailable, fall back to entry_point.getUserNFSTempDir
     mock_dbutils2 = mock.MagicMock()
     mock_dbutils2.entry_point.getUserNFSTempDir.return_value = "/nfs/user"
     with (
         mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
         mock.patch(
             "mlflow.utils.databricks_utils._get_runtime_integration_client",
-            side_effect=Exception("unavailable"),
+            return_value=None,
         ),
     ):
         assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user"
@@ -1105,14 +1105,14 @@ def test_get_databricks_local_temp_dir():
         assert databricks_utils.get_databricks_local_temp_dir() == "/local/user/grpc"
         mock_client.getUserLocalTempDir.assert_called_once()
 
-    # When runtime_integration_client raises, fall back to entry_point.getUserLocalTempDir
+    # When runtime_integration_client is unavailable, fall back to entry_point.getUserLocalTempDir
     mock_dbutils2 = mock.MagicMock()
     mock_dbutils2.entry_point.getUserLocalTempDir.return_value = "/local/user"
     with (
         mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
         mock.patch(
             "mlflow.utils.databricks_utils._get_runtime_integration_client",
-            side_effect=Exception("unavailable"),
+            return_value=None,
         ),
     ):
         assert databricks_utils.get_databricks_local_temp_dir() == "/local/user"
