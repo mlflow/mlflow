@@ -3,6 +3,7 @@ import {
   ChartLineIcon,
   CloudModelIcon,
   CreditCardIcon,
+  Tag,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -36,7 +37,14 @@ export const MlflowSidebarGatewayItems = ({ collapsed }: { collapsed: boolean })
         }}
       >
         <CloudModelIcon />
-        {!collapsed && <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway" />}
+        {!collapsed && (
+          <>
+            <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway" />
+            <Tag componentId="mlflow.sidebar.gateway_new_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
+              <FormattedMessage defaultMessage="New" description="Sidebar > AI Gateway > New feature tag" />
+            </Tag>
+          </>
+        )}
       </div>
       <MlflowSidebarLink
         css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
