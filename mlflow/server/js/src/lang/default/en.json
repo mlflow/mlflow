@@ -435,10 +435,6 @@
     "defaultMessage": "Cancel",
     "description": "Cancel text to cancel the flow to copy the model"
   },
-  "0trCaF": {
-    "defaultMessage": "Use the \"Create endpoint\" button to create a new endpoint",
-    "description": "Empty state message for endpoints list explaining how to create"
-  },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
@@ -1018,10 +1014,6 @@
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
-  "5+bcQe": {
-    "defaultMessage": "No endpoints created",
-    "description": "Empty state title for endpoints list"
-  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
@@ -1053,6 +1045,10 @@
   "5N1yG6": {
     "defaultMessage": "Datasets",
     "description": "Label for the datasets tab in the MLflow experiment navbar"
+  },
+  "5P59Ey": {
+    "defaultMessage": "New",
+    "description": "Sidebar > AI Gateway > New feature tag"
   },
   "5PlfiT": {
     "defaultMessage": "This request exceeds the maximum queries per second limit. Please wait and try again.",
@@ -2646,10 +2642,6 @@
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
   },
-  "FKoHx5": {
-    "defaultMessage": "Security Notice: Default Passphrase in Use",
-    "description": "Gateway > Default passphrase warning banner title"
-  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -3453,6 +3445,10 @@
   "LBaK9z": {
     "defaultMessage": "Open dataset",
     "description": "Text for the button that opens the dataset source URL in a new tab"
+  },
+  "LBbyku": {
+    "defaultMessage": "Endpoint",
+    "description": "Run page > Overview > Endpoint used for issue detection"
   },
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
@@ -6363,6 +6359,10 @@
     "defaultMessage": "Workspace Name",
     "description": "Label for workspace name field"
   },
+  "dSaI6E": {
+    "defaultMessage": "Failed to load audio attachment",
+    "description": "Error message when trace audio attachment fails to load"
+  },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
@@ -6574,6 +6574,10 @@
   "ekqDlR": {
     "defaultMessage": "Model version alias created",
     "description": "Webhook event label"
+  },
+  "en7FHE": {
+    "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking through MLflow Tracing, budget controls, and more.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
@@ -7275,6 +7279,10 @@
     "defaultMessage": "Edit API key",
     "description": "Gateway > API keys list > Edit API key button aria label"
   },
+  "jFk49l": {
+    "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
+    "description": "Gateway > Endpoints > Quick start call to action"
+  },
   "jH0+gA": {
     "defaultMessage": "Metrics",
     "description": "Label for 'metrics' option group in the compare runs chart configure modal"
@@ -7498,10 +7506,6 @@
   "ka9hO4": {
     "defaultMessage": "Try it",
     "description": "Try it - interactive request/response"
-  },
-  "kbOsmf": {
-    "defaultMessage": "The AI Gateway is using the default encryption passphrase. This is acceptable for development or single-user deployments, but for multi-user production environments, you should rotate the passphrase using the CLI command: mlflow crypto rotate-kek",
-    "description": "Gateway > Default passphrase warning banner description"
   },
   "kbWXwv": {
     "defaultMessage": "Refresh traces",
@@ -9075,6 +9079,10 @@
     "defaultMessage": "Pending",
     "description": "Issue status tag label for pending issues"
   },
+  "ueI+tl": {
+    "defaultMessage": "Or browse all providers and models →",
+    "description": "Gateway > Quick start > Link to create endpoint with full model selection"
+  },
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",
     "description": "Page title for the compare runs page"
@@ -9330,6 +9338,10 @@
   "wY58OE": {
     "defaultMessage": "Retrieval groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval groundedness: moderately grounded\""
+  },
+  "wY8GPK": {
+    "defaultMessage": "Get started with AI Gateway",
+    "description": "Gateway > Endpoints > Quick start title"
   },
   "wZtuCR": {
     "defaultMessage": "AutoML",

@@ -53,8 +53,8 @@ def invoke_judge_model(
     Routes to the appropriate adapter based on the model URI and configuration.
     Uses a factory pattern to select the correct adapter:
     - DatabricksManagedJudgeAdapter: For the default Databricks judge
-    - LiteLLMAdapter: For LiteLLM-supported providers (including Databricks served models)
-    - GatewayAdapter: Fallback for native providers
+    - GatewayAdapter: For native AI Gateway providers
+    - LiteLLMAdapter: Fallback for providers not supported by the gateway
 
     Args:
         model_uri: The model URI.
@@ -227,43 +227,46 @@ def get_chat_completions_with_structured_output(
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         return _invoke_databricks_structured_output(messages, output_schema, trace)
 
-    # TODO: When adapter order is changed to Gateway-first, update this to match.
-    # Currently uses litellm-first to match get_adapter() priority, falling back
-    # to GatewayAdapter when litellm is unavailable.
+    from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
+
+    if GatewayAdapter.is_applicable(model_uri=model_uri, prompt=messages):
+        return GatewayAdapter().invoke_with_structured_output(
+            model_uri=model_uri,
+            messages=messages,
+            output_schema=output_schema,
+            trace=trace,
+            num_retries=num_retries,
+            inference_params=inference_params,
+        )
+
+    # Fallback to litellm for providers not supported by the gateway
     from mlflow.genai.judges.adapters.litellm_adapter import (
         _invoke_litellm_and_handle_tools,
         _is_litellm_available,
     )
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    model_provider, model_name = _parse_model_uri(model_uri)
-
-    if _is_litellm_available():
-        output = _invoke_litellm_and_handle_tools(
-            provider=model_provider,
-            model_name=model_name,
-            messages=messages,
-            trace=trace,
-            num_retries=num_retries,
-            response_format=output_schema,
-            inference_params=inference_params,
+    if not _is_litellm_available():
+        raise MlflowException(
+            f"No suitable adapter found for model_uri='{model_uri}'. "
+            "Some providers may require LiteLLM. Install it with: `pip install litellm`",
         )
-        cleaned_response = _strip_markdown_code_blocks(output.response)
-        try:
-            response_dict = json.loads(cleaned_response)
-        except json.JSONDecodeError as e:
-            raise MlflowException(
-                f"Failed to parse response from judge model. Response: {output.response}",
-            ) from e
-        return output_schema(**response_dict)
 
-    from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
-
-    return GatewayAdapter().invoke_with_structured_output(
-        model_uri=model_uri,
+    model_provider, model_name = _parse_model_uri(model_uri)
+    output = _invoke_litellm_and_handle_tools(
+        provider=model_provider,
+        model_name=model_name,
         messages=messages,
-        output_schema=output_schema,
         trace=trace,
         num_retries=num_retries,
+        response_format=output_schema,
         inference_params=inference_params,
     )
+    cleaned_response = _strip_markdown_code_blocks(output.response)
+    try:
+        response_dict = json.loads(cleaned_response)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Failed to parse response from judge model. Response: {output.response}",
+        ) from e
+    return output_schema(**response_dict)
