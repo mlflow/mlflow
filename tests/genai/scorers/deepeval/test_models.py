@@ -7,7 +7,9 @@ from mlflow.genai.scorers.deepeval.models import MlflowDeepEvalLLM, create_deepe
 
 @pytest.fixture
 def mock_call_chat_completions():
-    with patch("mlflow.genai.scorers.llm_backend.call_chat_completions") as mock:
+    with patch(
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+    ) as mock:
         result = Mock()
         result.output = "Test output"
         mock.return_value = result
@@ -23,8 +25,9 @@ def test_databricks_model_generate(mock_call_chat_completions):
 
 
 def test_create_deepeval_model_gateway_uses_native_provider():
-    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance"):
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_get_provider:
         model = create_deepeval_model("gateway:/my-endpoint")
+    mock_get_provider.assert_called_once()
 
     assert isinstance(model, MlflowDeepEvalLLM)
     assert model.get_model_name() == "gateway/my-endpoint"

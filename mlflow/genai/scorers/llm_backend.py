@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, Literal
 
 import pydantic
 
@@ -78,7 +78,7 @@ class ScorerLLMClient:
         return self._model_name
 
     @property
-    def route(self) -> str:
+    def route(self) -> Literal["databricks", "endpoints", "native", "litellm"]:
         return self._route
 
     @property
