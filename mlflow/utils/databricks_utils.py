@@ -135,13 +135,10 @@ def _get_dbutils():
 
 
 def _get_runtime_integration_client():
-    try:
-        from dbruntime import UserNamespaceInitializer
+    from dbruntime import UserNamespaceInitializer
 
-        driver_connection = UserNamespaceInitializer.getOrCreate().get_driver_connection()
-        return driver_connection.runtime_integration_client
-    except Exception:
-        return None
+    driver_connection = UserNamespaceInitializer.getOrCreate().get_driver_connection()
+    return driver_connection.runtime_integration_client
 
 
 class _NoDbutilsError(Exception):
@@ -511,8 +508,10 @@ def get_repl_id():
     Returns:
         The ID of the current Databricks Python REPL.
     """
-    if client := _get_runtime_integration_client():
-        return client.getReplId()
+    try:
+        return _get_runtime_integration_client().getReplId()
+    except Exception:
+        pass
 
     # Fallback for runtimes without runtime_integration_client: use entry_point directly.
     try:
@@ -1485,8 +1484,10 @@ def get_databricks_nfs_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplNFSTempDir()
-    if client := _get_runtime_integration_client():
-        return client.getUserNFSTempDir()
+    try:
+        return _get_runtime_integration_client().getUserNFSTempDir()
+    except Exception:
+        pass
     try:
         return entry_point.getUserNFSTempDir()
     except Exception:
@@ -1497,8 +1498,10 @@ def get_databricks_local_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplLocalTempDir()
-    if client := _get_runtime_integration_client():
-        return client.getUserLocalTempDir()
+    try:
+        return _get_runtime_integration_client().getUserLocalTempDir()
+    except Exception:
+        pass
     try:
         return entry_point.getUserLocalTempDir()
     except Exception:
