@@ -140,7 +140,7 @@ export const QuickStartTemplates = () => {
         to={GatewayRoutes.createEndpointPageRoute}
         css={{ textDecoration: 'none' }}
       >
-        <Button componentId="mlflow.gateway.quick_start.browse_all_button" type="tertiary">
+        <Button componentId="mlflow.gateway.quick_start.browse_all" type="tertiary">
           <FormattedMessage
             defaultMessage="Or browse all providers and models →"
             description="Gateway > Quick start > Link to create endpoint with full model selection"
