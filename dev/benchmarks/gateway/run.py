@@ -105,25 +105,28 @@ def _start_fake_server(
 ) -> Generator[None, None, None]:
     prefix = _uv_prefix()
     log_file = Path(work_dir) / "fake_server.log"
-    with log_file.open("w") as f, subprocess.Popen(
-        [
-            *prefix,
-            "uvicorn",
-            "fake_server:app",
-            "--workers",
-            str(workers),
-            "--host",
-            "0.0.0.0",
-            "--port",
-            str(port),
-            "--log-level",
-            "warning",
-        ],
-        cwd=SCRIPT_DIR,
-        stdout=f,
-        stderr=f,
-        env=_subprocess_env(),
-    ) as proc:
+    with (
+        log_file.open("w") as f,
+        subprocess.Popen(
+            [
+                *prefix,
+                "uvicorn",
+                "fake_server:app",
+                "--workers",
+                str(workers),
+                "--host",
+                "0.0.0.0",
+                "--port",
+                str(port),
+                "--log-level",
+                "warning",
+            ],
+            cwd=SCRIPT_DIR,
+            stdout=f,
+            stderr=f,
+            env=_subprocess_env(),
+        ) as proc,
+    ):
         _wait_for_port(port, "fake OpenAI server", log_file)
         try:
             yield
@@ -137,25 +140,28 @@ def _start_mlflow(
 ) -> Generator[None, None, None]:
     prefix = _uv_prefix()
     log_file = Path(work_dir) / f"mlflow-{port}.log"
-    with log_file.open("w") as f, subprocess.Popen(
-        [
-            *prefix,
-            "mlflow",
-            "server",
-            "--backend-store-uri",
-            backend_uri,
-            "--host",
-            "0.0.0.0",
-            "--port",
-            str(port),
-            "--workers",
-            str(workers),
-            "--disable-security-middleware",
-        ],
-        stdout=f,
-        stderr=f,
-        env=_subprocess_env(),
-    ) as proc:
+    with (
+        log_file.open("w") as f,
+        subprocess.Popen(
+            [
+                *prefix,
+                "mlflow",
+                "server",
+                "--backend-store-uri",
+                backend_uri,
+                "--host",
+                "0.0.0.0",
+                "--port",
+                str(port),
+                "--workers",
+                str(workers),
+                "--disable-security-middleware",
+            ],
+            stdout=f,
+            stderr=f,
+            env=_subprocess_env(),
+        ) as proc,
+    ):
         _wait_for_port(port, label, log_file)
         try:
             yield
