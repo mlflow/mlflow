@@ -58,6 +58,7 @@ def test_headers():
 def test_name():
     provider = _make_provider()
     assert provider.DISPLAY_NAME == "xAI"
+    assert provider.get_provider_name() == "xai"
 
 
 @pytest.mark.asyncio

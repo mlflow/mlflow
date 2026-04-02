@@ -116,7 +116,8 @@ class BaseProvider(ABC):
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The completions streaming route is not implemented for {self.DISPLAY_NAME} models.",
+            detail="The completions streaming route is not implemented for"
+            f"{self.DISPLAY_NAME} models.",
         )
 
     async def _completions(
@@ -142,7 +143,8 @@ class BaseProvider(ABC):
         route = PASSTHROUGH_ROUTES.get(action)
         raise AIGatewayException(
             status_code=501,
-            detail=f"The passthrough route '{route}' is not implemented for {self.DISPLAY_NAME} models.",
+            detail=f"The passthrough route '{route}' is not implemented for"
+            f"{self.DISPLAY_NAME} models.",
         )
 
     # -------------------------------------------------------------------------
