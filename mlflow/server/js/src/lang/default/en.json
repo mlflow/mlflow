@@ -3146,10 +3146,6 @@
     "defaultMessage": "Filters{numFilters}",
     "description": "Evaluation review > evaluations list > filter dropdown button"
   },
-  "J9twTr": {
-    "defaultMessage": "An endpoint routes your API calls to an AI model. Add your API key to get started.",
-    "description": "Gateway > Endpoints > Quick start explanation of what an endpoint is"
-  },
   "JCboZ7": {
     "defaultMessage": "Path copied",
     "description": "Tooltip displayed after experiment path was successfully copied to clipboard"
@@ -3942,10 +3938,6 @@
     "defaultMessage": "Predict on a Spark DataFrame.",
     "description": "Code comment which states on how we can predict using spark DataFrame"
   },
-  "OFXnE1": {
-    "defaultMessage": "Quick-start with a popular model, or choose from 60+ providers and all their supported models.",
-    "description": "Gateway > Endpoints > Quick start description"
-  },
   "OH7hV5": {
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
@@ -4049,6 +4041,10 @@
   "P31kXd": {
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
+  },
+  "P88AYq": {
+    "defaultMessage": "Create an endpoint to route API calls to any AI model. Add your API key, start calling it from your agents, and configure usage tracking and budgets as you go.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
   "PAUNgq": {
     "defaultMessage": "Cost Breakdown",

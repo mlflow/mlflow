@@ -64,16 +64,10 @@ export const QuickStartTemplates = () => {
             description="Gateway > Endpoints > Quick start title"
           />
         </Typography.Title>
-        <Typography.Text color="secondary">
+        <Typography.Text color="secondary" css={{ textAlign: 'center', maxWidth: 520 }}>
           <FormattedMessage
-            defaultMessage="Quick-start with a popular model, or choose from 60+ providers and all their supported models."
-            description="Gateway > Endpoints > Quick start description"
-          />
-        </Typography.Text>
-        <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-          <FormattedMessage
-            defaultMessage="An endpoint routes your API calls to an AI model. Add your API key to get started."
-            description="Gateway > Endpoints > Quick start explanation of what an endpoint is"
+            defaultMessage="Create an endpoint to route API calls to any AI model. Add your API key, start calling it from your agents, and configure usage tracking and budgets as you go."
+            description="Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
           />
         </Typography.Text>
       </div>
