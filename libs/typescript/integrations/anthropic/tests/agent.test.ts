@@ -1,12 +1,12 @@
 /**
  * Tests for MLflow Claude Agent SDK integration
- * Tests createTracedQuery and extractTokenUsage from tracedClaudeAgent.ts
+ * Tests createTracedQuery and extractAgentTokenUsage from tracedClaudeAgent.ts
  */
 
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 import { createTracedQuery } from '../src';
-import { extractTokenUsage } from '../src/tracedClaudeAgent';
-import { createAuthProvider } from 'mlflow-tracing/src/auth';
+import { extractAgentTokenUsage } from '../src/tracedClaudeAgent';
+import { createAuthProvider } from '@mlflow/core/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
@@ -326,7 +326,7 @@ describe('createTracedQuery', () => {
   });
 });
 
-describe('extractTokenUsage', () => {
+describe('extractAgentTokenUsage', () => {
   it('should extract token usage from direct usage field', () => {
     const response = {
       usage: {
@@ -335,12 +335,31 @@ describe('extractTokenUsage', () => {
       },
     };
 
-    const usage = extractTokenUsage(response);
+    const usage = extractAgentTokenUsage(response);
 
     expect(usage).toEqual({
       input_tokens: 100,
       output_tokens: 200,
       total_tokens: 300,
+    });
+  });
+
+  it('should include cache tokens in usage', () => {
+    const response = {
+      usage: {
+        input_tokens: 100,
+        output_tokens: 200,
+        cache_read_input_tokens: 50,
+        cache_creation_input_tokens: 30,
+      },
+    };
+
+    const usage = extractAgentTokenUsage(response);
+
+    expect(usage).toEqual({
+      input_tokens: 180, // 100 + 50 + 30
+      output_tokens: 200,
+      total_tokens: 380,
     });
   });
 
@@ -352,12 +371,33 @@ describe('extractTokenUsage', () => {
       },
     };
 
-    const usage = extractTokenUsage(response);
+    const usage = extractAgentTokenUsage(response);
 
     expect(usage).toEqual({
       input_tokens: 75,
       output_tokens: 100,
       total_tokens: 175,
+    });
+  });
+
+  it('should include cache tokens in modelUsage', () => {
+    const response = {
+      modelUsage: {
+        'claude-3-5-sonnet': {
+          inputTokens: 50,
+          outputTokens: 75,
+          cacheReadInputTokens: 20,
+          cacheCreationInputTokens: 10,
+        },
+      },
+    };
+
+    const usage = extractAgentTokenUsage(response);
+
+    expect(usage).toEqual({
+      input_tokens: 80, // 50 + 20 + 10
+      output_tokens: 75,
+      total_tokens: 155,
     });
   });
 
@@ -372,7 +412,7 @@ describe('extractTokenUsage', () => {
       },
     };
 
-    const usage = extractTokenUsage(response);
+    const usage = extractAgentTokenUsage(response);
 
     expect(usage).toEqual({
       input_tokens: 100,
@@ -384,13 +424,13 @@ describe('extractTokenUsage', () => {
   it('should return undefined for missing usage', () => {
     const response = { content: 'Hello' };
 
-    const usage = extractTokenUsage(response);
+    const usage = extractAgentTokenUsage(response);
 
     expect(usage).toBeUndefined();
   });
 
   it('should return undefined for null response', () => {
-    const usage = extractTokenUsage(null);
+    const usage = extractAgentTokenUsage(null);
 
     expect(usage).toBeUndefined();
   });
@@ -403,7 +443,7 @@ describe('extractTokenUsage', () => {
       },
     };
 
-    const usage = extractTokenUsage(response);
+    const usage = extractAgentTokenUsage(response);
 
     expect(usage).toEqual({
       input_tokens: 100,

@@ -1,3 +1,11 @@
+import type {
+  Query,
+  SDKMessage,
+  SDKResultMessage,
+  HookCallbackMatcher,
+  HookInput,
+} from '@anthropic-ai/claude-agent-sdk';
+
 import {
   startSpan,
   LiveSpan,
@@ -5,65 +13,25 @@ import {
   SpanType,
   SpanStatusCode,
   TokenUsage,
-} from 'mlflow-tracing';
+} from '@mlflow/core';
 
-interface HookInput {
-  tool_name: string;
-  tool_input: unknown;
-  tool_use_id: string;
-  tool_response?: unknown;
-  error?: string;
-  session_id?: string;
-  model?: string;
-  subtype?: string;
-}
-
-type HookCallback = (
-  input: HookInput,
-  toolUseID: string | undefined,
-  options: { signal: AbortSignal },
-) => Promise<{ continue: boolean }>;
-
-interface HookCallbackMatcher {
-  hooks: HookCallback[];
-}
-
-interface SDKMessage {
-  type: string;
-  subtype?: string;
-  session_id?: string;
-  model?: string;
-  message?: { content?: ContentBlock[] };
-  result?: string;
-  errors?: string[];
-  total_cost_usd?: number;
-  num_turns?: number;
-  duration_ms?: number;
-  usage?: { input_tokens?: number; output_tokens?: number };
-  modelUsage?: Record<string, { inputTokens?: number; outputTokens?: number }>;
-}
-
+// Minimal content block type for tracking assistant messages.
+// The full BetaContentBlock lives in @anthropic-ai/sdk, so we keep a
+// lightweight stand-in to avoid pulling in a second peer dep path.
 interface ContentBlock {
   type: string;
   text?: string;
 }
 
-interface Query extends AsyncGenerator<SDKMessage, void> {
-  interrupt(): Promise<void>;
-  close(): void;
-}
-
-interface QueryParams {
-  prompt: string | AsyncIterable<unknown>;
-  options?: { hooks?: Record<string, HookCallbackMatcher[]>; [key: string]: unknown };
-}
-
-type QueryFunction = (params: QueryParams) => Query;
-
 interface StdoutResult {
   stdout?: string;
   stderr?: string;
 }
+
+type QueryFunction = (params: {
+  prompt: string | AsyncIterable<unknown>;
+  options?: { hooks?: Partial<Record<string, HookCallbackMatcher[]>>; [key: string]: unknown };
+}) => Query;
 
 class TracingContext {
   sessionSpan: LiveSpan | null = null;
@@ -79,7 +47,6 @@ class TracingContext {
       name: 'claude_agent_query',
       spanType: SpanType.AGENT,
       inputs: { prompt, options: options ? { ...options, hooks: '[hooks]' } : undefined },
-      attributes: { 'claude.sdk': '@anthropic-ai/claude-agent-sdk' },
     });
     return this.sessionSpan;
   }
@@ -87,18 +54,9 @@ class TracingContext {
   setSessionInfo(sessionId: string, model?: string) {
     this.sessionId = sessionId;
     this.model = model ?? null;
-    this.sessionSpan?.setAttribute('claude.session_id', sessionId);
-    if (model) {
-      this.sessionSpan?.setAttribute('claude.model', model);
-    }
   }
 
-  captureAssistantMessage(message: SDKMessage) {
-    const content = message.message?.content;
-    if (!Array.isArray(content)) {
-      return;
-    }
-
+  captureAssistantMessage(content: ContentBlock[]) {
     const hasType = (t: string) => content.some((b) => b?.type === t);
 
     if (hasType('thinking') && !hasType('text')) {
@@ -158,14 +116,14 @@ class TracingContext {
     this.activeToolSpans.delete(toolUseId);
   }
 
-  endSession(result?: SDKMessage | null, error?: string) {
+  endSession(result?: SDKResultMessage | null, error?: string) {
     this.activeToolSpans.forEach((s) => s.end());
     this.activeToolSpans.clear();
     if (!this.sessionSpan) {
       return;
     }
 
-    const usage = extractTokenUsage(result);
+    const usage = extractAgentTokenUsage(result);
     if (usage) {
       this.sessionSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, usage);
     }
@@ -173,20 +131,7 @@ class TracingContext {
     this.sessionSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'anthropic');
     this.sessionSpan.setInputs({ model: this.model, messages: this.messages });
 
-    if (result) {
-      if (result.total_cost_usd) {
-        this.sessionSpan.setAttribute('claude.total_cost_usd', result.total_cost_usd);
-      }
-      if (result.num_turns) {
-        this.sessionSpan.setAttribute('claude.num_turns', result.num_turns);
-      }
-      if (result.duration_ms) {
-        this.sessionSpan.setAttribute('claude.duration_ms', result.duration_ms);
-      }
-      if (result.subtype) {
-        this.sessionSpan.setAttribute('claude.result_type', result.subtype);
-      }
-    }
+    const resultText = result?.subtype === 'success' ? result.result : undefined;
 
     this.sessionSpan.setOutputs({
       id: this.sessionId,
@@ -195,7 +140,7 @@ class TracingContext {
       model: this.model,
       content: this.lastAssistantContent.length
         ? this.lastAssistantContent
-        : [{ type: 'text', text: result?.result || '' }],
+        : [{ type: 'text', text: resultText || '' }],
       usage,
     });
 
@@ -208,7 +153,7 @@ class TracingContext {
 }
 
 export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
-  return (params: QueryParams): Query => {
+  return (params: Parameters<QueryFunction>[0]): Query => {
     const ctx = new TracingContext();
     const prompt = typeof params.prompt === 'string' ? params.prompt : '[streaming input]';
     ctx.createSessionSpan(prompt, params.options as Record<string, unknown>);
@@ -219,6 +164,9 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
         {
           hooks: [
             (input: HookInput) => {
+              if (input.hook_event_name !== 'PreToolUse') {
+                return Promise.resolve({ continue: true });
+              }
               ctx.createToolSpan(input.tool_name, input.tool_input, input.tool_use_id);
               return Promise.resolve({ continue: true });
             },
@@ -229,6 +177,9 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
         {
           hooks: [
             (input: HookInput) => {
+              if (input.hook_event_name !== 'PostToolUse') {
+                return Promise.resolve({ continue: true });
+              }
               ctx.endToolSpan(input.tool_use_id, input.tool_response);
               return Promise.resolve({ continue: true });
             },
@@ -239,6 +190,9 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
         {
           hooks: [
             (input: HookInput) => {
+              if (input.hook_event_name !== 'PostToolUseFailure') {
+                return Promise.resolve({ continue: true });
+              }
               ctx.endToolSpan(input.tool_use_id, undefined, input.error);
               return Promise.resolve({ continue: true });
             },
@@ -264,7 +218,7 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
     });
 
     async function* wrappedGenerator(): AsyncGenerator<SDKMessage, void> {
-      let lastResult: SDKMessage | null = null;
+      let lastResult: SDKResultMessage | null = null;
       let hasError = false;
 
       try {
@@ -273,11 +227,14 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
             ctx.setSessionInfo(message.session_id ?? '', message.model);
           }
           if (message.type === 'assistant') {
-            ctx.captureAssistantMessage(message);
+            const content = (message as { message?: { content?: ContentBlock[] } }).message?.content;
+            if (Array.isArray(content)) {
+              ctx.captureAssistantMessage(content);
+            }
           }
           if (message.type === 'result') {
             lastResult = message;
-            hasError = message.subtype !== 'success';
+            hasError = lastResult.subtype !== 'success';
           }
           yield message;
         }
@@ -286,52 +243,55 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
         throw e;
       }
 
-      ctx.endSession(lastResult, hasError ? lastResult?.errors?.join(', ') : undefined);
+      const errorMsg =
+        hasError && lastResult && 'errors' in lastResult
+          ? lastResult.errors.join(', ')
+          : undefined;
+      ctx.endSession(lastResult, errorMsg);
     }
 
     const wrapped = wrappedGenerator();
 
-    return new Proxy(wrapped as Query, {
+    return new Proxy(actualQuery, {
       get(target, prop, receiver) {
         if (prop === Symbol.asyncIterator) {
           return () => wrapped;
         }
+        if (prop === 'next' || prop === 'return' || prop === 'throw') {
+          return Reflect.get(wrapped, prop, wrapped);
+        }
         if (prop === 'interrupt' || prop === 'close') {
           return (...args: unknown[]) => {
             ctx.endSession(null, 'interrupted');
-            const method = (actualQuery as unknown as Record<string, (...a: unknown[]) => unknown>)[
-              prop
-            ];
-            return method?.(...args);
+            const method = Reflect.get(target, prop, receiver) as
+              | ((...a: unknown[]) => unknown)
+              | undefined;
+            return typeof method === 'function' ? method.call(target, ...args) : method;
           };
         }
-        if (prop === 'next' || prop === 'return' || prop === 'throw') {
-          return Reflect.get(target, prop, receiver);
-        }
-        if (typeof prop === 'string' && prop in actualQuery) {
-          const val = (actualQuery as unknown as Record<string, unknown>)[prop];
-          if (typeof val === 'function') {
-            return (val as (...args: unknown[]) => unknown).bind(actualQuery) as unknown;
-          }
-          return val;
-        }
-        return Reflect.get(target, prop, receiver) as unknown;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return Reflect.get(target, prop, receiver);
       },
     });
   };
 }
 
-export function extractTokenUsage(result: unknown): TokenUsage | undefined {
+export function extractAgentTokenUsage(result: unknown): TokenUsage | undefined {
   if (!result || typeof result !== 'object') {
     return undefined;
   }
-  const r = result as SDKMessage;
+  const r = result as SDKResultMessage;
 
   if (r.usage) {
+    const { input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens } =
+      r.usage;
+    const totalInput =
+      (input_tokens ?? 0) + (cache_read_input_tokens ?? 0) + (cache_creation_input_tokens ?? 0);
+    const totalOutput = output_tokens ?? 0;
     return {
-      input_tokens: r.usage.input_tokens ?? 0,
-      output_tokens: r.usage.output_tokens ?? 0,
-      total_tokens: (r.usage.input_tokens ?? 0) + (r.usage.output_tokens ?? 0),
+      input_tokens: totalInput,
+      output_tokens: totalOutput,
+      total_tokens: totalInput + totalOutput,
     };
   }
 
@@ -339,7 +299,8 @@ export function extractTokenUsage(result: unknown): TokenUsage | undefined {
     let input = 0;
     let output = 0;
     for (const m of Object.values(r.modelUsage)) {
-      input += m.inputTokens ?? 0;
+      input +=
+        (m.inputTokens ?? 0) + (m.cacheReadInputTokens ?? 0) + (m.cacheCreationInputTokens ?? 0);
       output += m.outputTokens ?? 0;
     }
     if (input || output) {

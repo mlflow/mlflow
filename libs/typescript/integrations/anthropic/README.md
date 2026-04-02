@@ -71,8 +71,8 @@ Use `createTracedQuery()` to wrap the Claude Agent SDK's `query` function.
 
 ```typescript
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { createTracedQuery } from 'mlflow-anthropic';
-import * as mlflow from 'mlflow-tracing';
+import { createTracedQuery } from '@mlflow/anthropic';
+import * as mlflow from '@mlflow/core';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',

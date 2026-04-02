@@ -13,7 +13,7 @@ import {
   withSpan,
 } from '@mlflow/core';
 
-export { createTracedQuery } from './tracedClaudeAgent';
+export { createTracedQuery, extractAgentTokenUsage } from './tracedClaudeAgent';
 
 const SUPPORTED_MODULES = ['Messages'];
 const SUPPORTED_METHODS = ['create', 'stream'];
