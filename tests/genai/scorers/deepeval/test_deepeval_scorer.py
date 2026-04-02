@@ -408,8 +408,8 @@ def test_gateway_deepeval_llm_generate_with_schema():
 
 
 def test_gateway_deepeval_llm_get_model_name():
-    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
     from mlflow.genai.scorers.deepeval.models import MlflowDeepEvalLLM
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
 
     with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
         adapter = MlflowDeepEvalLLM(ScorerLLMClient("anthropic:/claude-3"))
