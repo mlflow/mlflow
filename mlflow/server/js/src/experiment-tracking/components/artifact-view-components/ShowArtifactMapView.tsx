@@ -6,7 +6,7 @@
  */
 
 import React, { Component } from 'react';
-import DOMPurify from "dompurify";
+import DOMPurify from 'dompurify';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactMapView.css';
 import 'leaflet/dist/leaflet.css';
