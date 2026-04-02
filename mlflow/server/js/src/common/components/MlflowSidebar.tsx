@@ -210,7 +210,10 @@ export function MlflowSidebar({
                 isActive: (location: Location) => !enableWorkflowBasedNavigation && isGatewayActive(location),
                 children: (
                   <>
-                    <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />
+                    <FormattedMessage
+                      defaultMessage="AI Gateway"
+                      description="Sidebar link for gateway configuration"
+                    />
                     <GatewayNewTag />
                   </>
                 ),

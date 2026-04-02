@@ -1,4 +1,10 @@
-import { ChainIcon, ChartLineIcon, CloudModelIcon, CreditCardIcon, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  ChainIcon,
+  ChartLineIcon,
+  CloudModelIcon,
+  CreditCardIcon,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GatewayNewTag } from './GatewayNewTag';
 import GatewayRoutes from '../../gateway/routes';
