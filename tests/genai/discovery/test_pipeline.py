@@ -1130,8 +1130,26 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
     assert all(get_session_id(t) is not None for t in call_kwargs["session"])
 
 
-def _make_dedup_response(groups: list[list[int]]):
-    return _make_litellm_response(json.dumps({"groups": groups}))
+def _make_dedup_response(
+    groups: list[list[int]],
+    names: list[str] | None = None,
+    descriptions: list[str] | None = None,
+    root_causes: list[str] | None = None,
+):
+    group_objects = [
+        {
+            "indices": indices,
+            "name": names[i] if names and i < len(names) else "Issue: Merged issue",
+            "description": descriptions[i]
+            if descriptions and i < len(descriptions)
+            else "Merged description",
+            "root_cause": root_causes[i]
+            if root_causes and i < len(root_causes)
+            else "Merged root cause",
+        }
+        for i, indices in enumerate(groups)
+    ]
+    return _make_litellm_response(json.dumps({"groups": group_objects}))
 
 
 def test_dedup_issues_empty():
@@ -1158,6 +1176,29 @@ def test_dedup_issues_similar_issues_merged():
     assert set(result[0].example_indices) == {0, 1}
     assert result[0].severity == "high"
     assert result[0].categories == ["correctness", "latency"]
+    # LLM-generated consolidated fields are applied
+    assert result[0].name == "Issue: Merged issue"
+    assert result[0].description == "Merged description"
+    assert result[0].root_cause == "Merged root cause"
+
+
+def test_dedup_issues_consolidated_fields_from_llm():
+    issue1 = create_identified_issue(name="Issue: Foo", description="desc 1", root_cause="rc 1")
+    issue2 = create_identified_issue(name="Issue: Bar", description="desc 2", root_cause="rc 2")
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response(
+            [[0, 1]],
+            names=["Issue: Consolidated name"],
+            descriptions=["Unified description"],
+            root_causes=["Common root cause"],
+        ),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 1
+    assert result[0].name == "Issue: Consolidated name"
+    assert result[0].description == "Unified description"
+    assert result[0].root_cause == "Common root cause"
 
 
 def test_dedup_issues_dissimilar_issues_not_merged():

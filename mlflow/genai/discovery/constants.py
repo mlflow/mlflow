@@ -378,6 +378,11 @@ DEDUP_ISSUES_PROMPT_TEMPLATE = (
     "- Related but distinct (e.g. two different tools both returning incorrect data)\n"
     "- In the same category but with different root causes\n"
     "- Similar in symptom but clearly triggered by different execution paths\n\n"
+    "For each group of duplicate issues, provide:\n"
+    "- name: a consolidated title in the format 'Issue: <short description>' (3-8 words), "
+    "e.g. 'Issue: Incomplete response details'\n"
+    "- description: a unified description of the shared symptom\n"
+    "- root_cause: the common root cause across all issues in the group\n\n"
     "Issues:\n{issue_list}"
 )
 

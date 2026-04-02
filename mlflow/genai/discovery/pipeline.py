@@ -323,11 +323,34 @@ def _resplit_incoherent_clusters(
     ]
 
 
-class _DedupGroups(pydantic.BaseModel):
-    groups: list[list[int]] = pydantic.Field(
+class _DedupGroup(pydantic.BaseModel):
+    indices: list[int] = pydantic.Field(
         description=(
-            "List of duplicate groups. Each group is a list of issue indices (0-based) "
-            "that represent the same underlying problem and should be merged. "
+            "List of issue indices (0-based) that represent the same underlying problem "
+            "and should be merged. Must contain 2 or more indices."
+        )
+    )
+    name: str = pydantic.Field(
+        description=(
+            "Consolidated title for this group. "
+            "Use the format 'Issue: <short description>' (3-8 words), "
+            "e.g. 'Issue: Incomplete response details'."
+        )
+    )
+    description: str = pydantic.Field(
+        description="A unified description of the shared symptom across all issues in the group."
+    )
+    root_cause: str = pydantic.Field(
+        description="The common root cause across all issues in the group."
+    )
+
+
+class _DedupGroups(pydantic.BaseModel):
+    groups: list[_DedupGroup] = pydantic.Field(
+        description=(
+            "List of duplicate groups. Each group contains the indices of issues "
+            "that represent the same underlying problem and should be merged, "
+            "along with a consolidated name, description, and root cause for the group. "
             "Only include groups with 2 or more indices. "
             "Issues that have no duplicates should NOT appear in any group."
         )
@@ -369,11 +392,14 @@ def _dedup_issues(
             x = parent[x]
         return x
 
+    group_by_root: dict[int, _DedupGroup] = {}
     for group in result.groups:
-        if len(group) < 2:
+        if len(group.indices) < 2:
             continue
-        for idx in group[1:]:
-            ra = find(group[0])
+        root = min(group.indices)
+        group_by_root[root] = group
+        for idx in group.indices:
+            ra = find(group.indices[0])
             rb = find(idx)
             if ra != rb:
                 parent[max(ra, rb)] = min(ra, rb)
@@ -391,6 +417,12 @@ def _dedup_issues(
             target.example_indices = list(set(target.example_indices + issue.example_indices))
             target.severity = max(target.severity, issue.severity)
             target.categories = list(dict.fromkeys(target.categories + issue.categories))
+
+    for root, group in group_by_root.items():
+        if root in merged:
+            merged[root].name = group.name
+            merged[root].description = group.description
+            merged[root].root_cause = group.root_cause
 
     # Return issues in their original order
     return [merged[i] for i in sorted(merged)]
