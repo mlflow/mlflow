@@ -1,37 +1,41 @@
-"""Shared LLM backend for third-party scorer packages.
+"""Shared LLM backend for scorer packages and simulator.
 
-Provides a single routing layer so that DeepEval, RAGAS, Phoenix, and TruLens
-scorers all resolve model URIs and make chat completion calls through the same
-code path. Eliminates duplicated routing logic across 4 scorer factories and
-adds native ``gateway:/`` support without litellm.
+Provides a single routing layer so that DeepEval, RAGAS, Phoenix, TruLens
+scorers and the conversation simulator all resolve model URIs and make
+chat completion calls through the same code path.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 import pydantic
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.metrics.genai.model_utils import _call_llm_provider_api, _parse_model_uri
+from mlflow.metrics.genai.model_utils import (
+    _call_llm_provider_api,
+    _get_provider_instance,
+    _parse_model_uri,
+    call_deployments_api,
+)
 
 _logger = logging.getLogger(__name__)
 
 
-class MLflowLLMBackend:
+class MlflowLLMBackend:
     """Shared LLM backend that routes model URIs to the best available path.
 
-    Routing order:
-        1. ``"databricks"`` → Databricks managed judge (``call_chat_completions``)
-        2. ``"gateway:/endpoint"`` → MLflow AI Gateway (``send_chat_request``)
-        3. Supported providers → native gateway provider (``_call_llm_provider_api``)
-        4. Unsupported providers → litellm fallback
+    Routing:
+        1. ``"databricks"`` -> Databricks managed judge
+        2. ``"endpoints:/..."`` -> MLflow deployments API
+        3. Providers constructable by ``_get_provider_instance`` -> native gateway
+        4. All others -> litellm fallback
 
     Args:
         model_uri: Model URI (e.g. ``"openai:/gpt-4"``, ``"gateway:/my-endpoint"``).
@@ -48,12 +52,14 @@ class MLflowLLMBackend:
 
         self._provider, self._model_name = _parse_model_uri(model_uri)
 
-        if self._provider == "gateway":
-            self._route = "gateway"
-        elif is_supported_provider(self._provider):
-            self._route = "native"
+        if self._provider == "endpoints":
+            self._route = "endpoints"
         else:
-            self._route = "litellm"
+            try:
+                _get_provider_instance(self._provider, self._model_name)
+                self._route = "native"
+            except MlflowException:
+                self._route = "litellm"
 
     @property
     def model_name(self) -> str:
@@ -61,93 +67,124 @@ class MLflowLLMBackend:
             return _DATABRICKS_DEFAULT_JUDGE_MODEL
         return f"{self._provider}/{self._model_name}"
 
+    @property
+    def is_native(self) -> bool:
+        """True if using a native provider (not litellm fallback)."""
+        return self._route in ("databricks", "native", "endpoints")
+
     def complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        response_format: type[pydantic.BaseModel] | None = None,
+        num_retries: int = 0,
+        **kwargs: Any,
+    ) -> str:
+        """Send a chat completion request through the resolved route.
+
+        Args:
+            messages: List of message dicts (e.g. ``[{"role": "user", "content": "..."}]``).
+            response_format: Optional Pydantic model class for structured output.
+            num_retries: Number of retries on transient failures (default 0).
+            kwargs: Additional parameters passed to the LLM (e.g. temperature).
+
+        Returns:
+            The model's response content as a string.
+        """
+        for attempt in range(num_retries + 1):
+            try:
+                return self._dispatch(messages, response_format=response_format, **kwargs)
+            except MlflowException:
+                if attempt >= num_retries:
+                    raise
+                _logger.debug(
+                    f"LLM call failed (attempt {attempt + 1}/{num_retries + 1}), retrying..."
+                )
+                time.sleep(2**attempt)
+
+    def complete_prompt(
         self,
         prompt: str,
         *,
         response_format: type[pydantic.BaseModel] | None = None,
         **kwargs: Any,
     ) -> str:
-        """Make a chat completion call through the resolved route.
+        """Convenience method for single-prompt calls.
 
-        Args:
-            prompt: The prompt string to send.
-            response_format: Optional Pydantic model class for structured output.
-                Automatically converted to the OpenAI json_schema format.
-            **kwargs: Additional parameters passed to the LLM (e.g. temperature).
-
-        Returns:
-            The model's response as a string.
+        Wraps the prompt in a user message and calls :meth:`complete`.
         """
-        if self._route == "databricks":
-            return self._complete_databricks(prompt)
-        elif self._route == "gateway":
-            return self._complete_gateway(prompt, **kwargs)
-        elif self._route == "native":
-            return self._complete_native(prompt, response_format=response_format, **kwargs)
-        else:
-            return self._complete_litellm(prompt, response_format=response_format, **kwargs)
+        return self.complete(
+            [{"role": "user", "content": prompt}],
+            response_format=response_format,
+            **kwargs,
+        )
 
-    def _complete_databricks(self, prompt: str) -> str:
-        result = call_chat_completions(user_prompt=prompt, system_prompt="")
+    def _dispatch(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        response_format: type[pydantic.BaseModel] | None = None,
+        **kwargs: Any,
+    ) -> str:
+        if self._route == "databricks":
+            return self._complete_databricks(messages)
+        elif self._route == "endpoints":
+            return self._complete_endpoints(messages, response_format=response_format, **kwargs)
+        elif self._route == "native":
+            return self._complete_native(messages, response_format=response_format, **kwargs)
+        else:
+            return self._complete_litellm(messages, response_format=response_format, **kwargs)
+
+    def _complete_databricks(self, messages: list[dict[str, str]]) -> str:
+        user_prompt = messages[-1]["content"] if messages else ""
+        system_prompt = ""
+        if len(messages) > 1 and messages[0]["role"] == "system":
+            system_prompt = messages[0]["content"]
+        result = call_chat_completions(user_prompt=user_prompt, system_prompt=system_prompt)
         return result.output
 
-    def _complete_gateway(self, prompt: str, **kwargs: Any) -> str:
-        from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
-        from mlflow.genai.judges.adapters.utils import send_chat_request
-        from mlflow.genai.utils.gateway_utils import get_gateway_config
+    def _complete_endpoints(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        response_format: type[pydantic.BaseModel] | None = None,
+        **kwargs: Any,
+    ) -> str:
+        response_format_dict = self._convert_response_format(response_format)
+        payload: dict[str, Any] = {"messages": messages}
+        if kwargs:
+            payload.update(kwargs)
+        if response_format_dict:
+            payload["response_format"] = response_format_dict
 
-        config = get_gateway_config(self._model_name)
-        headers = {
-            **(config.extra_headers or {}),
-            MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE.value,
-        }
-        payload = {
-            "model": config.endpoint_name,
-            "messages": [{"role": "user", "content": prompt}],
-            **kwargs,
-        }
-        endpoint = f"{config.api_base.rstrip('/')}/chat/completions"
-        response = send_chat_request(
-            endpoint=endpoint, headers=headers, payload=payload, num_retries=3
+        result = call_deployments_api(
+            self._model_name,
+            payload,
+            endpoint_type="llm/v1/chat",
         )
-        content = response["choices"][0]["message"]["content"]
-        return content[0]["text"] if isinstance(content, list) else content
+        if result is None:
+            raise MlflowException("Empty response from deployment endpoint")
+        return result
 
     def _complete_native(
         self,
-        prompt: str,
+        messages: list[dict[str, str]],
         *,
         response_format: type[pydantic.BaseModel] | None = None,
         **kwargs: Any,
     ) -> str:
-        response_format_dict = None
-        if response_format is not None:
-            from mlflow.genai.discovery.utils import _pydantic_to_response_format
-
-            response_format_dict = _pydantic_to_response_format(response_format)
-
-        # Use the messages path when response_format is present, since
-        # _call_llm_provider_api only applies response_format with messages.
-        if response_format_dict is not None:
-            return _call_llm_provider_api(
-                self._provider,
-                self._model_name,
-                messages=[{"role": "user", "content": prompt}],
-                eval_parameters=kwargs or None,
-                response_format=response_format_dict,
-            )
-
+        response_format_dict = self._convert_response_format(response_format)
         return _call_llm_provider_api(
             self._provider,
             self._model_name,
-            input_data=prompt,
+            messages=messages,
             eval_parameters=kwargs or None,
+            response_format=response_format_dict,
         )
 
     def _complete_litellm(
         self,
-        prompt: str,
+        messages: list[dict[str, str]],
         *,
         response_format: type[pydantic.BaseModel] | None = None,
         **kwargs: Any,
@@ -160,9 +197,9 @@ class MLflowLLMBackend:
                 "Install litellm to use it: `pip install litellm`"
             )
 
-        call_kwargs = {
+        call_kwargs: dict[str, Any] = {
             "model": f"{self._provider}/{self._model_name}",
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "drop_params": True,
             **kwargs,
         }
@@ -171,3 +208,13 @@ class MLflowLLMBackend:
 
         response = litellm.completion(**call_kwargs)
         return response.choices[0].message.content
+
+    @staticmethod
+    def _convert_response_format(
+        response_format: type[pydantic.BaseModel] | None,
+    ) -> dict[str, Any] | None:
+        if response_format is None:
+            return None
+        from mlflow.genai.utils.message_utils import pydantic_to_response_format
+
+        return pydantic_to_response_format(response_format)
