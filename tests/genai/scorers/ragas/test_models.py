@@ -1,4 +1,3 @@
-import functools
 import sys
 from unittest.mock import Mock, patch
 
@@ -7,7 +6,6 @@ from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.ragas.models import DatabricksRagasLLM, create_ragas_model
-from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
 
 
 class DummyResponseModel(BaseModel):
@@ -59,12 +57,15 @@ def test_create_ragas_model_databricks():
 
 def test_create_ragas_model_databricks_serving_endpoint():
     model = create_ragas_model("databricks:/my-endpoint")
-    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
+    assert model.__class__.__name__ == "GatewayRagasLLM"
+    assert model.get_model_name() == "databricks/my-endpoint"
 
 
-def test_create_ragas_model_openai():
+def test_create_ragas_model_openai(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     model = create_ragas_model("openai:/gpt-4")
-    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
+    assert model.__class__.__name__ == "GatewayRagasLLM"
+    assert model.get_model_name() == "openai/gpt-4"
 
 
 def test_create_ragas_model_rejects_provider_no_slash():
@@ -77,46 +78,17 @@ def test_create_ragas_model_rejects_model_name_only():
         create_ragas_model("gpt-4")
 
 
-def test_create_ragas_model_gateway():
-    mock_config = GatewayLiteLLMConfig(
-        api_base="http://localhost:5000/gateway/mlflow/v1/",
-        api_key="mlflow-gateway-auth",
-        model="openai/my-endpoint",
-        extra_headers=None,
-    )
-    with patch(
-        "mlflow.genai.scorers.ragas.models.get_gateway_litellm_config",
-        return_value=mock_config,
-    ) as mock_get_config:
+def test_create_ragas_model_gateway_uses_native_provider():
+    from mlflow.genai.scorers.ragas.models import GatewayRagasLLM
+
+    with patch("mlflow.genai.scorers.ragas.models._get_provider_instance"):
         model = create_ragas_model("gateway:/my-endpoint")
 
-    mock_get_config.assert_called_once_with("my-endpoint")
+    assert isinstance(model, GatewayRagasLLM)
+    assert model.get_model_name() == "gateway/my-endpoint"
+
+
+@pytest.mark.parametrize("provider", ["cohere", "mosaicml", "palm"])
+def test_create_ragas_model_registered_but_unsupported_falls_back_to_litellm(provider):
+    model = create_ragas_model(f"{provider}:/my-model")
     assert model.__class__.__name__ == "LiteLLMStructuredLLM"
-    assert model.model == "openai/my-endpoint"
-
-
-def test_create_ragas_model_gateway_uses_partial_with_api_base_and_key():
-    mock_config = GatewayLiteLLMConfig(
-        api_base="http://localhost:5000/gateway/mlflow/v1/",
-        api_key="mlflow-gateway-auth",
-        model="openai/my-endpoint",
-        extra_headers=None,
-    )
-    mock_litellm = Mock()
-    with (
-        patch.dict(sys.modules, {"litellm": mock_litellm}),
-        patch(
-            "mlflow.genai.scorers.ragas.models.get_gateway_litellm_config",
-            return_value=mock_config,
-        ),
-        patch("mlflow.genai.scorers.ragas.models.instructor") as mock_instructor,
-    ):
-        mock_instructor.from_litellm.return_value = Mock()
-        create_ragas_model("gateway:/my-endpoint")
-
-    mock_instructor.from_litellm.assert_called_once()
-    partial_arg = mock_instructor.from_litellm.call_args[0][0]
-    assert isinstance(partial_arg, functools.partial)
-    assert partial_arg.keywords["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
-    assert partial_arg.keywords["api_key"] == "mlflow-gateway-auth"
-    assert partial_arg.func is mock_litellm.acompletion
