@@ -3,7 +3,6 @@ import { DangerModal, Alert, useDesignSystemTheme } from '@databricks/design-sys
 import { FormattedMessage } from '@databricks/i18n';
 import type { ScheduledScorer } from './types';
 import type { PredefinedError } from '@databricks/web-shared/errors';
-import { COMPONENT_ID_PREFIX } from './constants';
 
 interface DeleteScorerModalRendererProps {
   isOpen: boolean;

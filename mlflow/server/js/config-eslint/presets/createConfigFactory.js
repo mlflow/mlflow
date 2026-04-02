@@ -683,7 +683,7 @@ function createConfigFactory(options = {}) {
       // '@databricks/no-direct-storage': 'error',
       // '@databricks/no-wrapper-formui-label': 'error',
       // '@databricks/no-window-top': 'error',
-      '@databricks/no-dynamic-property-value': 'warn',
+      '@databricks/no-dynamic-property-value': 'error',
       // '@databricks/no-new-object-or-array-in-zustand-selector': 'error',
       // '@databricks/no-unstable-nested-components': [
       //   'error',

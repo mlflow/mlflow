@@ -328,7 +328,7 @@ def _invoke_via_gateway(
 
 
 class GatewayAdapter(BaseJudgeAdapter):
-    """Adapter for native AI Gateway providers (fallback when LiteLLM is not available)."""
+    """Adapter for native AI Gateway providers."""
 
     @classmethod
     def is_applicable(

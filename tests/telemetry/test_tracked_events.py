@@ -1206,12 +1206,12 @@ def test_git_model_versioning(mock_requests, mock_telemetry_client):
 
 
 @pytest.mark.parametrize(
-    ("model_uri", "expected_provider", "litellm_available", "use_native_provider"),
+    ("model_uri", "expected_provider"),
     [
-        ("databricks:/llama-3.1-70b", "databricks", True, False),
-        ("openai:/gpt-4o-mini", "openai", True, False),
-        ("endpoints:/my-endpoint", "endpoints", True, False),
-        ("anthropic:/claude-3-opus", "anthropic", True, False),
+        ("databricks:/llama-3.1-70b", "databricks"),
+        ("openai:/gpt-4o-mini", "openai"),
+        ("endpoints:/my-endpoint", "endpoints"),
+        ("anthropic:/claude-3-opus", "anthropic"),
     ],
 )
 def test_invoke_custom_judge_model(
@@ -1219,69 +1219,20 @@ def test_invoke_custom_judge_model(
     mock_telemetry_client: TelemetryClient,
     model_uri,
     expected_provider,
-    litellm_available,
-    use_native_provider,
 ):
     from mlflow.genai.judges.utils import invoke_judge_model
-    from mlflow.utils.rest_utils import MlflowHostCreds
 
     mock_response = json.dumps({"result": 0.8, "rationale": "Test rationale"})
 
-    # Mock Databricks credentials for databricks:// URIs
-    mock_creds = MlflowHostCreds(host="https://test.databricks.com", token="test-token")
-
-    with (
-        mock.patch(
-            "mlflow.genai.judges.utils._is_litellm_available",
-            return_value=litellm_available,
-        ),
-        mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
-        ),
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_response,
     ):
-        if use_native_provider:
-            with (
-                mock.patch.object(
-                    __import__(
-                        "mlflow.metrics.genai.model_utils",
-                        fromlist=["score_model_on_payload"],
-                    ),
-                    "score_model_on_payload",
-                    return_value=mock_response,
-                ),
-                mock.patch.object(
-                    __import__(
-                        "mlflow.metrics.genai.model_utils",
-                        fromlist=["get_endpoint_type"],
-                    ),
-                    "get_endpoint_type",
-                    return_value="llm/v1/chat",
-                ),
-            ):
-                invoke_judge_model(
-                    model_uri=model_uri,
-                    prompt="Test prompt",
-                    assessment_name="test_assessment",
-                )
-        else:
-            from mlflow.genai.judges.adapters.litellm_adapter import InvokeLiteLLMOutput
-
-            with mock.patch(
-                "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
-                return_value=InvokeLiteLLMOutput(
-                    response=mock_response,
-                    request_id="req-123",
-                    num_prompt_tokens=5,
-                    num_completion_tokens=3,
-                    cost=10,
-                ),
-            ):
-                invoke_judge_model(
-                    model_uri=model_uri,
-                    prompt="Test prompt",
-                    assessment_name="test_assessment",
-                )
+        invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
 
         expected_params = {"model_provider": expected_provider}
         validate_telemetry_record(
@@ -1348,10 +1299,17 @@ def test_discover_issues(mock_requests, mock_telemetry_client: TelemetryClient):
         mock.MagicMock(spec=Trace),
     ]
 
+    mock_triage_run_id = "abc123"
+    mock_eval_result = mock.MagicMock()
+    mock_eval_result.run_id = mock_triage_run_id
+
     with (
         patch("mlflow.genai.discovery.pipeline.get_session_id", return_value=None),
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
-        patch("mlflow.genai.discovery.pipeline.mlflow.genai.evaluate"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=mock_eval_result,
+        ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
             return_value=_TriageResult([], {}, {}),
@@ -1369,9 +1327,11 @@ def test_discover_issues(mock_requests, mock_telemetry_client: TelemetryClient):
         "model": "openai:/gpt-4",
         "trace_count": 3,
         "categories": ["hallucination", "accuracy"],
+        "source_run_id": None,
         "issue_count": 0,
         "total_traces_analyzed": 3,
         "total_cost_usd": None,
+        "triage_run_id": mock_triage_run_id,
     }
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, DiscoverIssuesEvent.name, expected_params
@@ -2306,5 +2266,6 @@ def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryC
             "has_name": True,
             "has_description": True,
             "severity": "high",
+            "source_run_id": None,
         },
     )
