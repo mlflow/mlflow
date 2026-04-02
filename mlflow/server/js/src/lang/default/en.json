@@ -775,6 +775,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
   },
+  "37ReeZ": {
+    "defaultMessage": "On",
+    "description": "Usage tracking enabled state"
+  },
   "3CWJEU": {
     "defaultMessage": "Issues",
     "description": "Column label for issues"
@@ -1017,6 +1021,10 @@
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
+  },
+  "53j9+9": {
+    "defaultMessage": "Date created",
+    "description": "Label for endpoint creation date"
   },
   "57rIQy": {
     "defaultMessage": "Collapse graph",
@@ -1610,6 +1618,10 @@
     "defaultMessage": "No API keys found",
     "description": "Empty state title when filter returns no results"
   },
+  "8mP5Mz": {
+    "defaultMessage": "Enable Usage Tracking in the Overview tab to view logs",
+    "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
+  },
   "8qJt7/": {
     "defaultMessage": "Experimental",
     "description": "Experimental badge shown for features which are experimental"
@@ -1729,6 +1741,10 @@
   "9KXBFn": {
     "defaultMessage": "Tags",
     "description": "Row group title for tags of runs on the experiment compare runs page"
+  },
+  "9MHcPE": {
+    "defaultMessage": "Overview",
+    "description": "Tab label for endpoint overview"
   },
   "9TOU1G": {
     "defaultMessage": "No charts in this section",
@@ -2458,6 +2474,10 @@
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
   },
+  "Dz/+6s": {
+    "defaultMessage": "Usage tracking",
+    "description": "Label for usage tracking toggle in sidebar"
+  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
@@ -2661,6 +2681,10 @@
   "FYxQgz": {
     "defaultMessage": "Key",
     "description": "Add new key-value tag modal > Key input label"
+  },
+  "FZL3HX": {
+    "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
+    "description": "Tooltip explaining what usage tracking does"
   },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
@@ -3113,6 +3137,10 @@
   "ImBtKi": {
     "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace. For more information, please visit the <a>official documentation</a> for manual tracing.",
     "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example. The link leads to the MLflow documentation for the user to learn more."
+  },
+  "IrinAG": {
+    "defaultMessage": "OpenAI Chat Completions",
+    "description": "Starter code variant: OpenAI Chat Completions"
   },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
@@ -3829,6 +3857,10 @@
   "NhEmyj": {
     "defaultMessage": "Training runs",
     "description": "Label for the training runs tab in the MLflow experiment navbar"
+  },
+  "NhrkEN": {
+    "defaultMessage": "Gateway Endpoint Details",
+    "description": "Sidebar title for endpoint details panel"
   },
   "NiSPrL": {
     "defaultMessage": "Model metrics",
@@ -4601,6 +4633,10 @@
     "defaultMessage": "Evaluate entire sessions for conversation quality and outcomes.",
     "description": "Hint for the scorer evaluation scope selection for sessions"
   },
+  "SrMiH6": {
+    "defaultMessage": "MLflow Invocations",
+    "description": "Starter code variant: MLflow Invocations"
+  },
   "SrV58C": {
     "defaultMessage": "Settings",
     "description": "Section label for filter settings in the trace explorer."
@@ -5096,6 +5132,10 @@
     "defaultMessage": "Version",
     "description": "Header for the version column in the registered prompts table"
   },
+  "VnnPrX": {
+    "defaultMessage": "Enable Usage Tracking in the Overview tab to view usage metrics",
+    "description": "Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first"
+  },
   "VpFZR/": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt version modal"
@@ -5303,6 +5343,10 @@
   "X3F7x3": {
     "defaultMessage": "No Artifacts Recorded",
     "description": "Empty state string when there are no artifacts record for the experiment"
+  },
+  "X3Uuiw": {
+    "defaultMessage": "Off",
+    "description": "Usage tracking disabled state"
   },
   "X6P8tX": {
     "defaultMessage": "No models found",
@@ -5946,10 +5990,6 @@
   "b6VGsd": {
     "defaultMessage": "Pre-built LLM-as-a-judge | Session level",
     "description": "Label indicating a pre-built session-level LLM-as-a-judge template"
-  },
-  "b6hjrM": {
-    "defaultMessage": "Fallback Models",
-    "description": "Summary fallback models label"
   },
   "b7OpMB": {
     "defaultMessage": "Data Type",
@@ -6774,6 +6814,10 @@
   "gC2Kxm": {
     "defaultMessage": "Give instructions to the model. Use '{{ }}' or the \"Add new variable\" button to add variables to your prompt.",
     "description": "Experiment page > new run modal > prompt template input hint"
+  },
+  "gCCsKd": {
+    "defaultMessage": "View starter code",
+    "description": "Title for starter code card on endpoint overview"
   },
   "gFYM0j": {
     "defaultMessage": "Cancel",
@@ -7895,10 +7939,6 @@
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
   },
-  "mz/gog": {
-    "defaultMessage": "Traffic Split",
-    "description": "Summary traffic split label"
-  },
   "n/MCHF": {
     "defaultMessage": "Window Start",
     "description": "Budget window start date column header"
@@ -8235,10 +8275,6 @@
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
   },
-  "p8KS2c": {
-    "defaultMessage": "Usage Tracking",
-    "description": "Section title for usage tracking"
-  },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
     "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
@@ -8379,10 +8415,6 @@
     "defaultMessage": "Error",
     "description": "Title of editor error fallback component"
   },
-  "qApcFv": {
-    "defaultMessage": "Configuration",
-    "description": "Tab label for endpoint configuration"
-  },
   "qB4ZRq": {
     "defaultMessage": "Conversational guidelines",
     "description": "LLM template option"
@@ -8414,6 +8446,10 @@
   "qKGnLV": {
     "defaultMessage": "Model Config:",
     "description": "Label for model configuration in the prompt details page"
+  },
+  "qKHKw4": {
+    "defaultMessage": "API key",
+    "description": "Label for endpoint API key"
   },
   "qMwRy3": {
     "defaultMessage": "Registered Models",
@@ -8454,10 +8490,6 @@
   "qZKsz+": {
     "defaultMessage": "Cancel",
     "description": "Cancel webhook form button"
-  },
-  "qa80t1": {
-    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view usage metrics",
-    "description": "Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first"
   },
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
@@ -9514,10 +9546,6 @@
   "xbfKJS": {
     "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
     "description": "Request body tooltip for unified Chat Completions API"
-  },
-  "xcmW/z": {
-    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view logs",
-    "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
