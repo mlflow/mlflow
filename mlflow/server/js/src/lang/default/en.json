@@ -3270,6 +3270,10 @@
     "defaultMessage": "We've automatically detected the experiment type to be ''{kindLabel}''. {isEditable, select, true {You can either confirm or change the type.} other {}}",
     "description": "Popover message for inferred experiment kind"
   },
+  "K/J7SG": {
+    "defaultMessage": "A Gateway endpoint lets your agents call any AI model through a single API. Just pick a model, add your API key, and you're ready to go — with usage tracking and budget controls built in. {br}{br}Every request is automatically logged as an MLflow Trace, so you can debug and evaluate later.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
+  },
   "K1JLVU": {
     "defaultMessage": "Latency",
     "description": "Label for the latency section"
@@ -8954,10 +8958,6 @@
   "tqw27y": {
     "defaultMessage": "Evaluation criteria",
     "description": "Accordion section header for evaluation criteria (judge type, guidelines/instructions, and output type)"
-  },
-  "tr/KIw": {
-    "defaultMessage": "A Gateway endpoint connects your agents to an AI model. Pick a model, add your API key, and start calling it with built-in usage tracking and budget controls. {br}Every request is automatically logged as an MLflow Trace for debugging and evaluation.",
-    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
   "trW0O+": {
     "defaultMessage": "Back to providers",
