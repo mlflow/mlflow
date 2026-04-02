@@ -1,4 +1,4 @@
-import { fetchAPI } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { fetchAPI, fetchOrFail } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import type { ModelTrace, ModelTraceData } from '../ModelTrace.types';
 import { getAjaxUrl } from '../ModelTraceExplorer.request.utils';
 
@@ -40,11 +40,7 @@ export async function getTraceAttachment(requestId: string, attachmentId: string
     const url = getAjaxUrl(
       `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(requestId)}&path=${encodeURIComponent(attachmentId)}`,
     );
-    // eslint-disable-next-line no-restricted-globals -- direct fetch needed for binary response
-    const response = await fetch(url, { credentials: 'include' });
-    if (!response.ok) {
-      return undefined;
-    }
+    const response = await fetchOrFail(url);
     return await response.arrayBuffer();
   } catch {
     return undefined;

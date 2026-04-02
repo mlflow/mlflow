@@ -1243,7 +1243,9 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
   // Extract audio from assistant message output (e.g., gpt-4o-audio-preview response)
   const messageAudio = (message as any).audio;
   if (messageAudio && isString(messageAudio.data)) {
-    audioParts.push({ data: messageAudio.data, format: 'wav' });
+    const format =
+      isString(messageAudio.format) && ['wav', 'mp3'].includes(messageAudio.format) ? messageAudio.format : 'wav';
+    audioParts.push({ data: messageAudio.data, format });
   }
 
   return {

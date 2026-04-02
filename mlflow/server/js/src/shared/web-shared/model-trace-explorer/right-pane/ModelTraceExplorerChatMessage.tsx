@@ -23,6 +23,7 @@ import {
 } from './ModelTraceExplorerChatRenderer.utils';
 import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
 import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
+import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
 function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
   const { url, loading, error } = useAttachmentUrl(src ?? null);
@@ -41,7 +42,6 @@ const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }
   }
   return <img src={src} alt={alt} css={{ maxWidth: '100%' }} />;
 };
-import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
 const tryGetJsonContent = (content: string) => {
   try {
