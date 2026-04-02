@@ -797,6 +797,88 @@ def test_response_format_fallback():
     assert json.loads(output.response) == {"result": "yes"}
 
 
+def test_response_format_capability_cached_globally():
+    from mlflow.genai.judges.adapters.gateway_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+
+    class TestSchema(pydantic.BaseModel):
+        result: str = pydantic.Field(description="test")
+
+    cache_key = "openai/gpt-4-test-cache"
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.pop(cache_key, None)
+
+    final_response = _chat_response(json.dumps({"result": "yes"}))
+
+    call_count = 0
+
+    def mock_send_side_effect(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise ChatCompletionError(
+                status_code=400,
+                message="response_format is not supported",
+            )
+        return final_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=mock_send_side_effect,
+        ),
+    ):
+        # First call: fails with response_format, retries without, caches
+        GatewayAdapter()._invoke_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4-test-cache",
+            messages=[ChatMessage(role="user", content="test")],
+            trace=None,
+            num_retries=3,
+            response_format=TestSchema,
+        )
+
+    assert cache_key in _MODEL_RESPONSE_FORMAT_CAPABILITIES
+    assert _MODEL_RESPONSE_FORMAT_CAPABILITIES[cache_key] is False
+
+    # Second call: should skip response_format without hitting an error
+    call_count = 0
+
+    def mock_send_no_error(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        return final_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=mock_send_no_error,
+        ) as mock_send,
+    ):
+        GatewayAdapter()._invoke_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4-test-cache",
+            messages=[ChatMessage(role="user", content="test")],
+            trace=None,
+            num_retries=3,
+            response_format=TestSchema,
+        )
+
+    # Should succeed on first try (no error), meaning response_format was skipped
+    assert call_count == 1
+    payload = mock_send.call_args.kwargs["payload"]
+    assert "response_format" not in payload
+
+    # Cleanup
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.pop(cache_key, None)
+
+
 def test_custom_base_url_overrides_provider():
     response_json = _chat_response(json.dumps({"result": "yes"}))
 
