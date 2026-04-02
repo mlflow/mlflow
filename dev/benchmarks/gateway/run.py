@@ -58,22 +58,18 @@ console = Console()
 
 def _uv_prefix() -> list[str]:
     """Return uv run prefix when inside the mlflow repo, else empty list."""
-    pyproject = (SCRIPT_DIR / "../../../pyproject.toml").resolve()
-    if shutil.which("uv") and pyproject.exists():
-        return ["uv", "run", "--no-build-isolation", "--extra", "gateway"]
-    return []
+    in_repo = (
+        shutil.which("uv")
+        and subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=SCRIPT_DIR, capture_output=True
+        ).returncode
+        == 0
+    )
+    return ["uv", "run", "--no-build-isolation", "--extra", "gateway"] if in_repo else []
 
 
 def _subprocess_env() -> dict[str, str]:
     return os.environ | {"OBJC_DISABLE_INITIALIZE_FORK_SAFETY": "YES"}
-
-
-def _terminate(proc: subprocess.Popen[bytes]) -> None:
-    proc.terminate()
-    try:
-        proc.wait(timeout=3)
-    except subprocess.TimeoutExpired:
-        proc.kill()
 
 
 def _wait_for_port(port: int, label: str, log_file: Path | None = None, timeout: int = 30) -> None:
@@ -109,31 +105,30 @@ def _start_fake_server(
 ) -> Generator[None, None, None]:
     prefix = _uv_prefix()
     log_file = Path(work_dir) / "fake_server.log"
-    with log_file.open("w") as f:
-        proc = subprocess.Popen(
-            [
-                *prefix,
-                "uvicorn",
-                "fake_server:app",
-                "--workers",
-                str(workers),
-                "--host",
-                "0.0.0.0",
-                "--port",
-                str(port),
-                "--log-level",
-                "warning",
-            ],
-            cwd=SCRIPT_DIR,
-            stdout=f,
-            stderr=f,
-            env=_subprocess_env(),
-        )
-    _wait_for_port(port, "fake OpenAI server", log_file)
-    try:
-        yield
-    finally:
-        _terminate(proc)
+    with log_file.open("w") as f, subprocess.Popen(
+        [
+            *prefix,
+            "uvicorn",
+            "fake_server:app",
+            "--workers",
+            str(workers),
+            "--host",
+            "0.0.0.0",
+            "--port",
+            str(port),
+            "--log-level",
+            "warning",
+        ],
+        cwd=SCRIPT_DIR,
+        stdout=f,
+        stderr=f,
+        env=_subprocess_env(),
+    ) as proc:
+        _wait_for_port(port, "fake OpenAI server", log_file)
+        try:
+            yield
+        finally:
+            proc.terminate()
 
 
 @contextlib.contextmanager
@@ -142,31 +137,30 @@ def _start_mlflow(
 ) -> Generator[None, None, None]:
     prefix = _uv_prefix()
     log_file = Path(work_dir) / f"mlflow-{port}.log"
-    with log_file.open("w") as f:
-        proc = subprocess.Popen(
-            [
-                *prefix,
-                "mlflow",
-                "server",
-                "--backend-store-uri",
-                backend_uri,
-                "--host",
-                "0.0.0.0",
-                "--port",
-                str(port),
-                "--workers",
-                str(workers),
-                "--disable-security-middleware",
-            ],
-            stdout=f,
-            stderr=f,
-            env=_subprocess_env(),
-        )
-    _wait_for_port(port, label, log_file)
-    try:
-        yield
-    finally:
-        _terminate(proc)
+    with log_file.open("w") as f, subprocess.Popen(
+        [
+            *prefix,
+            "mlflow",
+            "server",
+            "--backend-store-uri",
+            backend_uri,
+            "--host",
+            "0.0.0.0",
+            "--port",
+            str(port),
+            "--workers",
+            str(workers),
+            "--disable-security-middleware",
+        ],
+        stdout=f,
+        stderr=f,
+        env=_subprocess_env(),
+    ) as proc:
+        _wait_for_port(port, label, log_file)
+        try:
+            yield
+        finally:
+            proc.terminate()
 
 
 def _check_docker() -> None:
