@@ -1054,11 +1054,9 @@ def test_response_timing_headers_streaming(store: SqlAlchemyStore):
 
     assert response.status_code == 200
     assert MLFLOW_GATEWAY_DURATION_HEADER in response.headers
-    duration = int(response.headers[MLFLOW_GATEWAY_DURATION_HEADER])
-    assert duration >= 0
-    assert MLFLOW_GATEWAY_OVERHEAD_HEADER in response.headers
-    overhead = int(response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER])
-    assert 0 <= overhead <= duration
+    assert int(response.headers[MLFLOW_GATEWAY_DURATION_HEADER]) >= 0
+    # Overhead header is omitted for streaming since provider_call_duration_ms is not set.
+    assert MLFLOW_GATEWAY_OVERHEAD_HEADER not in response.headers
 
 
 def test_response_timing_headers_error(store: SqlAlchemyStore):

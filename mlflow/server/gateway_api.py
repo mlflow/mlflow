@@ -124,10 +124,16 @@ def _get_user_metadata(request: Request) -> dict[str, Any]:
 
 def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
     """
-    Decorator to record telemetry for gateway invocation endpoints.
+    Decorator for gateway invocation endpoints that handles two concerns:
 
-    Automatically tracks success/failure status, duration, and streaming mode
-    (determined by checking if the response is a StreamingResponse).
+    1. Telemetry: records success/failure status, duration, streaming mode, and caller.
+    2. Timing headers: injects X-MLflow-Gateway-Duration-Ms and (when provider timing is
+       available) X-MLflow-Gateway-Overhead-Duration-Ms into every HTTP response, including
+       HTTPException error responses.
+
+    Provider timing is only available for non-streaming aiohttp calls (via send_request).
+    Streaming responses and providers that bypass aiohttp (e.g. LiteLLM) receive only the
+    duration header; the overhead header is omitted to avoid reporting misleading values.
 
     Args:
         invocation_type: The type of invocation endpoint.
@@ -191,7 +197,7 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 is_streaming = isinstance(result, StreamingResponse)
                 overhead_ms = (
                     max(0, duration_ms - provider_duration_ms)
-                    if provider_duration_ms > 0 or is_streaming
+                    if provider_duration_ms > 0
                     else None
                 )
                 if http_exc is not None:
