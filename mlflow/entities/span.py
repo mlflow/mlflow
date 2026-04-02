@@ -717,7 +717,9 @@ class LiveSpan(Span):
             if isinstance(source, dict):
                 data = source.get("bytes")
                 fmt = image.get("format", "png")
-                if isinstance(data, str) and data:
+                if isinstance(data, str) and data and not data.startswith("mlflow-attachment://"):
+                    if not isinstance(fmt, str) or not fmt:
+                        fmt = "png"
                     try:
                         content_bytes = base64.b64decode(data, validate=True)
                     except Exception:
@@ -734,7 +736,9 @@ class LiveSpan(Span):
         if isinstance(inline := value.get("inline_data"), dict):
             data = inline.get("data")
             mime_type = inline.get("mime_type", "application/octet-stream")
-            if isinstance(data, str) and data:
+            if isinstance(data, str) and data and not data.startswith("mlflow-attachment://"):
+                if not isinstance(mime_type, str) or not mime_type:
+                    mime_type = "application/octet-stream"
                 try:
                     content_bytes = base64.b64decode(data, validate=True)
                 except Exception:
