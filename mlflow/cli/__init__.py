@@ -1315,6 +1315,14 @@ try:
 except ImportError:
     pass
 
+# Add Codex CLI integration commands to the autolog group
+try:
+    import mlflow.codex.cli
+
+    mlflow.claude_code.cli.commands.add_command(mlflow.codex.cli.codex)
+except (ImportError, AttributeError):
+    pass
+
 # Add Assistant CLI commands
 try:
     import mlflow.assistant.cli
