@@ -16,11 +16,7 @@ interface WebhooksSettingsProps {
   description?: React.ReactNode;
 }
 
-const WebhooksSettings = ({
-  eventFilter,
-  title,
-  description,
-}: WebhooksSettingsProps) => {
+const WebhooksSettings = ({ eventFilter, title, description }: WebhooksSettingsProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 

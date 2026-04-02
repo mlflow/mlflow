@@ -116,7 +116,7 @@ const ExperimentChatSessionsPageImpl = () => {
           customDefaultSelectedColumns={defaultCustomDefaultSelectedColumns}
           forceGroupBySession
           columnStorageKeyPrefix="chat-sessions"
-          detectIssuesButtonComponentId="mlflow.chat-sessions.detect-issues-button"
+          pageSource="chat-sessions"
         />
       ) : (
         <GenAIChatSessionsTable

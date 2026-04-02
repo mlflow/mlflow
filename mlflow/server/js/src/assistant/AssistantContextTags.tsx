@@ -130,13 +130,55 @@ export function AssistantContextTags(): React.ReactElement | null {
 
   return (
     <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, paddingTop: theme.spacing.sm }}>
-      <ContextTagGroup ids={traceIds} color="indigo" label="Trace" componentId="mlflow.assistant.chat_panel.context.trace" Icon={ForkHorizontalIcon} />
-      <ContextTagGroup ids={runIds} color="turquoise" label="Run" componentId="mlflow.assistant.chat_panel.context.run" Icon={PlayIcon} />
-      <ContextTagGroup ids={sessionIds} color="purple" label="Session" componentId="mlflow.assistant.chat_panel.context.session" Icon={SpeechBubbleIcon} />
-      <ContextTagGroup ids={datasetIds} color="brown" label="Dataset" componentId="mlflow.assistant.chat_panel.context.dataset" Icon={DatabaseIcon} />
-      <ContextTagGroup ids={promptIds} color="teal" label="Prompt" componentId="mlflow.assistant.chat_panel.context.prompt" Icon={TextBoxIcon} />
-      <ContextTagGroup ids={modelIds} color="lemon" label="Model" componentId="mlflow.assistant.chat_panel.context.model" Icon={ModelsIcon} />
-      <ContextTagGroup ids={scorerIds} color="pink" label="Judge" componentId="mlflow.assistant.chat_panel.context.scorer" Icon={SparkleDoubleIcon} />
+      <ContextTagGroup
+        ids={traceIds}
+        color="indigo"
+        label="Trace"
+        componentId="mlflow.assistant.chat_panel.context.trace"
+        Icon={ForkHorizontalIcon}
+      />
+      <ContextTagGroup
+        ids={runIds}
+        color="turquoise"
+        label="Run"
+        componentId="mlflow.assistant.chat_panel.context.run"
+        Icon={PlayIcon}
+      />
+      <ContextTagGroup
+        ids={sessionIds}
+        color="purple"
+        label="Session"
+        componentId="mlflow.assistant.chat_panel.context.session"
+        Icon={SpeechBubbleIcon}
+      />
+      <ContextTagGroup
+        ids={datasetIds}
+        color="brown"
+        label="Dataset"
+        componentId="mlflow.assistant.chat_panel.context.dataset"
+        Icon={DatabaseIcon}
+      />
+      <ContextTagGroup
+        ids={promptIds}
+        color="teal"
+        label="Prompt"
+        componentId="mlflow.assistant.chat_panel.context.prompt"
+        Icon={TextBoxIcon}
+      />
+      <ContextTagGroup
+        ids={modelIds}
+        color="lemon"
+        label="Model"
+        componentId="mlflow.assistant.chat_panel.context.model"
+        Icon={ModelsIcon}
+      />
+      <ContextTagGroup
+        ids={scorerIds}
+        color="pink"
+        label="Judge"
+        componentId="mlflow.assistant.chat_panel.context.scorer"
+        Icon={SparkleDoubleIcon}
+      />
     </div>
   );
 }

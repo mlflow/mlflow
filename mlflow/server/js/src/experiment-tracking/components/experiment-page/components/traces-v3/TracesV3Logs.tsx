@@ -7,6 +7,7 @@ import type {
   TraceActions,
   GetTraceFunction,
   TableFilter,
+  TraceTablePageSource,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   shouldUseTracesV4API,
@@ -116,7 +117,7 @@ const TracesV3LogsImpl = React.memo(
     forceGroupBySession = false,
     initialGroupBySession = false,
     columnStorageKeyPrefix,
-    detectIssuesButtonComponentId,
+    pageSource = 'experiment-traces',
     additionalFilters,
     disableActions = false,
     customDefaultSelectedColumns,
@@ -140,10 +141,10 @@ const TracesV3LogsImpl = React.memo(
      */
     columnStorageKeyPrefix?: string;
     /**
-     * Optional component ID for the detect issues button.
-     * Use this to differentiate between traces and sessions contexts.
+     * Optional param to differentiate the context of the traces table
+     * Currently used to log different componentIds for the detect issues button
      */
-    detectIssuesButtonComponentId?: string;
+    pageSource?: TraceTablePageSource;
     additionalFilters?: TableFilter[];
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
@@ -495,7 +496,7 @@ const TracesV3LogsImpl = React.memo(
             }}
           >
             <GenAITracesTableToolbar
-              detectIssuesButtonComponentId={detectIssuesButtonComponentId}
+              pageSource={pageSource}
               experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
