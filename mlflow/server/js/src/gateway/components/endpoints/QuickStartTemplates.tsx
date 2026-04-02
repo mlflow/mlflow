@@ -70,6 +70,12 @@ export const QuickStartTemplates = () => {
             description="Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
           />
         </Typography.Text>
+        <Typography.Text color="secondary" css={{ textAlign: 'center', maxWidth: 520 }}>
+          <FormattedMessage
+            defaultMessage="Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models."
+            description="Gateway > Endpoints > Quick start call to action"
+          />
+        </Typography.Text>
       </div>
 
       <div

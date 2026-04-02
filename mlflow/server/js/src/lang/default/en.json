@@ -7263,6 +7263,10 @@
     "defaultMessage": "Edit API key",
     "description": "Gateway > API keys list > Edit API key button aria label"
   },
+  "jFk49l": {
+    "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
+    "description": "Gateway > Endpoints > Quick start call to action"
+  },
   "jH0+gA": {
     "defaultMessage": "Metrics",
     "description": "Label for 'metrics' option group in the compare runs chart configure modal"
