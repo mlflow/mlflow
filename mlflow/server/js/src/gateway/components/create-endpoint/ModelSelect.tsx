@@ -4,6 +4,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ModelSelectorModal } from '../model-selector/ModelSelectorModal';
 import { useModelsQuery } from '../../hooks/useModelsQuery';
 import type { ProviderModel } from '../../types';
+import { getModelCapabilities } from '../../utils/formatters';
 
 interface ModelSelectProps {
   provider: string;
@@ -103,12 +104,9 @@ const ModelCapabilities = memo(function ModelCapabilities({ model }: { model: Pr
   const { theme } = useDesignSystemTheme();
 
   const capabilities = useMemo(() => {
-    const caps: string[] = [];
-    if (model.supports_function_calling) caps.push('Tools');
-    if (model.supports_reasoning) caps.push('Reasoning');
-    if (model.supports_prompt_caching) caps.push('Caching');
-    return caps;
-  }, [model.supports_function_calling, model.supports_reasoning, model.supports_prompt_caching]);
+    const caps = getModelCapabilities(model);
+    return caps ? caps.split(', ') : [];
+  }, [model]);
 
   if (capabilities.length === 0) {
     return null;
