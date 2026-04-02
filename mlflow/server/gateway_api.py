@@ -37,7 +37,6 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CALLER_HEADER,
     GatewayCaller,
 )
-from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -46,6 +45,7 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     TrafficRouteProvider,
 )
+from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
