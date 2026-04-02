@@ -3,7 +3,6 @@ from unittest import mock
 from unittest.mock import Mock, call, patch
 
 import pytest
-from litellm.types.utils import ModelResponse
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -699,9 +698,11 @@ def test_fluency_default_name():
         "result": "yes",
         "rationale": "The text is fluent.",
     })
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
         scorer = Fluency()
         result = scorer(outputs="The cat sat on the mat.")
 
@@ -715,9 +716,11 @@ def test_fluency_with_custom_model():
         "result": "yes",
         "rationale": "The text is fluent.",
     })
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
         custom_model = "anthropic:/claude-3-opus"
         scorer = Fluency(model=custom_model)
         result = scorer(outputs="This is a fluent response")
@@ -732,9 +735,11 @@ def test_fluency_with_custom_name():
         "result": "no",
         "rationale": "The text has issues.",
     })
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
         scorer = Fluency(name="my_fluency_check")
         result = scorer(outputs="Bad text")
 

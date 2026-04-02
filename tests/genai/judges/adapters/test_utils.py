@@ -56,18 +56,19 @@ def test_get_adapter_without_litellm(
 @pytest.mark.parametrize(
     ("model_uri", "prompt_type", "expected_adapter"),
     [
-        # Databricks adapters (take priority over litellm)
+        # Databricks managed judge (takes top priority)
         (_DATABRICKS_DEFAULT_JUDGE_MODEL, "string", DatabricksManagedJudgeAdapter),
         (_DATABRICKS_DEFAULT_JUDGE_MODEL, "list", DatabricksManagedJudgeAdapter),
-        ("databricks:/my-endpoint", "string", LiteLLMAdapter),
-        ("databricks:/my-endpoint", "list", LiteLLMAdapter),
-        ("endpoints:/my-endpoint", "string", LiteLLMAdapter),
+        # Gateway adapter (takes priority over LiteLLM for supported providers)
+        ("databricks:/my-endpoint", "string", GatewayAdapter),
+        ("databricks:/my-endpoint", "list", GatewayAdapter),
+        ("endpoints:/my-endpoint", "string", GatewayAdapter),
+        # endpoints + list: Gateway rejects, falls through to LiteLLM
         ("endpoints:/my-endpoint", "list", LiteLLMAdapter),
-        # LiteLLM adapter (takes priority when available)
-        ("openai:/gpt-4", "string", LiteLLMAdapter),
-        ("openai:/gpt-4", "list", LiteLLMAdapter),
-        ("anthropic:/claude-3-5-sonnet-20241022", "string", LiteLLMAdapter),
-        ("anthropic:/claude-3-5-sonnet-20241022", "list", LiteLLMAdapter),
+        ("openai:/gpt-4", "string", GatewayAdapter),
+        ("openai:/gpt-4", "list", GatewayAdapter),
+        ("anthropic:/claude-3-5-sonnet-20241022", "string", GatewayAdapter),
+        ("anthropic:/claude-3-5-sonnet-20241022", "list", GatewayAdapter),
     ],
 )
 def test_get_adapter_with_litellm(
@@ -82,23 +83,14 @@ def test_get_adapter_with_litellm(
         assert isinstance(adapter, expected_adapter)
 
 
-def test_get_adapter_gateway_with_list(list_prompt):
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
-        return_value=False,
-    ):
-        adapter = get_adapter("openai:/gpt-4", list_prompt)
-        assert isinstance(adapter, GatewayAdapter)
-
-
 @pytest.mark.parametrize(
     ("model_uri", "prompt_type"),
     [
-        # endpoints with list prompt is not supported by any adapter
-        ("endpoints:/my-endpoint", "list"),
         # Completely unknown providers
         ("unknown_provider:/some-model", "string"),
         ("unknown_provider:/some-model", "list"),
+        # endpoints with list prompt — Gateway rejects, LiteLLM not available
+        ("endpoints:/my-endpoint", "list"),
     ],
 )
 def test_get_adapter_unsupported_without_litellm(

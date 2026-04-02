@@ -50,13 +50,10 @@ def get_adapter(
     from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
     from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
 
-    # TODO: Reorder to [Databricks, Gateway, LiteLLM] to prioritize native
-    # providers over litellm. Requires migrating ~50 tests that mock
-    # litellm.completion to mock at the gateway HTTP level instead.
     adapters = [
         DatabricksManagedJudgeAdapter,
-        LiteLLMAdapter,
         GatewayAdapter,
+        LiteLLMAdapter,
     ]
 
     for adapter_class in adapters:
