@@ -374,12 +374,10 @@ const TracesV3LogsImpl = React.memo(
     // Show loading overlay when fetching new data (but not during initial load)
 
     const tableError = traceInfosError || metadataError;
-    const isTableEmpty =
-      isEmpty && !showInitialSkeleton && !traceInfosLoading && !traceInfosFetching && !tableError;
+    const isTableEmpty = isEmpty && !showInitialSkeleton && !traceInfosLoading && !traceInfosFetching && !tableError;
     // When fetching the next page of infinite results, keep the existing rows visible
     // and preserve scroll position instead of showing the loading skeleton.
-    const isTableLoading =
-      !showInitialSkeleton && (traceInfosLoading || (traceInfosFetching && !isFetchingNextPage));
+    const isTableLoading = !showInitialSkeleton && (traceInfosLoading || (traceInfosFetching && !isFetchingNextPage));
 
     // Helper function to render the main content based on current state
     const renderMainContent = () => {
