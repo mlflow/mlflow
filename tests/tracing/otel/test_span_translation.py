@@ -14,6 +14,7 @@ from mlflow.tracing.otel.translation import (
     update_token_usage,
 )
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.gemini_cli import GeminiCliTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.laminar import LaminarTranslator
@@ -69,6 +70,41 @@ def test_translate_span_type_from_otel(
     attributes = {translator.SPAN_KIND_ATTRIBUTE_KEY: otel_kind}
     result = translate_span_type_from_otel(attributes)
     assert result == expected_type
+
+
+@pytest.mark.parametrize(
+    ("operation_name", "expected_type"),
+    [
+        ("llm_call", SpanType.LLM),
+        ("tool_call", SpanType.TOOL),
+        ("agent_call", SpanType.AGENT),
+    ],
+)
+def test_gemini_cli_translator_maps_operation_names(operation_name, expected_type):
+    attributes = {
+        "gen_ai.agent.name": "gemini-cli",
+        "gen_ai.operation.name": operation_name,
+    }
+    result = translate_span_type_from_otel(attributes)
+    assert result == expected_type
+
+
+@pytest.mark.parametrize(
+    "attributes",
+    [
+        # Missing gen_ai.agent.name → should not match GeminiCliTranslator
+        {"gen_ai.operation.name": "llm_call"},
+        # Wrong agent name
+        {"gen_ai.agent.name": "other-agent", "gen_ai.operation.name": "llm_call"},
+        # Unmapped Gemini operation names
+        {"gen_ai.agent.name": "gemini-cli", "gen_ai.operation.name": "user_prompt"},
+        {"gen_ai.agent.name": "gemini-cli", "gen_ai.operation.name": "system_prompt"},
+        {"gen_ai.agent.name": "gemini-cli", "gen_ai.operation.name": "schedule_tool_calls"},
+    ],
+)
+def test_gemini_cli_translator_does_not_map(attributes):
+    translator = GeminiCliTranslator()
+    assert translator.translate_span_type(attributes) is None
 
 
 @pytest.mark.parametrize(
