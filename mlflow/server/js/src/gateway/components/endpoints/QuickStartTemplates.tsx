@@ -66,7 +66,7 @@ export const QuickStartTemplates = () => {
         </Typography.Title>
         <Typography.Text color="secondary" css={{ textAlign: 'center', maxWidth: 520 }}>
           <FormattedMessage
-            defaultMessage="A Gateway endpoint lets your agents call any AI model through a single API. Just pick a model, add your API key, and you're ready to go — with usage tracking and budget controls built in. {br}{br}Every request is automatically logged as an MLflow Trace, so you can debug and evaluate later."
+            defaultMessage="A Gateway endpoint lets your agents call any AI model through a single API. Just pick a model, add your API key, and you're ready to go, with usage tracking and budget controls built in. {br}{br}Every request is automatically logged as an MLflow Trace, so you can debug and evaluate later."
             description="Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
             values={{ br: <br /> }}
           />

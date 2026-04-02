@@ -3270,10 +3270,6 @@
     "defaultMessage": "We've automatically detected the experiment type to be ''{kindLabel}''. {isEditable, select, true {You can either confirm or change the type.} other {}}",
     "description": "Popover message for inferred experiment kind"
   },
-  "K/J7SG": {
-    "defaultMessage": "A Gateway endpoint lets your agents call any AI model through a single API. Just pick a model, add your API key, and you're ready to go — with usage tracking and budget controls built in. {br}{br}Every request is automatically logged as an MLflow Trace, so you can debug and evaluate later.",
-    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
-  },
   "K1JLVU": {
     "defaultMessage": "Latency",
     "description": "Label for the latency section"
@@ -6890,6 +6886,10 @@
   "gt4t2m": {
     "defaultMessage": "Issue detection completed",
     "description": "Issue detection progress > Step label when completed"
+  },
+  "gzndut": {
+    "defaultMessage": "A Gateway endpoint lets your agents call any AI model through a single API. Just pick a model, add your API key, and you're ready to go, with usage tracking and budget controls built in. {br}{br}Every request is automatically logged as an MLflow Trace, so you can debug and evaluate later.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
