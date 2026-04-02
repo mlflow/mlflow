@@ -151,7 +151,15 @@ export const QuickStartTemplates = () => {
                 display: 'flex',
               }}
             >
-              <Card componentId={`mlflow.gateway.quick_start.${template.provider}.card`} css={{ width: '100%' }}>
+              <Card
+                componentId={`mlflow.gateway.quick_start.${template.provider}.card`}
+                css={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: theme.spacing.sm,
+                }}
+              >
                 <Typography.Text bold>{formatProviderName(template.provider)}</Typography.Text>
                 <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                   {template.model}
