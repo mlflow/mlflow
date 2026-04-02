@@ -367,6 +367,13 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "last_updated_at": seed,
             "workspace": workspace,
         },
+        "guardrail_configs": {
+            "endpoint_id": f"endpoint_{seed}",
+            "guardrail_id": f"gr_{seed}",
+            "execution_order": seed,
+            "created_at": seed,
+            "workspace": workspace,
+        },
         "jobs": {
             "id": f"job_{seed}",
             "creation_time": seed,

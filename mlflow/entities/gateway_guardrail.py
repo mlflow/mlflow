@@ -12,10 +12,16 @@ class GuardrailStage(str, Enum):
     BEFORE = "BEFORE"
     AFTER = "AFTER"
 
+    def __str__(self) -> str:
+        return self.value
+
 
 class GuardrailAction(str, Enum):
     VALIDATION = "VALIDATION"
     SANITIZATION = "SANITIZATION"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass
@@ -49,3 +55,4 @@ class GatewayGuardrailConfig(_MlflowObject):
     execution_order: int | None
     created_at: int
     created_by: str | None = None
+    workspace: str | None = None

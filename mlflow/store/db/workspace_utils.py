@@ -16,6 +16,7 @@ MODEL_CHILD_TABLES = [
     "registered_model_tags",
     "model_version_tags",
     "registered_model_aliases",
+    "guardrail_configs",
 ]
 
 

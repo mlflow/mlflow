@@ -3016,7 +3016,7 @@ class SqlGatewayBudgetPolicy(Base):
 class SqlGatewayGuardrail(Base):
     """
     DB model for guardrails. These are recorded in ``guardrails`` table.
-    A guardrail wraps a scorer with a stage (before/after) and action (validation/sanitization).
+    A guardrail wraps a scorer with a stage (BEFORE/AFTER) and action (VALIDATION/SANITIZATION).
     """
 
     __tablename__ = "guardrails"
@@ -3057,11 +3057,7 @@ class SqlGatewayGuardrail(Base):
     """
     Guardrail action: `String` (VALIDATION, SANITIZATION).
     """
-    action_endpoint_id = Column(
-        String(36),
-        ForeignKey("endpoints.endpoint_id", ondelete="SET NULL"),
-        nullable=True,
-    )
+    action_endpoint_id = Column(String(36), nullable=True)
     """
     Optional endpoint ID for sanitization LLM: `String`. Used when action is SANITIZATION.
     """
@@ -3111,6 +3107,12 @@ class SqlGatewayGuardrail(Base):
             ["scorer_versions.scorer_id", "scorer_versions.scorer_version"],
             name="fk_guardrails_scorer_version",
         ),
+        ForeignKeyConstraint(
+            ["action_endpoint_id"],
+            ["endpoints.endpoint_id"],
+            name="fk_guardrails_action_endpoint_id",
+            ondelete="SET NULL",
+        ),
         Index("idx_guardrails_workspace", "workspace"),
         Index("idx_guardrails_scorer", "scorer_id", "scorer_version"),
     )
@@ -3143,19 +3145,11 @@ class SqlGatewayGuardrailConfig(Base):
 
     __tablename__ = "guardrail_configs"
 
-    endpoint_id = Column(
-        String(36),
-        ForeignKey("endpoints.endpoint_id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    endpoint_id = Column(String(36), nullable=False)
     """
     Endpoint ID: `String` (limit 36 characters). *Composite Primary Key*.
     """
-    guardrail_id = Column(
-        String(36),
-        ForeignKey("guardrails.guardrail_id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    guardrail_id = Column(String(36), nullable=False)
     """
     Guardrail ID: `String` (limit 36 characters). *Composite Primary Key*.
     """
@@ -3171,9 +3165,30 @@ class SqlGatewayGuardrailConfig(Base):
     """
     Creation timestamp: `BigInteger`.
     """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", "guardrail_id", name="guardrail_configs_pk"),
+        ForeignKeyConstraint(
+            ["endpoint_id"],
+            ["endpoints.endpoint_id"],
+            name="fk_guardrail_configs_endpoint_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["guardrail_id"],
+            ["guardrails.guardrail_id"],
+            name="fk_guardrail_configs_guardrail_id",
+            ondelete="CASCADE",
+        ),
         Index("idx_guardrail_configs_endpoint_id", "endpoint_id"),
         Index("idx_guardrail_configs_guardrail_id", "guardrail_id"),
     )
@@ -3191,4 +3206,5 @@ class SqlGatewayGuardrailConfig(Base):
             execution_order=self.execution_order,
             created_at=self.created_at,
             created_by=self.created_by,
+            workspace=self.workspace,
         )

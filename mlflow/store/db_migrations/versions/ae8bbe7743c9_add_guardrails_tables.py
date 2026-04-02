@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "f2a3b4c5d6e7"
+revision = "ae8bbe7743c9"
 down_revision = "c3d6457b6d8a"
 branch_labels = None
 depends_on = None
@@ -57,6 +57,12 @@ def upgrade():
         sa.Column("execution_order", sa.Integer(), nullable=True),
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("created_at", sa.BigInteger(), nullable=False),
+        sa.Column(
+            "workspace",
+            sa.String(length=63),
+            nullable=False,
+            server_default=sa.text("'default'"),
+        ),
         sa.PrimaryKeyConstraint("endpoint_id", "guardrail_id", name="guardrail_configs_pk"),
         sa.ForeignKeyConstraint(
             ["endpoint_id"],

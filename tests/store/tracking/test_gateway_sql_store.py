@@ -2606,7 +2606,8 @@ def test_list_gateway_guardrails_pagination(store: SqlAlchemyStore):
     assert len(page2) == 1
     assert page2.token is None
 
-    all_ids = [g.guardrail_id for g in page1] + [g.guardrail_id for g in page2]
+    all_ids = sorted([g.guardrail_id for g in page1] + [g.guardrail_id for g in page2])
+    assert len(all_ids) == 3
     assert len(set(all_ids)) == 3
 
 

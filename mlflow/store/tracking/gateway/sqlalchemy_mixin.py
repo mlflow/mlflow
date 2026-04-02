@@ -1362,7 +1362,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return float(query.scalar())
 
-    # ── Guardrail APIs ───────────────────────────────────────────────
+    # Guardrail APIs
 
     def create_gateway_guardrail(
         self,
@@ -1384,8 +1384,8 @@ class SqlAlchemyGatewayStoreMixin:
                     name=name,
                     scorer_id=scorer_id,
                     scorer_version=scorer_version,
-                    stage=stage.value if isinstance(stage, GuardrailStage) else stage,
-                    action=action.value if isinstance(action, GuardrailAction) else action,
+                    stage=stage.value,
+                    action=action.value,
                     action_endpoint_id=action_endpoint_id,
                     created_at=current_time,
                     last_updated_at=current_time,
@@ -1456,12 +1456,14 @@ class SqlAlchemyGatewayStoreMixin:
                 session, SqlGatewayGuardrail, {"guardrail_id": guardrail_id}, "Guardrail"
             )
 
-            sql_config = SqlGatewayGuardrailConfig(
-                endpoint_id=endpoint_id,
-                guardrail_id=guardrail_id,
-                execution_order=execution_order,
-                created_by=created_by,
-                created_at=get_current_time_millis(),
+            sql_config = self._with_workspace_field(
+                SqlGatewayGuardrailConfig(
+                    endpoint_id=endpoint_id,
+                    guardrail_id=guardrail_id,
+                    execution_order=execution_order,
+                    created_by=created_by,
+                    created_at=get_current_time_millis(),
+                )
             )
 
             try:
