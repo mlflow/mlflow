@@ -156,7 +156,7 @@ mlflow = [
   "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
-  "utils/model_prices_and_context_window.json",
+  "utils/model_catalog/*.json",
 ]
 
 [tool.setuptools.packages.find]

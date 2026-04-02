@@ -3,7 +3,8 @@ import importlib.resources
 import json
 import logging
 from collections.abc import Iterator
-from typing import Any, TypedDict
+from pathlib import Path
+from typing import TypedDict
 
 from typing_extensions import NotRequired
 
@@ -50,7 +51,14 @@ class ProviderConfigResponse(TypedDict):
 
 
 class ModelInfo(TypedDict, total=False):
-    # Used by _build_model_dict
+    """Flat model info used internally by cost_per_token, get_models, etc.
+
+    All fields are optional (total=False) since not every model has every field.
+    For example, embedding models may lack output pricing, and some models may
+    not have deprecation dates or cache pricing.
+    """
+
+    mode: str | None
     supports_function_calling: bool
     supports_vision: bool
     supports_reasoning: bool
@@ -58,49 +66,162 @@ class ModelInfo(TypedDict, total=False):
     supports_response_schema: bool
     max_input_tokens: int
     max_output_tokens: int
+    max_tokens: int
     input_cost_per_token: float
     output_cost_per_token: float
-    deprecation_date: str
-    # Used by cost_per_token
     cache_read_input_token_cost: float
     cache_creation_input_token_cost: float
-    # Used by get_all_providers / get_models / _extract_models
+    deprecation_date: str
+
+
+class ModelDict(TypedDict):
+    """Model dictionary returned by get_models() and the gateway API.
+
+    All fields are always present (some may be None).
+    """
+
+    model: str
+    provider: str | None
+    mode: str | None
+    supports_function_calling: bool
+    supports_vision: bool
+    supports_reasoning: bool
+    supports_prompt_caching: bool
+    supports_response_schema: bool
+    max_input_tokens: int | None
+    max_output_tokens: int | None
+    input_cost_per_token: float | None
+    output_cost_per_token: float | None
+    deprecation_date: str | None
+
+
+# --- MLflow-native catalog schema TypedDicts (matches per-provider JSON files) ---
+
+
+class CatalogContextWindow(TypedDict, total=False):
+    max_input: int
+    max_output: int
+    max_tokens: int
+
+
+class CatalogPricingTier(TypedDict, total=False):
+    input_per_million_tokens: float
+    output_per_million_tokens: float
+    cache_read_per_million_tokens: float
+    cache_write_per_million_tokens: float
+
+
+class CatalogLongContextTier(CatalogPricingTier, total=False):
+    threshold_tokens: int
+
+
+class CatalogPricing(CatalogPricingTier, total=False):
+    service_tiers: dict[str, CatalogPricingTier]
+    long_context: list[CatalogLongContextTier]
+
+
+class CatalogCapabilities(TypedDict, total=False):
+    function_calling: bool
+    vision: bool
+    reasoning: bool
+    prompt_caching: bool
+    response_schema: bool
+
+
+class CatalogModelEntry(TypedDict, total=False):
     mode: str
+    context_window: CatalogContextWindow
+    pricing: CatalogPricing
+    capabilities: CatalogCapabilities
+    deprecation_date: str
+
+
+class CatalogFile(TypedDict):
+    schema_version: str
+    models: dict[str, CatalogModelEntry]
+
+
+def _flatten_catalog_entry(entry: CatalogModelEntry) -> ModelInfo:
+    """Convert an MLflow-native catalog entry to the flat ModelInfo format."""
+    info: ModelInfo = {"mode": entry.get("mode")}
+
+    if cw := entry.get("context_window"):
+        if (v := cw.get("max_input")) is not None:
+            info["max_input_tokens"] = v
+        if (v := cw.get("max_output")) is not None:
+            info["max_output_tokens"] = v
+        if (v := cw.get("max_tokens")) is not None:
+            info["max_tokens"] = v
+
+    if pricing := entry.get("pricing"):
+        if (v := pricing.get("input_per_million_tokens")) is not None:
+            info["input_cost_per_token"] = v / 1_000_000
+        if (v := pricing.get("output_per_million_tokens")) is not None:
+            info["output_cost_per_token"] = v / 1_000_000
+        if (v := pricing.get("cache_read_per_million_tokens")) is not None:
+            info["cache_read_input_token_cost"] = v / 1_000_000
+        if (v := pricing.get("cache_write_per_million_tokens")) is not None:
+            info["cache_creation_input_token_cost"] = v / 1_000_000
+
+    if caps := entry.get("capabilities"):
+        info["supports_function_calling"] = caps.get("function_calling", False)
+        info["supports_vision"] = caps.get("vision", False)
+        info["supports_reasoning"] = caps.get("reasoning", False)
+        info["supports_prompt_caching"] = caps.get("prompt_caching", False)
+        info["supports_response_schema"] = caps.get("response_schema", False)
+
+    if dep := entry.get("deprecation_date"):
+        info["deprecation_date"] = dep
+
+    return info
+
+
+def _catalog_pkg() -> Path:
+    return importlib.resources.files(__package__).joinpath("model_catalog")
 
 
 @functools.lru_cache(maxsize=1)
-def _get_model_cost() -> dict[tuple[str | None, str], ModelInfo]:
-    """Load model cost data keyed by ``(provider, model_name)``.
-
-    Each JSON key is split on the first ``/`` to derive provider and model name.
-    """
-    ref = importlib.resources.files(__package__).joinpath("model_prices_and_context_window.json")
+def _list_provider_names() -> list[str]:
+    """Return provider names available in the bundled catalog (cheap directory listing)."""
     try:
-        with importlib.resources.as_file(ref) as path, path.open(encoding="utf-8") as f:
-            raw = json.load(f)
-    except FileNotFoundError:
+        return [p.stem for p in _catalog_pkg().glob("*.json") if p.is_file()]
+    except (FileNotFoundError, TypeError):
+        return []
+
+
+@functools.lru_cache(maxsize=128)
+def _load_provider(provider: str) -> dict[str, ModelInfo]:
+    """Load a single provider's catalog file, returning ``{model_name: ModelInfo}``."""
+    resource = _catalog_pkg().joinpath(f"{provider}.json")
+    try:
+        with importlib.resources.as_file(resource) as path, path.open(encoding="utf-8") as f:
+            catalog: CatalogFile = json.load(f)
+    except (FileNotFoundError, TypeError):
         return {}
-    model_info_keys = ModelInfo.__annotations__
-    result: dict[tuple[str | None, str], ModelInfo] = {}
-    for key, info in raw.items():
-        provider = info.get("litellm_provider")
-        model_name = key.split("/", 1)[-1]
-        filtered = {k: v for k, v in info.items() if k in model_info_keys}
-        if provider:
-            result.setdefault((provider, model_name), filtered)
-        result.setdefault((None, model_name), filtered)
-    return result
+    return {
+        name: _flatten_catalog_entry(entry) for name, entry in catalog.get("models", {}).items()
+    }
 
 
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
-    """Look up model cost info by ``(provider, model)``."""
-    index = _get_model_cost()
+    """Look up model cost info, loading only the relevant provider file when possible."""
     bare_model = model.split("/", 1)[-1]
-    if info := index.get((custom_llm_provider, bare_model)):
-        return info
+
     if custom_llm_provider:
-        return index.get((None, bare_model))
-    return None
+        # Fast path: load only the one provider file we need
+        if info := _load_provider(custom_llm_provider).get(bare_model):
+            return info
+
+    # Fallback: scan all providers for bare model name.
+    # Prefer entries that have pricing data over empty/stub entries.
+    fallback = None
+    for provider in _list_provider_names():
+        if info := _load_provider(provider).get(bare_model):
+            if info.get("input_cost_per_token"):
+                return info
+            if fallback is None:
+                fallback = info
+    return fallback
 
 
 def cost_per_token(
@@ -613,16 +734,18 @@ def get_all_providers() -> list[str]:
     variants are returned as just vertex_ai).
     """
     providers = set()
-    for (provider, _), info in _get_model_cost().items():
-        if provider is None:
+    for provider in _list_provider_names():
+        if provider in _EXCLUDED_PROVIDERS:
             continue
-        mode = info.get("mode")
-        if mode in _SUPPORTED_MODEL_MODES and provider not in _EXCLUDED_PROVIDERS:
-            providers.add(_normalize_provider(provider))
+        # Check that the provider has at least one model with a supported mode
+        for info in _load_provider(provider).values():
+            if info.get("mode") in _SUPPORTED_MODEL_MODES:
+                providers.add(_normalize_provider(provider))
+                break
     return list(providers)
 
 
-def get_models(provider: str | None = None) -> list[dict[str, Any]]:
+def get_models(provider: str | None = None) -> list[ModelDict]:
     """
     Get a list of models from LiteLLM, optionally filtered by provider.
 
@@ -650,20 +773,30 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - output_cost_per_token: Cost per output token (USD)
             - deprecation_date: Date when model will be deprecated (if known)
     """
+    if provider:
+        # Fast path: only load provider files that match the filter
+        matching = (
+            p
+            for p in _list_provider_names()
+            if _normalize_provider(p) == provider and p not in _EXCLUDED_PROVIDERS
+        )
+    else:
+        matching = (p for p in _list_provider_names() if p not in _EXCLUDED_PROVIDERS)
+
     entries = (
-        (model_name, provider, info)
-        for (provider, model_name), info in _get_model_cost().items()
-        if provider is not None
+        (model_name, file_provider, info)
+        for file_provider in matching
+        for model_name, info in _load_provider(file_provider).items()
     )
     return _extract_models(entries, provider_filter=provider)
 
 
 def _extract_models(
-    entries: Iterator[tuple[str, str | None, dict[str, Any]]],
+    entries: Iterator[tuple[str, str | None, ModelInfo]],
     provider_filter: str | None = None,
-) -> list[dict[str, Any]]:
+) -> list[ModelDict]:
     # Use dict to dedupe models by (provider, model_name) key
-    models_dict: dict[tuple[str | None, str], dict[str, Any]] = {}
+    models_dict: dict[tuple[str | None, str], ModelDict] = {}
     for model_name, entry_provider, info in entries:
         normalized_provider = _normalize_provider(entry_provider) if entry_provider else None
 
@@ -695,8 +828,8 @@ def _extract_models(
 
 
 def _build_model_dict(
-    model_name: str, provider: str | None, mode: str | None, info: dict[str, Any]
-) -> dict[str, Any]:
+    model_name: str, provider: str | None, mode: str | None, info: ModelInfo
+) -> ModelDict:
     return {
         "model": model_name,
         "provider": provider,
