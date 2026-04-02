@@ -595,15 +595,3 @@ export function useChartZoomSelectionProps() {
     fillOpacity: 0.3,
   };
 }
-function logTelemetryEvent(arg0: {
-  componentId: string;
-  componentViewId: any;
-  componentType: DesignSystemEventProviderComponentTypes;
-  eventType: any;
-  value: string;
-}) {
-  throw new Error('Function not implemented.');
-}
-function uuidv4(): string {
-  throw new Error('Function not implemented.');
-}
