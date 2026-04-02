@@ -1,37 +1,13 @@
-import type { getOctokit } from "@actions/github";
-import type { context as ContextType } from "@actions/github";
-import type { components } from "@octokit/openapi-webhooks-types";
-
-type GitHub = ReturnType<typeof getOctokit>;
-type Context = typeof ContextType;
-type WorkflowDispatch = components["schemas"]["webhook-workflow-dispatch"];
-type ReleaseEvent = { release: { tag_name: string } };
-
-interface ReleaseInfo {
-  releaseVersion: string;
-  releaseTag: string;
-  releaseLabel: string;
-  nextPatchLabel: string;
-  releaseBranch: string;
-}
-
-interface CommitInfo {
-  commit: {
-    message: string;
-  };
-}
-
 /**
  * Extract release information from either release event or workflow_dispatch input
  */
-function extractReleaseInfo(context: Context): ReleaseInfo {
-  let releaseVersion: string;
-  let releaseTag: string;
+function extractReleaseInfo(context) {
+  let releaseVersion;
+  let releaseTag;
 
   if (context.eventName === "workflow_dispatch") {
     // Manual trigger with version parameter
-    const payload = context.payload as WorkflowDispatch;
-    releaseVersion = payload.inputs?.release_version as string;
+    releaseVersion = context.payload.inputs?.release_version;
     if (!releaseVersion) {
       throw new Error("release_version input is required for workflow_dispatch");
     }
@@ -40,8 +16,7 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
     console.log(`Processing manual workflow for release: ${releaseTag} (${releaseVersion})`);
   } else {
     // Automatic trigger from release event
-    const payload = context.payload as ReleaseEvent;
-    const release = payload.release;
+    const release = context.payload.release;
     if (!release) {
       throw new Error("Release information not found in payload");
     }
@@ -80,7 +55,7 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
 /**
  * Helper function to extract PR number from commit message
  */
-function extractPRNumberFromCommitMessage(commitMessage: string): number | null {
+function extractPRNumberFromCommitMessage(commitMessage) {
   const prRegex = /\(#(\d+)\)$/;
   const lines = commitMessage.split("\n");
 
@@ -97,15 +72,11 @@ function extractPRNumberFromCommitMessage(commitMessage: string): number | null 
 /**
  * Extract PR numbers from release branch commits
  */
-async function extractPRNumbersFromBranch(
-  github: GitHub,
-  context: Context,
-  releaseBranch: string
-): Promise<Set<number>> {
-  const releasePRNumbers = new Set<number>();
+async function extractPRNumbersFromBranch(github, context, releaseBranch) {
+  const releasePRNumbers = new Set();
 
   try {
-    const commits: CommitInfo[] = await github.paginate(github.rest.repos.listCommits, {
+    const commits = await github.paginate(github.rest.repos.listCommits, {
       owner: context.repo.owner,
       repo: context.repo.repo,
       sha: releaseBranch,
@@ -121,11 +92,7 @@ async function extractPRNumbersFromBranch(
 
     console.log(`Found ${releasePRNumbers.size} PR numbers from ${releaseBranch} commits`);
   } catch (error) {
-    if (
-      error instanceof Error &&
-      "status" in error &&
-      (error as { status: number }).status === 404
-    ) {
+    if (error.status === 404) {
       console.log(
         `Release branch '${releaseBranch}' not found. This may be expected for new releases.`
       );
@@ -141,11 +108,7 @@ async function extractPRNumbersFromBranch(
 /**
  * Fetch all merged PRs with a specific label
  */
-async function fetchPRsWithLabel(
-  github: GitHub,
-  context: Context,
-  releaseLabel: string
-): Promise<Array<{ number: number; pull_request?: any; state: string }>> {
+async function fetchPRsWithLabel(github, context, releaseLabel) {
   const allIssues = await github.paginate(github.rest.issues.listForRepo, {
     owner: context.repo.owner,
     repo: context.repo.repo,
@@ -168,13 +131,13 @@ async function fetchPRsWithLabel(
  * Update PR labels for PRs not included in release
  */
 async function updatePRLabels(
-  github: GitHub,
-  context: Context,
-  prsWithReleaseLabel: Array<{ number: number; pull_request?: any; state: string }>,
-  releasePRNumbers: Set<number>,
-  releaseLabel: string,
-  nextPatchLabel: string
-): Promise<void> {
+  github,
+  context,
+  prsWithReleaseLabel,
+  releasePRNumbers,
+  releaseLabel,
+  nextPatchLabel
+) {
   const pullRequests = prsWithReleaseLabel.filter((item) => item.pull_request);
   console.log(
     `Processing ${pullRequests.length} PRs (filtered out ${
@@ -182,7 +145,7 @@ async function updatePRLabels(
     } issues)`
   );
 
-  const prsToUpdate: number[] = [];
+  const prsToUpdate = [];
 
   for (const pr of pullRequests) {
     if (releasePRNumbers.has(pr.number)) continue;
@@ -222,13 +185,7 @@ async function updatePRLabels(
  * their labels to the next patch version if they weren't actually included
  * in the release (handles cherry-picked commits properly).
  */
-export async function updateReleaseLabels({
-  github,
-  context,
-}: {
-  github: GitHub;
-  context: Context;
-}): Promise<void> {
+async function updateReleaseLabels({ github, context }) {
   try {
     const releaseInfo = extractReleaseInfo(context);
 
@@ -254,3 +211,5 @@ export async function updateReleaseLabels({
     throw error;
   }
 }
+
+module.exports = { updateReleaseLabels };

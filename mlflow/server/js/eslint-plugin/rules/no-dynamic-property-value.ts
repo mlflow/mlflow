@@ -114,6 +114,18 @@ const FUNCTION_CONFIGS: FunctionConfig[] = [
       },
     ],
   },
+  {
+    functionNames: ['useDesignSystemEventComponentCallbacks'],
+    getArgumentIndex: () => 0,
+    requireInlineObject: true,
+    propertyChecks: [
+      {
+        propertyPath: ['componentId'],
+        allowedParams: [{ type: 'object-property', argPosition: 0, propertyPath: ['componentId'] }],
+        allowedEnumPrefixesAndTypes: [],
+      },
+    ],
+  },
 ];
 
 /**

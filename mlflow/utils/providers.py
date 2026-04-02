@@ -274,44 +274,45 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
             ],
         },
-        "service_principal": {
-            "display_name": "Service Principal",
-            "description": "Use Azure AD Service Principal (client credentials)",
-            "runtime_auth": "azure_service_principal",
-            "fields": [
-                {
-                    "name": "client_secret",
-                    "description": "Azure AD Client Secret",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "api_base",
-                    "description": "Azure OpenAI endpoint URL",
-                    "secret": False,
-                    "required": True,
-                },
-                {
-                    "name": "client_id",
-                    "description": "Azure AD Application (Client) ID",
-                    "secret": False,
-                    "required": True,
-                },
-                {
-                    "name": "tenant_id",
-                    "description": "Azure AD Tenant ID",
-                    "secret": False,
-                    "required": True,
-                },
-                {
-                    "name": "api_version",
-                    "description": "API version (e.g., 2024-02-01)",
-                    "secret": False,
-                    "required": False,
-                    "default": "2024-02-01",
-                },
-            ],
-        },
+        # TODO: uncomment this once it's supported by OpenAIConfig
+        # "service_principal": {
+        #     "display_name": "Service Principal",
+        #     "description": "Use Azure AD Service Principal (client credentials)",
+        #     "runtime_auth": "azure_service_principal",
+        #     "fields": [
+        #         {
+        #             "name": "client_secret",
+        #             "description": "Azure AD Client Secret",
+        #             "secret": True,
+        #             "required": True,
+        #         },
+        #         {
+        #             "name": "api_base",
+        #             "description": "Azure OpenAI endpoint URL",
+        #             "secret": False,
+        #             "required": True,
+        #         },
+        #         {
+        #             "name": "client_id",
+        #             "description": "Azure AD Application (Client) ID",
+        #             "secret": False,
+        #             "required": True,
+        #         },
+        #         {
+        #             "name": "tenant_id",
+        #             "description": "Azure AD Tenant ID",
+        #             "secret": False,
+        #             "required": True,
+        #         },
+        #         {
+        #             "name": "api_version",
+        #             "description": "API version (e.g., 2024-02-01)",
+        #             "secret": False,
+        #             "required": False,
+        #             "default": "2024-02-01",
+        #         },
+        #     ],
+        # },
     },
     "vertex_ai": {
         "service_account_json": {
@@ -713,13 +714,27 @@ def _build_model_dict(
     }
 
 
-# Mapping of core providers to their environment variable names for API keys
+# Azure OpenAI environment variable names (matching litellm convention)
+AZURE_API_KEY_ENV_VAR = "AZURE_API_KEY"
+AZURE_API_BASE_ENV_VAR = "AZURE_API_BASE"
+AZURE_API_VERSION_ENV_VAR = "AZURE_API_VERSION"
+
+# Mapping of core providers to their environment variable names for credentials/config fields
 _CORE_PROVIDER_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
-    "azure": "AZURE_OPENAI_API_KEY",
+    "azure": {
+        "api_key": AZURE_API_KEY_ENV_VAR,
+        "api_base": AZURE_API_BASE_ENV_VAR,
+        "api_version": AZURE_API_VERSION_ENV_VAR,
+    },
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "mistral": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "xai": "XAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "togetherai": "TOGETHERAI_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",

@@ -85,7 +85,7 @@ export const DeleteEndpointModal = ({ open, endpoint, bindings, onClose, onSucce
       title="Delete Endpoint"
       itemName={endpoint.name}
       itemType="endpoint"
-      componentIdPrefix="mlflow.gateway.delete-endpoint-modal"
+      componentId="mlflow.gateway.delete-endpoint-modal"
       requireConfirmation={hasBindings}
       warningMessage={
         hasBindings ? (

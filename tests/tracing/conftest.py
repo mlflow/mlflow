@@ -36,7 +36,9 @@ def databricks_tracking_uri():
         yield
 
 
-# Fixture to run the test case with and without async logging enabled
+# Fixture to run the test case with and without async logging enabled.
+# When async logging is enabled, the batch span processor is also active (the default),
+# so tests exercise the full production pipeline.
 @pytest.fixture(params=[True, False])
 def async_logging_enabled(request, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, str(request.param))

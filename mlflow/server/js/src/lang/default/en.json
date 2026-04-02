@@ -95,10 +95,6 @@
     "defaultMessage": "Optimize prompts",
     "description": "Home page news card title two"
   },
-  "+fb25b": {
-    "defaultMessage": "Time created",
-    "description": "Label for the start time select dropdown for experiment runs view"
-  },
   "+gqcru": {
     "defaultMessage": "System",
     "description": "Display text for the 'system' role in a GenAI chat message."
@@ -122,6 +118,10 @@
   "+khKtf": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
+  },
+  "+lNppY": {
+    "defaultMessage": "Notes",
+    "description": "Header for the notes section in the assessments pane"
   },
   "+mAXPc": {
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
@@ -1466,6 +1466,10 @@
     "defaultMessage": "Auto",
     "description": "Runs charts > line chart > display points > auto setting label"
   },
+  "7o1ly+": {
+    "defaultMessage": "Time",
+    "description": "Label for the time range select dropdown"
+  },
   "7pRcdg": {
     "defaultMessage": "Edit description",
     "description": "Label for the edit description button on the logged models details page"
@@ -2061,10 +2065,6 @@
   "BFzsMn": {
     "defaultMessage": "No runs selected",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
-  },
-  "BJvcsS": {
-    "defaultMessage": "Time Range",
-    "description": "Label for the start range select dropdown for experiment runs view"
   },
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
@@ -2782,10 +2782,6 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
   },
-  "GGbdya": {
-    "defaultMessage": "View status",
-    "description": "Link to view issue detection job status"
-  },
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
@@ -3453,6 +3449,10 @@
   "L8czct": {
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
+  },
+  "LBaK9z": {
+    "defaultMessage": "Open dataset",
+    "description": "Text for the button that opens the dataset source URL in a new tab"
   },
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
@@ -4377,6 +4377,10 @@
     "defaultMessage": "Compare runs",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > title"
   },
+  "RDg+Pl": {
+    "defaultMessage": "Time",
+    "description": "Label for the time select dropdown for experiment runs view"
+  },
   "RGKRP9": {
     "defaultMessage": "Feedback",
     "description": "Label for the value of an feedback assessment"
@@ -4452,6 +4456,10 @@
   "Rs+SVS": {
     "defaultMessage": "Ready",
     "description": "Label for ready state of a experiment logged model"
+  },
+  "RsTIRk": {
+    "defaultMessage": "Add personal notes about this trace.",
+    "description": "Tooltip describing the notes section in the assessments pane"
   },
   "RtKhwd": {
     "defaultMessage": "Dataset",
@@ -4708,10 +4716,6 @@
   "TSXmaB": {
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"
-  },
-  "TTsPbw": {
-    "defaultMessage": "Open dataset",
-    "description": "Text for the button that navigates to the datasets tab in the experiment run dataset drawer"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -8703,6 +8707,10 @@
     "defaultMessage": "Used by {runNames} {hasMore, select, true {and other runs} other {}}",
     "description": "Experiment page > artifact compare view > label indicating which runs are using particular input field"
   },
+  "s4TBi3": {
+    "defaultMessage": "Columns",
+    "description": "Evaluation review > evaluations list > column selector button"
+  },
   "s5ygFF": {
     "defaultMessage": "Download as PNG",
     "description": "Experiment page > compare runs tab > chart header > download as PNG option"
@@ -9579,10 +9587,6 @@
     "defaultMessage": "Prompt Caching",
     "description": "Filter option for prompt caching support"
   },
-  "y2E9ui": {
-    "defaultMessage": "Issue detection job triggered",
-    "description": "Notification message when issue detection job is started"
-  },
   "y2oQyU": {
     "defaultMessage": "Model name",
     "description": "Header title for the model name column in the logged model list table"
@@ -9679,6 +9683,10 @@
     "defaultMessage": "No prompts match your search",
     "description": "No search results message for linked prompts table on logged model details page"
   },
+  "ymnL+t": {
+    "defaultMessage": "Save",
+    "description": "Button to save notes assessment"
+  },
   "ynkoR7": {
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",
     "description": "Message text when no model versions are registered"
@@ -9758,6 +9766,10 @@
   "zC/uKl": {
     "defaultMessage": "Auto-refresh",
     "description": "Run page > Charts tab > Auto-refresh toggle button"
+  },
+  "zCtyPo": {
+    "defaultMessage": "Local",
+    "description": "Experiment dataset drawer > source type > Local source type label"
   },
   "zDRvO3": {
     "defaultMessage": "Detect Issues",

@@ -264,7 +264,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
     <div css={{ marginBottom: theme.spacing.md }}>
       <div css={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: theme.spacing.xs }}>
         <CopyButton
-          componentId={`mlflow.gateway.usage-modal.copy-${label.toLowerCase().replace(/\s+/g, '-')}`}
+          componentId="mlflow.gateway.usage-modal.copy"
           copyText={code}
           icon={<CopyIcon />}
           showLabel={false}
@@ -410,7 +410,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
                       />
                     )
                   }
-                  requestTooltipComponentId="mlflow.gateway.usage-modal.try-it.request-tooltip"
+                  componentId="mlflow.gateway.usage-modal.try-it.request-tooltip"
                   tryItRequestUrl={tryItRequestUrl}
                   tryItDefaultBody={tryItDefaultBody}
                 />
@@ -531,7 +531,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
                       }}
                     />
                   }
-                  requestTooltipComponentId="mlflow.gateway.usage-modal.try-it.request-tooltip-passthrough"
+                  componentId="mlflow.gateway.usage-modal.try-it.request-tooltip-passthrough"
                   tryItRequestUrl={tryItRequestUrl}
                   tryItDefaultBody={tryItDefaultBody}
                   tryItOptions={

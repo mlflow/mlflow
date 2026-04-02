@@ -212,7 +212,6 @@ def test_run_server_win32(mock_exec_cmd, monkeypatch):
 
 
 def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
-    monkeypatch.delenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", raising=False)
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
@@ -244,7 +243,6 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
     mock_exec_cmd.assert_called_once_with(
         expected_command,
         extra_env={
-            "MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT": "false",
             _MLFLOW_SGI_NAME.name: "uvicorn",
         },
         capture_output=False,

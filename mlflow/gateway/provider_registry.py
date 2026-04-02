@@ -49,6 +49,7 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.AI21LABS, AI21LabsProvider)
     registry.register(Provider.AMAZON_BEDROCK, AmazonBedrockProvider)
     registry.register(Provider.ANTHROPIC, AnthropicProvider)
+    registry.register(Provider.AZURE, OpenAIProvider)
     registry.register(Provider.BEDROCK, AmazonBedrockProvider)
     registry.register(Provider.COHERE, CohereProvider)
     registry.register(Provider.DATABRICKS, DatabricksProvider)
