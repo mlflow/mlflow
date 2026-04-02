@@ -1,6 +1,13 @@
 import type { Theme } from '@emotion/react';
 
-import { CheckCircleIcon, ClockIcon, useDesignSystemTheme, XCircleIcon } from '@databricks/design-system';
+import {
+  CheckCircleIcon,
+  ClockIcon,
+  useDesignSystemTheme,
+  XCircleIcon,
+  Tag,
+  type TagColors,
+} from '@databricks/design-system';
 import { useIntl, defineMessage } from '@databricks/i18n';
 
 import { NullCell } from './NullCell';
@@ -24,18 +31,34 @@ export const ExperimentViewTracesStatusLabels = {
 
 const getIcon = (state: ModelTraceInfoV3['state'], theme: Theme) => {
   if (state === 'IN_PROGRESS') {
-    return <ClockIcon css={{ color: theme.colors.textValidationWarning }} />;
+    return <ClockIcon css={{ color: theme.colors.textValidationWarning, width: 14, height: 14 }} />;
   }
 
   if (state === 'OK') {
-    return <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />;
+    return <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess, width: 14, height: 14 }} />;
   }
 
   if (state === 'ERROR') {
-    return <XCircleIcon css={{ color: theme.colors.textValidationDanger }} />;
+    return <XCircleIcon css={{ color: theme.colors.textValidationDanger, width: 14, height: 14 }} />;
   }
 
   return null;
+};
+
+const getTagColor = (state: ModelTraceInfoV3['state']): TagColors | undefined => {
+  if (state === 'IN_PROGRESS') {
+    return 'lemon';
+  }
+
+  if (state === 'OK') {
+    return 'teal';
+  }
+
+  if (state === 'ERROR') {
+    return 'coral';
+  }
+
+  return undefined;
 };
 
 export const StatusCellRenderer = ({
@@ -49,12 +72,21 @@ export const StatusCellRenderer = ({
   const intl = useIntl();
 
   const labelDescriptor = ExperimentViewTracesStatusLabels[original?.state || 'STATE_UNSPECIFIED'];
+  const state = original?.state || 'STATE_UNSPECIFIED';
 
   return labelDescriptor ? (
-    <div css={{ display: 'flex', gap: theme.spacing.xs, alignItems: 'center' }}>
-      {getIcon(original?.state || 'STATE_UNSPECIFIED', theme)}
-      {labelDescriptor ? intl.formatMessage(labelDescriptor) : ''}
-    </div>
+    <Tag
+      color={getTagColor(state)}
+      componentId="mlflow.genai-traces-table.status"
+      css={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        width: 'fit-content',
+      }}
+    >
+      {getIcon(state, theme)}
+      <span css={{ marginLeft: theme.spacing.xs }}>{intl.formatMessage(labelDescriptor)}</span>
+    </Tag>
   ) : (
     <NullCell isComparing={isComparing} />
   );

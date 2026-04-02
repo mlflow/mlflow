@@ -725,6 +725,7 @@ class DiscoverIssuesEvent(Event):
             "model": arguments.get("model"),
             "trace_count": len(arguments.get("traces") or []),
             "categories": arguments.get("categories"),
+            "source_run_id": arguments.get("run_id"),
         }
 
     @classmethod
@@ -733,6 +734,7 @@ class DiscoverIssuesEvent(Event):
             "issue_count": len(result.issues),
             "total_traces_analyzed": result.total_traces_analyzed,
             "total_cost_usd": result.total_cost_usd,
+            "triage_run_id": result.triage_run_id,
         }
 
 
@@ -753,3 +755,7 @@ class UpdateIssueEvent(Event):
             "has_description": arguments.get("description") is not None,
             "severity": severity,
         }
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any]:
+        return {"source_run_id": result.source_run_id} if result else {}

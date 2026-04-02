@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.scorers.phoenix.utils import _NoOpRateLimiter, check_phoenix_installed
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-from mlflow.metrics.genai.model_utils import _parse_model_uri
+from mlflow.metrics.genai.model_utils import (
+    _call_llm_provider_api,
+    _get_provider_instance,
+    _parse_model_uri,
+)
 
 
 # Phoenix has BaseModel in phoenix.evals.models.base, but it requires implementing
@@ -34,44 +38,56 @@ class DatabricksPhoenixModel:
         return self._model_name
 
 
-def create_phoenix_model(model_uri: str):
+class GatewayPhoenixModel:
+    """Phoenix model adapter using MLflow Gateway providers.
+
+    Uses the native provider infrastructure (_call_llm_provider_api) instead
+    of litellm. Implements the duck-typed callable interface Phoenix expects.
     """
-    Create a Phoenix model adapter from a model URI.
 
-    Args:
-        model_uri: Model URI in one of these formats:
-            - "databricks" - Use default Databricks managed judge
-            - "databricks:/endpoint" - Use Databricks serving endpoint
-            - "gateway:/endpoint" - Use MLflow AI Gateway endpoint
-            - "provider:/model" - Use LiteLLM model (e.g., "openai:/gpt-4")
+    def __init__(self, provider: str, model_name: str):
+        self._provider = provider
+        self._model_name = model_name
+        self._verbose = False
+        self._rate_limiter = _NoOpRateLimiter()
 
-    Returns:
-        A Phoenix-compatible model adapter
+    def __call__(self, prompt, **kwargs) -> str:
+        prompt_str = str(prompt) if not isinstance(prompt, str) else prompt
+        return _call_llm_provider_api(
+            self._provider,
+            self._model_name,
+            input_data=prompt_str,
+        )
 
-    Raises:
-        MlflowException: If the model URI format is invalid
+    def get_model_name(self) -> str:
+        return f"{self._provider}/{self._model_name}"
+
+
+def create_phoenix_model(model_uri: str):
+    """Create a Phoenix model adapter from a model URI.
+
+    Routing:
+        - ``"databricks"`` → DatabricksPhoenixModel (managed judge)
+        - Providers constructable by ``_get_provider_instance`` → GatewayPhoenixModel
+        - All other providers → LiteLLMModel (litellm fallback)
     """
     check_phoenix_installed()
 
     if model_uri == "databricks":
         return DatabricksPhoenixModel()
 
-    # Parse provider:/model format using shared helper
-    from phoenix.evals import LiteLLMModel
-
     provider, model_name = _parse_model_uri(model_uri)
 
-    if provider == "gateway":
-        config = get_gateway_litellm_config(model_name)
-        return LiteLLMModel(
-            model=config.model,
-            model_kwargs={
-                "api_base": config.api_base,
-                "api_key": config.api_key,
-                "drop_params": True,
-                **({"extra_headers": config.extra_headers} if config.extra_headers else {}),
-            },
-        )
+    # Use native gateway provider if _get_provider_instance can construct it,
+    # otherwise fall back to litellm
+    try:
+        _get_provider_instance(provider, model_name)
+    except MlflowException:
+        pass
+    else:
+        return GatewayPhoenixModel(provider, model_name)
+
+    from phoenix.evals import LiteLLMModel
 
     return LiteLLMModel(
         model=f"{provider}/{model_name}",
