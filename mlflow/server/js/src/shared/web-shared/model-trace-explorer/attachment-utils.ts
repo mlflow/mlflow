@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
 
-import { getTraceAttachment } from './oss-notebook-renderer/mlflow-fetch-utils';
+import { fetchOrFail, getAjaxUrl } from './ModelTraceExplorer.request.utils';
+
+async function getTraceAttachment(requestId: string, attachmentId: string): Promise<ArrayBuffer | undefined> {
+  try {
+    const url = getAjaxUrl(
+      `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(requestId)}&path=${encodeURIComponent(attachmentId)}`,
+    );
+    const response = await fetchOrFail(url);
+    return await response.arrayBuffer();
+  } catch {
+    return undefined;
+  }
+}
 
 export function parseAttachmentUri(uri: string): { attachmentId: string; traceId: string; contentType: string } | null {
   try {

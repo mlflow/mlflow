@@ -31,7 +31,7 @@ function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
     return <Spinner size="small" />;
   }
   if (error || !url) {
-    return <span>{`[${alt ?? 'image'}]`}</span>;
+    return <span>{`[${alt ?? 'Failed to load image'}]`}</span>;
   }
   return <img src={url} alt={alt} css={{ maxWidth: '100%' }} />;
 }
