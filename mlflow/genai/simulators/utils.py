@@ -83,9 +83,9 @@ def invoke_model_without_tracing(
             parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
             return _create_message_from_databricks_response(parsed_json).content
 
-        from mlflow.genai.scorers.llm_backend import MlflowLLMBackend
+        from mlflow.genai.scorers.llm_backend import ScorerLLMClient
 
-        backend = MlflowLLMBackend(model_uri)
+        backend = ScorerLLMClient(model_uri)
         message_dicts = [{"role": msg.role, "content": msg.content} for msg in messages]
         return backend.complete(
             message_dicts,

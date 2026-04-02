@@ -1,8 +1,12 @@
-"""Shared LLM backend for scorer packages and simulator.
+"""Shared LLM client for scorer packages and simulator.
 
 Provides a single routing layer so that DeepEval, RAGAS, Phoenix, TruLens
 scorers and the conversation simulator all resolve model URIs and make
 chat completion calls through the same code path.
+
+Note: This is NOT intended for judge adapters, which need lower-level access
+to provider infrastructure (tool calling, request transformation, full
+response objects). See mlflow/genai/judges/adapters/ for that layer.
 """
 
 from __future__ import annotations
@@ -28,8 +32,8 @@ from mlflow.metrics.genai.model_utils import (
 _logger = logging.getLogger(__name__)
 
 
-class MlflowLLMBackend:
-    """Shared LLM backend that routes model URIs to the best available path.
+class ScorerLLMClient:
+    """LLM client for scorers and simulator that routes model URIs to the best available path.
 
     Routing:
         1. ``"databricks"`` -> Databricks managed judge

@@ -5,7 +5,7 @@ import json
 from deepeval.models.base_model import DeepEvalBaseLLM
 from pydantic import ValidationError
 
-from mlflow.genai.scorers.llm_backend import MlflowLLMBackend
+from mlflow.genai.scorers.llm_backend import ScorerLLMClient
 
 
 def _build_json_prompt_with_schema(prompt: str, schema) -> str:
@@ -32,13 +32,13 @@ def _parse_json_output_with_schema(output: str, schema):
 
 
 class MlflowDeepEvalLLM(DeepEvalBaseLLM):
-    """DeepEval model adapter backed by MlflowLLMBackend.
+    """DeepEval model adapter backed by the shared scorer LLM client.
 
     Routes through native providers when available, falls back to litellm.
     Handles structured output via JSON prompt injection and response parsing.
     """
 
-    def __init__(self, backend: MlflowLLMBackend):
+    def __init__(self, backend: ScorerLLMClient):
         super().__init__(model_name=backend.model_name)
         self._backend = backend
 
@@ -63,7 +63,7 @@ class MlflowDeepEvalLLM(DeepEvalBaseLLM):
 
 
 def create_deepeval_model(model_uri: str):
-    backend = MlflowLLMBackend(model_uri)
+    backend = ScorerLLMClient(model_uri)
 
     if backend.is_native:
         return MlflowDeepEvalLLM(backend)
