@@ -147,6 +147,38 @@ def test_create_index_on_run_uuid(tmp_path, db_url):
         assert run_uuid_index_names.issubset(all_index_names)
 
 
+def test_create_index_on_metrics_run_uuid_key_step_via_migration(tmp_path, db_url):
+    # Test that the index is created when upgrading from initial schema via migrations
+    engine = sqlalchemy.create_engine(db_url)
+    InitialBase.metadata.create_all(engine)
+    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = [r[0] for r in cursor.fetchall()]
+        assert "index_metrics_run_uuid_key_step" in all_index_names
+
+        cursor.execute("PRAGMA index_info('index_metrics_run_uuid_key_step')")
+        columns = [row[2] for row in cursor.fetchall()]
+        assert columns == ["run_uuid", "key", "step"]
+
+
+def test_create_index_on_metrics_run_uuid_key_step(tmp_path, db_url):
+    # Test for
+    # mlflow/store/db_migrations/versions/a5b4c3d2e1f0_add_metrics_run_key_step_index.py
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = [r[0] for r in cursor.fetchall()]
+        assert "index_metrics_run_uuid_key_step" in all_index_names
+
+        # Verify the index columns and order
+        cursor.execute("PRAGMA index_info('index_metrics_run_uuid_key_step')")
+        columns = [row[2] for row in cursor.fetchall()]
+        assert columns == ["run_uuid", "key", "step"]
+
+
 def test_index_for_dataset_tables(tmp_path, db_url):
     # Test for
     # mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py
@@ -200,13 +232,11 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
             indexes = []
             for _, name, unique, *_ in cursor.fetchall():
                 cursor.execute(f"PRAGMA index_info('{name}')")
-                indexes.append(
-                    {
-                        "name": name,
-                        "unique": bool(unique),
-                        "columns": [row[2] for row in cursor.fetchall()],
-                    }
-                )
+                indexes.append({
+                    "name": name,
+                    "unique": bool(unique),
+                    "columns": [row[2] for row in cursor.fetchall()],
+                })
             return indexes
 
         def _has_unique_index(table_name, columns):
@@ -304,6 +334,18 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "name": f"model_def_{seed}",
             "provider": f"provider_{seed}",
             "model_name": f"model_{seed}",
+            "created_at": seed,
+            "last_updated_at": seed,
+            "workspace": workspace,
+        },
+        "budget_policies": {
+            "budget_policy_id": f"bp_{seed}",
+            "budget_unit": "USD",
+            "budget_amount": 100.0,
+            "duration_unit": "DAYS",
+            "duration_value": 30,
+            "target_scope": "GLOBAL",
+            "budget_action": "ALERT",
             "created_at": seed,
             "last_updated_at": seed,
             "workspace": workspace,

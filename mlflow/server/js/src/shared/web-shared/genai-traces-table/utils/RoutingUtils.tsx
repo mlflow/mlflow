@@ -6,7 +6,12 @@
  */
 /* eslint-disable no-restricted-imports */
 import type { ComponentProps } from 'react';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
+} from '@databricks/design-system';
 /**
  * Import React Router V6 parts
  */
@@ -63,8 +68,11 @@ const getActiveWorkspace = (): string | null => {
 
 const isAbsoluteUrl = (value: string) => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value);
 
-/** Routes that never have workspace context (e.g., /settings). Root '/' is contextual. */
-const ALWAYS_GLOBAL_ROUTES = ['/settings'];
+/**
+ * Routes that never have workspace context. Root '/' is contextual.
+ * Kept as an extension point for any future workspace-agnostic routes.
+ */
+const ALWAYS_GLOBAL_ROUTES: string[] = [];
 
 /** Check if pathname is always global (workspace-agnostic). */
 const isGlobalRoute = (pathname: string): boolean => {
@@ -263,11 +271,26 @@ const Outlet = OutletDirect;
 
 const Link = React.forwardRef<
   HTMLAnchorElement,
-  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean }
+  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
 >(function Link(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
+  const { to, disableWorkspacePrefix, componentId, onClick, ...rest } = props;
   const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <LinkDirect ref={ref} to={finalTo} {...rest} />;
+  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId,
+    analyticsEvents: events,
+  });
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      eventContext?.onClick(e);
+      onClick?.(e);
+    },
+    [eventContext, onClick],
+  );
+
+  return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
 });
 
 const NavLink = React.forwardRef<

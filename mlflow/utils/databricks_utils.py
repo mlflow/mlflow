@@ -134,6 +134,13 @@ def _get_dbutils():
         raise _NoDbutilsError
 
 
+def _get_runtime_integration_client():
+    from dbruntime import UserNamespaceInitializer
+
+    driver_connection = UserNamespaceInitializer.getOrCreate().get_driver_connection()
+    return driver_connection.runtime_integration_client
+
+
 class _NoDbutilsError(Exception):
     pass
 
@@ -209,7 +216,7 @@ def is_in_databricks_model_serving_environment():
     The environment variable set by Databricks when starting the serving container.
     """
     val = os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false")
-    return val.lower() == "true"
+    return val.lower() in ("true", "1")
 
 
 def is_mlflow_tracing_enabled_in_model_serving() -> bool:
@@ -249,6 +256,14 @@ _DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
 
 
 def get_databricks_runtime_version():
+    # DATABRICKS_ENV_VERSION is set for serverless clusters with the major version (e.g. 4).
+    # Use it over DATABRICKS_RUNTIME_VERSION (which includes the minor version) if present.
+    if env_version := os.environ.get("DATABRICKS_ENV_VERSION"):
+        version = f"client.{env_version}"
+        # DATABRICKS_ACCELERATOR is set for serverless GPU clusters.
+        if os.environ.get("DATABRICKS_ACCELERATOR"):
+            version += "-gpu"
+        return version
     if ver := os.environ.get("DATABRICKS_RUNTIME_VERSION"):
         return ver
     if os.path.exists(_DATABRICKS_VERSION_FILE_PATH):
@@ -493,8 +508,12 @@ def get_repl_id():
     Returns:
         The ID of the current Databricks Python REPL.
     """
-    # Attempt to fetch the REPL ID from the Python REPL's entrypoint object. This REPL ID
-    # is guaranteed to be set upon REPL startup in DBR / MLR 9.0
+    try:
+        return _get_runtime_integration_client().getReplId()
+    except Exception:
+        pass
+
+    # Fallback for runtimes without runtime_integration_client: use entry_point directly.
     try:
         dbutils = _get_dbutils()
         repl_id = dbutils.entry_point.getReplId()
@@ -1397,6 +1416,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url, token=api_token, insecure=ssl_trust_all
                 )
+
     elif dbr_major_minor_version >= (10, 3):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
@@ -1427,6 +1447,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
                 )
+
     else:
 
         class DynamicConfigProvider(DatabricksConfigProvider):
@@ -1463,30 +1484,28 @@ def get_databricks_nfs_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplNFSTempDir()
-    else:
-        try:
-            # If it is not ROOT user, it means the code is running in Safe-spark.
-            # In this case, we should get temporary directory of current user.
-            # and `getReplNFSTempDir` will be deprecated for this case.
-            return entry_point.getUserNFSTempDir()
-        except Exception:
-            # fallback
-            return entry_point.getReplNFSTempDir()
+    try:
+        return _get_runtime_integration_client().getUserNFSTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserNFSTempDir()
+    except Exception:
+        return entry_point.getReplNFSTempDir()
 
 
 def get_databricks_local_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplLocalTempDir()
-    else:
-        try:
-            # If it is not ROOT user, it means the code is running in Safe-spark.
-            # In this case, we should get temporary directory of current user.
-            # and `getReplLocalTempDir` will be deprecated for this case.
-            return entry_point.getUserLocalTempDir()
-        except Exception:
-            # fallback
-            return entry_point.getReplLocalTempDir()
+    try:
+        return _get_runtime_integration_client().getUserLocalTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserLocalTempDir()
+    except Exception:
+        return entry_point.getReplLocalTempDir()
 
 
 def stage_model_for_databricks_model_serving(model_name: str, model_version: str):

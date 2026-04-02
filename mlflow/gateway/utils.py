@@ -242,11 +242,9 @@ class SearchRoutesToken:
         return cls(index=index)
 
     def encode(self) -> str:
-        token_json = json.dumps(
-            {
-                "index": self.index,
-            }
-        )
+        token_json = json.dumps({
+            "index": self.index,
+        })
         encoded_token_bytes = base64.b64encode(bytes(token_json, "utf-8"))
         return encoded_token_bytes.decode("utf-8")
 

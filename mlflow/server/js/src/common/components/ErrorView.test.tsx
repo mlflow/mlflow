@@ -4,10 +4,12 @@ import { ErrorView } from './ErrorView';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MemoryRouter } from '../utils/RoutingUtils';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
-import { getWorkspacesEnabledSync } from '../utils/ServerFeaturesContext';
+import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
 
-jest.mock('../utils/ServerFeaturesContext', () => ({
-  ...jest.requireActual<typeof import('../utils/ServerFeaturesContext')>('../utils/ServerFeaturesContext'),
+jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../experiment-tracking/hooks/useServerInfo')>(
+    '../../experiment-tracking/hooks/useServerInfo',
+  ),
   getWorkspacesEnabledSync: jest.fn(),
 }));
 

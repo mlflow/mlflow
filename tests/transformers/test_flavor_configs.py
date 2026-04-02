@@ -8,7 +8,7 @@ from mlflow.transformers.flavor_config import (
 )
 from mlflow.transformers.hub_utils import is_valid_hf_repo_id
 
-from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API
+from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, IS_TRANSFORMERS_V5_OR_LATER
 
 
 @pytest.fixture
@@ -16,17 +16,18 @@ def multi_modal_pipeline(component_multi_modal):
     task = "image-classification"
     pipeline = _build_pipeline_from_model_input(component_multi_modal, task)
 
+    tokenizer_type = type(pipeline.tokenizer).__name__
     if IS_NEW_FEATURE_EXTRACTION_API:
         processor = pipeline.image_processor
         components = {
-            "tokenizer": "BertTokenizerFast",
+            "tokenizer": tokenizer_type,
             "image_processor": "ViltImageProcessor",
             "processor": "ViltImageProcessor",
         }
     else:
         processor = pipeline.feature_extractor
         components = {
-            "tokenizer": "BertTokenizerFast",
+            "tokenizer": tokenizer_type,
             "feature_extractor": "ViltProcessor",
             "processor": "ViltProcessor",
         }
@@ -41,13 +42,14 @@ def test_flavor_config_pt_save_pretrained_false(small_qa_pipeline):
         "pipeline_model_type": "MobileBertForQuestionAnswering",
         "source_model_name": "csarron/mobilebert-uncased-squad-v2",
         # "source_model_revision": "SOME_COMMIT_SHA",
-        "framework": "pt",
         "torch_dtype": "torch.float32",
         "components": ["tokenizer"],
-        "tokenizer_type": "MobileBertTokenizerFast",
+        "tokenizer_type": type(small_qa_pipeline.tokenizer).__name__,
         "tokenizer_name": "csarron/mobilebert-uncased-squad-v2",
         # "tokenizer_revision": "SOME_COMMIT_SHA",
     }
+    if not IS_TRANSFORMERS_V5_OR_LATER:
+        expected["framework"] = "pt"
     conf = build_flavor_config(small_qa_pipeline, save_pretrained=False)
     assert len(conf.pop("source_model_revision")) == 40
     assert len(conf.pop("tokenizer_revision")) == 40

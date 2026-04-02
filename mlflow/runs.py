@@ -11,6 +11,7 @@ from mlflow import MlflowClient
 from mlflow.entities import RunStatus, ViewType
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
 from mlflow.exceptions import MlflowException
+from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.tracking import _get_store
 from mlflow.utils.string_utils import _create_table
 from mlflow.utils.time import conv_longdate_to_str
@@ -27,6 +28,7 @@ def commands():
 
 
 @commands.command("list")
+@mlflow_mcp(tool_name="list_runs")
 @click.option(
     "--experiment-id",
     envvar=MLFLOW_EXPERIMENT_ID.name,
@@ -56,6 +58,7 @@ def list_run(experiment_id: str, view: str) -> None:
 
 
 @commands.command("delete")
+@mlflow_mcp(tool_name="delete_run")
 @RUN_ID
 def delete_run(run_id: str) -> None:
     """
@@ -69,6 +72,7 @@ def delete_run(run_id: str) -> None:
 
 
 @commands.command("restore")
+@mlflow_mcp(tool_name="restore_run")
 @RUN_ID
 def restore_run(run_id: str) -> None:
     """
@@ -81,6 +85,7 @@ def restore_run(run_id: str) -> None:
 
 
 @commands.command("describe")
+@mlflow_mcp(tool_name="describe_run")
 @RUN_ID
 def describe_run(run_id: str) -> None:
     """
@@ -93,6 +98,7 @@ def describe_run(run_id: str) -> None:
 
 
 @commands.command("create")
+@mlflow_mcp(tool_name="create_run")
 @click.option(
     "--experiment-id",
     envvar=MLFLOW_EXPERIMENT_ID.name,
@@ -210,6 +216,7 @@ def create_run(
 
 
 @commands.command("link-traces")
+@mlflow_mcp(tool_name="link_traces_to_run")
 @click.option(
     "--run-id",
     type=click.STRING,

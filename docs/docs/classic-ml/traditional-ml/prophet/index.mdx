@@ -70,14 +70,12 @@ with mlflow.start_run():
     model.fit(df)
 
     # Log model parameters
-    mlflow.log_params(
-        {
-            "changepoint_prior_scale": 0.05,
-            "seasonality_prior_scale": 10,
-            "yearly_seasonality": True,
-            "weekly_seasonality": True,
-        }
-    )
+    mlflow.log_params({
+        "changepoint_prior_scale": 0.05,
+        "seasonality_prior_scale": 10,
+        "yearly_seasonality": True,
+        "weekly_seasonality": True,
+    })
 
     # Cross-validation
     cv_results = cross_validation(
@@ -92,9 +90,7 @@ with mlflow.start_run():
     mlflow.log_metrics(metrics[["mse", "rmse", "mae", "mape"]].mean().to_dict())
 
     # Log model
-    mlflow.prophet.log_model(
-        pr_model=model, name="prophet_model", input_example=df[["ds"]].head()
-    )
+    mlflow.prophet.log_model(pr_model=model, name="prophet_model", input_example=df[["ds"]].head())
 ```
 
 ## Cross-Validation Tracking
@@ -158,15 +154,9 @@ def objective(trial, df):
     with mlflow.start_run(nested=True):
         # Define hyperparameter search space
         params = {
-            "changepoint_prior_scale": trial.suggest_float(
-                "changepoint_prior_scale", 0.001, 0.5
-            ),
-            "seasonality_prior_scale": trial.suggest_float(
-                "seasonality_prior_scale", 0.01, 10
-            ),
-            "holidays_prior_scale": trial.suggest_float(
-                "holidays_prior_scale", 0.01, 10
-            ),
+            "changepoint_prior_scale": trial.suggest_float("changepoint_prior_scale", 0.001, 0.5),
+            "seasonality_prior_scale": trial.suggest_float("seasonality_prior_scale", 0.01, 10),
+            "holidays_prior_scale": trial.suggest_float("holidays_prior_scale", 0.01, 10),
             "seasonality_mode": trial.suggest_categorical(
                 "seasonality_mode", ["additive", "multiplicative"]
             ),
@@ -221,13 +211,11 @@ with mlflow.start_run():
     )
 
     # Tag for deployment tracking
-    mlflow.set_tags(
-        {
-            "model_type": "prophet",
-            "forecast_horizon": "365_days",
-            "data_frequency": "daily",
-        }
-    )
+    mlflow.set_tags({
+        "model_type": "prophet",
+        "forecast_horizon": "365_days",
+        "data_frequency": "daily",
+    })
 
 # Transition to production
 client.transition_model_version_stage(
@@ -298,9 +286,7 @@ for series_name, series_data in data_dict.items():
     model.fit(series_data)
 
     # Collect metrics
-    cv_results = cross_validation(
-        model, initial="365 days", period="45 days", horizon="90 days"
-    )
+    cv_results = cross_validation(model, initial="365 days", period="45 days", horizon="90 days")
     perf_metrics = performance_metrics(cv_results)
 
     metrics_batch[f"{series_name}_mape"] = perf_metrics["mape"].mean()

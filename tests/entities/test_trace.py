@@ -1,11 +1,13 @@
 import importlib.util
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from unittest import mock
 
 import pytest
+from pydantic import BaseModel
 
 import mlflow
 import mlflow.tracking.context.default_context
@@ -159,8 +161,6 @@ def test_json_deserialization(monkeypatch):
     importlib.util.find_spec("pydantic") is None, reason="Pydantic is not installed"
 )
 def test_trace_serialize_pydantic_model():
-    from pydantic import BaseModel
-
     class MyModel(BaseModel):
         x: int
         y: str
@@ -169,6 +169,39 @@ def test_trace_serialize_pydantic_model():
     data_json = json.dumps(data, cls=TraceJSONEncoder)
     assert data_json == '{"x": 1, "y": "foo"}'
     assert json.loads(data_json) == {"x": 1, "y": "foo"}
+
+
+def test_trace_serialize_dataclass():
+    @dataclass
+    class Config:
+        model: str
+        temperature: float
+        tags: list[str]
+
+    config = Config(model="gpt-4o", temperature=0.5, tags=["a", "b"])
+    result = json.loads(json.dumps(config, cls=TraceJSONEncoder))
+    assert result == {"model": "gpt-4o", "temperature": 0.5, "tags": ["a", "b"]}
+
+
+def test_trace_serialize_dataclass_with_non_copyable_field():
+    """Dataclasses whose fields cannot be deepcopied (e.g. contain asyncio internals)
+    must serialize without raising an exception.
+    """
+
+    class _NonCopyable:
+        def __deepcopy__(self, memo):
+            raise RuntimeError("deepcopy not supported")
+
+    @dataclass
+    class RunConfig:
+        name: str
+        client: _NonCopyable
+
+    config = RunConfig(name="test-run", client=_NonCopyable())
+    # Should not raise; non-serializable client falls back to str representation
+    result = json.loads(json.dumps(config, cls=TraceJSONEncoder))
+    assert result["name"] == "test-run"
+    assert "client" in result
 
 
 @pytest.mark.skipif(

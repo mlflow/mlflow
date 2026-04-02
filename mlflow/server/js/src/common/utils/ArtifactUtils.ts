@@ -98,8 +98,7 @@ export function getArtifactContent<R = unknown>(artifactLocation: string, isBina
         fileReader.readAsText(blob);
       }
     } catch (error) {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(error);
+      // fail silently
       reject(error);
     }
   });

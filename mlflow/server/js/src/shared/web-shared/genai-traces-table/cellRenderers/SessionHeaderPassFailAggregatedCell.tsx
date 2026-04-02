@@ -1,6 +1,6 @@
 import { DangerIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { AssessmentInfo } from '../types';
-import { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { AssessmentInfo } from '../types';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { aggregatePassFailAssessments } from '../utils/SessionAggregationUtils';
 import { FAIL_BARCHART_BAR_COLOR, PASS_BARCHART_BAR_COLOR } from '../utils/Colors';
@@ -135,28 +135,11 @@ export const SessionHeaderPassFailAggregatedCell = ({
       return expandMessage;
     };
 
-    if (onExpandSession) {
+    if (onExpandSession || errorCount > 0) {
       return (
         <Tooltip
-          componentId="mlflow.genai-traces-table.session-header.pass-fail-aggregated"
+          componentId="mlflow.genai-traces-table.session-header.pass-fail-aggregated-tooltip"
           content={getTooltipContent()}
-        >
-          {content}
-        </Tooltip>
-      );
-    }
-
-    if (errorCount > 0) {
-      return (
-        <Tooltip
-          componentId="mlflow.genai-traces-table.session-header.error-count"
-          content={intl.formatMessage(
-            {
-              defaultMessage: '{errorCount, plural, one {# error} other {# errors}}',
-              description: 'Tooltip showing error count',
-            },
-            { errorCount },
-          )}
         >
           {content}
         </Tooltip>

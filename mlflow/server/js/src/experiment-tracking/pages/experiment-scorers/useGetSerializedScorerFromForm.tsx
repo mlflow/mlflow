@@ -1,9 +1,6 @@
 import { useFormContext } from 'react-hook-form';
-import {
-  convertFormDataToScheduledScorer,
-  ScorerFormData,
-  transformScheduledScorer,
-} from './utils/scorerTransformUtils';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
+import { convertFormDataToScheduledScorer, transformScheduledScorer } from './utils/scorerTransformUtils';
 import { useCallback } from 'react';
 
 /**

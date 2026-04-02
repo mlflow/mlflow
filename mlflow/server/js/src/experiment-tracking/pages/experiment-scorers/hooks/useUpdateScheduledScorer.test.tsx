@@ -2,9 +2,9 @@ import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { renderHook, waitFor } from '@testing-library/react';
-import { InternalServerError } from '@databricks/web-shared/errors';
+import { InternalServerError, NotFoundError } from '@databricks/web-shared/errors';
 import { useUpdateScheduledScorerMutation } from './useUpdateScheduledScorer';
-import { registerScorer, type RegisterScorerResponse } from '../api';
+import { listScheduledScorers, updateScheduledScorers, registerScorer, type RegisterScorerResponse } from '../api';
 import { transformScheduledScorer } from '../utils/scorerTransformUtils';
 
 // Mock external dependencies

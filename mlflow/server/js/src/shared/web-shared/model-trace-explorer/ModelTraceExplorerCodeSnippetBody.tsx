@@ -7,9 +7,10 @@ import { FormattedMessage } from '@databricks/i18n';
 import type { SearchMatch } from './ModelTrace.types';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
 import { ModelTraceExplorerHighlightedCodeSnippet } from './ModelTraceExplorerHighlightedCodeSnippet';
-import { GenAIMarkdownRenderer } from '../genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../genai-markdown-renderer/GenAIMarkdownRenderer';
 // eslint-disable-next-line import/no-deprecated
-import { CodeSnippet, SnippetCopyAction } from '../snippet';
+import { CodeSnippet } from '../snippet/CodeSnippet';
+import { SnippetCopyAction } from '../snippet/actions/SnippetCopyAction';
 
 const MAX_LINES_FOR_PREVIEW = 4;
 // the `isContentLong` check does not work for

@@ -108,12 +108,12 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
         <SplitButton
           type="primary"
           icon={<PlusIcon />}
-          componentId={`${COMPONENT_ID_PREFIX}.new-scorer-button`}
+          componentId="mlflow.experiment-scorers.new-scorer-button"
           onClick={handleNewLLMScorerClick}
           menu={
             <DropdownMenu.Content>
               <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.new-custom-code-scorer-menu-item`}
+                componentId="mlflow.experiment-scorers.new-custom-code-scorer-menu-item"
                 onClick={handleNewCustomCodeScorerClick}
                 css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
               >

@@ -38,13 +38,11 @@ def main():
     timestamp_remover = ColumnTransformer(
         [("selector", "passthrough", X.columns.drop("timestamp"))], remainder="drop"
     )
-    model = Pipeline(
-        [
-            ("month_extractor", month_extractor),
-            ("timestamp_remover", timestamp_remover),
-            ("knn", KNeighborsClassifier()),
-        ]
-    )
+    model = Pipeline([
+        ("month_extractor", month_extractor),
+        ("timestamp_remover", timestamp_remover),
+        ("knn", KNeighborsClassifier()),
+    ])
     model.fit(X, y)
 
     with mlflow.start_run():

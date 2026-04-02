@@ -63,7 +63,6 @@ export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNot
             >
               <FormattedMessage
                 defaultMessage="Edit"
-                // eslint-disable-next-line max-len
                 description="Text for the edit button next to the description section title on the experiment view page"
               />
             </Button>

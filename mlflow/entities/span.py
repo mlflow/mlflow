@@ -19,6 +19,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     build_otel_context,
@@ -30,6 +31,7 @@ from mlflow.tracing.utils import (
     generate_trace_id_v4_from_otel_trace_id,
     parse_trace_id_v4,
     set_span_cost_attribute,
+    should_compute_cost_client_side,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -111,6 +113,7 @@ class Span:
         # Since the span is immutable, we can cache the attributes to avoid the redundant
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
+        self._attachments: dict[str, Attachment] = {}
 
     @property
     @lru_cache(maxsize=1)
@@ -537,6 +540,7 @@ class LiveSpan(Span):
             )
 
         self._span = otel_span
+        self._attachments: dict[str, Attachment] = {}
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
@@ -553,11 +557,161 @@ class LiveSpan(Span):
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
+        extract_base64 = self._should_extract_base64()
+        inputs = self._extract_attachments(inputs, extract_base64)
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
+        # Second pass on the serialized form handles framework objects
+        # (e.g., Pydantic models, LangChain BaseMessage) that only become
+        # plain dicts after JSON serialization by set_attribute.
+        if extract_base64:
+            self._extract_attachments_from_serialized(SpanAttributeKey.INPUTS)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
+        extract_base64 = self._should_extract_base64()
+        outputs = self._extract_attachments(outputs, extract_base64)
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
+        if extract_base64:
+            self._extract_attachments_from_serialized(SpanAttributeKey.OUTPUTS)
+
+    def _extract_attachments_from_serialized(self, attr_key: str):
+        """Re-extract attachments from the serialized attribute value.
+
+        Handles cases where the first extraction pass couldn't recurse into
+        framework-specific objects (e.g., LangChain BaseMessage) that only
+        become plain dicts after JSON serialization.
+        """
+        serialized = self._attributes.get(attr_key)
+        if serialized is None:
+            return
+        attachments_before = len(self._attachments)
+        extracted = self._extract_attachments(serialized, extract_base64=True)
+        if len(self._attachments) > attachments_before:
+            self.set_attribute(attr_key, extracted)
+
+    def _extract_attachments(self, value: Any, extract_base64: bool) -> Any:
+        if isinstance(value, Attachment):
+            return self._store_attachment(value)
+        if extract_base64:
+            if isinstance(value, str):
+                converted = self._try_convert_data_uri(value)
+                if converted is not None:
+                    return converted
+            if isinstance(value, dict):
+                converted = self._try_convert_structured_content(value)
+                if converted is not None:
+                    # Recurse into the converted dict to catch remaining patterns
+                    # in sibling keys (e.g. a data URI in another field)
+                    if isinstance(converted, dict):
+                        return {
+                            k: self._extract_attachments(v, extract_base64)
+                            for k, v in converted.items()
+                        }
+                    return converted
+        if isinstance(value, dict):
+            return {k: self._extract_attachments(v, extract_base64) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self._extract_attachments(item, extract_base64) for item in value]
+        return value
+
+    def _store_attachment(self, attachment: Attachment) -> str:
+        ref = attachment.ref(self.trace_id)
+        self._attachments[attachment.id] = attachment
+        return ref
+
+    @staticmethod
+    def _should_extract_base64() -> bool:
+        from mlflow.environment_variables import MLFLOW_TRACE_EXTRACT_ATTACHMENTS
+
+        return MLFLOW_TRACE_EXTRACT_ATTACHMENTS.get()
+
+    def _try_convert_data_uri(self, value: str) -> str | None:
+        if not value.startswith("data:") or ";base64," not in value:
+            return None
+        header, _, b64data = value.partition(";base64,")
+        mime = header[len("data:") :]
+        if not mime:
+            return None
+        try:
+            content_bytes = base64.b64decode(b64data, validate=True)
+        except Exception:
+            return None
+        return self._store_attachment(Attachment(content_type=mime, content_bytes=content_bytes))
+
+    def _try_convert_structured_content(self, value: dict[str, Any]) -> dict[str, Any] | str | None:
+        # TODO: If this grows unwieldy, consider either (a) splitting into per-provider
+        # helpers (parse_openai_audio, parse_anthropic_image, etc.) or (b) moving
+        # extraction into individual autolog integrations as post-execution hooks.
+        # See: https://github.com/mlflow/mlflow/pull/21955#discussion_r2999432747
+
+        # OpenAI input_audio content part
+        if value.get("type") == "input_audio" and isinstance(
+            audio := value.get("input_audio"), dict
+        ):
+            data = audio.get("data")
+            fmt = audio.get("format", "wav")
+            if isinstance(data, str) and data:
+                try:
+                    content_bytes = base64.b64decode(data, validate=True)
+                except Exception:
+                    return None
+                content_type = "audio/mpeg" if fmt == "mp3" else f"audio/{fmt}"
+                ref = self._store_attachment(
+                    Attachment(content_type=content_type, content_bytes=content_bytes)
+                )
+                return {
+                    **value,
+                    "input_audio": {**audio, "data": ref},
+                }
+
+        # Anthropic image content part
+        if value.get("type") == "image" and isinstance(source := value.get("source"), dict):
+            if source.get("type") == "base64":
+                data = source.get("data")
+                media_type = source.get("media_type", "image/png")
+                if isinstance(data, str) and data:
+                    try:
+                        content_bytes = base64.b64decode(data, validate=True)
+                    except Exception:
+                        return None
+                    ref = self._store_attachment(
+                        Attachment(content_type=media_type, content_bytes=content_bytes)
+                    )
+                    return {
+                        **value,
+                        "source": {**source, "data": ref},
+                    }
+
+        # DALL-E output: {"b64_json": "<base64>", ...}
+        # DALL-E always returns PNG; other APIs using b64_json are not known
+        if isinstance(b64 := value.get("b64_json"), str) and b64:
+            try:
+                content_bytes = base64.b64decode(b64, validate=True)
+            except Exception:
+                return None
+            ref = self._store_attachment(
+                Attachment(content_type="image/png", content_bytes=content_bytes)
+            )
+            return {**value, "b64_json": ref}
+
+        # OpenAI audio output: {"audio": {"data": "<base64>", "transcript": "..."}, ...}
+        # Returned by gpt-4o-audio-preview with modalities=["text", "audio"]
+        if isinstance(audio := value.get("audio"), dict):
+            data = audio.get("data")
+            if isinstance(data, str) and data and not data.startswith("mlflow-attachment://"):
+                try:
+                    content_bytes = base64.b64decode(data, validate=True)
+                except Exception:
+                    return None
+                ref = self._store_attachment(
+                    Attachment(content_type="audio/wav", content_bytes=content_bytes)
+                )
+                return {
+                    **value,
+                    "audio": {**audio, "data": ref},
+                }
+
+        return None
 
     def set_attributes(self, attributes: dict[str, Any]):
         """
@@ -675,7 +829,8 @@ class LiveSpan(Span):
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
 
-            set_span_cost_attribute(self)
+            if should_compute_cost_client_side():
+                set_span_cost_attribute(self)
 
             # Apply span processors
             apply_span_processors(self)
@@ -699,7 +854,10 @@ class LiveSpan(Span):
         :meta private:
         """
         # All state of the live span is already persisted in the OpenTelemetry span object.
-        return Span(self._span)
+        span = Span(self._span)
+        # Shallow copy so the immutable span is independent of further LiveSpan mutations
+        span._attachments = dict(self._attachments)
+        return span
 
     @classmethod
     def from_immutable_span(
@@ -757,9 +915,9 @@ class LiveSpan(Span):
 
         # Copy all the attributes, inputs, outputs, and events from the original span
         clone_span.set_status(span.status)
-        clone_span.set_attributes(
-            {k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID}
-        )
+        clone_span.set_attributes({
+            k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID
+        })
         if span.inputs:
             clone_span.set_inputs(span.inputs)
         if span.outputs:
@@ -789,9 +947,10 @@ class NoOpSpan(Span):
     """
     No-op implementation of the Span interface.
 
-    This instance should be returned from the mlflow.start_span context manager when span
-    creation fails. This class should have exactly the same interface as the Span so that
-    user's setter calls do not raise runtime errors.
+    Returned when span creation fails or when the span is dropped by the
+    sampler. An optional ``otel_span`` can be provided to preserve the
+    underlying OTel span context so that child spans inherit the same
+    trace ID and sampling decision.
 
     E.g.
 
@@ -804,8 +963,8 @@ class NoOpSpan(Span):
 
     """
 
-    def __init__(self):
-        self._span = NonRecordingSpan(context=None)
+    def __init__(self, otel_span=None):
+        self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
 
     @property

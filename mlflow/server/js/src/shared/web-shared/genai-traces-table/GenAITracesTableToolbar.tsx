@@ -19,6 +19,7 @@ import { GenAiTracesTableFilter } from './GenAiTracesTableFilter';
 import { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 import { EvaluationsOverviewColumnSelectorGrouped } from './components/EvaluationsOverviewColumnSelectorGrouped';
 import { EvaluationsOverviewSortDropdown } from './components/EvaluationsOverviewSortDropdown';
+import { DetectIssuesButton } from './components/DetectIssuesButton';
 import type {
   EvaluationsOverviewTableSort,
   TraceActions,
@@ -28,7 +29,8 @@ import type {
   TableFilterOptions,
 } from './types';
 import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from './utils/FeatureUtils';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 interface CountInfo {
   currentCount?: number;
@@ -38,8 +40,11 @@ interface CountInfo {
 }
 
 interface GenAITracesTableToolbarProps {
+  // Component ID for detect issues button (optional, defaults to mlflow.traces-table.detect-issues-button)
+  detectIssuesButtonComponentId?: string;
+
   // Experiment metadata
-  experimentId: string;
+  experimentId?: string;
 
   // Table metadata
   allColumns: TracesTableColumn[];
@@ -81,19 +86,23 @@ interface GenAITracesTableToolbarProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
 
-  // Additional elements to render in the toolbar
-  addons?: React.ReactNode;
-
   // Session grouping
   isGroupedBySession?: boolean;
   forceGroupBySession?: boolean;
   onToggleSessionGrouping?: () => void;
+
+  // Issue detection
+  onDetectIssues?: () => void;
+
+  // Additional elements to render in the toolbar
+  addons?: React.ReactNode;
 }
 
 export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: GenAITracesTableToolbarProps) => {
     const {
+      detectIssuesButtonComponentId = 'mlflow.traces-table.detect-issues-button',
       searchQuery,
       setSearchQuery,
       filters,
@@ -115,10 +124,11 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       metadataError,
       onRefresh,
       isRefreshing,
-      addons,
       isGroupedBySession,
       forceGroupBySession,
       onToggleSessionGrouping,
+      onDetectIssues,
+      addons,
     } = props;
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
@@ -129,6 +139,10 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       },
       [setTableSort],
     );
+
+    // When using V4 APIs, we want users to be able to change filters while the traces are being loaded or there is an error
+    const shouldDisplayErrorState = Boolean(metadataError && !usesV4APIs);
+    const shouldDisplayLoadingState = isMetadataLoading && !usesV4APIs;
 
     return (
       <div
@@ -154,8 +168,8 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             experimentId={experimentId}
             tableFilterOptions={tableFilterOptions}
             allColumns={allColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
+            isLoading={shouldDisplayLoadingState}
+            isError={shouldDisplayErrorState}
             usesV4APIs={usesV4APIs}
           />
           <EvaluationsOverviewSortDropdown
@@ -163,8 +177,8 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             columns={selectedColumns}
             onChange={onSortChange}
             enableGrouping={shouldEnableTagGrouping()}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
+            isLoading={shouldDisplayLoadingState}
+            isError={shouldDisplayErrorState}
           />
 
           <EvaluationsOverviewColumnSelectorGrouped
@@ -172,10 +186,10 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             selectedColumns={selectedColumns}
             toggleColumns={toggleColumns}
             setSelectedColumns={setSelectedColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
+            isLoading={shouldDisplayLoadingState}
+            isError={shouldDisplayErrorState}
           />
-          {traceActions && (
+          {traceActions && experimentId && (
             <GenAITracesTableActions
               experimentId={experimentId}
               traceActions={traceActions}
@@ -206,6 +220,9 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
                 />
               </ToggleButton>
             </Tooltip>
+          )}
+          {shouldEnableIssueDetection() && onDetectIssues && (
+            <DetectIssuesButton componentId={detectIssuesButtonComponentId} onClick={onDetectIssues} />
           )}
           {onRefresh && (
             <Tooltip

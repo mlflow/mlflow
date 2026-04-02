@@ -1,8 +1,8 @@
-import {
+import type {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
 } from '@databricks/web-shared/model-trace-explorer';
-import { ScorerEvaluationScope } from './constants';
+import type { ScorerEvaluationScope } from './constants';
 
 interface ScheduledScorerBase {
   name: string;

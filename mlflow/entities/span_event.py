@@ -29,7 +29,7 @@ class SpanEvent(_MlflowObject):
     name: str
     # Use current time if not provided. We need to use default factory otherwise
     # the default value will be fixed to the build time of the class.
-    timestamp: int = field(default_factory=lambda: int(time.time() * 1e6))
+    timestamp: int = field(default_factory=lambda: int(time.time() * 1e9))
     attributes: dict[str, AttributeValue] = field(default_factory=dict)
 
     @classmethod

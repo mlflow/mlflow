@@ -116,12 +116,10 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_streams_assistant_messages():
-    mock_stdout = AsyncIterator(
-        [
-            b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
-            b'{"type": "result", "session_id": "session-123"}\n',
-        ]
-    )
+    mock_stdout = AsyncIterator([
+        b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
+        b'{"type": "result", "session_id": "session-123"}\n',
+    ])
 
     mock_process = MagicMock()
     mock_process.stdout = mock_stdout
@@ -210,12 +208,10 @@ async def test_astream_passes_session_id_for_resume():
 
 @pytest.mark.asyncio
 async def test_astream_handles_non_json_output():
-    mock_stdout = AsyncIterator(
-        [
-            b"Some plain text output\n",
-            b'{"type": "result"}\n',
-        ]
-    )
+    mock_stdout = AsyncIterator([
+        b"Some plain text output\n",
+        b'{"type": "result"}\n',
+    ])
 
     mock_process = MagicMock()
     mock_process.stdout = mock_stdout
@@ -243,11 +239,9 @@ async def test_astream_handles_non_json_output():
 
 @pytest.mark.asyncio
 async def test_astream_handles_error_message_type():
-    mock_stdout = AsyncIterator(
-        [
-            b'{"type": "error", "error": {"message": "API rate limit exceeded"}}\n',
-        ]
-    )
+    mock_stdout = AsyncIterator([
+        b'{"type": "error", "error": {"message": "API rate limit exceeded"}}\n',
+    ])
 
     mock_process = MagicMock()
     mock_process.stdout = mock_stdout
@@ -271,3 +265,37 @@ async def test_astream_handles_error_message_type():
 
     assert events[0].type == EventType.ERROR
     assert "rate limit" in events[0].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_skips_rate_limit_event():
+    mock_stdout = AsyncIterator([
+        b'{"type": "rate_limit_event", "data": {"retry_after": 1.0}}\n',
+        b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "hello"}]}}\n',
+        b'{"type": "result", "result": null, "session_id": "sess-123"}\n',
+    ])
+
+    mock_process = MagicMock()
+    mock_process.stdout = mock_stdout
+    mock_process.stderr = MagicMock()
+    mock_process.stderr.read = AsyncMock(return_value=b"")
+    mock_process.wait = AsyncMock()
+    mock_process.returncode = 0
+    mock_process.pid = 12345
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        ),
+    ):
+        provider = ClaudeCodeProvider()
+        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    assert len(events) == 2
+    assert events[0].type == EventType.MESSAGE
+    assert events[1].type == EventType.DONE

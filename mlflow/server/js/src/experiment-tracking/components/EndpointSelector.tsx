@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
@@ -43,6 +43,8 @@ export interface EndpointSelectorProps {
   onEndpointCreated?: (endpoint: Endpoint) => void;
   /** Whether to auto-select the first endpoint */
   autoSelectFirstEndpoint?: boolean;
+  /** Called when the current endpoint name doesn't match any loaded endpoint (e.g., after a rename) */
+  onEndpointNotFound?: () => void;
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
@@ -53,6 +55,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   componentIdPrefix = 'mlflow.endpoint-selector',
   onEndpointCreated,
   autoSelectFirstEndpoint = false,
+  onEndpointNotFound,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -102,6 +105,21 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
     return endpointOptions.find((opt) => opt.value === currentEndpointName);
   }, [endpointOptions, currentEndpointName]);
 
+  // When the endpoint name doesn't match any loaded endpoint (e.g., after a rename),
+  // notify the parent so it can refetch scorer data with the resolved endpoint name.
+  const hasTriedRefetch = useRef(false);
+
+  useEffect(() => {
+    hasTriedRefetch.current = false;
+  }, [currentEndpointName]);
+
+  useEffect(() => {
+    if (currentEndpointName && !currentEndpoint && !isLoading && !error && !hasTriedRefetch.current) {
+      hasTriedRefetch.current = true;
+      onEndpointNotFound?.();
+    }
+  }, [currentEndpointName, currentEndpoint, isLoading, error, onEndpointNotFound]);
+
   const defaultPlaceholder = intl.formatMessage({
     defaultMessage: 'Select an endpoint',
     description: 'Placeholder for endpoint selection dropdown',
@@ -121,7 +139,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   if (error) {
     return (
       <Alert
-        componentId={`${componentIdPrefix}.endpoints-error`}
+        componentId="mlflow.endpoint-selector.endpoints-error"
         type="error"
         message={error.message || 'Failed to load endpoints'}
       />
@@ -131,7 +149,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   return (
     <>
       <DialogCombobox
-        componentId={`${componentIdPrefix}.select`}
+        componentId="mlflow.endpoint-selector.select"
         id={`${componentIdPrefix}.select`}
         value={currentEndpointName ? [currentEndpointName] : []}
       >
@@ -147,7 +165,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
                   <span>{currentEndpointName}</span>
                   <Tooltip
-                    componentId={`${componentIdPrefix}.deleted-endpoint-tooltip`}
+                    componentId="mlflow.endpoint-selector.deleted-endpoint-tooltip"
                     content={intl.formatMessage({
                       defaultMessage: 'This endpoint may have been deleted',
                       description: 'Tooltip for deleted endpoint',

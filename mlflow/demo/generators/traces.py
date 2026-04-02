@@ -4,6 +4,7 @@ import hashlib
 import logging
 import random
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -30,8 +31,25 @@ _logger = logging.getLogger(__name__)
 
 DEMO_VERSION_TAG = "mlflow.demo.version"
 DEMO_TRACE_TYPE_TAG = "mlflow.demo.trace_type"
+DEMO_START_TIME_TAG = "mlflow.demo.start_time_ms"
+DEMO_END_TIME_TAG = "mlflow.demo.end_time_ms"
 
 _TOTAL_TRACES_PER_VERSION = 17
+
+
+@dataclass(frozen=True)
+class _TraceSetResult:
+    """Result from generating a set of traces.
+
+    Attributes:
+        trace_ids: List of generated trace IDs.
+        start_time_ns: Earliest trace start time in nanoseconds.
+        end_time_ns: Latest trace end time in nanoseconds.
+    """
+
+    trace_ids: list[str]
+    start_time_ns: int
+    end_time_ns: int
 
 
 def _get_trace_timestamps(trace_index: int, version: str) -> tuple[int, int]:
@@ -76,6 +94,35 @@ def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+@dataclass(frozen=True)
+class _Model:
+    """Model configuration with name, provider, and pricing."""
+
+    name: str
+    provider: str
+    pricing: tuple[float, float]  # (input $/1M tokens, output $/1M tokens)
+
+
+# Using three distinct models so the cost breakdown chart shows a nice distribution.
+GPT_5_2 = _Model(name="gpt-5.2", provider="openai", pricing=(1.75, 14.00))
+CLAUDE_SONNET_4_5 = _Model(name="claude-sonnet-4-5", provider="anthropic", pricing=(3.00, 15.00))
+GEMINI_3_PRO = _Model(name="gemini-3-pro", provider="google", pricing=(2.00, 12.00))
+
+_DEMO_MODELS = (GPT_5_2, CLAUDE_SONNET_4_5, GEMINI_3_PRO)
+
+
+def _compute_cost(model: _Model, prompt_tokens: int, completion_tokens: int) -> dict[str, float]:
+    """Compute synthetic cost using approximate per-model pricing."""
+    input_rate, output_rate = model.pricing
+    input_cost = prompt_tokens * input_rate / 1_000_000
+    output_cost = completion_tokens * output_rate / 1_000_000
+    return {
+        "input_cost": input_cost,
+        "output_cost": output_cost,
+        "total_cost": input_cost + output_cost,
+    }
+
+
 class TracesDemoGenerator(BaseDemoGenerator):
     """Generates demo traces for the MLflow UI.
 
@@ -102,11 +149,22 @@ class TracesDemoGenerator(BaseDemoGenerator):
         mlflow.MlflowClient().set_experiment_tag(
             experiment.experiment_id, "mlflow.experimentKind", "genai_development"
         )
+        mlflow.set_experiment_tag(
+            "mlflow.note.content",
+            "Sample experiment with pre-populated demo data including traces, evaluations, "
+            "and prompts. Explore MLflow's GenAI features with this experiment.",
+        )
 
-        v1_trace_ids = self._generate_trace_set("v1")
-        v2_trace_ids = self._generate_trace_set("v2")
+        v1_result = self._generate_trace_set("v1")
+        v2_result = self._generate_trace_set("v2")
 
-        all_trace_ids = v1_trace_ids + v2_trace_ids
+        all_trace_ids = v1_result.trace_ids + v2_result.trace_ids
+
+        # Store the overall time range of demo data as experiment tags
+        overall_start_ms = min(v1_result.start_time_ns, v2_result.start_time_ns) // 1_000_000
+        overall_end_ms = max(v1_result.end_time_ns, v2_result.end_time_ns) // 1_000_000
+        mlflow.set_experiment_tag(DEMO_START_TIME_TAG, str(overall_start_ms))
+        mlflow.set_experiment_tag(DEMO_END_TIME_TAG, str(overall_end_ms))
 
         return DemoResult(
             feature=self.name,
@@ -114,25 +172,33 @@ class TracesDemoGenerator(BaseDemoGenerator):
             navigation_url=f"#/experiments/{experiment.experiment_id}",
         )
 
-    def _generate_trace_set(self, version: Literal["v1", "v2"]) -> list[str]:
+    def _generate_trace_set(self, version: Literal["v1", "v2"]) -> _TraceSetResult:
         """Generate a complete set of traces for the given version."""
         trace_ids = []
         trace_index = 0
+        min_start_ns = float("inf")
+        max_end_ns = 0
 
         for trace_def in RAG_TRACES:
             start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
             if trace_id := self._create_rag_trace(trace_def, version, start_ns, end_ns):
                 trace_ids.append(trace_id)
             trace_index += 1
 
         for trace_def in AGENT_TRACES:
             start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
             if trace_id := self._create_agent_trace(trace_def, version, start_ns, end_ns):
                 trace_ids.append(trace_id)
             trace_index += 1
 
         for idx, trace_def in enumerate(PROMPT_TRACES):
             start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
             prompt_version_num = str(idx % 2 + 1) if version == "v1" else str(idx % 2 + 3)
             if trace_id := self._create_prompt_trace(
                 trace_def, version, start_ns, end_ns, prompt_version_num
@@ -140,9 +206,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
                 trace_ids.append(trace_id)
             trace_index += 1
 
-        trace_ids.extend(self._create_session_traces(version, trace_index))
+        session_result = self._create_session_traces(version, trace_index)
+        trace_ids.extend(session_result.trace_ids)
+        min_start_ns = min(min_start_ns, session_result.start_time_ns)
+        max_end_ns = max(max_end_ns, session_result.end_time_ns)
 
-        return trace_ids
+        return _TraceSetResult(
+            trace_ids=trace_ids,
+            start_time_ns=int(min_start_ns),
+            end_time_ns=int(max_end_ns),
+        )
 
     def _data_exists(self) -> bool:
         store = _get_store()
@@ -247,6 +320,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         retrieve.set_outputs({"documents": docs})
         retrieve.end(end_time_ns=retrieve_end)
 
+        model = GPT_5_2
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -257,13 +331,17 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "user", "content": trace_def.query},
                 ],
                 "context": docs,
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -299,7 +377,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         )
 
         tool_start = start_ns + 5000
-        for i, tool in enumerate(trace_def.tools):
+        for tool in trace_def.tools:
             tool_span = mlflow.start_span_no_context(
                 name=tool.name,
                 span_type=SpanType.TOOL,
@@ -311,6 +389,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             tool_span.end(end_time_ns=tool_start + tool_duration // len(trace_def.tools))
             tool_start += tool_duration // len(trace_def.tools) + 1000
 
+        model = CLAUDE_SONNET_4_5
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -321,13 +400,17 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "user", "content": trace_def.query},
                 ],
                 "tool_results": [t.output for t in trace_def.tools],
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -406,6 +489,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         render.set_outputs({"rendered_prompt": rendered_prompt})
         render.end(end_time_ns=render_end)
 
+        model = GEMINI_3_PRO
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -414,14 +498,17 @@ class TracesDemoGenerator(BaseDemoGenerator):
                 "messages": [
                     {"role": "user", "content": rendered_prompt},
                 ],
-                "model": "gpt-4o-mini",
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -516,12 +603,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
         else:
             return str(template)
 
-    def _create_session_traces(self, version: Literal["v1", "v2"], start_index: int) -> list[str]:
+    def _create_session_traces(
+        self, version: Literal["v1", "v2"], start_index: int
+    ) -> _TraceSetResult:
         """Create multi-turn conversation session traces."""
         trace_ids = []
         current_session = None
         turn_counter = 0
         trace_index = start_index
+        min_start_ns = float("inf")
+        max_end_ns = 0
 
         for trace_def in SESSION_TRACES:
             if trace_def.session_id != current_session:
@@ -532,13 +623,19 @@ class TracesDemoGenerator(BaseDemoGenerator):
             versioned_session_id = f"{trace_def.session_id}-{version}"
 
             start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
             if trace_id := self._create_session_turn_trace(
                 trace_def, turn_counter, version, versioned_session_id, start_ns, end_ns
             ):
                 trace_ids.append(trace_id)
             trace_index += 1
 
-        return trace_ids
+        return _TraceSetResult(
+            trace_ids=trace_ids,
+            start_time_ns=int(min_start_ns),
+            end_time_ns=int(max_end_ns),
+        )
 
     def _create_session_turn_trace(
         self,
@@ -584,6 +681,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             tool_span.end(end_time_ns=tool_end)
             tool_start = tool_end + 1000
 
+        model = _DEMO_MODELS[turn % len(_DEMO_MODELS)]
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -593,14 +691,17 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "system", "content": "You are an MLflow assistant."},
                     {"role": "user", "content": trace_def.query},
                 ],
-                "model": "gpt-4o-mini",
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )

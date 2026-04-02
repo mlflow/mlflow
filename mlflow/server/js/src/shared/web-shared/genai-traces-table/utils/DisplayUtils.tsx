@@ -1,4 +1,5 @@
 import { isNil } from 'lodash';
+import React from 'react';
 
 import type { IntlShape } from '@databricks/i18n';
 import { FormattedMessage } from '@databricks/i18n';
@@ -204,6 +205,49 @@ export function timeSinceStr(date: any, referenceDate = new Date()) {
 export function escapeCssSpecialCharacters(str: string) {
   // eslint-disable-next-line no-useless-escape
   return str.replace(/([!"#$%&'()*+,\.\/:;\s<=>?@[\\\]^`{|}~])/g, '\\$1');
+}
+
+/** Escape special regex characters so the string can be used in a RegExp literally. */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Wraps case-insensitive matches of searchQuery in text with <mark>.
+ * Returns the original text as-is if searchQuery is empty or no match.
+ * Used to highlight search matches in the trace list (e.g. Request column).
+ */
+export function highlightSearchInText(text: string, searchQuery: string | undefined): React.ReactNode {
+  if (!text || !searchQuery?.trim()) {
+    return text;
+  }
+  const escaped = escapeRegex(searchQuery.trim());
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+  if (parts.length <= 1) {
+    return text;
+  }
+  // With a capturing group, split() includes matches: [nonMatch, match, nonMatch, match, ...]
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark
+            key={i}
+            css={{
+              backgroundColor: 'var(--trace-search-highlight-bg, rgba(255, 212, 0, 0.35))',
+              padding: 0,
+              margin: 0,
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          <React.Fragment key={i}>{part}</React.Fragment>
+        ),
+      )}
+    </>
+  );
 }
 
 // Adapted from query-insights/utils/numberUtils

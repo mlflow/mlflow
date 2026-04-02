@@ -4,9 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { ModelTraceExplorerAttachmentRenderer } from './ModelTraceExplorerAttachmentRenderer';
 import { ModelTraceExplorerChatToolsRenderer } from './ModelTraceExplorerChatToolsRenderer';
 import { ModelTraceExplorerRetrieverFieldRenderer } from './ModelTraceExplorerRetrieverFieldRenderer';
 import { ModelTraceExplorerTextFieldRenderer } from './ModelTraceExplorerTextFieldRenderer';
+import { parseAttachmentUri } from '../attachment-utils';
+import type { Assessment } from '../ModelTrace.types';
 import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
@@ -20,12 +23,14 @@ export const ModelTraceExplorerFieldRenderer = ({
   renderMode,
   chatMessageFormat,
   maxVisibleMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
+  assessments,
 }: {
   title: string;
   data: string;
   renderMode: 'default' | 'json' | 'text';
   chatMessageFormat?: string;
   maxVisibleMessages?: number;
+  assessments?: Assessment[];
 }) => {
   const { theme } = useDesignSystemTheme();
   const [messagesExpanded, setMessagesExpanded] = useState(false);
@@ -52,7 +57,7 @@ export const ModelTraceExplorerFieldRenderer = ({
   const isRetrieverDocuments =
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
 
-  if (chatMessages && chatMessages.length > 0) {
+  if (chatMessages && chatMessages.length > 0 && renderMode === 'default') {
     const shouldTruncateMessages = chatMessages.length > maxVisibleMessages;
     const visibleMessages =
       messagesExpanded || !shouldTruncateMessages ? chatMessages : chatMessages.slice(-maxVisibleMessages);
@@ -108,6 +113,19 @@ export const ModelTraceExplorerFieldRenderer = ({
   }
 
   if (dataIsScalar) {
+    if (isString(parsedData)) {
+      const attachment = parseAttachmentUri(parsedData);
+      if (attachment) {
+        return (
+          <ModelTraceExplorerAttachmentRenderer
+            title={title}
+            attachmentId={attachment.attachmentId}
+            traceId={attachment.traceId}
+            contentType={attachment.contentType}
+          />
+        );
+      }
+    }
     return <ModelTraceExplorerTextFieldRenderer title={title} value={String(parsedData)} />;
   }
 
@@ -116,7 +134,7 @@ export const ModelTraceExplorerFieldRenderer = ({
   }
 
   if (isRetrieverDocuments) {
-    return <ModelTraceExplorerRetrieverFieldRenderer title={title} documents={parsedData} />;
+    return <ModelTraceExplorerRetrieverFieldRenderer title={title} documents={parsedData} assessments={assessments} />;
   }
 
   return <ModelTraceExplorerCodeSnippet title={title} data={data} />;

@@ -129,17 +129,15 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
         )
         from mlflow.genai.judges import CategoricalRating
 
-        import_namespace.update(
-            {
-                "Feedback": Feedback,
-                "Assessment": Assessment,
-                "AssessmentSource": AssessmentSource,
-                "AssessmentError": AssessmentError,
-                "AssessmentSourceType": AssessmentSourceType,
-                "Trace": Trace,
-                "CategoricalRating": CategoricalRating,
-            }
-        )
+        import_namespace.update({
+            "Feedback": Feedback,
+            "Assessment": Assessment,
+            "AssessmentSource": AssessmentSource,
+            "AssessmentError": AssessmentError,
+            "AssessmentSourceType": AssessmentSourceType,
+            "Trace": Trace,
+            "CategoricalRating": CategoricalRating,
+        })
     except ImportError:
         pass  # Some imports might not be available in all contexts
 

@@ -1,28 +1,14 @@
 import { useForm } from 'react-hook-form';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useCreateEndpointMutation } from './useCreateEndpointMutation';
 import { useCreateSecret } from './useCreateSecret';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
-import { MlflowService } from '../../experiment-tracking/sdk/MlflowService';
+import { useProviderConfigQuery } from './useProviderConfigQuery';
 import type { ProviderModel, Endpoint } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
 import { isValidEndpointName } from '../utils/gatewayUtils';
-
-/**
- * Get or create an experiment with the given name.
- * First tries to fetch an existing experiment, then creates one if not found.
- */
-async function getOrCreateExperiment(experimentName: string): Promise<string> {
-  try {
-    const existingExperiment = await MlflowService.getExperimentByName({ experiment_name: experimentName });
-    return existingExperiment.experiment.experimentId;
-  } catch (error: unknown) {
-    const response = (await MlflowService.createExperiment({ name: experimentName })) as { experiment_id: string };
-    return response.experiment_id;
-  }
-}
 
 export interface CreateEndpointFormData {
   name: string;
@@ -43,6 +29,14 @@ export interface CreateEndpointFormData {
 export interface UseCreateEndpointFormOptions {
   onSuccess?: (endpoint: Endpoint) => void;
   onCancel?: () => void;
+  /** Pre-fill the provider field (e.g. from quick-start templates) */
+  defaultProvider?: string;
+  /** Pre-fill the model field (e.g. from quick-start templates) */
+  defaultModel?: string;
+  /** Pre-fill the endpoint name field */
+  defaultName?: string;
+  /** Pre-fill the new secret name field */
+  defaultSecretName?: string;
 }
 
 export interface UseCreateEndpointFormResult {
@@ -61,16 +55,20 @@ export interface UseCreateEndpointFormResult {
 export function useCreateEndpointForm({
   onSuccess,
   onCancel,
+  defaultProvider,
+  defaultModel,
+  defaultName,
+  defaultSecretName,
 }: UseCreateEndpointFormOptions = {}): UseCreateEndpointFormResult {
   const form = useForm<CreateEndpointFormData>({
     defaultValues: {
-      name: '',
-      provider: '',
-      modelName: '',
+      name: defaultName ?? '',
+      provider: defaultProvider ?? '',
+      modelName: defaultModel ?? '',
       secretMode: 'new',
       existingSecretId: '',
       newSecret: {
-        name: '',
+        name: defaultSecretName ?? '',
         authMode: '',
         secretFields: {},
         configFields: {},
@@ -115,7 +113,7 @@ export function useCreateEndpointForm({
       let secretId = values.existingSecretId;
 
       if (values.secretMode === 'new') {
-        const authConfig: Record<string, string> = { ...values.newSecret.configFields };
+        const authConfig = { ...values.newSecret.configFields } satisfies Record<string, string>;
         if (values.newSecret.authMode) {
           authConfig['auth_mode'] = values.newSecret.authMode;
         }
@@ -139,18 +137,6 @@ export function useCreateEndpointForm({
 
       const modelDefinitionId = modelDefinitionResponse.model_definition.model_definition_id;
 
-      // If usage tracking is enabled and no experiment is selected, create one
-      let experimentId: string | undefined;
-      if (values.usageTracking) {
-        if (values.experimentId) {
-          experimentId = values.experimentId;
-        } else {
-          // Auto-create experiment with name 'gateway/{endpoint_name}'
-          const endpointName = values.name || 'endpoint';
-          experimentId = await getOrCreateExperiment(`gateway/${endpointName}`);
-        }
-      }
-
       const endpointResponse = await createEndpoint({
         name: values.name || undefined,
         model_configs: [
@@ -161,7 +147,6 @@ export function useCreateEndpointForm({
           },
         ],
         usage_tracking: values.usageTracking,
-        experiment_id: experimentId,
       });
 
       onSuccess?.(endpointResponse.endpoint);
@@ -179,6 +164,7 @@ export function useCreateEndpointForm({
   const secretMode = form.watch('secretMode');
   const existingSecretId = form.watch('existingSecretId');
   const newSecretName = form.watch('newSecret.name');
+  const newSecretAuthMode = form.watch('newSecret.authMode');
   const newSecretFields = form.watch('newSecret.secretFields');
 
   const prevProviderRef = useRef(provider);
@@ -228,8 +214,15 @@ export function useCreateEndpointForm({
     }
   };
 
-  const hasSecretFieldValues = Object.values(newSecretFields || {}).some((v) => !!v);
-  const isSecretConfigured = secretMode === 'existing' ? !!existingSecretId : !!newSecretName && hasSecretFieldValues;
+  const { data: providerConfig } = useProviderConfigQuery({ provider: provider || '' });
+  const selectedAuthMode = useMemo(
+    () => providerConfig?.auth_modes?.find((m) => m.mode === newSecretAuthMode),
+    [providerConfig, newSecretAuthMode],
+  );
+  const requiresSecretFields = selectedAuthMode?.secret_fields?.some((f) => f.required) ?? true;
+  const hasSecretFieldValues = !requiresSecretFields || Object.values(newSecretFields || {}).some((v) => !!v);
+  const isSecretConfigured =
+    secretMode === 'existing' ? !!existingSecretId : !!newSecretName && !!newSecretAuthMode && hasSecretFieldValues;
   const isFormComplete = !!provider && !!modelName && isSecretConfigured;
 
   return {

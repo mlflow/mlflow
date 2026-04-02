@@ -11,6 +11,7 @@ from mlflow.entities.trace_location import (
     TraceLocation,
     TraceLocationType,
     UCSchemaLocation,
+    UnityCatalog,
 )
 from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
@@ -22,7 +23,24 @@ from mlflow.tracing.utils import (
 _logger = logging.getLogger(__name__)
 
 
-def uc_schema_location_to_proto(uc_schema_location: UCSchemaLocation) -> pb.UCSchemaLocation:
+def parse_uc_location(location: str) -> tuple[str, str, str | None]:
+    parts = location.split(".")
+    if len(parts) == 2:
+        return parts[0], parts[1], None
+    if len(parts) == 3:
+        return parts[0], parts[1], parts[2]
+    raise ValueError(
+        f"Invalid UC location: {location}. Expected format: <catalog>.<schema>[.<table_prefix>]."
+    )
+
+
+def uc_location_to_str(catalog: str, schema: str, table_prefix: str | None = None) -> str:
+    return f"{catalog}.{schema}.{table_prefix}" if table_prefix else f"{catalog}.{schema}"
+
+
+def uc_schema_location_to_proto(
+    uc_schema_location: UCSchemaLocation,
+) -> pb.UCSchemaLocation:
     return pb.UCSchemaLocation(
         catalog_name=uc_schema_location.catalog_name,
         schema_name=uc_schema_location.schema_name,
@@ -31,13 +49,50 @@ def uc_schema_location_to_proto(uc_schema_location: UCSchemaLocation) -> pb.UCSc
     )
 
 
-def uc_schema_location_from_proto(proto: pb.UCSchemaLocation) -> UCSchemaLocation:
-    location = UCSchemaLocation(catalog_name=proto.catalog_name, schema_name=proto.schema_name)
+def uc_schema_location_from_proto(
+    proto: pb.UCSchemaLocation,
+) -> UCSchemaLocation:
+    location = UCSchemaLocation(
+        catalog_name=proto.catalog_name,
+        schema_name=proto.schema_name,
+    )
 
     if proto.HasField("otel_spans_table_name"):
         location._otel_spans_table_name = proto.otel_spans_table_name
     if proto.HasField("otel_logs_table_name"):
         location._otel_logs_table_name = proto.otel_logs_table_name
+    return location
+
+
+def uc_table_prefix_location_to_proto(
+    location: UnityCatalog,
+) -> pb.UcTablePrefixLocation:
+    proto = pb.UcTablePrefixLocation(
+        catalog_name=location.catalog_name,
+        schema_name=location.schema_name,
+        table_prefix=location.table_prefix,
+    )
+    if location._otel_spans_table_name:
+        proto.spans_table_name = location._otel_spans_table_name
+    if location._otel_logs_table_name:
+        proto.logs_table_name = location._otel_logs_table_name
+    if location._annotations_table_name:
+        proto.annotations_table_name = location._annotations_table_name
+    return proto
+
+
+def uc_table_prefix_location_from_proto(proto: pb.UcTablePrefixLocation) -> UnityCatalog:
+    location = UnityCatalog(
+        catalog_name=proto.catalog_name,
+        schema_name=proto.schema_name,
+        table_prefix=proto.table_prefix,
+    )
+    if proto.HasField("spans_table_name"):
+        location._otel_spans_table_name = proto.spans_table_name
+    if proto.HasField("logs_table_name"):
+        location._otel_logs_table_name = proto.logs_table_name
+    if proto.HasField("annotations_table_name"):
+        location._annotations_table_name = proto.annotations_table_name
     return location
 
 
@@ -58,6 +113,11 @@ def trace_location_to_proto(trace_location: TraceLocation) -> pb.TraceLocation:
         return pb.TraceLocation(
             type=pb.TraceLocation.TraceLocationType.UC_SCHEMA,
             uc_schema=uc_schema_location_to_proto(trace_location.uc_schema),
+        )
+    elif trace_location.type == TraceLocationType.UC_TABLE_PREFIX:
+        return pb.TraceLocation(
+            type=pb.TraceLocation.TraceLocationType.UC_TABLE_PREFIX,
+            uc_table_prefix=uc_table_prefix_location_to_proto(trace_location.uc_table_prefix),
         )
     elif trace_location.type == TraceLocationType.MLFLOW_EXPERIMENT:
         return pb.TraceLocation(
@@ -85,6 +145,11 @@ def trace_location_from_proto(proto: pb.TraceLocation) -> TraceLocation:
             type=type_,
             uc_schema=uc_schema_location_from_proto(proto.uc_schema),
         )
+    elif proto.WhichOneof("identifier") == "uc_table_prefix":
+        return TraceLocation(
+            type=type_,
+            uc_table_prefix=uc_table_prefix_location_from_proto(proto.uc_table_prefix),
+        )
     elif proto.WhichOneof("identifier") == "mlflow_experiment":
         return TraceLocation(
             type=type_,
@@ -107,7 +172,7 @@ def trace_info_to_v4_proto(trace_info: TraceInfo) -> pb.TraceInfo:
         execution_duration = Duration()
         execution_duration.FromMilliseconds(trace_info.execution_duration)
 
-    if trace_info.trace_location.uc_schema:
+    if trace_info.trace_location.uc_schema or trace_info.trace_location.uc_table_prefix:
         _, trace_id = parse_trace_id_v4(trace_info.trace_id)
     else:
         trace_id = trace_info.trace_id
@@ -146,13 +211,27 @@ def assessment_to_proto(assessment: Assessment) -> pb.Assessment:
     assessment_proto.assessment_name = assessment.name
     location, trace_id = parse_trace_id_v4(assessment.trace_id)
     if location:
-        catalog, schema = location.split(".")
-        assessment_proto.trace_location.CopyFrom(
-            pb.TraceLocation(
-                type=pb.TraceLocation.TraceLocationType.UC_SCHEMA,
-                uc_schema=pb.UCSchemaLocation(catalog_name=catalog, schema_name=schema),
+        catalog, schema, table_prefix = parse_uc_location(location)
+        if table_prefix:
+            uc_table_prefix = pb.UcTablePrefixLocation(
+                catalog_name=catalog,
+                schema_name=schema,
+                table_prefix=table_prefix,
             )
-        )
+            assessment_proto.trace_location.CopyFrom(
+                pb.TraceLocation(
+                    type=pb.TraceLocation.TraceLocationType.UC_TABLE_PREFIX,
+                    uc_table_prefix=uc_table_prefix,
+                )
+            )
+        else:
+            uc_schema = pb.UCSchemaLocation(catalog_name=catalog, schema_name=schema)
+            assessment_proto.trace_location.CopyFrom(
+                pb.TraceLocation(
+                    type=pb.TraceLocation.TraceLocationType.UC_SCHEMA,
+                    uc_schema=uc_schema,
+                )
+            )
     assessment_proto.trace_id = trace_id
 
     assessment_proto.source.CopyFrom(assessment.source.to_proto())
@@ -190,7 +269,22 @@ def get_trace_id_from_assessment_proto(proto: pb.Assessment | assessments_pb2.As
     ):
         trace_location = proto.trace_location
         return construct_trace_id_v4(
-            f"{trace_location.uc_schema.catalog_name}.{trace_location.uc_schema.schema_name}",
+            uc_location_to_str(
+                trace_location.uc_schema.catalog_name,
+                trace_location.uc_schema.schema_name,
+            ),
+            proto.trace_id,
+        )
+    elif "trace_location" in proto.DESCRIPTOR.fields_by_name and proto.trace_location.HasField(
+        "uc_table_prefix"
+    ):
+        trace_location = proto.trace_location
+        return construct_trace_id_v4(
+            uc_location_to_str(
+                trace_location.uc_table_prefix.catalog_name,
+                trace_location.uc_table_prefix.schema_name,
+                trace_location.uc_table_prefix.table_prefix,
+            ),
             proto.trace_id,
         )
     else:

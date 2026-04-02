@@ -6,6 +6,7 @@ import {
   CloudModelIcon,
   GearIcon,
   HomeIcon,
+  KeyIcon,
   ModelsIcon,
   Tag,
   TextBoxIcon,
@@ -24,6 +25,7 @@ import { Link, matchPath, useLocation, useParams, useSearchParams } from '../uti
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
+import { GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
 import { useWorkflowType, WorkflowType } from '../contexts/WorkflowTypeContext';
@@ -50,6 +52,7 @@ const isExperimentsActive = (location: Location) =>
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
 const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
 const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', location.pathname));
+const isApiKeysActive = (location: Location) => Boolean(matchPath('/gateway/api-keys', location.pathname));
 const isSettingsActive = (location: Location) => Boolean(matchPath('/settings/*', location.pathname));
 
 type MlFlowSidebarMenuDropdownComponentId =
@@ -206,14 +209,30 @@ export function MlflowSidebar({
                 to: GatewayRoutes.gatewayPageRoute,
                 isActive: (location: Location) => !enableWorkflowBasedNavigation && isGatewayActive(location),
                 children: (
-                  <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />
+                  <>
+                    <FormattedMessage
+                      defaultMessage="AI Gateway"
+                      description="Sidebar link for gateway configuration"
+                    />
+                    <GatewayNewTag />
+                  </>
                 ),
               },
               componentId: 'mlflow.sidebar.gateway_tab_link',
               nestedItems:
-                shouldEnableWorkflowBasedNavigation() && isGatewayActive(location) ? (
+                shouldEnableWorkflowBasedNavigation() && isGatewayActive(location) && !isApiKeysActive(location) ? (
                   <MlflowSidebarGatewayItems collapsed={!showSidebar} />
                 ) : undefined,
+            },
+            {
+              key: 'api-keys',
+              icon: <KeyIcon />,
+              linkProps: {
+                to: GatewayRoutes.apiKeysPageRoute,
+                isActive: isApiKeysActive,
+                children: <FormattedMessage defaultMessage="API Keys" description="Sidebar link for API keys" />,
+              },
+              componentId: 'mlflow.sidebar.api_keys_tab_link',
             },
           ]
         : []),
@@ -257,7 +276,7 @@ export function MlflowSidebar({
       <div css={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         {showSidebar && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-            <Link to={ExperimentTrackingRoutes.rootRoute}>
+            <Link componentId="mlflow.sidebar.logo_home_link" to={ExperimentTrackingRoutes.rootRoute}>
               <MlflowLogo
                 css={{
                   display: 'block',
@@ -397,7 +416,6 @@ export function MlflowSidebar({
             </span>
           </MlflowSidebarLink>
           <MlflowSidebarLink
-            disableWorkspacePrefix
             css={{ paddingBlock: theme.spacing.sm }}
             to={ExperimentTrackingRoutes.settingsPageRoute}
             componentId="mlflow.sidebar.settings_tab_link"

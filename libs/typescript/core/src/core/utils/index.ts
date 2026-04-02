@@ -1,5 +1,5 @@
 import type { HrTime } from '@opentelemetry/api';
-import { LiveSpan, Span } from '../entities/span';
+import { Span } from '../entities/span';
 import { SpanAttributeKey } from '../constants';
 import { TokenUsage } from '../entities/trace_info';
 
@@ -95,50 +95,6 @@ export function decodeIdFromBase64(base64SpanId: string): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
-}
-
-/**
- * Deduplicate span names in the trace data by appending an index number to the span name.
- *
- * This is only applied when there are multiple spans with the same name. The span names
- * are modified in place to avoid unnecessary copying.
- *
- * Examples:
- *   ["red", "red"] -> ["red_1", "red_2"]
- *   ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
- *
- * @param spans A list of spans to deduplicate
- */
-export function deduplicateSpanNamesInPlace(spans: LiveSpan[]): void {
-  // Count occurrences of each span name
-  const spanNameCounter = new Map<string, number>();
-
-  for (const span of spans) {
-    const name = span.name;
-    spanNameCounter.set(name, (spanNameCounter.get(name) || 0) + 1);
-  }
-
-  // Apply renaming only for duplicated spans
-  const spanNameIndexes = new Map<string, number>();
-  for (const [name, count] of spanNameCounter.entries()) {
-    if (count > 1) {
-      spanNameIndexes.set(name, 1);
-    }
-  }
-
-  // Add index to the duplicated span names
-  for (const span of spans) {
-    const name = span.name;
-    const currentIndex = spanNameIndexes.get(name);
-
-    if (currentIndex !== undefined) {
-      // Modify the span name in place by accessing the internal OpenTelemetry span
-      // The 'name' field is readonly in OTel but we need to jail-break it here
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      (span._span as any).name = `${name}_${currentIndex}`;
-      spanNameIndexes.set(name, currentIndex + 1);
-    }
-  }
 }
 
 /**
@@ -261,34 +217,51 @@ export function aggregateUsageFromSpans(spans: Span[]): TokenUsage | null {
   };
   let hasUsageData = false;
 
-  // Track spans that have usage data to avoid double counting
-  const spansWithUsage = new Set<string>();
+  // Build parent-children map for DFS traversal (mirrors Python SDK)
+  const spanById = new Map<string, Span>();
+  const childrenMap = new Map<string, Span[]>();
+  const roots: Span[] = [];
 
   for (const span of spans) {
-    const tokenUsageAttr = span.attributes[SpanAttributeKey.TOKEN_USAGE];
-    if (!tokenUsageAttr) {
-      continue;
-    }
-    const tokenUsage = tokenUsageAttr as TokenUsage;
-
-    // Skip if this span's parent also has usage data (avoid double counting)
-    let shouldSkip = false;
-    if (span.parentId) {
-      const parentSpan = spans.find((s) => s.spanId === span.parentId);
-      const parentUsageAttr = parentSpan?.attributes[SpanAttributeKey.TOKEN_USAGE];
-      if (parentUsageAttr) {
-        shouldSkip = true;
-      }
-    }
-
-    if (!shouldSkip) {
-      totalUsage.input_tokens += tokenUsage.input_tokens;
-      totalUsage.output_tokens += tokenUsage.output_tokens;
-      totalUsage.total_tokens += tokenUsage.total_tokens;
-      hasUsageData = true;
-
-      spansWithUsage.add(span.spanId);
+    spanById.set(span.spanId, span);
+    if (span.parentId && spanById.has(span.parentId)) {
+      const children = childrenMap.get(span.parentId) || [];
+      children.push(span);
+      childrenMap.set(span.parentId, children);
+    } else {
+      roots.push(span);
     }
   }
+
+  function dfs(span: Span, ancestorHasData: boolean): void {
+    const tokenUsageAttr = span.attributes[SpanAttributeKey.TOKEN_USAGE];
+    const spanHasData = tokenUsageAttr != null;
+
+    if (spanHasData && !ancestorHasData) {
+      const tokenUsage = tokenUsageAttr as TokenUsage;
+      totalUsage.input_tokens += tokenUsage.input_tokens || 0;
+      totalUsage.output_tokens += tokenUsage.output_tokens || 0;
+      totalUsage.total_tokens += tokenUsage.total_tokens || 0;
+      // Optional cache keys — only include when present
+      if (tokenUsage.cache_read_input_tokens != null) {
+        totalUsage.cache_read_input_tokens =
+          (totalUsage.cache_read_input_tokens || 0) + tokenUsage.cache_read_input_tokens;
+      }
+      if (tokenUsage.cache_creation_input_tokens != null) {
+        totalUsage.cache_creation_input_tokens =
+          (totalUsage.cache_creation_input_tokens || 0) + tokenUsage.cache_creation_input_tokens;
+      }
+      hasUsageData = true;
+    }
+
+    for (const child of childrenMap.get(span.spanId) || []) {
+      dfs(child, ancestorHasData || spanHasData);
+    }
+  }
+
+  for (const root of roots) {
+    dfs(root, false);
+  }
+
   return hasUsageData ? totalUsage : null;
 }

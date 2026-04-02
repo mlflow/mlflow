@@ -1,5 +1,6 @@
 import os
 import posixpath
+import shutil
 from unittest import mock
 
 import pytest
@@ -10,6 +11,7 @@ from mlflow.entities.multipart_upload import (
     MultipartUploadCredential,
     MultipartUploadPart,
 )
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
@@ -22,6 +24,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
 
@@ -69,6 +72,18 @@ class FileObjectMatcher:
 def http_artifact_repo():
     artifact_uri = "http://test.com/api/2.0/mlflow-artifacts/artifacts"
     return HttpArtifactRepository(artifact_uri)
+
+
+@pytest.fixture
+def mlflow_artifact_repo_for_download():
+    """MlflowArtifactsRepository with same effective URI as http_artifact_repo.
+
+    For multipart download tests.
+    """
+    return MlflowArtifactsRepository(
+        artifact_uri="mlflow-artifacts:/",
+        tracking_uri="http://test.com",
+    )
 
 
 @pytest.mark.parametrize(
@@ -252,6 +267,34 @@ def test_list_artifacts(http_artifact_repo):
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.list_artifacts()
 
+    # Tests below test listing a single file, note that the list_artifacts API should
+    # return an empty list if the the path references a single file.
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(
+            {
+                "files": [
+                    {"path": "1.txt", "is_dir": False, "file_size": 1},
+                ]
+            },
+            200,
+        ),
+    ):
+        assert [a.path for a in http_artifact_repo.list_artifacts(path="1.txt")] == []
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(
+            {
+                "files": [
+                    {"path": "1.txt", "is_dir": False, "file_size": 1},
+                ]
+            },
+            200,
+        ),
+    ):
+        assert [a.path for a in http_artifact_repo.list_artifacts(path="path/1.txt/1.txt")] == []
+
 
 @pytest.mark.parametrize("path", ["/tmp/path", "../../path", "%2E%2E%2Fpath"])
 def test_list_artifacts_malicious_path(http_artifact_repo, path):
@@ -328,6 +371,11 @@ def test_download_artifacts(http_artifact_repo, tmp_path):
                     },
                     200,
                 )
+            elif params.get("path") == "dir/b.txt":
+                return MockResponse(
+                    {"files": []},
+                    200,
+                )
             else:
                 Exception("Unreachable")
 
@@ -340,6 +388,7 @@ def test_download_artifacts(http_artifact_repo, tmp_path):
             raise Exception("Unreachable")
 
     with mock.patch("mlflow.store.artifact.http_artifact_repo.http_request", http_request):
+        # Download a directory
         http_artifact_repo.download_artifacts("", tmp_path)
         paths = [os.path.join(root, f) for root, _, files in os.walk(tmp_path) for f in files]
         assert [os.path.relpath(p, tmp_path) for p in paths] == [
@@ -348,6 +397,16 @@ def test_download_artifacts(http_artifact_repo, tmp_path):
         ]
         assert read_file(paths[0]) == "data_a"
         assert read_file(paths[1]) == "data_b"
+
+        # Download a single file
+        shutil.rmtree(tmp_path)
+        os.makedirs(tmp_path)
+        http_artifact_repo.download_artifacts("dir/b.txt", tmp_path)
+        paths = [os.path.join(root, f) for root, _, files in os.walk(tmp_path) for f in files]
+        assert [os.path.relpath(p, tmp_path) for p in paths] == [
+            os.path.join("dir", "b.txt"),
+        ]
+        assert read_file(paths[0]) == "data_b"
 
 
 def test_default_host_creds(monkeypatch):
@@ -472,4 +531,228 @@ def test_abort_multipart_upload(http_artifact_repo, monkeypatch):
                 "path": "local_file",
                 "upload_id": "upload_id",
             },
+        )
+
+
+# Tests for multipart download functionality
+
+
+def test_download_file_multipart_for_large_files(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    """Test that multipart download is used when presigned URL is available.
+
+    Uses MlflowArtifactsRepository.
+    """
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+
+    remote_file_path = "large_file.bin"
+    presigned_url = "https://s3.amazonaws.com/bucket/large_file.bin?signature=abc"
+    file_size = 2000
+
+    with (
+        mock.patch.object(
+            mlflow_artifact_repo_for_download,
+            "_get_presigned_download_url",
+            return_value=PresignedDownloadUrlResponse(
+                url=presigned_url, headers={}, file_size=file_size
+            ),
+        ) as mock_get_presigned,
+        mock.patch.object(
+            mlflow_artifact_repo_for_download, "_multipart_download"
+        ) as mock_multipart_download,
+    ):
+        file_path = tmp_path / "large_file.bin"
+        mlflow_artifact_repo_for_download._download_file(remote_file_path, str(file_path))
+
+        mock_get_presigned.assert_called_once_with(remote_file_path)
+        mock_multipart_download.assert_called_once()
+        call_args = mock_multipart_download.call_args
+        assert call_args.kwargs["presigned_response"].url == presigned_url
+        assert call_args.kwargs["file_size"] == file_size
+
+
+def test_download_file_small_file_uses_multipart(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+
+    remote_file_path = "small_file.txt"
+    presigned_url = "https://s3.amazonaws.com/bucket/small_file.txt?signature=abc"
+    file_size = 100
+
+    with (
+        mock.patch.object(
+            mlflow_artifact_repo_for_download,
+            "_get_presigned_download_url",
+            return_value=PresignedDownloadUrlResponse(
+                url=presigned_url, headers={}, file_size=file_size
+            ),
+        ),
+        mock.patch.object(
+            mlflow_artifact_repo_for_download, "_multipart_download"
+        ) as mock_multipart_download,
+    ):
+        file_path = tmp_path / "small_file.txt"
+        mlflow_artifact_repo_for_download._download_file(remote_file_path, str(file_path))
+
+        mock_multipart_download.assert_called_once()
+        assert mock_multipart_download.call_args.kwargs["file_size"] == file_size
+
+
+def test_download_file_multipart_success_does_not_call_proxy_download(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+
+    remote_file_path = "file.bin"
+    presigned_url = "https://s3.amazonaws.com/bucket/file.bin?signature=abc"
+    file_size = 500
+
+    with (
+        mock.patch.object(
+            mlflow_artifact_repo_for_download,
+            "_get_presigned_download_url",
+            return_value=PresignedDownloadUrlResponse(
+                url=presigned_url, headers={}, file_size=file_size
+            ),
+        ),
+        mock.patch.object(mlflow_artifact_repo_for_download, "_multipart_download"),
+        mock.patch.object(HttpArtifactRepository, "_download_file") as mock_parent_download,
+    ):
+        file_path = tmp_path / "file.bin"
+        mlflow_artifact_repo_for_download._download_file(remote_file_path, str(file_path))
+
+        mock_parent_download.assert_not_called()
+
+
+def test_download_file_fallback_when_presigned_not_supported(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+
+    remote_file_path = "test.txt"
+
+    mock_response = mock.MagicMock()
+    mock_response.status_code = 501  # Not Implemented
+    mock_response.headers = {"Content-Type": "application/json"}
+    mock_response.json.return_value = {
+        "message": "Presigned URL download is not supported for the current artifact repository"
+    }
+
+    with (
+        mock.patch.object(
+            mlflow_artifact_repo_for_download,
+            "_get_presigned_download_url",
+            side_effect=HTTPError(response=mock_response),
+        ),
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ) as mock_http_request,
+    ):
+        file_path = tmp_path / "test.txt"
+        mlflow_artifact_repo_for_download._download_file(remote_file_path, str(file_path))
+
+        mock_http_request.assert_called_once_with(
+            mlflow_artifact_repo_for_download._host_creds,
+            posixpath.join("/", remote_file_path),
+            "GET",
+            stream=True,
+        )
+
+
+def test_download_file_multipart_disabled_uses_proxy(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "false")
+
+    remote_file_path = "test.txt"
+
+    with (
+        mock.patch.object(
+            mlflow_artifact_repo_for_download, "_get_presigned_download_url"
+        ) as mock_get_presigned,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ) as mock_http_request,
+    ):
+        file_path = tmp_path / "test.txt"
+        mlflow_artifact_repo_for_download._download_file(remote_file_path, str(file_path))
+
+        mock_get_presigned.assert_not_called()
+        mock_http_request.assert_called_once()
+
+
+def test_multipart_download_creates_chunks(http_artifact_repo, tmp_path, monkeypatch):
+    chunk_size = 100
+    monkeypatch.setenv("MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE", str(chunk_size))
+
+    remote_file_path = "large_file.bin"
+    presigned_url = "https://s3.amazonaws.com/bucket/large_file.bin"
+    file_size = 250  # Will create 3 chunks: 0-99, 100-199, 200-249
+    headers = {"x-amz-header": "value"}
+
+    presigned_response = PresignedDownloadUrlResponse(
+        url=presigned_url, headers=headers, file_size=file_size
+    )
+
+    download_chunk_calls = []
+
+    def mock_download_chunk(**kwargs):
+        download_chunk_calls.append((kwargs["range_start"], kwargs["range_end"]))
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.download_chunk",
+        side_effect=mock_download_chunk,
+    ):
+        file_path = tmp_path / "large_file.bin"
+        http_artifact_repo._multipart_download(
+            presigned_response=presigned_response,
+            remote_file_path=remote_file_path,
+            local_path=str(file_path),
+            file_size=file_size,
+            chunk_size=chunk_size,
+        )
+
+    # Should have downloaded 3 chunks
+    assert len(download_chunk_calls) == 3
+    # Sort by range_start to verify ranges
+    sorted_calls = sorted(download_chunk_calls, key=lambda x: x[0])
+    assert sorted_calls[0] == (0, 99)
+    assert sorted_calls[1] == (100, 199)
+    assert sorted_calls[2] == (200, 249)
+
+
+def test_get_presigned_download_url(http_artifact_repo):
+    remote_file_path = "artifacts/model.pkl"
+    expected_url = "https://s3.amazonaws.com/bucket/model.pkl?signature=abc"
+    expected_headers = {"x-amz-header": "value"}
+    expected_file_size = 12345
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(
+            {
+                "url": expected_url,
+                "headers": expected_headers,
+                "file_size": expected_file_size,
+            },
+            200,
+        ),
+    ) as mock_request:
+        response = http_artifact_repo._get_presigned_download_url(remote_file_path)
+
+        assert response.url == expected_url
+        assert response.headers == expected_headers
+        assert response.file_size == expected_file_size
+
+        # Verify correct endpoint was called (presigned is at API 2.0)
+        endpoint = "/mlflow-artifacts"
+        url, _ = http_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
+        mock_request.assert_called_once_with(
+            get_default_host_creds(url),
+            f"/mlflow-artifacts/presigned/{remote_file_path}",
+            "GET",
         )

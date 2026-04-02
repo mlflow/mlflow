@@ -17,10 +17,13 @@ from mlflow.entities import (
     RunInputs,
     RunStatus,
     RunTag,
+    TraceState,
+    trace_location,
 )
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
 
 
 @pytest.mark.parametrize(
@@ -107,6 +110,29 @@ from mlflow.utils.search_utils import SearchUtils
             "dataset.name = 'my_dataset'",
             [{"type": "dataset", "comparator": "=", "key": "name", "value": "my_dataset"}],
         ),
+        (
+            "tags.version IS NULL",
+            [{"comparator": "IS NULL", "key": "version", "type": "tag", "value": None}],
+        ),
+        (
+            "tags.version IS NOT NULL",
+            [{"comparator": "IS NOT NULL", "key": "version", "type": "tag", "value": None}],
+        ),
+        (
+            "params.lr IS NULL",
+            [{"comparator": "IS NULL", "key": "lr", "type": "parameter", "value": None}],
+        ),
+        (
+            "params.lr IS NOT NULL",
+            [{"comparator": "IS NOT NULL", "key": "lr", "type": "parameter", "value": None}],
+        ),
+        (
+            "tags.a IS NULL AND params.b = 'val'",
+            [
+                {"comparator": "IS NULL", "key": "a", "type": "tag", "value": None},
+                {"comparator": "=", "key": "b", "type": "parameter", "value": "val"},
+            ],
+        ),
     ],
 )
 def test_filter(filter_string, parsed_filter):
@@ -154,6 +180,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("attribute.status = true", "Invalid clause(s) in filter string"),
         ("dataset.status = 'true'", "Invalid dataset key"),
         ("dataset.profile = 'num_rows: 10'", "Invalid dataset key"),
+        ("metrics.acc IS NULL", "IS NULL / IS NOT NULL is only supported for tags and params"),
+        ("attribute.status IS NULL", "IS NULL / IS NOT NULL is only supported for tags and params"),
     ],
 )
 def test_error_filter(filter_string, error_message):
@@ -205,7 +233,7 @@ def test_bad_quotes(filter_string, error_message):
         ("params.acc LR", "Invalid clause(s) in filter string"),
         ("metric.acc !=", "Invalid clause(s) in filter string"),
         ("acc != 1.0", "Invalid attribute key"),
-        ("foo is null", "Invalid clause(s) in filter string"),
+        ("foo is null", "Invalid attribute key"),
         ("1=1", "Expected 'Identifier' found"),
         ("1==2", "Expected 'Identifier' found"),
     ],
@@ -676,3 +704,125 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
 def test_invalid_page_tokens(page_token, error_message):
     with pytest.raises(MlflowException, match=error_message):
         SearchUtils.paginate([], page_token, 1)
+
+
+def test_like_pattern_with_plus_character(tmp_path):
+    import mlflow
+
+    tracking_dir = tmp_path / "mlruns"
+    mlflow.set_tracking_uri(tracking_dir.as_uri())
+
+    name = "jamie-foo C+W bar"
+    mlflow.create_experiment(name)
+
+    exps = mlflow.search_experiments(filter_string=f'name LIKE "{name}"')
+    assert len(exps) == 1
+
+    exps = mlflow.search_experiments(filter_string='name LIKE "jamie-foo C+%"')
+    assert len(exps) == 1
+
+
+def test_filter_runs_by_tag_and_param_is_null():
+    run_with_tag = Run(
+        run_info=RunInfo(
+            run_id="run1",
+            experiment_id=0,
+            user_id="user",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(tags=[RunTag("env", "prod")], params=[], metrics=[]),
+    )
+    run_with_param = Run(
+        run_info=RunInfo(
+            run_id="run2",
+            experiment_id=0,
+            user_id="user",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(tags=[], params=[Param("lr", "0.01")], metrics=[]),
+    )
+    runs = [run_with_tag, run_with_param]
+
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "tags.env IS NOT NULL")] == ["run1"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "tags.env IS NULL")] == ["run2"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "params.lr IS NOT NULL")] == ["run2"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "params.lr IS NULL")] == ["run1"]
+
+
+def test_search_trace_utils_filter_tag_is_null():
+    loc = trace_location.TraceLocation.from_experiment_id("0")
+    trace1 = TraceInfo(
+        trace_id="t1",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={"env": "prod", "region": "us"},
+    )
+    trace2 = TraceInfo(
+        trace_id="t2",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={"env": "staging"},
+    )
+    trace3 = TraceInfo(
+        trace_id="t3",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={},
+    )
+    traces = [trace1, trace2, trace3]
+
+    result = SearchTraceUtils.filter(traces, "tag.region IS NULL")
+    assert {t.trace_id for t in result} == {"t2", "t3"}
+
+    result = SearchTraceUtils.filter(traces, "tag.region IS NOT NULL")
+    assert {t.trace_id for t in result} == {"t1"}
+
+    result = SearchTraceUtils.filter(traces, "tag.env IS NULL")
+    assert {t.trace_id for t in result} == {"t3"}
+
+    result = SearchTraceUtils.filter(traces, "tag.env IS NOT NULL")
+    assert {t.trace_id for t in result} == {"t1", "t2"}
+
+    result = SearchTraceUtils.filter(traces, 'tag.region IS NULL AND tag.env = "staging"')
+    assert {t.trace_id for t in result} == {"t2"}
+
+
+def test_search_trace_utils_filter_metadata_is_null():
+    loc = trace_location.TraceLocation.from_experiment_id("0")
+    trace1 = TraceInfo(
+        trace_id="t1",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={"user": "alice", "session": "s1"},
+    )
+    trace2 = TraceInfo(
+        trace_id="t2",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={"user": "bob"},
+    )
+    trace3 = TraceInfo(
+        trace_id="t3",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={},
+    )
+    traces = [trace1, trace2, trace3]
+
+    result = SearchTraceUtils.filter(traces, "metadata.session IS NULL")
+    assert {t.trace_id for t in result} == {"t2", "t3"}
+
+    result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
+    assert {t.trace_id for t in result} == {"t1"}

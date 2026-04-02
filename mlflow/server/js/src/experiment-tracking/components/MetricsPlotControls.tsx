@@ -65,14 +65,12 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
 
     const lineSmoothnessTooltipText = (
       <FormattedMessage
-        // eslint-disable-next-line max-len
         defaultMessage='Make the line between points "smoother" based on Exponential Moving Average. Smoothing can be useful for displaying the overall trend when the logging frequency is high.'
         description="Helpful tooltip message to help with line smoothness for the metrics plot"
       />
     );
     const completedRunsTooltipText = (
       <FormattedMessage
-        // eslint-disable-next-line max-len
         defaultMessage="MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval."
         description="Helpful tooltip message to explain the automatic metrics plot update"
         values={{ interval: Math.round(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL / 1000) }}
@@ -109,7 +107,6 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
               <div className="control-label">
                 <FormattedMessage
                   defaultMessage="Points:"
-                  // eslint-disable-next-line max-len
                   description="Label for the toggle button to toggle to show points or not for the metric experiment run"
                 />
               </div>
@@ -149,7 +146,6 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
               <div className="control-label">
                 <FormattedMessage
                   defaultMessage="X-axis:"
-                  // eslint-disable-next-line max-len
                   description="Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
                 />
               </div>
@@ -163,21 +159,18 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
                 <Radio value={X_AXIS_STEP} data-testid="x-axis-radio">
                   <FormattedMessage
                     defaultMessage="Step"
-                    // eslint-disable-next-line max-len
                     description="Radio button option to choose the step control option for the X-axis for metric graph on the experiment runs"
                   />
                 </Radio>
                 <Radio value={X_AXIS_WALL} data-testid="x-axis-radio">
                   <FormattedMessage
                     defaultMessage="Time (Wall)"
-                    // eslint-disable-next-line max-len
                     description="Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
                   />
                 </Radio>
                 <Radio value={X_AXIS_RELATIVE} data-testid="x-axis-radio">
                   <FormattedMessage
                     defaultMessage="Time (Relative)"
-                    // eslint-disable-next-line max-len
                     description="Radio button option to choose the time relative control option for the X-axis for metric graph on the experiment runs"
                   />
                 </Radio>
@@ -189,7 +182,6 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
           <div className="control-label">
             <FormattedMessage
               defaultMessage="Y-axis:"
-              // eslint-disable-next-line max-len
               description="Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
             />
           </div>
@@ -197,7 +189,6 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
             placeholder={this.props.intl.formatMessage({
               defaultMessage: 'Please select metric',
               description:
-                // eslint-disable-next-line max-len
                 'Placeholder text where one can select metrics from the list of available metrics to render on the graph',
             })}
             value={this.props.selectedMetricKeys}
@@ -216,7 +207,6 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
           <div className="control-label">
             <FormattedMessage
               defaultMessage="Y-axis Log Scale:"
-              // eslint-disable-next-line max-len
               description="Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
             />
           </div>
@@ -237,7 +227,6 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
           >
             <FormattedMessage
               defaultMessage="Download data"
-              // eslint-disable-next-line max-len
               description="String for the download csv button to download metrics from this run offline in a CSV format"
             />
             <i className="fa fa-download" />

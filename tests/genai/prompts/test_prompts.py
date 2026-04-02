@@ -747,7 +747,8 @@ def test_load_prompt_with_tracing_single_prompt():
         from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
         associations = (
-            session.query(SqlEntityAssociation)
+            session
+            .query(SqlEntityAssociation)
             .filter(
                 SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
                 SqlEntityAssociation.source_id == span.trace_id,
@@ -813,7 +814,8 @@ def test_load_prompt_with_tracing_multiple_prompts():
         from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
         associations = (
-            session.query(SqlEntityAssociation)
+            session
+            .query(SqlEntityAssociation)
             .filter(
                 SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
                 SqlEntityAssociation.source_id == span.trace_id,
@@ -898,7 +900,8 @@ def test_load_prompt_with_tracing_nested_spans():
         from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
         associations = (
-            session.query(SqlEntityAssociation)
+            session
+            .query(SqlEntityAssociation)
             .filter(
                 SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
                 SqlEntityAssociation.source_id == outer_span.trace_id,
@@ -1172,8 +1175,6 @@ def test_prompt_associate_with_run_chat_format():
 
 
 def test_register_prompt_with_pydantic_response_format():
-    from pydantic import BaseModel
-
     class ResponseSchema(BaseModel):
         answer: str
         confidence: float

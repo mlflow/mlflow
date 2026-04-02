@@ -70,6 +70,7 @@ def _wrap_predict_with_pyfunc(func, func_info: FuncInfo | None):
                     f"`{func_info.input_type_hint}`. Error: {e}"
                 )
             return func(*args, **kwargs)
+
     else:
 
         @wraps(func)

@@ -8,6 +8,7 @@ import {
 } from '@opentelemetry/sdk-trace-base';
 import { Context } from '@opentelemetry/api';
 import { createAndRegisterMlflowSpan } from '../core/api';
+import { getConfiguredTraceMetadata, getConfiguredTraceTags } from '../core/context';
 import { InMemoryTraceManager } from '../core/trace_manager';
 import { TraceInfo } from '../core/entities/trace_info';
 import { createTraceLocationFromExperimentId } from '../core/entities/trace_location';
@@ -18,11 +19,7 @@ import {
   TRACE_SCHEMA_VERSION,
   TraceMetadataKey,
 } from '../core/constants';
-import {
-  convertHrTimeToMs,
-  deduplicateSpanNamesInPlace,
-  aggregateUsageFromSpans,
-} from '../core/utils';
+import { convertHrTimeToMs, aggregateUsageFromSpans } from '../core/utils';
 import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
@@ -57,16 +54,31 @@ export class MlflowSpanProcessor implements SpanProcessor {
     if (!span.parentSpanContext?.spanId) {
       // This is a root span
       traceId = generateTraceId(span);
+
+      // Build trace metadata, merging context-injected values
+      const traceMetadata: Record<string, string> = {
+        [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION,
+      };
+      const ctxMetadata = getConfiguredTraceMetadata();
+      if (ctxMetadata) {
+        Object.assign(traceMetadata, ctxMetadata);
+      }
+
+      // Build trace tags, merging context-injected values
+      const tags: Record<string, string> = {};
+      const ctxTags = getConfiguredTraceTags();
+      if (ctxTags) {
+        Object.assign(tags, ctxTags);
+      }
+
       const trace_info = new TraceInfo({
         traceId: traceId,
         traceLocation: createTraceLocationFromExperimentId(experimentId),
         requestTime: convertHrTimeToMs(span.startTime),
         executionDuration: 0,
         state: TraceState.IN_PROGRESS,
-        traceMetadata: {
-          [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION,
-        },
-        tags: {},
+        traceMetadata,
+        tags,
         assessments: [],
       });
       InMemoryTraceManager.getInstance().registerTrace(otelTraceId, trace_info);
@@ -115,8 +127,6 @@ export class MlflowSpanProcessor implements SpanProcessor {
     }
 
     this.updateTraceInfo(trace.info, span);
-    deduplicateSpanNamesInPlace(Array.from(trace.spanDict.values()));
-
     // Aggregate token usage from all spans and add to trace metadata
     const allSpans = Array.from(trace.spanDict.values());
     const aggregatedUsage = aggregateUsageFromSpans(allSpans);

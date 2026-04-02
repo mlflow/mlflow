@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import { useDesignSystemTheme, FormUI, Spinner, Typography } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { NavigableCombobox } from '../../../common/components/navigable-combobox/NavigableCombobox';
@@ -17,7 +17,8 @@ interface ProviderSelectProps {
   onChange: (provider: string) => void;
   disabled?: boolean;
   error?: string;
-  componentIdPrefix?: string;
+  componentId?: string;
+  hideLabel?: boolean;
 }
 
 export const ProviderSelect = ({
@@ -25,10 +26,12 @@ export const ProviderSelect = ({
   onChange,
   disabled,
   error,
-  componentIdPrefix = 'mlflow.gateway.provider-select',
+  componentId = 'mlflow.gateway.provider-select',
+  hideLabel = false,
 }: ProviderSelectProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const domId = useRef(`provider-select-${Math.random().toString(36).slice(2, 9)}`).current;
   const { data: providers, isLoading, error: queryError } = useProvidersQuery();
 
   const { config, hasOtherProviders } = useMemo((): {
@@ -168,9 +171,11 @@ export const ProviderSelect = ({
   if (queryError) {
     return (
       <div>
-        <FormUI.Label htmlFor={componentIdPrefix}>
-          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-        </FormUI.Label>
+        {!hideLabel && (
+          <FormUI.Label htmlFor={domId}>
+            <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+          </FormUI.Label>
+        )}
         <FormUI.Message type="error" message={queryError.message || 'Failed to load providers'} />
       </div>
     );
@@ -179,9 +184,11 @@ export const ProviderSelect = ({
   if (isLoading || config.views[0].items.length === 0) {
     return (
       <div>
-        <FormUI.Label htmlFor={componentIdPrefix}>
-          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-        </FormUI.Label>
+        {!hideLabel && (
+          <FormUI.Label htmlFor={domId}>
+            <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+          </FormUI.Label>
+        )}
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
           <Spinner size="small" />
           <FormattedMessage defaultMessage="Loading providers..." description="Loading message for providers" />
@@ -192,11 +199,13 @@ export const ProviderSelect = ({
 
   return (
     <div css={{ minWidth: 300 }}>
-      <FormUI.Label htmlFor={componentIdPrefix}>
-        <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-      </FormUI.Label>
+      {!hideLabel && (
+        <FormUI.Label htmlFor={domId}>
+          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+        </FormUI.Label>
+      )}
       <NavigableCombobox
-        componentId={componentIdPrefix}
+        componentId={componentId}
         config={config}
         value={value || null}
         onChange={handleChange}

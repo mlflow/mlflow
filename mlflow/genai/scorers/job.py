@@ -1,6 +1,7 @@
 """Huey job functions for async scorer invocation."""
 
 import logging
+import os
 import random
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -10,6 +11,7 @@ from typing import Any
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
@@ -141,6 +143,7 @@ def invoke_scorer_job(
     serialized_scorer: str,
     trace_ids: list[str],
     log_assessments: bool = True,
+    username: str | None = None,
 ) -> dict[str, Any]:
     """
     Huey job function for async scorer invocation.
@@ -153,10 +156,20 @@ def invoke_scorer_job(
         serialized_scorer: JSON string of the serialized scorer.
         trace_ids: List of trace IDs to evaluate.
         log_assessments: Whether to log assessments to the traces.
+        username: The authenticated user who triggered the job, propagated to
+            gateway requests so they are authorised as this user.
 
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
     """
+    # Propagate the original user identity to gateway requests. These env vars
+    # are read by get_gateway_litellm_config() and encoded into a Basic auth
+    # header so the auth middleware can authenticate as the correct user.
+    if username is not None:
+        os.environ["MLFLOW_TRACKING_USERNAME"] = username
+        if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
+
     # Deserialize scorer
     scorer = Scorer.model_validate_json(serialized_scorer)
 
@@ -245,14 +258,13 @@ def _run_session_scorer(
     first_trace_id = first_trace.info.trace_id
 
     try:
-        result = evaluate_session_level_scorers(
+        eval_result = evaluate_session_level_scorers(
             session_id=session_id,
             session_items=session_items,
             multi_turn_scorers=[scorer],
         )
 
-        # result is {first_trace_id: [feedbacks]}
-        feedbacks = result[first_trace_id]
+        feedbacks = eval_result.assessments
 
         failures = _extract_failures_from_feedbacks(feedbacks)
 
@@ -303,10 +315,11 @@ def _run_single_turn_scorer_batch(
         try:
             # Use _compute_eval_scores from harness - supports scorer tracing,
             # captures stack traces on errors
-            feedbacks = _compute_eval_scores(
+            result = _compute_eval_scores(
                 eval_item=eval_item,
                 scorers=[scorer],
             )
+            feedbacks = result.assessments
 
             failures = _extract_failures_from_feedbacks(feedbacks)
 

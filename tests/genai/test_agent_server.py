@@ -892,7 +892,9 @@ def test_responses_not_available_for_non_responses_agent():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("path", ["/", "/assets/index.js", "/api/session", "/favicon.ico"])
+@pytest.mark.parametrize(
+    "path", ["/", "/assets/index.js", "/api/session", "/favicon.ico", "/ping", "/chat/abc123"]
+)
 async def test_chat_proxy_forwards_allowlisted_paths(path):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)

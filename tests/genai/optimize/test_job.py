@@ -106,7 +106,6 @@ def test_load_builtin_scorers():
 
 def test_load_custom_scorers():
     with (
-        mock.patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
         mock.patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
     ):
         experiment_id = mlflow.create_experiment("test_load_custom_scorers")
