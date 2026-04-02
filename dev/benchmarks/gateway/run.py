@@ -532,15 +532,23 @@ def cmd_bench(args: argparse.Namespace) -> None:
                 # can cause CREATE TABLE race conditions.
                 stack.enter_context(
                     _start_mlflow(
-                        work_dir, instance_ports[0], args.workers, backend_uri,
-                        "MLflow instance 0", host="0.0.0.0",
+                        work_dir,
+                        instance_ports[0],
+                        args.workers,
+                        backend_uri,
+                        "MLflow instance 0",
+                        host="0.0.0.0",
                     )
                 )
                 for i, p in enumerate(instance_ports[1:], start=1):
                     stack.enter_context(
                         _start_mlflow(
-                            work_dir, p, args.workers, backend_uri,
-                            f"MLflow instance {i}", host="0.0.0.0",
+                            work_dir,
+                            p,
+                            args.workers,
+                            backend_uri,
+                            f"MLflow instance {i}",
+                            host="0.0.0.0",
                         )
                     )
 
