@@ -1,50 +1,95 @@
-import { Button, CloudModelIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useMemo } from 'react';
+import { Button, Card, CloudModelIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
 import { formatProviderName } from '../../utils/providerUtils';
+import { getModelCapabilities } from '../../utils/formatters';
+import { useModelsQuery } from '../../hooks/useModelsQuery';
 
 interface QuickStartTemplate {
   provider: string;
   model: string;
   endpointName: string;
   secretName: string;
-  capabilities: string;
 }
 
+/**
+ * Quick-start templates for the gateway empty state.
+ *
+ * UPDATE WHEN STALE: These models are hardcoded and should be reviewed
+ * periodically (e.g. each release) to ensure they still represent current,
+ * popular models for each provider. Check the model catalog JSON
+ * (mlflow/utils/model_prices_and_context_window.json) for available models.
+ *
+ * Last reviewed: 2026-04-02
+ */
 const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
   {
     provider: 'openai',
     model: 'gpt-5.4',
     endpointName: 'openai-gpt-5.4-endpoint',
     secretName: 'openai-api-key',
-    capabilities: 'Tools, Reasoning',
   },
   {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
     endpointName: 'anthropic-claude-sonnet-endpoint',
     secretName: 'anthropic-api-key',
-    capabilities: 'Tools, Reasoning',
   },
   {
     provider: 'gemini',
     model: 'gemini-2.5-pro',
     endpointName: 'gemini-2.5-pro-endpoint',
     secretName: 'gemini-api-key',
-    capabilities: 'Tools, Reasoning',
   },
   {
     provider: 'databricks',
     model: 'databricks-gpt-5',
     endpointName: 'databricks-gpt-5-endpoint',
     secretName: 'databricks-api-key',
-    capabilities: 'Tools, Reasoning, Enterprise-grade',
   },
 ];
 
+const useTemplateCapabilities = (templates: QuickStartTemplate[]) => {
+  const providers = [...new Set(templates.map((t) => t.provider))];
+
+  // Fetch models for each provider. The number of hooks is fixed (4 providers)
+  // so the rules of hooks are satisfied.
+  const openaiModels = useModelsQuery({ provider: providers.includes('openai') ? 'openai' : undefined });
+  const anthropicModels = useModelsQuery({ provider: providers.includes('anthropic') ? 'anthropic' : undefined });
+  const geminiModels = useModelsQuery({ provider: providers.includes('gemini') ? 'gemini' : undefined });
+  const databricksModels = useModelsQuery({ provider: providers.includes('databricks') ? 'databricks' : undefined });
+
+  const allModels = useMemo(() => {
+    const combined = [
+      ...(openaiModels.data ?? []),
+      ...(anthropicModels.data ?? []),
+      ...(geminiModels.data ?? []),
+      ...(databricksModels.data ?? []),
+    ];
+    const map = new Map<string, (typeof combined)[number]>();
+    for (const m of combined) {
+      map.set(`${m.provider}/${m.model}`, m);
+    }
+    return map;
+  }, [openaiModels.data, anthropicModels.data, geminiModels.data, databricksModels.data]);
+
+  return useMemo(
+    () =>
+      new Map(
+        templates.map((t) => {
+          const model = allModels.get(`${t.provider}/${t.model}`);
+          return [t.provider, getModelCapabilities(model)];
+        }),
+      ),
+    [templates, allModels],
+  );
+};
+
 export const QuickStartTemplates = () => {
   const { theme } = useDesignSystemTheme();
+  const capabilities = useTemplateCapabilities(QUICK_START_TEMPLATES);
 
   return (
     <div
@@ -87,52 +132,39 @@ export const QuickStartTemplates = () => {
           width: '100%',
         }}
       >
-        {QUICK_START_TEMPLATES.map((template) => (
-          <Link
-            key={template.provider}
-            componentId={`mlflow.gateway.quick_start.${template.provider}`}
-            to={GatewayRoutes.createEndpointPageRoute}
-            state={{
-              provider: template.provider,
-              model: template.model,
-              endpointName: template.endpointName,
-              secretName: template.secretName,
-            }}
-            css={{
-              textDecoration: 'none',
-              color: 'inherit',
-              display: 'flex',
-            }}
-          >
-            <div
+        {QUICK_START_TEMPLATES.map((template) => {
+          const caps = capabilities.get(template.provider);
+          return (
+            <Link
+              key={template.provider}
+              componentId={`mlflow.gateway.quick_start.${template.provider}`}
+              to={GatewayRoutes.createEndpointPageRoute}
+              state={{
+                provider: template.provider,
+                model: template.model,
+                endpointName: template.endpointName,
+                secretName: template.secretName,
+              }}
               css={{
+                textDecoration: 'none',
+                color: 'inherit',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: theme.spacing.sm,
-                padding: theme.spacing.md,
-                border: `1px solid ${theme.colors.border}`,
-                borderRadius: theme.borders.borderRadiusMd,
-                width: '100%',
-                cursor: 'pointer',
-                transition: 'border-color 0.15s, box-shadow 0.15s',
-                '&:hover': {
-                  borderColor: theme.colors.actionPrimaryBackgroundDefault,
-                  boxShadow: theme.shadows.sm,
-                },
               }}
             >
-              <Typography.Text bold>{formatProviderName(template.provider)}</Typography.Text>
-              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                {template.model}
-              </Typography.Text>
-              {template.capabilities && (
+              <Card componentId={`mlflow.gateway.quick_start.${template.provider}.card`} css={{ width: '100%' }}>
+                <Typography.Text bold>{formatProviderName(template.provider)}</Typography.Text>
                 <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                  {template.capabilities}
+                  {template.model}
                 </Typography.Text>
-              )}
-            </div>
-          </Link>
-        ))}
+                {caps && (
+                  <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                    {caps}
+                  </Typography.Text>
+                )}
+              </Card>
+            </Link>
+          );
+        })}
       </div>
 
       <Link
@@ -140,7 +172,7 @@ export const QuickStartTemplates = () => {
         to={GatewayRoutes.createEndpointPageRoute}
         css={{ textDecoration: 'none' }}
       >
-        <Button componentId="mlflow.gateway.quick_start.browse_all" type="tertiary">
+        <Button componentId="mlflow.gateway.quick_start.browse_all.button" type="tertiary">
           <FormattedMessage
             defaultMessage="Or browse all providers and models →"
             description="Gateway > Quick start > Link to create endpoint with full model selection"

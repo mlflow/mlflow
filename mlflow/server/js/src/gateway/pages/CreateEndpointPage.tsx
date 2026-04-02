@@ -14,12 +14,7 @@ const CreateEndpointPage = () => {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const prefill = location.state as {
-    provider?: string;
-    model?: string;
-    endpointName?: string;
-    secretName?: string;
-  } | null;
+  const prefill = parsePrefillState(location.state);
 
   const {
     form,
@@ -87,6 +82,24 @@ const CreateEndpointPage = () => {
       </FormProvider>
     </ScrollablePageWrapper>
   );
+};
+
+interface PrefillState {
+  provider?: string;
+  model?: string;
+  endpointName?: string;
+  secretName?: string;
+}
+
+const parsePrefillState = (raw: unknown): PrefillState | null => {
+  if (raw === null || raw === undefined || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  return {
+    provider: typeof obj['provider'] === 'string' ? obj['provider'] : undefined,
+    model: typeof obj['model'] === 'string' ? obj['model'] : undefined,
+    endpointName: typeof obj['endpointName'] === 'string' ? obj['endpointName'] : undefined,
+    secretName: typeof obj['secretName'] === 'string' ? obj['secretName'] : undefined,
+  };
 };
 
 export default withErrorBoundary(ErrorUtils.mlflowServices.EXPERIMENTS, CreateEndpointPage);

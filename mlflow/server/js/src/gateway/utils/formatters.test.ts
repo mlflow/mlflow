@@ -1,5 +1,12 @@
 import { describe, it, expect } from '@jest/globals';
-import { formatTokens, formatCost, extractModelDate, extractModelVersion, sortModelsByDate } from './formatters';
+import {
+  formatTokens,
+  formatCost,
+  extractModelDate,
+  extractModelVersion,
+  sortModelsByDate,
+  getModelCapabilities,
+} from './formatters';
 
 describe('formatTokens', () => {
   it('returns null for null or undefined', () => {
@@ -80,6 +87,45 @@ describe('extractModelVersion', () => {
 
   it('returns 0 for no version', () => {
     expect(extractModelVersion('some-model')).toBe(0);
+  });
+});
+
+describe('getModelCapabilities', () => {
+  it('returns empty string for undefined model', () => {
+    expect(getModelCapabilities(undefined)).toBe('');
+  });
+
+  it('returns all capabilities when all are supported', () => {
+    expect(
+      getModelCapabilities({
+        supports_function_calling: true,
+        supports_reasoning: true,
+        supports_prompt_caching: true,
+        supports_response_schema: true,
+      }),
+    ).toBe('Tools, Reasoning, Caching, Structured');
+  });
+
+  it('returns only supported capabilities', () => {
+    expect(
+      getModelCapabilities({
+        supports_function_calling: true,
+        supports_reasoning: false,
+        supports_prompt_caching: false,
+        supports_response_schema: true,
+      }),
+    ).toBe('Tools, Structured');
+  });
+
+  it('returns empty string when no capabilities are supported', () => {
+    expect(
+      getModelCapabilities({
+        supports_function_calling: false,
+        supports_reasoning: false,
+        supports_prompt_caching: false,
+        supports_response_schema: false,
+      }),
+    ).toBe('');
   });
 });
 
