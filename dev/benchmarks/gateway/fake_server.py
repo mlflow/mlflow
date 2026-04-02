@@ -20,7 +20,7 @@ import os
 import time
 from typing import Any
 
-import uvicorn
+import uvicorn  # type: ignore[import-not-found]
 from fastapi import FastAPI  # type: ignore[import-not-found]
 from pydantic import BaseModel, Field  # type: ignore[import-not-found]
 
@@ -64,4 +64,5 @@ async def health() -> dict[str, str]:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "9137"))
-    uvicorn.run("fake_server:app", host="0.0.0.0", port=port, log_level="warning")
+    host = os.environ.get("FAKE_SERVER_HOST", "127.0.0.1")
+    uvicorn.run("fake_server:app", host=host, port=port, log_level="warning")

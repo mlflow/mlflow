@@ -115,7 +115,7 @@ def _start_fake_server(
                 "--workers",
                 str(workers),
                 "--host",
-                "0.0.0.0",
+                "127.0.0.1",
                 "--port",
                 str(port),
                 "--log-level",
@@ -207,7 +207,7 @@ def _start_postgres(container_name: str = "benchmark-postgres") -> Generator[str
                 "-e",
                 "POSTGRES_DB=mlflow",
                 "-p",
-                f"{POSTGRES_PORT}:{POSTGRES_PORT}",
+                f"127.0.0.1:{POSTGRES_PORT}:{POSTGRES_PORT}",
                 "postgres:16-alpine",
                 "-c",
                 "max_connections=500",
@@ -244,10 +244,13 @@ def _api_post(tracking_uri: str, path: str, body: dict[str, Any]) -> Any:
         url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
     )
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as e:
         console.print(f"  [red]API error {e.code} at {url}: {e.read().decode()}[/red]")
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        console.print(f"  [red]API error at {url}: {e.reason}[/red]")
         sys.exit(1)
 
 
@@ -399,7 +402,7 @@ def _start_nginx(
                 "-v",
                 f"{conf_d}:/etc/nginx/conf.d:ro",
                 "-p",
-                f"{port}:{port}",
+                f"127.0.0.1:{port}:{port}",
                 "nginx:alpine",
             ],
             check=True,
