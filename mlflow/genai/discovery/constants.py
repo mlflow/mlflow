@@ -4,8 +4,6 @@ from mlflow.entities.issue import IssueSeverity
 
 # Number of sessions (or individual traces) to sample for triage by default
 DEFAULT_TRIAGE_SAMPLE_SIZE = 100
-# Cap on trace IDs attached to each Issue to keep payloads manageable
-MAX_EXAMPLE_TRACE_IDS = 10
 # Fetch N * sample_size traces so random sampling has enough diversity
 SAMPLE_POOL_MULTIPLIER = 5
 SAMPLE_RANDOM_SEED = 42
@@ -21,7 +19,29 @@ TRACE_CONTENT_TRUNCATION = 1000
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
-DEFAULT_CATEGORIES = ["low_quality", "negative_ux", "safety", "performance"]
+# Default number of slowest spans to include in timing information
+DEFAULT_TOP_N_SLOWEST_SPANS = 3
+
+# Category name constants
+CATEGORY_CORRECTNESS = "correctness"
+CATEGORY_LATENCY = "latency"
+CATEGORY_EXECUTION = "execution"
+CATEGORY_ADHERENCE = "adherence"
+CATEGORY_RELEVANCE = "relevance"
+CATEGORY_SAFETY = "safety"
+
+DEFAULT_CATEGORY_DESCRIPTIONS = {
+    CATEGORY_CORRECTNESS: "Output is factually accurate and grounded in provided data",
+    CATEGORY_LATENCY: "Agent responds within acceptable time bounds",
+    CATEGORY_EXECUTION: "Agent successfully completes actions (tool calls, API steps)",
+    CATEGORY_ADHERENCE: "Response follows instructions, constraints, policies, and formatting",
+    CATEGORY_RELEVANCE: (
+        "Output is useful, directly addresses the user's request, "
+        "and leaves the user satisfied with the interaction"
+    ),
+    CATEGORY_SAFETY: "Response avoids harmful, sensitive, or inappropriate content",
+}
+DEFAULT_CATEGORIES = list(DEFAULT_CATEGORY_DESCRIPTIONS)
 
 
 # ---- Satisfaction scorer instructions ----
@@ -34,6 +54,23 @@ A goal is an outcome the user was trying to accomplish through their interaction
 assistant. A goal is NOT simply the topic of the {context_noun} or the specific question(s) the \
 user asked! Correcting for an assistant's mistakes or shortcomings is also NOT a user goal. \
 Goals should always be independent of the agent's behavior.\
+"""
+
+LATENCY_CHECK_INSTRUCTIONS = """
+LATENCY CHECK: If trace timing information is provided (e.g. "Total duration: X.XXs" \
+and/or "Slowest spans: ..."), evaluate whether the response time was reasonable for \
+the task{latency_context}. Consider latency problematic if ANY of the following apply:
+  (a) The user explicitly complains about speed/wait time with phrases like:
+      - "that took forever" / "taking too long" / "so slow" / "speed this up"
+      - "still waiting" / "hurry up" / "faster" / "this is slow"
+      - Expressing impatience, frustration about wait time, or asking if system is working
+  (b) Duration significantly exceeds typical performance for this dataset (if timing \
+      context is provided, use it: e.g., >2x the p90 is very slow, >p95 is slow)
+  (c) Trace includes error messages related to timeouts or performance issues
+When user feedback about slowness is present (condition a), ALWAYS tag latency even if \
+duration seems reasonable by thresholds — user perception is ground truth. If "Slowest spans" \
+information is provided and latency is problematic, cite the specific slow operations \
+in your rationale to help identify bottlenecks.
 """
 
 SATISFACTION_INSTRUCTIONS_BODY = """
@@ -58,7 +95,7 @@ provided initially
 Exhibiting even a single behavior from the list above is sufficient to conclude that goals \
 were NOT achieved efficiently, even if the assistant later corrected the issue. The user \
 should not have to fix the assistant's mistakes.
-
+{latency_check}
 If you are unsure, then also consider the goals achieved efficiently. Do NOT guess \
 what the user thinks or feels — rely only on explicit signals in their messages.
 
@@ -84,8 +121,6 @@ that require specific fulfillment
 - Mark the assistant as failing for things outside its defined scope or capabilities — \
 if a system prompt defines what the assistant can/cannot do, evaluate only against that scope\
 {extra_donts}
-
-Return True if the user's goals were achieved efficiently, False otherwise.
 
 In your rationale, explain:
 - What the user wanted to achieve (list all goals)
@@ -123,14 +158,11 @@ application actually perform that task?
 - If the input contains a system prompt defining the assistant's capabilities or \
 limitations, do NOT mark it as failing for things outside its defined scope. \
 Evaluate only against what the assistant is designed to do.
-
-When in doubt, return True. Only return False for clear, unambiguous failures — \
-not stylistic preferences, minor omissions, or responses that are correct but \
-could be improved. The bar is whether the output *fails* the request, not \
-whether it is *perfect*.
-
-Return True if the output correctly fulfills the input request.
-Return False if there are significant quality problems.
+{latency_check}
+When in doubt, consider it passed. Only mark as failed for clear, unambiguous \
+failures — not stylistic preferences, minor omissions, or responses that are \
+correct but could be improved. The bar is whether the output *fails* the request, \
+not whether it is *perfect*.
 
 In your rationale, start with a concise label in square brackets (5-15 words), e.g. \
 [null response] or [incorrect output format] or [no issues found]. \
@@ -141,22 +173,49 @@ Then cite specific evidence from the APPLICATION OUTPUT above.\
 CATEGORIES_INSTRUCTIONS = """\
 
 
-The following issue categories are the ONLY valid categories for this evaluation. \
-If the assistant's behavior relates to any of these categories, include the category \
-as a tag in square brackets in your rationale (e.g. [low_quality]). Do NOT include \
-any categories that are not in this list:
-{categories}\
+The following issue categories are the ONLY valid categories for this evaluation:
+{categories}
+
+For the "passed" key in your result, return "true" if the user's goals were achieved \
+efficiently, "false" otherwise.
+
+For the "categories" key, return a comma-separated list of applicable categories from \
+the list above. If no categories apply, return an empty string. \
+Example: "correctness, execution"
 """
 
 
-def _format_categories(categories: list[str]) -> str:
-    items = "\n".join(f"- {cat}" for cat in categories)
-    return CATEGORIES_INSTRUCTIONS.format(categories=items)
+def _format_category_list(categories: list[str]) -> str:
+    parts = []
+    for cat in categories:
+        desc = DEFAULT_CATEGORY_DESCRIPTIONS.get(cat)
+        parts.append(f"{cat} ({desc})" if desc else cat)
+    return ", ".join(parts)
 
 
-def build_satisfaction_instructions(*, use_conversation: bool, categories: list[str]) -> str:
+def build_satisfaction_instructions(
+    *, use_conversation: bool, categories: list[str], latency_stats: dict[str, float] | None = None
+) -> str:
+    include_latency = CATEGORY_LATENCY in categories
+
+    latency_check = ""
+    if include_latency:
+        latency_context = (
+            (
+                f" using this dataset's latency distribution (p50={latency_stats['p50']}s, "
+                f"p75={latency_stats['p75']}s, p90={latency_stats['p90']}s, "
+                f"p95={latency_stats['p95']}s from {latency_stats['count']} traces)"
+            )
+            if latency_stats
+            else ""
+        )
+        latency_check = "\n" + LATENCY_CHECK_INSTRUCTIONS.format(latency_context=latency_context)
+
     if not use_conversation:
-        return TRACE_QUALITY_INSTRUCTIONS + _format_categories(categories)
+        trace_instructions = TRACE_QUALITY_INSTRUCTIONS.replace("{latency_check}", latency_check)
+        return trace_instructions + CATEGORIES_INSTRUCTIONS.format(
+            categories=_format_category_list(categories)
+        )
 
     preamble = SATISFACTION_INSTRUCTIONS_PREAMBLE.format(context_noun="conversation")
     body = SATISFACTION_INSTRUCTIONS_BODY.format(
@@ -167,6 +226,7 @@ def build_satisfaction_instructions(*, use_conversation: bool, categories: list[
         ),
         template_var="{{ conversation }}",
         context_noun="conversation",
+        latency_check=latency_check,
         extra_donts=(
             "\n- Consider abrupt topic changes as failure "
             "unless preceding messages indicate unmet expectations"
@@ -180,7 +240,11 @@ def build_satisfaction_instructions(*, use_conversation: bool, categories: list[
             "it is problematic.\n"
         ),
     )
-    return preamble + body + _format_categories(categories)
+    return (
+        preamble
+        + body
+        + CATEGORIES_INSTRUCTIONS.format(categories=_format_category_list(categories))
+    )
 
 
 # ---- Failure label extraction prompt ----
@@ -228,28 +292,52 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE = (
     "Cite observable symptoms (e.g. 'returned empty response', 'ignored the user's "
     "constraint to avoid implementation'). Avoid vague language like 'inefficient' "
     "or 'suboptimal' without concrete details.\n"
-    "- The root cause: why this likely happens AND where to investigate. Identify "
-    "the probable component, behavior, or configuration at fault (e.g. 'the retrieval "
-    "tool may be returning stale cached results', 'the system prompt does not instruct "
-    "the agent to respect user constraints'). Be specific but note these are hypotheses "
-    "based on observed symptoms.\n"
+    "- The root cause: why this likely happens AND where to investigate. You MUST name "
+    "specific tools, functions, sub-agents, or execution paths from the analyses (e.g. "
+    "'the run_media_playback_assistant tool returns stale state', 'the get_schedule "
+    "function omits timezone metadata', 'the system prompt for the financial assistant "
+    "does not enforce best-effort answers'). If the analyses mention execution paths "
+    "like [tool_a > tool_b > tool_c], reference them. Do NOT write vague root causes "
+    "like 'the orchestration layer' or 'intent handling' without naming the specific "
+    "component. A developer reading this must know exactly which tool, prompt, or "
+    "code path to investigate first.\n"
     f"- A severity level from: {', '.join(str(level) for level in IssueSeverity)}. "
     "Use medium or high only if the analyses clearly share the same failure "
     "pattern. Use not_an_issue if they do NOT belong together or represent no real issue.\n"
 )
 
 CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
-    "- Categories: Extract any category tags enclosed in square brackets from the rationales. "
-    "ONLY include categories from this list: {categories}. "
-    "If no matching category tags are found, return an empty list."
+    "- **Categories**: Assign one or more categories from: {categories}. "
+    "Only assign a category you can justify with specific evidence.\n"
+    "- **category_rationale** (REQUIRED field): For EACH assigned category, write 1-2 sentences "
+    "explaining WHY this issue belongs to that category. Reference specific symptoms or behaviors. "
+    "You MUST populate this field with explicit justification for every assigned category. "
+    "Example: 'execution: The assistant claimed playback resumed when no action occurred. "
+    "correctness: It provided conflicting timer states in adjacent responses.'"
 )
 
 
 def build_cluster_summary_prompt(categories: list[str]) -> str:
-    """Build the cluster summary system prompt with category filtering."""
-    cat_list = ", ".join(categories)
-    cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST.format(categories=cat_list)
+    cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST.format(
+        categories=_format_category_list(categories)
+    )
     return CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE + cat_instruction
+
+
+# ---- Category context fragments for downstream phases ----
+
+CLUSTER_CATEGORIES_CONTEXT = (
+    "\n\nThe following issue categories have been identified during triage. "
+    "Use these as an additional grouping signal — labels tagged with the same "
+    "category are likely to belong together, even if their execution paths differ:\n"
+    "{categories}\n"
+)
+
+
+def _format_cluster_categories(categories: list[str] | None) -> str:
+    if not categories:
+        return ""
+    return CLUSTER_CATEGORIES_CONTEXT.format(categories=_format_category_list(categories))
 
 
 # ---- Label clustering prompt ----
@@ -258,6 +346,7 @@ CLUSTER_LABELS_PROMPT_TEMPLATE = (
     "Below are {num_labels} failure labels from an AI agent.\n"
     "Each label has the format: [execution_path] symptom\n"
     "The execution path shows which sub-agents and tools were called.\n\n"
+    "{categories_context}"
     "Group these labels into coherent issue categories. Two labels belong "
     "in the same group when:\n"
     "  1. They share the same failure pattern (similar symptom)\n"
@@ -283,6 +372,7 @@ TRACE_ANNOTATION_SYSTEM_PROMPT = (
     "You are annotating a trace that was identified as exhibiting a known issue.\n\n"
     "You will be given:\n"
     "- The issue (name, description, root cause)\n"
+    "- Known issue categories relevant to this trace (if any)\n"
     "- The trace's actual input/output and execution path\n"
     "- The triage judge's rationale for why this trace was flagged\n\n"
     "Write a CONCISE rationale (2-3 sentences, max 150 words) for why THIS trace "

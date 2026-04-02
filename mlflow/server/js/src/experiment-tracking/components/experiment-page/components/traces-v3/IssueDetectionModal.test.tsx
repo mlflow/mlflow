@@ -4,9 +4,16 @@ import { renderWithDesignSystem, screen, waitFor } from '../../../../../common/u
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
+import { useNavigate } from '../../../../../common/utils/RoutingUtils';
 
 jest.mock('../../../../../gateway/hooks/useCreateSecret');
 jest.mock('./hooks/useInvokeIssueDetection');
+jest.mock('../../../../../common/utils/RoutingUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../../common/utils/RoutingUtils')>(
+    '../../../../../common/utils/RoutingUtils',
+  ),
+  useNavigate: jest.fn(),
+}));
 jest.mock('./IssueDetectionAdvancedSettings', () => ({
   IssueDetectionAdvancedSettings: () => <div data-testid="advanced-settings">Advanced Settings</div>,
 }));
@@ -135,8 +142,17 @@ jest.mock('./IssueDetectionModelSelection', () => {
 });
 
 jest.mock('../../../SelectTracesModal', () => ({
-  SelectTracesModal: ({ onClose, onSuccess }: { onClose: () => void; onSuccess: (traceIds: string[]) => void }) => (
+  SelectTracesModal: ({
+    onClose,
+    onSuccess,
+    defaultGroupBySession,
+  }: {
+    onClose: () => void;
+    onSuccess: (traceIds: string[]) => void;
+    defaultGroupBySession?: boolean;
+  }) => (
     <div data-testid="select-traces-modal">
+      <div data-testid="default-group-by-session">{String(defaultGroupBySession)}</div>
       <button data-testid="select-traces-cancel" onClick={onClose}>
         Cancel
       </button>
@@ -157,9 +173,12 @@ describe('IssueDetectionModal', () => {
   let mockResetCreateSecret: jest.Mock;
   let mockInvokeIssueDetection: jest.Mock;
   let mockResetIssueDetection: jest.Mock;
+  let mockNavigate: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNavigate = jest.fn();
+    jest.mocked(useNavigate).mockReturnValue(mockNavigate);
     // Reset mock values
     mockModelSelectionValues = {
       mode: 'direct',
@@ -381,17 +400,11 @@ describe('IssueDetectionModal', () => {
     expect(mockCreateSecret).not.toHaveBeenCalled();
   });
 
-  test('calls onSubmitSuccess callback when form is submitted', async () => {
+  test('navigates to run details page when form is submitted', async () => {
     const onClose = jest.fn();
-    const onSubmitSuccess = jest.fn();
 
     renderWithDesignSystem(
-      <IssueDetectionModal
-        {...defaultProps}
-        onClose={onClose}
-        initialSelectedTraceIds={['trace-1']}
-        onSubmitSuccess={onSubmitSuccess}
-      />,
+      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
     );
 
     await navigateToStep2();
@@ -401,8 +414,38 @@ describe('IssueDetectionModal', () => {
     await userEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(onSubmitSuccess).toHaveBeenCalledWith('run-456');
       expect(onClose).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('/experiments/exp-123/evaluation-runs/run-456');
     });
+  });
+
+  test('passes defaultGroupBySession prop to SelectTracesModal when set to true', async () => {
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} defaultGroupBySession />,
+    );
+
+    await navigateToStep2();
+
+    // Open the select traces modal
+    const selectTracesButton = screen.getByTestId('select-traces');
+    await userEvent.click(selectTracesButton);
+
+    // Verify the SelectTracesModal receives defaultGroupBySession=true
+    expect(screen.getByTestId('default-group-by-session')).toHaveTextContent('true');
+  });
+
+  test('passes defaultGroupBySession prop to SelectTracesModal when set to false', async () => {
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} defaultGroupBySession={false} />,
+    );
+
+    await navigateToStep2();
+
+    // Open the select traces modal
+    const selectTracesButton = screen.getByTestId('select-traces');
+    await userEvent.click(selectTracesButton);
+
+    // Verify the SelectTracesModal receives defaultGroupBySession=false
+    expect(screen.getByTestId('default-group-by-session')).toHaveTextContent('false');
   });
 });

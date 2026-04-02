@@ -13,7 +13,7 @@ jobs:
   check-comment:
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/autoformat') }}
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/autoformat')
     permissions:
       statuses: write # autoformat.createStatus
       pull-requests: write # autoformat.createReaction on PRs
@@ -29,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github
       - name: judge
@@ -50,7 +51,7 @@ jobs:
             return { ...pullInfo, shouldAutoformat };
 
       - name: Check maintainer access
-        if: ${{ fromJSON(steps.judge.outputs.result).shouldAutoformat }}
+        if: fromJSON(steps.judge.outputs.result).shouldAutoformat
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           retries: 3
@@ -62,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: check-comment
-    if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
+    if: needs.check-comment.outputs.should_autoformat == 'true'
     permissions:
       pull-requests: read # view files modified in PR
     outputs:
@@ -70,6 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
@@ -87,8 +89,10 @@ jobs:
         id: diff
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PULL_NUMBER: ${{ needs.check-comment.outputs.pull_number }}
         run: |
-          changed_files="$(gh pr view --repo ${{ github.repository }} ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
+          changed_files="$(gh pr view --repo $REPO $PULL_NUMBER --json files --jq '.files.[].path')"
           protos=$([[ -z $(echo "$changed_files" | grep '^\(mlflow/protos\|tests/protos\)') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
           docs=$([[ -z $(echo "$changed_files" | grep '^docs/') ]] && echo "false" || echo "true")
@@ -103,13 +107,16 @@ jobs:
           echo "api=$api" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
+        env:
+          BASE_REPO: ${{ needs.check-comment.outputs.base_repo }}
+          BASE_REF: ${{ needs.check-comment.outputs.base_ref }}
         run: |
           # This identity is only used for the temporary merge commit and is not pushed.
           git config user.name 'name'
           git config user.email 'email'
-          git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
-          git fetch base ${{ needs.check-comment.outputs.base_ref }}
-          git merge base/${{ needs.check-comment.outputs.base_ref }}
+          git remote add base https://github.com/$BASE_REPO.git
+          git fetch base $BASE_REF
+          git merge base/$BASE_REF
       - uses: ./.github/actions/setup-python
       # ************************************************************************
       # pre-commit
@@ -144,7 +151,7 @@ jobs:
       - if: steps.diff.outputs.js == 'true'
         working-directory: mlflow/server/js
         run: |
-          yarn install
+          yarn install --immutable
       - if: steps.diff.outputs.js == 'true'
         working-directory: mlflow/server/js
         run: |
@@ -174,16 +181,18 @@ jobs:
       # ************************************************************************
       - if: steps.diff.outputs.api == 'true'
         run: |
-          uv run --group docs --extra gateway --directory docs/api_reference make dummy
+          uv run --group docs --with-requirements "$GITHUB_WORKSPACE/requirements/torch.txt" --extra gateway --directory docs/api_reference make dummy
       # ************************************************************************
       # Upload patch
       # ************************************************************************
       - name: Create patch
         id: patch
+        env:
+          RUN_ID: ${{ github.run_id }}
         run: |
           git add -N .
-          git diff > ${{ github.run_id }}.diff
-          reformatted=$([[ -s ${{ github.run_id }}.diff ]] && echo "true" || echo "false")
+          git diff > $RUN_ID.diff
+          reformatted=$([[ -s $RUN_ID.diff ]] && echo "true" || echo "false")
           echo "reformatted=$reformatted" >> $GITHUB_OUTPUT
 
       - name: Upload patch
@@ -196,13 +205,13 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     needs: [check-comment, format]
-    if: ${{ needs.format.outputs.reformatted == 'true' }}
+    if: needs.format.outputs.reformatted == 'true'
     permissions:
       contents: read
     outputs:
       head_sha: ${{ steps.push.outputs.head_sha }}
     steps:
-      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         id: app-token
         with:
           app-id: ${{ secrets.APP_ID }}
@@ -211,6 +220,7 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: true
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
@@ -257,7 +267,7 @@ jobs:
           git merge base/${BASE_REF}
 
       - name: Download patch
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: ${{ github.run_id }}.diff
           path: /tmp
@@ -285,17 +295,22 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github
       - name: Update status
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+          HEAD_SHA: ${{ needs.check-comment.outputs.head_sha }}
+          PUSH_HEAD_SHA: ${{ needs.push.outputs.head_sha }}
         with:
           retries: 3
           script: |
-            const needs = ${{ toJson(needs) }};
-            const head_sha = '${{ needs.check-comment.outputs.head_sha }}'
+            const needs = JSON.parse(process.env.NEEDS_JSON);
+            const head_sha = process.env.HEAD_SHA;
             const autoformat = require('./.github/workflows/autoformat.js');
-            const push_head_sha = '${{ needs.push.outputs.head_sha }}';
+            const push_head_sha = process.env.PUSH_HEAD_SHA;
             if (push_head_sha) {
               await autoformat.approveWorkflowRuns(context, github, push_head_sha);
             }

@@ -17,6 +17,9 @@ import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage'
 
 const LOCAL_STORAGE_INSTALLATION_ID_KEY = 'mlflow-telemetry-installation-id';
 
+// Components whose onView events should be tracked (intentional impressions, not noise)
+const VIEW_EVENT_ALLOWLIST: ReadonlySet<string> = new Set(['mlflow.gateway.setup_guide']);
+
 class TelemetryClient {
   private installationId: string = this.getInstallationId();
   private port: MessagePort | null = null;
@@ -77,7 +80,7 @@ class TelemetryClient {
         // Listen for the "READY" message from worker
         this.port.onmessage = handleReadyMessage;
       } catch (error) {
-        console.error('[TelemetryLogger] Failed to initialize SharedWorker:', error);
+        // fail silently
         resolve(false);
       }
     });
@@ -94,8 +97,8 @@ class TelemetryClient {
       return;
     }
 
-    // drop view events to reduce noise
-    if (record.eventType === 'onView') {
+    // drop view events to reduce noise, except for explicitly tracked impressions
+    if (record.eventType === 'onView' && !VIEW_EVENT_ALLOWLIST.has(record.componentId)) {
       return;
     }
 

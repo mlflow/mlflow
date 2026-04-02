@@ -270,7 +270,19 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                         f"Token for span {st.span} is not found. "
                         "Cannot detach the span from context."
                     )
-                detach_span_from_context(st.token)
+                try:
+                    detach_span_from_context(st.token)
+                except ValueError:
+                    # ContextVar token was created in a different async/thread context.
+                    # This happens when langchain dispatches callbacks across threads
+                    # (e.g., batch/abatch). The span has already ended successfully;
+                    # the detach failure only means the OTel context stack won't be
+                    # restored, which is harmless since the originating context is
+                    # already gone.
+                    _logger.debug(
+                        f"Could not detach span {st.span.name} from context "
+                        "(token created in a different context)."
+                    )
 
     def flush(self):
         """Flush the state of the tracer."""
@@ -280,7 +292,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         for st in self._run_span_mapping.values():
             if st.token:
                 _logger.debug(f"Found leaked span {st.span}. Force ending it.")
-                detach_span_from_context(st.token)
+                try:
+                    detach_span_from_context(st.token)
+                except ValueError:
+                    _logger.debug(
+                        f"Could not detach leaked span {st.span} "
+                        "(token created in a different context)."
+                    )
 
         self._run_span_mapping = {}
         self._run_audio_format = {}

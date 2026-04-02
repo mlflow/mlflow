@@ -1,6 +1,6 @@
-import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import React from 'react';
-import { renderHook, act, render, screen } from '@testing-library/react';
+import { renderHook, act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -26,6 +26,10 @@ describe('useRunJudgesOnTracesConfiguration', () => {
 
   beforeEach(() => {
     mockEvaluateTraces = jest.fn();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('should return showRunJudgesModal and RunJudgesModal', () => {
@@ -164,5 +168,112 @@ describe('useRunJudgesOnTracesConfiguration', () => {
     // Judge A should be dismissed, Judge B should remain
     expect(queryByText(/Judge A/)).toBeNull();
     expect(getByText(/Judge B/)).toBeDefined();
+  });
+
+  it('should auto-dismiss success banners after 10 seconds', async () => {
+    jest.useFakeTimers();
+
+    const evaluations: Record<string, ScorerEvaluation> = {
+      'eval-1': {
+        requestKey: 'eval-1',
+        label: 'Auto Judge',
+        jobIds: ['job-1'],
+        jobStatuses: {},
+        isLoading: false,
+      },
+    };
+
+    const BannerTestComponent = () => {
+      const { JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(mockEvaluateTraces, evaluations, undefined);
+      return <div>{JudgesStatusBanner}</div>;
+    };
+
+    render(<BannerTestComponent />, { wrapper });
+
+    expect(screen.getByText(/Auto Judge.*completed successfully/)).toBeDefined();
+
+    // Still visible just before the fade starts (9 seconds)
+    act(() => {
+      jest.advanceTimersByTime(9000);
+    });
+    expect(screen.getByText(/Auto Judge.*completed successfully/)).toBeDefined();
+
+    // Dismissed after the full 10 seconds
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Auto Judge.*completed successfully/)).toBeNull();
+    });
+  });
+
+  it('should auto-dismiss error banners after 10 seconds', async () => {
+    jest.useFakeTimers();
+
+    const evaluations: Record<string, ScorerEvaluation> = {
+      'eval-1': {
+        requestKey: 'eval-1',
+        label: 'Error Judge',
+        jobIds: ['job-1'],
+        jobStatuses: {},
+        isLoading: false,
+        error: new Error('Something went wrong'),
+      },
+    };
+
+    const BannerTestComponent = () => {
+      const { JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(mockEvaluateTraces, evaluations, undefined);
+      return <div>{JudgesStatusBanner}</div>;
+    };
+
+    render(<BannerTestComponent />, { wrapper });
+
+    expect(screen.getByText(/Error Judge/)).toBeDefined();
+
+    // Still visible just before the fade starts (9 seconds)
+    act(() => {
+      jest.advanceTimersByTime(9000);
+    });
+    expect(screen.getByText(/Error Judge/)).toBeDefined();
+
+    // Dismissed after the full 10 seconds
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Error Judge/)).toBeNull();
+    });
+  });
+
+  it('should not auto-dismiss loading banners', async () => {
+    jest.useFakeTimers();
+
+    const evaluations: Record<string, ScorerEvaluation> = {
+      'eval-1': {
+        requestKey: 'eval-1',
+        label: 'Loading Judge',
+        jobIds: ['job-1'],
+        jobStatuses: {},
+        isLoading: true,
+      },
+    };
+
+    const BannerTestComponent = () => {
+      const { JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(mockEvaluateTraces, evaluations, undefined);
+      return <div>{JudgesStatusBanner}</div>;
+    };
+
+    render(<BannerTestComponent />, { wrapper });
+
+    expect(screen.getByText(/Loading Judge/)).toBeDefined();
+
+    act(() => {
+      jest.advanceTimersByTime(10000);
+    });
+
+    // Should still be visible after 10 seconds
+    expect(screen.getByText(/Loading Judge/)).toBeDefined();
   });
 });

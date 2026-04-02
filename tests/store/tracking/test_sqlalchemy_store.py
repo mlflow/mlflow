@@ -6440,6 +6440,80 @@ def test_search_traces_with_feedback_filters_excludes_invalid_assessments(
     assert trace_ids == {trace1_id, trace2_id}
 
 
+def test_search_traces_session_scoped_assessment_expands_to_all_session_traces(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("test_session_assessment_expansion")
+
+    # Session A: 3 traces
+    _create_trace(
+        store, "sa-t1", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"}
+    )
+    _create_trace(
+        store, "sa-t2", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"}
+    )
+    _create_trace(
+        store, "sa-t3", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"}
+    )
+
+    # Session B: 3 traces
+    _create_trace(
+        store, "sb-t1", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"}
+    )
+    _create_trace(
+        store, "sb-t2", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"}
+    )
+    _create_trace(
+        store, "sb-t3", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"}
+    )
+
+    # Add a session-scoped assessment on the first trace of session A
+    session_feedback = Feedback(
+        trace_id="sa-t1",
+        name="session_quality",
+        value="good",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+        metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    store.create_assessment(session_feedback)
+
+    # Add a non-session assessment on a trace in session B (no session metadata)
+    non_session_feedback = Feedback(
+        trace_id="sb-t1",
+        name="trace_quality",
+        value="bad",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+    )
+    store.create_assessment(non_session_feedback)
+
+    # Searching with the session-scoped assessment filter should return all 3 traces
+    # from session A (not just the one with the assessment)
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.session_quality = "good"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sa-t1", "sa-t2", "sa-t3"}
+
+    # IS NOT NULL with session-scoped assessment should also expand
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.session_quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sa-t1", "sa-t2", "sa-t3"}
+
+    # Searching with non-session assessment should return only the single matching trace
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.trace_quality = "bad"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sb-t1"}
+
+    # IS NOT NULL with non-session assessment should return only the single trace
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.trace_quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sb-t1"}
+
+    # IS NULL with session-scoped assessment should exclude all session siblings too
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.session_quality IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    # All session-A traces are excluded (session-scoped assessment covers the whole session)
+    assert trace_ids == {"sb-t1", "sb-t2", "sb-t3"}
+
+
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_expectation_like")
 
@@ -8123,29 +8197,9 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False, True])
-async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, is_async: bool):
-    # Create two different traces
+def test_log_spans_multiple_traces(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_multi_trace_experiment")
-    trace_info1 = TraceInfo(
-        trace_id="tr-span-test-789",
-        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
-        request_time=1234,
-        execution_duration=100,
-        state=TraceState.OK,
-    )
-    trace_info2 = TraceInfo(
-        trace_id="tr-span-test-999",
-        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
-        request_time=5678,
-        execution_duration=200,
-        state=TraceState.OK,
-    )
-    trace_info1 = store.start_trace(trace_info1)
-    trace_info2 = store.start_trace(trace_info2)
 
-    # Create spans for different traces
     span1 = create_mlflow_span(
         OTelReadableSpan(
             name="span_trace1",
@@ -8156,14 +8210,12 @@ async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, i
                 trace_flags=trace_api.TraceFlags(1),
             ),
             parent=None,
-            attributes={
-                "mlflow.traceRequestId": json.dumps(trace_info1.trace_id, cls=TraceJSONEncoder)
-            },
+            attributes={"mlflow.traceRequestId": json.dumps("tr-multi-1", cls=TraceJSONEncoder)},
             start_time=1000000000,
             end_time=2000000000,
             resource=_OTelResource.get_empty(),
         ),
-        trace_info1.trace_id,
+        "tr-multi-1",
     )
 
     span2 = create_mlflow_span(
@@ -8176,23 +8228,31 @@ async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, i
                 trace_flags=trace_api.TraceFlags(1),
             ),
             parent=None,
-            attributes={
-                "mlflow.traceRequestId": json.dumps(trace_info2.trace_id, cls=TraceJSONEncoder)
-            },
+            attributes={"mlflow.traceRequestId": json.dumps("tr-multi-2", cls=TraceJSONEncoder)},
             start_time=3000000000,
             end_time=4000000000,
             resource=_OTelResource.get_empty(),
         ),
-        trace_info2.trace_id,
+        "tr-multi-2",
     )
 
-    # Try to log spans from different traces - should raise MlflowException
-    if is_async:
-        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
-            await store.log_spans_async(experiment_id, [span1, span2])
-    else:
-        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
-            store.log_spans(experiment_id, [span1, span2])
+    # Multi-trace log_spans should succeed in a single call
+    result = store.log_spans(experiment_id, [span1, span2])
+    assert len(result) == 2
+
+    # Verify both traces were created with correct spans in the database
+    with store.ManagedSessionMaker() as session:
+        trace1 = session.query(SqlTraceInfo).filter_by(request_id="tr-multi-1").one()
+        assert trace1.experiment_id == int(experiment_id)
+
+        trace2 = session.query(SqlTraceInfo).filter_by(request_id="tr-multi-2").one()
+        assert trace2.experiment_id == int(experiment_id)
+
+        span_row1 = session.query(SqlSpan).filter_by(trace_id="tr-multi-1").one()
+        assert span_row1.name == "span_trace1"
+
+        span_row2 = session.query(SqlSpan).filter_by(trace_id="tr-multi-2").one()
+        assert span_row2.name == "span_trace2"
 
 
 @pytest.mark.asyncio
@@ -13729,6 +13789,70 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
 
     trace_info3 = store.get_trace_info(trace_id3)
     assert TraceMetadataKey.TRACE_SESSION not in trace_info3.trace_metadata
+
+
+def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_user_id")
+
+    # User ID gets stored from span attributes
+    trace_id1 = f"tr-{uuid.uuid4().hex}"
+    otel_span1 = create_test_otel_span(trace_id=trace_id1)
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id1, cls=TraceJSONEncoder),
+        "user.id": "alice",
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id1, "LLM")
+    store.log_spans(experiment_id, [span1])
+
+    trace_info1 = store.get_trace_info(trace_id1)
+    assert trace_info1.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "alice"
+
+    # Existing user ID is preserved
+    trace_id2 = f"tr-{uuid.uuid4().hex}"
+    trace_with_user = TraceInfo(
+        trace_id=trace_id2,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.IN_PROGRESS,
+        trace_metadata={TraceMetadataKey.TRACE_USER: "existing-user"},
+    )
+    store.start_trace(trace_with_user)
+
+    otel_span2 = create_test_otel_span(trace_id=trace_id2)
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id2, cls=TraceJSONEncoder),
+        "user.id": "different-user",
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id2, "LLM")
+    store.log_spans(experiment_id, [span2])
+
+    trace_info2 = store.get_trace_info(trace_id2)
+    assert trace_info2.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "existing-user"
+
+    # No user ID means no metadata
+    trace_id3 = f"tr-{uuid.uuid4().hex}"
+    otel_span3 = create_test_otel_span(trace_id=trace_id3)
+    span3 = create_mlflow_span(otel_span3, trace_id3, "LLM")
+    store.log_spans(experiment_id, [span3])
+
+    trace_info3 = store.get_trace_info(trace_id3)
+    assert TraceMetadataKey.TRACE_USER not in trace_info3.trace_metadata
+
+    # Both session and user ID work together
+    trace_id4 = f"tr-{uuid.uuid4().hex}"
+    otel_span4 = create_test_otel_span(trace_id=trace_id4)
+    otel_span4._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id4, cls=TraceJSONEncoder),
+        "session.id": "session-456",
+        "user.id": "bob",
+    }
+    span4 = create_mlflow_span(otel_span4, trace_id4, "LLM")
+    store.log_spans(experiment_id, [span4])
+
+    trace_info4 = store.get_trace_info(trace_id4)
+    assert trace_info4.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-456"
+    assert trace_info4.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "bob"
 
 
 def test_find_completed_sessions(store: SqlAlchemyStore):

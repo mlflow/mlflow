@@ -246,7 +246,10 @@ def test_chat_model_autolog_audio_input_normalization(mime_type, expected_format
     audio_block = msgs[0]["content"][1]
     assert audio_block["type"] == "input_audio"
     assert audio_block["input_audio"]["format"] == expected_format
-    assert audio_block["input_audio"]["data"] == audio_b64
+    attachment_uri = audio_block["input_audio"]["data"]
+    assert attachment_uri.startswith("mlflow-attachment://")
+    expected_mime = "mpeg" if expected_format == "mp3" else expected_format
+    assert f"content_type=audio%2F{expected_mime}" in attachment_uri
 
 
 def test_chat_model_autolog_audio_output_normalization():
@@ -281,7 +284,9 @@ def test_chat_model_autolog_audio_output_normalization():
     audio_block = span.outputs["choices"][0]["message"]["content"][1]
     assert audio_block["type"] == "input_audio"
     assert audio_block["input_audio"]["format"] == "wav"
-    assert audio_block["input_audio"]["data"] == audio_b64
+    attachment_uri = audio_block["input_audio"]["data"]
+    assert attachment_uri.startswith("mlflow-attachment://")
+    assert "content_type=audio%2Fwav" in attachment_uri
 
 
 def test_chat_model_autolog_openai_audio_output_with_format():
@@ -324,7 +329,9 @@ def test_chat_model_autolog_openai_audio_output_with_format():
     assert isinstance(content, list)
     assert content[0] == {"type": "text", "text": "Yes, I am."}
     assert content[1]["type"] == "input_audio"
-    assert content[1]["input_audio"]["data"] == audio_b64
+    attachment_uri = content[1]["input_audio"]["data"]
+    assert attachment_uri.startswith("mlflow-attachment://")
+    assert "content_type=audio%2Fwav" in attachment_uri
     assert content[1]["input_audio"]["format"] == "wav"
 
 

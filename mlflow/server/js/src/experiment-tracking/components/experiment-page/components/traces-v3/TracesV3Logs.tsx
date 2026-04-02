@@ -68,7 +68,6 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
-import { useIssueDetectionNotification } from './hooks/useIssueDetectionNotification';
 
 const JudgeContextProvider = ({
   children,
@@ -115,11 +114,14 @@ const TracesV3LogsImpl = React.memo(
     isLoadingExperiment,
     loggedModelId,
     forceGroupBySession = false,
+    initialGroupBySession = false,
     columnStorageKeyPrefix,
+    detectIssuesButtonComponentId,
     additionalFilters,
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
+    drawerWidth,
   }: {
     /**
      * Array of experiment IDs to search traces for.
@@ -130,15 +132,23 @@ const TracesV3LogsImpl = React.memo(
     isLoadingExperiment?: boolean;
     loggedModelId?: string;
     forceGroupBySession?: boolean;
+    /** Initial state for session grouping. */
+    initialGroupBySession?: boolean;
     /**
      * Optional prefix for the localStorage key used to persist column selection.
      * Use this to separate column selection state between different views.
      */
     columnStorageKeyPrefix?: string;
+    /**
+     * Optional component ID for the detect issues button.
+     * Use this to differentiate between traces and sessions contexts.
+     */
+    detectIssuesButtonComponentId?: string;
     additionalFilters?: TableFilter[];
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
+    drawerWidth?: string | number;
   }) => {
     // When viewing a single experiment, pass its ID to enable experiment-specific
     // features (run name links, logged model links, session links, filter dropdowns).
@@ -153,10 +163,8 @@ const TracesV3LogsImpl = React.memo(
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
-    const [isGroupedBySession, setIsGroupedBySession] = useState(false);
+    const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
-    const { showIssueDetectionNotification, notificationContextHolder } =
-      useIssueDetectionNotification(singleExperimentId);
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
@@ -472,6 +480,7 @@ const TracesV3LogsImpl = React.memo(
       <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
+        drawerWidth={drawerWidth}
       >
         <GenAITracesTableProvider
           experimentId={singleExperimentId}
@@ -486,6 +495,7 @@ const TracesV3LogsImpl = React.memo(
             }}
           >
             <GenAITracesTableToolbar
+              detectIssuesButtonComponentId={detectIssuesButtonComponentId}
               experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -522,10 +532,9 @@ const TracesV3LogsImpl = React.memo(
                 .filter(([, isSelected]) => isSelected)
                 .map(([traceId]) => traceId)}
               availableTraceIds={traceInfos?.map((trace) => trace.trace_id) ?? []}
-              onSubmitSuccess={showIssueDetectionNotification}
+              defaultGroupBySession={forceGroupBySession || isGroupedBySession}
             />
           )}
-          {notificationContextHolder}
         </GenAITracesTableProvider>
       </ModelTraceExplorerContextProvider>
     );

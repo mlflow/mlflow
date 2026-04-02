@@ -607,7 +607,12 @@ def test_error_logging_spans(mlflow_server: str):
         locations=[experiment_id], include_spans=False, return_type="list"
     )
 
-    assert len(traces) == 1
+    # The OTLP endpoint now calls log_spans once for all spans in the batch.
+    # If that call fails, all spans in the batch are dropped together (HTTP 422 is
+    # non-retryable for the OTel OTLP exporter). Previously, per-trace calls meant
+    # the second trace could still succeed. With the unified log_spans call, the
+    # result is 0 stored traces.
+    assert len(traces) == 0
 
 
 def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):

@@ -339,14 +339,18 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
 
   const handleLinkClick = () => {
     if (hasCustomLinkClick) {
-      linkConfig.onLinkClick!(label, dataPoint);
+      linkConfig.onLinkClick?.(label, dataPoint);
     } else if (hasTimeBasedNavigation) {
       const url = tooltipLinkUrlBuilder
-        ? tooltipLinkUrlBuilder(linkConfig.experimentId!, dataPoint.timestampMs!, linkConfig.timeIntervalSeconds!)
+        ? tooltipLinkUrlBuilder(
+            linkConfig.experimentId ?? '',
+            dataPoint.timestampMs ?? 0,
+            linkConfig.timeIntervalSeconds ?? 0,
+          )
         : getTracesFilteredByTimeRangeUrl(
-            linkConfig.experimentId!,
-            dataPoint.timestampMs!,
-            linkConfig.timeIntervalSeconds!,
+            linkConfig.experimentId ?? '',
+            dataPoint.timestampMs ?? 0,
+            linkConfig.timeIntervalSeconds ?? 0,
           );
       navigate(url);
     }
