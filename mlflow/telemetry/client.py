@@ -257,12 +257,17 @@ class TelemetryClient:
         """Process a batch of telemetry records."""
         try:
             self._update_backend_store()
-            if self.info["tracking_uri_scheme"] in ["databricks", "databricks-uc", "uc"]:
-                self._is_stopped = True
-                # set config to None to allow consumer thread drop records in the queue
-                self.config = None
-                self.is_active = False
-                _set_telemetry_client(None)
+
+            is_databricks = self.info.get("tracking_uri_scheme") in (
+                "databricks",
+                "databricks-uc",
+                "uc",
+            )
+            if is_databricks:
+                self._forward_to_databricks(records, request_timeout)
+                return
+
+            if self.config is None:
                 return
 
             records = [
@@ -311,6 +316,53 @@ class TelemetryClient:
         except Exception as e:
             _log_error(f"Failed to send telemetry records: {e}")
 
+    def _forward_to_databricks(self, records: list[Record], request_timeout: float = 1) -> bool:
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.databricks_utils import get_databricks_host_creds
+
+        try:
+            creds = get_databricks_host_creds(get_tracking_uri())
+        except Exception as e:
+            _log_error(f"Failed to get Databricks credentials for telemetry: {e}")
+            return False
+
+        events = []
+        for record in records:
+            event = dict(self.info)
+            event.update(record.to_dict())
+            if "params" in event:
+                event["params_json"] = event.pop("params")
+            events.append(event)
+
+        max_attempts, sleep_time = 3, 1
+        for i in range(max_attempts):
+            response = None
+            should_retry = False
+            try:
+                response = http_request(
+                    host_creds=creds,
+                    endpoint="/api/2.0/mlflow/client-telemetry/ingest",
+                    method="POST",
+                    timeout=request_timeout,
+                    max_retries=0,
+                    raise_on_status=False,
+                    json={"events": events},
+                )
+                should_retry = response.status_code in RETRYABLE_ERRORS
+            except (ConnectionError, TimeoutError):
+                should_retry = True
+            if self._is_stopped:
+                return False
+            if i < max_attempts - 1 and should_retry:
+                time.sleep(sleep_time)
+            elif response and response.status_code in UNRECOVERABLE_ERRORS:
+                return False
+            elif response and 200 <= response.status_code < 300:
+                return True
+            else:
+                return False
+        return False
+
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
         # suppress logs in the consumer thread to avoid emitting any irrelevant
@@ -320,7 +372,7 @@ class TelemetryClient:
         while not self._is_config_fetched:
             time.sleep(0.1)
 
-        while self.config and not self._is_stopped:
+        while not self._is_stopped:
             try:
                 records = self._queue.get(timeout=1)
             except Empty:
