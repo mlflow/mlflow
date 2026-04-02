@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.providers import (
     _fetch_remote_provider,
     _flatten_catalog_entry,
@@ -185,6 +186,92 @@ def test_get_models_dedupes_models_after_normalization():
         model_names = [m["model"] for m in models]
         assert model_names.count("gemini-3-flash-preview") == 1
         assert len(models) == 1
+
+
+def test_get_all_providers_with_allowed_filter(monkeypatch):
+    with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
+        mock_model_cost.return_value = {
+            "gpt-4o": {"litellm_provider": "openai", "mode": "chat"},
+            "claude-3-5-sonnet": {"litellm_provider": "anthropic", "mode": "chat"},
+            "gemini-1.5-pro": {"litellm_provider": "gemini", "mode": "chat"},
+        }
+        monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai,anthropic")
+        providers = get_all_providers()
+        assert "openai" in providers
+        assert "anthropic" in providers
+        assert "gemini" not in providers
+
+
+def test_get_all_providers_with_blocked_filter(monkeypatch):
+    with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
+        mock_model_cost.return_value = {
+            "gpt-4o": {"litellm_provider": "openai", "mode": "chat"},
+            "claude-3-5-sonnet": {"litellm_provider": "anthropic", "mode": "chat"},
+            "gemini-1.5-pro": {"litellm_provider": "gemini", "mode": "chat"},
+        }
+        monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "gemini")
+        providers = get_all_providers()
+        assert "openai" in providers
+        assert "anthropic" in providers
+        assert "gemini" not in providers
+
+
+def test_get_models_filters_blocked_providers(monkeypatch):
+    with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
+        mock_model_cost.return_value = {
+            "gpt-4o": {
+                "litellm_provider": "openai",
+                "mode": "chat",
+                "supports_function_calling": True,
+            },
+            "claude-3-5-sonnet": {
+                "litellm_provider": "anthropic",
+                "mode": "chat",
+                "supports_function_calling": True,
+            },
+        }
+        monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "anthropic")
+        models = get_models()
+        providers_in_result = {m["provider"] for m in models}
+        assert "openai" in providers_in_result
+        assert "anthropic" not in providers_in_result
+
+
+def test_get_models_filters_with_allowed_providers(monkeypatch):
+    with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
+        mock_model_cost.return_value = {
+            "gpt-4o": {
+                "litellm_provider": "openai",
+                "mode": "chat",
+                "supports_function_calling": True,
+            },
+            "claude-3-5-sonnet": {
+                "litellm_provider": "anthropic",
+                "mode": "chat",
+                "supports_function_calling": True,
+            },
+            "gemini-1.5-pro": {
+                "litellm_provider": "gemini",
+                "mode": "chat",
+                "supports_function_calling": True,
+            },
+        }
+        monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai")
+        models = get_models()
+        providers_in_result = {m["provider"] for m in models}
+        assert providers_in_result == {"openai"}
+
+
+def test_get_provider_config_rejects_blocked_provider(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "openai")
+    with pytest.raises(MlflowException, match="not allowed"):
+        get_provider_config_response("openai")
+
+
+def test_get_provider_config_rejects_provider_not_in_allowed_list(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "anthropic")
+    with pytest.raises(MlflowException, match="not allowed"):
+        get_provider_config_response("openai")
 
 
 def test_get_provider_config_bedrock_has_default_chain():

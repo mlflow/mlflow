@@ -37,6 +37,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CALLER_HEADER,
     GatewayCaller,
 )
+from mlflow.gateway.provider_registry import _provider_key_to_str
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -63,6 +64,7 @@ from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationTyp
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
+from mlflow.utils.provider_filter import is_provider_allowed
 from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
@@ -217,6 +219,14 @@ def _build_endpoint_config(
     Raises:
         MlflowException: If provider configuration is invalid.
     """
+    provider_name = _provider_key_to_str(model_config.provider)
+    if not is_provider_allowed(provider_name):
+        raise MlflowException.invalid_parameter_value(
+            f"Provider '{model_config.provider}' is not allowed by the current gateway "
+            "provider policy. Check MLFLOW_GATEWAY_ALLOWED_PROVIDERS and "
+            "MLFLOW_GATEWAY_BLOCKED_PROVIDERS."
+        )
+
     provider_config = None
 
     if model_config.provider == Provider.OPENAI:

@@ -12,6 +12,8 @@ import cachetools
 from typing_extensions import NotRequired
 
 from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URI
+from mlflow.exceptions import MlflowException
+from mlflow.utils.provider_filter import filter_providers, is_provider_allowed
 from mlflow.utils.request_utils import cloud_storage_http_request
 
 _logger = logging.getLogger(__name__)
@@ -775,6 +777,12 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
     if not provider:
         raise ValueError("Provider parameter is required")
 
+    if not is_provider_allowed(provider):
+        raise MlflowException.invalid_parameter_value(
+            f"Provider '{provider}' is not allowed by the current gateway provider policy. "
+            "Check MLFLOW_GATEWAY_ALLOWED_PROVIDERS and MLFLOW_GATEWAY_BLOCKED_PROVIDERS."
+        )
+
     config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider
 
     if config_provider in _PROVIDER_AUTH_MODES:
@@ -830,7 +838,7 @@ def get_all_providers() -> list[str]:
         if provider in _EXCLUDED_PROVIDERS:
             continue
         providers.add(_normalize_provider(provider))
-    return list(providers)
+    return filter_providers(list(providers))
 
 
 def get_models(provider: str | None = None) -> list[ModelDict]:
@@ -890,6 +898,9 @@ def _extract_models(
 
         # Filter by provider (matching against the normalized provider name)
         if provider_filter and normalized_provider != provider_filter:
+            continue
+
+        if normalized_provider and not is_provider_allowed(normalized_provider):
             continue
 
         mode = info.get("mode")

@@ -2,6 +2,11 @@ from mlflow import MlflowException
 from mlflow.gateway.config import Provider
 from mlflow.gateway.providers import BaseProvider
 from mlflow.utils.plugins import get_entry_points
+from mlflow.utils.provider_filter import filter_providers, is_provider_allowed
+
+
+def _provider_key_to_str(key: str | Provider) -> str:
+    return key.value if isinstance(key, Provider) else key
 
 
 class ProviderRegistry:
@@ -17,11 +22,17 @@ class ProviderRegistry:
 
     def get(self, name: str) -> type[BaseProvider]:
         if name not in self._providers:
-            raise MlflowException.invalid_parameter_value(f"Provider {name} not found")
+            raise MlflowException.invalid_parameter_value(f"Provider '{name}' not found")
+
+        if not is_provider_allowed(_provider_key_to_str(name)):
+            raise MlflowException.invalid_parameter_value(
+                f"Provider '{name}' is not allowed by the current gateway provider policy. "
+                "Check MLFLOW_GATEWAY_ALLOWED_PROVIDERS and MLFLOW_GATEWAY_BLOCKED_PROVIDERS."
+            )
         return self._providers[name]
 
     def keys(self):
-        return list(self._providers.keys())
+        return filter_providers([_provider_key_to_str(k) for k in self._providers.keys()])
 
 
 def _register_default_providers(registry: ProviderRegistry):

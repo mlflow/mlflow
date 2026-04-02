@@ -659,6 +659,26 @@ MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
 #: (default: ``None`` — uses in-memory tracker)
 MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_REDIS_URL", str, None)
 
+#: Comma-separated list of provider names that are allowed in the AI Gateway.
+#: When set, only these providers will be available for endpoint creation and discovery.
+#: All other providers are blocked. Cannot be used together with
+#: ``MLFLOW_GATEWAY_BLOCKED_PROVIDERS``.
+#: Example: ``openai,anthropic,gemini``
+#: (default: ``None`` — all providers are allowed)
+MLFLOW_GATEWAY_ALLOWED_PROVIDERS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_ALLOWED_PROVIDERS", str, None
+)
+
+#: Comma-separated list of provider names that are blocked from the AI Gateway.
+#: When set, these providers will be excluded from endpoint creation and discovery.
+#: All other providers remain available. Cannot be used together with
+#: ``MLFLOW_GATEWAY_ALLOWED_PROVIDERS``.
+#: Example: ``litellm,bedrock``
+#: (default: ``None`` — no providers are blocked)
+MLFLOW_GATEWAY_BLOCKED_PROVIDERS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_BLOCKED_PROVIDERS", str, None
+)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
