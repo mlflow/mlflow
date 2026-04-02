@@ -4577,10 +4577,6 @@
     "defaultMessage": "Traces are only available for experiment-scoped prompts.",
     "description": "Message when prompt is not experiment-scoped"
   },
-  "SdMjuh": {
-    "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking, budget controls, and automatic MLflow Trace logging for debugging and evaluation.",
-    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
-  },
   "Shv28w": {
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
@@ -6562,6 +6558,10 @@
   "ekqDlR": {
     "defaultMessage": "Model version alias created",
     "description": "Webhook event label"
+  },
+  "en7FHE": {
+    "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking through MLflow Tracing, budget controls, and more.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
