@@ -11,6 +11,7 @@ Can be imported by run.py or used standalone:
 
 import argparse
 import asyncio
+import math
 import statistics
 import time
 from dataclasses import dataclass, field
@@ -58,7 +59,8 @@ class RunResult:
         if not self.latencies_ms:
             return 0.0
         s = sorted(self.latencies_ms)
-        return s[int(len(s) * p / 100)]
+        idx = max(0, math.ceil(p / 100 * len(s)) - 1)
+        return s[idx]
 
 
 async def _send(

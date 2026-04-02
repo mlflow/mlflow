@@ -22,7 +22,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI  # type: ignore[import-not-found]
-from pydantic import BaseModel  # type: ignore[import-not-found]
+from pydantic import BaseModel, Field  # type: ignore[import-not-found]
 
 app = FastAPI()
 
@@ -31,7 +31,7 @@ DELAY_MS = int(os.environ.get("FAKE_RESPONSE_DELAY_MS", "50"))
 
 class ChatRequest(BaseModel):
     model: str = "gpt-3.5-turbo"
-    messages: list[dict[str, str]] = []
+    messages: list[dict[str, str]] = Field(default_factory=list)
     stream: bool = False
     temperature: float = 1.0
     max_tokens: int = 50

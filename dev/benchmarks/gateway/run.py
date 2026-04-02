@@ -537,9 +537,14 @@ def cmd_bench(args: argparse.Namespace) -> None:
                 )
 
                 console.print("\n[bold]Starting nginx load balancer[/bold]")
-                stack.enter_context(_start_nginx(work_dir, instance_ports, port=port))
+                nginx_container = "benchmark-nginx"
+                stack.enter_context(
+                    _start_nginx(
+                        work_dir, instance_ports, port=port, container_name=nginx_container
+                    )
+                )
                 subprocess.run(
-                    ["docker", "exec", "benchmark-nginx", "nginx", "-s", "reload"],
+                    ["docker", "exec", nginx_container, "nginx", "-s", "reload"],
                     capture_output=True,
                 )
                 time.sleep(1)
