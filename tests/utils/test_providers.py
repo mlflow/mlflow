@@ -191,9 +191,9 @@ def test_get_models_dedupes_models_after_normalization():
 def test_get_all_providers_with_allowed_filter(monkeypatch):
     with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
         mock_model_cost.return_value = {
-            "gpt-4o": {"litellm_provider": "openai", "mode": "chat"},
-            "claude-3-5-sonnet": {"litellm_provider": "anthropic", "mode": "chat"},
-            "gemini-1.5-pro": {"litellm_provider": "gemini", "mode": "chat"},
+            ("openai", "gpt-4o"): {"mode": "chat"},
+            ("anthropic", "claude-3-5-sonnet"): {"mode": "chat"},
+            ("gemini", "gemini-1.5-pro"): {"mode": "chat"},
         }
         monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai,anthropic")
         providers = get_all_providers()
@@ -205,9 +205,9 @@ def test_get_all_providers_with_allowed_filter(monkeypatch):
 def test_get_all_providers_with_blocked_filter(monkeypatch):
     with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
         mock_model_cost.return_value = {
-            "gpt-4o": {"litellm_provider": "openai", "mode": "chat"},
-            "claude-3-5-sonnet": {"litellm_provider": "anthropic", "mode": "chat"},
-            "gemini-1.5-pro": {"litellm_provider": "gemini", "mode": "chat"},
+            ("openai", "gpt-4o"): {"mode": "chat"},
+            ("anthropic", "claude-3-5-sonnet"): {"mode": "chat"},
+            ("gemini", "gemini-1.5-pro"): {"mode": "chat"},
         }
         monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "gemini")
         providers = get_all_providers()
@@ -219,13 +219,11 @@ def test_get_all_providers_with_blocked_filter(monkeypatch):
 def test_get_models_filters_blocked_providers(monkeypatch):
     with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
         mock_model_cost.return_value = {
-            "gpt-4o": {
-                "litellm_provider": "openai",
+            ("openai", "gpt-4o"): {
                 "mode": "chat",
                 "supports_function_calling": True,
             },
-            "claude-3-5-sonnet": {
-                "litellm_provider": "anthropic",
+            ("anthropic", "claude-3-5-sonnet"): {
                 "mode": "chat",
                 "supports_function_calling": True,
             },
@@ -240,18 +238,15 @@ def test_get_models_filters_blocked_providers(monkeypatch):
 def test_get_models_filters_with_allowed_providers(monkeypatch):
     with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
         mock_model_cost.return_value = {
-            "gpt-4o": {
-                "litellm_provider": "openai",
+            ("openai", "gpt-4o"): {
                 "mode": "chat",
                 "supports_function_calling": True,
             },
-            "claude-3-5-sonnet": {
-                "litellm_provider": "anthropic",
+            ("anthropic", "claude-3-5-sonnet"): {
                 "mode": "chat",
                 "supports_function_calling": True,
             },
-            "gemini-1.5-pro": {
-                "litellm_provider": "gemini",
+            ("gemini", "gemini-1.5-pro"): {
                 "mode": "chat",
                 "supports_function_calling": True,
             },

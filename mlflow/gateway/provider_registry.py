@@ -24,9 +24,10 @@ class ProviderRegistry:
         if name not in self._providers:
             raise MlflowException.invalid_parameter_value(f"Provider '{name}' not found")
 
-        if not is_provider_allowed(_provider_key_to_str(name)):
+        provider_str = _provider_key_to_str(name)
+        if not is_provider_allowed(provider_str):
             raise MlflowException.invalid_parameter_value(
-                f"Provider '{name}' is not allowed by the current gateway provider policy. "
+                f"Provider '{provider_str}' is not allowed by the current gateway provider policy. "
                 "Check MLFLOW_GATEWAY_ALLOWED_PROVIDERS and MLFLOW_GATEWAY_BLOCKED_PROVIDERS."
             )
         return self._providers[name]
