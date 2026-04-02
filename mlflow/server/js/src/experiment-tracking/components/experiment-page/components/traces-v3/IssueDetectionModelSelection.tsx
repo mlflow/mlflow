@@ -142,7 +142,7 @@ export const IssueDetectionModelSelection = forwardRef<
 
   // Get display value for the dropdown
   const dropdownDisplayValue = useMemo(() => {
-    if (mode === 'direct') {
+    if (hasInitializedMode && mode === 'direct') {
       return intl.formatMessage({
         defaultMessage: 'Configure model directly',
         description: 'Option to configure model directly instead of using an endpoint',
@@ -154,7 +154,7 @@ export const IssueDetectionModelSelection = forwardRef<
     }
     // No endpoint selected yet - return empty to show placeholder
     return '';
-  }, [mode, selectedEndpointName, endpointOptions, intl]);
+  }, [mode, selectedEndpointName, endpointOptions, intl, hasInitializedMode]);
 
   // Handle selection from dropdown
   const handleDropdownSelect = useCallback((value: string) => {
@@ -296,7 +296,11 @@ export const IssueDetectionModelSelection = forwardRef<
               componentId="mlflow.traces.issue-detection-modal.model-source"
               id="mlflow.traces.issue-detection-modal.model-source"
               value={
-                mode === 'direct' ? [CONFIGURE_DIRECTLY_VALUE] : selectedEndpointName ? [selectedEndpointName] : []
+                hasInitializedMode && mode === 'direct'
+                  ? [CONFIGURE_DIRECTLY_VALUE]
+                  : selectedEndpointName
+                    ? [selectedEndpointName]
+                    : []
               }
             >
               <DialogComboboxTrigger
@@ -308,28 +312,32 @@ export const IssueDetectionModelSelection = forwardRef<
                 })}
                 renderDisplayedValue={() => (dropdownDisplayValue ? <span>{dropdownDisplayValue}</span> : null)}
               />
-              <DialogComboboxContent maxHeight={350}>
+              <DialogComboboxContent>
                 <DialogComboboxOptionList>
-                  {endpointOptions.map((option) => (
-                    <DialogComboboxOptionListSelectItem
-                      key={option.value}
-                      value={option.value}
-                      onChange={() => handleDropdownSelect(option.value)}
-                      checked={mode === 'endpoint' && selectedEndpointName === option.value}
-                    >
-                      {option.label}
-                      {option.provider && option.modelName && (
-                        <DialogComboboxHintRow>
-                          {option.provider} / {option.modelName}
-                        </DialogComboboxHintRow>
-                      )}
-                    </DialogComboboxOptionListSelectItem>
-                  ))}
+                  {endpointOptions.length > 0 && (
+                    <div css={{ maxHeight: 150, overflowY: 'auto' }}>
+                      {endpointOptions.map((option) => (
+                        <DialogComboboxOptionListSelectItem
+                          key={option.value}
+                          value={option.value}
+                          onChange={() => handleDropdownSelect(option.value)}
+                          checked={mode === 'endpoint' && selectedEndpointName === option.value}
+                        >
+                          {option.label}
+                          {option.provider && option.modelName && (
+                            <DialogComboboxHintRow>
+                              {option.provider} / {option.modelName}
+                            </DialogComboboxHintRow>
+                          )}
+                        </DialogComboboxOptionListSelectItem>
+                      ))}
+                    </div>
+                  )}
                   {endpointOptions.length > 0 && <DialogComboboxSeparator />}
                   <DialogComboboxOptionListSelectItem
                     value={CONFIGURE_DIRECTLY_VALUE}
                     onChange={() => handleDropdownSelect(CONFIGURE_DIRECTLY_VALUE)}
-                    checked={mode === 'direct'}
+                    checked={hasInitializedMode && mode === 'direct'}
                   >
                     <FormattedMessage
                       defaultMessage="Configure model directly"
