@@ -546,6 +546,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'tracing/opentelemetry/genai-semconv',
+              label: 'GenAI Semantic Conventions',
+            },
+            {
+              type: 'doc',
               id: 'tracing/opentelemetry/attribute-mapping',
               label: 'Attribute Mapping',
             },
@@ -571,6 +576,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'eval-monitor/quickstart',
           label: 'Quickstart',
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/ai-insights/detect-issues',
+          label: 'Automatic Issue Detection',
         },
         {
           type: 'category',
@@ -860,11 +870,6 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'category',
           label: 'AI Insights',
           items: [
-            {
-              type: 'doc',
-              id: 'eval-monitor/ai-insights/detect-issues',
-              label: 'Automatic Issue Detection',
-            },
             {
               type: 'doc',
               id: 'eval-monitor/ai-insights/ai-issue-discovery',

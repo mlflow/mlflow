@@ -709,6 +709,14 @@ MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_
 # How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
+#: When enabled, automatically extracts base64-encoded multimodal content (images, audio) from
+#: span inputs/outputs and stores them as separate trace attachments. This keeps trace JSON
+#: lightweight while preserving the binary content as downloadable artifacts.
+#: (default: ``True``)
+MLFLOW_TRACE_EXTRACT_ATTACHMENTS = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_EXTRACT_ATTACHMENTS", True
+)
+
 #: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.
 #: This cache improves performance by avoiding repeated network calls for the same prompt version.
 #: (default: ``128``)
@@ -1139,6 +1147,15 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
 #: (default: ``None`` (an active MLflow experiment will be used))
 MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", str, None)
+
+#: When set to ``True``, use OTel BatchSpanProcessor to export spans in a background thread
+#: instead of inline during on_end. This decouples trace export from request handling under
+#: concurrent load. Only takes effect when ``MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`` is also
+#: explicitly enabled. This will always be enabled in a future release.
+#: (default: ``True``)
+MLFLOW_USE_BATCH_SPAN_PROCESSOR = _BooleanEnvironmentVariable(
+    "MLFLOW_USE_BATCH_SPAN_PROCESSOR", True
+)
 
 
 #######################################################################################

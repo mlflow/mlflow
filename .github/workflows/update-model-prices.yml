@@ -13,7 +13,7 @@ defaults:
 jobs:
   update-model-prices:
     if: github.repository == 'mlflow/mlflow'
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
@@ -29,11 +29,25 @@ jobs:
         with:
           persist-credentials: true
 
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+      - uses: ./.github/actions/setup-node
+
       - name: Download latest model prices
         run: |
           curl -fsSL \
             https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json \
             -o mlflow/utils/model_prices_and_context_window.json
+
+      - name: Run pre-commit
+        run: |
+          uv sync --locked --only-group lint
+          uv run --no-sync pre-commit install --install-hooks
+          uv run --no-sync pre-commit run install-bin -a -v
+          # pre-commit exits 1 when it auto-fixes files (e.g. prettier reformats JSON).
+          # That's expected here — the fixes are picked up by the subsequent git diff.
+          uv run --no-sync pre-commit run --files mlflow/utils/model_prices_and_context_window.json || true
 
       - name: Check for changes
         id: diff

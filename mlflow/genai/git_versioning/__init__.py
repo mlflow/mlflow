@@ -69,7 +69,7 @@ def _enable_git_model_versioning(remote_name: str) -> None:
     return context
 
 
-@experimental(version="3.4.0")
+@experimental(version="3.4.0", skip=True)
 def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     """
     Enable automatic Git-based model versioning for MLflow traces.
@@ -120,7 +120,7 @@ def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     return _enable_git_model_versioning(remote_name)
 
 
-@experimental(version="3.4.0")
+@experimental(version="3.4.0", skip=True)
 def disable_git_model_versioning() -> None:
     """
     Disable Git-based model versioning and clear the active model context.

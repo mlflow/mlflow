@@ -16,7 +16,7 @@ from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
-from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
+from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     add_size_stats_to_trace_metadata,
@@ -95,7 +95,11 @@ class MlflowV3SpanExporter(SpanExporter):
         self, spans: Sequence[ReadableSpan]
     ) -> dict[str, list[Span]]:
         """
-        Collect MLflow spans from ReadableSpans for export, grouped by experiment ID.
+        Collect MLflow spans from ReadableSpans for export, grouped by experiment_id.
+
+        The experiment_id is resolved from the trace info (set during on_start in the
+        originating thread) rather than from get_experiment_id_for_trace(), which reads
+        thread-local ContextVars that are unavailable in the batch processor's worker thread.
 
         Args:
             spans: Sequence of ReadableSpan objects.
@@ -108,12 +112,23 @@ class MlflowV3SpanExporter(SpanExporter):
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
-            experiment_id = get_experiment_id_for_trace(span)
+            if mlflow_trace_id is None:
+                continue
             span_id = encode_span_id(span.context.span_id)
-            # we need to fetch the mlflow span from the trace manager because the span
-            # may be updated in processor before exporting (e.g. deduplication).
-            if mlflow_span := manager.get_span_from_id(mlflow_trace_id, span_id):
-                spans_by_experiment[experiment_id].append(mlflow_span)
+            mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
+            if mlflow_span is None:
+                continue
+            # Get experiment_id from trace info (resolved at on_start time in the
+            # originating thread) to survive BatchSpanProcessor thread hops.
+            with manager.get_trace(mlflow_trace_id) as trace:
+                try:
+                    experiment_id = trace.info.experiment_id if trace else None
+                except AttributeError:
+                    # Remote/distributed traces may have trace_location=None
+                    experiment_id = None
+            if experiment_id is None:
+                experiment_id = get_experiment_id_for_trace(span)
+            spans_by_experiment[experiment_id].append(mlflow_span)
 
         return spans_by_experiment
 
@@ -143,7 +158,6 @@ class MlflowV3SpanExporter(SpanExporter):
                 continue
 
             trace = manager_trace.trace
-            _set_last_active_trace_id(trace.info.request_id)
 
             # Store mapping from eval request ID to trace ID so that the evaluation
             # harness can access to the trace using mlflow.get_trace(eval_request_id)

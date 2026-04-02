@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import BaseModel
+
 
 def serialize_messages_to_prompts(
     messages: list[Any],
@@ -66,3 +68,13 @@ def serialize_chat_messages_to_prompts(
     messages: list[dict[str, Any]],
 ) -> tuple[str, str | None]:
     return serialize_messages_to_prompts(messages)
+
+
+def pydantic_to_response_format(cls: type[BaseModel]) -> dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": cls.__name__,
+            "schema": cls.model_json_schema(),
+        },
+    }
