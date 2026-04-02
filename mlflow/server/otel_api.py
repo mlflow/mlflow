@@ -29,6 +29,7 @@ from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
     OTLP_TRACES_PATH,
+    _decode_otel_proto_anyvalue,
     decompress_otlp_body,
 )
 from mlflow.tracking.request_header.default_request_header_provider import (
@@ -109,7 +110,15 @@ async def export_traces(
 
     all_spans = []
     completed_trace_ids = set()
+    service_names = set()
     for resource_span in parsed_request.resource_spans:
+        if sn_attr := next(
+            (attr for attr in resource_span.resource.attributes if attr.key == "service.name"),
+            None,
+        ):
+            if value := _decode_otel_proto_anyvalue(sn_attr.value):
+                service_names.add(str(value))
+
         for scope_span in resource_span.scope_spans:
             for otel_proto_span in scope_span.spans:
                 try:
@@ -148,19 +157,21 @@ async def export_traces(
             )
 
         if completed_trace_ids:
-            trace_source = (
-                TraceSource.MLFLOW_PYTHON_CLIENT
-                if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX)
-                else TraceSource.UNKNOWN
-            )
+            if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX):
+                trace_source = TraceSource.MLFLOW_PYTHON_CLIENT
+            elif service_names:
+                trace_source = TraceSource.EXTERNAL_OTEL_CLIENT
+            else:
+                trace_source = TraceSource.UNKNOWN
 
-            _record_event(
-                TracesReceivedByServerEvent,
-                {
-                    "source": trace_source,
-                    "count": len(completed_trace_ids),
-                },
-            )
+            event_params: dict[str, object] = {
+                "source": trace_source,
+                "count": len(completed_trace_ids),
+            }
+            if service_names:
+                event_params["service_names"] = sorted(service_names)
+
+            _record_event(TracesReceivedByServerEvent, event_params)
 
     # Return protobuf response as per OTLP specification
     response_message = ExportTraceServiceResponse()

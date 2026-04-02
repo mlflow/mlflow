@@ -20,7 +20,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
     ExportTraceServiceRequest,
     ExportTraceServiceResponse,
 )
-from opentelemetry.proto.common.v1.common_pb2 import InstrumentationScope
+from opentelemetry.proto.common.v1.common_pb2 import AnyValue, InstrumentationScope, KeyValue
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource
 from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
@@ -733,6 +733,75 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
         assert record.status.value == "success"
         assert record.params["source"] == TraceSource.UNKNOWN.value
         assert record.params["count"] == 2
+
+
+@pytest.mark.parametrize(
+    ("service_name", "expected_service_names"),
+    [
+        ("codex_cli_rs", ["codex_cli_rs"]),
+        ("gemini-cli", ["gemini-cli"]),
+        ("qwen-code", ["qwen-code"]),
+        ("my-custom-app", ["my-custom-app"]),
+    ],
+)
+def test_otel_trace_received_telemetry_from_external_otel_client_with_service_name(
+    mlflow_server: str, service_name: str, expected_service_names: list[str]
+):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-telemetry-service-name-test")
+    experiment_id = experiment.experiment_id
+
+    trace_id = bytes.fromhex("0000000000000500" + "0" * 16)
+
+    request = ExportTraceServiceRequest()
+    request.resource_spans.append(
+        ResourceSpans(
+            resource=Resource(
+                attributes=[
+                    KeyValue(key="service.name", value=AnyValue(string_value=service_name)),
+                ]
+            ),
+            scope_spans=[
+                ScopeSpans(
+                    scope=InstrumentationScope(name="test-scope"),
+                    spans=[
+                        OTelProtoSpan(
+                            trace_id=trace_id,
+                            span_id=bytes.fromhex("00000005" + "0" * 8),
+                            name="root-span",
+                            start_time_unix_nano=1000000000,
+                            end_time_unix_nano=2000000000,
+                        ),
+                    ],
+                )
+            ],
+        )
+    )
+
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_client.config = None
+        mock_get_client.return_value = mock_client
+
+        response = requests.post(
+            f"{mlflow_server}/v1/traces",
+            data=request.SerializeToString(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+            },
+            timeout=10,
+        )
+
+        assert response.status_code == 200
+
+        mock_client.add_record.assert_called_once()
+        record = mock_client.add_record.call_args[0][0]
+
+        assert record.event_name == TracesReceivedByServerEvent.name
+        assert record.params["source"] == TraceSource.EXTERNAL_OTEL_CLIENT.value
+        assert record.params["count"] == 1
+        assert record.params["service_names"] == expected_service_names
 
 
 def test_response_is_protobuf_format(mlflow_server: str):
