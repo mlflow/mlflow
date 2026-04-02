@@ -419,15 +419,15 @@ describe('IssueDetectionModal', () => {
       expect(onClose).toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalledWith({
         pathname: '/experiments/exp-123/evaluation-runs/run-456',
-        search: '',
+        search: undefined,
       });
     });
   });
 
-  test('preserves time range query params when navigating to run details', async () => {
+  test('preserves only time range query params when navigating to run details', async () => {
     const onClose = jest.fn();
     jest.mocked(useLocation).mockReturnValue({
-      search: '?startTimeLabel=LAST_7_DAYS',
+      search: '?startTimeLabel=LAST_7_DAYS&someOtherParam=foo',
       pathname: '/',
       hash: '',
       state: null,

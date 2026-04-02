@@ -12,6 +12,7 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../routes';
+import { getTimeRangeQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
@@ -112,7 +113,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             onClose();
             navigate({
               pathname: Routes.getIssueDetectionRunDetailsRoute(experimentId, response.run_id),
-              search: location.search,
+              search: getTimeRangeQueryString(location.search),
             });
           },
         },
