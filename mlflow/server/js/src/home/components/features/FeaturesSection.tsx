@@ -61,7 +61,7 @@ export const FeaturesSection = () => {
             }}
           >
             {featureDefinitions.map((feature) => (
-              <FeatureCard key={feature.id} feature={feature} />
+              <FeatureCard key={feature.id} feature={feature} componentId={feature.componentId} />
             ))}
           </div>
         </div>

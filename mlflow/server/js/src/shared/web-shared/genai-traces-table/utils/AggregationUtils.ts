@@ -6,6 +6,7 @@ import {
   ASSESSMENT_SESSION_METADATA_KEY,
   INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
 } from '../../model-trace-explorer/constants';
+import { NOTES_ASSESSMENT_NAME } from '../../model-trace-explorer/assessments-pane/AssessmentsPaneNotesSection';
 
 import { getAssessmentValueBarBackgroundColor } from './Colors';
 import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
@@ -110,8 +111,8 @@ export function getAssessmentInfos(
       ...overallAssessmentsByName,
       ...retrievalAssessmentsByName,
     ]) {
-      // Skip internal assessments that are implementation details of the issue discovery pipeline
-      if (assessmentName === INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE) {
+      // Skip internal assessments
+      if (assessmentName === INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE || assessmentName === NOTES_ASSESSMENT_NAME) {
         continue;
       }
       assessmentNames.add(assessmentName);
