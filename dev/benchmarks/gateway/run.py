@@ -194,55 +194,54 @@ def _start_postgres(container_name: str = "benchmark-postgres") -> Generator[str
     """Start a PostgreSQL Docker container. Yields the connection URI."""
     subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        TimeElapsedColumn(),
-        console=console,
-        transient=True,
-    ) as progress:
-        progress.add_task("  Starting PostgreSQL...", total=None)
-        subprocess.Popen(
-            [
-                "docker",
-                "run",
-                "--rm",
-                "--name",
-                container_name,
-                "-e",
-                f"POSTGRES_PASSWORD={POSTGRES_PASSWORD}",
-                "-e",
-                "POSTGRES_DB=mlflow",
-                "-p",
-                f"127.0.0.1:{POSTGRES_PORT}:5432",
-                "postgres:16-alpine",
-                "-c",
-                "max_connections=500",
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+    with subprocess.Popen(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--name",
+            container_name,
+            "-e",
+            f"POSTGRES_PASSWORD={POSTGRES_PASSWORD}",
+            "-e",
+            "POSTGRES_DB=mlflow",
+            "-p",
+            f"127.0.0.1:{POSTGRES_PORT}:5432",
+            "postgres:16-alpine",
+            "-c",
+            "max_connections=500",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ):
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            TimeElapsedColumn(),
+            console=console,
+            transient=True,
+        ) as progress:
+            progress.add_task("  Starting PostgreSQL...", total=None)
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                if (
+                    subprocess.run(
+                        ["docker", "exec", container_name, "pg_isready", "-U", "postgres"],
+                        capture_output=True,
+                    ).returncode
+                    == 0
+                ):
+                    break
+                time.sleep(0.5)
+            else:
+                console.print("  [red]✗ PostgreSQL failed to start within 30s[/red]")
+                sys.exit(1)
 
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline:
-            if (
-                subprocess.run(
-                    ["docker", "exec", container_name, "pg_isready", "-U", "postgres"],
-                    capture_output=True,
-                ).returncode
-                == 0
-            ):
-                break
-            time.sleep(0.5)
-        else:
-            console.print("  [red]✗ PostgreSQL failed to start within 30s[/red]")
-            sys.exit(1)
-
-    console.print("  [green]✓[/green] PostgreSQL ready")
-    try:
-        yield f"postgresql://postgres:{POSTGRES_PASSWORD}@127.0.0.1:{POSTGRES_PORT}/mlflow"
-    finally:
-        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+        console.print("  [green]✓[/green] PostgreSQL ready")
+        try:
+            yield f"postgresql://postgres:{POSTGRES_PASSWORD}@127.0.0.1:{POSTGRES_PORT}/mlflow"
+        finally:
+            subprocess.run(["docker", "kill", container_name], capture_output=True)
 
 
 def _api_post(tracking_uri: str, path: str, body: dict[str, Any]) -> Any:
