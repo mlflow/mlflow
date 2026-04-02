@@ -1,11 +1,7 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { QuickStartTemplates } from './QuickStartTemplates';
-
-jest.mock('../../hooks/useModelsQuery', () => ({
-  useModelsQuery: () => ({ data: undefined, error: undefined, isLoading: false, refetch: jest.fn() }),
-}));
 
 const renderComponent = () =>
   renderWithDesignSystem(

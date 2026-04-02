@@ -1,22 +1,3 @@
-import type { ProviderModel } from '../types';
-
-/**
- * Derives a human-readable capability string from a ProviderModel.
- * This is the single source of truth for how capabilities are displayed
- * across the UI (model selector, summary sidebar, quick-start cards).
- */
-export const getModelCapabilities = (model: Pick<ProviderModel, 'supports_function_calling' | 'supports_reasoning' | 'supports_prompt_caching' | 'supports_response_schema'> | undefined): string => {
-  if (!model) return '';
-  return [
-    model.supports_function_calling && 'Tools',
-    model.supports_reasoning && 'Reasoning',
-    model.supports_prompt_caching && 'Caching',
-    model.supports_response_schema && 'Structured',
-  ]
-    .filter(Boolean)
-    .join(', ');
-};
-
 export const formatTokens = (tokens: number | null | undefined): string | null => {
   if (tokens === null || tokens === undefined) return null;
   if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;

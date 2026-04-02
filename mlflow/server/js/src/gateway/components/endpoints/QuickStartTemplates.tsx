@@ -1,19 +1,14 @@
-import { useMemo } from 'react';
 import { Button, CloudModelIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
 import { formatProviderName } from '../../utils/providerUtils';
-import { getModelCapabilities } from '../../utils/formatters';
-import { useModelsQuery } from '../../hooks/useModelsQuery';
 
 interface QuickStartTemplate {
   provider: string;
   model: string;
   endpointName: string;
   secretName: string;
-  /** Override capabilities instead of deriving from the model catalog */
-  capabilitiesOverride?: string;
 }
 
 /**
@@ -50,50 +45,11 @@ const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
     model: 'databricks-gpt-5',
     endpointName: 'databricks-gpt-5-endpoint',
     secretName: 'databricks-api-key',
-    capabilitiesOverride: 'Tools, Reasoning, Caching, Structured, Enterprise-grade',
   },
 ];
 
-const useTemplateCapabilities = (templates: QuickStartTemplate[]) => {
-  const providers = [...new Set(templates.map((t) => t.provider))];
-
-  // Fetch models for each provider. The number of hooks is fixed (4 providers)
-  // so the rules of hooks are satisfied.
-  const openaiModels = useModelsQuery({ provider: providers.includes('openai') ? 'openai' : undefined });
-  const anthropicModels = useModelsQuery({ provider: providers.includes('anthropic') ? 'anthropic' : undefined });
-  const geminiModels = useModelsQuery({ provider: providers.includes('gemini') ? 'gemini' : undefined });
-  const databricksModels = useModelsQuery({ provider: providers.includes('databricks') ? 'databricks' : undefined });
-
-  const allModels = useMemo(() => {
-    const combined = [
-      ...(openaiModels.data ?? []),
-      ...(anthropicModels.data ?? []),
-      ...(geminiModels.data ?? []),
-      ...(databricksModels.data ?? []),
-    ];
-    const map = new Map<string, (typeof combined)[number]>();
-    for (const m of combined) {
-      map.set(`${m.provider}/${m.model}`, m);
-    }
-    return map;
-  }, [openaiModels.data, anthropicModels.data, geminiModels.data, databricksModels.data]);
-
-  return useMemo(
-    () =>
-      new Map(
-        templates.map((t) => {
-          if (t.capabilitiesOverride) return [t.provider, t.capabilitiesOverride];
-          const model = allModels.get(`${t.provider}/${t.model}`);
-          return [t.provider, getModelCapabilities(model)];
-        }),
-      ),
-    [templates, allModels],
-  );
-};
-
 export const QuickStartTemplates = () => {
   const { theme } = useDesignSystemTheme();
-  const capabilities = useTemplateCapabilities(QUICK_START_TEMPLATES);
 
   return (
     <div
@@ -136,55 +92,47 @@ export const QuickStartTemplates = () => {
           width: '100%',
         }}
       >
-        {QUICK_START_TEMPLATES.map((template) => {
-          const caps = capabilities.get(template.provider);
-          return (
-            <Link
-              key={template.provider}
-              componentId={`mlflow.gateway.quick_start.${template.provider}`}
-              to={GatewayRoutes.createEndpointPageRoute}
-              state={{
-                provider: template.provider,
-                model: template.model,
-                endpointName: template.endpointName,
-                secretName: template.secretName,
-              }}
+        {QUICK_START_TEMPLATES.map((template) => (
+          <Link
+            key={template.provider}
+            componentId={`mlflow.gateway.quick_start.${template.provider}`}
+            to={GatewayRoutes.createEndpointPageRoute}
+            state={{
+              provider: template.provider,
+              model: template.model,
+              endpointName: template.endpointName,
+              secretName: template.secretName,
+            }}
+            css={{
+              textDecoration: 'none',
+              color: 'inherit',
+              display: 'flex',
+            }}
+          >
+            <div
               css={{
-                textDecoration: 'none',
-                color: 'inherit',
                 display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.sm,
+                padding: theme.spacing.md,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                width: '100%',
+                cursor: 'pointer',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+                '&:hover': {
+                  borderColor: theme.colors.actionPrimaryBackgroundDefault,
+                  boxShadow: theme.shadows.sm,
+                },
               }}
             >
-              <div
-                css={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: theme.spacing.sm,
-                  padding: theme.spacing.md,
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  width: '100%',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s, box-shadow 0.15s',
-                  '&:hover': {
-                    borderColor: theme.colors.actionPrimaryBackgroundDefault,
-                    boxShadow: theme.shadows.sm,
-                  },
-                }}
-              >
-                <Typography.Text bold>{formatProviderName(template.provider)}</Typography.Text>
-                <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                  {template.model}
-                </Typography.Text>
-                {caps && (
-                  <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                    {caps}
-                  </Typography.Text>
-                )}
-              </div>
-            </Link>
-          );
-        })}
+              <Typography.Text bold>{formatProviderName(template.provider)}</Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                {template.model}
+              </Typography.Text>
+            </div>
+          </Link>
+        ))}
       </div>
 
       <Link

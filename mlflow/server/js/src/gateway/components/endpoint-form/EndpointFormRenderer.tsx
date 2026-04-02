@@ -13,7 +13,7 @@ import { formatProviderName } from '../../utils/providerUtils';
 import { LongFormSection } from '../../../common/components/long-form/LongFormSection';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { ProviderModel, SecretInfo } from '../../types';
-import { formatTokens, formatCost, getModelCapabilities } from '../../utils/formatters';
+import { formatTokens, formatCost } from '../../utils/formatters';
 import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
 
 const LONG_FORM_TITLE_WIDTH = 200;
@@ -403,7 +403,9 @@ const ModelSummary = ({ model, modelName }: { model: ProviderModel | undefined; 
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const capabilities = getModelCapabilities(model);
+  const capabilities: string[] = [];
+  if (model?.supports_function_calling) capabilities.push('Tools');
+  if (model?.supports_reasoning) capabilities.push('Reasoning');
 
   const contextWindow = formatTokens(model?.max_input_tokens);
   const inputCost = formatCost(model?.input_cost_per_token);
@@ -424,12 +426,12 @@ const ModelSummary = ({ model, modelName }: { model: ProviderModel | undefined; 
       </Typography.Text>
 
       {/* Capabilities */}
-      {capabilities && (
+      {capabilities.length > 0 && (
         <Typography.Text
           color="secondary"
           css={{ fontSize: theme.typography.fontSizeSm, marginLeft: theme.spacing.sm }}
         >
-          {capabilities}
+          {capabilities.join(', ')}
         </Typography.Text>
       )}
 
