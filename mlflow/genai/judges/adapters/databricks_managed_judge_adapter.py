@@ -375,7 +375,7 @@ class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
     ) -> bool:
         return model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL
 
-    def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+    def _invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         if input_params.base_url is not None or input_params.extra_headers is not None:
             raise MlflowException(
                 "base_url and extra_headers are not supported for Databricks Managed Judge. "

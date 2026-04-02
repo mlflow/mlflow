@@ -992,7 +992,7 @@ def test_invoke_judge_model_databricks_failure_telemetry(model_uri: str, expecte
             ),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_failure_databricks_telemetry"
+            "mlflow.genai.judges.utils.telemetry_utils._record_judge_model_usage_failure_databricks_telemetry"
         ) as mock_failure_telemetry,
     ):
         with pytest.raises(MlflowException, match="Rate limit exceeded"):
@@ -1048,7 +1048,7 @@ def test_invoke_judge_model_databricks_success_telemetry(
     with (
         mock.patch("litellm.completion", return_value=mock_response),
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_success_databricks_telemetry"
+            "mlflow.genai.judges.utils.telemetry_utils._record_judge_model_usage_success_databricks_telemetry"
         ) as mock_success_telemetry,
     ):
         feedback = invoke_judge_model(
@@ -1085,7 +1085,7 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
     with (
         mock.patch("litellm.completion", return_value=mock_response),
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_success_databricks_telemetry",
+            "mlflow.genai.judges.utils.telemetry_utils._record_judge_model_usage_success_databricks_telemetry",
             side_effect=Exception("Telemetry failed"),
         ) as mock_success_telemetry,
     ):
@@ -1121,10 +1121,10 @@ def test_invoke_judge_model_non_databricks_no_telemetry(model_uri: str, mock_res
     with (
         mock.patch("litellm.completion", return_value=mock_response),
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_success_databricks_telemetry"
+            "mlflow.genai.judges.utils.telemetry_utils._record_judge_model_usage_success_databricks_telemetry"
         ) as mock_success_telemetry,
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._record_judge_model_usage_failure_databricks_telemetry"
+            "mlflow.genai.judges.utils.telemetry_utils._record_judge_model_usage_failure_databricks_telemetry"
         ) as mock_failure_telemetry,
     ):
         feedback = invoke_judge_model(
