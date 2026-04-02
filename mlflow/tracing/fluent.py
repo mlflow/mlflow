@@ -35,6 +35,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.context import _USER_TRACE_CONTEXT
 from mlflow.tracing.provider import (
+    _get_trace_exporter,
     get_current_otel_span,
     is_tracing_enabled,
     safe_set_span_in_context,
@@ -759,6 +760,20 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
     """
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
+
+    # Flush any pending async trace writes so the caller always sees the latest state.
+    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
+
+    try:
+        flush_all_batch_processors()
+    except Exception:
+        pass
+    try:
+        if trace_exporter := _get_trace_exporter():
+            if hasattr(trace_exporter, "_async_queue"):
+                trace_exporter._async_queue.flush()
+    except Exception:
+        pass
 
     try:
         return TracingClient().get_trace(trace_id)
