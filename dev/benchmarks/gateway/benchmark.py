@@ -31,7 +31,6 @@ from rich.table import Table  # type: ignore[import-not-found]
 console = Console()
 
 _BODY = {
-    "model": "gpt-4o-mini",
     "messages": [{"role": "user", "content": "benchmark request"}],
     "temperature": 0.0,
     "max_tokens": 50,
