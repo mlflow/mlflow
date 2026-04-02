@@ -110,6 +110,8 @@ All flags can also be set via environment variables (same name, uppercased):
 `INSTANCES`, `WORKERS_PER_INSTANCE`, `REQUESTS`, `MAX_CONCURRENT`, `RUNS`,
 `FAKE_RESPONSE_DELAY_MS`, `MLFLOW_PORT`, `BASE_PORT`, `FAKE_SERVER_PORT`.
 
+To avoid conflicts with a local PostgreSQL instance, override the port via `GATEWAY_BENCH_POSTGRES_PORT` (default: 5432).
+
 ## Known limitations
 
 - **Loopback only** — all processes run on the same machine. Results don't include real

@@ -46,7 +46,7 @@ SCRIPT_DIR = Path(__file__).parent
 FAKE_SERVER_PORT = 9137
 MLFLOW_PORT = 5731
 INSTANCE_BASE_PORT = 5800
-POSTGRES_PORT = 5432
+POSTGRES_PORT = int(os.environ.get("GATEWAY_BENCH_POSTGRES_PORT", "5432"))
 ENDPOINT_NAME = "benchmark-chat"
 
 _API_SECRET_CREATE = "gateway/secrets/create"
