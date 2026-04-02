@@ -7,6 +7,7 @@ import {
   AggregationType,
   AssessmentMetricKey,
   AssessmentDimensionKey,
+  createTraceMetadataFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   getAbsoluteStartEndTime,
@@ -25,12 +26,18 @@ import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hook
  */
 export function useAssessmentCountMetrics({
   experimentIds,
+  runUuid,
   disabled,
 }: {
   experimentIds: string[];
+  runUuid?: string;
   disabled: boolean;
 }): AssessmentCountMetrics | undefined {
   const usingInfinitePagination = shouldUseInfinitePaginatedTraces();
+  const filters = useMemo(
+    () => (runUuid ? [createTraceMetadataFilter('mlflow.sourceRun', runUuid)] : undefined),
+    [runUuid],
+  );
 
   const [monitoringFilters] = useMonitoringFilters();
   const monitoringConfig = useMonitoringConfig();
@@ -51,6 +58,7 @@ export function useAssessmentCountMetrics({
     startTimeMs,
     endTimeMs,
     enabled: usingInfinitePagination && !disabled,
+    filters,
   });
 
   return useMemo(() => {
