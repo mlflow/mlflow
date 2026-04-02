@@ -73,13 +73,8 @@ def _create_gateway_provider(provider: str, model_name: str, **kwargs: Any):
             messages: "Sequence[dict] | None" = None,
             **kwargs,
         ) -> str:
-            if messages:
-                user_prompt, system_prompt = serialize_chat_messages_to_prompts(list(messages))
-                input_data = user_prompt
-                if system_prompt:
-                    input_data = f"{system_prompt}\n\n{user_prompt}"
-            else:
-                input_data = prompt if prompt is not None else ""
+            if not messages:
+                messages = [{"role": "user", "content": prompt or ""}]
 
             # TruLens passes response_format as a Pydantic class; convert it
             # to the OpenAI json_schema dict format for the gateway provider.
@@ -89,26 +84,16 @@ def _create_gateway_provider(provider: str, model_name: str, **kwargs: Any):
                 if isinstance(response_format, type) and issubclass(
                     response_format, pydantic.BaseModel
                 ):
-                    from mlflow.genai.discovery.utils import _pydantic_to_response_format
+                    from mlflow.genai.utils.message_utils import pydantic_to_response_format
 
-                    response_format_dict = _pydantic_to_response_format(response_format)
-
-            # Use the messages path when response_format is present, since
-            # _call_llm_provider_api only applies response_format with messages.
-            if response_format_dict is not None:
-                return _call_llm_provider_api(
-                    provider,
-                    model_name,
-                    messages=[{"role": "user", "content": input_data}],
-                    eval_parameters=kwargs or None,
-                    response_format=response_format_dict,
-                )
+                    response_format_dict = pydantic_to_response_format(response_format)
 
             return _call_llm_provider_api(
                 provider,
                 model_name,
-                input_data=input_data,
+                messages=list(messages),
                 eval_parameters=kwargs or None,
+                response_format=response_format_dict,
             )
 
     return GatewayProvider()

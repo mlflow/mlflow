@@ -154,7 +154,11 @@ def test_gateway_provider_create_chat_completion():
 
     assert result == "The answer is 42."
     mock_call.assert_called_once_with(
-        "openai", "gpt-4", input_data="What is the answer?", eval_parameters=None
+        "openai",
+        "gpt-4",
+        messages=[{"role": "user", "content": "What is the answer?"}],
+        eval_parameters=None,
+        response_format=None,
     )
 
 
