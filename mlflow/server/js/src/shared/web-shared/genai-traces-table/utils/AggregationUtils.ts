@@ -788,6 +788,29 @@ export function getUniqueValueCountsBySourceId(
   return valueCounts;
 }
 
+function buildCountsFromMetrics(
+  assessmentInfo: AssessmentInfo,
+  metricsData: AssessmentCountMetrics['data'],
+): { counts: AssessmentRunCounts; numericValues: number[] } {
+  const relevant = metricsData.filter((m) => m.assessmentName === assessmentInfo.name);
+  const counts: AssessmentRunCounts = new Map();
+  const numericValues: number[] = [];
+
+  for (const metric of relevant) {
+    const typedValue = parseMetricAssessmentValue(metric.assessmentValue);
+    if (assessmentInfo.dtype === 'numeric' && typeof typedValue === 'number') {
+      counts.set(typedValue, metric.count);
+      for (let i = 0; i < metric.count; i++) {
+        numericValues.push(typedValue);
+      }
+    } else {
+      counts.set(typedValue, metric.count);
+    }
+  }
+
+  return { counts, numericValues };
+}
+
 /**
  * Converts a raw string value from the metrics API into a typed AssessmentValueType.
  * The API JSON-encodes assessment values, so "\"yes\"" → "yes",
@@ -810,47 +833,34 @@ function parseMetricAssessmentValue(rawValue: string): AssessmentValueType {
  * Builds AssessmentAggregates from server-side count metrics.
  * Used when infinite pagination is enabled to get accurate counts across all traces.
  * Handles both categorical (pass-fail, boolean, string) and numeric assessments.
+ * Optionally accepts comparison run metrics data for `otherCounts`.
  */
 export function buildAggregatesFromCountMetrics(
   assessmentInfo: AssessmentInfo,
   metricsData: AssessmentCountMetrics['data'],
   allAssessmentFilters: AssessmentFilter[],
+  otherMetricsData?: AssessmentCountMetrics['data'],
 ): AssessmentAggregates {
-  const relevantMetrics = metricsData.filter((m) => m.assessmentName === assessmentInfo.name);
+  const current = buildCountsFromMetrics(assessmentInfo, metricsData);
+  const other = otherMetricsData ? buildCountsFromMetrics(assessmentInfo, otherMetricsData) : undefined;
   const assessmentFilters = allAssessmentFilters.filter((f) => f.assessmentName === assessmentInfo.name);
 
   if (assessmentInfo.dtype === 'numeric') {
-    // For numeric assessments, expand (value, count) pairs into a values array
-    // and build the histogram using the existing bucketing logic.
-    const numericValues: number[] = [];
-    for (const metric of relevantMetrics) {
-      const value = parseFloat(metric.assessmentValue);
-      if (!isNaN(value)) {
-        for (let i = 0; i < metric.count; i++) {
-          numericValues.push(value);
-        }
-      }
-    }
     return {
       assessmentInfo,
-      currentNumericValues: numericValues,
-      currentNumericAggregate: getNumericAggregate(numericValues),
+      currentNumericValues: current.numericValues,
+      otherNumericValues: other?.numericValues,
+      currentNumericAggregate: getNumericAggregate(current.numericValues),
       currentNumRootCause: 0,
       otherNumRootCause: 0,
       assessmentFilters,
     };
   }
 
-  // For categorical assessments, build the value → count map directly.
-  const currentCounts: AssessmentRunCounts = new Map();
-  for (const metric of relevantMetrics) {
-    const typedValue = parseMetricAssessmentValue(metric.assessmentValue);
-    currentCounts.set(typedValue, metric.count);
-  }
-
   return {
     assessmentInfo,
-    currentCounts,
+    currentCounts: current.counts,
+    otherCounts: other?.counts,
     currentNumRootCause: 0,
     otherNumRootCause: 0,
     assessmentFilters,

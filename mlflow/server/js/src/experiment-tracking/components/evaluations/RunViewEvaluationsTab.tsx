@@ -245,6 +245,12 @@ const RunViewEvaluationsTabInner = ({
     disabled: isQueryDisabled,
   });
 
+  const compareAssessmentCountMetrics = useAssessmentCountMetrics({
+    experimentIds,
+    runUuid: compareToRunUuid,
+    disabled: isQueryDisabled || isNil(compareToRunUuid),
+  });
+
   // TODO: We should update this to use web-shared/unified-tagging components for the
   // tag editor and react-query mutations for the apis.
   const { showEditTagsModalForTrace, EditTagsModal } = useEditExperimentTraceTags({
@@ -415,6 +421,7 @@ const RunViewEvaluationsTabInner = ({
                     hasNextPage={combinedHasNextPage}
                     isFetchingNextPage={combinedIsFetchingNextPage}
                     assessmentCountMetrics={assessmentCountMetrics}
+                    compareAssessmentCountMetrics={compareAssessmentCountMetrics}
                   />
                 </ContextProviders>
               )

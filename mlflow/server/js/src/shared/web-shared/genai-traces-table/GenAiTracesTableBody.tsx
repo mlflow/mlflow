@@ -84,6 +84,7 @@ export const GenAiTracesTableBody = React.memo(
     hasNextPage,
     isFetchingNextPage,
     assessmentCountMetrics,
+    compareAssessmentCountMetrics,
   }: {
     experimentId?: string;
     selectedColumns: TracesTableColumn[];
@@ -127,6 +128,7 @@ export const GenAiTracesTableBody = React.memo(
     isFetchingNextPage?: boolean;
     // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
     assessmentCountMetrics?: AssessmentCountMetrics;
+    compareAssessmentCountMetrics?: AssessmentCountMetrics;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -505,20 +507,22 @@ export const GenAiTracesTableBody = React.memo(
     // use them for categorical assessments to get accurate counts across all traces.
     const assessmentNameToAggregates = useMemo(() => {
       const result: Record<string, AssessmentAggregates> = {};
-      const useServerCounts = assessmentCountMetrics && !assessmentCountMetrics.isLoading;
+      const currentData = !assessmentCountMetrics?.isLoading ? assessmentCountMetrics?.data : undefined;
+      const otherData = !compareAssessmentCountMetrics?.isLoading ? compareAssessmentCountMetrics?.data : undefined;
       for (const assessmentInfo of selectedAssessmentInfos) {
-        if (useServerCounts && assessmentInfo.dtype !== 'unknown') {
+        if (currentData && assessmentInfo.dtype !== 'unknown') {
           result[assessmentInfo.name] = buildAggregatesFromCountMetrics(
             assessmentInfo,
-            assessmentCountMetrics.data,
+            currentData,
             assessmentFilters,
+            otherData,
           );
         } else {
           result[assessmentInfo.name] = getAssessmentAggregates(assessmentInfo, evaluations, assessmentFilters);
         }
       }
       return result;
-    }, [selectedAssessmentInfos, evaluations, assessmentFilters, assessmentCountMetrics]);
+    }, [selectedAssessmentInfos, evaluations, assessmentFilters, assessmentCountMetrics, compareAssessmentCountMetrics]);
 
     const evalEntryMatchesEvaluationId = useCallback((evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {
       if (isV4TraceId(evaluationId) && entry?.fullTraceId === evaluationId) {
