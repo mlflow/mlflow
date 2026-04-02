@@ -104,6 +104,30 @@ def has_trace(trace):
     return trace is not None
 
 
+class FailingSessionScorer(mlflow.genai.Scorer):
+    def __init__(self):
+        super().__init__(name="failing_session_scorer")
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    def __call__(self, session=None, **kwargs):
+        raise ValueError("Session scorer error")
+
+
+class WorkingSessionScorer(mlflow.genai.Scorer):
+    def __init__(self):
+        super().__init__(name="working_session_scorer")
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    def __call__(self, session=None, **kwargs):
+        return len(session or [])
+
+
 def _validate_assessments(traces):
     """Validate assessments are added to the traces"""
     for trace in traces:
@@ -1645,6 +1669,169 @@ def test_backpressure_limits_in_flight_items(monkeypatch):
     # The semaphore bounds in-flight items. Without backpressure all
     # num_items would pile up.
     assert observed_max == buffer
+
+
+def test_evaluate_logs_scorer_failure_summary():
+    @scorer
+    def failing_scorer(inputs, outputs):
+        raise ValueError("Model endpoint not found")
+
+    @scorer
+    def working_scorer(inputs, outputs):
+        return True
+
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a platform",
+        },
+        {
+            "inputs": {"question": "What is Python?"},
+            "outputs": "Python is a language",
+        },
+    ]
+
+    with mock.patch("mlflow.genai.evaluation.harness._logger.warning") as mock_warning:
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[failing_scorer, working_scorer],
+        )
+
+        # Evaluation should complete without raising an exception
+        assert "working_scorer/mean" in result.metrics
+
+        # Verify warning was logged with failure summary
+        warning_calls = [call.args[0] for call in mock_warning.call_args_list]
+        failure_warnings = [
+            msg
+            for msg in warning_calls
+            if "Some scorer invocations failed during evaluation" in msg
+        ]
+        warning_message = failure_warnings[0]
+        assert "'failing_scorer': 2/2 failed" in warning_message
+        assert "Check individual trace assessments for detailed error messages" in warning_message
+
+
+def test_evaluate_no_warning_when_all_scorers_succeed():
+    @scorer
+    def working_scorer_1(inputs, outputs):
+        return True
+
+    @scorer
+    def working_scorer_2(inputs, outputs):
+        return False
+
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a platform",
+        },
+    ]
+
+    with mock.patch("mlflow.genai.evaluation.harness._logger.warning") as mock_warning:
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[working_scorer_1, working_scorer_2],
+        )
+
+        assert "working_scorer_1/mean" in result.metrics
+        assert "working_scorer_2/mean" in result.metrics
+        warning_calls = [call.args[0] for call in mock_warning.call_args_list]
+        assert not any(
+            "Some scorer invocations failed during evaluation" in msg for msg in warning_calls
+        )
+
+
+def test_evaluate_logs_scorer_failure_summary_with_multi_turn_scorers():
+
+    @mlflow.trace
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to {question}"
+
+    model("Q1", session_id="session_1")
+    trace_1 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q2", session_id="session_1")
+    trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q3", session_id="session_2")
+    trace_3 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    dataset = create_dataset(name="multi_turn_failure_test")
+    dataset.merge_records([trace_1, trace_2, trace_3])
+
+    with mock.patch("mlflow.genai.evaluation.harness._logger.warning") as mock_warning:
+        result = mlflow.genai.evaluate(
+            data=dataset,
+            scorers=[FailingSessionScorer(), WorkingSessionScorer()],
+        )
+
+        assert "working_session_scorer/mean" in result.metrics
+
+        warning_calls = [call.args[0] for call in mock_warning.call_args_list]
+        failure_warnings = [
+            msg
+            for msg in warning_calls
+            if "Some scorer invocations failed during evaluation" in msg
+        ]
+        assert len(failure_warnings) > 0
+        warning_message = failure_warnings[0]
+        assert "'failing_session_scorer': 2/2 failed" in warning_message
+        assert "Check individual trace assessments for detailed error messages" in warning_message
+
+
+def test_evaluate_logs_scorer_failure_summary_with_mixed_scorers():
+    @scorer
+    def failing_single_turn(inputs, outputs):
+        raise ValueError("Single turn scorer error")
+
+    @mlflow.trace
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to {question}"
+
+    model("Q1", session_id="session_1")
+    trace_1 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q2", session_id="session_1")
+    trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q3", session_id="session_2")
+    trace_3 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q4", session_id="session_2")
+    trace_4 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    # Create dataset from traces
+    dataset = create_dataset(name="mixed_scorer_failure_test")
+    dataset.merge_records([trace_1, trace_2, trace_3, trace_4])
+
+    with mock.patch("mlflow.genai.evaluation.harness._logger.warning") as mock_warning:
+        result = mlflow.genai.evaluate(
+            data=dataset,
+            scorers=[
+                failing_single_turn,
+                always_pass,
+                FailingSessionScorer(),
+                WorkingSessionScorer(),
+            ],
+        )
+
+        assert "always_pass/mean" in result.metrics
+        assert "working_session_scorer/mean" in result.metrics
+
+        warning_calls = [call.args[0] for call in mock_warning.call_args_list]
+        failure_warnings = [
+            msg
+            for msg in warning_calls
+            if "Some scorer invocations failed during evaluation" in msg
+        ]
+        assert len(failure_warnings) > 0
+        warning_message = failure_warnings[0]
+        assert "'failing_single_turn': 4/4 failed" in warning_message
+        assert "'failing_session_scorer': 2/2 failed" in warning_message
+        assert "Check individual trace assessments for detailed error messages" in warning_message
 
 
 def test_no_rate_limit_backward_compat(monkeypatch):

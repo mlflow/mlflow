@@ -9,13 +9,13 @@ import { FallbackModelItem } from './FallbackModelItem';
 export interface FallbackModelsConfiguratorProps {
   value: FallbackModel[];
   onChange: (value: FallbackModel[]) => void;
-  componentIdPrefix?: string;
+  componentId?: string;
 }
 
 export const FallbackModelsConfigurator = ({
   value,
   onChange,
-  componentIdPrefix = 'mlflow.gateway.fallback',
+  componentId = 'mlflow.gateway.fallback',
 }: FallbackModelsConfiguratorProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -89,11 +89,11 @@ export const FallbackModelsConfigurator = ({
             onModelChange={handleModelChange}
             onRemove={handleRemoveModel}
             onMove={handleMoveModel}
-            componentIdPrefix={componentIdPrefix}
+            componentId={componentId}
           />
         ))}
 
-        <Button componentId={`${componentIdPrefix}.add`} icon={<PlusIcon />} onClick={handleAddModel}>
+        <Button componentId={`${componentId}.add`} icon={<PlusIcon />} onClick={handleAddModel}>
           <FormattedMessage defaultMessage="Add fallback" description="Button to add fallback model" />
         </Button>
       </div>

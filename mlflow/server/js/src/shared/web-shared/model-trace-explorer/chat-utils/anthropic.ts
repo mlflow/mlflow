@@ -185,9 +185,13 @@ const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): 
     case 'image': {
       switch (item.source.type) {
         case 'base64': {
+          // If data is an mlflow-attachment:// URI (from auto-extraction), use it directly
+          const url = item.source.data.startsWith('mlflow-attachment://')
+            ? item.source.data
+            : `data:${item.source.media_type};base64,${item.source.data}`;
           return {
             type: 'image_url',
-            image_url: { url: `data:${item.source.media_type};base64,${item.source.data}` },
+            image_url: { url },
           };
         }
         case 'url': {
