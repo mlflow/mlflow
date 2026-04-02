@@ -18,9 +18,9 @@ Please use the reporting process described below instead.
 
 ## Reporting a Vulnerability
 
-When finding a security vulnerability in MLflow, please report it through [GitHub's private vulnerability reporting](https://github.com/mlflow/mlflow/security/advisories/new). Include detailed information about the security vulnerability, evidence that supports the relevance of the finding, and any reproducibility instructions for independent confirmation.
+When finding a security vulnerability in MLflow, please report it through [GitHub's private vulnerability reporting](https://github.com/mlflow/mlflow/security/advisories/new). Include detailed information about the security vulnerability, evidence that supports the relevance of the finding, and any reproducibility instructions for independent confirmation. Do not disclose vulnerability details publicly until coordinated disclosure has been completed.
 
 > [!WARNING]
 > Do not open regular GitHub issues for security vulnerabilities. Any security vulnerability reported as a normal issue will be automatically closed.
 
-An MLflow maintainer will, after validating the report, use the [GitHub Security Advisory](https://docs.github.com/en/code-security/security-advisories/creating-a-security-advisory) to discuss the vulnerability details in private, prepare a fix, and publicly disclose it after the fix has been released.
+MLflow maintainers will review and validate your report within the associated [GitHub Security Advisory](https://docs.github.com/en/code-security/security-advisories/creating-a-security-advisory), using it to coordinate private discussion of the vulnerability details, develop a fix, and publicly disclose the issue after the fix has been released.
