@@ -134,6 +134,13 @@ def _get_dbutils():
         raise _NoDbutilsError
 
 
+def _get_runtime_integration_client():
+    from dbruntime import UserNamespaceInitializer
+
+    driver_connection = UserNamespaceInitializer.getOrCreate().get_driver_connection()
+    return driver_connection.runtime_integration_client
+
+
 class _NoDbutilsError(Exception):
     pass
 
@@ -501,8 +508,12 @@ def get_repl_id():
     Returns:
         The ID of the current Databricks Python REPL.
     """
-    # Attempt to fetch the REPL ID from the Python REPL's entrypoint object. This REPL ID
-    # is guaranteed to be set upon REPL startup in DBR / MLR 9.0
+    try:
+        return _get_runtime_integration_client().getReplId()
+    except Exception:
+        pass
+
+    # Fallback for runtimes without runtime_integration_client: use entry_point directly.
     try:
         dbutils = _get_dbutils()
         repl_id = dbutils.entry_point.getReplId()
@@ -1473,30 +1484,28 @@ def get_databricks_nfs_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplNFSTempDir()
-    else:
-        try:
-            # If it is not ROOT user, it means the code is running in Safe-spark.
-            # In this case, we should get temporary directory of current user.
-            # and `getReplNFSTempDir` will be deprecated for this case.
-            return entry_point.getUserNFSTempDir()
-        except Exception:
-            # fallback
-            return entry_point.getReplNFSTempDir()
+    try:
+        return _get_runtime_integration_client().getUserNFSTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserNFSTempDir()
+    except Exception:
+        return entry_point.getReplNFSTempDir()
 
 
 def get_databricks_local_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplLocalTempDir()
-    else:
-        try:
-            # If it is not ROOT user, it means the code is running in Safe-spark.
-            # In this case, we should get temporary directory of current user.
-            # and `getReplLocalTempDir` will be deprecated for this case.
-            return entry_point.getUserLocalTempDir()
-        except Exception:
-            # fallback
-            return entry_point.getReplLocalTempDir()
+    try:
+        return _get_runtime_integration_client().getUserLocalTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserLocalTempDir()
+    except Exception:
+        return entry_point.getReplLocalTempDir()
 
 
 def stage_model_for_databricks_model_serving(model_name: str, model_version: str):
