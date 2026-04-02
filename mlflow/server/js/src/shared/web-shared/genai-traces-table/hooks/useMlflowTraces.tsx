@@ -582,7 +582,7 @@ export function getSearchMlflowTracesQueryCacheConfig(usingV4APIs: boolean) {
   };
 }
 
-const SEARCH_TRACES_INFINITE_PAGE_SIZE = 50;
+const SEARCH_TRACES_INFINITE_PAGE_SIZE = 100;
 
 type SearchMlflowTracesResponse = {
   traces: ModelTraceInfoV3[];
