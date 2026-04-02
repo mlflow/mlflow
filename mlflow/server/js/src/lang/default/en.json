@@ -3450,6 +3450,14 @@
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
   },
+  "LBaK9z": {
+    "defaultMessage": "Open dataset",
+    "description": "Text for the button that opens the dataset source URL in a new tab"
+  },
+  "LBbyku": {
+    "defaultMessage": "Endpoint",
+    "description": "Run page > Overview > Endpoint used for issue detection"
+  },
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
     "description": "Content in an info popover that instructs the user on how to disable the display. The disable and enable functions are code snippets with the real function names"

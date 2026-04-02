@@ -4226,14 +4226,17 @@ def _invoke_issue_detection_handler():
 
     # Create the run upfront so we can return run_id immediately
     model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
+    tags = {
+        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+        "categories": ",".join(categories),
+        "model": model_name,
+        "total_traces": len(trace_ids),
+    }
+    if endpoint_name:
+        tags["endpoint_name"] = endpoint_name
     run = mlflow.start_run(
         experiment_id=experiment_id,
-        tags={
-            MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
-            "categories": ",".join(categories),
-            "model": model_name,
-            "total_traces": len(trace_ids),
-        },
+        tags=tags,
     )
     run_id = run.info.run_id
 
