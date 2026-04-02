@@ -319,6 +319,10 @@
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
   },
+  "0/VlrO": {
+    "defaultMessage": "Pick a model, add your API key, and call it from your agents. Every request is automatically traced for debugging and evaluation.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
+  },
   "02+DX/": {
     "defaultMessage": "Provider cannot be changed.",
     "description": "Tooltip explaining why provider field is disabled"
@@ -4041,10 +4045,6 @@
   "P31kXd": {
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
-  },
-  "P88AYq": {
-    "defaultMessage": "Create an endpoint to route API calls to any AI model. Add your API key, start calling it from your agents, and configure usage tracking and budgets as you go.",
-    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
   "PAUNgq": {
     "defaultMessage": "Cost Breakdown",
