@@ -14,14 +14,13 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import GatewayRoutes from '../../routes';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { StarterCodeCard } from './StarterCodeCard';
-import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint } from '../../types';
@@ -99,7 +98,6 @@ export const EditEndpointFormRenderer = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
   const VALID_TABS = ['overview', 'usage', 'traces'] as const;
   const tabParam = searchParams.get('tab');
   // Support legacy ?tab=configuration URLs
@@ -184,9 +182,6 @@ export const EditEndpointFormRenderer = ({
             onNameUpdate={onNameUpdate}
             isSubmitting={isSubmitting}
           />
-          <Button componentId="mlflow.gateway.edit-endpoint.use-button" onClick={() => setIsUsageModalOpen(true)}>
-            <FormattedMessage defaultMessage="Use" description="Use endpoint button" />
-          </Button>
         </div>
       </div>
 
@@ -274,7 +269,12 @@ export const EditEndpointFormRenderer = ({
           <div css={{ flex: 1 }}>
             <Tabs.Content value="overview">
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-                {endpoint && <StarterCodeCard endpointName={endpoint.name} />}
+                {endpoint && (
+                  <StarterCodeCard
+                    endpointName={endpoint.name}
+                    provider={endpoint.model_mappings[0]?.model_definition?.provider}
+                  />
+                )}
 
                 <div
                   css={{
@@ -517,11 +517,6 @@ export const EditEndpointFormRenderer = ({
         </div>
       )}
 
-      <EndpointUsageModal
-        open={isUsageModalOpen}
-        onClose={() => setIsUsageModalOpen(false)}
-        endpointName={endpoint?.name || ''}
-      />
     </div>
   );
 };

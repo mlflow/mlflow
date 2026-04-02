@@ -227,6 +227,10 @@
     "defaultMessage": "Please input a name for the new workspace.",
     "description": "Error message for name requirement in create workspace modal"
   },
+  "/UWNW9": {
+    "defaultMessage": "Query endpoint",
+    "description": "Title for try-it modal dialog"
+  },
   "/UktTY": {
     "defaultMessage": "Are the expected facts supported by the response?",
     "description": "Hint for Correctness template"
@@ -3138,10 +3142,6 @@
     "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace. For more information, please visit the <a>official documentation</a> for manual tracing.",
     "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example. The link leads to the MLflow documentation for the user to learn more."
   },
-  "IrinAG": {
-    "defaultMessage": "OpenAI Chat Completions",
-    "description": "Starter code variant: OpenAI Chat Completions"
-  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -4633,10 +4633,6 @@
     "defaultMessage": "Evaluate entire sessions for conversation quality and outcomes.",
     "description": "Hint for the scorer evaluation scope selection for sessions"
   },
-  "SrMiH6": {
-    "defaultMessage": "MLflow Invocations",
-    "description": "Starter code variant: MLflow Invocations"
-  },
   "SrV58C": {
     "defaultMessage": "Settings",
     "description": "Section label for filter settings in the trace explorer."
@@ -5995,6 +5991,10 @@
     "defaultMessage": "Data Type",
     "description": "Field label for assessment data type in an edit form"
   },
+  "b9zfzK": {
+    "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
+    "description": "Try it description in starter code modal"
+  },
   "bCdY2j": {
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
@@ -6598,6 +6598,10 @@
   "ekqDlR": {
     "defaultMessage": "Model version alias created",
     "description": "Webhook event label"
+  },
+  "embiKN": {
+    "defaultMessage": "JSON body sent to the endpoint. Edit the fields and click Send request.",
+    "description": "Request body tooltip in starter code try-it modal"
   },
   "en7FHE": {
     "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking through MLflow Tracing, budget controls, and more.",
@@ -8555,6 +8559,10 @@
     "defaultMessage": "Edit Budget Policy",
     "description": "Title for edit budget policy modal"
   },
+  "r2dcrJ": {
+    "defaultMessage": "Try in Browser",
+    "description": "Button to open try-it dialog for endpoint"
+  },
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
     "description": "Heading text for the prediction section on the registered model from the experiment run"
@@ -9662,10 +9670,6 @@
   "yL9JKm": {
     "defaultMessage": "NaN",
     "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
-  },
-  "yLAJ6r": {
-    "defaultMessage": "Use",
-    "description": "Use endpoint button"
   },
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",
