@@ -300,14 +300,21 @@ def test_log_feedback_with_value_and_error(trace_id, legacy_api):
 
 
 def test_log_feedback_none_value(trace_id):
-    # test that value `None` is supported.
-    feedback = Feedback(
-        trace_id="1234",
+    mlflow.log_feedback(
+        trace_id=trace_id,
         name="faithfulness",
         value=None,
         source=_LLM_ASSESSMENT_SOURCE,
     )
-    assert feedback.value is None
+
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 1
+    assessment = trace.info.assessments[0]
+    assert isinstance(assessment, Feedback)
+    assert assessment.trace_id == trace_id
+    assert assessment.name == "faithfulness"
+    assert assessment.feedback.value is None
+    assert assessment.feedback.error is None
 
 
 def test_log_feedback_invalid_parameters():
