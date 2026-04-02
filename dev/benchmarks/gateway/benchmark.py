@@ -90,8 +90,8 @@ async def _run_once(
         enable_cleanup_closed=True,
     )
     result = RunResult()
-    _sum = 0.0
-    _max = 0.0
+    total_time = 0.0
+    max_time = 0.0
 
     async with aiohttp.ClientSession(connector=connector) as session:
         t0 = time.perf_counter()
@@ -101,15 +101,15 @@ async def _run_once(
                 result.failures[error] = result.failures.get(error, 0) + 1
             else:
                 result.latencies_ms.append(ms)
-                _sum += ms
-                if ms > _max:
-                    _max = ms
+                total_time += ms
+                if ms > max_time:
+                    max_time = ms
 
             n_ok = result.n_success
             n_fail = result.n_failures
-            mean = _sum / n_ok if n_ok else 0.0
+            mean = total_time / n_ok if n_ok else 0.0
             fail_part = f"[red]✗{n_fail}[/red]  " if n_fail else ""
-            live = f"{fail_part}✓{n_ok}  mean={mean:.0f}ms  max={_max:.0f}ms"
+            live = f"{fail_part}✓{n_ok}  mean={mean:.0f}ms  max={max_time:.0f}ms"
             progress.update(task_id, advance=1, live=live)
 
         result.wall_time = time.perf_counter() - t0

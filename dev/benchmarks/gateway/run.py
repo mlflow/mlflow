@@ -138,7 +138,12 @@ def _start_fake_server(
 
 @contextlib.contextmanager
 def _start_mlflow(
-    work_dir: str, port: int, workers: int, backend_uri: str, label: str = "MLflow server"
+    work_dir: str,
+    port: int,
+    workers: int,
+    backend_uri: str,
+    label: str = "MLflow server",
+    host: str = "127.0.0.1",
 ) -> Generator[None, None, None]:
     prefix = _uv_prefix()
     log_file = Path(work_dir) / f"mlflow-{port}.log"
@@ -152,7 +157,7 @@ def _start_mlflow(
                 "--backend-store-uri",
                 backend_uri,
                 "--host",
-                "0.0.0.0",
+                host,
                 "--port",
                 str(port),
                 "--workers",
@@ -209,7 +214,7 @@ def _start_postgres(container_name: str = "benchmark-postgres") -> Generator[str
                 "-e",
                 "POSTGRES_DB=mlflow",
                 "-p",
-                f"127.0.0.1:{POSTGRES_PORT}:{POSTGRES_PORT}",
+                f"127.0.0.1:{POSTGRES_PORT}:5432",
                 "postgres:16-alpine",
                 "-c",
                 "max_connections=500",
@@ -527,13 +532,15 @@ def cmd_bench(args: argparse.Namespace) -> None:
                 # can cause CREATE TABLE race conditions.
                 stack.enter_context(
                     _start_mlflow(
-                        work_dir, instance_ports[0], args.workers, backend_uri, "MLflow instance 0"
+                        work_dir, instance_ports[0], args.workers, backend_uri,
+                        "MLflow instance 0", host="0.0.0.0",
                     )
                 )
                 for i, p in enumerate(instance_ports[1:], start=1):
                     stack.enter_context(
                         _start_mlflow(
-                            work_dir, p, args.workers, backend_uri, f"MLflow instance {i}"
+                            work_dir, p, args.workers, backend_uri,
+                            f"MLflow instance {i}", host="0.0.0.0",
                         )
                     )
 
