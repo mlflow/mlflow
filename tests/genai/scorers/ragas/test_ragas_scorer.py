@@ -279,7 +279,7 @@ def test_ragas_scorer_telemetry_direct_call(
         {
             "scorer_class": expected_class,
             "scorer_kind": "third_party",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
