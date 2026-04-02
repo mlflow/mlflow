@@ -18,9 +18,6 @@ from typing import Any
 import pydantic
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-    call_chat_completions,
-)
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.metrics.genai.model_utils import (
     _call_llm_provider_api,
@@ -140,6 +137,10 @@ class ScorerLLMClient:
             return self._complete_litellm(messages, response_format=response_format, **kwargs)
 
     def _complete_databricks(self, messages: list[dict[str, str]]) -> str:
+        from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+            call_chat_completions,
+        )
+
         user_prompt = messages[-1]["content"] if messages else ""
         system_prompt = ""
         if len(messages) > 1 and messages[0]["role"] == "system":

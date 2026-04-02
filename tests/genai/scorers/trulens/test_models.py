@@ -10,7 +10,7 @@ from mlflow.genai.scorers.trulens.models import create_trulens_provider
 
 @pytest.fixture
 def mock_call_chat_completions():
-    with patch("mlflow.genai.scorers.trulens.models.call_chat_completions") as mock:
+    with patch("mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions") as mock:
         result = Mock()
         result.output = "Test output"
         mock.return_value = result
@@ -82,7 +82,7 @@ def test_create_trulens_provider_invalid_format():
 def test_create_trulens_provider_gateway_uses_native_provider():
     from trulens.feedback.llm_provider import LLMProvider
 
-    with patch("mlflow.genai.scorers.trulens.models._get_provider_instance"):
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance"):
         provider = create_trulens_provider("gateway:/my-endpoint")
 
     assert isinstance(provider, LLMProvider)
