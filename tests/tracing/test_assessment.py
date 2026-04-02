@@ -301,6 +301,14 @@ def test_log_feedback_with_value_and_error(trace_id, legacy_api):
 
 def test_log_feedback_invalid_parameters():
     # Test with a non-AssessmentSource object that is not None
+
+    # test that value `None` is supported.
+    Feedback(
+        trace_id="1234",
+        name="faithfulness",
+        value=None,
+        source=_LLM_ASSESSMENT_SOURCE,
+    )
     with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         Feedback(
             trace_id="1234",
