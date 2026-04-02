@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Button, Card, CloudModelIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, CloudModelIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
@@ -151,13 +151,21 @@ export const QuickStartTemplates = () => {
                 display: 'flex',
               }}
             >
-              <Card
-                componentId={`mlflow.gateway.quick_start.${template.provider}.card`}
+              <div
                 css={{
-                  width: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: theme.spacing.sm,
+                  padding: theme.spacing.md,
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  width: '100%',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                  '&:hover': {
+                    borderColor: theme.colors.actionPrimaryBackgroundDefault,
+                    boxShadow: theme.shadows.sm,
+                  },
                 }}
               >
                 <Typography.Text bold>{formatProviderName(template.provider)}</Typography.Text>
@@ -169,7 +177,7 @@ export const QuickStartTemplates = () => {
                     {caps}
                   </Typography.Text>
                 )}
-              </Card>
+              </div>
             </Link>
           );
         })}
