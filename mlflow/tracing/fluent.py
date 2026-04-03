@@ -790,9 +790,7 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
             exc_info=_logger.isEnabledFor(logging.DEBUG),
         )
     else:
-        _logger.debug(
-            f"Failed to get trace from the tracking store: {exc}.", exc_info=True
-        )
+        _logger.debug(f"Failed to get trace from the tracking store: {exc}.", exc_info=True)
     return None
 
 

@@ -109,7 +109,7 @@ from mlflow.store.tracking import (
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.fluent import start_span_no_context
+from mlflow.tracing.fluent import _flush_pending_async_trace_writes, start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -1382,8 +1382,6 @@ class MlflowClient:
             )
 
         if flush:
-            from mlflow.tracing.fluent import _flush_pending_async_trace_writes
-
             _flush_pending_async_trace_writes()
 
         trace = self._tracing_client.get_trace(trace_id)
@@ -1440,8 +1438,6 @@ class MlflowClient:
         _validate_list_param("locations", locations, allow_none=True)
 
         if flush:
-            from mlflow.tracing.fluent import _flush_pending_async_trace_writes
-
             _flush_pending_async_trace_writes()
 
         return self._tracing_client.search_traces(
