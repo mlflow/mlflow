@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+from mlflow.entities.gateway_guardrail import GuardrailStage
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.budget import check_budget_limit, make_budget_on_complete
 from mlflow.gateway.config import (
@@ -34,9 +35,10 @@ from mlflow.gateway.config import (
     _AuthConfigKey,
     _OpenAICompatibleConfig,
 )
-from mlflow.gateway.constants import (
-    MLFLOW_GATEWAY_CALLER_HEADER,
-    GatewayCaller,
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.gateway.guardrails import (
+    GuardrailViolation,
+    JudgeGuardrail,
 )
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
@@ -529,6 +531,61 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
     return endpoint_name
 
 
+def _load_guardrails(
+    store: SqlAlchemyStore,
+    endpoint_config: GatewayEndpointConfig,
+    request: Request,
+) -> list[JudgeGuardrail]:
+    """Load guardrails for an endpoint and convert to callable JudgeGuardrail instances."""
+    configs = store.list_endpoint_guardrail_configs(endpoint_config.endpoint_id)
+    if not configs:
+        return []
+
+    server_url = str(request.base_url).rstrip("/")
+    guardrails = []
+    for config in configs:
+        if config.guardrail is None:
+            continue
+        try:
+            guardrails.append(JudgeGuardrail.from_entity(config.guardrail, server_url))
+        except Exception:
+            _logger.warning(
+                "Failed to load guardrail %s, skipping", config.guardrail_id, exc_info=True
+            )
+    return guardrails
+
+
+def _run_before_guardrails(
+    guardrails: list[JudgeGuardrail],
+    payload_dict: dict[str, Any],
+    auth_headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Run BEFORE-stage guardrails on the request payload. Returns the (possibly modified) dict."""
+    for guardrail in guardrails:
+        if guardrail.stage == GuardrailStage.BEFORE:
+            payload_dict = guardrail.process_request(payload_dict, auth_headers=auth_headers)
+    return payload_dict
+
+
+def _run_after_guardrails(
+    guardrails: list[JudgeGuardrail],
+    request_payload: dict[str, Any],
+    response: chat.ResponsePayload,
+    auth_headers: dict[str, str] | None = None,
+) -> chat.ResponsePayload:
+    """Run AFTER-stage guardrails on the response. Returns the (possibly modified) response."""
+    after_guardrails = [g for g in guardrails if g.stage == GuardrailStage.AFTER]
+    if not after_guardrails:
+        return response
+
+    response_dict = response.model_dump()
+    for guardrail in after_guardrails:
+        response_dict = guardrail.process_response(
+            request_payload, response_dict, auth_headers=auth_headers
+        )
+    return chat.ResponsePayload(**response_dict)
+
+
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
 @_record_gateway_invocation(GatewayInvocationType.MLFLOW_INVOCATIONS)
@@ -550,6 +607,7 @@ async def invocations(endpoint_name: str, request: Request):
     _validate_store(store)
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails = _load_guardrails(store, endpoint_config, request)
 
     # Detect request type based on payload structure
     if "messages" in body:
@@ -559,6 +617,12 @@ async def invocations(endpoint_name: str, request: Request):
             payload = chat.RequestPayload(**body)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
+
+        try:
+            body = _run_before_guardrails(guardrails, payload.model_dump(), auth_headers=headers)
+            payload = chat.RequestPayload(**body)
+        except GuardrailViolation as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, endpoint_type
@@ -579,7 +643,7 @@ async def invocations(endpoint_name: str, request: Request):
                 media_type="text/event-stream",
             )
         else:
-            return await maybe_traced_gateway_call(
+            response = await maybe_traced_gateway_call(
                 provider.chat,
                 endpoint_config,
                 user_metadata,
@@ -587,6 +651,10 @@ async def invocations(endpoint_name: str, request: Request):
                 request_type=GatewayRequestType.UNIFIED_CHAT,
                 on_complete=make_budget_on_complete(store, workspace),
             )(payload)
+            try:
+                return _run_after_guardrails(guardrails, body, response, auth_headers=headers)
+            except GuardrailViolation as e:
+                raise HTTPException(status_code=400, detail=str(e))
 
     elif "input" in body:
         # Embeddings request
@@ -650,11 +718,18 @@ async def chat_completions(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails = _load_guardrails(store, endpoint_config, request)
 
     try:
         payload = chat.RequestPayload(**body)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
+
+    try:
+        body = _run_before_guardrails(guardrails, payload.model_dump(), auth_headers=headers)
+        payload = chat.RequestPayload(**body)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     if payload.stream:
         stream = maybe_traced_gateway_call(
@@ -671,7 +746,7 @@ async def chat_completions(request: Request):
             media_type="text/event-stream",
         )
     else:
-        return await maybe_traced_gateway_call(
+        response = await maybe_traced_gateway_call(
             provider.chat,
             endpoint_config,
             user_metadata,
@@ -679,6 +754,10 @@ async def chat_completions(request: Request):
             request_type=GatewayRequestType.UNIFIED_CHAT,
             on_complete=make_budget_on_complete(store, workspace),
         )(payload)
+        try:
+            return _run_after_guardrails(guardrails, body, response, auth_headers=headers)
+        except GuardrailViolation as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
