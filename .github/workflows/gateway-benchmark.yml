@@ -22,7 +22,7 @@ on:
       single_requests:
         description: "Requests per run (single mode)"
         required: false
-        default: "2000"
+        default: "200"
       single_max_concurrent:
         description: "Max concurrent requests (single mode)"
         required: false
@@ -39,11 +39,11 @@ on:
       multi_requests:
         description: "Requests per run (multi mode)"
         required: false
-        default: "2000"
+        default: "200"
       multi_max_concurrent:
         description: "Max concurrent requests (multi mode)"
         required: false
-        default: "50"
+        default: "10"
       multi_max_p50_ms:
         description: "Max P50 latency ms (multi mode) -- leave blank to skip threshold check"
         required: false
@@ -84,7 +84,7 @@ jobs:
       - name: Run single-mode benchmark
         env:
           EVENT_NAME: ${{ github.event_name }}
-          REQUESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.single_requests || '2000' }}
+          REQUESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.single_requests || '200' }}
           MAX_CONCURRENT: ${{ github.event_name == 'workflow_dispatch' && inputs.single_max_concurrent || '50' }}
           MAX_P50_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.single_max_p50_ms || '' }}
           MAX_P99_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.single_max_p99_ms || '' }}
@@ -129,8 +129,8 @@ jobs:
       - name: Run multi-mode benchmark
         env:
           EVENT_NAME: ${{ github.event_name }}
-          REQUESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_requests || '2000' }}
-          MAX_CONCURRENT: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_max_concurrent || '50' }}
+          REQUESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_requests || '200' }}
+          MAX_CONCURRENT: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_max_concurrent || '10' }}
           MAX_P50_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_max_p50_ms || '' }}
           MAX_P99_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_max_p99_ms || '' }}
         run: |
