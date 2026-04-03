@@ -3294,12 +3294,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         for key in TokenUsageKey.all_keys()
                         if (value := token_usage_dict.get(key)) is not None
                     }
+                    # Signal that TOKEN_USAGE has been finalized by start_trace() with the
+                    # authoritative DFS-deduplicated value. log_spans() checks this flag and
+                    # skips accumulation to prevent double-counting. Only set after successful
+                    # parsing so that a malformed value doesn't prevent log_spans() from
+                    # accumulating a correct value from span attributes.
+                    request_metadata[TraceMetadataKey.TOKEN_USAGE_FINALIZED] = "true"
                 except Exception as e:
                     _logger.debug(f"Failed to parse token usage metadata: {e}", exc_info=True)
-                # Signal that TOKEN_USAGE has been finalized by start_trace() with the
-                # authoritative DFS-deduplicated value. log_spans() checks this flag and
-                # skips accumulation to prevent double-counting.
-                request_metadata[TraceMetadataKey.TOKEN_USAGE_FINALIZED] = "true"
 
             if TraceMetadataKey.COST in request_metadata:
                 # Same pattern as TOKEN_USAGE_FINALIZED — prevent log_spans() from

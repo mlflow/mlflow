@@ -792,19 +792,25 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
 
 
 def _flush_pending_async_trace_writes() -> None:
-    """Flush all pending async trace writes through the BSP and exporter queues."""
+    """Flush all pending async trace writes through the BSP and exporter queues.
+
+    Two-layer flush:
+    1. flush_all_batch_processors() drains BSP-registered processors and their exporters.
+    2. The direct exporter flush handles the no-BSP path (MLFLOW_USE_BATCH_SPAN_PROCESSOR=false),
+       where the processor is not in the registry but the exporter still has an async queue.
+    """
     from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
 
     try:
         flush_all_batch_processors()
     except Exception:
-        pass
+        _logger.debug("Failed to flush batch processors.", exc_info=True)
     try:
         if trace_exporter := _get_trace_exporter():
             if hasattr(trace_exporter, "_async_queue"):
                 trace_exporter._async_queue.flush()
     except Exception:
-        pass
+        _logger.debug("Failed to flush trace exporter async queue.", exc_info=True)
 
 
 def _get_search_locations(locations: list[str] | None) -> list[str]:
