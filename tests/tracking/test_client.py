@@ -851,7 +851,7 @@ def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
     client.end_span(trace_id=root.trace_id, span_id=span.span_id, outputs=False)
     client.end_trace(trace_id=root.trace_id, outputs="")
 
-    trace = client.get_trace(root.trace_id)
+    trace = client.get_trace(root.trace_id, flush=True)
     assert trace.data.spans[0].inputs == []
     assert trace.data.spans[0].outputs == ""
     assert trace.data.spans[1].inputs == 0
@@ -1131,11 +1131,11 @@ def test_log_trace(tracking_uri):
     client.delete_traces(experiment_id=experiment_id, trace_ids=[trace.info.trace_id])
     assert client.search_traces(locations=[experiment_id]) == []
 
-    # Log the trace manually
+    # Log the trace manually — _log_trace triggers async export via span processor
     new_trace_id = client._log_trace(trace)
 
-    # Validate the trace is added to the backend
-    backend_traces = client.search_traces(locations=[experiment_id])
+    # Validate the trace is added to the backend (flush=True waits for async writes)
+    backend_traces = client.search_traces(locations=[experiment_id], flush=True)
     assert len(backend_traces) == 1
     assert backend_traces[0].info.trace_id == new_trace_id  # new request ID is assigned
     assert backend_traces[0].info.experiment_id == experiment_id
@@ -1149,7 +1149,7 @@ def test_log_trace(tracking_uri):
     # If the experiment ID is None in the given trace, it should be set to the default experiment
     trace.info.experiment_id = None
     new_trace_id = client._log_trace(trace)
-    backend_traces = client.search_traces(locations=[DEFAULT_EXPERIMENT_ID])
+    backend_traces = client.search_traces(locations=[DEFAULT_EXPERIMENT_ID], flush=True)
     assert len(backend_traces) == 1
 
 

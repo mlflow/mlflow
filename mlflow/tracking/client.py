@@ -1352,13 +1352,16 @@ class MlflowClient:
         )
 
     @deprecated_parameter("request_id", "trace_id", version="3.0.0")
-    def get_trace(self, trace_id: str, display=True) -> Trace:
+    def get_trace(self, trace_id: str, display=True, flush: bool = False) -> Trace:
         """
         Get the trace matching the specified ``trace_id``.
 
         Args:
             trace_id: String ID of the trace to fetch.
             display: If ``True``, display the trace on the notebook.
+            flush: If ``True``, flush any pending async trace writes before fetching.
+                Useful in tests or scripts where async logging may not have completed.
+                Default to ``False``.
 
         Returns:
             The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
@@ -1378,6 +1381,11 @@ class MlflowClient:
                 "the search_traces() API."
             )
 
+        if flush:
+            from mlflow.tracing.fluent import _flush_pending_async_trace_writes
+
+            _flush_pending_async_trace_writes()
+
         trace = self._tracing_client.get_trace(trace_id)
         if display:
             get_display_handler().display_traces([trace])
@@ -1395,6 +1403,7 @@ class MlflowClient:
         include_spans: bool = True,
         model_id: str | None = None,
         locations: list[str] | None = None,
+        flush: bool = False,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -1416,6 +1425,8 @@ class MlflowClient:
             locations: A list of locations to search over. To search over experiments, provide
                 a list of experiment IDs. To search over UC tables on databricks, provide
                 a list of locations in the format `<catalog_name>.<schema_name>`.
+            flush: If ``True``, flush any pending async trace writes before searching.
+                Useful in tests or scripts to ensure all traces are visible. Default to ``False``.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -1427,6 +1438,11 @@ class MlflowClient:
         """
         _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
         _validate_list_param("locations", locations, allow_none=True)
+
+        if flush:
+            from mlflow.tracing.fluent import _flush_pending_async_trace_writes
+
+            _flush_pending_async_trace_writes()
 
         return self._tracing_client.search_traces(
             experiment_ids=experiment_ids,
