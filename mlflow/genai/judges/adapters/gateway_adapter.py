@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any
 
 import pydantic
 
+from mlflow.utils.providers import _lookup_model_info
+
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
     from mlflow.gateway.providers.base import BaseProvider
@@ -56,7 +58,6 @@ from mlflow.metrics.genai.model_utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import AssessmentMetadataKey
-from mlflow.utils.providers import _get_model_cost
 
 _logger = logging.getLogger(__name__)
 
@@ -166,12 +167,9 @@ def _build_request(
 
 
 def _get_max_context_tokens(provider: str, model: str) -> int | None:
-    """Look up the max input token limit for a model from the vendored model prices JSON."""
-    model_cost = _get_model_cost()
-    # Try provider/model format first (e.g., "openai/gpt-4.1")
-    for key in (f"{provider}/{model}", model):
-        if key in model_cost:
-            return model_cost[key].get("max_input_tokens")
+    """Look up the max input token limit for a model from the vendored model catalog."""
+    if info := _lookup_model_info(model, custom_llm_provider=provider):
+        return info.get("max_input_tokens")
     return None
 
 
