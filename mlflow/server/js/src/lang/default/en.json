@@ -6115,6 +6115,10 @@
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
   },
+  "buuQsF": {
+    "defaultMessage": "A tag value is required",
+    "description": "Key-value tag editor modal > Value required error message"
+  },
   "by+x8N": {
     "defaultMessage": "Type",
     "description": "Run page > Overview > Experiment ID section label"
