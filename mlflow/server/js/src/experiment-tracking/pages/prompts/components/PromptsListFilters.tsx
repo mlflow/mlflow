@@ -12,7 +12,7 @@ export const PromptsListFilters = ({
   return (
     <TableFilterLayout>
       <TableFilterInput
-        placeholder="Search prompts by name or tags"
+        placeholder="Search prompts by name"
         componentId={componentId}
         value={searchFilter}
         onChange={(e) => onSearchFilterChange(e.target.value)}
