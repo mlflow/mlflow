@@ -1,7 +1,7 @@
 minimum_pre_commit_version: 4.0.1
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: c4a0b883114b00d8d76b479c820ce7950211c99b # v4.5.0
     hooks:
       - id: trailing-whitespace
         files: \.(mdx|ya?ml|txt)$
@@ -12,7 +12,7 @@ repos:
         files: \.py$
         require_serial: true
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: "v2.7.1"
+    rev: "50c5478ed9e10bf360335449280cf2a67f4edb7a" # v2.7.1
     hooks:
       - id: prettier
         files: '^(?!docs/|mlflow/server/js/|libs/typescript/).+\.(js|ts|md|json|ya?ml)$'
@@ -60,7 +60,8 @@ repos:
             dev/set_matrix\.py|
             dev/update_ml_package_versions\.py|
             dev/proto_to_graphql/.*\.py|
-            dev/tests/.*\.py
+            dev/tests/.*\.py|
+            dev/benchmarks/gateway/fake_server\.py
           )$
         entry: uv run --only-group lint mypy
         require_serial: true
@@ -181,7 +182,6 @@ repos:
         name: conftest
         entry: bin/conftest test --namespace mlflow --policy .github/policy.rego
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
-        exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
         language: system
         stages: [pre-commit]
         require_serial: true
@@ -217,6 +217,13 @@ repos:
         language: fail
         entry: "Please use MP4 instead of GIF for docs animations"
         files: ^docs/.*\.gif$
+        stages: [pre-commit]
+
+      - id: no-yaml
+        name: no-yaml
+        language: fail
+        entry: "Use .yml instead of .yaml"
+        files: ^\.github/(workflows|actions)/.*\.yaml$
         stages: [pre-commit]
 
       - id: js-fmt

@@ -149,6 +149,7 @@ describe('ScrollableTooltip', () => {
       payload: [{ payload: { timestampMs: 1234567890 }, name: 'count', value: 42, color: 'blue' }],
       label: 'Test Label',
       formatter: mockFormatter,
+      componentId: 'mlflow.overview.usage.traces.view_traces_link',
     });
 
     expect(screen.queryByText('Test Label')).not.toBeInTheDocument();
@@ -160,6 +161,7 @@ describe('ScrollableTooltip', () => {
       payload: [{ payload: { timestampMs: 1234567890 }, name: 'count', value: 42, color: 'blue' }],
       label: 'Test Label',
       formatter: mockFormatter,
+      componentId: 'mlflow.overview.usage.traces.view_traces_link',
     });
 
     expect(screen.getByText('Test Label')).toBeInTheDocument();
@@ -173,6 +175,7 @@ describe('ScrollableTooltip', () => {
       payload: [{ payload: { timestampMs: 1234567890 }, name: 'count', value: 42, color: 'blue' }],
       label: 'Test Label',
       formatter: mockFormatter,
+      componentId: 'mlflow.overview.usage.traces.view_traces_link',
     });
 
     expect(screen.queryByText('View traces for this period')).not.toBeInTheDocument();
@@ -187,8 +190,8 @@ describe('ScrollableTooltip', () => {
       linkConfig: {
         experimentId: 'test-exp-123',
         timeIntervalSeconds: 3600,
-        componentId: 'mlflow.overview.usage.traces.view_traces_link',
       },
+      componentId: 'mlflow.overview.usage.traces.view_traces_link',
     });
 
     expect(screen.getByText('View traces for this period')).toBeInTheDocument();
@@ -203,8 +206,8 @@ describe('ScrollableTooltip', () => {
       linkConfig: {
         experimentId: 'test-exp-123',
         timeIntervalSeconds: 3600,
-        componentId: 'mlflow.overview.usage.traces.view_traces_link',
       },
+      componentId: 'mlflow.overview.usage.traces.view_traces_link',
     });
 
     expect(screen.queryByText('View traces for this period')).not.toBeInTheDocument();

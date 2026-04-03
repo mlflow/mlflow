@@ -26,16 +26,6 @@ boto3:
   minimum: "1.28.56"
   max_major_version: 1
 
-litellm:
-  pip_release: litellm
-  max_major_version: 1
-  minimum: "1.0.0"
-
-gepa:
-  pip_release: gepa
-  max_major_version: 0
-  minimum: "0.0.26"
-
 slowapi:
   pip_release: slowapi
   max_major_version: 0

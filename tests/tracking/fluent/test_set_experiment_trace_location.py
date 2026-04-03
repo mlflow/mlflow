@@ -89,6 +89,34 @@ def test_set_experiment_with_table_prefix_env_var_points_to_trace_location_param
     mlflow.tracing.reset()
 
 
+def test_set_experiment_defaults_empty_prefix_to_experiment_id():
+    resolved = UnityCatalog("catalog", "schema", table_prefix="123")
+
+    with (
+        mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            return_value=resolved,
+        ) as mock_resolve,
+        mock.patch("mlflow.tracking.fluent._sync_trace_destination_and_provider"),
+    ):
+        client = mock_client_cls.return_value
+        client.get_experiment_by_name.return_value = _experiment()  # experiment_id="123"
+
+        original = UnityCatalog("catalog", "schema")  # no prefix
+        mlflow.set_experiment("test-experiment", trace_location=original)
+
+        # Verify _resolve was called with a location that has the experiment ID as prefix
+        _, kwargs = mock_resolve.call_args
+        passed_location = kwargs["trace_location"]
+        assert passed_location.table_prefix == "123"
+        assert passed_location.catalog_name == "catalog"
+        assert passed_location.schema_name == "schema"
+
+        # Original object should not be mutated
+        assert original.table_prefix is None
+
+
 def test_creates_and_links_when_no_existing_location(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "warehouse-1")
     requested = UnityCatalog("catalog", "schema", table_prefix="prefix")

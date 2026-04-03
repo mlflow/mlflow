@@ -8,7 +8,7 @@ jest.mock('./utils/fetchArtifactUnified', () => ({
   fetchArtifactUnified: jest.fn(),
 }));
 
-const mockFetch = fetchArtifactUnified as jest.MockedFunction<typeof fetchArtifactUnified>;
+const mockFetch = jest.mocked(fetchArtifactUnified);
 
 const renderView = (props = {}) =>
   renderWithDesignSystem(<ShowArtifactMarkdownView runUuid="run-1" path="notes.md" {...props} />);

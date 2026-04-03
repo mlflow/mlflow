@@ -1,9 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
-
-// Disable pointer events check for DialogCombobox which masks the elements we want to click
-const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceCostOverTimeChart } from './TraceCostOverTimeChart';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -17,6 +14,9 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+
+// Disable pointer events check for DialogCombobox which masks the elements we want to click
+const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
 // Helper to create a cost data point with time bucket
 const createCostDataPoint = (timeBucket: string, modelName: string, cost: number) => ({

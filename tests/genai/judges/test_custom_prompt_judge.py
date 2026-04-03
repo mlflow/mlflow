@@ -2,13 +2,19 @@ import json
 from unittest import mock
 
 import pytest
-from litellm.types.utils import ModelResponse
 
 from mlflow.entities.assessment import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai.judges.custom_prompt_judge import _remove_choice_brackets, custom_prompt_judge
 
 from tests.genai.conftest import databricks_only
+
+
+def _mock_score(return_value):
+    return mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+        return_value=return_value,
+    )
 
 
 def test_custom_prompt_judge_basic():
@@ -23,13 +29,12 @@ def test_custom_prompt_judge_basic():
     """
 
     mock_content = json.dumps({"result": "good", "rationale": "The response is well-written."})
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     judge = custom_prompt_judge(
         name="quality", prompt_template=prompt_template, model="openai:/gpt-4"
     )
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judge(request="Test request", response="This is a great response!")
 
     assert feedback.name == "quality"
@@ -38,10 +43,10 @@ def test_custom_prompt_judge_basic():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "custom_prompt_judge_quality"
 
-    mock_litellm.assert_called_once()
-    kwargs = mock_litellm.call_args[1]
-    assert kwargs["model"] == "openai/gpt-4"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    kwargs = mock_score.call_args.kwargs
+    assert kwargs["model_uri"] == "openai:/gpt-4"
+    prompt = kwargs["payload"]
     assert prompt.startswith("Evaluate the response.")
     assert "<request>Test request</request>" in prompt
     assert "good: The response is good." in prompt
@@ -80,7 +85,6 @@ def test_custom_prompt_judge_with_numeric_values():
     numeric_values = {"excellent": 5.0, "great": 4.0, "good": 3.0, "not_good": 2.0, "poor": 1.0}
 
     mock_content = json.dumps({"result": "good", "rationale": "Decent response."})
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     judge = custom_prompt_judge(
         name="rating",
@@ -88,7 +92,7 @@ def test_custom_prompt_judge_with_numeric_values():
         numeric_values=numeric_values,
     )
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judge(response="This is okay.")
 
     assert feedback.name == "rating"
@@ -96,10 +100,10 @@ def test_custom_prompt_judge_with_numeric_values():
     assert feedback.metadata == {"string_value": "good"}
     assert feedback.rationale == "Decent response."
 
-    mock_litellm.assert_called_once()
-    kwargs = mock_litellm.call_args[1]
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    kwargs = mock_score.call_args.kwargs
+    assert kwargs["model_uri"] == "openai:/gpt-4.1-mini"
+    prompt = kwargs["payload"]
     assert prompt.startswith("Rate the response.")
     assert '"rationale": "Reason for the decision.' in prompt
 
@@ -135,7 +139,10 @@ def test_custom_prompt_judge_llm_error():
     [[bad]]: Bad
     """
 
-    with mock.patch("litellm.completion", side_effect=Exception("API Error")):
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+        side_effect=Exception("API Error"),
+    ):
         judge = custom_prompt_judge(name="test", prompt_template=prompt_template)
 
         feedback = judge(response="Test")
@@ -143,7 +150,7 @@ def test_custom_prompt_judge_llm_error():
     assert feedback.name == "test"
     assert feedback.value is None
     assert isinstance(feedback.error, AssessmentError)
-    assert "Failed to invoke the judge via litellm" in feedback.error.error_message
+    assert "API Error" in feedback.error.error_message
 
 
 @pytest.mark.parametrize(

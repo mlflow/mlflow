@@ -38,6 +38,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import (
     GET_TRACE_V4_RETRY_TIMEOUT_SECONDS,
     SpansLocation,
@@ -722,6 +723,18 @@ class TracingClient:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
+
+    def _upload_attachments(
+        self,
+        trace_info: TraceInfo,
+        attachments: dict[str, Attachment],
+    ) -> None:
+        artifact_repo = self._get_artifact_repo_for_trace(trace_info)
+        for attachment_id, attachment in attachments.items():
+            try:
+                artifact_repo.upload_attachment(attachment_id, attachment.content_bytes)
+            except Exception as e:
+                _logger.warning(f"Failed to upload attachment {attachment_id}: {e}")
 
     def link_prompt_versions_to_trace(
         self, trace_id: str, prompts: Sequence[PromptVersion]

@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 from unittest import mock
 
 import httpx
@@ -901,6 +902,36 @@ def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai, embedding
         logged_model_id = span.inputs["input"][0]
         assert logged_model_id != model.model_id
         assert span.model_name == "text-embedding-ada-002"
+
+
+@pytest.mark.asyncio
+async def test_images_generate_autolog(client):
+    mlflow.openai.autolog()
+
+    # Disable tracing header injection — safe_patch rejects the extra_headers
+    # dict as a "new input" because it's not an ExceptionSafe-wrapped object.
+    # This is a known limitation shared with other non-chat endpoints.
+    openai_autolog_module = sys.modules["mlflow.openai.autolog"]
+    with mock.patch.object(openai_autolog_module, "_inject_tracing_headers"):
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt="a white siamese cat",
+            n=1,
+            response_format="b64_json",
+        )
+
+        if client._is_async:
+            await response
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.status == "OK"
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.span_type == SpanType.TOOL
+    assert span.inputs["prompt"] == "a white siamese cat"
+    assert span.outputs["data"][0]["revised_prompt"] == "a test image"
 
 
 @pytest.mark.parametrize(

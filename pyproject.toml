@@ -4,7 +4,7 @@
 # This file will be replaced by `pyproject.release.toml` when releasing a new version.
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools<=82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -108,8 +108,6 @@ genai = [
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
-  "gepa<1,>=0.0.26",
-  "litellm<2,>=1.0.0",
   "slowapi<1,>=0.1.9",
   "tiktoken<1",
   "uvicorn[standard]<1",
@@ -152,11 +150,13 @@ mlflow = [
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
+  "server/uvicorn_log_config.yaml",
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
+  "utils/model_prices_and_context_window.json",
 ]
 
 [tool.setuptools.packages.find]
@@ -227,9 +227,6 @@ docs = [
   "pyspark",
   "datasets",
   "plotly",
-  "torch>=1.11.0",
-  "torchvision>=0.12.0,!=0.24.0",
-  "lightning>=1.8.1",
   "Flask-WTF<2",
   "polars>=1",
   "openai",
@@ -237,20 +234,29 @@ docs = [
   "deepeval",
   "ragas",
   "instructor",
-  "litellm",
   "langchain-community>=0.3.0",
 ]
 
 [tool.uv]
-required-version = ">=0.9.8"
+# TODO: Remove once the incident is fully remediated
+# Mitigation for https://github.com/aquasecurity/trivy/discussions/10425
+exclude-newer = "2026-03-10T00:00:00Z"
+exclude-newer-package = { torch = false, torchvision = false }
+required-version = ">=0.10.12"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
+  # TODO: remove once requests officially supports chardet >= 6
+  # https://github.com/psf/requests/pull/7239
+  "chardet<6.0",
   # pyspark 4.1.0 causes issues with documentation build
   "pyspark<4.1.0",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
+  # litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
+  # https://github.com/BerriAI/litellm/issues/24512
+  "litellm<=1.82.6",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer
@@ -392,6 +398,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
+"dev/benchmarks/*" = ["T20"]
 "examples/*" = ["T20", "RET504", "E501"]
 "docs/*" = ["T20", "RET504", "E501"]
 "mlflow/*" = ["PT018"]

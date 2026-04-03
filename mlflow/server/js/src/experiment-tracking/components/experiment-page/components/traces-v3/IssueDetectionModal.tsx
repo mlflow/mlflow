@@ -1,6 +1,18 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Modal, Button, useDesignSystemTheme, SparkleIcon, Typography, Alert } from '@databricks/design-system';
+import {
+  Modal,
+  Button,
+  useDesignSystemTheme,
+  SparkleIcon,
+  Typography,
+  Alert,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
+import Routes from '../../../../routes';
+import { getTimeRangeQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
@@ -13,7 +25,7 @@ interface IssueDetectionModalProps {
   experimentId?: string;
   initialSelectedTraceIds?: string[];
   availableTraceIds?: string[];
-  onSubmitSuccess?: (runId?: string) => void;
+  defaultGroupBySession?: boolean;
 }
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
@@ -21,9 +33,11 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   experimentId,
   initialSelectedTraceIds = [],
   availableTraceIds = [],
-  onSubmitSuccess,
+  defaultGroupBySession = false,
 }) => {
   const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
   const modelSelectionRef = useRef<IssueDetectionModelSelectionRef>(null);
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -95,9 +109,12 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         },
         {
           onSuccess: (response) => {
-            onSubmitSuccess?.(response.run_id);
             resetForm();
             onClose();
+            navigate({
+              pathname: Routes.getIssueDetectionRunDetailsRoute(experimentId, response.run_id),
+              search: getTimeRangeQueryString(location.search),
+            });
           },
         },
       );
@@ -149,7 +166,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   }, []);
 
   const renderStep1Footer = () => (
-    <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
+    <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
       <Button componentId="mlflow.traces.issue-detection-modal.cancel" onClick={handleClose}>
         <FormattedMessage defaultMessage="Cancel" description="Cancel button in issue detection modal" />
       </Button>
@@ -158,6 +175,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         type="primary"
         onClick={handleNext}
         disabled={!isStep1Valid}
+        endIcon={<ChevronRightIcon />}
       >
         <FormattedMessage defaultMessage="Next" description="Next button to proceed to provider configuration" />
       </Button>
@@ -165,8 +183,12 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   );
 
   const renderStep2Footer = () => (
-    <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
-      <Button componentId="mlflow.traces.issue-detection-modal.previous" onClick={handlePrevious}>
+    <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <Button
+        componentId="mlflow.traces.issue-detection-modal.previous"
+        onClick={handlePrevious}
+        icon={<ChevronLeftIcon />}
+      >
         <FormattedMessage defaultMessage="Previous" description="Previous button to go back to category selection" />
       </Button>
       <Button
@@ -196,7 +218,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           </div>
         }
         visible
-        onCancel={handleClose}
+        onCancel={isCreatingSecret || isInvokingIssueDetection ? undefined : handleClose}
         footer={currentStep === 1 ? renderStep1Footer() : renderStep2Footer()}
       >
         {(createSecretError || issueDetectionError) && (
@@ -240,6 +262,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             setIsSelectTracesModalOpen(false);
           }}
           initialTraceIdsSelected={selectedTraceIds}
+          defaultGroupBySession={defaultGroupBySession}
         />
       )}
     </>

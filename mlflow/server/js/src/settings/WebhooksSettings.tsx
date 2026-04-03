@@ -7,18 +7,6 @@ import WebhookListItem from './WebhookListItem';
 import WebhookFormModal from './WebhookFormModal';
 import WebhookDeleteModal from './WebhookDeleteModal';
 
-interface WebhooksComponentIds {
-  createButton: string;
-  errorAlert: string;
-  testResultAlert: string;
-}
-
-const DEFAULT_COMPONENT_IDS: WebhooksComponentIds = {
-  createButton: 'mlflow.settings.webhooks.create-button',
-  errorAlert: 'mlflow.settings.webhooks.error-alert',
-  testResultAlert: 'mlflow.settings.webhooks.test-result-alert',
-};
-
 interface WebhooksSettingsProps {
   /** Filter displayed webhooks to only those containing at least one event whose entity matches this value exactly */
   eventFilter?: string;
@@ -26,16 +14,9 @@ interface WebhooksSettingsProps {
   title?: React.ReactNode;
   /** Description override */
   description?: React.ReactNode;
-  /** Static componentIds for namespacing */
-  componentIds?: WebhooksComponentIds;
 }
 
-const WebhooksSettings = ({
-  eventFilter,
-  title,
-  description,
-  componentIds = DEFAULT_COMPONENT_IDS,
-}: WebhooksSettingsProps) => {
+const WebhooksSettings = ({ eventFilter, title, description }: WebhooksSettingsProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -69,7 +50,13 @@ const WebhooksSettings = ({
         setWebhooks(all);
       }
     } catch (e: any) {
-      setError(e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to load webhooks' }));
+      setError(
+        e?.message ??
+          intl.formatMessage({
+            defaultMessage: 'Failed to load webhooks',
+            description: 'Error message informing the user that webhooks did not load successfully',
+          }),
+      );
     } finally {
       setLoading(false);
     }
@@ -112,7 +99,13 @@ const WebhooksSettings = ({
       await WebhooksApi.deleteWebhook(webhookToDelete.webhook_id);
       await fetchWebhooks();
     } catch (e: any) {
-      setError(e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to delete webhook' }));
+      setError(
+        e?.message ??
+          intl.formatMessage({
+            defaultMessage: 'Failed to delete webhook',
+            description: 'Generic error message informing the user that webhook deletion failed',
+          }),
+      );
     } finally {
       setDeletingId(null);
       setWebhookToDelete(null);
@@ -131,16 +124,28 @@ const WebhooksSettings = ({
           success: result?.success ?? false,
           message: result?.success
             ? intl.formatMessage(
-                { defaultMessage: 'Test succeeded (HTTP {status})' },
+                {
+                  defaultMessage: 'Test succeeded (HTTP {status})',
+                  description: 'Message informing the user that the webhook test succeeded',
+                },
                 { status: result?.response_status ?? '' },
               )
-            : (result?.error_message ?? intl.formatMessage({ defaultMessage: 'Test failed with no error message' })),
+            : (result?.error_message ??
+              intl.formatMessage({
+                defaultMessage: 'Test failed with no error message',
+                description: 'Message informing the user that the webhook test failed with no error message',
+              })),
         });
       } catch (e: any) {
         setTestResult({
           webhookId: webhook.webhook_id,
           success: false,
-          message: e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to invoke webhook' }),
+          message:
+            e?.message ??
+            intl.formatMessage({
+              defaultMessage: 'Failed to invoke webhook',
+              description: 'Message informing the user that the webhook test failed to invoke',
+            }),
         });
       } finally {
         setTestingId(null);
@@ -165,14 +170,14 @@ const WebhooksSettings = ({
             )}
           </Typography.Text>
         </div>
-        <Button componentId={componentIds.createButton} type="primary" onClick={openCreateModal}>
+        <Button componentId="mlflow.settings.webhooks.create-button" type="primary" onClick={openCreateModal}>
           <FormattedMessage defaultMessage="Create webhook" description="Create webhook button" />
         </Button>
       </div>
 
       {error && (
         <Alert
-          componentId={componentIds.errorAlert}
+          componentId="mlflow.settings.webhooks.error-alert"
           type="error"
           message={error}
           closable
@@ -182,7 +187,7 @@ const WebhooksSettings = ({
 
       {testResult && (
         <Alert
-          componentId={componentIds.testResultAlert}
+          componentId="mlflow.settings.webhooks.test-result-alert"
           type={testResult.success ? 'info' : 'error'}
           message={testResult.message}
           closable

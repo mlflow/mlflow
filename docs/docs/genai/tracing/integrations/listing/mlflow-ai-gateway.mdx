@@ -1,6 +1,10 @@
 ---
+title: Tracing MLflow AI Gateway
+description: Trace MLflow AI Gateway requests with MLflow using OpenAI-compatible auto-tracing for full observability into unified multi-provider LLM routing.
 sidebar_position: 100
 sidebar_label: MLflow AI Gateway
+keywords: [mlflow, ai gateway, tracing, openai-compatible, multi-provider, llm]
+image: /images/llms/tracing/basic-openai-trace.png
 ---
 
 import Tabs from "@theme/Tabs";
@@ -34,10 +38,10 @@ When both are used together with a `traceparent` header, the gateway creates a l
 
 ### Start MLflow Server with AI Gateway
 
-To start MLflow server with AI Gateway, you need to install the `mlflow[genai]` package.
+To start MLflow server with AI Gateway, you need to install the `mlflow` package.
 
 ```bash
-pip install 'mlflow[genai]'
+pip install mlflow
 ```
 
 Then start the MLflow server as usual, no additional configuration is needed.

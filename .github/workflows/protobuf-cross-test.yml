@@ -53,6 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
@@ -60,23 +61,28 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
+        env:
+          PROTOBUF_MAJOR_VERSION: ${{ matrix.protobuf_major_version }}
         run: |
           uv sync --extra extras --extra genai --extra mcp
           # Test the latest minor version in protobuf_major_version
           uv pip install \
             -r requirements/test-requirements.txt \
             datasets \
-            'tensorflow<2.22.0' 'tf-keras<2.20.0' \
+            'tensorflow<2.22.0' \
             torch transformers \
-            "protobuf==${{ matrix.protobuf_major_version }}.*"
+            "protobuf==$PROTOBUF_MAJOR_VERSION.*"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
           # NB: test_mlflow_artifacts.py is excluded because it runs docker-compose with fresh
           # container builds. The protobuf version in the test environment has no effect on the
           # containers, making cross-version testing unnecessary and wasteful of disk space.
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \

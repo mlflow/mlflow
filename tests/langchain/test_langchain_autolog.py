@@ -246,7 +246,10 @@ def test_chat_model_autolog_audio_input_normalization(mime_type, expected_format
     audio_block = msgs[0]["content"][1]
     assert audio_block["type"] == "input_audio"
     assert audio_block["input_audio"]["format"] == expected_format
-    assert audio_block["input_audio"]["data"] == audio_b64
+    attachment_uri = audio_block["input_audio"]["data"]
+    assert attachment_uri.startswith("mlflow-attachment://")
+    expected_mime = "mpeg" if expected_format == "mp3" else expected_format
+    assert f"content_type=audio%2F{expected_mime}" in attachment_uri
 
 
 def test_chat_model_autolog_audio_output_normalization():
@@ -281,7 +284,9 @@ def test_chat_model_autolog_audio_output_normalization():
     audio_block = span.outputs["choices"][0]["message"]["content"][1]
     assert audio_block["type"] == "input_audio"
     assert audio_block["input_audio"]["format"] == "wav"
-    assert audio_block["input_audio"]["data"] == audio_b64
+    attachment_uri = audio_block["input_audio"]["data"]
+    assert attachment_uri.startswith("mlflow-attachment://")
+    assert "content_type=audio%2Fwav" in attachment_uri
 
 
 def test_chat_model_autolog_openai_audio_output_with_format():
@@ -324,7 +329,9 @@ def test_chat_model_autolog_openai_audio_output_with_format():
     assert isinstance(content, list)
     assert content[0] == {"type": "text", "text": "Yes, I am."}
     assert content[1]["type"] == "input_audio"
-    assert content[1]["input_audio"]["data"] == audio_b64
+    attachment_uri = content[1]["input_audio"]["data"]
+    assert attachment_uri.startswith("mlflow-attachment://")
+    assert "content_type=audio%2Fwav" in attachment_uri
     assert content[1]["input_audio"]["format"] == "wav"
 
 
@@ -605,7 +612,7 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config, asyn
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
+    assert traces[0].data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
     assert handlers == original_handlers
@@ -647,7 +654,7 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
+    assert traces[0].data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -693,7 +700,7 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert trace.data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
+        assert trace.data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -765,7 +772,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert trace.data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
+        assert trace.data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)

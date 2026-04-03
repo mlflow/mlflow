@@ -3226,8 +3226,11 @@ class MlflowClient:
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
 
-            # Sanitize key to use in filename (replace / with # to avoid subdirectories)
-            sanitized_key = re.sub(r"/", "#", key)
+            # Sanitize key to use in filename (replace / with ~ to avoid subdirectories).
+            # '#' was previously used here but is rejected by validate_path_is_safe(),
+            # making artifacts with slash-containing keys impossible to download.
+            # '~' is an unreserved character (RFC 3986 §2.3) and passes path safety checks.
+            sanitized_key = re.sub(r"/", "~", key)
             filename_uuid = str(uuid.uuid4())
             # Use + as separator instead of % to avoid conflicts with URL encoding.
             # The frontend supports both + and % delimiters for backwards compatibility.
@@ -6333,7 +6336,6 @@ class MlflowClient:
             PromptCache.get_instance().delete_all(name)
             return
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def create_dataset(
         self,
@@ -6372,7 +6374,6 @@ class MlflowClient:
             tags=tags,
         )
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def get_dataset(self, dataset_id: str) -> EvaluationDataset:
         """
@@ -6398,7 +6399,6 @@ class MlflowClient:
         """
         return self._tracking_client.get_dataset(dataset_id)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def delete_dataset(self, dataset_id: str) -> None:
         """
@@ -6418,7 +6418,6 @@ class MlflowClient:
         """
         self._tracking_client.delete_dataset(dataset_id)
 
-    @experimental(version="3.4.0")
     def search_datasets(
         self,
         experiment_ids: list[str] | None = None,
@@ -6465,7 +6464,6 @@ class MlflowClient:
             page_token=page_token,
         )
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks(use_uc_message=True)
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
@@ -6496,7 +6494,6 @@ class MlflowClient:
         """
         self._tracking_client.set_dataset_tags(dataset_id=dataset_id, tags=tags)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks(use_uc_message=True)
     def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
@@ -6517,7 +6514,6 @@ class MlflowClient:
         """
         self._tracking_client.delete_dataset_tag(dataset_id=dataset_id, key=key)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def add_dataset_to_experiments(
         self, dataset_id: str, experiment_ids: list[str]
@@ -6548,7 +6544,6 @@ class MlflowClient:
         """
         return self._tracking_client.add_dataset_to_experiments(dataset_id, experiment_ids)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def remove_dataset_from_experiments(
         self, dataset_id: str, experiment_ids: list[str]

@@ -4,6 +4,7 @@ from mlflow.environment_variables import MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.server.jobs import job
+from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
 
@@ -27,13 +28,15 @@ def _fetch_provider_credentials(
         )
 
     secret_value = store._get_decrypted_secret(secret_id)
+    auth_config = store.get_secret_info(secret_id=secret_id).auth_config or {}
+    secret_dict = secret_value | auth_config
     credentials = {}
     if isinstance(env_var_config, dict):
         for secret_key, env_var_name in env_var_config.items():
-            if value := secret_value.get(secret_key):
+            if value := secret_dict.get(secret_key):
                 credentials[env_var_name] = value
     else:
-        if api_key := secret_value.get("api_key"):
+        if api_key := secret_dict.get("api_key"):
             credentials[env_var_config] = api_key
 
     return credentials
@@ -54,9 +57,9 @@ def invoke_issue_detection_job(
     """
     client = MlflowClient()
     try:
-        # can not link more than 100 traces to a run in a single request
-        for i in range(0, len(trace_ids), 100):
-            batch = trace_ids[i : i + 100]
+        # Cannot link more than MAX_TRACE_LINKS_PER_REQUEST traces to a run in a single request
+        for i in range(0, len(trace_ids), MAX_TRACE_LINKS_PER_REQUEST):
+            batch = trace_ids[i : i + MAX_TRACE_LINKS_PER_REQUEST]
             client.link_traces_to_run(batch, run_id)
         traces = client._tracing_client.batch_get_traces(trace_ids)
         result = discover_issues(

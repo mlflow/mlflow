@@ -106,6 +106,8 @@ def test_build_uvicorn_command():
         sys.executable,
         "-m",
         "uvicorn",
+        "--log-config",
+        str(server._UVICORN_LOG_CONFIG),
         "--host",
         "localhost",
         "--port",
@@ -125,6 +127,8 @@ def test_build_uvicorn_command():
         "--reload",
         "--log-level",
         "debug",
+        "--log-config",
+        str(server._UVICORN_LOG_CONFIG),
         "--host",
         "localhost",
         "--port",
@@ -140,6 +144,8 @@ def test_build_uvicorn_command():
         sys.executable,
         "-m",
         "uvicorn",
+        "--log-config",
+        str(server._UVICORN_LOG_CONFIG),
         "--host",
         "localhost",
         "--port",
@@ -163,6 +169,7 @@ def test_build_uvicorn_command_with_env_file():
 
     assert "--env-file" in cmd
     assert "/path/to/.env" in cmd
+    assert "--log-config" in cmd
     # Verify the order - env-file should come before the app name
     env_file_idx = cmd.index("--env-file")
     env_file_path_idx = cmd.index("/path/to/.env")
@@ -223,6 +230,8 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         "-m",
         "uvicorn",
         "--reload",
+        "--log-config",
+        str(server._UVICORN_LOG_CONFIG),
         "--host",
         "localhost",
         "--port",
@@ -233,10 +242,26 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
     ]
     mock_exec_cmd.assert_called_once_with(
         expected_command,
-        extra_env={_MLFLOW_SGI_NAME.name: "uvicorn"},
+        extra_env={
+            _MLFLOW_SGI_NAME.name: "uvicorn",
+        },
         capture_output=False,
         synchronous=False,
     )
+
+
+@pytest.mark.parametrize(
+    "uvicorn_opts",
+    [
+        "--log-config /custom/path.yaml",
+        "--log-config=/custom/path.yaml",
+    ],
+)
+def test_build_uvicorn_command_user_log_config_takes_precedence(uvicorn_opts):
+    cmd = server._build_uvicorn_command(
+        uvicorn_opts, "localhost", "5000", "4", "mlflow.server.fastapi_app:app"
+    )
+    assert not any("uvicorn_log_config.yaml" in o for o in cmd)
 
 
 @pytest.mark.parametrize(

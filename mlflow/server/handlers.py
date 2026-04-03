@@ -88,6 +88,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
@@ -301,7 +302,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import workspace_context
-from mlflow.utils.crypto import KEKManager
+from mlflow.utils.crypto import CRYPTO_KEK_PASSPHRASE_ENV_VAR
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -313,7 +314,6 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.providers import (
-    _PROVIDER_BACKEND_AVAILABLE,
     get_all_providers,
     get_models,
     get_provider_config_response,
@@ -780,8 +780,8 @@ def _assert_item_type_string(x):
 
 
 def _assert_secret_value(x):
-    """Validate secret_value is a non-empty dict without ever printing the values in errors."""
-    if not x:
+    """Validate secret_value is present. Does not print values in errors."""
+    if x is None:
         raise MlflowException(
             message="Missing value for required parameter 'secret_value'.",
             error_code=INVALID_PARAMETER_VALUE,
@@ -3863,6 +3863,7 @@ def _fetch_trace_data_from_store(
 @_disable_if_artifacts_only
 def get_trace_artifact_handler() -> Response:
     request_id = request.args.get("request_id")
+    path = request.args.get("path")
 
     if not request_id:
         raise MlflowException(
@@ -3871,6 +3872,40 @@ def get_trace_artifact_handler() -> Response:
         )
 
     store = _get_tracking_store()
+
+    if path:
+        path = validate_path_is_safe(path)
+        trace_info = store.get_trace_info(request_id)
+        if trace_info is None:
+            raise MlflowException(
+                f"Trace with ID '{request_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        repo = _get_trace_artifact_repo(trace_info)
+        try:
+            content_bytes = repo.download_trace_attachment(path)
+        except MlflowException:
+            raise
+        except Exception:
+            _logger.warning(
+                "Failed to download attachment '%s' for trace '%s'",
+                path,
+                request_id,
+                exc_info=True,
+            )
+            raise MlflowException(
+                f"Failed to download attachment '{path}' for trace '{request_id}'.",
+                error_code=INTERNAL_ERROR,
+            )
+        buf = io.BytesIO(content_bytes)
+        file_sender_response = send_file(
+            buf,
+            mimetype="application/octet-stream",
+            as_attachment=True,
+            download_name=path,
+        )
+        return _response_with_file_attachment_headers(path, file_sender_response)
+
     trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
         trace_info = store.get_trace_info(request_id)
@@ -4132,6 +4167,9 @@ def _search_issues():
     if request_message.HasField("max_results"):
         search_kwargs["max_results"] = request_message.max_results
 
+    if request_message.HasField("include_trace_count"):
+        search_kwargs["include_trace_count"] = request_message.include_trace_count
+
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
@@ -4188,14 +4226,17 @@ def _invoke_issue_detection_handler():
 
     # Create the run upfront so we can return run_id immediately
     model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
+    tags = {
+        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+        "categories": ",".join(categories),
+        "model": model_name,
+        "total_traces": len(trace_ids),
+    }
+    if endpoint_name:
+        tags["endpoint_name"] = endpoint_name
     run = mlflow.start_run(
         experiment_id=experiment_id,
-        tags={
-            MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
-            "categories": ",".join(categories),
-            "model": model_name,
-            "total_traces": len(trace_ids),
-        },
+        tags=tags,
     )
     run_id = run.info.run_id
 
@@ -4219,13 +4260,14 @@ def _invoke_issue_detection_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_issue_detection_job(job_id):
+def _get_job(job_id):
     from mlflow.server.jobs import get_job
 
     job = get_job(job_id)
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "status_details": job.status_details,
     })
 
 
@@ -4944,10 +4986,14 @@ def _get_gateway_endpoint():
     request_message = _get_request_message(
         GetGatewayEndpoint(),
         schema={
-            "endpoint_id": [_assert_required, _assert_string],
+            "endpoint_id": [_assert_string],
+            "name": [_assert_string],
         },
     )
-    endpoint = _get_tracking_store().get_gateway_endpoint(request_message.endpoint_id)
+    endpoint = _get_tracking_store().get_gateway_endpoint(
+        endpoint_id=request_message.endpoint_id or None,
+        name=request_message.name or None,
+    )
     response_message = GetGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
     return _wrap_response(response_message)
@@ -5568,15 +5614,10 @@ def _get_provider_config():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_secrets_config():
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        return jsonify({
-            "secrets_available": False,
-            "using_default_passphrase": False,
-        })
-    kek_manager = KEKManager()
+    using_default_passphrase = not os.environ.get(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
     return jsonify({
         "secrets_available": True,
-        "using_default_passphrase": kek_manager.using_default_passphrase,
+        "using_default_passphrase": using_default_passphrase,
     })
 
 
@@ -5643,7 +5684,7 @@ def _invoke_scorer_handler():
 
 
 def _get_rest_path(base_path, version=2):
-    return f"/api/{version}.0{base_path}"
+    return _add_static_prefix(f"/api/{version}.0{base_path}")
 
 
 def _get_ajax_path(base_path, version=2):
@@ -5715,9 +5756,9 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
-        # NB: Use _get_paths() (not _add_static_prefix()) so that the endpoint is reachable
-        # both at /api/3.0/mlflow/server-info (for the Python client, unaffected by static prefix)
-        # and at <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
+        # NB: Use _get_paths() so that the endpoint is reachable at both
+        # <static-prefix>/api/3.0/mlflow/server-info (for the Python client)
+        # and <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
         + [
             (_path, _get_server_info, ["GET"])
             for _path in _get_paths("/mlflow/server-info", version=3)
@@ -5767,11 +5808,6 @@ def get_issues_detection_endpoints():
             _invoke_issue_detection_handler,
             ["POST"],
         ),
-        (
-            _get_ajax_path("/mlflow/issues/job/<job_id>", version=3),
-            _get_issue_detection_job,
-            ["GET"],
-        ),
     ]
 
 
@@ -5781,6 +5817,11 @@ def get_job_endpoints():
             _get_ajax_path("/mlflow/jobs/cancel/<job_id>", version=3),
             _cancel_job,
             ["PATCH"],
+        ),
+        (
+            _get_ajax_path("/mlflow/jobs/<job_id>", version=3),
+            _get_job,
+            ["GET"],
         ),
     ]
 
