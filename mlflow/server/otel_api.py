@@ -26,6 +26,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
     OTLP_TRACES_PATH,
@@ -112,20 +113,33 @@ async def export_traces(
     completed_trace_ids = set()
     service_names = set()
     for resource_span in parsed_request.resource_spans:
-        if sn_attr := next(
-            (attr for attr in resource_span.resource.attributes if attr.key == "service.name"),
-            None,
-        ):
-            if value := _decode_otel_proto_anyvalue(sn_attr.value):
-                service_names.add(str(value))
+        # Extract resource-level attributes to propagate onto root spans
+        resource_service_name = None
+        resource_attrs: dict[str, str] = {}
+        for attr in resource_span.resource.attributes:
+            if value := _decode_otel_proto_anyvalue(attr.value):
+                resource_attrs[attr.key] = str(value)
+
+        if sn := resource_attrs.get("service.name"):
+            resource_service_name = sn
+            service_names.add(sn)
 
         for scope_span in resource_span.scope_spans:
             for otel_proto_span in scope_span.spans:
                 try:
                     mlflow_span = Span.from_otel_proto(otel_proto_span)
-                    all_spans.append(mlflow_span)
+
+                    # Propagate resource attributes onto root spans so they're
+                    # visible in the UI (following the OTel convention of
+                    # associating resource attrs with the producing entity).
                     if mlflow_span.parent_id is None:
                         completed_trace_ids.add(mlflow_span.trace_id)
+                        if resource_service_name:
+                            mlflow_span._span._attributes["service.name"] = (
+                                dump_span_attribute_value(resource_service_name)
+                            )
+
+                    all_spans.append(mlflow_span)
                 except Exception:
                     raise HTTPException(
                         status_code=422,
