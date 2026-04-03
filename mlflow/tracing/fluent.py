@@ -764,17 +764,19 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
 
+    exc: MlflowException | None = None
     try:
         return TracingClient().get_trace(trace_id)
-    except MlflowException:
-        pass
+    except MlflowException as e:
+        exc = e
 
     if flush:
         _flush_pending_async_trace_writes()
+        exc = None
         try:
             return TracingClient().get_trace(trace_id)
-        except MlflowException:
-            pass
+        except MlflowException as e:
+            exc = e
 
     if not silent:
         hint = (
@@ -783,11 +785,14 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
             else ""
         )
         _logger.warning(
-            f"Trace with ID '{trace_id}' not found in the tracking store.{hint} "
+            f"Failed to get trace from the tracking store: {exc}.{hint} "
             "For full traceback, set logging level to debug.",
+            exc_info=_logger.isEnabledFor(logging.DEBUG),
         )
     else:
-        _logger.debug(f"Trace with ID '{trace_id}' not found in the tracking store.")
+        _logger.debug(
+            f"Failed to get trace from the tracking store: {exc}.", exc_info=True
+        )
     return None
 
 
