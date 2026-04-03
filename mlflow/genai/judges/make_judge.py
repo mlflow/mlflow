@@ -275,13 +275,8 @@ def make_judge(
 
     _validate_feedback_value_type(feedback_value_type)
 
-    # Set default aggregations based on feedback_value_type:
-    # numeric/bool types support meaningful mean aggregation,
-    # categorical/string types do not.
-    if feedback_value_type in (bool, int, float):
-        default_aggregations = ["mean"]
-    else:
-        default_aggregations = []
+    # numeric/bool types support meaningful mean aggregation, categorical/string types do not.
+    default_aggregations = ["mean"] if feedback_value_type in (bool, int, float) else []
 
     return InstructionsJudge(
         name=name,
