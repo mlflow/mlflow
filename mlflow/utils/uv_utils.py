@@ -10,12 +10,13 @@ import os
 import re
 import shutil
 import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import NamedTuple
 
 from packaging.version import Version
 
-from mlflow.environment_variables import MLFLOW_LOG_UV_FILES
+from mlflow.environment_variables import MLFLOW_LOG_UV_FILES, MLFLOW_UV_AUTO_DETECT
 
 _logger = logging.getLogger(__name__)
 
@@ -26,6 +27,53 @@ _MIN_UV_VERSION = Version("0.6.10")
 _UV_LOCK_FILE = "uv.lock"
 _PYPROJECT_FILE = "pyproject.toml"
 _PYTHON_VERSION_FILE = ".python-version"
+
+
+@dataclass
+class UvConfig:
+    """Configuration for uv-based dependency management in MLflow model logging.
+
+    Consolidates uv-related parameters into a single object that can be passed
+    to any flavor's ``log_model()`` or ``save_model()`` method.
+
+    Example:
+
+    .. code-block:: python
+
+        from mlflow.utils.uv_utils import UvConfig
+
+        mlflow.sklearn.log_model(
+            sk_model=model,
+            name="my-model",
+            uv=UvConfig(project_path="./", groups=["ml"]),
+        )
+
+    Args:
+        project_path: Path to the uv project directory containing ``uv.lock``
+            and ``pyproject.toml``. If None, MLflow auto-detects from the
+            current working directory when ``MLFLOW_UV_AUTO_DETECT`` is enabled.
+        groups: Dependency groups to include when exporting from the lockfile.
+            Maps to ``uv export --group <name>``.
+        extras: Optional extras (optional dependency sets) to include.
+            Maps to ``uv export --extra <name>``.
+    """
+
+    project_path: str | Path | None = None
+    groups: list[str] = field(default_factory=list)
+    extras: list[str] = field(default_factory=list)
+
+
+def resolve_uv_source_dir(uv: UvConfig | None) -> str | Path | None:
+    """Determine the uv project directory from a UvConfig or auto-detection.
+
+    Returns the directory to use for uv export and file copying, or None
+    if uv is not configured and auto-detection is disabled.
+    """
+    if uv is not None and uv.project_path is not None:
+        return uv.project_path
+    if MLFLOW_UV_AUTO_DETECT.get():
+        return Path.cwd()
+    return None
 
 
 def get_uv_version() -> Version | None:
