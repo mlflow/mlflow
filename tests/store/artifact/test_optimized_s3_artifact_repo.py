@@ -168,7 +168,7 @@ def test_get_s3_client_region_name_set_correctly_with_non_throwing_response(s3_a
         )
 
 
-def test_get_region_name_client_error_without_region_header(s3_artifact_root):
+def test_get_region_name_client_error_without_region_header():
     from botocore.exceptions import ClientError
 
     from mlflow.exceptions import MlflowException
@@ -186,7 +186,7 @@ def test_get_region_name_client_error_without_region_header(s3_artifact_root):
         s3_client_mock.head_bucket.side_effect = error
 
         with pytest.raises(MlflowException, match="AWS_DEFAULT_REGION"):
-            OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+            OptimizedS3ArtifactRepository("s3://mock-bucket/some/path")
 
         s3_client_mock.head_bucket.assert_called_once()
 
