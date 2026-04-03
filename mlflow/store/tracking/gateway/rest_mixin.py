@@ -729,7 +729,6 @@ class RestGatewayStoreMixin:
         stage: GuardrailStage,
         action: GuardrailAction,
         action_endpoint_id: str | None = None,
-        created_by: str | None = None,
     ) -> GatewayGuardrail:
         kwargs = {
             "name": name,

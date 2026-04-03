@@ -20,11 +20,8 @@ class GuardrailStage(str, Enum):
         return self.value
 
     @classmethod
-    def from_proto(cls, proto: ProtoGuardrailStage) -> GuardrailStage | None:
-        try:
-            return cls(ProtoGuardrailStage.Name(proto))
-        except ValueError:
-            return None
+    def from_proto(cls, proto: ProtoGuardrailStage) -> GuardrailStage:
+        return cls(ProtoGuardrailStage.Name(proto))
 
     def to_proto(self) -> ProtoGuardrailStage:
         return ProtoGuardrailStage.Value(self.value)
@@ -38,11 +35,8 @@ class GuardrailAction(str, Enum):
         return self.value
 
     @classmethod
-    def from_proto(cls, proto: ProtoGuardrailAction) -> GuardrailAction | None:
-        try:
-            return cls(ProtoGuardrailAction.Name(proto))
-        except ValueError:
-            return None
+    def from_proto(cls, proto: ProtoGuardrailAction) -> GuardrailAction:
+        return cls(ProtoGuardrailAction.Name(proto))
 
     def to_proto(self) -> ProtoGuardrailAction:
         return ProtoGuardrailAction.Value(self.value)
