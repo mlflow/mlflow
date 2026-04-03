@@ -53,11 +53,17 @@ class Guardrail(abc.ABC):
     """
 
     @abc.abstractmethod
-    def process_request(self, request: dict[str, Any]) -> dict[str, Any]:
+    def process_request(
+        self,
+        request: dict[str, Any],
+        auth_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Process an incoming request payload before LLM invocation.
 
         Args:
             request: The chat request payload as a dict.
+            auth_headers: Optional HTTP headers to forward when making
+                internal calls (e.g. sanitization via the gateway).
 
         Returns:
             The (possibly modified) request payload.
@@ -71,12 +77,15 @@ class Guardrail(abc.ABC):
         self,
         request: dict[str, Any],
         response: dict[str, Any],
+        auth_headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Process an outgoing response payload after LLM invocation.
 
         Args:
             request: The original request payload.
             response: The chat response payload as a dict.
+            auth_headers: Optional HTTP headers to forward when making
+                internal calls (e.g. sanitization via the gateway).
 
         Returns:
             The (possibly modified) response payload.
@@ -170,7 +179,12 @@ class JudgeGuardrail(Guardrail):
             return "; ".join(failing) if failing else ""
         return str(result)
 
-    def _sanitize(self, payload: dict[str, Any], rationale: str) -> dict[str, Any]:
+    def _sanitize(
+        self,
+        payload: dict[str, Any],
+        rationale: str,
+        auth_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Send the full payload to the action endpoint LLM for rewriting.
 
         Posts a chat request to ``action_llm_url`` which is the fully
@@ -195,9 +209,20 @@ class JudgeGuardrail(Guardrail):
             ],
         }
 
-        resp = requests.post(url, json=body, timeout=60)
+        headers = dict(auth_headers) if auth_headers else {}
+
+        resp = requests.post(url, json=body, headers=headers, timeout=60)
         resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
+
+        try:
+            resp_json = resp.json()
+            content = resp_json["choices"][0]["message"]["content"]
+        except (ValueError, KeyError, IndexError, TypeError) as e:
+            raise GuardrailViolation(
+                self.name,
+                "Sanitization LLM response is missing 'choices[0].message.content'.",
+            ) from e
+
         try:
             return json.loads(content)
         except json.JSONDecodeError as e:
@@ -206,7 +231,11 @@ class JudgeGuardrail(Guardrail):
                 f"Sanitization LLM returned invalid JSON: {content[:200]}",
             ) from e
 
-    def process_request(self, request: dict[str, Any]) -> dict[str, Any]:
+    def process_request(
+        self,
+        request: dict[str, Any],
+        auth_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         if self.stage == GuardrailStage.AFTER:
             return request
 
@@ -221,12 +250,13 @@ class JudgeGuardrail(Guardrail):
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return self._sanitize(request, rationale)
+        return self._sanitize(request, rationale, auth_headers=auth_headers)
 
     def process_response(
         self,
         request: dict[str, Any],
         response: dict[str, Any],
+        auth_headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         if self.stage == GuardrailStage.BEFORE:
             return response
@@ -243,7 +273,7 @@ class JudgeGuardrail(Guardrail):
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return self._sanitize(response, rationale)
+        return self._sanitize(response, rationale, auth_headers=auth_headers)
 
     @classmethod
     def from_entity(cls, entity: GatewayGuardrail, server_url: str | None = None) -> JudgeGuardrail:
