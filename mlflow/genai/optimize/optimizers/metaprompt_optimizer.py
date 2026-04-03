@@ -433,9 +433,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 )
 
             if extra:
-                _logger.warning(
-                    f"Stripping extra template variables {extra} from prompt '{name}'."
-                )
+                _logger.warning(f"Stripping extra template variables {extra} from prompt '{name}'.")
                 text = new_prompts[name]
                 for var in extra:
                     text = text.replace("{{" + var + "}}", "")
