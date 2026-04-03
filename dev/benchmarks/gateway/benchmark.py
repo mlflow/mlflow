@@ -148,6 +148,40 @@ def run_benchmark(
     return results
 
 
+def results_to_dict(results: list[RunResult]) -> dict[str, object]:
+    runs = [
+        {
+            "n_success": r.n_success,
+            "n_failures": r.n_failures,
+            "failures": r.failures,
+            "wall_time_s": round(r.wall_time, 3),
+            "mean_ms": round(statistics.mean(r.latencies_ms) if r.latencies_ms else 0.0, 2),
+            "p50_ms": round(r.percentile(50), 2),
+            "p95_ms": round(r.percentile(95), 2),
+            "p99_ms": round(r.percentile(99), 2),
+            "max_ms": round(max(r.latencies_ms) if r.latencies_ms else 0.0, 2),
+            "rps": round(r.throughput, 2),
+        }
+        for r in results
+    ]
+    summary: dict[str, object] = (
+        {
+            "avg_mean_ms": round(
+                statistics.mean(
+                    statistics.mean(r.latencies_ms) if r.latencies_ms else 0.0 for r in results
+                ),
+                2,
+            ),
+            "avg_p50_ms": round(statistics.mean(r.percentile(50) for r in results), 2),
+            "avg_p99_ms": round(statistics.mean(r.percentile(99) for r in results), 2),
+            "avg_rps": round(statistics.mean(r.throughput for r in results), 2),
+        }
+        if results
+        else {}
+    )
+    return {"runs": runs, "summary": summary}
+
+
 def print_results(results: list[RunResult]) -> None:
     table = Table(show_header=True, header_style="bold cyan", box=None, padding=(0, 2))
     table.add_column("Run", style="dim", width=5)

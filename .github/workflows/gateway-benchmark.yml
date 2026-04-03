@@ -96,7 +96,13 @@ jobs:
           if [[ "$EVENT_NAME" == "schedule" ]]; then
             ARGS+=(--max-p50-ms 300 --max-p99-ms 800)
           fi
-          uv run --no-sync dev/benchmarks/gateway/run.py "${ARGS[@]}"
+          uv run --no-sync dev/benchmarks/gateway/run.py "${ARGS[@]}" \
+            --output benchmark-results-single.json
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
+        with:
+          name: benchmark-results-single-${{ github.run_id }}
+          path: benchmark-results-single.json
 
   multi-mode:
     runs-on: ubuntu-latest
@@ -130,4 +136,10 @@ jobs:
           if [[ "$EVENT_NAME" == "schedule" ]]; then
             ARGS+=(--max-p50-ms 400 --max-p99-ms 1000)
           fi
-          uv run --no-sync dev/benchmarks/gateway/run.py "${ARGS[@]}"
+          uv run --no-sync dev/benchmarks/gateway/run.py "${ARGS[@]}" \
+            --output benchmark-results-multi.json
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
+        with:
+          name: benchmark-results-multi-${{ github.run_id }}
+          path: benchmark-results-multi.json
