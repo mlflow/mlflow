@@ -2865,6 +2865,7 @@ def save_model(
     uv_project_path: str | Path | None = None,
     uv_groups: list[str] | None = None,
     uv_extras: list[str] | None = None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -3394,6 +3395,7 @@ def save_model(
             uv_project_path=uv_project_path,
             uv_groups=uv_groups,
             uv_extras=uv_extras,
+            uv=uv,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -3413,6 +3415,7 @@ def save_model(
             uv_project_path=uv_project_path,
             uv_groups=uv_groups,
             uv_extras=uv_extras,
+            uv=uv,
         )
 
 
@@ -3453,6 +3456,7 @@ def log_model(
     uv_project_path: str | Path | None = None,
     uv_groups: list[str] | None = None,
     uv_extras: list[str] | None = None,
+    uv=None,
     prompts: list[str | Prompt] | None = None,
     name=None,
     params: dict[str, Any] | None = None,
@@ -3720,6 +3724,7 @@ def log_model(
         uv_project_path=uv_project_path,
         uv_groups=uv_groups,
         uv_extras=uv_extras,
+        uv=uv,
         params=params,
         tags=tags,
         model_type=model_type,
