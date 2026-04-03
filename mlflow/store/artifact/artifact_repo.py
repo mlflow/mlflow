@@ -9,13 +9,14 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadPart,
 )
+from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
@@ -34,6 +35,9 @@ from mlflow.utils.async_logging.async_artifacts_logging_queue import (
 )
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
 from mlflow.utils.validation import bad_path_message, path_not_unique
+
+if TYPE_CHECKING:
+    from mlflow.entities.span import Span
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
@@ -406,6 +410,23 @@ class ArtifactRepository:
                 raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
             return try_read_trace_data(temp_file)
 
+    def download_archived_trace_data(self) -> TraceData:
+        """
+        Download archived trace data from ``traces.pb``.
+
+        Returns:
+            The archived trace data.
+        """
+        from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, TRACE_ARCHIVAL_FILENAME)
+            try:
+                self._download_file(TRACE_ARCHIVAL_FILENAME, temp_file)
+            except Exception as e:
+                raise MlflowTraceDataNotFound(artifact_path=TRACE_ARCHIVAL_FILENAME) from e
+            return TraceData(spans=_try_read_trace_data_pb(temp_file))
+
     def download_trace_attachment(self, path: str) -> bytes:
         _validate_attachment_path(path)
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -421,6 +442,30 @@ class ArtifactRepository:
             trace_data: The json-serialized trace data to upload.
         """
         with write_local_temp_trace_data_file(trace_data) as temp_file:
+            self.log_artifact(temp_file)
+
+    def upload_archived_trace_data(self, trace_data: TraceData | str) -> None:
+        """
+        Upload archived trace data as OTLP protobuf to ``traces.pb``.
+
+        Args:
+            trace_data: The archived trace data as a ``TraceData`` object or serialized JSON.
+        """
+        from mlflow.tracing.otel.otel_archival import spans_to_traces_data_pb
+
+        data = spans_to_traces_data_pb(_coerce_archived_trace_data(trace_data).spans)
+        self.upload_archived_trace_data_bytes(data)
+
+    def upload_archived_trace_data_bytes(self, data: bytes) -> None:
+        """
+        Upload serialized archived trace data bytes to ``traces.pb``.
+
+        Backends can override this hook to avoid the default temp-file staging path when their
+        storage SDK supports in-memory uploads or more efficient multipart transfer primitives.
+        Overriding is useful for remote object stores where direct byte uploads can reduce local
+        disk I/O and let the backend apply transport-specific optimizations.
+        """
+        with _write_local_temp_trace_data_pb_file(data) as temp_file:
             self.log_artifact(temp_file)
 
     def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
@@ -439,6 +484,32 @@ def write_local_temp_trace_data_file(trace_data: str):
         yield temp_file
 
 
+@contextmanager
+def _write_local_temp_trace_data_pb_file(data: bytes):
+    from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file = Path(temp_dir, TRACE_ARCHIVAL_FILENAME)
+        temp_file.write_bytes(data)
+        yield temp_file
+
+
+def _coerce_archived_trace_data(trace_data: TraceData | str) -> TraceData:
+    if isinstance(trace_data, TraceData):
+        return trace_data
+    if isinstance(trace_data, str):
+        try:
+            return TraceData.from_dict(json.loads(trace_data))
+        except (TypeError, json.JSONDecodeError) as e:
+            raise MlflowException.invalid_parameter_value(
+                "Archived trace data must be a TraceData object or valid serialized "
+                "trace-data JSON."
+            ) from e
+    raise MlflowException.invalid_parameter_value(
+        "Archived trace data must be a TraceData object or valid serialized trace-data JSON."
+    )
+
+
 def try_read_trace_data(trace_data_path):
     if not os.path.exists(trace_data_path):
         raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
@@ -449,6 +520,20 @@ def try_read_trace_data(trace_data_path):
     try:
         return json.loads(data)
     except json.decoder.JSONDecodeError as e:
+        raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
+
+
+def _try_read_trace_data_pb(trace_data_path) -> list["Span"]:
+    from mlflow.tracing.otel.otel_archival import traces_data_pb_to_spans
+
+    if not os.path.exists(trace_data_path):
+        raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
+    data = Path(trace_data_path).read_bytes()
+    if not data:
+        raise MlflowTraceDataCorrupted(artifact_path=trace_data_path)
+    try:
+        return traces_data_pb_to_spans(data)
+    except Exception as e:
         raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
 
 

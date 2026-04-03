@@ -206,6 +206,7 @@ GET_TRACE_V4_RETRY_TIMEOUT_SECONDS = 15
 class SpansLocation(str, Enum):
     TRACKING_STORE = "TRACKING_STORE"
     ARTIFACT_REPO = "ARTIFACT_REPO"
+    ARCHIVE_REPO = "ARCHIVE_REPO"
 
 
 # Path to the notebook trace renderer directory
