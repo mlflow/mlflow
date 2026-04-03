@@ -155,7 +155,7 @@ Experimental: These parameters may change or be removed in a future release with
 
 MLflow provides two separate mechanisms for capturing pinned dependencies:
 
-- **[`MLFLOW_LOCK_MODEL_DEPENDENCIES`](#locking-model-dependencies-with-mlflow_lock_model_dependencies)**: Triggers on-the-fly resolution of the current environment's dependencies at model logging time. It does not require a pre-existing `uv.lock` file and resolves dependencies from scratch based on the inferred requirements.
+- **[`MLFLOW_LOCK_MODEL_DEPENDENCIES`](#locking-model-dependencies-with-mlflow_lock_model_dependencies)**: Triggers on-the-fly resolution and pinning at model logging time from the inferred requirements. It does not require a pre-existing `uv.lock` file, but because dependencies are re-resolved from the inferred requirement spec, the resulting versions may differ from the exact packages currently installed in your environment.
 
 - **Using uv for Dependency Management** (this section): Reads dependencies directly from an existing `uv.lock` file in your uv-managed project. This approach captures the exact versions you locked and tested with, rather than re-resolving at log time.
 
