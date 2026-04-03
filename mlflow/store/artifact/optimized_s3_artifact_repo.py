@@ -13,6 +13,7 @@ from mlflow.environment_variables import (
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.cloud_artifact_repo import (
@@ -134,7 +135,8 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 f"The HeadBucket request failed with: {error}. "
                 "If you are running in AWS GovCloud or another non-standard partition, "
                 "set the AWS_DEFAULT_REGION environment variable to your region "
-                "(e.g., os.environ['AWS_DEFAULT_REGION'] = 'us-gov-west-1')"
+                "(e.g., os.environ['AWS_DEFAULT_REGION'] = 'us-gov-west-1')",
+                error_code=INVALID_PARAMETER_VALUE,
             ) from error
 
     def _get_s3_client(self):
