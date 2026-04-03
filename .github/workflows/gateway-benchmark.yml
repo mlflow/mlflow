@@ -81,10 +81,10 @@ jobs:
       - name: Run single-mode benchmark
         env:
           EVENT_NAME: ${{ github.event_name }}
-          REQUESTS: ${{ inputs.single_requests || '2000' }}
-          MAX_CONCURRENT: ${{ inputs.single_max_concurrent || '50' }}
-          MAX_P50_MS: ${{ inputs.single_max_p50_ms }}
-          MAX_P99_MS: ${{ inputs.single_max_p99_ms }}
+          REQUESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.single_requests || '2000' }}
+          MAX_CONCURRENT: ${{ github.event_name == 'workflow_dispatch' && inputs.single_max_concurrent || '50' }}
+          MAX_P50_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.single_max_p50_ms || '' }}
+          MAX_P99_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.single_max_p99_ms || '' }}
         run: |
           ARGS=(
             --instances 1
@@ -124,10 +124,10 @@ jobs:
       - name: Run multi-mode benchmark
         env:
           EVENT_NAME: ${{ github.event_name }}
-          REQUESTS: ${{ inputs.multi_requests || '2000' }}
-          MAX_CONCURRENT: ${{ inputs.multi_max_concurrent || '50' }}
-          MAX_P50_MS: ${{ inputs.multi_max_p50_ms }}
-          MAX_P99_MS: ${{ inputs.multi_max_p99_ms }}
+          REQUESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_requests || '2000' }}
+          MAX_CONCURRENT: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_max_concurrent || '50' }}
+          MAX_P50_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_max_p50_ms || '' }}
+          MAX_P99_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.multi_max_p99_ms || '' }}
         run: |
           ARGS=(
             --instances 4
