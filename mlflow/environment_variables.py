@@ -1000,8 +1000,8 @@ MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
 # path and let each executor fetch the model directly from the artifact store instead.
 # Once the Serverless platform fixes the sandbox visibility issue, this flag can be removed.
 # (default: ``False``)
-MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT = _BooleanEnvironmentVariable(
-    "MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT", False
+_MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT = _BooleanEnvironmentVariable(
+    "_MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT", False
 )
 
 # Specifies whether to log environment variable names used during model logging.

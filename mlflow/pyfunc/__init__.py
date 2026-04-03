@@ -426,7 +426,7 @@ import mlflow.pyfunc.model
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
-    MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
+    _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
     _MLFLOW_TESTING,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
@@ -2264,14 +2264,14 @@ def spark_udf(
     # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it.
     # For Databricks Serverless runtime (notebook REPL), spark.addArtifact may not reliably
     # make archives available to UDF executor sandboxes. As a temporary workaround, set
-    # MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT=true to skip the addArtifact path
+    # _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT=true to skip the addArtifact path
     # and let each executor fetch the model directly from the MLflow artifact store instead.
     use_dbconnect_artifact = (
         is_dbconnect_mode
         and not is_in_databricks_shared_cluster_runtime()
         and not (
             is_in_databricks_serverless_runtime()
-            and MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT.get()
+            and _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT.get()
         )
     )
 
