@@ -76,8 +76,8 @@ class GatewayGuardrail(_MlflowObject):
         proto.scorer.CopyFrom(self.scorer.to_proto())
         proto.stage = self.stage.to_proto()
         proto.action = self.action.to_proto()
-        if self.action_endpoint_id:
-            proto.action_endpoint_id = self.action_endpoint_id
+        if self.action_endpoint_name:
+            proto.action_endpoint_id = self.action_endpoint_name
         proto.created_by = self.created_by or ""
         proto.created_at = self.created_at
         proto.last_updated_by = self.last_updated_by or ""
@@ -92,7 +92,7 @@ class GatewayGuardrail(_MlflowObject):
             scorer=ScorerVersion.from_proto(proto.scorer),
             stage=GuardrailStage.from_proto(proto.stage),
             action=GuardrailAction.from_proto(proto.action),
-            action_endpoint_id=proto.action_endpoint_id or None,
+            action_endpoint_name=proto.action_endpoint_id or None,
             created_by=proto.created_by or None,
             created_at=proto.created_at,
             last_updated_by=proto.last_updated_by or None,
@@ -118,16 +118,22 @@ class GatewayGuardrailConfig(_MlflowObject):
         proto.guardrail_id = self.guardrail_id
         if self.execution_order is not None:
             proto.execution_order = self.execution_order
+        if self.guardrail is not None:
+            proto.guardrail.CopyFrom(self.guardrail.to_proto())
         proto.created_by = self.created_by or ""
         proto.created_at = self.created_at
         return proto
 
     @classmethod
     def from_proto(cls, proto):
+        guardrail = None
+        if proto.HasField("guardrail"):
+            guardrail = GatewayGuardrail.from_proto(proto.guardrail)
         return cls(
             endpoint_id=proto.endpoint_id,
             guardrail_id=proto.guardrail_id,
             execution_order=proto.execution_order if proto.HasField("execution_order") else None,
+            guardrail=guardrail,
             created_at=proto.created_at,
             created_by=proto.created_by or None,
         )

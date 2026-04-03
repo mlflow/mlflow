@@ -256,6 +256,7 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
+    UpdateEndpointGuardrailConfig,
     UpdateExperiment,
     UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
@@ -5713,6 +5714,27 @@ def _list_endpoint_guardrail_configs():
 
 
 @catch_mlflow_exception
+def _update_endpoint_guardrail_config():
+    request_message = _get_request_message(
+        UpdateEndpointGuardrailConfig(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "guardrail_id": [_assert_required, _assert_string],
+        },
+    )
+    kwargs = {
+        "endpoint_id": request_message.endpoint_id,
+        "guardrail_id": request_message.guardrail_id,
+    }
+    if request_message.HasField("execution_order"):
+        kwargs["execution_order"] = request_message.execution_order
+    config = _get_tracking_store().update_endpoint_guardrail_config(**kwargs)
+    response_message = UpdateEndpointGuardrailConfig.Response()
+    response_message.config.CopyFrom(config.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
 def _get_server_info():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -6934,6 +6956,7 @@ HANDLERS = {
     AddGuardrailToEndpoint: _add_guardrail_to_endpoint,
     RemoveGuardrailFromEndpoint: _remove_guardrail_from_endpoint,
     ListEndpointGuardrailConfigs: _list_endpoint_guardrail_configs,
+    UpdateEndpointGuardrailConfig: _update_endpoint_guardrail_config,
     # Prompt Optimization APIs
     CreatePromptOptimizationJob: _create_prompt_optimization_job,
     GetPromptOptimizationJob: _get_prompt_optimization_job,

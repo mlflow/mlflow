@@ -60,6 +60,7 @@ from mlflow.protos.service_pb2 import (
     ListGatewaySecretInfos,
     RemoveGuardrailFromEndpoint,
     SetGatewayEndpointTag,
+    UpdateEndpointGuardrailConfig,
     UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
@@ -117,6 +118,7 @@ class RestGatewayStoreMixin:
         AddGuardrailToEndpoint,
         RemoveGuardrailFromEndpoint,
         ListEndpointGuardrailConfigs,
+        UpdateEndpointGuardrailConfig,
     }
 
     # ========== Secrets Management APIs ==========
@@ -797,3 +799,16 @@ class RestGatewayStoreMixin:
         req_body = message_to_json(ListEndpointGuardrailConfigs(endpoint_id=endpoint_id))
         response_proto = self._call_endpoint(ListEndpointGuardrailConfigs, req_body)
         return [GatewayGuardrailConfig.from_proto(c) for c in response_proto.configs]
+
+    def update_endpoint_guardrail_config(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+    ) -> GatewayGuardrailConfig:
+        kwargs = {"endpoint_id": endpoint_id, "guardrail_id": guardrail_id}
+        if execution_order is not None:
+            kwargs["execution_order"] = execution_order
+        req_body = message_to_json(UpdateEndpointGuardrailConfig(**kwargs))
+        response_proto = self._call_endpoint(UpdateEndpointGuardrailConfig, req_body)
+        return GatewayGuardrailConfig.from_proto(response_proto.config)

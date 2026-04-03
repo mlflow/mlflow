@@ -2442,6 +2442,23 @@ service MlflowService {
     };
   }
 
+  rpc updateEndpointGuardrailConfig(UpdateEndpointGuardrailConfig) returns (UpdateEndpointGuardrailConfig.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/gateway/guardrails/update-config"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Endpoint Guardrail Config"
+    };
+  }
+
   // Create a new prompt optimization job.
   // This endpoint initiates an optimization run with the specified configuration.
   // The optimization process runs asynchronously and can be monitored via getPromptOptimizationJob.
@@ -5406,6 +5423,9 @@ message GatewayGuardrailConfig {
   optional string created_by = 4;
 
   optional int64 created_at = 5;
+
+  // The full guardrail entity, populated when listing configs.
+  optional GatewayGuardrail guardrail = 6;
 }
 
 message CreateGatewayGuardrail {
@@ -5492,6 +5512,23 @@ message ListEndpointGuardrailConfigs {
 
   message Response {
     repeated GatewayGuardrailConfig configs = 1;
+  }
+}
+
+message UpdateEndpointGuardrailConfig {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The endpoint ID.
+  optional string endpoint_id = 1;
+
+  // The guardrail ID.
+  optional string guardrail_id = 2;
+
+  // The new execution order.
+  optional int64 execution_order = 3;
+
+  message Response {
+    optional GatewayGuardrailConfig config = 1;
   }
 }
 

@@ -642,6 +642,14 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def update_endpoint_guardrail_config(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+    ) -> GatewayGuardrailConfig:
+        raise NotImplementedError(self.__class__.__name__)
+
     def remove_guardrail_from_endpoint(
         self,
         endpoint_id: str,
