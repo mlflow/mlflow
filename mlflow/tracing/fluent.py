@@ -991,6 +991,20 @@ def search_traces(
 
     _validate_list_param("locations", locations, allow_none=True)
 
+    # Flush any pending async trace writes so the caller sees the latest state.
+    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
+
+    try:
+        flush_all_batch_processors()
+    except Exception:
+        pass
+    try:
+        if trace_exporter := _get_trace_exporter():
+            if hasattr(trace_exporter, "_async_queue"):
+                trace_exporter._async_queue.flush()
+    except Exception:
+        pass
+
     if not experiment_ids and not locations:
         _logger.debug("Searching traces in the current active experiment")
         locations = _get_search_locations(locations)
