@@ -19,7 +19,7 @@ def upgrade():
         "guardrails",
         sa.Column("guardrail_id", sa.String(length=36), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("scorer_id", sa.String(length=255), nullable=False),
+        sa.Column("scorer_id", sa.String(length=36), nullable=False),
         sa.Column("scorer_version", sa.Integer(), nullable=False),
         sa.Column("stage", sa.String(length=32), nullable=False),
         sa.Column("action", sa.String(length=32), nullable=False),

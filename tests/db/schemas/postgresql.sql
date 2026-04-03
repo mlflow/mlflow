@@ -414,7 +414,7 @@ CREATE TABLE endpoint_tags (
 CREATE TABLE guardrails (
 	guardrail_id VARCHAR(36) NOT NULL,
 	name VARCHAR(255) NOT NULL,
-	scorer_id VARCHAR(255) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
 	scorer_version INTEGER NOT NULL,
 	stage VARCHAR(32) NOT NULL,
 	action VARCHAR(32) NOT NULL,

@@ -3029,7 +3029,7 @@ class SqlGatewayGuardrail(Base):
     """
     Human-readable guardrail name: `String` (limit 255 characters).
     """
-    scorer_id = Column(String(255), nullable=False)
+    scorer_id = Column(String(36), nullable=False)
     """
     Scorer ID referencing the MLflow scorer: `String`.
     """

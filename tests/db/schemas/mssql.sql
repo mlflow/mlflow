@@ -408,7 +408,7 @@ CREATE TABLE endpoint_tags (
 CREATE TABLE guardrails (
 	guardrail_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	scorer_id VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	scorer_version INTEGER NOT NULL,
 	stage VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	action VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
