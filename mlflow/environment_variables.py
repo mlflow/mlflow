@@ -995,13 +995,13 @@ MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
     "MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR", str, None
 )
 
-# Temporary fix: on Databricks Serverless, artifacts uploaded via spark.addArtifact
-# are not visible inside the UDF executor sandbox, so we skip the addArtifact path
-# and let each executor fetch the model directly from the artifact store.
-# Set to False to revert to the addArtifact path once the Serverless platform fixes
-# the sandbox visibility issue. (default: ``True``)
-_MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT = _BooleanEnvironmentVariable(
-    "_MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT", True
+# Temporary workaround: on Databricks Serverless, artifacts uploaded via spark.addArtifact
+# may not be visible inside the UDF executor sandbox. Set to True to skip the addArtifact
+# path and let each executor fetch the model directly from the artifact store instead.
+# Once the Serverless platform fixes the sandbox visibility issue, this flag can be removed.
+# (default: ``False``)
+MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT = _BooleanEnvironmentVariable(
+    "MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT", False
 )
 
 # Specifies whether to log environment variable names used during model logging.
