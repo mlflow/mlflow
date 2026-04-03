@@ -3,7 +3,7 @@ const NOUNS = [
   'bear',
   'bird',
   'cat',
-  "capybara",
+  'capybara',
   'crow',
   'deer',
   'dog',
