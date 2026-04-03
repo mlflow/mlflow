@@ -404,7 +404,11 @@ mlflow.entities.GatewayEndpointTag
 mlflow.entities.GatewayEndpointTag.from_proto
 mlflow.entities.GatewayEndpointTag.to_proto
 mlflow.entities.GatewayGuardrail
+mlflow.entities.GatewayGuardrail.from_proto
+mlflow.entities.GatewayGuardrail.to_proto
 mlflow.entities.GatewayGuardrailConfig
+mlflow.entities.GatewayGuardrailConfig.from_proto
+mlflow.entities.GatewayGuardrailConfig.to_proto
 mlflow.entities.GatewayModelDefinition
 mlflow.entities.GatewayModelDefinition.from_proto
 mlflow.entities.GatewayModelDefinition.to_proto
@@ -416,7 +420,11 @@ mlflow.entities.GatewaySecretInfo
 mlflow.entities.GatewaySecretInfo.from_proto
 mlflow.entities.GatewaySecretInfo.to_proto
 mlflow.entities.GuardrailAction
+mlflow.entities.GuardrailAction.from_proto
+mlflow.entities.GuardrailAction.to_proto
 mlflow.entities.GuardrailStage
+mlflow.entities.GuardrailStage.from_proto
+mlflow.entities.GuardrailStage.to_proto
 mlflow.entities.InferenceTableLocation
 mlflow.entities.InferenceTableLocation.from_dict
 mlflow.entities.InferenceTableLocation.from_proto
