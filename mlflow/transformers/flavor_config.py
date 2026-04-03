@@ -266,6 +266,7 @@ def update_flavor_conf_to_persist_pretrained_model(
 
     flavor_conf[FlavorKey.MODEL_BINARY] = _MODEL_BINARY_FILE_NAME
     flavor_conf.pop(FlavorKey.MODEL_REVISION, None)
+    flavor_conf.pop(FlavorKey.MODEL_LOCAL_BASE, None)
 
     # Remove component repo name and commit hash
     components = original_flavor_conf.get(FlavorKey.COMPONENTS, [])
