@@ -426,6 +426,7 @@ import mlflow.pyfunc.model
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
+    _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
     _MLFLOW_TESTING,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
@@ -2268,7 +2269,10 @@ def spark_udf(
     use_dbconnect_artifact = (
         is_dbconnect_mode
         and not is_in_databricks_shared_cluster_runtime()
-        and not is_in_databricks_serverless_runtime()
+        and not (
+            is_in_databricks_serverless_runtime()
+            and _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT.get()
+        )
     )
 
     if use_dbconnect_artifact:
