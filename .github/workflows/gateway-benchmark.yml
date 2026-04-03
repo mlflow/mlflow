@@ -120,7 +120,9 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
-        run: uv sync --extra gateway
+        run: |
+          uv sync --extra gateway
+          uv pip install "psycopg2-binary>=2.9,<3"
       - name: Run multi-mode benchmark
         env:
           EVENT_NAME: ${{ github.event_name }}
