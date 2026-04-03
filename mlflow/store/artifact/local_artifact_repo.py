@@ -2,6 +2,8 @@ import os
 import shutil
 from typing import Any
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     try_read_trace_data,
@@ -90,7 +92,10 @@ class LocalArtifactRepository(ArtifactRepository):
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
         validate_path_within_directory(self.artifact_dir, local_artifact_path)
         if not os.path.exists(local_artifact_path):
-            raise OSError(f"No such file or directory: '{local_artifact_path}'")
+            raise MlflowException(
+                f"No such artifact: '{artifact_path}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
         return os.path.abspath(local_artifact_path)
 
     def list_artifacts(self, path=None):
@@ -107,6 +112,11 @@ class LocalArtifactRepository(ArtifactRepository):
                 for f in artifact_files
             ]
             return sorted(infos, key=lambda f: f.path)
+        elif path and not os.path.exists(list_dir):
+            raise MlflowException(
+                f"No such artifact: '{path}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
         else:
             return []
 
@@ -114,6 +124,11 @@ class LocalArtifactRepository(ArtifactRepository):
         remote_file_path = validate_path_is_safe(remote_file_path)
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
         validate_path_within_directory(self.artifact_dir, remote_file_path)
+        if not os.path.exists(remote_file_path):
+            raise MlflowException(
+                f"No such artifact: '{os.path.relpath(remote_file_path, self.artifact_dir)}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
         shutil.copy2(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
