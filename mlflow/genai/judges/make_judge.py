@@ -240,7 +240,7 @@ def make_judge(
     if feedback_value_type in (bool, int, float):
         default_aggregations = ["mean"]
     else:
-        default_aggregations = None
+        default_aggregations = []
 
     return InstructionsJudge(
         name=name,

@@ -3832,3 +3832,94 @@ def test_inference_params_preserved_after_round_trip_serialization():
 
     assert restored.inference_params == inference_params
     assert restored_from_json.inference_params == inference_params
+
+
+@pytest.mark.parametrize(
+    ("feedback_value_type", "expected_aggregations"),
+    [
+        (bool, ["mean"]),
+        (int, ["mean"]),
+        (float, ["mean"]),
+        (str, []),
+        (Literal["good", "bad"], []),
+    ],
+)
+def test_make_judge_default_aggregations(feedback_value_type, expected_aggregations):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        feedback_value_type=feedback_value_type,
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations == expected_aggregations
+
+
+def test_make_judge_bool_judge_has_mean_aggregation(mock_invoke_judge_model):
+    judge = make_judge(
+        name="correctness",
+        instructions="Is {{ outputs }} correct given {{ inputs }}?",
+        feedback_value_type=bool,
+        model="openai:/gpt-4",
+    )
+
+    data = pd.DataFrame({
+        "inputs": [{"q": "2+2?"}, {"q": "3+3?"}],
+        "outputs": ["4", "6"],
+    })
+
+    result = mlflow.genai.evaluate(data=data, scorers=[judge])
+    assert "correctness/mean" in result.metrics
+
+
+def test_instructions_judge_accepts_aggregations_kwarg():
+    judge = InstructionsJudge(
+        name="custom_agg",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        aggregations=["mean", "max"],
+    )
+    assert judge.aggregations == ["mean", "max"]
+
+
+def test_instructions_judge_aggregations_none_by_default():
+    judge = InstructionsJudge(
+        name="no_agg",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations is None
+
+
+def test_make_judge_aggregations_round_trip_serialization():
+    judge = make_judge(
+        name="bool_judge",
+        instructions="Is {{ outputs }} correct?",
+        feedback_value_type=bool,
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations == ["mean"]
+
+    serialized = judge.model_dump()
+    assert serialized["aggregations"] == ["mean"]
+
+    restored = Scorer.model_validate(serialized)
+    assert restored.aggregations == ["mean"]
+
+    restored_from_json = Scorer.model_validate_json(json.dumps(serialized))
+    assert restored_from_json.aggregations == ["mean"]
+
+
+def test_make_judge_no_aggregations_round_trip_serialization():
+    judge = make_judge(
+        name="str_judge",
+        instructions="Categorize {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations == []
+
+    serialized = judge.model_dump()
+    assert serialized["aggregations"] == []
+
+    restored = Scorer.model_validate(serialized)
+    assert restored.aggregations == []
