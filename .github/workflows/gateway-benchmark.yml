@@ -1,0 +1,133 @@
+# Daily benchmark for the MLflow AI Gateway to catch performance regressions.
+# Runs both single-instance (sqlite, 1 MLflow process) and multi-instance
+# (4 MLflow processes behind nginx with postgres) modes.
+#
+# THRESHOLD CALIBRATION: The default threshold values below are conservative
+# starting points. Run this workflow a few times without thresholds via
+# workflow_dispatch (leave threshold inputs empty) to collect baseline data,
+# then tighten thresholds to ~2x the observed average.
+name: MLflow Gateway Benchmark
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC (off-peak; slow-tests runs at 13:00)
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      # --- single-mode ---
+      single_requests:
+        description: "Requests per run (single mode)"
+        required: false
+        default: "2000"
+      single_max_concurrent:
+        description: "Max concurrent requests (single mode)"
+        required: false
+        default: "50"
+      single_max_p50_ms:
+        description: "Max P50 latency ms (single mode) -- leave blank to skip threshold check"
+        required: false
+        default: ""
+      single_max_p99_ms:
+        description: "Max P99 latency ms (single mode) -- leave blank to skip threshold check"
+        required: false
+        default: ""
+      # --- multi-mode ---
+      multi_requests:
+        description: "Requests per run (multi mode)"
+        required: false
+        default: "2000"
+      multi_max_concurrent:
+        description: "Max concurrent requests (multi mode)"
+        required: false
+        default: "50"
+      multi_max_p50_ms:
+        description: "Max P50 latency ms (multi mode) -- leave blank to skip threshold check"
+        required: false
+        default: ""
+      multi_max_p99_ms:
+        description: "Max P99 latency ms (multi mode) -- leave blank to skip threshold check"
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MLFLOW_HOME: ${{ github.workspace }}
+
+jobs:
+  single-mode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: uv sync --extra gateway
+      - name: Run single-mode benchmark
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTS: ${{ inputs.single_requests || '2000' }}
+          MAX_CONCURRENT: ${{ inputs.single_max_concurrent || '50' }}
+          MAX_P50_MS: ${{ inputs.single_max_p50_ms }}
+          MAX_P99_MS: ${{ inputs.single_max_p99_ms }}
+        run: |
+          ARGS=(
+            --instances 1
+            --database sqlite
+            --requests "$REQUESTS"
+            --max-concurrent "$MAX_CONCURRENT"
+            --runs 3
+          )
+          # Only pass threshold flags when values are provided (blank = calibration run)
+          [[ -n "$MAX_P50_MS" ]] && ARGS+=(--max-p50-ms "$MAX_P50_MS")
+          [[ -n "$MAX_P99_MS" ]] && ARGS+=(--max-p99-ms "$MAX_P99_MS")
+          # On scheduled runs, apply the default thresholds
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            ARGS+=(--max-p50-ms 300 --max-p99-ms 800)
+          fi
+          uv run --no-sync dev/benchmarks/gateway/run.py "${ARGS[@]}"
+
+  multi-mode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: uv sync --extra gateway
+      - name: Run multi-mode benchmark
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTS: ${{ inputs.multi_requests || '2000' }}
+          MAX_CONCURRENT: ${{ inputs.multi_max_concurrent || '50' }}
+          MAX_P50_MS: ${{ inputs.multi_max_p50_ms }}
+          MAX_P99_MS: ${{ inputs.multi_max_p99_ms }}
+        run: |
+          ARGS=(
+            --instances 4
+            --requests "$REQUESTS"
+            --max-concurrent "$MAX_CONCURRENT"
+            --runs 3
+          )
+          [[ -n "$MAX_P50_MS" ]] && ARGS+=(--max-p50-ms "$MAX_P50_MS")
+          [[ -n "$MAX_P99_MS" ]] && ARGS+=(--max-p99-ms "$MAX_P99_MS")
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            ARGS+=(--max-p50-ms 400 --max-p99-ms 1000)
+          fi
+          uv run --no-sync dev/benchmarks/gateway/run.py "${ARGS[@]}"
