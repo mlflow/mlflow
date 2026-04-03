@@ -1125,7 +1125,7 @@ def test_log_trace(tracking_uri):
     )
     client.end_trace(span.trace_id, status="OK")
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
 
     # Purge all traces in the backend once
     client.delete_traces(experiment_id=experiment_id, trace_ids=[trace.info.trace_id])
@@ -1211,7 +1211,7 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
     client.set_trace_tag(trace_id, "foo", "bar")
     client.end_trace(trace_id)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert trace.info.tags["foo"] == "bar"
 
 
@@ -1234,7 +1234,7 @@ def test_delete_trace_tag_on_active_trace(monkeypatch):
     client.delete_trace_tag(trace_id, "foo")
     client.end_trace(trace_id)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert "baz" in trace.info.tags
     assert "foo" not in trace.info.tags
 
@@ -2054,8 +2054,8 @@ def test_file_store_download_upload_trace_data(tmp_path):
         client = MlflowClient()
         span = client.start_trace("test", inputs={"test": 1})
         client.end_trace(span.trace_id, outputs={"result": 2})
-        trace = mlflow.get_trace(span.trace_id)
-        trace_data = client.get_trace(span.trace_id).data
+        trace = mlflow.get_trace(span.trace_id, flush=True)
+        trace_data = client.get_trace(span.trace_id, flush=True).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
 

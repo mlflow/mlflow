@@ -2597,7 +2597,7 @@ def test_start_trace(mlflow_client):
                 },
             )
 
-    trace = mlflow_client.get_trace(span.trace_id)
+    trace = mlflow_client.get_trace(span.trace_id, flush=True)
     assert trace.info.trace_id == span.trace_id
     assert trace.info.experiment_id == experiment_id
     assert trace.info.request_time > 0
@@ -2623,7 +2623,7 @@ def test_get_trace(mlflow_client):
     experiment_id = mlflow_client.create_experiment("get trace")
     span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
     mlflow_client.end_trace(request_id=span.request_id, status=TraceStatus.OK)
-    trace = mlflow_client.get_trace(span.request_id)
+    trace = mlflow_client.get_trace(span.request_id, flush=True)
     assert trace is not None
     assert trace.info.request_id == span.request_id
     assert trace.info.experiment_id == experiment_id
@@ -2652,7 +2652,7 @@ def test_search_traces(mlflow_client):
         return [t.info.request_id for t in traces]
 
     # Validate search
-    traces = mlflow_client.search_traces(locations=[experiment_id])
+    traces = mlflow_client.search_traces(locations=[experiment_id], flush=True)
     assert _get_request_ids(traces) == [request_id_3, request_id_2, request_id_1]
     assert traces.token is None
 
@@ -2704,7 +2704,7 @@ def test_search_traces_match_text(mlflow_client, store_type):
     trace_id_2 = _create_trace(name="trace2", attributes={"test": "value2"})
     trace_id_3 = _create_trace(name="trace3", attributes={"test3": "I like it"})
 
-    traces = mlflow_client.search_traces(locations=[experiment_id])
+    traces = mlflow_client.search_traces(locations=[experiment_id], flush=True)
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
@@ -2986,7 +2986,7 @@ def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
     trace_id_3 = span3.trace_id
 
     # Search traces without run_id filter - should return all traces in experiment
-    all_traces = mlflow_client.search_traces(locations=[experiment_id])
+    all_traces = mlflow_client.search_traces(locations=[experiment_id], flush=True)
     assert {t.info.trace_id for t in all_traces} == {trace_id_1, trace_id_2, trace_id_3}
 
     # Search traces with run_id filter - should return only linked traces

@@ -14,6 +14,17 @@ from mlflow.environment_variables import (
 
 
 @pytest.fixture(autouse=True)
+def enable_async_trace_logging(monkeypatch):
+    """Enable async trace logging for all tests in tests/tracing/ to exercise the async path.
+
+    Overrides the global disable_async_trace_logging fixture from tests/conftest.py.
+    Tests that need both sync and async coverage use the async_logging_enabled fixture.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, "true")
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_LOGGING.name, "true")
+
+
+@pytest.fixture(autouse=True)
 def reset_active_experiment():
     yield
     mlflow.tracking.fluent._active_experiment_id = None
