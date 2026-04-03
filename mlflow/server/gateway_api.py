@@ -124,6 +124,11 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
     Decorator for gateway invocation endpoints that records telemetry:
     success/failure status, duration, streaming mode, and caller.
 
+    As a side effect, relays provider call duration to the gateway timing middleware by
+    writing `request.state.gateway_provider_duration_ms`. This is required because
+    Starlette's call_next() copies the ContextVar context for the handler task, so
+    mutations to provider_call_duration_ms don't propagate back to the middleware.
+
     Timing headers (X-MLflow-Gateway-Duration-Ms, X-MLflow-Gateway-Overhead-Duration-Ms)
     are injected by gateway_timing_middleware in fastapi_app.py.
 
