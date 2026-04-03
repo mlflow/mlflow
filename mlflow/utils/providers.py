@@ -2,24 +2,33 @@ import functools
 import importlib.resources
 import json
 import logging
-import threading
-import time
+import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TypedDict
 
+import cachetools
 from typing_extensions import NotRequired
 
-from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URL
+from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URI
+from mlflow.utils.request_utils import cloud_storage_http_request
 
 _logger = logging.getLogger(__name__)
 
 _SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
 
-# Per-provider remote cache: {provider: (models, timestamp)}
-_remote_provider_cache: dict[str, tuple[dict[str, "ModelInfo"], float]] = {}
-_remote_provider_lock = threading.Lock()
+_REMOTE_FETCH_MAX_RETRIES = 3
+_REMOTE_FETCH_TIMEOUT = 5
+
+# Retry codes for catalog fetches. Extends the standard transient codes with 404
+# because GitHub Releases assets can briefly return 404 during the --clobber
+# re-upload window or CDN propagation delay.
+_CATALOG_RETRY_CODES = frozenset([404, 408, 429, 500, 502, 503, 504])
+
+# Per-provider TTL cache for remote catalog fetches.
+# Initialized lazily in _get_remote_cache() so the TTL reads the env var at first use.
+_remote_cache: cachetools.TTLCache | None = None
 
 
 class FieldDict(TypedDict):
@@ -204,27 +213,71 @@ def _parse_catalog_models(catalog: CatalogFile) -> dict[str, ModelInfo]:
     }
 
 
+def _get_remote_cache() -> cachetools.TTLCache:
+    global _remote_cache
+    if _remote_cache is None:
+        _remote_cache = cachetools.TTLCache(maxsize=256, ttl=MLFLOW_MODEL_CATALOG_CACHE_TTL.get())
+    return _remote_cache
+
+
 def _fetch_remote_provider(provider: str) -> dict[str, ModelInfo] | None:
-    """Try to fetch a single provider's catalog from the remote URL with TTL caching."""
-    base_url = MLFLOW_MODEL_CATALOG_URL.get()
+    """Try to fetch a single provider's catalog from the configured URL with TTL caching.
+
+    Supports ``http(s)://`` URLs (GitHub Releases, CDNs) and ``file://`` paths
+    (for air-gapped / mirrored environments). Set ``MLFLOW_MODEL_CATALOG_URI``
+    to an empty string to disable remote fetch entirely.
+    """
+    base_url = MLFLOW_MODEL_CATALOG_URI.get()
     if not base_url:
         return None
 
-    ttl = MLFLOW_MODEL_CATALOG_CACHE_TTL.get()
+    cache = _get_remote_cache()
+    if provider in cache:
+        return cache[provider] or None
 
-    with _remote_provider_lock:
-        if cached := _remote_provider_cache.get(provider):
-            if (time.time() - cached[1]) < ttl:
-                return cached[0]
+    url = f"{base_url.rstrip('/')}/{provider}.json"
+    parsed = urllib.parse.urlparse(url)
 
+    match parsed.scheme:
+        case "file":
+            result = _fetch_local_provider(
+                provider, Path(urllib.request.url2pathname(parsed.path))
+            )
+        case "http" | "https":
+            result = _fetch_http_provider(provider, url)
+        case _:
+            raise ValueError(
+                f"Unsupported MLFLOW_MODEL_CATALOG_URI scheme: {parsed.scheme!r}. "
+                f"Expected 'http', 'https', or 'file'. Got URI: {base_url}"
+            )
+
+    # Cache failures as empty dict so we don't retry on every call within the TTL
+    cache[provider] = result or {}
+    return result
+
+
+def _fetch_local_provider(provider: str, path: Path) -> dict[str, ModelInfo] | None:
     try:
-        url = f"{base_url.rstrip('/')}/{provider}.json"
-        with urllib.request.urlopen(url, timeout=5) as resp:
-            catalog: CatalogFile = json.loads(resp.read().decode("utf-8"))
-        result = _parse_catalog_models(catalog)
-        with _remote_provider_lock:
-            _remote_provider_cache[provider] = (result, time.time())
-        return result
+        catalog: CatalogFile = json.loads(path.read_text("utf-8"))
+        return _parse_catalog_models(catalog)
+    except Exception:
+        _logger.debug("Failed to read local catalog for %s", provider, exc_info=True)
+        return None
+
+
+def _fetch_http_provider(provider: str, url: str) -> dict[str, ModelInfo] | None:
+    try:
+        resp = cloud_storage_http_request(
+            "GET",
+            url,
+            max_retries=_REMOTE_FETCH_MAX_RETRIES,
+            backoff_factor=1,
+            retry_codes=_CATALOG_RETRY_CODES,
+            timeout=_REMOTE_FETCH_TIMEOUT,
+        )
+        resp.raise_for_status()
+        catalog: CatalogFile = resp.json()
+        return _parse_catalog_models(catalog)
     except Exception:
         _logger.debug("Failed to fetch remote catalog for %s", provider, exc_info=True)
         return None

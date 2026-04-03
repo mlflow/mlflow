@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from mlflow.utils.providers import (
     _fetch_remote_provider,
     _flatten_catalog_entry,
+    _get_remote_cache,
     _list_provider_names,
     _load_bundled_provider,
     _load_provider,
@@ -48,8 +50,9 @@ def test_list_provider_names_excludes_non_json():
         assert not p.endswith(".py")
 
 
-def test_load_provider_returns_models():
-    _load_provider.cache_clear()
+def test_load_provider_returns_models(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    _load_bundled_provider.cache_clear()
     models = _load_provider("openai")
     assert len(models) > 0
     assert "gpt-4o" in models
@@ -59,13 +62,15 @@ def test_load_provider_returns_models():
     assert info["input_cost_per_token"] > 0
 
 
-def test_load_provider_returns_empty_for_unknown():
-    _load_provider.cache_clear()
+def test_load_provider_returns_empty_for_unknown(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    _load_bundled_provider.cache_clear()
     assert _load_provider("nonexistent_provider_xyz") == {}
 
 
-def test_load_provider_flattens_pricing():
-    _load_provider.cache_clear()
+def test_load_provider_flattens_pricing(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    _load_bundled_provider.cache_clear()
     models = _load_provider("anthropic")
     model = next(iter(models.values()))
     # Should have flat ModelInfo keys, not nested pricing/capabilities
@@ -409,6 +414,19 @@ def test_load_provider_falls_back_to_bundled_when_remote_fails():
         assert "gpt-4o" in result
 
 
-def test_fetch_remote_provider_disabled_when_url_empty():
-    with mock.patch("mlflow.environment_variables.MLFLOW_MODEL_CATALOG_URL.get", return_value=""):
-        assert _fetch_remote_provider("openai") is None
+def test_fetch_remote_provider_disabled_when_url_empty(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    assert _fetch_remote_provider("openai") is None
+
+
+def test_fetch_remote_provider_supports_file_url(tmp_path, monkeypatch):
+    catalog = {
+        "schema_version": "1.0",
+        "models": {"test-model": {"mode": "chat", "pricing": {"input_per_million_tokens": 1.0}}},
+    }
+    (tmp_path / "test_provider.json").write_text(json.dumps(catalog))
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", tmp_path.as_uri())
+    _get_remote_cache().clear()
+    result = _fetch_remote_provider("test_provider")
+    assert result is not None
+    assert "test-model" in result
