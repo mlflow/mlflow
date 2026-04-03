@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
-import type { SpanFilter, TraceView } from './useTraceViews';
+import { decodeSpanId } from '../ModelTraceExplorer.utils';
+import type { SpanSelector, TraceView } from './useTraceViews';
 
 // Lazy-load jsonpath-plus to avoid top-level import failures
 let JSONPath: ((opts: { path: string; json: unknown }) => unknown[]) | null = null;
@@ -13,35 +14,44 @@ try {
 }
 
 /**
- * Checks whether a span matches the given span filter criteria.
- * A span matches if all non-null filter fields match.
+ * Checks whether a span matches the given span selector criteria.
+ * A span matches if all non-null selector fields match.
  */
-export function spanMatchesFilter(span: ModelTraceSpanNode, filter: SpanFilter | null | undefined): boolean {
-  if (!filter) return true;
+export function spanMatchesSelector(span: ModelTraceSpanNode, selector: SpanSelector | null | undefined): boolean {
+  if (!selector) return true;
 
-  if (filter.span_name && String(span.title) !== filter.span_name) {
-    return false;
-  }
-
-  if (filter.span_type) {
-    const attrs = span.attributes;
-    const spanType =
-      span.type ?? (attrs && !Array.isArray(attrs) ? (attrs as Record<string, unknown>)['mlflow.spanType'] : undefined);
-    if (spanType && String(spanType).toUpperCase() !== filter.span_type.toUpperCase()) {
+  if (selector.span_id) {
+    // Selector span_id may be base64 while node.key is hex-decoded; normalize both
+    const nodeKey = String(span.key);
+    const selectorId = decodeSpanId(selector.span_id, true);
+    if (nodeKey !== selectorId && nodeKey !== selector.span_id) {
       return false;
     }
   }
 
-  if (filter.attribute_key) {
+  if (selector.span_name && String(span.title) !== selector.span_name) {
+    return false;
+  }
+
+  if (selector.span_type) {
+    const attrs = span.attributes;
+    const spanType =
+      span.type ?? (attrs && !Array.isArray(attrs) ? (attrs as Record<string, unknown>)['mlflow.spanType'] : undefined);
+    if (spanType && String(spanType).toUpperCase() !== selector.span_type.toUpperCase()) {
+      return false;
+    }
+  }
+
+  if (selector.attribute_key) {
     const attrs = span.attributes;
     if (!attrs || Array.isArray(attrs)) {
       return false;
     }
-    const attrValue = (attrs as Record<string, unknown>)[filter.attribute_key];
+    const attrValue = (attrs as Record<string, unknown>)[selector.attribute_key];
     if (attrValue === undefined) {
       return false;
     }
-    if (filter.attribute_value && String(attrValue) !== filter.attribute_value) {
+    if (selector.attribute_value && String(attrValue) !== selector.attribute_value) {
       return false;
     }
   }
@@ -98,22 +108,24 @@ export function applyJsonPathToObject(data: unknown, jsonPath: string | null | u
 }
 
 /**
- * Returns a set of span keys that match the active trace view's span filter.
- * When no view is active, returns null (meaning all spans match).
+ * Returns a set of span keys that match the active trace view's span ranges.
+ * When no view is active or the view has no ranges, returns null (meaning all spans match).
  */
 export function useTraceViewSpanMatches(
   allNodes: ModelTraceSpanNode[],
   activeView: TraceView | null,
 ): Set<string | number> | null {
   return useMemo(() => {
-    if (!activeView?.span_filter) return null;
+    if (!activeView?.ranges || activeView.ranges.length === 0) return null;
 
     const matches = new Set<string | number>();
 
     const walk = (nodes: ModelTraceSpanNode[]) => {
       for (const node of nodes) {
-        if (spanMatchesFilter(node, activeView.span_filter)) {
-          matches.add(node.key);
+        for (const range of activeView.ranges) {
+          if (spanMatchesSelector(node, range.from_selector)) {
+            matches.add(node.key);
+          }
         }
         if (node.children) {
           walk(node.children);

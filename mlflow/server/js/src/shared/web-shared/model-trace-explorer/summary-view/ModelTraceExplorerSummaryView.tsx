@@ -4,6 +4,7 @@ import { Empty, SegmentedControlButton, SegmentedControlGroup, useDesignSystemTh
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerCompactSummaryView } from './ModelTraceExplorerCompactSummaryView';
+import { ModelTraceExplorerRangesView } from './ModelTraceExplorerRangesView';
 import { ModelTraceExplorerSummarySpans, SUMMARY_SPANS_MIN_WIDTH } from './ModelTraceExplorerSummarySpans';
 import { getTraceLevelAssessments, useIntermediateNodes } from '../ModelTraceExplorer.utils';
 import ModelTraceExplorerResizablePane from '../ModelTraceExplorerResizablePane';
@@ -58,7 +59,9 @@ export const ModelTraceExplorerSummaryView = () => {
   }
 
   const LayoutToggle = (
-    <div css={{ display: 'flex', justifyContent: 'flex-end', padding: `${theme.spacing.xs}px ${theme.spacing.md}px 0` }}>
+    <div
+      css={{ display: 'flex', justifyContent: 'flex-end', padding: `${theme.spacing.xs}px ${theme.spacing.md}px 0` }}
+    >
       <SegmentedControlGroup
         name="summary-layout"
         componentId="shared.model-trace-explorer.summary-view.layout-toggle"
@@ -67,20 +70,25 @@ export const ModelTraceExplorerSummaryView = () => {
         onChange={(event) => setLayout(event.target.value as SummaryLayout)}
       >
         <SegmentedControlButton value="classic">
-          <FormattedMessage
-            defaultMessage="Classic"
-            description="Label for classic summary layout in trace explorer"
-          />
+          <FormattedMessage defaultMessage="Classic" description="Label for classic summary layout in trace explorer" />
         </SegmentedControlButton>
         <SegmentedControlButton value="compact">
-          <FormattedMessage
-            defaultMessage="Compact"
-            description="Label for compact summary layout in trace explorer"
-          />
+          <FormattedMessage defaultMessage="Compact" description="Label for compact summary layout in trace explorer" />
         </SegmentedControlButton>
       </SegmentedControlGroup>
     </div>
   );
+
+  // When a multi-range view is active, render the ranges view directly
+  const isMultiRangeView = activeTraceView && activeTraceView.ranges.length > 1;
+
+  if (isMultiRangeView) {
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <ModelTraceExplorerRangesView activeTraceView={activeTraceView} />
+      </div>
+    );
+  }
 
   if (layout === 'compact') {
     return (
@@ -103,14 +111,26 @@ export const ModelTraceExplorerSummaryView = () => {
           initialRatio={getPaneSizeRatios().summarySidebar}
           paneWidth={paneWidth}
           setPaneWidth={setPaneWidth}
-          leftChild={<ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} activeTraceView={activeTraceView} viewMatchedSpanKeys={viewMatchedSpanKeys} />}
+          leftChild={
+            <ModelTraceExplorerSummarySpans
+              rootNode={rootNode}
+              intermediateNodes={intermediateNodes}
+              activeTraceView={activeTraceView}
+              viewMatchedSpanKeys={viewMatchedSpanKeys}
+            />
+          }
           rightChild={AssessmentsPaneComponent}
           leftMinWidth={SUMMARY_SPANS_MIN_WIDTH + 2 * theme.spacing.md}
           rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH + 2 * theme.spacing.sm}
           onRatioChange={onSizeRatioChange}
         />
       ) : (
-        <ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} activeTraceView={activeTraceView} viewMatchedSpanKeys={viewMatchedSpanKeys} />
+        <ModelTraceExplorerSummarySpans
+          rootNode={rootNode}
+          intermediateNodes={intermediateNodes}
+          activeTraceView={activeTraceView}
+          viewMatchedSpanKeys={viewMatchedSpanKeys}
+        />
       )}
     </div>
   );
