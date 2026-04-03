@@ -152,7 +152,7 @@ Experimental: These parameters may change or be removed in a future release with
 
 ### How It Works
 
-When you log a model, MLflow checks for a `uv.lock` and `pyproject.toml` in the current working directory. If both files exist and uv (version 0.5.0 or later) is installed, MLflow runs `uv export` to produce a pinned requirements list from the lockfile. This list replaces the standard import-based dependency inference.
+When you log a model, MLflow checks for a `uv.lock` and `pyproject.toml` in the current working directory. If both files exist and uv (version 0.6.10 or later) is installed, MLflow runs `uv export` to produce a pinned requirements list from the lockfile. This list replaces the standard import-based dependency inference.
 
 MLflow also copies the uv project files (`uv.lock` and `pyproject.toml`) and, if present, the `.python-version` file into the model artifact directory. These files enable exact environment restoration with `uv sync` when the model is loaded later.
 
@@ -246,7 +246,7 @@ The `uv_project_path`, `uv_groups`, and `uv_extras` parameters are available on 
 :::
 
 :::warning
-uv version 0.5.0 or later must be installed for these features to work. If uv is not available, MLflow falls back to standard import-based dependency inference and logs a warning.
+uv version 0.6.10 or later must be installed for these features to work. If uv is not available, MLflow falls back to standard import-based dependency inference and logs a warning.
 :::
 
 ## Adding Extra Dependencies to an MLflow Model
