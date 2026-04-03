@@ -56,78 +56,192 @@ def test_get_hook_response_error():
     assert response == {"continue": False, "stopReason": "something went wrong"}
 
 
-def test_process_transcript_with_openai_format(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    # Reset module logger so it picks up new cwd
-    tracing_module._MODULE_LOGGER = None
+def _make_rollout_transcript(*, with_tool_call: bool = False) -> list[dict[str, object]]:
+    """Build a realistic Codex rollout transcript in the RolloutLine format.
 
-    transcript = [
+    Mirrors the actual format from codex-rs/protocol/src/protocol.rs:
+    - session_meta (first line)
+    - event_msg task_started (turn boundary)
+    - response_item messages, function_calls, function_call_outputs
+    - event_msg token_count
+    - event_msg task_complete (turn boundary)
+    """
+    records = [
         {
-            "type": "user",
-            "message": {"role": "user", "content": "Write a hello world function"},
             "timestamp": "2024-01-15T10:30:00Z",
+            "type": "session_meta",
+            "payload": {
+                "id": "test-session-001",
+                "timestamp": "2024-01-15T10:30:00Z",
+                "cwd": "/tmp/test",
+                "originator": "codex-tui",
+                "cli_version": "0.118.0",
+                "source": "cli",
+            },
         },
         {
-            "type": "assistant",
-            "message": {
-                "role": "assistant",
-                "content": None,
-                "model": "o3-mini",
-                "tool_calls": [
-                    {
-                        "id": "call_abc123",
-                        "type": "function",
-                        "function": {
-                            "name": "write_file",
-                            "arguments": '{"path": "hello.py", "content": "print(\'hello\')"}',
-                        },
-                    }
+            "timestamp": "2024-01-15T10:30:00Z",
+            "type": "event_msg",
+            "payload": {"type": "task_started"},
+        },
+        {
+            "timestamp": "2024-01-15T10:30:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "Write a hello world function in Python"}
                 ],
             },
-            "timestamp": "2024-01-15T10:30:01Z",
-        },
-        {
-            "type": "tool",
-            "message": {
-                "role": "tool",
-                "tool_call_id": "call_abc123",
-                "content": "File written successfully",
-            },
-            "timestamp": "2024-01-15T10:30:02Z",
-        },
-        {
-            "type": "assistant",
-            "message": {
-                "role": "assistant",
-                "content": "I've created hello.py with a hello world function.",
-                "model": "o3-mini",
-            },
-            "timestamp": "2024-01-15T10:30:03Z",
         },
     ]
 
+    if with_tool_call:
+        records.extend([
+            {
+                "timestamp": "2024-01-15T10:30:01Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "I'll create the file for you."}],
+                },
+            },
+            {
+                "timestamp": "2024-01-15T10:30:02Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "exec_command",
+                    "call_id": "call_abc123",
+                    "arguments": '{"cmd": "cat > hello.py << EOF\\nprint(\'hello\')\\nEOF"}',
+                },
+            },
+            {
+                "timestamp": "2024-01-15T10:30:03Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call_output",
+                    "call_id": "call_abc123",
+                    "output": "File written successfully",
+                },
+            },
+            {
+                "timestamp": "2024-01-15T10:30:04Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [
+                        {"type": "output_text", "text": "Created hello.py with hello world."}
+                    ],
+                },
+            },
+        ])
+    else:
+        records.append({
+            "timestamp": "2024-01-15T10:30:01Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": "```python\ndef hello_world():\n    print('Hello, world!')\n```",
+                    }
+                ],
+            },
+        })
+
+    records.extend([
+        {
+            "timestamp": "2024-01-15T10:30:05Z",
+            "type": "event_msg",
+            "payload": {
+                "type": "token_count",
+                "info": {
+                    "last_token_usage": {
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                        "total_tokens": 150,
+                    }
+                },
+            },
+        },
+        {
+            "timestamp": "2024-01-15T10:30:05Z",
+            "type": "event_msg",
+            "payload": {"type": "task_complete"},
+        },
+    ])
+
+    return records
+
+
+def test_process_transcript_text_only(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    tracing_module._MODULE_LOGGER = None
+
+    transcript = _make_rollout_transcript(with_tool_call=False)
     transcript_path = tmp_path / "transcript.jsonl"
-    transcript_path.write_text("\n".join(json.dumps(entry) for entry in transcript))
+    transcript_path.write_text("\n".join(json.dumps(r) for r in transcript))
 
     trace = process_transcript(str(transcript_path), session_id="test-session")
 
     assert trace is not None
     spans = trace.data.spans
-    assert len(spans) == 3  # agent + tool + llm
+    # agent root + 1 LLM span
+    assert len(spans) == 2
 
-    # Root span should be AGENT
     root_span = next(s for s in spans if s.parent_id is None)
     assert root_span.name == "codex_conversation"
     assert root_span.span_type == SpanType.AGENT
 
-    # Should have a TOOL span
-    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
-    assert len(tool_spans) == 1
-    assert tool_spans[0].name == "tool_write_file"
-
-    # Should have an LLM span
     llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
     assert len(llm_spans) == 1
+
+
+def test_process_transcript_with_tool_call(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    tracing_module._MODULE_LOGGER = None
+
+    transcript = _make_rollout_transcript(with_tool_call=True)
+    transcript_path = tmp_path / "transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(r) for r in transcript))
+
+    trace = process_transcript(str(transcript_path), session_id="test-session")
+
+    assert trace is not None
+    spans = trace.data.spans
+    # agent root + 2 LLM spans + 1 TOOL span
+    assert len(spans) == 4
+
+    root_span = next(s for s in spans if s.parent_id is None)
+    assert root_span.name == "codex_conversation"
+    assert root_span.span_type == SpanType.AGENT
+
+    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
+    assert len(tool_spans) == 1
+    assert tool_spans[0].name == "tool_exec_command"
+
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 2
+
+
+def test_process_transcript_extracts_session_id(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    tracing_module._MODULE_LOGGER = None
+
+    transcript = _make_rollout_transcript()
+    transcript_path = tmp_path / "transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(r) for r in transcript))
+
+    # Don't pass session_id — should extract from session_meta
+    trace = process_transcript(str(transcript_path))
+
+    assert trace is not None
 
 
 def test_process_transcript_empty(monkeypatch, tmp_path):
@@ -147,14 +261,28 @@ def test_process_transcript_no_user_message(monkeypatch, tmp_path):
 
     transcript = [
         {
-            "type": "assistant",
-            "message": {"role": "assistant", "content": "Hello"},
             "timestamp": "2024-01-15T10:30:00Z",
+            "type": "event_msg",
+            "payload": {"type": "task_started"},
+        },
+        {
+            "timestamp": "2024-01-15T10:30:01Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Hello"}],
+            },
+        },
+        {
+            "timestamp": "2024-01-15T10:30:02Z",
+            "type": "event_msg",
+            "payload": {"type": "task_complete"},
         },
     ]
 
     transcript_path = tmp_path / "transcript.jsonl"
-    transcript_path.write_text(json.dumps(transcript[0]))
+    transcript_path.write_text("\n".join(json.dumps(r) for r in transcript))
 
     trace = process_transcript(str(transcript_path))
     assert trace is None

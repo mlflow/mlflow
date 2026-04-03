@@ -1,10 +1,29 @@
 """MLflow tracing integration for Codex CLI interactions.
 
-Codex CLI transcripts use OpenAI's message format:
-- Assistant tool calls use ``tool_calls`` array with ``function.name``/``function.arguments``
-- Tool results use ``role: "tool"`` entries with ``tool_call_id``
+Codex CLI transcripts are JSONL "rollout" files where each line is a RolloutLine:
+    {"timestamp": "...", "type": "<variant>", "payload": {...}}
 
-This contrasts with Claude Code's Anthropic format (content blocks with ``type: tool_use``).
+Defined in codex-rs/protocol/src/protocol.rs (tagged enum ``RolloutItem``).
+Stored at ~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<session_id>.jsonl.
+
+Record types (``RolloutItem`` variants):
+- ``session_meta``: session identity, model, cwd, git info (first line)
+- ``response_item``: API response items (messages, function_call, function_call_output, reasoning)
+- ``event_msg``: state transitions (task_started, task_complete, token_count, exec_command_end)
+- ``turn_context``: per-turn metadata (model, sandbox policy, approval policy)
+- ``compacted``: context-window compaction checkpoint
+
+Turns are delimited by event_msg task_started / task_complete pairs. Within a turn:
+- ``response_item`` type=message role=user → user input (content[].type=input_text)
+- ``response_item`` type=message role=assistant → assistant text (content[].type=output_text)
+- ``response_item`` type=function_call → tool invocation (name, call_id, arguments)
+- ``response_item`` type=function_call_output → tool result (call_id, output)
+- ``event_msg`` type=token_count → token usage (info.last_token_usage)
+
+References:
+- Protocol types: github.com/openai/codex codex-rs/protocol/src/protocol.rs
+- Rollout recorder: github.com/openai/codex codex-rs/rollout/src/recorder.rs
+- Hook payloads: github.com/openai/codex codex-rs/tui/src/hooks.rs
 """
 
 import json
@@ -35,12 +54,6 @@ NANOSECONDS_PER_MS = 1e6
 NANOSECONDS_PER_S = 1e9
 MAX_PREVIEW_LENGTH = 1000
 
-# Transcript field names
-ROLE_USER = "user"
-ROLE_ASSISTANT = "assistant"
-ROLE_TOOL = "tool"
-
-# Custom logging level for Codex tracing
 CODEX_TRACING_LEVEL = logging.WARNING - 5
 
 
@@ -135,150 +148,193 @@ def parse_timestamp_to_ns(timestamp: str | int | float | None) -> int | None:
     return None
 
 
-def _find_last_user_message_index(transcript: list[dict[str, Any]]) -> int | None:
-    """Find the index of the last user message in the transcript."""
-    for i in range(len(transcript) - 1, -1, -1):
-        entry = transcript[i]
-        msg = entry.get("message", entry)
-        role = entry.get("type", msg.get("role"))
-        if role == ROLE_USER:
-            content = msg.get("content", "")
-            if isinstance(content, str) and content.strip():
-                return i
+# ---------------------------------------------------------------------------
+# Transcript parsing helpers
+# ---------------------------------------------------------------------------
+
+
+def _find_last_user_prompt(records: list[dict[str, Any]]) -> tuple[str, int] | None:
+    """Find the last user prompt text and its record index.
+
+    User prompts are ``response_item`` records with ``payload.type=message``
+    and ``payload.role=user`` whose content contains ``input_text`` blocks
+    that are not system/developer injections.
+    """
+    for i in range(len(records) - 1, -1, -1):
+        record = records[i]
+        if record.get("type") != "response_item":
+            continue
+        payload = record.get("payload", {})
+        if payload.get("type") != "message" or payload.get("role") != "user":
+            continue
+
+        text = _extract_text_from_content(payload.get("content", []))
+        # Skip system/developer context injections (start with XML-like tags)
+        if text and not text.startswith("<"):
+            return text, i
     return None
 
 
-def _get_user_prompt_text(entry: dict[str, Any]) -> str:
-    """Extract user prompt text from a transcript entry."""
-    msg = entry.get("message", entry)
-    content = msg.get("content", "")
+def _extract_text_from_content(content: list[dict[str, Any]] | str) -> str:
+    """Extract text from a response_item content field."""
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        parts = [p.get("text", "") for p in content if isinstance(p, dict)]
+        parts = []
+        for block in content:
+            if isinstance(block, dict):
+                if block.get("type") in ("input_text", "output_text"):
+                    parts.append(block.get("text", ""))
         return "\n".join(parts)
     return str(content)
 
 
-def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
-    if not usage:
-        return
+def _get_last_turn_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Extract the records belonging to the last turn.
 
-    input_tokens = usage.get("prompt_tokens", 0)
-    output_tokens = usage.get("completion_tokens", 0)
-    total_tokens = usage.get("total_tokens", input_tokens + output_tokens)
+    Turns are delimited by event_msg records with type=task_started and
+    type=task_complete.
+    """
+    last_start = None
+    last_end = None
 
-    usage_dict = {
-        TokenUsageKey.INPUT_TOKENS: input_tokens,
-        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-        TokenUsageKey.TOTAL_TOKENS: total_tokens,
-    }
+    for i, record in enumerate(records):
+        if record.get("type") != "event_msg":
+            continue
+        payload = record.get("payload", {})
+        if payload.get("type") == "task_started":
+            last_start = i
+        elif payload.get("type") == "task_complete":
+            last_end = i
 
-    span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+    if last_start is not None:
+        end = (last_end or len(records) - 1) + 1
+        return records[last_start:end]
+    return records
 
 
-def _get_next_timestamp_ns(transcript: list[dict[str, Any]], current_idx: int) -> int | None:
-    for i in range(current_idx + 1, len(transcript)):
-        if timestamp := transcript[i].get("timestamp"):
-            return parse_timestamp_to_ns(timestamp)
+def _get_token_usage_from_records(records: list[dict[str, Any]]) -> dict[str, int]:
+    """Extract cumulative token usage from the last token_count event in a turn."""
+    usage: dict[str, int] = {}
+    for record in records:
+        if record.get("type") != "event_msg":
+            continue
+        payload = record.get("payload", {})
+        if payload.get("type") != "token_count":
+            continue
+        if info := payload.get("info"):
+            if last := info.get("last_token_usage"):
+                usage = {
+                    "input_tokens": last.get("input_tokens", 0),
+                    "output_tokens": last.get("output_tokens", 0),
+                    "total_tokens": last.get("total_tokens", 0),
+                }
+    return usage
+
+
+def _get_model_from_records(records: list[dict[str, Any]]) -> str:
+    """Extract model name from session_meta or turn_context records."""
+    for record in records:
+        if record.get("type") == "session_meta" or record.get("type") == "turn_context":
+            payload = record.get("payload", {})
+            if model := payload.get("model"):
+                return model
+    return "unknown"
+
+
+def _get_session_id_from_records(records: list[dict[str, Any]]) -> str | None:
+    """Extract session ID from the session_meta record."""
+    for record in records:
+        if record.get("type") == "session_meta":
+            return record.get("payload", {}).get("id")
     return None
 
 
-def _build_tool_result_map(transcript: list[dict[str, Any]], start_idx: int) -> dict[str, str]:
-    """Build a map from tool_call_id to tool result content."""
-    results: dict[str, str] = {}
-    for i in range(start_idx, len(transcript)):
-        entry = transcript[i]
-        msg = entry.get("message", entry)
-        role = entry.get("type", msg.get("role"))
-        if role == ROLE_TOOL:
-            tool_call_id = msg.get("tool_call_id", "")
-            content = msg.get("content", "")
-            if tool_call_id:
-                results[tool_call_id] = content
-    return results
+def _set_token_usage_attribute(span, usage: dict[str, int]) -> None:
+    if not usage:
+        return
+
+    input_tokens = usage.get("input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+    total_tokens = usage.get("total_tokens", input_tokens + output_tokens)
+
+    span.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: input_tokens,
+            TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+            TokenUsageKey.TOTAL_TOKENS: total_tokens,
+        },
+    )
 
 
-def _create_llm_and_tool_spans(
-    parent_span, transcript: list[dict[str, Any]], start_idx: int
+def _create_child_spans(
+    parent_span,
+    turn_records: list[dict[str, Any]],
+    model: str,
 ) -> str | None:
-    """Create LLM and TOOL child spans from assistant responses in the transcript.
+    """Create LLM and TOOL child spans from a turn's records.
 
-    Returns the final assistant text response (for trace preview).
+    Returns the final assistant text response for trace preview.
     """
-    tool_result_map = _build_tool_result_map(transcript, start_idx)
     final_response = None
+    # Map call_id → function_call_output payload for tool results
+    tool_results: dict[str, str] = {}
+    for record in turn_records:
+        if record.get("type") != "response_item":
+            continue
+        payload = record.get("payload", {})
+        if payload.get("type") == "function_call_output":
+            tool_results[payload.get("call_id", "")] = payload.get("output", "")
 
-    for i in range(start_idx, len(transcript)):
-        entry = transcript[i]
-        msg = entry.get("message", entry)
-        role = entry.get("type", msg.get("role"))
-
-        if role != ROLE_ASSISTANT:
+    for record in turn_records:
+        if record.get("type") != "response_item":
             continue
 
-        timestamp_ns = parse_timestamp_to_ns(entry.get("timestamp"))
-        if not timestamp_ns:
-            continue
+        payload = record.get("payload", {})
+        timestamp_ns = parse_timestamp_to_ns(record.get("timestamp"))
 
-        if (next_ts := _get_next_timestamp_ns(transcript, i)) and next_ts > timestamp_ns:
-            duration_ns = next_ts - timestamp_ns
-        else:
-            duration_ns = int(1000 * NANOSECONDS_PER_MS)
+        match payload.get("type"):
+            case "message" if payload.get("role") == "assistant":
+                text = _extract_text_from_content(payload.get("content", []))
+                if text.strip():
+                    final_response = text
 
-        content = msg.get("content")
-        tool_calls = msg.get("tool_calls", [])
-        usage = msg.get("usage", {})
-        model = msg.get("model", "unknown")
+                    llm_span = mlflow.start_span_no_context(
+                        name="llm",
+                        parent_span=parent_span,
+                        span_type=SpanType.LLM,
+                        start_time_ns=timestamp_ns,
+                        inputs={"model": model},
+                        attributes={"model": model},
+                    )
+                    llm_span.set_outputs({"content": text})
+                    llm_span.end(end_time_ns=timestamp_ns)
 
-        # Text-only response → LLM span
-        if content and not tool_calls:
-            text = content if isinstance(content, str) else str(content)
-            if text.strip():
-                final_response = text
+            case "function_call":
+                call_id = payload.get("call_id", "")
+                func_name = payload.get("name", "unknown")
 
-                llm_span = mlflow.start_span_no_context(
-                    name="llm",
-                    parent_span=parent_span,
-                    span_type=SpanType.LLM,
-                    start_time_ns=timestamp_ns,
-                    inputs={"model": model},
-                    attributes={"model": model},
-                )
-                _set_token_usage_attribute(llm_span, usage)
-                llm_span.set_outputs({"content": text})
-                llm_span.end(end_time_ns=timestamp_ns + duration_ns)
-
-        # Tool calls → TOOL spans
-        if tool_calls:
-            tool_duration_ns = duration_ns // len(tool_calls)
-
-            for idx, tool_call in enumerate(tool_calls):
-                tool_start_ns = timestamp_ns + (idx * tool_duration_ns)
-                func = tool_call.get("function", {})
-                tool_call_id = tool_call.get("id", "")
-
-                # Parse arguments from JSON string
                 try:
-                    arguments = json.loads(func.get("arguments", "{}"))
+                    arguments = json.loads(payload.get("arguments", "{}"))
                 except (json.JSONDecodeError, TypeError):
-                    arguments = func.get("arguments", {})
+                    arguments = payload.get("arguments", {})
 
-                tool_result = tool_result_map.get(tool_call_id, "No result found")
+                tool_output = tool_results.get(call_id, "")
 
                 tool_span = mlflow.start_span_no_context(
-                    name=f"tool_{func.get('name', 'unknown')}",
+                    name=f"tool_{func_name}",
                     parent_span=parent_span,
                     span_type=SpanType.TOOL,
-                    start_time_ns=tool_start_ns,
+                    start_time_ns=timestamp_ns,
                     inputs=arguments,
                     attributes={
-                        "tool_name": func.get("name", "unknown"),
-                        "tool_id": tool_call_id,
+                        "tool_name": func_name,
+                        "tool_id": call_id,
                     },
                 )
-                tool_span.set_outputs({"result": tool_result})
-                tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
+                tool_span.set_outputs({"result": tool_output})
+                tool_span.end(end_time_ns=timestamp_ns)
 
     return final_response
 
@@ -332,58 +388,63 @@ def _finalize_trace(
 def process_transcript(
     transcript_path: str | None, session_id: str | None = None
 ) -> mlflow.entities.Trace | None:
-    """Process a Codex conversation transcript and create an MLflow trace.
+    """Process a Codex CLI conversation transcript and create an MLflow trace.
 
-    Args:
-        transcript_path: Path to the Codex transcript JSONL file
-        session_id: Optional session identifier
-
-    Returns:
-        MLflow trace object if successful, None otherwise
+    Parses the RolloutLine JSONL format, extracts the last turn, and creates
+    an AGENT span with LLM and TOOL child spans.
     """
     try:
         if not transcript_path:
             get_logger().warning("No transcript path provided, skipping")
             return None
 
-        transcript = read_transcript(transcript_path)
-        if not transcript:
+        records = read_transcript(transcript_path)
+        if not records:
             get_logger().warning("Empty transcript, skipping")
             return None
 
-        last_user_idx = _find_last_user_message_index(transcript)
-        if last_user_idx is None:
+        result = _find_last_user_prompt(records)
+        if result is None:
             get_logger().warning("No user message found in transcript")
             return None
+        user_prompt, _ = result
 
-        user_prompt = _get_user_prompt_text(transcript[last_user_idx])
         if not session_id:
-            session_id = f"codex-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            session_id = _get_session_id_from_records(records) or (
+                f"codex-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            )
 
         get_logger().log(CODEX_TRACING_LEVEL, "Creating MLflow trace for session: %s", session_id)
 
-        conv_start_ns = parse_timestamp_to_ns(transcript[last_user_idx].get("timestamp"))
+        model = _get_model_from_records(records)
+        turn_records = _get_last_turn_records(records)
+
+        # Use the turn's first timestamp as start, last as end
+        turn_start_ns = parse_timestamp_to_ns(turn_records[0].get("timestamp"))
+        turn_end_ns = parse_timestamp_to_ns(turn_records[-1].get("timestamp"))
+        if not turn_end_ns or (turn_start_ns and turn_end_ns <= turn_start_ns):
+            turn_end_ns = (turn_start_ns or 0) + int(10 * NANOSECONDS_PER_S)
 
         parent_span = mlflow.start_span_no_context(
             name="codex_conversation",
             inputs={"prompt": user_prompt},
-            start_time_ns=conv_start_ns,
+            start_time_ns=turn_start_ns,
             span_type=SpanType.AGENT,
+            attributes={"model": model},
         )
 
-        final_response = _create_llm_and_tool_spans(parent_span, transcript, last_user_idx + 1)
+        final_response = _create_child_spans(parent_span, turn_records, model)
 
-        last_entry = transcript[-1]
-        conv_end_ns = parse_timestamp_to_ns(last_entry.get("timestamp"))
-        if not conv_end_ns or (conv_start_ns and conv_end_ns <= conv_start_ns):
-            conv_end_ns = (conv_start_ns or 0) + int(10 * NANOSECONDS_PER_S)
+        # Set token usage on the root span
+        token_usage = _get_token_usage_from_records(turn_records)
+        _set_token_usage_attribute(parent_span, token_usage)
 
         return _finalize_trace(
             parent_span,
             user_prompt,
             final_response,
             session_id,
-            conv_end_ns,
+            turn_end_ns,
         )
 
     except Exception as e:
