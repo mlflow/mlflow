@@ -803,12 +803,12 @@ def disable():
 
         # Tracing is enabled by default
         f()
-        assert len(mlflow.search_traces()) == 1
+        assert len(mlflow.search_traces(flush=True)) == 1
 
         # Disable tracing
         mlflow.tracing.disable()
         f()
-        assert len(mlflow.search_traces()) == 1
+        assert len(mlflow.search_traces(flush=True)) == 1
 
     """
     if not is_tracing_enabled():
@@ -838,17 +838,17 @@ def enable():
 
         # Tracing is enabled by default
         f()
-        assert len(mlflow.search_traces()) == 1
+        assert len(mlflow.search_traces(flush=True)) == 1
 
         # Disable tracing
         mlflow.tracing.disable()
         f()
-        assert len(mlflow.search_traces()) == 1
+        assert len(mlflow.search_traces(flush=True)) == 1
 
         # Re-enable tracing
         mlflow.tracing.enable()
         f()
-        assert len(mlflow.search_traces()) == 2
+        assert len(mlflow.search_traces(flush=True)) == 2
 
     """
     if is_tracing_enabled() and provider.once._done:
