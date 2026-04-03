@@ -70,6 +70,7 @@ _GENERATOR_NOUNS = [
     "boar",
     "bug",
     "calf",
+    "capybara",
     "carp",
     "cat",
     "chimp",
