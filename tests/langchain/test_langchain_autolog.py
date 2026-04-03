@@ -239,7 +239,7 @@ def test_chat_model_autolog_audio_input_normalization(mime_type, expected_format
         )
     ])
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
 
     msgs = span.inputs["messages"]
@@ -278,7 +278,7 @@ def test_chat_model_autolog_audio_output_normalization():
     model = AudioOutputModel()
     model.invoke([("human", "Give me audio")])
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
 
     audio_block = span.outputs["choices"][0]["message"]["content"][1]
@@ -322,7 +322,7 @@ def test_chat_model_autolog_openai_audio_output_with_format():
     model = OpenAIAudioModelWithFormat()
     model.invoke([("human", "Are you an AI?")])
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
 
     content = span.outputs["choices"][0]["message"]["content"]
@@ -360,7 +360,7 @@ def test_chat_model_autolog_openai_audio_transcript_fallback():
     model = OpenAIAudioModel()
     model.invoke([("human", "Are you an AI?")])
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
 
     assert span.outputs["choices"][0]["message"]["content"] == "Yes, I am."
@@ -390,7 +390,7 @@ def test_chat_model_autolog_openai_audio_transcript_no_override():
     model = AudioModelWithContent()
     model.invoke([("human", "Say something")])
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
 
     assert span.outputs["choices"][0]["message"]["content"] == "I have text content."
@@ -721,7 +721,7 @@ def test_tracing_source_run_in_batch():
     with mlflow.start_run() as run:
         model.batch([input] * 2)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
@@ -733,7 +733,7 @@ def test_tracing_source_run_in_pyfunc_model_predict(model_info):
     with mlflow.start_run() as run:
         pyfunc_model.predict([{"product": "MLflow"}] * 2)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
@@ -954,21 +954,21 @@ async def test_langchain_autolog_token_usage(mock_litellm_cost):
 
     # Normal invoke
     model.invoke({"product": "MLflow"})
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
     _validate_model_name(trace)
     _validate_cost(trace)
 
     # Invoke with streaming
     list(model.stream({"product": "MLflow"}))
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
     _validate_model_name(trace)
     _validate_cost(trace)
 
     # Async invoke
     await model.ainvoke({"product": "MLflow"})
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
     _validate_model_name(trace)
     _validate_cost(trace)
@@ -978,7 +978,7 @@ async def test_langchain_autolog_token_usage(mock_litellm_cost):
     mlflow.openai.autolog()
 
     model.invoke({"product": "MLflow"})
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
     _validate_model_name(trace)
     _validate_cost(trace)
