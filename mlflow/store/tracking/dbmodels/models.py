@@ -861,7 +861,10 @@ class SqlTraceMetrics(Base):
     Metric value: `Float`. Could be *null* if not available. Supports both integer values
     (e.g., token counts) and decimal values (e.g., API costs).
     """
-    trace_info = relationship("SqlTraceInfo", backref=backref("metrics", cascade="all"))
+    trace_info = relationship(
+        "SqlTraceInfo",
+        backref=backref("metrics", cascade="all, delete-orphan", passive_deletes=True),
+    )
     """
     SQLAlchemy relationship (many:one) with
     :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
@@ -893,7 +896,10 @@ class SqlSpanMetrics(Base):
     """
     Metric value: `Float`. Could be *null* if not available.
     """
-    span = relationship("SqlSpan", backref=backref("metrics", cascade="all"))
+    span = relationship(
+        "SqlSpan",
+        backref=backref("metrics", cascade="all, delete-orphan", passive_deletes=True),
+    )
     """
     SQLAlchemy relationship (many:one) with
     :py:class:`mlflow.store.dbmodels.models.SqlSpan`.
