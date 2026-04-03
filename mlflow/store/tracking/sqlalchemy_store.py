@@ -3296,6 +3296,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     }
                 except Exception as e:
                     _logger.debug(f"Failed to parse token usage metadata: {e}", exc_info=True)
+                # Signal that TOKEN_USAGE has been finalized by start_trace() with the
+                # authoritative DFS-deduplicated value. log_spans() checks this flag and
+                # skips accumulation to prevent double-counting.
+                request_metadata[TraceMetadataKey.TOKEN_USAGE_FINALIZED] = "true"
+
+            if TraceMetadataKey.COST in request_metadata:
+                # Same pattern as TOKEN_USAGE_FINALIZED — prevent log_spans() from
+                # accumulating cost on top of the authoritative value from start_trace().
+                request_metadata[TraceMetadataKey.COST_FINALIZED] = "true"
 
             # The caller may not always specify a trace_id on each assessment when
             # exporting traces with assessments, so backfill it on the SQL entity.
@@ -4690,30 +4699,36 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             ]
 
             existing_token_usage: dict[str, SqlTraceMetadata] = {}
-            if trace_ids_with_token_usage:
-                existing_token_usage = {
-                    r.request_id: r
-                    for r in session
-                    .query(SqlTraceMetadata)
-                    .filter(
-                        SqlTraceMetadata.request_id.in_(trace_ids_with_token_usage),
-                        SqlTraceMetadata.key == TraceMetadataKey.TOKEN_USAGE,
-                    )
-                    .all()
-                }
-
             existing_cost: dict[str, SqlTraceMetadata] = {}
-            if trace_ids_with_cost:
-                existing_cost = {
-                    r.request_id: r
-                    for r in session
+            # Traces where start_trace() has already written the authoritative values.
+            # log_spans() must not accumulate on top of those to avoid double-counting.
+            finalized_token_usage_trace_ids: set[str] = set()
+            finalized_cost_trace_ids: set[str] = set()
+            if trace_ids_with_token_usage or trace_ids_with_cost:
+                all_finalized_ids = list(set(trace_ids_with_token_usage) | set(trace_ids_with_cost))
+                rows = (
+                    session
                     .query(SqlTraceMetadata)
                     .filter(
-                        SqlTraceMetadata.request_id.in_(trace_ids_with_cost),
-                        SqlTraceMetadata.key == TraceMetadataKey.COST,
+                        SqlTraceMetadata.request_id.in_(all_finalized_ids),
+                        SqlTraceMetadata.key.in_([
+                            TraceMetadataKey.TOKEN_USAGE,
+                            TraceMetadataKey.TOKEN_USAGE_FINALIZED,
+                            TraceMetadataKey.COST,
+                            TraceMetadataKey.COST_FINALIZED,
+                        ]),
                     )
                     .all()
-                }
+                )
+                for row in rows:
+                    if row.key == TraceMetadataKey.TOKEN_USAGE:
+                        existing_token_usage[row.request_id] = row
+                    elif row.key == TraceMetadataKey.TOKEN_USAGE_FINALIZED:
+                        finalized_token_usage_trace_ids.add(row.request_id)
+                    elif row.key == TraceMetadataKey.COST:
+                        existing_cost[row.request_id] = row
+                    elif row.key == TraceMetadataKey.COST_FINALIZED:
+                        finalized_cost_trace_ids.add(row.request_id)
 
             existing_sessions: set[str] = set()
             if trace_ids_with_session:
@@ -4774,39 +4789,46 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         self._update_trace_info_attributes(sql_trace_info, root_span_dict)
                     )
 
-                # Token usage metadata + store as trace metrics for aggregation queries
+                # Token usage metadata + store as trace metrics for aggregation queries.
+                # Skip if start_trace() has already written the authoritative TOKEN_USAGE
+                # (indicated by TOKEN_USAGE_FINALIZED flag) to prevent double-counting.
                 if aggregated_token_usage := agg.aggregated_token_usage:
-                    existing_record = existing_token_usage.get(trace_id)
-                    trace_token_usage = update_token_usage(
-                        existing_record.value if existing_record else {},
-                        aggregated_token_usage,
-                    )
-                    session.merge(
-                        SqlTraceMetadata(
-                            request_id=trace_id,
-                            key=TraceMetadataKey.TOKEN_USAGE,
-                            value=json.dumps(trace_token_usage),
+                    if trace_id not in finalized_token_usage_trace_ids:
+                        existing_record = existing_token_usage.get(trace_id)
+                        trace_token_usage = update_token_usage(
+                            existing_record.value if existing_record else {},
+                            aggregated_token_usage,
                         )
-                    )
-                    for key in TokenUsageKey.all_keys():
-                        if (value := trace_token_usage.get(key)) is not None:
-                            session.merge(
-                                SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
+                        session.merge(
+                            SqlTraceMetadata(
+                                request_id=trace_id,
+                                key=TraceMetadataKey.TOKEN_USAGE,
+                                value=json.dumps(trace_token_usage),
                             )
-
-                # Cost metadata
-                if aggregated_cost := agg.aggregated_cost:
-                    existing_record = existing_cost.get(trace_id)
-                    recorded_cost = update_cost(
-                        existing_record.value if existing_record else {}, aggregated_cost
-                    )
-                    session.merge(
-                        SqlTraceMetadata(
-                            request_id=trace_id,
-                            key=TraceMetadataKey.COST,
-                            value=json.dumps(recorded_cost),
                         )
-                    )
+                        for key in TokenUsageKey.all_keys():
+                            if (value := trace_token_usage.get(key)) is not None:
+                                session.merge(
+                                    SqlTraceMetrics(
+                                        request_id=trace_id, key=key, value=float(value)
+                                    )
+                                )
+
+                # Cost metadata — skip if start_trace() has already written the
+                # authoritative cost value to prevent double-counting.
+                if aggregated_cost := agg.aggregated_cost:
+                    if trace_id not in finalized_cost_trace_ids:
+                        existing_record = existing_cost.get(trace_id)
+                        recorded_cost = update_cost(
+                            existing_record.value if existing_record else {}, aggregated_cost
+                        )
+                        session.merge(
+                            SqlTraceMetadata(
+                                request_id=trace_id,
+                                key=TraceMetadataKey.COST,
+                                value=json.dumps(recorded_cost),
+                            )
+                        )
 
                 # Session ID metadata
                 if agg.session_id and trace_id not in existing_sessions:
