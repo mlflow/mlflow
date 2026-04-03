@@ -53,11 +53,11 @@ class Guardrail(abc.ABC):
     """
 
     @abc.abstractmethod
-    def process_request(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def process_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Process an incoming request payload before LLM invocation.
 
         Args:
-            payload: The chat request payload as a dict.
+            request: The chat request payload as a dict.
 
         Returns:
             The (possibly modified) request payload.
@@ -67,11 +67,16 @@ class Guardrail(abc.ABC):
         """
 
     @abc.abstractmethod
-    def process_response(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def process_response(
+        self,
+        request: dict[str, Any],
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
         """Process an outgoing response payload after LLM invocation.
 
         Args:
-            payload: The chat response payload as a dict.
+            request: The original request payload.
+            response: The chat response payload as a dict.
 
         Returns:
             The (possibly modified) response payload.
@@ -125,8 +130,15 @@ class JudgeGuardrail(Guardrail):
             return content
         return ""
 
-    def _invoke_judge(self, text: str) -> ScorerResult:
-        return self.scorer(outputs=text)
+    def _invoke_judge(
+        self, *, inputs: str | None = None, outputs: str | None = None
+    ) -> ScorerResult:
+        kwargs: dict[str, str] = {}
+        if inputs is not None:
+            kwargs["inputs"] = inputs
+        if outputs is not None:
+            kwargs["outputs"] = outputs
+        return self.scorer(**kwargs)
 
     def _is_passing(self, result: ScorerResult) -> bool:
         """Determine whether the judge result indicates a pass.
@@ -194,39 +206,44 @@ class JudgeGuardrail(Guardrail):
                 f"Sanitization LLM returned invalid JSON: {content[:200]}",
             ) from e
 
-    def process_request(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def process_request(self, request: dict[str, Any]) -> dict[str, Any]:
         if self.stage == GuardrailStage.AFTER:
-            return payload
+            return request
 
-        text = self._extract_text(payload, is_response=False)
-        result = self._invoke_judge(text)
+        text = self._extract_text(request, is_response=False)
+        result = self._invoke_judge(inputs=text)
 
         if self._is_passing(result):
-            return payload
+            return request
 
         rationale = self._get_rationale(result)
 
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return self._sanitize(payload, rationale)
+        return self._sanitize(request, rationale)
 
-    def process_response(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def process_response(
+        self,
+        request: dict[str, Any],
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
         if self.stage == GuardrailStage.BEFORE:
-            return payload
+            return response
 
-        text = self._extract_text(payload, is_response=True)
-        result = self._invoke_judge(text)
+        request_text = self._extract_text(request, is_response=False)
+        response_text = self._extract_text(response, is_response=True)
+        result = self._invoke_judge(inputs=request_text, outputs=response_text)
 
         if self._is_passing(result):
-            return payload
+            return response
 
         rationale = self._get_rationale(result)
 
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return self._sanitize(payload, rationale)
+        return self._sanitize(response, rationale)
 
     @classmethod
     def from_entity(cls, entity: GatewayGuardrail, server_url: str | None = None) -> JudgeGuardrail:

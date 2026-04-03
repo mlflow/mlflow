@@ -44,7 +44,7 @@ def test_before_validation_pass():
     req = _make_request()
     result = guard.process_request(req)
     assert result is req
-    scorer.assert_called_once_with(outputs="Hello, world!")
+    scorer.assert_called_once_with(inputs="Hello, world!")
 
 
 def test_before_validation_block():
@@ -59,7 +59,7 @@ def test_before_validation_skips_response():
     scorer = _mock_scorer(_feedback(value=False))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
     resp = _make_response()
-    result = guard.process_response(resp)
+    result = guard.process_response(_make_request(), resp)
     assert result is resp
     scorer.assert_not_called()
 
@@ -72,17 +72,18 @@ def test_before_validation_skips_response():
 def test_after_validation_pass():
     scorer = _mock_scorer(_feedback(value="yes"))
     guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION, "test")
-    resp = _make_response()
-    result = guard.process_response(resp)
+    req = _make_request("What is 2+2?")
+    resp = _make_response("4")
+    result = guard.process_response(req, resp)
     assert result is resp
-    scorer.assert_called_once_with(outputs="I'm a helpful assistant.")
+    scorer.assert_called_once_with(inputs="What is 2+2?", outputs="4")
 
 
 def test_after_validation_block():
     scorer = _mock_scorer(_feedback(value="no", rationale="PII detected"))
     guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION, name="pii")
     with pytest.raises(GuardrailViolation, match="pii.*PII detected"):
-        guard.process_response(_make_response())
+        guard.process_response(_make_request(), _make_response())
     scorer.assert_called_once()
 
 
@@ -139,7 +140,7 @@ def test_after_sanitization_rewrites_response():
     with mock.patch(
         "mlflow.gateway.guardrails.requests.post", return_value=_mock_http_response(sanitized)
     ):
-        result = guard.process_response(_make_response("rude text"))
+        result = guard.process_response(_make_request(), _make_response("rude text"))
     assert result == sanitized
 
 
@@ -266,15 +267,15 @@ def test_empty_messages_request():
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
     result = guard.process_request({"messages": []})
     assert result == {"messages": []}
-    scorer.assert_called_once_with(outputs="")
+    scorer.assert_called_once_with(inputs="")
 
 
 def test_empty_choices_response():
     scorer = _mock_scorer(_feedback(value=True))
     guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION, "test")
-    result = guard.process_response({"choices": []})
+    result = guard.process_response(_make_request(), {"choices": []})
     assert result == {"choices": []}
-    scorer.assert_called_once_with(outputs="")
+    scorer.assert_called_once_with(inputs="Hello, world!", outputs="")
 
 
 # ---------------------------------------------------------------------------
