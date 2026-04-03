@@ -72,7 +72,7 @@ def test_model_id_tracking_thread_safety():
         for f in futures:
             f.result()
 
-    traces = mlflow.search_traces(return_type="list")
+    traces = mlflow.search_traces(return_type="list", flush=True)
     assert len(traces) == len(models)
     for trace in traces:
         trace_inputs = trace.info.request_metadata["mlflow.traceInputs"]

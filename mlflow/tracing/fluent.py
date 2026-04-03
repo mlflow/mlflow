@@ -729,7 +729,7 @@ def start_span_no_context(
 
 
 @deprecated_parameter("request_id", "trace_id")
-def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
+def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace | None:
     """
     Get a trace by the given request ID if it exists.
 
@@ -741,6 +741,9 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
         trace_id: The ID of the trace.
         silent: If True, suppress the warning message when the trace is not found. The API will
             return None without any warning. Default to False.
+        flush: If True and the trace is not found, flush any pending async trace writes and
+            retry. Useful in tests or scripts where async logging may not have completed.
+            Default to False.
 
     .. code-block:: python
         :test:
@@ -761,7 +764,35 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
 
-    # Flush any pending async trace writes so the caller always sees the latest state.
+    try:
+        return TracingClient().get_trace(trace_id)
+    except MlflowException:
+        pass
+
+    if flush:
+        _flush_pending_async_trace_writes()
+        try:
+            return TracingClient().get_trace(trace_id)
+        except MlflowException:
+            pass
+
+    if not silent:
+        hint = (
+            " If using async trace logging, pass flush=True to wait for pending writes."
+            if not flush
+            else ""
+        )
+        _logger.warning(
+            f"Trace with ID '{trace_id}' not found in the tracking store.{hint} "
+            "For full traceback, set logging level to debug.",
+        )
+    else:
+        _logger.debug(f"Trace with ID '{trace_id}' not found in the tracking store.")
+    return None
+
+
+def _flush_pending_async_trace_writes() -> None:
+    """Flush all pending async trace writes through the BSP and exporter queues."""
     from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
 
     try:
@@ -774,19 +805,6 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
                 trace_exporter._async_queue.flush()
     except Exception:
         pass
-
-    try:
-        return TracingClient().get_trace(trace_id)
-    except MlflowException as e:
-        if not silent:
-            _logger.warning(
-                f"Failed to get trace from the tracking store: {e} "
-                "For full traceback, set logging level to debug.",
-                exc_info=_logger.isEnabledFor(logging.DEBUG),
-            )
-        else:
-            _logger.debug(f"Failed to get trace from the tracking store: {e}.", exc_info=True)
-        return None
 
 
 def _get_search_locations(locations: list[str] | None) -> list[str]:
@@ -817,6 +835,7 @@ def search_traces(
     sql_warehouse_id: str | None = None,
     include_spans: bool = True,
     locations: list[str] | None = None,
+    flush: bool = False,
 ) -> "pandas.DataFrame" | list[Trace]:
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -892,6 +911,9 @@ def search_traces(
             a list of locations in the format
             `<catalog_name>.<schema_name>[.<table_prefix>]`.
             If not provided, the search will be performed across the current active experiment.
+
+        flush: If ``True``, flush any pending async trace writes before searching. Useful
+            in tests or scripts to ensure all traces are visible. Default to ``False``.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -991,19 +1013,8 @@ def search_traces(
 
     _validate_list_param("locations", locations, allow_none=True)
 
-    # Flush any pending async trace writes so the caller sees the latest state.
-    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
-
-    try:
-        flush_all_batch_processors()
-    except Exception:
-        pass
-    try:
-        if trace_exporter := _get_trace_exporter():
-            if hasattr(trace_exporter, "_async_queue"):
-                trace_exporter._async_queue.flush()
-    except Exception:
-        pass
+    if flush:
+        _flush_pending_async_trace_writes()
 
     if not experiment_ids and not locations:
         _logger.debug("Searching traces in the current active experiment")
