@@ -3156,7 +3156,7 @@ class SqlGatewayGuardrailConfig(Base):
     execution_order = Column(Integer, nullable=True)
     """
     Execution order: `Integer`. Lower values run first. NULL if unspecified.
-    Not unique in the DB, and uniqueness is guranteed by the application logic.
+    Not unique in the DB, and uniqueness is guaranteed by the application logic.
     """
     created_by = Column(String(255), nullable=True)
     """
