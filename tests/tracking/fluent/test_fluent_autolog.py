@@ -459,7 +459,7 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
         trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         assert trace is None
     else:
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
         assert trace is not None
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 1
