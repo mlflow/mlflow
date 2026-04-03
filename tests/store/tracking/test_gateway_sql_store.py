@@ -2681,6 +2681,45 @@ def test_add_guardrail_to_endpoint_duplicate_raises(store: SqlAlchemyStore):
         )
 
 
+def test_update_endpoint_guardrail_config(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-update-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=5,
+    )
+
+    updated = store.update_endpoint_guardrail_config(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=10,
+    )
+
+    assert updated.execution_order == 10
+    assert updated.guardrail_id == guardrail.guardrail_id
+
+
+def test_update_endpoint_guardrail_config_not_found(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-upd-nf-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_endpoint_guardrail_config(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+            execution_order=1,
+        )
+
+
 def test_add_guardrail_to_nonexistent_endpoint_raises(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 
@@ -2773,6 +2812,10 @@ def test_list_endpoint_guardrail_configs(store: SqlAlchemyStore):
     assert len(configs) == 3
     assert [c.execution_order for c in configs] == [10, 20, 30]
     assert [c.guardrail_id for c in configs] == [g.guardrail_id for g in guardrails]
+    for config, guardrail in zip(configs, guardrails):
+        assert config.guardrail is not None
+        assert config.guardrail.guardrail_id == guardrail.guardrail_id
+        assert config.guardrail.stage == GuardrailStage.BEFORE
 
 
 def test_list_endpoint_guardrail_configs_empty(store: SqlAlchemyStore):

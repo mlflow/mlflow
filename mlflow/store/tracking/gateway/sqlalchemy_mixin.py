@@ -1477,6 +1477,23 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_config.to_mlflow_entity()
 
+    def update_endpoint_guardrail_config(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+    ) -> GatewayGuardrailConfig:
+        with self.ManagedSessionMaker() as session:
+            sql_config = self._get_entity_or_raise(
+                session,
+                SqlGatewayGuardrailConfig,
+                {"endpoint_id": endpoint_id, "guardrail_id": guardrail_id},
+                "GuardrailConfig",
+            )
+            sql_config.execution_order = execution_order
+            session.flush()
+            return sql_config.to_mlflow_entity()
+
     def remove_guardrail_from_endpoint(
         self,
         endpoint_id: str,
@@ -1502,6 +1519,7 @@ class SqlAlchemyGatewayStoreMixin:
             configs = (
                 self
                 ._get_query(session, SqlGatewayGuardrailConfig)
+                .options(joinedload(SqlGatewayGuardrailConfig.guardrail))
                 .filter(SqlGatewayGuardrailConfig.endpoint_id == endpoint_id)
                 .order_by(
                     SqlGatewayGuardrailConfig.execution_order.asc().nulls_last(),

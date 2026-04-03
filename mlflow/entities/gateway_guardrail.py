@@ -54,5 +54,6 @@ class GatewayGuardrailConfig(_MlflowObject):
     guardrail_id: str
     execution_order: int | None
     created_at: int
+    guardrail: GatewayGuardrail | None = None
     created_by: str | None = None
     workspace: str | None = None

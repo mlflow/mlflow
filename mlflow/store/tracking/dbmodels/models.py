@@ -3205,6 +3205,7 @@ class SqlGatewayGuardrailConfig(Base):
             guardrail_id=self.guardrail_id,
             execution_order=self.execution_order,
             created_at=self.created_at,
+            guardrail=self.guardrail.to_mlflow_entity() if self.guardrail else None,
             created_by=self.created_by,
             workspace=self.workspace,
         )
