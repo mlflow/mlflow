@@ -618,7 +618,7 @@ class GeminiAdapter(ProviderAdapter):
 
 
 class GeminiProvider(BaseProvider):
-    NAME = "Gemini"
+    DISPLAY_NAME = "Gemini"
     CONFIG_TYPE = GeminiConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {

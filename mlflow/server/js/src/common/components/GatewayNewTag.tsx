@@ -6,3 +6,10 @@ export const GatewayNewTag = () => (
     <FormattedMessage defaultMessage="New" description="Sidebar > AI Gateway > New feature tag" />
   </Tag>
 );
+
+export const GatewayLabel = () => (
+  <FormattedMessage
+    defaultMessage="AI Gateway"
+    description="Shared label for AI Gateway used in sidebar and breadcrumbs"
+  />
+);

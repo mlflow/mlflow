@@ -70,7 +70,7 @@ class DatabricksProvider(OpenAICompatibleProvider):
     resolves credentials from environment variables, ~/.databrickscfg, etc.
     """
 
-    NAME = "Databricks"
+    DISPLAY_NAME = "Databricks"
     CONFIG_TYPE = DatabricksConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {

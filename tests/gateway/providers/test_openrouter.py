@@ -57,7 +57,7 @@ def test_headers():
 
 def test_name():
     provider = _make_provider()
-    assert provider.NAME == "OpenRouter"
+    assert provider.DISPLAY_NAME == "OpenRouter"
 
 
 @pytest.mark.asyncio

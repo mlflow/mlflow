@@ -24,6 +24,14 @@ from sqlalchemy.pool import (
     StaticPool,
 )
 
+# CRITICAL: Import ORM modules to register all table metadata with Base.metadata.
+# _all_tables_exist() depends on Base.metadata.tables being fully populated.
+# If these imports are removed, Base.metadata.tables will be incomplete and
+# _all_tables_exist() will return True even when tables are missing, silently
+# skipping DB initialization/migration.
+import mlflow.store.model_registry.dbmodels.models  # noqa: F401
+import mlflow.store.tracking.dbmodels.models  # noqa: F401
+import mlflow.store.workspace.dbmodels.models  # noqa: F401
 from mlflow.environment_variables import (
     MLFLOW_MYSQL_SSL_CA,
     MLFLOW_MYSQL_SSL_CERT,
@@ -40,34 +48,9 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     TEMPORARILY_UNAVAILABLE,
 )
+from mlflow.store.db.base_sql_model import Base
 from mlflow.store.db.db_types import SQLITE
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlModelVersion,
-    SqlModelVersionTag,
-    SqlRegisteredModel,
-    SqlRegisteredModelAlias,
-    SqlRegisteredModelTag,
-)
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.store.tracking.dbmodels.models import (
-    SqlDataset,
-    SqlExperiment,
-    SqlExperimentTag,
-    SqlInput,
-    SqlInputTag,
-    SqlJob,
-    SqlLatestMetric,
-    SqlMetric,
-    SqlParam,
-    SqlRun,
-    SqlScorer,
-    SqlScorerVersion,
-    SqlTag,
-    SqlTraceInfo,
-    SqlTraceMetadata,
-    SqlTraceTag,
-)
-from mlflow.store.workspace.dbmodels.models import SqlWorkspace
 
 _logger = logging.getLogger(__name__)
 
@@ -81,34 +64,13 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    # Check if the core initial tables exist in the database.
+    # Check if all ORM-defined tables exist in the database.
+    # Derived from Base.metadata.tables so that newly added ORM models are
+    # automatically included without requiring a manual update here.
     # Using issubset() instead of equality so that additional tables added by migrations
     # don't cause this check to fail. This prevents unnecessary calls to _initialize_tables
     # which can cause migration errors like "Can't locate revision identified by 'xxx'".
-    expected_tables = {
-        SqlExperiment.__tablename__,
-        SqlRun.__tablename__,
-        SqlMetric.__tablename__,
-        SqlParam.__tablename__,
-        SqlTag.__tablename__,
-        SqlExperimentTag.__tablename__,
-        SqlLatestMetric.__tablename__,
-        SqlRegisteredModel.__tablename__,
-        SqlModelVersion.__tablename__,
-        SqlRegisteredModelTag.__tablename__,
-        SqlModelVersionTag.__tablename__,
-        SqlRegisteredModelAlias.__tablename__,
-        SqlDataset.__tablename__,
-        SqlInput.__tablename__,
-        SqlInputTag.__tablename__,
-        SqlTraceInfo.__tablename__,
-        SqlTraceTag.__tablename__,
-        SqlTraceMetadata.__tablename__,
-        SqlScorer.__tablename__,
-        SqlScorerVersion.__tablename__,
-        SqlJob.__tablename__,
-        SqlWorkspace.__tablename__,
-    }
+    expected_tables = set(Base.metadata.tables)
     actual_tables = {
         t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
     }

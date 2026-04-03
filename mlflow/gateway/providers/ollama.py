@@ -8,7 +8,7 @@ class OllamaConfig(_OpenAICompatibleConfig):
 
 
 class OllamaProvider(OpenAICompatibleProvider):
-    NAME = "Ollama"
+    DISPLAY_NAME = "Ollama"
     CONFIG_TYPE = OllamaConfig
     DEFAULT_API_BASE = "http://localhost:11434/v1"
 

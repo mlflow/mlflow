@@ -9,6 +9,7 @@ import { useCreateEndpointForm } from '../hooks/useCreateEndpointForm';
 import { getReadableErrorMessage } from '../utils/errorUtils';
 import { EndpointFormRenderer } from '../components/endpoint-form';
 import GatewayRoutes from '../routes';
+import { GatewayLabel } from '../../common/components/GatewayNewTag';
 
 const CreateEndpointPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -45,7 +46,7 @@ const CreateEndpointPage = () => {
                 componentId="mlflow.gateway.create_endpoint.breadcrumb_gateway_link"
                 to={GatewayRoutes.gatewayPageRoute}
               >
-                <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
+                <GatewayLabel />
               </Link>
             </Breadcrumb.Item>
             <Breadcrumb.Item>

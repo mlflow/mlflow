@@ -13,7 +13,7 @@ import ScorerCardContainer from './ScorerCardContainer';
 import ScorerModalRenderer from './ScorerModalRenderer';
 import ScorerEmptyStateRenderer from './ScorerEmptyStateRenderer';
 import { useGetScheduledScorers } from './hooks/useGetScheduledScorers';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE } from './constants';
+import { SCORER_FORM_MODE } from './constants';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 
 interface ExperimentScorersContentContainerProps {

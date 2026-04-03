@@ -16,6 +16,7 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 import { useMemo } from 'react';
 import GatewayRoutes from '../../routes';
+import { GatewayLabel } from '../../../common/components/GatewayNewTag';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
@@ -161,7 +162,7 @@ export const EditEndpointFormRenderer = ({
               componentId="mlflow.gateway.edit_endpoint.breadcrumb_gateway_link"
               to={GatewayRoutes.gatewayPageRoute}
             >
-              <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
+              <GatewayLabel />
             </Link>
           </Breadcrumb.Item>
           <Breadcrumb.Item>
@@ -305,7 +306,7 @@ export const EditEndpointFormRenderer = ({
                         <TrafficSplitConfigurator
                           value={field.value}
                           onChange={field.onChange}
-                          componentIdPrefix="mlflow.gateway.edit-endpoint.traffic-split"
+                          componentId="mlflow.gateway.edit-endpoint.traffic-split"
                         />
                       )}
                     />
@@ -341,13 +342,12 @@ export const EditEndpointFormRenderer = ({
                         <FallbackModelsConfigurator
                           value={field.value}
                           onChange={field.onChange}
-                          componentIdPrefix="mlflow.gateway.edit-endpoint.fallback"
+                          componentId="mlflow.gateway.edit-endpoint.fallback"
                         />
                       )}
                     />
                   </div>
                 </div>
-
               </div>
             </Tabs.Content>
 
@@ -516,7 +516,6 @@ export const EditEndpointFormRenderer = ({
           </Tooltip>
         </div>
       )}
-
     </div>
   );
 };

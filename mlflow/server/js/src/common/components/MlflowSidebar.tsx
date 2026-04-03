@@ -25,7 +25,7 @@ import { Link, matchPath, useLocation, useParams, useSearchParams } from '../uti
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
-import { GatewayNewTag } from './GatewayNewTag';
+import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
 import { useWorkflowType, WorkflowType } from '../contexts/WorkflowTypeContext';
@@ -210,10 +210,7 @@ export function MlflowSidebar({
                 isActive: (location: Location) => !enableWorkflowBasedNavigation && isGatewayActive(location),
                 children: (
                   <>
-                    <FormattedMessage
-                      defaultMessage="AI Gateway"
-                      description="Sidebar link for gateway configuration"
-                    />
+                    <GatewayLabel />
                     <GatewayNewTag />
                   </>
                 ),

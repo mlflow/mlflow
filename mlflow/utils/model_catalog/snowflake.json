@@ -1,0 +1,365 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "claude-3-5-sonnet": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 18000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "deepseek-r1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemma-7b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "jamba-1.5-large": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "jamba-1.5-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "jamba-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama2-70b-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3-70b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3-8b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3.1-405b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3.1-70b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3.1-8b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3.2-1b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3.2-3b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3.3-70b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-7b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-large": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-large2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mixtral-8x7b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "reka-core": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "reka-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 100000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "snowflake-arctic": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "snowflake-llama-3.1-405b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "snowflake-llama-3.3-70b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

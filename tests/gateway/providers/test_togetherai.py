@@ -54,6 +54,13 @@ def completions_response():
     }
 
 
+def test_get_provider_name():
+    config = completions_config()
+    provider = TogetherAIProvider(EndpointConfig(**config))
+    assert provider.DISPLAY_NAME == "TogetherAI"
+    assert provider.get_provider_name() == "together_ai"
+
+
 @pytest.mark.asyncio
 async def test_completions():
     config = completions_config()

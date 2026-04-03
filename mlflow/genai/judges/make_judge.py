@@ -1,9 +1,25 @@
-from typing import Any, Literal, get_args, get_origin
+import types
+from typing import Any, Literal, Union, get_args, get_origin
 
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.telemetry.events import MakeJudgeEvent
 from mlflow.telemetry.track import record_usage_event
+
+
+def _is_optional_pb_value_type(t: Any, pb_value_types: tuple[type, ...]) -> bool:
+    """Return True if ``t`` is ``Optional[T]`` or ``T | None`` where ``T`` is a single
+    primitive PbValueType (int, float, str, or bool).
+
+    Works for both ``typing.Optional[T]`` and the Python 3.10+ ``T | None`` syntax because
+    ``get_args`` returns ``(T, NoneType)`` for both forms uniformly.
+    """
+    origin = get_origin(t)
+    if origin is not Union and origin is not types.UnionType:
+        return False
+    args = get_args(t)
+    non_none_args = [a for a in args if a is not type(None)]
+    return len(args) == 2 and len(non_none_args) == 1 and non_none_args[0] in pb_value_types
 
 
 def _validate_feedback_value_type(feedback_value_type: Any) -> None:
@@ -12,6 +28,7 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
 
     Supported types match FeedbackValueType:
     - PbValueType: int, float, str, bool
+    - T | None / Optional[T] where T is a single PbValueType
     - Literal types with PbValueType values
     - dict[str, PbValueType]
     - list[PbValueType]
@@ -22,6 +39,10 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
     # Check for basic PbValueType (float, int, str, bool)
     pb_value_types = get_args(PbValueType)
     if feedback_value_type in pb_value_types:
+        return
+
+    # Check for Optional[T] / T | None where T is a single primitive PbValueType
+    if _is_optional_pb_value_type(feedback_value_type, pb_value_types):
         return
 
     # Check for Literal type
@@ -129,6 +150,8 @@ def make_judge(
                         - float: Floating point scores (e.g., 0.0-1.0)
                         - str: Text responses
                         - bool: Yes/no evaluations
+                        - T | None / Optional[T]: Nullable primitive (e.g., ``float | None``
+                          for a score that may be absent)
                         - Literal[values]: Enum-like choices (e.g., Literal["good", "bad"])
                         - dict[str, int | float | str | bool]: Dictionary with string keys and
                           int, float, str, or bool values.
@@ -252,12 +275,16 @@ def make_judge(
 
     _validate_feedback_value_type(feedback_value_type)
 
+    # numeric/bool types support meaningful mean aggregation, categorical/string types do not.
+    default_aggregations = ["mean"] if feedback_value_type in (bool, int, float) else []
+
     return InstructionsJudge(
         name=name,
         instructions=instructions,
         model=model,
         description=description,
         feedback_value_type=feedback_value_type,
+        aggregations=default_aggregations,
         include_timing_in_conversation=include_timing_in_conversation,
         inference_params=inference_params,
         base_url=base_url,

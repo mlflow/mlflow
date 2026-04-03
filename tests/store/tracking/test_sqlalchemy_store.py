@@ -8197,29 +8197,9 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False, True])
-async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, is_async: bool):
-    # Create two different traces
+def test_log_spans_multiple_traces(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_multi_trace_experiment")
-    trace_info1 = TraceInfo(
-        trace_id="tr-span-test-789",
-        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
-        request_time=1234,
-        execution_duration=100,
-        state=TraceState.OK,
-    )
-    trace_info2 = TraceInfo(
-        trace_id="tr-span-test-999",
-        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
-        request_time=5678,
-        execution_duration=200,
-        state=TraceState.OK,
-    )
-    trace_info1 = store.start_trace(trace_info1)
-    trace_info2 = store.start_trace(trace_info2)
 
-    # Create spans for different traces
     span1 = create_mlflow_span(
         OTelReadableSpan(
             name="span_trace1",
@@ -8230,14 +8210,12 @@ async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, i
                 trace_flags=trace_api.TraceFlags(1),
             ),
             parent=None,
-            attributes={
-                "mlflow.traceRequestId": json.dumps(trace_info1.trace_id, cls=TraceJSONEncoder)
-            },
+            attributes={"mlflow.traceRequestId": json.dumps("tr-multi-1", cls=TraceJSONEncoder)},
             start_time=1000000000,
             end_time=2000000000,
             resource=_OTelResource.get_empty(),
         ),
-        trace_info1.trace_id,
+        "tr-multi-1",
     )
 
     span2 = create_mlflow_span(
@@ -8250,23 +8228,31 @@ async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, i
                 trace_flags=trace_api.TraceFlags(1),
             ),
             parent=None,
-            attributes={
-                "mlflow.traceRequestId": json.dumps(trace_info2.trace_id, cls=TraceJSONEncoder)
-            },
+            attributes={"mlflow.traceRequestId": json.dumps("tr-multi-2", cls=TraceJSONEncoder)},
             start_time=3000000000,
             end_time=4000000000,
             resource=_OTelResource.get_empty(),
         ),
-        trace_info2.trace_id,
+        "tr-multi-2",
     )
 
-    # Try to log spans from different traces - should raise MlflowException
-    if is_async:
-        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
-            await store.log_spans_async(experiment_id, [span1, span2])
-    else:
-        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
-            store.log_spans(experiment_id, [span1, span2])
+    # Multi-trace log_spans should succeed in a single call
+    result = store.log_spans(experiment_id, [span1, span2])
+    assert len(result) == 2
+
+    # Verify both traces were created with correct spans in the database
+    with store.ManagedSessionMaker() as session:
+        trace1 = session.query(SqlTraceInfo).filter_by(request_id="tr-multi-1").one()
+        assert trace1.experiment_id == int(experiment_id)
+
+        trace2 = session.query(SqlTraceInfo).filter_by(request_id="tr-multi-2").one()
+        assert trace2.experiment_id == int(experiment_id)
+
+        span_row1 = session.query(SqlSpan).filter_by(trace_id="tr-multi-1").one()
+        assert span_row1.name == "span_trace1"
+
+        span_row2 = session.query(SqlSpan).filter_by(trace_id="tr-multi-2").one()
+        assert span_row2.name == "span_trace2"
 
 
 @pytest.mark.asyncio
@@ -13236,6 +13222,65 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
             "input_tokens": 100,
             "output_tokens": 50,
             "total_tokens": 150,
+        }
+
+
+def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_merge_preserves_metrics")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    loc = trace_location.TraceLocation.from_experiment_id(experiment_id)
+    ts = get_current_time_millis()
+
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=loc,
+            request_time=ts,
+            execution_duration=100,
+            state=TraceStatus.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                    "input_tokens": 10,
+                    "output_tokens": 20,
+                    "total_tokens": 30,
+                })
+            },
+        )
+    )
+
+    # Second start_trace with a subset of metric keys triggers the merge path.
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=loc,
+            request_time=ts,
+            execution_duration=200,
+            state=TraceStatus.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                    "total_tokens": 110,
+                    "cache_read_input_tokens": 5,
+                })
+            },
+        )
+    )
+
+    assert result.trace_id == trace_id
+
+    with store.ManagedSessionMaker() as session:
+        metrics = (
+            session
+            .query(SqlTraceMetrics)
+            .filter(SqlTraceMetrics.request_id == trace_id)
+            .order_by(SqlTraceMetrics.key)
+            .all()
+        )
+        metrics_by_key = {m.key: m.value for m in metrics}
+        assert metrics_by_key == {
+            "cache_read_input_tokens": 5,
+            "input_tokens": 10,
+            "output_tokens": 20,
+            "total_tokens": 110,
         }
 
 

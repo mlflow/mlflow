@@ -397,6 +397,7 @@ def test_all_workspace_root_models_have_spec():
     from mlflow.store.tracking.dbmodels.models import (
         SqlGatewayBudgetPolicy,
         SqlGatewayEndpoint,
+        SqlGatewayGuardrail,
         SqlGatewayModelDefinition,
         SqlGatewaySecret,
     )
@@ -409,6 +410,7 @@ def test_all_workspace_root_models_have_spec():
         SqlGatewayEndpoint,
         SqlGatewayModelDefinition,
         SqlGatewayBudgetPolicy,
+        SqlGatewayGuardrail,
     }
 
     missing = {

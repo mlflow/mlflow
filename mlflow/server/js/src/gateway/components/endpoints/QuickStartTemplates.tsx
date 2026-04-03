@@ -9,6 +9,7 @@ interface QuickStartTemplate {
   model: string;
   endpointName: string;
   secretName: string;
+  componentId: string;
 }
 
 /**
@@ -27,24 +28,28 @@ const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
     model: 'gpt-5.4',
     endpointName: 'openai-gpt-5.4-endpoint',
     secretName: 'openai-api-key',
+    componentId: 'mlflow.gateway.quick_start.openai',
   },
   {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
     endpointName: 'anthropic-claude-sonnet-endpoint',
     secretName: 'anthropic-api-key',
+    componentId: 'mlflow.gateway.quick_start.anthropic',
   },
   {
     provider: 'gemini',
     model: 'gemini-2.5-pro',
     endpointName: 'gemini-2.5-pro-endpoint',
     secretName: 'gemini-api-key',
+    componentId: 'mlflow.gateway.quick_start.gemini',
   },
   {
     provider: 'databricks',
     model: 'databricks-gpt-5',
     endpointName: 'databricks-gpt-5-endpoint',
     secretName: 'databricks-api-key',
+    componentId: 'mlflow.gateway.quick_start.databricks',
   },
 ];
 
@@ -95,7 +100,7 @@ export const QuickStartTemplates = () => {
         {QUICK_START_TEMPLATES.map((template) => (
           <Link
             key={template.provider}
-            componentId={`mlflow.gateway.quick_start.${template.provider}`}
+            componentId={template.componentId}
             to={GatewayRoutes.createEndpointPageRoute}
             state={{
               provider: template.provider,

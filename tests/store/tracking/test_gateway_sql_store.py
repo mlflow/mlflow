@@ -19,9 +19,13 @@ from mlflow.entities import (
     GatewayEndpointModelConfig,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
     GatewayModelDefinition,
     GatewayModelLinkageType,
     GatewaySecretInfo,
+    GuardrailAction,
+    GuardrailStage,
     RoutingStrategy,
 )
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
@@ -41,6 +45,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
     SqlGatewayEndpointTag,
+    SqlGatewayGuardrail,
+    SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
     SqlOnlineScoringConfig,
@@ -77,6 +83,8 @@ def _cleanup_database(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         # Delete all rows in gateway tables in dependency order
         for model in (
+            SqlGatewayGuardrailConfig,
+            SqlGatewayGuardrail,
             SqlGatewayBudgetPolicy,
             SqlGatewayEndpointTag,
             SqlGatewayEndpointBinding,
@@ -2444,6 +2452,428 @@ def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
             budget_action=action,
         )
         assert policy.budget_action == action
+
+
+# =============================================================================
+# Guardrail Tests
+# =============================================================================
+
+
+def _create_scorer(store: SqlAlchemyStore, endpoint_name: str | None = None):
+    """Helper to create a scorer for guardrail tests."""
+    name_suffix = uuid.uuid4().hex[:8]
+    ep_name = endpoint_name or f"guardrail-ep-{name_suffix}"
+    endpoint = _create_gateway_endpoint(store, ep_name)
+    experiment_id = store.create_experiment(f"guardrail-scorer-exp-{name_suffix}")
+
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input safe?",
+        }
+    })
+
+    return store.register_scorer(experiment_id, f"safety-judge-{name_suffix}", serialized_scorer)
+
+
+def test_create_gateway_guardrail(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+        created_by="test-user",
+    )
+
+    assert isinstance(guardrail, GatewayGuardrail)
+    assert guardrail.guardrail_id.startswith("gr-")
+    assert guardrail.name == "test-guardrail"
+    assert guardrail.scorer.scorer_id == scorer.scorer_id
+    assert guardrail.scorer.scorer_version == scorer.scorer_version
+    assert guardrail.stage == GuardrailStage.BEFORE
+    assert guardrail.action == GuardrailAction.VALIDATION
+    assert guardrail.created_by == "test-user"
+    assert guardrail.last_updated_by == "test-user"
+    assert guardrail.created_at > 0
+    assert guardrail.last_updated_at > 0
+
+
+def test_create_gateway_guardrail_after_sanitization(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.AFTER,
+        action=GuardrailAction.SANITIZATION,
+    )
+
+    assert guardrail.stage == GuardrailStage.AFTER
+    assert guardrail.action == GuardrailAction.SANITIZATION
+
+
+def test_get_gateway_guardrail(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    created = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    fetched = store.get_gateway_guardrail(created.guardrail_id)
+
+    assert fetched.guardrail_id == created.guardrail_id
+    assert fetched.scorer.scorer_id == scorer.scorer_id
+    assert fetched.scorer.scorer_version == scorer.scorer_version
+    assert fetched.stage == GuardrailStage.BEFORE
+    assert fetched.action == GuardrailAction.VALIDATION
+
+
+def test_get_gateway_guardrail_not_found(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_gateway_guardrail("gr-nonexistent")
+
+
+def test_delete_gateway_guardrail(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.delete_gateway_guardrail(guardrail.guardrail_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_gateway_guardrail(guardrail.guardrail_id)
+
+
+def test_delete_gateway_guardrail_not_found(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_gateway_guardrail("gr-nonexistent")
+
+
+def test_list_gateway_guardrails(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    for stage in GuardrailStage:
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=stage,
+            action=GuardrailAction.VALIDATION,
+        )
+
+    result = store.list_gateway_guardrails()
+    assert len(result) == 2
+    assert result.token is None
+
+
+def test_list_gateway_guardrails_empty(store: SqlAlchemyStore):
+    result = store.list_gateway_guardrails()
+    assert result == []
+    assert result.token is None
+
+
+def test_list_gateway_guardrails_pagination(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    for _ in range(3):
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+
+    page1 = store.list_gateway_guardrails(max_results=2)
+    assert len(page1) == 2
+    assert page1.token is not None
+
+    page2 = store.list_gateway_guardrails(max_results=2, page_token=page1.token)
+    assert len(page2) == 1
+    assert page2.token is None
+
+    all_ids = sorted([g.guardrail_id for g in page1] + [g.guardrail_id for g in page2])
+    assert len(all_ids) == 3
+    assert len(set(all_ids)) == 3
+
+
+def test_add_guardrail_to_endpoint(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-endpoint-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    config = store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=5,
+        created_by="test-user",
+    )
+
+    assert isinstance(config, GatewayGuardrailConfig)
+    assert config.endpoint_id == endpoint.endpoint_id
+    assert config.guardrail_id == guardrail.guardrail_id
+    assert config.execution_order == 5
+    assert config.created_by == "test-user"
+
+
+def test_add_guardrail_to_endpoint_null_execution_order(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-null-order-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    config = store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    assert config.execution_order is None
+
+
+def test_add_guardrail_to_endpoint_duplicate_raises(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-dup-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    with pytest.raises(MlflowException, match="already added"):
+        store.add_guardrail_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id=guardrail.guardrail_id,
+        )
+
+
+def test_update_endpoint_guardrail_config(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-update-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=5,
+    )
+
+    updated = store.update_endpoint_guardrail_config(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=10,
+    )
+
+    assert updated.execution_order == 10
+    assert updated.guardrail_id == guardrail.guardrail_id
+
+
+def test_update_endpoint_guardrail_config_not_found(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-upd-nf-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_endpoint_guardrail_config(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+            execution_order=1,
+        )
+
+
+def test_add_guardrail_to_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.add_guardrail_to_endpoint(
+            endpoint_id="e-nonexistent",
+            guardrail_id=guardrail.guardrail_id,
+        )
+
+
+def test_add_nonexistent_guardrail_to_endpoint_raises(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-noguard-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.add_guardrail_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+        )
+
+
+def test_remove_guardrail_from_endpoint(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-remove-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    store.remove_guardrail_from_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert configs == []
+
+
+def test_remove_guardrail_from_endpoint_not_found(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-removenf-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.remove_guardrail_from_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+        )
+
+
+def test_list_endpoint_guardrail_configs(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-list-{uuid.uuid4().hex[:8]}")
+
+    guardrails = [
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+        for _ in range(3)
+    ]
+
+    configs = [
+        store.add_guardrail_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id=g.guardrail_id,
+            execution_order=(i + 1) * 10,
+        )
+        for i, g in enumerate(guardrails)
+    ]
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert len(configs) == 3
+    assert [c.execution_order for c in configs] == [10, 20, 30]
+    assert [c.guardrail_id for c in configs] == [g.guardrail_id for g in guardrails]
+    for config, guardrail in zip(configs, guardrails):
+        assert config.guardrail is not None
+        assert config.guardrail.guardrail_id == guardrail.guardrail_id
+        assert config.guardrail.stage == GuardrailStage.BEFORE
+
+
+def test_list_endpoint_guardrail_configs_empty(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-empty-{uuid.uuid4().hex[:8]}")
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert configs == []
+
+
+def test_list_endpoint_guardrail_configs_nonexistent_endpoint(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found"):
+        store.list_endpoint_guardrail_configs("e-nonexistent")
+
+
+def test_delete_guardrail_cascades_to_configs(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-cascade-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    store.delete_gateway_guardrail(guardrail.guardrail_id)
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert configs == []
+
+
+def test_delete_endpoint_cascades_to_guardrail_configs(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-ep-cascade-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    # Guardrail itself should still exist
+    fetched = store.get_gateway_guardrail(guardrail.guardrail_id)
+    assert fetched.guardrail_id == guardrail.guardrail_id
 
 
 # =============================================================================

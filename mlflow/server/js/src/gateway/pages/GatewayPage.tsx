@@ -17,6 +17,7 @@ import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { EndpointsList } from '../components/endpoints';
 import { GatewaySideNav, type GatewayTab } from '../components/side-nav';
+import { GatewayLabel } from '../../common/components/GatewayNewTag';
 import { GatewaySetupGuide } from '../components/SecretsSetupGuide';
 import { useSecretsConfigQuery } from '../hooks/useSecretsConfigQuery';
 import ApiKeysPage from './ApiKeysPage';
@@ -39,7 +40,7 @@ const GatewayPageTitle = () => {
       >
         <CloudModelIcon />
       </span>
-      <FormattedMessage defaultMessage="AI Gateway" description="Header title for the AI Gateway configuration page" />
+      <GatewayLabel />
     </span>
   );
 };

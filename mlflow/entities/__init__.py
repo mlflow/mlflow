@@ -43,6 +43,12 @@ from mlflow.entities.gateway_endpoint import (
     GatewayResourceType,
     RoutingStrategy,
 )
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
+)
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
@@ -178,6 +184,10 @@ __all__ = [
     "WebhookTestResult",
     "Workspace",
     "WorkspaceDeletionMode",
+    "GatewayGuardrail",
+    "GatewayGuardrailConfig",
+    "GuardrailAction",
+    "GuardrailStage",
 ]
 
 

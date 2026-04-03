@@ -80,7 +80,7 @@ describe('StarterCodeCard', () => {
     renderCard({ endpointName: 'my-endpoint', provider: 'openai' });
     await userEvent.click(screen.getByText('OpenAI Responses'));
     const codeBlock = document.querySelector('pre');
-    expect(codeBlock?.textContent).toContain("Passthrough to OpenAI's Responses API")
+    expect(codeBlock?.textContent).toContain("Passthrough to OpenAI's Responses API");
     expect(codeBlock?.textContent).toContain('New OpenAI features are available immediately');
   });
 });

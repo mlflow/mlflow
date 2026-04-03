@@ -13,7 +13,8 @@ import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { TryItPanel } from '../endpoints/TryItPanel';
 
-const UNIFIED_COMMENT = '# Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.';
+const UNIFIED_COMMENT =
+  '# Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.';
 
 const getBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
@@ -24,11 +25,7 @@ const getBaseUrl = (): string => {
 
 type ApiVariant = 'chat-completions' | 'openai-responses' | 'anthropic-messages' | 'gemini-generate';
 
-const getCodeExamples = (
-  base: string,
-  endpointName: string,
-  variant: ApiVariant,
-): { curl: string; python: string } => {
+const getCodeExamples = (base: string, endpointName: string, variant: ApiVariant): { curl: string; python: string } => {
   switch (variant) {
     case 'chat-completions':
       return {
@@ -186,11 +183,7 @@ const getRequestUrl = (base: string, endpointName: string, variant: ApiVariant):
 const getDefaultBody = (endpointName: string, variant: ApiVariant): string => {
   switch (variant) {
     case 'chat-completions':
-      return JSON.stringify(
-        { model: endpointName, messages: [{ role: 'user', content: 'How are you?' }] },
-        null,
-        2,
-      );
+      return JSON.stringify({ model: endpointName, messages: [{ role: 'user', content: 'How are you?' }] }, null, 2);
     case 'openai-responses':
       return JSON.stringify({ model: endpointName, input: 'How are you?' }, null, 2);
     case 'anthropic-messages':
@@ -238,7 +231,10 @@ export const StarterCodeCard = ({ endpointName, provider }: StarterCodeCardProps
   const code = language === 'curl' ? examples.curl : examples.python;
   const tryItRequestUrl = useMemo(() => getRequestUrl(base, endpointName, activeApi), [base, endpointName, activeApi]);
   const tryItDefaultBody = useMemo(() => getDefaultBody(endpointName, activeApi), [endpointName, activeApi]);
-  const tryItOptions = activeApi === 'anthropic-messages' ? { headers: { 'anthropic-dangerous-direct-browser-access': 'true' } } : undefined;
+  const tryItOptions =
+    activeApi === 'anthropic-messages'
+      ? { headers: { 'anthropic-dangerous-direct-browser-access': 'true' } }
+      : undefined;
 
   return (
     <div
@@ -249,22 +245,33 @@ export const StarterCodeCard = ({ endpointName, provider }: StarterCodeCardProps
         backgroundColor: theme.colors.backgroundSecondary,
       }}
     >
-      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: theme.spacing.sm,
+        }}
+      >
         <Typography.Title level={3} css={{ margin: 0 }}>
-          <FormattedMessage defaultMessage="View starter code" description="Title for starter code card on endpoint overview" />
+          <FormattedMessage
+            defaultMessage="View starter code"
+            description="Title for starter code card on endpoint overview"
+          />
         </Typography.Title>
         <SegmentedControlGroup
-            name="starter-code-api"
-            componentId="mlflow.gateway.edit-endpoint.starter-code.api"
-            value={activeApi}
-            onChange={({ target: { value } }) => setActiveApi(value as ApiVariant)}
-          >
-            {apiOptions.map((opt) => (
-              <SegmentedControlButton key={opt.value} value={opt.value}>
-                {opt.label}
-              </SegmentedControlButton>
-            ))}
-          </SegmentedControlGroup>
+          name="starter-code-api"
+          componentId="mlflow.gateway.edit-endpoint.starter-code.api"
+          value={activeApi}
+          onChange={({ target: { value } }) => setActiveApi(value as ApiVariant)}
+        >
+          {apiOptions.map((opt) => (
+            <SegmentedControlButton key={opt.value} value={opt.value}>
+              {opt.label}
+            </SegmentedControlButton>
+          ))}
+        </SegmentedControlGroup>
       </div>
 
       <div
@@ -344,12 +351,7 @@ export const StarterCodeCard = ({ endpointName, provider }: StarterCodeCardProps
         componentId="mlflow.gateway.edit-endpoint.try-it-modal"
         visible={isTryItOpen}
         onCancel={() => setIsTryItOpen(false)}
-        title={
-          <FormattedMessage
-            defaultMessage="Query endpoint"
-            description="Title for try-it modal dialog"
-          />
-        }
+        title={<FormattedMessage defaultMessage="Query endpoint" description="Title for try-it modal dialog" />}
         footer={null}
         size="wide"
       >
@@ -368,7 +370,7 @@ export const StarterCodeCard = ({ endpointName, provider }: StarterCodeCardProps
                 description="Request body tooltip in starter code try-it modal"
               />
             }
-            requestTooltipComponentId="mlflow.gateway.edit-endpoint.try-it-modal.request-tooltip"
+            componentId="mlflow.gateway.edit-endpoint.try-it-modal.request-tooltip"
             tryItRequestUrl={tryItRequestUrl}
             tryItDefaultBody={tryItDefaultBody}
             tryItOptions={tryItOptions}

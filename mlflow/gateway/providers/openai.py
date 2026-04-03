@@ -150,7 +150,7 @@ class OpenAIAdapter(OpenAICompatibleAdapter):
 
 
 class OpenAIProvider(BaseProvider):
-    NAME = "OpenAI"
+    DISPLAY_NAME = "OpenAI"
     CONFIG_TYPE = OpenAIConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {

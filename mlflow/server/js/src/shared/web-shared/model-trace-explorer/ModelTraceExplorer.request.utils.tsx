@@ -93,3 +93,23 @@ export const getDefaultHeaders = (cookieStr: any) => {
     ...(workspace ? { 'X-MLFLOW-WORKSPACE': workspace } : {}),
   };
 };
+
+export async function fetchOrFail(input: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers: {
+      ...getDefaultHeaders(document.cookie),
+      ...options?.headers,
+    },
+  };
+
+  const response = await fetchFn(input, fetchOptions);
+  if (!response.ok) {
+    const predefinedError = matchPredefinedError(response);
+    if (predefinedError) {
+      throw predefinedError;
+    }
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+  return response;
+}

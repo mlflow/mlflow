@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any
 
 import pydantic
 
+from mlflow.utils.providers import _lookup_model_info
+
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
     from mlflow.gateway.providers.base import BaseProvider
@@ -26,7 +28,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointType
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.provider_registry import is_supported_provider
-from mlflow.genai.discovery.utils import _pydantic_to_response_format
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
     AdapterInvocationOutput,
@@ -47,6 +48,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
 )
+from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.metrics.genai.model_utils import (
     _call_llm_provider_api,
     _get_provider_instance,
@@ -56,7 +58,6 @@ from mlflow.metrics.genai.model_utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import AssessmentMetadataKey
-from mlflow.utils.providers import _get_model_cost
 
 _logger = logging.getLogger(__name__)
 
@@ -166,12 +167,9 @@ def _build_request(
 
 
 def _get_max_context_tokens(provider: str, model: str) -> int | None:
-    """Look up the max input token limit for a model from the vendored model prices JSON."""
-    model_cost = _get_model_cost()
-    # Try provider/model format first (e.g., "openai/gpt-4.1")
-    for key in (f"{provider}/{model}", model):
-        if key in model_cost:
-            return model_cost[key].get("max_input_tokens")
+    """Look up the max input token limit for a model from the vendored model catalog."""
+    if info := _lookup_model_info(model, custom_llm_provider=provider):
+        return info.get("max_input_tokens")
     return None
 
 
@@ -310,7 +308,7 @@ def _invoke_via_gateway(
         )
 
     _, model_name = _parse_model_uri(model_uri)
-    rf_dict = _pydantic_to_response_format(response_format) if response_format else None
+    rf_dict = pydantic_to_response_format(response_format) if response_format else None
     return _call_llm_provider_api(
         provider,
         model_name,
@@ -328,7 +326,7 @@ def _invoke_via_gateway(
 
 
 class GatewayAdapter(BaseJudgeAdapter):
-    """Adapter for native AI Gateway providers (fallback when LiteLLM is not available)."""
+    """Adapter for native AI Gateway providers."""
 
     @classmethod
     def is_applicable(
