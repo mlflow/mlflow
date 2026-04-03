@@ -57,9 +57,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         tracking_uri=None,
         registry_uri: str | None = None,
     ):
-        super().__init__(
-            artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
-        )
+        super().__init__(artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
@@ -179,9 +177,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             extra_args.update(environ_extra_args)
 
         def try_func(creds):
-            creds.upload_file(
-                Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args
-            )
+            creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
         _retry_with_new_creds(
             try_func=try_func,
@@ -206,19 +202,14 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         """
         return [self._get_s3_client() for _ in remote_file_paths]
 
-    def _upload_to_cloud(
-        self, cloud_credential_info, src_file_path, artifact_file_path
-    ):
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         dest_path = posixpath.join(self.bucket_path, artifact_file_path)
         key = posixpath.normpath(dest_path)
         if (
             MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
-            and os.path.getsize(src_file_path)
-            > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+            and os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
         ):
-            self._multipart_upload(
-                cloud_credential_info, src_file_path, self.bucket, key
-            )
+            self._multipart_upload(cloud_credential_info, src_file_path, self.bucket, key)
         else:
             self._upload_file(cloud_credential_info, src_file_path, self.bucket, key)
 
@@ -230,9 +221,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         )
         upload_id = response["UploadId"]
 
-        num_parts = _compute_num_chunks(
-            local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-        )
+        num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
         _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
 
         # define helper functions for uploading data
@@ -251,9 +240,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                         **self._bucket_owner_params,
                     },
                 )
-                with cloud_storage_http_request(
-                    "put", presigned_url, data=data
-                ) as response:
+                with cloud_storage_http_request("put", presigned_url, data=data) as response:
                     augmented_raise_for_status(response)
                     return response.headers["ETag"]
 
@@ -332,9 +319,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=subdir_path, artifact_path=artifact_path
                 )
-                subdir_rel_path = posixpath.relpath(
-                    path=subdir_path, start=artifact_path
-                )
+                subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
                 subdir_rel_path = subdir_rel_path.removesuffix("/")
                 infos.append(FileInfo(subdir_rel_path, True, None))
             # Objects listed directly will be files
@@ -349,9 +334,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         return sorted(infos, key=lambda f: f.path)
 
     @staticmethod
-    def _verify_listed_object_contains_artifact_path_prefix(
-        listed_object_path, artifact_path
-    ):
+    def _verify_listed_object_contains_artifact_path_prefix(listed_object_path, artifact_path):
         if not listed_object_path.startswith(artifact_path):
             raise MlflowException(
                 "The path of the listed S3 object does not begin with the specified"
@@ -383,13 +366,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
 
         def try_func(creds):
             download_kwargs = (
-                {"ExtraArgs": self._bucket_owner_params}
-                if self._bucket_owner_params
-                else {}
+                {"ExtraArgs": self._bucket_owner_params} if self._bucket_owner_params else {}
             )
-            creds.download_file(
-                self.bucket, s3_full_path, local_path, **download_kwargs
-            )
+            creds.download_file(self.bucket, s3_full_path, local_path, **download_kwargs)
 
         _retry_with_new_creds(
             try_func=try_func,
