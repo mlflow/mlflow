@@ -13,6 +13,7 @@ import { SetupStepAuth } from './SetupStepAuth';
 import { SetupStepProject } from './SetupStepProject';
 import { SetupComplete } from './SetupComplete';
 import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
+import { updateConfig } from '../AssistantService';
 
 interface StepIndicatorProps {
   currentStep: SetupStep;
@@ -138,10 +139,11 @@ export const AssistantSetupWizard = ({
     [markStepComplete],
   );
 
-  const handleConnectionContinue = useCallback(() => {
+  const handleConnectionContinue = useCallback(async () => {
+    await updateConfig({ providers: { [selectedProvider]: { selected: true } } });
     markStepComplete('connection');
     setCurrentStep('project');
-  }, [markStepComplete]);
+  }, [markStepComplete, selectedProvider]);
 
   const handleConnectionStatusChange = useCallback((provider: string, status: AuthState) => {
     setCachedAuthStatus((prev) => ({ ...prev, [provider]: status }));

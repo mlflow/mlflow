@@ -288,41 +288,30 @@ class ClaudeCodeProvider(AssistantProvider):
 
         if echo:
             echo(f"Claude CLI found: {claude_path}")
-            echo("Checking connection... (this may take a few seconds)")
+            echo("Checking CLI version...")
 
-        # Check authentication by running a minimal test prompt
+        # Verify the CLI is functional via --version (no API call, no token consumption).
+        # Full auth validation happens naturally when the user sends a message; making
+        # a real API call here causes rate-limit 401s on every health-check poll.
         try:
             result = subprocess.run(
-                ["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
+                [claude_path, "--version"],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=5,
+            )
+        except subprocess.TimeoutExpired:
+            raise NotAuthenticatedError("Claude CLI did not respond")
+        except subprocess.SubprocessError as e:
+            raise NotAuthenticatedError(str(e))
+
+        if result.returncode != 0:
+            raise NotAuthenticatedError(
+                result.stderr.strip() or f"claude --version exited with code {result.returncode}"
             )
 
-            if result.returncode == 0:
-                if echo:
-                    echo("Authentication verified")
-                return
-
-            # Check for common auth errors in stderr
-            stderr = result.stderr.lower()
-            if "auth" in stderr or "login" in stderr or "unauthorized" in stderr:
-                error_msg = "Not authenticated. Please run: claude login"
-            else:
-                error_msg = result.stderr.strip() or f"Process exited with code {result.returncode}"
-
-            if echo:
-                echo(f"Authentication failed: {error_msg}")
-            raise NotAuthenticatedError(error_msg)
-
-        except subprocess.TimeoutExpired:
-            if echo:
-                echo("Authentication check timed out")
-            raise NotAuthenticatedError("Authentication check timed out")
-        except subprocess.SubprocessError as e:
-            if echo:
-                echo(f"Error checking authentication: {e}")
-            raise NotAuthenticatedError(str(e))
+        if echo:
+            echo(f"Claude CLI ready: {result.stdout.strip()}")
 
     def resolve_skills_path(self, base_directory: Path) -> Path:
         """Resolve the path to the skills directory."""
