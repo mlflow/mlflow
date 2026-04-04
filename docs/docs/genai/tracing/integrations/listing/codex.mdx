@@ -1,0 +1,122 @@
+---
+title: Tracing Codex CLI
+description: Trace Codex CLI conversations with MLflow for full observability into AI-assisted software development workflows.
+sidebar_position: 10
+sidebar_label: Codex CLI
+keywords: [codex, openai, tracing, mlflow, ai agent, coding assistant]
+---
+
+# Tracing Codex CLI
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [Codex CLI](https://github.com/openai/codex), OpenAI's terminal-based coding agent. After setting up auto tracing, MLflow will automatically capture traces of your Codex conversations including:
+
+- User prompts and assistant responses
+- Tool usage (shell commands, file operations, etc.)
+- Token usage (input, output, and total tokens)
+- Session metadata including working directory and user
+
+## Setup
+
+### Requirements
+
+- MLflow >= 3.12 (`pip install 'mlflow>=3.12'`)
+- [Codex CLI](https://github.com/openai/codex) installed
+
+### Step 1: Set Up Tracing
+
+```bash
+# Set up tracing in current directory
+mlflow autolog codex
+
+# Set up tracing in specific directory
+mlflow autolog codex -d ~/my-project
+
+# Check tracing status
+mlflow autolog codex --status
+
+# Disable tracing
+mlflow autolog codex --disable
+```
+
+### Step 2: Configure MLflow (Environment Variables)
+
+Set standard MLflow environment variables in your shell before launching Codex:
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=123456
+```
+
+### Step 3: Use Codex Normally
+
+```bash
+# Tracing happens automatically on each conversation turn
+codex "help me refactor this function"
+
+# View traces in MLflow UI
+mlflow server
+```
+
+## How It Works
+
+1. `mlflow autolog codex` registers a **Stop hook** in `.codex/hooks.json` in your project directory
+2. When each Codex conversation turn completes, the hook reads the session transcript (a JSONL rollout file) and creates an MLflow trace
+3. The trace contains an AGENT root span with LLM and TOOL child spans
+
+## Configuration Examples
+
+```bash
+# Local MLflow server
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=0
+
+# Databricks MLflow
+export MLFLOW_TRACKING_URI=databricks
+export MLFLOW_EXPERIMENT_ID=123456789
+```
+
+## OTLP Tracing (Advanced)
+
+Codex CLI also supports native OpenTelemetry tracing via its `config.toml`. This can be enabled alongside hook-based tracing:
+
+```toml title="~/.codex/config.toml"
+[otel]
+exporter = { otlp-http = {
+  endpoint = "http://localhost:5000/v1/traces",
+  protocol = "binary",
+  headers = { "x-mlflow-experiment-id" = "0" }
+}}
+```
+
+:::note
+Codex's native OTLP traces capture **internal execution details** (websocket connections, request handling, tool scheduling) rather than clean conversation flows. For user-facing conversation traces with prompts, responses, and tool results, the hook-based approach (`mlflow autolog codex`) is recommended.
+
+The OTLP traces can be useful for debugging Codex internals or monitoring performance, and can be used alongside the hook-based traces.
+:::
+
+## Token Usage and Cost
+
+MLflow automatically tracks token usage for each LLM call within Codex conversations. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details.
+
+## Troubleshooting
+
+### Common Issues
+
+**Tracing not working:**
+
+- Ensure you're in the configured directory (where `.codex/hooks.json` exists)
+- Check that environment variables (`MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_ID`) are set in your shell
+- Review logs in `.codex/mlflow/codex_tracing.log`
+
+**Missing traces:**
+
+- Traces are created per conversation turn, not per session
+- Verify the MLflow tracking server is accessible
+
+### Disable Tracing
+
+```bash
+mlflow autolog codex --disable
+```
+
+This removes the hooks from `.codex/hooks.json` but preserves existing traces.
