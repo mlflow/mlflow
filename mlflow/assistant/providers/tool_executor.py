@@ -33,8 +33,7 @@ async def execute_tool(
             return f"Permission denied: {tool_name} is not allowed", True
 
         if tool_name in _FILE_TOOLS and cwd:
-            raw_path = tool_input.get("file_path") or tool_input.get("path", "")
-            if raw_path:
+            if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
                 target = Path(raw_path).expanduser().resolve()
                 if not _is_path_within(target, cwd):
                     return (

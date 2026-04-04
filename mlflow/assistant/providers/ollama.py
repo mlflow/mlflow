@@ -413,8 +413,7 @@ class OllamaProvider(AssistantProvider):
                 async for chunk in response_stream:
                     msg = chunk.message
 
-                    delta = msg.content or ""
-                    if delta:
+                    if delta := msg.content or "":
                         accumulated_text += delta
                         think_buf += delta
                         emit = ""

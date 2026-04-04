@@ -492,8 +492,7 @@ class CodexProvider(AssistantProvider):
         if event_type == "item.completed":
             item = data.get("item", {})
             if item.get("type") == "agent_message":
-                text = item.get("text", "")
-                if text:
+                if text := item.get("text", ""):
                     return Event.from_message(
                         Message(role="assistant", content=[TextBlock(text=text)])
                     )

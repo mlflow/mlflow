@@ -70,12 +70,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  const appendToStreamingMessage = useCallback((text: string) => {
-    streamingMessageRef.current += text;
-    if (rafPendingRef.current === null) {
-      rafPendingRef.current = requestAnimationFrame(flushStreamingMessage);
-    }
-  }, [flushStreamingMessage]);
+  const appendToStreamingMessage = useCallback(
+    (text: string) => {
+      streamingMessageRef.current += text;
+      if (rafPendingRef.current === null) {
+        rafPendingRef.current = requestAnimationFrame(flushStreamingMessage);
+      }
+    },
+    [flushStreamingMessage],
+  );
 
   const finalizeStreamingMessage = useCallback(() => {
     // Cancel any pending RAF and do a final flush with isStreaming: false
