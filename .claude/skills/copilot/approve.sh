@@ -10,7 +10,11 @@ head_sha=$(gh pr view "$pr_number" --repo "$repo" --json headRefOid --jq '.headR
 
 run_ids=$(
   gh api --paginate "repos/${repo}/actions/runs?head_sha=${head_sha}" \
-    --jq '.workflow_runs[] | select(.conclusion == "action_required" and .actor.login == "Copilot") | .id'
+    --jq '
+      .workflow_runs[]
+      | select(.conclusion == "action_required" and .actor.login == "Copilot")
+      | .id
+    '
 )
 
 if [[ -z "$run_ids" ]]; then
