@@ -72,7 +72,9 @@ class MlflowException(Exception):
     instead.
     """
 
-    def __init__(self, message, error_code=INTERNAL_ERROR, **kwargs):
+    def __init__(
+        self, message, error_code=INTERNAL_ERROR, sqlstate=None, error_class=None, **kwargs
+    ):
         """
         Args:
             message: The message or exception describing the error that occurred. This will be
@@ -80,6 +82,9 @@ class MlflowException(Exception):
             error_code: An appropriate error code for the error that occurred; it will be
                 included in the exception's serialized JSON representation. This should
                 be one of the codes listed in the `mlflow.protos.databricks_pb2` proto.
+            sqlstate: A 5-character SQLSTATE code for error classification. Used by
+                Databricks reliability dashboards to categorize errors.
+            error_class: A descriptive error class name (e.g., "SCHEMA_ENFORCEMENT_FAILED").
             kwargs: Additional key-value pairs to include in the serialized JSON representation
                 of the MlflowException.
         """
@@ -89,11 +94,17 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
         message = str(message)
         self.message = message
+        self.sqlstate = sqlstate
+        self.error_class = error_class
         self.json_kwargs = kwargs
         super().__init__(message)
 
     def serialize_as_json(self):
         exception_dict = {"error_code": self.error_code, "message": self.message}
+        if self.sqlstate is not None:
+            exception_dict["sqlstate"] = self.sqlstate
+        if self.error_class is not None:
+            exception_dict["error_class"] = self.error_class
         exception_dict.update(self.json_kwargs)
         return json.dumps(exception_dict)
 
@@ -101,16 +112,47 @@ class MlflowException(Exception):
         return ERROR_CODE_TO_HTTP_STATUS.get(self.error_code, 500)
 
     @classmethod
-    def invalid_parameter_value(cls, message, **kwargs):
+    def invalid_parameter_value(cls, message, sqlstate=None, error_class=None, **kwargs):
         """Constructs an `MlflowException` object with the `INVALID_PARAMETER_VALUE` error code.
 
         Args:
             message: The message describing the error that occurred. This will be included in the
                 exception's serialized JSON representation.
+            sqlstate: A 5-character SQLSTATE code for error classification.
+            error_class: A descriptive error class name.
             kwargs: Additional key-value pairs to include in the serialized JSON representation
                 of the MlflowException.
         """
-        return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
+        return cls(
+            message,
+            error_code=INVALID_PARAMETER_VALUE,
+            sqlstate=sqlstate,
+            error_class=error_class,
+            **kwargs,
+        )
+
+
+_CP_ERROR_CODE_TO_SQLSTATE = {
+    "PERMISSION_DENIED": "KAMC1",
+    "CUSTOMER_UNAUTHORIZED": "KAMC1",
+    "UNAUTHENTICATED": "KAMC1",
+    "RESOURCE_DOES_NOT_EXIST": "KAMC2",
+    "ENDPOINT_NOT_FOUND": "KAMC2",
+    "NOT_FOUND": "KAMC2",
+    "REQUEST_LIMIT_EXCEEDED": "KAMC3",
+    "RESOURCE_EXHAUSTED": "KAMC3",
+    "INVALID_PARAMETER_VALUE": "KAMC4",
+    "BAD_REQUEST": "KAMC4",
+    "RESOURCE_ALREADY_EXISTS": "KAMC5",
+    "RESOURCE_CONFLICT": "KAMC5",
+    "INTERNAL_ERROR": "XXMC0",
+    "TEMPORARILY_UNAVAILABLE": "XXMC1",
+    "INVALID_STATE": "XXMC2",
+}
+
+
+def _get_cp_sqlstate(error_code):
+    return _CP_ERROR_CODE_TO_SQLSTATE.get(error_code)
 
 
 class RestException(MlflowException):
@@ -140,6 +182,15 @@ class RestException(MlflowException):
                     "e.g., within a proxy server or authentication / authorization service."
                 )
                 super().__init__(message)
+
+        # Preserve sqlstate/error_class from CP response if present, otherwise
+        # map from error_code to provide default classification for CP errors.
+        if "sqlstate" in json:
+            self.sqlstate = json["sqlstate"]
+        elif self.sqlstate is None:
+            self.sqlstate = _get_cp_sqlstate(self.error_code)
+        if "error_class" in json:
+            self.error_class = json["error_class"]
 
     def __reduce__(self):
         """

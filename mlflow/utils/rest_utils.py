@@ -30,6 +30,7 @@ from mlflow.exceptions import (
     InvalidUrlException,
     MlflowException,
     RestException,
+    _get_cp_sqlstate,
     get_error_code,
 )
 from mlflow.protos import databricks_pb2
@@ -365,9 +366,11 @@ def verify_rest_response(
                 f"failed with error code {response.status_code} "
                 f"!= {expected_status}"
             )
+            error_code = get_error_code(response.status_code)
             raise MlflowException(
                 f"{base_msg}. Response body: '{response.text}'",
-                error_code=get_error_code(response.status_code),
+                error_code=error_code,
+                sqlstate=_get_cp_sqlstate(ErrorCode.Name(error_code)),
             )
 
     if response.status_code == 204:
