@@ -29,6 +29,7 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -52,7 +53,7 @@ _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _VERSION_COMMENT_RE = re.compile(r"^v\d+\.\d+\.\d+(?:\.\d+)*$")
 
 _CACHE_PATH = Path(".cache/action-pins.json")
-_MAX_RETRIES = 3
+_MAX_ATTEMPTS = 3
 _RETRY_DELAY = 1.0  # seconds
 
 
@@ -89,17 +90,17 @@ def _github_api(url: str) -> dict[str, Any] | list[Any]:
     if token := _get_github_token():
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
-    for attempt in range(_MAX_RETRIES):
+    for attempt in range(_MAX_ATTEMPTS):
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 return json.loads(resp.read())  # type: ignore[no-any-return]
         except urllib.error.HTTPError as e:
             if e.code in (404, 401, 403):
                 raise _GitHubApiError(str(e)) from e
-            if attempt < _MAX_RETRIES - 1:
+            if attempt < _MAX_ATTEMPTS - 1:
                 time.sleep(_RETRY_DELAY)
         except urllib.error.URLError:
-            if attempt < _MAX_RETRIES - 1:
+            if attempt < _MAX_ATTEMPTS - 1:
                 time.sleep(_RETRY_DELAY)
     raise _GitHubApiError("max retries exceeded")
 
@@ -159,49 +160,55 @@ def _iter_files(args: list[str]) -> Iterator[Path]:
             yield from map(Path, glob.glob(pattern, recursive=True))
 
 
+@dataclass(frozen=True, slots=True)
+class ActionRef:
+    prefix: str
+    action: str
+    ref: str
+    comment: str | None
+
+
+def _iter_actions(path: Path) -> Iterator[ActionRef]:
+    with path.open(encoding="utf-8") as f:
+        for lineno, line in enumerate(f, start=1):
+            if m := _USES_RE.match(line):
+                action = m.group("action")
+                if not action.startswith("./"):
+                    prefix = f"{path}:{lineno}: {line.strip()!r}"
+                    yield ActionRef(prefix, action, m.group("ref"), m.group("comment"))
+
+
+def _check_action(a: ActionRef, cache: dict[str, bool]) -> str | None:
+    if not _SHA_RE.match(a.ref):
+        return f"{a.prefix}\n  error: ref '{a.ref}' is not a 40-character SHA"
+
+    if not a.comment or not _VERSION_COMMENT_RE.match(a.comment):
+        return (
+            f"{a.prefix}\n  error: missing or invalid version comment"
+            f" (expected '# vX.Y.Z', got {a.comment!r})"
+        )
+
+    verified = _verify_sha_tag(a.action, a.ref, a.comment, cache)
+    if verified is None:
+        return (
+            f"{a.prefix}\n  error: could not verify SHA against tag '{a.comment}'"
+            f" for {_repo_from_action(a.action)} (GitHub API unavailable)"
+        )
+    if not verified:
+        return (
+            f"{a.prefix}\n  error: SHA '{a.ref}' does not match tag '{a.comment}'"
+            f" for {_repo_from_action(a.action)}"
+        )
+    return None
+
+
 def check_file(path: Path, cache: dict[str, bool]) -> Iterator[str]:
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        for action_ref in _iter_actions(path):
+            if error := _check_action(action_ref, cache):
+                yield error
     except OSError as e:
         yield f"{path}: cannot read file: {e}"
-        return
-
-    for lineno, line in enumerate(lines, start=1):
-        m = _USES_RE.match(line)
-        if m is None:
-            continue
-        action = m.group("action")
-        ref = m.group("ref")
-        comment = m.group("comment")
-
-        # Skip local composite actions.
-        if action.startswith("./"):
-            continue
-
-        prefix = f"{path}:{lineno}: {line.strip()!r}"
-
-        if not _SHA_RE.match(ref):
-            yield f"{prefix}\n  error: ref '{ref}' is not a 40-character SHA"
-            continue
-
-        if not comment or not _VERSION_COMMENT_RE.match(comment):
-            yield (
-                f"{prefix}\n  error: missing or invalid version comment"
-                f" (expected '# vX.Y.Z', got {comment!r})"
-            )
-            continue
-
-        verified = _verify_sha_tag(action, ref, comment, cache)
-        if verified is None:
-            yield (
-                f"{prefix}\n  error: could not verify SHA against tag '{comment}'"
-                f" for {_repo_from_action(action)} (GitHub API unavailable)"
-            )
-        elif not verified:
-            yield (
-                f"{prefix}\n  error: SHA '{ref}' does not match tag '{comment}'"
-                f" for {_repo_from_action(action)}"
-            )
 
 
 def main() -> int:
