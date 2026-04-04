@@ -77,7 +77,6 @@ jobs:
       - name: Run pre-commit
         id: pre-commit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
           NO_FIX: "true"
         run: |

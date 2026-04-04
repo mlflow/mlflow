@@ -1,19 +1,13 @@
 """Validate that all remote GitHub Actions are SHA-pinned with a version comment."""
 
-import functools
 import glob
 import json
-import os
 import re
 import subprocess
 import sys
-import time
-import urllib.error
-import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 # Matches a `uses:` line that references a remote action (not a local `./` path).
 # Captures:  owner/repo[/subpath]  @  ref  [  # comment  ]
@@ -35,8 +29,6 @@ _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _VERSION_COMMENT_RE = re.compile(r"^v\d+\.\d+\.\d+(?:\.\d+)*$")
 
 _CACHE_PATH = Path(".cache/action-pins.json")
-_MAX_ATTEMPTS = 3
-_RETRY_DELAY = 1.0  # seconds
 
 
 def _load_cache() -> dict[str, bool]:
@@ -56,47 +48,12 @@ def _save_cache(cache: dict[str, bool]) -> None:
         pass
 
 
-@functools.cache
-def _get_github_token() -> str | None:
-    if token := os.environ.get("GH_TOKEN"):
-        return token
-    try:
-        return subprocess.check_output(["gh", "auth", "token"], text=True).strip() or None
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-def _github_api(url: str) -> dict[str, Any] | list[Any]:
-
-    headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
-    if token := _get_github_token():
-        headers["Authorization"] = f"Bearer {token}"
-    req = urllib.request.Request(url, headers=headers)
-    for attempt in range(_MAX_ATTEMPTS):
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                return json.loads(resp.read())  # type: ignore[no-any-return]
-        except urllib.error.HTTPError as e:
-            if e.code in (404, 401, 403):
-                raise _GitHubApiError(str(e)) from e
-            if attempt < _MAX_ATTEMPTS - 1:
-                time.sleep(_RETRY_DELAY)
-        except urllib.error.URLError:
-            if attempt < _MAX_ATTEMPTS - 1:
-                time.sleep(_RETRY_DELAY)
-    raise _GitHubApiError("max retries exceeded")
-
-
 def _repo_from_action(action: str) -> str:
     match action.split("/"):
         case [owner, repo, *_]:
             return f"{owner}/{repo}"
         case _:
             raise ValueError(f"Invalid action format: {action!r}")
-
-
-class _GitHubApiError(Exception):
-    pass
 
 
 def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> bool | None:
@@ -108,7 +65,7 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
     repo = _repo_from_action(action)
     try:
         result = _resolve_tag(repo, sha, tag)
-    except _GitHubApiError:
+    except subprocess.CalledProcessError:
         return None
 
     cache[cache_key] = result
@@ -117,16 +74,11 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
 
 
 def _resolve_tag(repo: str, sha: str, tag: str) -> bool:
-    data = _github_api(f"https://api.github.com/repos/{repo}/git/ref/tags/{tag}")
-    match data:
-        case {"object": {"type": "commit", "sha": str(commit_sha)}}:
-            return commit_sha == sha
-        case {"object": {"type": "tag", "sha": str(tag_sha)}}:
-            tag_data = _github_api(f"https://api.github.com/repos/{repo}/git/tags/{tag_sha}")
-            match tag_data:
-                case {"object": {"sha": str(commit_sha)}}:
-                    return commit_sha == sha
-    return False
+    output = subprocess.check_output(
+        ["git", "ls-remote", "--tags", f"https://github.com/{repo}.git", tag],
+        text=True,
+    )
+    return any(line.split()[0] == sha for line in output.splitlines() if line)
 
 
 def _iter_files(args: list[str]) -> Iterator[Path]:
