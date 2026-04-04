@@ -18,13 +18,18 @@ Cache:
     redundant network calls across repeated runs.
 """
 
+import functools
 import glob
 import json
+import os
 import re
+import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 # Matches a `uses:` line that references a remote action (not a local `./` path).
 # Captures:  owner/repo[/subpath]  @  ref  [  # comment  ]
@@ -42,8 +47,8 @@ _USES_RE = re.compile(
 # A full 40-character hexadecimal SHA.
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
-# A version-comment that looks like a tag: v1, v1.2, v1.2.3 (with optional extra segments).
-_VERSION_COMMENT_RE = re.compile(r"^v\d+(\.\d+)*$")
+# Requires at least vMAJOR.MINOR.PATCH to avoid ambiguous moving tags like v4.
+_VERSION_COMMENT_RE = re.compile(r"^v\d+\.\d+\.\d+(?:\.\d+)*$")
 
 _CACHE_PATH = Path(".cache/action-pins.json")
 _MAX_RETRIES = 3
@@ -67,28 +72,45 @@ def _save_cache(cache: dict[str, bool]) -> None:
         pass
 
 
-def _github_api(url: str) -> dict[str, object] | list[object] | None:
-    """Fetch a GitHub API URL, retrying up to _MAX_RETRIES times."""
+@functools.cache
+def _get_github_token() -> str | None:
+    if token := os.environ.get("GH_TOKEN"):
+        return token
+    try:
+        return subprocess.check_output(["gh", "auth", "token"], text=True).strip() or None
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def _github_api(url: str) -> dict[str, Any] | list[Any] | None:
+
     headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    if token := _get_github_token():
+        headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
     for attempt in range(_MAX_RETRIES):
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
-                return json.loads(resp.read(1_048_576))  # type: ignore[no-any-return]
-        except Exception:
+                return json.loads(resp.read())  # type: ignore[no-any-return]
+        except urllib.error.HTTPError as e:
+            if e.code in (404, 401, 403):
+                return None
+            if attempt < _MAX_RETRIES - 1:
+                time.sleep(_RETRY_DELAY)
+        except urllib.error.URLError:
             if attempt < _MAX_RETRIES - 1:
                 time.sleep(_RETRY_DELAY)
     return None
 
 
 def _repo_from_action(action: str) -> str:
-    """Return 'owner/repo' from an action string like 'owner/repo/subpath'."""
+
     parts = action.split("/")
     return "/".join(parts[:2])
 
 
-def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> bool:
-    """Return True if *sha* resolves to *tag* in the action's repo."""
+def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> bool | None:
+
     cache_key = f"{action}@{sha}#{tag}"
     if cache_key in cache:
         return cache[cache_key]
@@ -97,21 +119,20 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
     url = f"https://api.github.com/repos/{repo}/git/ref/tags/{tag}"
     data = _github_api(url)
 
-    result = False
-    if isinstance(data, dict):
-        obj = data.get("object") or {}
-        obj_type = obj.get("type") if isinstance(obj, dict) else None
-        obj_sha = obj.get("sha") if isinstance(obj, dict) else None
-        if obj_type == "commit":
-            result = obj_sha == sha
-        elif obj_type == "tag":
-            # Annotated tag — need to dereference the tag object to get the commit SHA.
-            tag_url = f"https://api.github.com/repos/{repo}/git/tags/{obj_sha}"
-            tag_data = _github_api(tag_url)
-            if isinstance(tag_data, dict):
-                inner = tag_data.get("object") or {}
-                if isinstance(inner, dict):
-                    result = inner.get("sha") == sha
+    match data:
+        case {"object": {"type": "commit", "sha": str(commit_sha)}}:
+            result = commit_sha == sha
+        case {"object": {"type": "tag", "sha": str(tag_sha)}}:
+            tag_url = f"https://api.github.com/repos/{repo}/git/tags/{tag_sha}"
+            match _github_api(tag_url):
+                case {"object": {"sha": str(commit_sha)}}:
+                    result = commit_sha == sha
+                case _:
+                    return None
+        case None:
+            return None
+        case _:
+            result = False
 
     cache[cache_key] = result
     _save_cache(cache)
@@ -134,7 +155,7 @@ def _collect_files(args: list[str]) -> list[Path]:
 
 
 def check_file(path: Path, cache: dict[str, bool]) -> list[str]:
-    """Return a list of error strings for *path*."""
+
     errors = []
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -156,19 +177,25 @@ def check_file(path: Path, cache: dict[str, bool]) -> list[str]:
         prefix = f"{path}:{lineno}: {line.strip()!r}"
 
         if not _SHA_RE.match(ref):
-            errors.append(f"{prefix}\n  → ref '{ref}' is not a 40-character SHA")
+            errors.append(f"{prefix}\n  error: ref '{ref}' is not a 40-character SHA")
             continue
 
         if not comment or not _VERSION_COMMENT_RE.match(comment):
             errors.append(
-                f"{prefix}\n  → missing or invalid version comment"
+                f"{prefix}\n  error: missing or invalid version comment"
                 f" (expected '# vX.Y.Z', got {comment!r})"
             )
             continue
 
-        if not _verify_sha_tag(action, ref, comment, cache):
+        verified = _verify_sha_tag(action, ref, comment, cache)
+        if verified is None:
             errors.append(
-                f"{prefix}\n  → SHA '{ref}' does not match tag '{comment}'"
+                f"{prefix}\n  error: could not verify SHA against tag '{comment}'"
+                f" for {_repo_from_action(action)} (GitHub API unavailable)"
+            )
+        elif not verified:
+            errors.append(
+                f"{prefix}\n  error: SHA '{ref}' does not match tag '{comment}'"
                 f" for {_repo_from_action(action)}"
             )
 
