@@ -115,8 +115,8 @@ def test_display_is_called_in_correct_functions(monkeypatch):
 
     # display should be called after trace creation
     foo()
-    mock_ipython.mock_run_cell()
     mlflow.flush_trace_async_logging()
+    mock_ipython.mock_run_cell()
     assert mock_display.call_count == 1
 
 
