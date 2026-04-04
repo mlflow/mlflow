@@ -4,7 +4,7 @@
 # This file will be replaced by `pyproject.release.toml` when releasing a new version.
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools<=82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -29,6 +29,7 @@ requires-python = ">=3.10"
 dependencies = [
   "Flask-CORS<7",
   "Flask<4",
+  "aiohttp<4",
   "alembic<2,!=1.10.0",
   "cachetools<8,>=5.0.0",
   "click<9,>=7.0",
@@ -96,7 +97,6 @@ mlserver = [
   "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
 ]
 gateway = [
-  "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
   "slowapi<1,>=0.1.9",
@@ -105,7 +105,6 @@ gateway = [
   "watchfiles<2",
 ]
 genai = [
-  "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
   "slowapi<1,>=0.1.9",
@@ -156,7 +155,7 @@ mlflow = [
   "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
-  "utils/model_prices_and_context_window.json",
+  "utils/model_catalog/*.json",
 ]
 
 [tool.setuptools.packages.find]
@@ -209,7 +208,6 @@ test = [
   "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
-torch = ["torch>=1.11.0", "torchvision>=0.12.0,!=0.24.0", "lightning>=1.8.1"]
 docs = [
   "sphinx==4.2.0",
   "sphinx-autobuild",
@@ -241,7 +239,7 @@ docs = [
 [tool.uv]
 # TODO: Remove once the incident is fully remediated
 # Mitigation for https://github.com/aquasecurity/trivy/discussions/10425
-exclude-newer = "2026-03-10T00:00:00Z"
+exclude-newer = "P14D"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.10.12"
 constraint-dependencies = [
@@ -399,6 +397,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
+"dev/benchmarks/*" = ["T20"]
 "examples/*" = ["T20", "RET504", "E501"]
 "docs/*" = ["T20", "RET504", "E501"]
 "mlflow/*" = ["PT018"]

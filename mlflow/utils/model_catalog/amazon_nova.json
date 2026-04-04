@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "nova-lite-v1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 300000,
+        "max_output": 10000,
+        "max_tokens": 10000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.24
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "nova-micro-v1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 10000,
+        "max_tokens": 10000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.035,
+        "output_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "nova-premier-v1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 10000,
+        "max_tokens": 10000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 12.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "nova-pro-v1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 300000,
+        "max_output": 10000,
+        "max_tokens": 10000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.8,
+        "output_per_million_tokens": 3.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    }
+  }
+}

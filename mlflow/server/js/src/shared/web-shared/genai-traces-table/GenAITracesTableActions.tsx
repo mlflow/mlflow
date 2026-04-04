@@ -175,7 +175,6 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
     <Button
       componentId="mlflow.genai-traces-table.actions-dropdown"
       disabled={noTracesSelected}
-      type="primary"
       endIcon={<ChevronDownIcon />}
     >
       {isGroupedBySession

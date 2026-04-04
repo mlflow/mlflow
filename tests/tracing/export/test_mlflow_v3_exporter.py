@@ -57,6 +57,8 @@ def test_export(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    # Disable batch span processor — this test verifies exporter-level async logging
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
 
     mlflow.set_tracking_uri("databricks")
     mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
@@ -146,6 +148,49 @@ def test_export(is_async, monkeypatch):
     assert mlflow.get_last_active_trace_id() is not None
 
 
+@pytest.mark.timeout(20)
+def test_export_with_batch_span_processor(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
+
+    trace_info = None
+
+    def mock_response(credentials, path, method, trace_json, *args, **kwargs):
+        nonlocal trace_info
+        trace_dict = json.loads(trace_json)
+        trace_proto = ParseDict(trace_dict["trace"], pb.Trace())
+        trace_info_proto = ParseDict(trace_dict["trace"]["trace_info"], pb.TraceInfoV3())
+        trace_info = TraceInfo.from_proto(trace_info_proto)
+        return pb.StartTraceV3.Response(trace=trace_proto)
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.rest_store.call_endpoint", side_effect=mock_response
+        ) as mock_call_endpoint,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+        mock.patch("mlflow.tracing.client.TracingClient._upload_attachments", return_value=None),
+    ):
+        _predict("hello")
+
+        # Flush the batch processor and async queue to ensure spans are exported
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    # Verify the trace was exported through the batch processor pipeline
+    mock_call_endpoint.assert_called_once()
+    mock_upload_trace_data.assert_called_once()
+
+    assert trace_info is not None
+    assert trace_info.trace_id is not None
+    assert mlflow.get_last_active_trace_id() is not None
+
+
 def test_async_logging_disabled_in_databricks_notebook(monkeypatch):
     with mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True):
         exporter = MlflowV3SpanExporter()
@@ -162,6 +207,8 @@ def test_export_catch_failure(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    # Disable batch span processor — this test verifies exporter-level async logging
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
 
     mlflow.set_tracking_uri("databricks")
     mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
@@ -187,12 +234,41 @@ def test_export_catch_failure(is_async, monkeypatch):
     assert any("Failed to start trace" in msg for msg in warning_calls)
 
 
+def test_export_catch_failure_with_batch_span_processor(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            side_effect=Exception("Failed to start trace"),
+        ),
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+    ):
+        _predict("hello")
+
+        # Flush batch processor to ensure the export (and failure) is processed
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    # Verify the failure was logged, not raised
+    mock_logger.warning.assert_called()
+    warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
+    assert any("Failed to start trace" in msg for msg in warning_calls)
+
+
 @pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", "1000")
+    # Disable batch span processor — this test verifies exporter-level async logging
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
 
     mlflow.set_tracking_uri("databricks")
     mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=0))
@@ -225,6 +301,47 @@ def test_async_bulk_export(monkeypatch):
         _flush_async_logging()
 
     # Verify the client methods were called the expected number of times
+    assert mock_start_trace.call_count == 100
+    assert mock_upload_trace_data.call_count == 100
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
+def test_async_bulk_export_with_batch_span_processor(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=0))
+
+    def _mock_client_method(*args, **kwargs):
+        time.sleep(0.1)
+        mock_trace = mock.MagicMock()
+        mock_trace.info = mock.MagicMock()
+        return mock_trace
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace", side_effect=_mock_client_method
+        ) as mock_start_trace,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+    ):
+        # Log many traces concurrently
+        start_time = time.time()
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for _ in range(100):
+                executor.submit(_predict, "hello")
+
+        # Trace logging should not block the main thread
+        assert time.time() - start_time < 5
+
+        # Flush batch processor and async queue
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    # Verify all traces were exported
     assert mock_start_trace.call_count == 100
     assert mock_upload_trace_data.call_count == 100
 
@@ -506,133 +623,7 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
         mock_start_trace.assert_called_once()
 
 
-@pytest.mark.parametrize("incremental_export_enabled", [True, False])
-def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_enabled):
-    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", str(incremental_export_enabled))
-
-    otel_span = create_mock_otel_span(
-        name="root",
-        trace_id=99999,
-        span_id=1,
-        parent_id=None,
-    )
-    trace_id = generate_trace_id_v3(otel_span)
-    span = LiveSpan(otel_span, trace_id)
-
-    trace_manager = InMemoryTraceManager.get_instance()
-    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
-    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
-    trace_manager.register_span(span)
-
-    with (
-        mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace",
-            return_value=trace_info,
-        ) as mock_start_trace,
-        mock.patch(
-            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
-        ) as mock_upload_trace_data,
-        mock.patch(
-            "mlflow.tracing.client.TracingClient.log_spans",
-        ) as mock_log_spans,
-    ):
-        exporter = MlflowV3SpanExporter()
-        exporter.export([otel_span])
-
-        mock_start_trace.assert_called_once()
-        # log_spans is called in both cases:
-        # - incremental ON: called during export() for each span as it completes
-        # - incremental OFF: called during _log_trace() as a batch write at trace completion
-        mock_log_spans.assert_called_once()
-
-        if incremental_export_enabled:
-            # Incremental path: start_trace mock doesn't set SPANS_LOCATION tag,
-            # so artifact upload proceeds as a fallback
-            mock_upload_trace_data.assert_called_once()
-        else:
-            # Batch path: spans batch-written to DB, artifact upload skipped
-            mock_upload_trace_data.assert_not_called()
-
-
-def test_remote_trace_exported_when_incremental_export_disabled(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "False")
-
-    otel_span = create_mock_otel_span(
-        name="root",
-        trace_id=88888,
-        span_id=1,
-        parent_id=None,
-    )
-    trace_id = generate_trace_id_v3(otel_span)
-    span = LiveSpan(otel_span, trace_id)
-
-    trace_manager = InMemoryTraceManager.get_instance()
-    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
-    trace_manager.register_trace(otel_span.context.trace_id, trace_info, is_remote_trace=True)
-    trace_manager.register_span(span)
-
-    with (
-        mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace",
-            return_value=trace_info,
-        ) as mock_start_trace,
-        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
-        mock.patch("mlflow.tracing.client.TracingClient.log_spans") as mock_log_spans,
-    ):
-        exporter = MlflowV3SpanExporter()
-        exporter.export([otel_span])
-
-        # Remote trace should still be exported via start_trace
-        mock_start_trace.assert_called_once()
-        # log_spans is called twice:
-        # 1. In export() for remote trace spans (incremental path for remote traces)
-        # 2. In _log_trace() for the batch write at trace completion
-        assert mock_log_spans.call_count == 2
-
-
-def test_batch_write_spans_at_trace_completion(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "False")
-
-    # Create root and child OTel spans
-    root_otel = create_mock_otel_span(name="root", trace_id=77777, span_id=1, parent_id=None)
-    child_otel = create_mock_otel_span(name="child", trace_id=77777, span_id=2, parent_id=1)
-
-    trace_id = generate_trace_id_v3(root_otel)
-    root_span = LiveSpan(root_otel, trace_id)
-    child_span = LiveSpan(child_otel, trace_id)
-
-    trace_manager = InMemoryTraceManager.get_instance()
-    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
-    trace_manager.register_trace(root_otel.context.trace_id, trace_info)
-    trace_manager.register_span(root_span)
-    trace_manager.register_span(child_span)
-
-    with (
-        mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace",
-            return_value=trace_info,
-        ) as mock_start_trace,
-        mock.patch(
-            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
-        ) as mock_upload_trace_data,
-        mock.patch("mlflow.tracing.client.TracingClient.log_spans") as mock_log_spans,
-    ):
-        exporter = MlflowV3SpanExporter()
-        # Export child first (non-root), then root to trigger _log_trace
-        exporter.export([child_otel, root_otel])
-
-        mock_start_trace.assert_called_once()
-        # Batch write should happen once in _log_trace with all spans
-        mock_log_spans.assert_called_once()
-        logged_spans = mock_log_spans.call_args.args[1]
-        assert len(logged_spans) == 2
-        # Artifact upload is skipped when spans are batch-written to DB
-        mock_upload_trace_data.assert_not_called()
-
-
-def test_batch_write_skipped_when_store_unsupported(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "False")
-
+def test_batch_write_skipped_when_store_unsupported():
     otel_span = create_mock_otel_span(name="root", trace_id=66666, span_id=1, parent_id=None)
     trace_id = generate_trace_id_v3(otel_span)
     span = LiveSpan(otel_span, trace_id)

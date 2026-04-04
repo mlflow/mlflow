@@ -26,8 +26,11 @@ class VertexAIProvider(GeminiProvider):
     Anthropic Messages API) and are not yet supported by this provider.
     """
 
-    NAME = "Vertex AI"
+    DISPLAY_NAME = "Vertex AI"
     CONFIG_TYPE = VertexAIConfig
+
+    def get_provider_name(self) -> str:
+        return "vertex_ai"
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         if not isinstance(config.model.config, VertexAIConfig):

@@ -9,17 +9,14 @@ from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
-    MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT,
-)
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.exceptions import RestException
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
-from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
+from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     add_size_stats_to_trace_metadata,
@@ -48,13 +45,8 @@ class MlflowV3SpanExporter(SpanExporter):
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
 
-        # Controls whether spans are exported incrementally via log_spans().
-        self._should_export_spans_incrementally = MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.get()
-
         # Tracks whether the store supports span-level logging. Set to False at runtime
-        # if log_spans() raises NotImplementedError or returns a 501. This is separate from
-        # _should_export_spans_incrementally so that disabling incremental export (e.g. for
-        # the gateway) doesn't prevent remote/distributed traces from being exported.
+        # if log_spans() raises NotImplementedError or returns a 501.
         self._store_supports_log_spans = True
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:
@@ -66,28 +58,10 @@ class MlflowV3SpanExporter(SpanExporter):
                 a span processor. All spans (root and non-root) are exported.
         """
 
-        if self._should_export_spans_incrementally and self._store_supports_log_spans:
+        if self._store_supports_log_spans:
             self._export_spans_incrementally(spans)
-        elif self._store_supports_log_spans:
-            # Even when incremental export is disabled, remote/distributed trace spans
-            # must still be exported incrementally because they are non-root spans that
-            # _export_traces() skips. Without this, distributed mirror spans (e.g. from
-            # gateway traceparent headers) would be silently dropped.
-            # Skip this if the store doesn't support log_spans to avoid repeated failures.
-            if remote_spans := self._get_remote_trace_spans(spans):
-                self._export_spans_incrementally(remote_spans)
 
         self._export_traces(spans)
-
-    def _get_remote_trace_spans(self, spans: Sequence[ReadableSpan]) -> list[ReadableSpan]:
-        manager = InMemoryTraceManager.get_instance()
-        remote_spans = []
-        for span in spans:
-            if mlflow_trace_id := manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id):
-                with manager.get_trace(mlflow_trace_id) as trace:
-                    if trace and trace.is_remote_trace:
-                        remote_spans.append(span)
-        return remote_spans
 
     def _export_spans_incrementally(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -121,7 +95,11 @@ class MlflowV3SpanExporter(SpanExporter):
         self, spans: Sequence[ReadableSpan]
     ) -> dict[str, list[Span]]:
         """
-        Collect MLflow spans from ReadableSpans for export, grouped by experiment ID.
+        Collect MLflow spans from ReadableSpans for export, grouped by experiment_id.
+
+        The experiment_id is resolved from the trace info (set during on_start in the
+        originating thread) rather than from get_experiment_id_for_trace(), which reads
+        thread-local ContextVars that are unavailable in the batch processor's worker thread.
 
         Args:
             spans: Sequence of ReadableSpan objects.
@@ -134,12 +112,23 @@ class MlflowV3SpanExporter(SpanExporter):
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
-            experiment_id = get_experiment_id_for_trace(span)
+            if mlflow_trace_id is None:
+                continue
             span_id = encode_span_id(span.context.span_id)
-            # we need to fetch the mlflow span from the trace manager because the span
-            # may be updated in processor before exporting (e.g. deduplication).
-            if mlflow_span := manager.get_span_from_id(mlflow_trace_id, span_id):
-                spans_by_experiment[experiment_id].append(mlflow_span)
+            mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
+            if mlflow_span is None:
+                continue
+            # Get experiment_id from trace info (resolved at on_start time in the
+            # originating thread) to survive BatchSpanProcessor thread hops.
+            with manager.get_trace(mlflow_trace_id) as trace:
+                try:
+                    experiment_id = trace.info.experiment_id if trace else None
+                except AttributeError:
+                    # Remote/distributed traces may have trace_location=None
+                    experiment_id = None
+            if experiment_id is None:
+                experiment_id = get_experiment_id_for_trace(span)
+            spans_by_experiment[experiment_id].append(mlflow_span)
 
         return spans_by_experiment
 
@@ -169,7 +158,6 @@ class MlflowV3SpanExporter(SpanExporter):
                 continue
 
             trace = manager_trace.trace
-            _set_last_active_trace_id(trace.info.request_id)
 
             # Store mapping from eval request ID to trace ID so that the evaluation
             # harness can access to the trace using mlflow.get_trace(eval_request_id)
@@ -229,27 +217,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
 
-                # When incremental export is disabled, batch-write all spans
-                # to the DB at trace completion time to avoid per-span DB
-                # round-trips while still populating the spans table.
-                spans_written_to_db = False
-                if (
-                    not self._should_export_spans_incrementally
-                    and self._store_supports_log_spans
-                    and trace.data.spans
-                ):
-                    self._log_spans(trace.info.experiment_id, trace.data.spans)
-                    # Re-check after _log_spans() since it may discover the
-                    # store doesn't support span logging and set the flag False.
-                    spans_written_to_db = self._store_supports_log_spans
-
-                # Upload spans as artifacts if they weren't written to DB.
-                # We can't rely on _should_log_spans_to_artifacts() alone here
-                # because returned_trace_info from start_trace() won't have the
-                # SPANS_LOCATION tag yet when batch-writing (it's set by log_spans).
-                if not spans_written_to_db and self._should_log_spans_to_artifacts(
-                    returned_trace_info
-                ):
+                if self._should_log_spans_to_artifacts(returned_trace_info):
                     self._client._upload_trace_data(returned_trace_info, trace.data)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")

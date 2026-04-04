@@ -51,11 +51,16 @@ pip install --require-hashes --only-binary :all: -r requirements.txt
 
 Both pip and uv support filtering packages by their upload date, ensuring that dependency resolution only considers packages published before a known point in time. This protects against newly published malicious versions and enables reproducible builds.
 
+:::tip Choosing a date
+Use an absolute timestamp set to the last date you audited or verified your dependencies. This ensures reproducible installs. Relative durations like `"7 days"` are convenient for rolling policies but produce different results over time.
+:::
+
 ### pip
 
 pip's [`--uploaded-prior-to`](https://pip.pypa.io/en/latest/user_guide/#filtering-by-upload-time) option accepts an ISO 8601 datetime:
 
 ```bash
+# Replace with a date you trust (e.g., the last date you verified your dependencies)
 pip install --uploaded-prior-to="2026-03-01T00:00:00Z" mlflow
 ```
 
@@ -66,11 +71,19 @@ This only applies to packages from remote indexes (not local files or VCS requir
 [uv](https://docs.astral.sh/uv/) provides the equivalent [`exclude-newer`](https://docs.astral.sh/uv/reference/settings/#exclude-newer) setting:
 
 ```bash
+# Absolute timestamp - best for reproducible builds (replace with your own trusted date)
 uv pip install --exclude-newer "2026-03-01T00:00:00Z" mlflow
+
+# Relative duration - useful for rolling policies (e.g., always exclude packages newer than 7 days)
+uv pip install --exclude-newer "7 days" mlflow
 ```
 
 For one-off tool invocations with `uvx`:
 
 ```bash
+# Absolute timestamp - best for reproducible builds (replace with your own trusted date)
 uvx --exclude-newer "2026-03-01T00:00:00Z" mlflow server
+
+# Relative duration - useful for rolling policies (e.g., always exclude packages newer than 7 days)
+uvx --exclude-newer "7 days" mlflow server
 ```

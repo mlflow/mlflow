@@ -90,6 +90,19 @@ with mlflow.start_span(name="foo") as span:
     span.set_outputs({"b": 2})
 ```
 
+## GenAI Semantic Convention Format
+
+By default, exported traces use MLflow's internal attribute format (`mlflow.*`). To export traces in the [OpenTelemetry GenAI Semantic Convention](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/) format (`gen_ai.*`), set the `MLFLOW_ENABLE_OTEL_GENAI_SEMCONV` environment variable:
+
+```python
+import os
+
+os.environ["MLFLOW_ENABLE_OTEL_GENAI_SEMCONV"] = "true"
+os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "http://localhost:4317/v1/traces"
+```
+
+This translates span types, model info, token usage, and messages into the standard `gen_ai.*` attributes before export. See [GenAI Semantic Conventions](/genai/tracing/opentelemetry/genai-semconv) for the full details and mapping reference.
+
 ## Metrics Export
 
 MLflow can export OpenTelemetry metrics when a metrics endpoint is configured. This allows you to monitor span durations and other trace-related metrics in compatible monitoring systems.

@@ -20,12 +20,14 @@ describe('useEditKeyValueTagsModal', () => {
     allAvailableTags: string[],
     saveTagsHandler = jest.fn<Parameters<typeof useEditKeyValueTagsModal>[0]['saveTagsHandler']>(),
     onSuccess = jest.fn(),
+    valueRequired = false,
   ) {
     function TestComponent() {
       const { showEditTagsModal, EditTagsModal } = useEditKeyValueTagsModal({
         allAvailableTags,
         saveTagsHandler,
         onSuccess,
+        valueRequired,
       });
       return (
         <>
@@ -159,6 +161,33 @@ describe('useEditKeyValueTagsModal', () => {
       { key: 'tag1', value: 'tagvalue1' },
       { key: 'newtag', value: 'newvalue' },
     ]);
+  });
+
+  test('it should show a validation error when value is required but empty', async () => {
+    const saveHandlerFn = jest
+      .fn<Parameters<typeof useEditKeyValueTagsModal>[0]['saveTagsHandler']>()
+      .mockResolvedValue({});
+
+    renderTestComponent(existingTaggedEntity, ['tag1', 'tag2'], saveHandlerFn, jest.fn(), true);
+
+    // When click on trigger button to open modal
+    await userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
+    expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
+
+    // Select a key but leave value empty
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('combobox'));
+    await userEvent.paste('newtag', {
+      clipboardData: { getData: jest.fn() },
+    } as any);
+    await userEvent.click(screen.getByText(/Add tag "newtag"/));
+    await userEvent.click(screen.getByLabelText('Add tag'));
+
+    // Then a validation error should be shown
+    expect(screen.getByText('A tag value is required')).toBeInTheDocument();
+    // And the tag should not have been added
+    expect(screen.queryByRole('status', { name: 'newtag' })).not.toBeInTheDocument();
+    // And the save handler should not have been called
+    expect(saveHandlerFn).not.toHaveBeenCalled();
   });
 
   test('it should properly display error when saving tags', async () => {

@@ -29,10 +29,8 @@ env:
 
 jobs:
   notify:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      false
-      && github.event_name != 'push'
+      github.event_name != 'push'
       && github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
       && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -70,9 +68,7 @@ jobs:
           fi
 
   build:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      false &&
       github.event_name == 'push'
       || (
         github.event.action != 'closed'
@@ -153,8 +149,6 @@ jobs:
           retention-days: 1
 
   deploy:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false
     needs: build
     runs-on: ubuntu-ui-preview
     permissions:
@@ -162,7 +156,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Download app files
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: app-deploy
           path: /tmp/app-deploy
@@ -276,10 +270,8 @@ jobs:
           fi
 
   cleanup:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      false
-      && github.event_name != 'push'
+      github.event_name != 'push'
       && github.event.action == 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
     runs-on: ubuntu-ui-preview

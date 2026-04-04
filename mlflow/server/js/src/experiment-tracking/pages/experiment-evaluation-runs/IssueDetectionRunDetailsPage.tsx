@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
+import { Link, useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { RunPage } from '../../components/run-page/RunPage';
 import { ExperimentPageTabName, RunPageTabName, MLFLOW_ISSUE_DETECTION_JOB_ID_TAG } from '../../constants';
 import Routes from '../../routes';
+import { getTimeRangeQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { IssueDetectionRunOverview } from '../../components/run-page/overview/IssueDetectionRunOverview';
 
@@ -14,14 +15,23 @@ import { IssueDetectionRunOverview } from '../../components/run-page/overview/Is
 export const IssueDetectionRunDetailsPage = () => {
   const { experimentId } = useParams<{ experimentId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const safeExperimentId = experimentId as string;
+  const timeRangeSearch = useMemo(() => getTimeRangeQueryString(searchParams.toString()), [searchParams]);
 
   // Fetch experiment data for breadcrumb
   const { data: experiment } = useGetExperimentQuery({ experimentId: safeExperimentId });
 
+  // Helper to append time-range search params to a route
+  const withSearchParams = useCallback(
+    (route: string) => (timeRangeSearch ? `${route}${timeRangeSearch}` : route),
+    [timeRangeSearch],
+  );
+
   const customBreadcrumbs = useMemo(() => {
     const experimentName = experiment?.name ?? safeExperimentId;
+    const evalRunsRoute = Routes.getExperimentPageTabRoute(safeExperimentId, ExperimentPageTabName.EvaluationRuns);
     return [
       <Link
         componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_experiments_link"
@@ -43,7 +53,7 @@ export const IssueDetectionRunDetailsPage = () => {
       <Link
         componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_evaluation_runs_link"
         key="evaluation-runs"
-        to={Routes.getExperimentPageTabRoute(safeExperimentId, ExperimentPageTabName.EvaluationRuns)}
+        to={{ pathname: evalRunsRoute, search: timeRangeSearch }}
       >
         <FormattedMessage
           defaultMessage="Evaluation runs"
@@ -51,11 +61,14 @@ export const IssueDetectionRunDetailsPage = () => {
         />
       </Link>,
     ];
-  }, [experiment?.name, safeExperimentId]);
+  }, [experiment?.name, safeExperimentId, timeRangeSearch]);
 
-  const handleDeleteSuccess = (expId: string) => {
-    navigate(Routes.getExperimentPageTabRoute(expId, ExperimentPageTabName.EvaluationRuns));
-  };
+  const handleDeleteSuccess = useCallback(
+    (expId: string) => {
+      navigate(withSearchParams(Routes.getExperimentPageTabRoute(expId, ExperimentPageTabName.EvaluationRuns)));
+    },
+    [navigate, withSearchParams],
+  );
 
   return (
     <RunPage
@@ -63,7 +76,7 @@ export const IssueDetectionRunDetailsPage = () => {
       tabSwitchProps={{
         getBaseRoute: Routes.getIssueDetectionRunDetailsRoute,
         getTabRoute: Routes.getIssueDetectionRunDetailsTabRoute,
-        visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES, RunPageTabName.ISSUES],
+        visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.ISSUES, RunPageTabName.TRACES],
       }}
       onDeleteSuccess={handleDeleteSuccess}
       hideTracesCompareSelector

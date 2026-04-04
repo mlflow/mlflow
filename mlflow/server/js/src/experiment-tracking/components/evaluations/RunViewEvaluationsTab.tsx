@@ -336,6 +336,7 @@ const RunViewEvaluationsTabInner = ({
               <GenAITracesTableToolbar
                 experimentId={experimentId}
                 searchQuery={searchQuery}
+                pageSource="run-view-traces"
                 setSearchQuery={setSearchQuery}
                 filters={filters}
                 setFilters={setFilters}
