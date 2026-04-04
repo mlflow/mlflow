@@ -16,6 +16,7 @@ import logging
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
+from google.protobuf.json_format import Error as ProtoJsonError
 from google.protobuf.json_format import Parse as ParseJsonProto
 from google.protobuf.message import DecodeError
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
@@ -105,8 +106,10 @@ async def export_traces(
     Raises:
         HTTPException: If the request is invalid or span logging fails
     """
-    # Validate Content-Type header
-    if content_type not in ("application/x-protobuf", "application/json"):
+    # Validate Content-Type header. Normalize by stripping parameters like
+    # charset (e.g., "application/json; charset=utf-8" → "application/json").
+    media_type = (content_type or "").split(";")[0].strip()
+    if media_type not in ("application/x-protobuf", "application/json"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid Content-Type: {content_type}. "
@@ -123,7 +126,7 @@ async def export_traces(
     parsed_request = ExportTraceServiceRequest()
 
     try:
-        if content_type == "application/json":
+        if media_type == "application/json":
             # OTLP JSON encodes trace_id/span_id as hex strings, but protobuf's
             # JSON mapping expects base64 for `bytes` fields (per proto3 spec).
             # We must convert hex→base64 before calling Parse(), otherwise the
@@ -141,7 +144,7 @@ async def export_traces(
                 detail="Invalid OpenTelemetry format - no spans found",
             )
 
-    except (DecodeError, json.JSONDecodeError, ValueError):
+    except (DecodeError, ProtoJsonError, json.JSONDecodeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid OpenTelemetry format",
