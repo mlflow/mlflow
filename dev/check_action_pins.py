@@ -28,6 +28,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -104,9 +105,11 @@ def _github_api(url: str) -> dict[str, Any] | list[Any] | None:
 
 
 def _repo_from_action(action: str) -> str:
-
-    parts = action.split("/")
-    return "/".join(parts[:2])
+    match action.split("/"):
+        case [owner, repo, *_]:
+            return f"{owner}/{repo}"
+        case _:
+            raise ValueError(f"Invalid action format: {action!r}")
 
 
 def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> bool | None:
@@ -139,19 +142,17 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
     return result
 
 
-def _collect_files(args: list[str]) -> list[Path]:
+def _iter_files(args: list[str]) -> Iterator[Path]:
     if args:
-        return [Path(a) for a in args]
-    patterns = [
-        ".github/workflows/*.yml",
-        ".github/workflows/*.yaml",
-        ".github/actions/**/*.yml",
-        ".github/actions/**/*.yaml",
-    ]
-    files: list[Path] = []
-    for pattern in patterns:
-        files.extend(Path(p) for p in glob.glob(pattern, recursive=True))
-    return files
+        yield from (Path(a) for a in args)
+    else:
+        for pattern in (
+            ".github/workflows/*.yml",
+            ".github/workflows/*.yaml",
+            ".github/actions/**/*.yml",
+            ".github/actions/**/*.yaml",
+        ):
+            yield from (Path(p) for p in glob.glob(pattern, recursive=True))
 
 
 def check_file(path: Path, cache: dict[str, bool]) -> list[str]:
@@ -204,13 +205,9 @@ def check_file(path: Path, cache: dict[str, bool]) -> list[str]:
 
 def main() -> int:
     args = sys.argv[1:]
-    files = _collect_files(args)
-    if not files:
-        return 0
-
     cache = _load_cache()
     all_errors: list[str] = []
-    for path in files:
+    for path in _iter_files(args):
         all_errors.extend(check_file(path, cache))
 
     if all_errors:
