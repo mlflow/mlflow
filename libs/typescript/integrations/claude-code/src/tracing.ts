@@ -166,7 +166,7 @@ function getInputMessages(
     }
 
     if (msg?.role && msg?.content) {
-      messages.push(msg);
+      messages.push({ role: msg.role, content: msg.content });
     }
   }
 
