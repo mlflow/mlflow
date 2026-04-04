@@ -6,6 +6,7 @@ allowed-tools:
   - Bash(gh agent-task list:*)
   - Bash(gh agent-task view:*)
   - Bash(bash .claude/skills/copilot/poll.sh *)
+  - Bash(bash .claude/skills/copilot/approve.sh *)
   - Bash(gh api:*)
 ---
 
@@ -59,3 +60,11 @@ EOF
 ```
 
 After sending feedback, Copilot starts a new session, typically within ~10 seconds. Wait at least 15 seconds before polling so the new session gets picked up.
+
+## Approving workflows
+
+Approve workflows to run once the PR is finalized:
+
+```bash
+bash .claude/skills/copilot/approve.sh "<owner>/<repo>" <pr_number>
+```
