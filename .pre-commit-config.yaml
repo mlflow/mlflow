@@ -186,6 +186,14 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: action-pins
+        name: action-pins
+        entry: uv run --only-group lint dev/check_action_pins.py
+        language: system
+        files: '^\.github/(workflows|actions)/.*\.ya?ml$'
+        stages: [pre-commit]
+        require_serial: true
+
       - id: regal
         name: regal
         entry: bin/regal lint
