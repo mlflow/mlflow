@@ -63,7 +63,7 @@ After sending feedback, Copilot starts a new session, typically within ~10 secon
 
 ## Approving workflows
 
-Approve workflows to run when the PR is finalized:
+Approve workflows to run once the PR is finalized:
 
 ```bash
 bash .claude/skills/copilot/approve.sh "<owner>/<repo>" <pr_number>

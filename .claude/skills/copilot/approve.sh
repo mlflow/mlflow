@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Rerun action_required workflow runs for Copilot PRs.
-# The /approve API only works for fork PRs; /rerun works for same-repo Copilot PRs.
-# Reference: https://github.com/orgs/community/discussions/167493#discussioncomment-16091231
+# The /approve API fails with 'not a fork pull request'. Use /rerun instead.
 set -euo pipefail
 
 repo="$1"
