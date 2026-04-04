@@ -646,6 +646,8 @@ def test_log_assessment_on_in_progress_trace(trace_id, legacy_api):
 
     assert func(1, 2) == 3
 
+    mlflow.flush_trace_async_logging()
+
     # Two assessments should be logged as a part of StartTraceV3 call
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.info.assessments) == 2
@@ -766,6 +768,8 @@ def test_search_traces_with_assessments():
             name="feedback_3",
             value=1.0,
         )
+
+    mlflow.flush_async_logging()
 
     traces = mlflow.search_traces(
         locations=["0"],

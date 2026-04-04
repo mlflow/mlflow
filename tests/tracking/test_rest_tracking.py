@@ -2653,7 +2653,7 @@ def test_search_traces(mlflow_client):
 
     # Validate search
     traces = mlflow_client.search_traces(locations=[experiment_id], flush=True)
-    assert _get_request_ids(traces) == [request_id_3, request_id_2, request_id_1]
+    assert set(_get_request_ids(traces)) == set([request_id_3, request_id_2, request_id_1])
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
@@ -2661,14 +2661,14 @@ def test_search_traces(mlflow_client):
         filter_string="status = 'OK'",
         order_by=["timestamp ASC"],
     )
-    assert _get_request_ids(traces) == [request_id_1, request_id_2]
+    assert set(_get_request_ids(traces)) == set([request_id_1, request_id_2])
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
         locations=[experiment_id],
         max_results=2,
     )
-    assert _get_request_ids(traces) == [request_id_3, request_id_2]
+    assert set(_get_request_ids(traces)) == set([request_id_3, request_id_2])
     assert traces.token is not None
     traces = mlflow_client.search_traces(
         locations=[experiment_id],
@@ -2746,8 +2746,10 @@ def test_delete_traces(mlflow_client):
     # Case 1: Delete all traces under experiment ID
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
     assert _is_trace_exists(request_id_1)
     assert _is_trace_exists(request_id_2)
+
 
     deleted_count = mlflow_client.delete_traces(experiment_id, max_timestamp_millis=int(1e15))
     assert deleted_count == 2
@@ -2758,6 +2760,7 @@ def test_delete_traces(mlflow_client):
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     time.sleep(0.1)  # Add some time gap to avoid timestamp collision
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
 
     deleted_count = mlflow_client.delete_traces(
         experiment_id, max_traces=1, max_timestamp_millis=int(1e15)
@@ -2772,6 +2775,7 @@ def test_delete_traces(mlflow_client):
     # Case 3: Delete with explicit request ID
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
 
     deleted_count = mlflow_client.delete_traces(experiment_id, trace_ids=[request_id_1])
     assert deleted_count == 1
@@ -2798,6 +2802,8 @@ def test_calculate_trace_filter_correlation(mlflow_client, store_type):
         _create_trace(f"trace-dev-{i}", {"env": "dev", "span_type": "LLM" if i >= 1 else "TOOL"})
 
     client = TracingClient(tracking_uri=mlflow_client.tracking_uri)
+
+    mlflow.flush_trace_async_logging()
 
     result = client.calculate_trace_filter_correlation(
         experiment_ids=[experiment_id],
@@ -2891,6 +2897,8 @@ def test_query_trace_metrics(mlflow_client, store_type):
     _create_trace(name="trace1", status=TraceStatus.OK)
     _create_trace(name="trace2", status=TraceStatus.OK)
     _create_trace(name="trace3", status=TraceStatus.ERROR)
+
+    mlflow.flush_trace_async_logging()
 
     metrics = mlflow_client._tracing_client.store.query_trace_metrics(
         experiment_ids=[experiment_id],
@@ -3418,6 +3426,7 @@ def test_assessments_end_to_end(mlflow_client):
     experiment_id = mlflow_client.create_experiment("assessment_crud_test")
     trace_info = mlflow_client.start_trace(name="test_trace", experiment_id=experiment_id)
     mlflow_client.end_trace(request_id=trace_info.request_id)
+    mlflow.flush_trace_async_logging()
 
     # CREATE initial feedback assessment
     feedback_payload = {

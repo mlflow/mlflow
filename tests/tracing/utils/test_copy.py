@@ -57,7 +57,7 @@ def test_copy_trace_with_metadata():
     new_trace_id = copy_trace_to_experiment(trace_dict)
 
     # Verify metadata was copied correctly
-    trace = mlflow.get_trace(new_trace_id)
+    trace = mlflow.get_trace(new_trace_id, flush=True)
     metadata = trace.info.trace_metadata
 
     assert metadata["mlflow.trace.session"] == "session123"
@@ -113,11 +113,12 @@ def test_copy_trace_empty_metadata_dict():
         "data": {"spans": [_create_test_span_dict("test-trace-empty-metadata")]},
     }
 
+    mlflow.flush_trace_async_logging()
+
     # Should not raise an error
     new_trace_id = copy_trace_to_experiment(trace_dict)
 
     assert new_trace_id is not None
-    mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(new_trace_id)
 
     # Tags should still be copied

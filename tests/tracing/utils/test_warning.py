@@ -65,6 +65,8 @@ def test_request_id_backward_compatible():
             parent_id=parent_span.span_id,
         )
 
+        mlflow.flush_trace_async_logging()
+
         request_id_warnings = _filter_request_id_warnings(w)
         assert len(request_id_warnings) == 1
         assert child_span.trace_id == parent_span.trace_id

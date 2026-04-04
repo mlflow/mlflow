@@ -609,6 +609,8 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
     trace_manager.register_trace(otel_span.context.trace_id, trace_info)
     trace_manager.register_span(span)
 
+    mlflow.flush_trace_async_logging()
+
     with (
         mock.patch(
             "mlflow.tracing.client.TracingClient.start_trace",
