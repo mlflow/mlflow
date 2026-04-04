@@ -134,18 +134,16 @@ def _check_action(a: ActionRef, cache: dict[str, bool]) -> str | None:
     return None
 
 
-def _check_version_consistency(all_action_refs: list[ActionRef]) -> list[str]:
+def _check_version_consistency(all_action_refs: list[ActionRef]) -> Iterator[str]:
     by_action: dict[str, list[ActionRef]] = defaultdict(list)
     for action_ref in all_action_refs:
         by_action[action_ref.action].append(action_ref)
 
-    errors = []
     for action, refs in sorted(by_action.items()):
         versions = {(ref.ref, ref.comment) for ref in refs}
         if len(versions) > 1:
             lines = "\n".join(f"  {ref.prefix}" for ref in sorted(refs, key=lambda r: r.prefix))
-            errors.append(f"{action} is pinned to multiple versions:\n{lines}")
-    return errors
+            yield f"{action} is pinned to multiple versions:\n{lines}"
 
 
 def main() -> int:
