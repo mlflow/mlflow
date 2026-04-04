@@ -56,13 +56,13 @@ mlflow server
 
 ## Configuration Reference
 
-| Environment Variable                  | Required | Description                                                                                  |
-| ------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `GEMINI_TELEMETRY_ENABLED`            | Yes      | Set to `true` to enable telemetry                                                            |
-| `GEMINI_TELEMETRY_TARGET`             | Yes      | Set to `local` for custom OTLP endpoint                                                     |
-| `GEMINI_TELEMETRY_OTLP_ENDPOINT`      | Yes      | MLflow server base URL (e.g., `http://localhost:5000`). Gemini appends `/v1/traces` automatically |
-| `GEMINI_TELEMETRY_OTLP_PROTOCOL`      | Yes      | Must be `http` (MLflow does not support gRPC ingestion)                                      |
-| `OTEL_EXPORTER_OTLP_HEADERS`          | Yes      | Set `x-mlflow-experiment-id=<id>` to route traces to a specific experiment                   |
+| Environment Variable             | Required | Description                                                                                       |
+| -------------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `GEMINI_TELEMETRY_ENABLED`       | Yes      | Set to `true` to enable telemetry                                                                 |
+| `GEMINI_TELEMETRY_TARGET`        | Yes      | Set to `local` for custom OTLP endpoint                                                           |
+| `GEMINI_TELEMETRY_OTLP_ENDPOINT` | Yes      | MLflow server base URL (e.g., `http://localhost:5000`). Gemini appends `/v1/traces` automatically |
+| `GEMINI_TELEMETRY_OTLP_PROTOCOL` | Yes      | Must be `http` (MLflow does not support gRPC ingestion)                                           |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | Yes      | Set `x-mlflow-experiment-id=<id>` to route traces to a specific experiment                        |
 
 ### Configuration Examples
 
@@ -101,11 +101,13 @@ MLflow automatically extracts token usage from Gemini CLI's GenAI semantic conve
 **No traces appearing:**
 
 1. Verify the protocol is set to `http` (not `grpc`):
+
    ```bash
    echo $GEMINI_TELEMETRY_OTLP_PROTOCOL  # Should be "http"
    ```
 
 2. Check that the experiment ID header is set:
+
    ```bash
    echo $OTEL_EXPORTER_OTLP_HEADERS  # Should contain "x-mlflow-experiment-id=..."
    ```
