@@ -159,13 +159,12 @@ def _iter_files(args: list[str]) -> Iterator[Path]:
             yield from map(Path, glob.glob(pattern, recursive=True))
 
 
-def check_file(path: Path, cache: dict[str, bool]) -> list[str]:
-
-    errors = []
+def check_file(path: Path, cache: dict[str, bool]) -> Iterator[str]:
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError as e:
-        return [f"{path}: cannot read file: {e}"]
+        yield f"{path}: cannot read file: {e}"
+        return
 
     for lineno, line in enumerate(lines, start=1):
         m = _USES_RE.match(line)
@@ -182,11 +181,11 @@ def check_file(path: Path, cache: dict[str, bool]) -> list[str]:
         prefix = f"{path}:{lineno}: {line.strip()!r}"
 
         if not _SHA_RE.match(ref):
-            errors.append(f"{prefix}\n  error: ref '{ref}' is not a 40-character SHA")
+            yield f"{prefix}\n  error: ref '{ref}' is not a 40-character SHA"
             continue
 
         if not comment or not _VERSION_COMMENT_RE.match(comment):
-            errors.append(
+            yield (
                 f"{prefix}\n  error: missing or invalid version comment"
                 f" (expected '# vX.Y.Z', got {comment!r})"
             )
@@ -194,17 +193,15 @@ def check_file(path: Path, cache: dict[str, bool]) -> list[str]:
 
         verified = _verify_sha_tag(action, ref, comment, cache)
         if verified is None:
-            errors.append(
+            yield (
                 f"{prefix}\n  error: could not verify SHA against tag '{comment}'"
                 f" for {_repo_from_action(action)} (GitHub API unavailable)"
             )
         elif not verified:
-            errors.append(
+            yield (
                 f"{prefix}\n  error: SHA '{ref}' does not match tag '{comment}'"
                 f" for {_repo_from_action(action)}"
             )
-
-    return errors
 
 
 def main() -> int:
