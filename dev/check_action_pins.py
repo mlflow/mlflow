@@ -83,7 +83,7 @@ def _get_github_token() -> str | None:
         return None
 
 
-def _github_api(url: str) -> dict[str, Any] | list[Any] | None:
+def _github_api(url: str) -> dict[str, Any] | list[Any]:
 
     headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
     if token := _get_github_token():
@@ -95,13 +95,13 @@ def _github_api(url: str) -> dict[str, Any] | list[Any] | None:
                 return json.loads(resp.read())  # type: ignore[no-any-return]
         except urllib.error.HTTPError as e:
             if e.code in (404, 401, 403):
-                return None
+                raise _GitHubApiError(str(e)) from e
             if attempt < _MAX_RETRIES - 1:
                 time.sleep(_RETRY_DELAY)
         except urllib.error.URLError:
             if attempt < _MAX_RETRIES - 1:
                 time.sleep(_RETRY_DELAY)
-    return None
+    raise _GitHubApiError("max retries exceeded")
 
 
 def _repo_from_action(action: str) -> str:
@@ -112,6 +112,10 @@ def _repo_from_action(action: str) -> str:
             raise ValueError(f"Invalid action format: {action!r}")
 
 
+class _GitHubApiError(Exception):
+    pass
+
+
 def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> bool | None:
 
     cache_key = f"{action}@{sha}#{tag}"
@@ -119,32 +123,32 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
         return cache[cache_key]
 
     repo = _repo_from_action(action)
-    url = f"https://api.github.com/repos/{repo}/git/ref/tags/{tag}"
-    data = _github_api(url)
-
-    match data:
-        case {"object": {"type": "commit", "sha": str(commit_sha)}}:
-            result = commit_sha == sha
-        case {"object": {"type": "tag", "sha": str(tag_sha)}}:
-            tag_url = f"https://api.github.com/repos/{repo}/git/tags/{tag_sha}"
-            match _github_api(tag_url):
-                case {"object": {"sha": str(commit_sha)}}:
-                    result = commit_sha == sha
-                case _:
-                    return None
-        case None:
-            return None
-        case _:
-            result = False
+    try:
+        result = _resolve_tag(repo, sha, tag)
+    except _GitHubApiError:
+        return None
 
     cache[cache_key] = result
     _save_cache(cache)
     return result
 
 
+def _resolve_tag(repo: str, sha: str, tag: str) -> bool:
+    data = _github_api(f"https://api.github.com/repos/{repo}/git/ref/tags/{tag}")
+    match data:
+        case {"object": {"type": "commit", "sha": str(commit_sha)}}:
+            return commit_sha == sha
+        case {"object": {"type": "tag", "sha": str(tag_sha)}}:
+            tag_data = _github_api(f"https://api.github.com/repos/{repo}/git/tags/{tag_sha}")
+            match tag_data:
+                case {"object": {"sha": str(commit_sha)}}:
+                    return commit_sha == sha
+    return False
+
+
 def _iter_files(args: list[str]) -> Iterator[Path]:
     if args:
-        yield from (Path(a) for a in args)
+        yield from map(Path, args)
     else:
         for pattern in (
             ".github/workflows/*.yml",
@@ -152,7 +156,7 @@ def _iter_files(args: list[str]) -> Iterator[Path]:
             ".github/actions/**/*.yml",
             ".github/actions/**/*.yaml",
         ):
-            yield from (Path(p) for p in glob.glob(pattern, recursive=True))
+            yield from map(Path, glob.glob(pattern, recursive=True))
 
 
 def check_file(path: Path, cache: dict[str, bool]) -> list[str]:
@@ -211,10 +215,10 @@ def main() -> int:
         all_errors.extend(check_file(path, cache))
 
     if all_errors:
-        print("action-pins: the following violations were found:\n")
+        print("action-pins: the following violations were found:\n", file=sys.stderr)
         for err in all_errors:
-            print(err)
-        print(f"\n{len(all_errors)} violation(s) found.")
+            print(err, file=sys.stderr)
+        print(f"\n{len(all_errors)} violation(s) found.", file=sys.stderr)
         return 1
 
     return 0
