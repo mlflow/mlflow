@@ -1,0 +1,9 @@
+{
+  "hooks": [
+    {
+      "event": "Stop",
+      "command": "node ${CLAUDE_PLUGIN_ROOT}/bundle/stop.js",
+      "timeout": 120
+    }
+  ]
+}
