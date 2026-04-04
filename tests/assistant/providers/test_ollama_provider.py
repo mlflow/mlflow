@@ -146,9 +146,7 @@ async def test_astream_tool_call_round_trip():
     tc = MagicMock()
     tc.function.name = "Bash"
     tc.function.arguments = {"command": "ls"}
-    tc.model_dump.return_value = {
-        "function": {"name": "Bash", "arguments": {"command": "ls"}}
-    }
+    tc.model_dump.return_value = {"function": {"name": "Bash", "arguments": {"command": "ls"}}}
 
     chunks_turn1 = [
         _make_chunk(content="", tool_calls=[tc]),
