@@ -143,7 +143,7 @@ def _check_version_consistency(all_action_refs: list[ActionRef]) -> list[str]:
     for action, refs in sorted(by_action.items()):
         versions = {(ref.ref, ref.comment) for ref in refs}
         if len(versions) > 1:
-            lines = "\n".join(f"  {ref.prefix}" for ref in refs)
+            lines = "\n".join(f"  {ref.prefix}" for ref in sorted(refs, key=lambda r: r.prefix))
             errors.append(f"{action} is pinned to multiple versions:\n{lines}")
     return errors
 
@@ -155,9 +155,10 @@ def main() -> int:
     for path in _iter_files():
         try:
             for action_ref in _iter_actions(path):
-                all_action_refs.append(action_ref)
                 if error := _check_action(action_ref, cache):
                     all_errors.append(error)
+                else:
+                    all_action_refs.append(action_ref)
         except OSError as e:
             all_errors.append(f"{path}: cannot read file: {e}")
 
