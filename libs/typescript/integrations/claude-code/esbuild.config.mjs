@@ -9,7 +9,12 @@ await build({
   outfile: 'bundle/stop.js',
   external: ['node:*'],
   banner: {
-    js: '#!/usr/bin/env node',
+    // Create a require function for CJS dependencies that use bare node specifiers
+    js: [
+      '#!/usr/bin/env node',
+      'import { createRequire as __createRequire } from "node:module";',
+      'const require = __createRequire(import.meta.url);',
+    ].join('\n'),
   },
 });
 
