@@ -11,7 +11,6 @@ HOOK_FIELD_COMMAND = "command"
 
 # MLflow hook identifiers
 MLFLOW_HOOK_IDENTIFIER = "mlflow autolog codex"
-MLFLOW_TRACING_ENABLED = "MLFLOW_CODEX_TRACING_ENABLED"
 
 # Codex config paths
 CODEX_DIR_NAME = ".codex"

@@ -287,12 +287,28 @@ def _create_child_spans(
         if payload.get("type") == "function_call_output":
             tool_results[payload.get("call_id", "")] = payload.get("output", "")
 
-    for record in turn_records:
-        if record.get("type") != "response_item":
-            continue
+    # Collect response_item records with their indices for next-record timestamp lookup
+    response_items = [
+        (i, record)
+        for i, record in enumerate(turn_records)
+        if record.get("type") == "response_item"
+    ]
+    default_duration_ns = int(1000 * NANOSECONDS_PER_MS)
 
+    for idx, (record_idx, record) in enumerate(response_items):
         payload = record.get("payload", {})
         timestamp_ns = parse_timestamp_to_ns(record.get("timestamp"))
+        if not timestamp_ns:
+            continue
+
+        # Derive end time from the next record's timestamp or use default duration
+        end_time_ns = None
+        for _, next_record in response_items[idx + 1 :]:
+            if next_ts := parse_timestamp_to_ns(next_record.get("timestamp")):
+                end_time_ns = next_ts
+                break
+        if not end_time_ns or end_time_ns <= timestamp_ns:
+            end_time_ns = timestamp_ns + default_duration_ns
 
         match payload.get("type"):
             case "message" if payload.get("role") == "assistant":
@@ -309,7 +325,7 @@ def _create_child_spans(
                         attributes={"model": model},
                     )
                     llm_span.set_outputs({"content": text})
-                    llm_span.end(end_time_ns=timestamp_ns)
+                    llm_span.end(end_time_ns=end_time_ns)
 
             case "function_call":
                 call_id = payload.get("call_id", "")
@@ -334,7 +350,7 @@ def _create_child_spans(
                     },
                 )
                 tool_span.set_outputs({"result": tool_output})
-                tool_span.end(end_time_ns=timestamp_ns)
+                tool_span.end(end_time_ns=end_time_ns)
 
     return final_response
 
