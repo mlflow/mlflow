@@ -53,8 +53,7 @@ _RETRY_DELAY = 1.0  # seconds
 def _load_cache() -> dict[str, bool]:
     if _CACHE_PATH.exists():
         try:
-            data: dict[str, bool] = json.loads(_CACHE_PATH.read_text())
-            return data
+            return json.loads(_CACHE_PATH.read_text())  # type: ignore[no-any-return]
         except (json.JSONDecodeError, OSError):
             pass
     return {}
@@ -75,7 +74,7 @@ def _github_api(url: str) -> dict[str, object] | list[object] | None:
     for attempt in range(_MAX_RETRIES):
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
-                return json.loads(resp.read())  # type: ignore[no-any-return]
+                return json.loads(resp.read(1_048_576))  # type: ignore[no-any-return]
         except Exception:
             if attempt < _MAX_RETRIES - 1:
                 time.sleep(_RETRY_DELAY)
@@ -101,10 +100,8 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
     result = False
     if isinstance(data, dict):
         obj = data.get("object") or {}
-        if not isinstance(obj, dict):
-            obj = {}
-        obj_type = obj.get("type")
-        obj_sha = obj.get("sha")
+        obj_type = obj.get("type") if isinstance(obj, dict) else None
+        obj_sha = obj.get("sha") if isinstance(obj, dict) else None
         if obj_type == "commit":
             result = obj_sha == sha
         elif obj_type == "tag":
