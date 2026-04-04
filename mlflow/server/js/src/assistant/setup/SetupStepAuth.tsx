@@ -53,7 +53,26 @@ export const SetupStepAuth = ({
 
     try {
       if (provider === 'ollama') {
-        await updateConfig({ providers: { ollama: { base_url: ollamaUrl } } });
+        setIsFetchingModels(true);
+        try {
+          const models = await listOllamaModels(ollamaUrl);
+          setOllamaModels(models);
+          if (models.length > 0) {
+            setOllamaModel(models[0]);
+          }
+          // Only persist base_url after successful connection
+          await updateConfig({ providers: { ollama: { base_url: ollamaUrl } } });
+          setAuthState('authenticated');
+          onAuthStatusChange('authenticated');
+        } catch (err) {
+          setOllamaModels([]);
+          setError(err instanceof Error ? err.message : 'Failed to check Ollama status');
+          setAuthState('not_authenticated');
+          onAuthStatusChange('not_authenticated');
+        } finally {
+          setIsFetchingModels(false);
+        }
+        return;
       }
 
       const result = await checkProviderHealth(provider);
@@ -61,21 +80,6 @@ export const SetupStepAuth = ({
       if (result.ok) {
         setAuthState('authenticated');
         onAuthStatusChange('authenticated');
-
-        if (provider === 'ollama') {
-          setIsFetchingModels(true);
-          try {
-            const models = await listOllamaModels(ollamaUrl);
-            setOllamaModels(models);
-            if (models.length > 0) {
-              setOllamaModel(models[0]);
-            }
-          } catch {
-            setOllamaModels([]);
-          } finally {
-            setIsFetchingModels(false);
-          }
-        }
       } else {
         if (result.status === 412) {
           setAuthState('cli_not_installed');

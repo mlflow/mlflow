@@ -29,8 +29,14 @@ async def execute_tool(
     perms = permissions or PermissionsConfig()
 
     if not perms.full_access:
+        if tool_name == "Bash":
+            return "Permission denied: shell commands require full_access permission", True
+
         if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
             return f"Permission denied: {tool_name} is not allowed", True
+
+        if tool_name in {"Write", "Edit"} and not cwd:
+            return f"Permission denied: {tool_name} requires a configured project directory", True
 
         if tool_name in _FILE_TOOLS and cwd:
             if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
