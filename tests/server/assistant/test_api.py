@@ -103,7 +103,11 @@ def client():
 
     app.dependency_overrides[_require_localhost] = mock_require_localhost
 
-    with patch("mlflow.server.assistant.api._provider", MockProvider()):
+    mock_provider = MockProvider()
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]),
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=mock_provider),
+    ):
         yield TestClient(app)
 
 
@@ -191,7 +195,8 @@ def test_health_check_returns_412_when_cli_not_installed():
         def check_connection(self, echo=None):
             raise CLINotInstalledError("CLI not installed")
 
-    with patch("mlflow.server.assistant.api._provider", CLINotInstalledProvider()):
+    provider = CLINotInstalledProvider()
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[provider]):
         client = TestClient(app)
         response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
         assert response.status_code == 412
@@ -211,7 +216,8 @@ def test_health_check_returns_401_when_not_authenticated():
         def check_connection(self, echo=None):
             raise NotAuthenticatedError("Not authenticated")
 
-    with patch("mlflow.server.assistant.api._provider", NotAuthenticatedProvider()):
+    provider = NotAuthenticatedProvider()
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[provider]):
         client = TestClient(app)
         response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
         assert response.status_code == 401
@@ -415,3 +421,65 @@ def test_install_skills_skips_when_already_installed(client):
         assert data["installed_skills"] == ["existing_skill"]
         mock_install.assert_not_called()
         mock_list.assert_called_once()
+
+
+def test_update_config_partial_update_preserves_selected_provider(client):
+    # Pre-populate config: claude_code selected, ollama exists but not selected
+    config = AssistantConfig(
+        providers={
+            "claude_code": AssistantProviderConfig(model="opus", selected=True),
+            "ollama": AssistantProviderConfig(
+                model="llama3", selected=False, base_url="http://localhost:11434"
+            ),
+        }
+    )
+    config.save()
+
+    # Partially update ollama base_url without a selected flag
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"providers": {"ollama": {"base_url": "http://localhost:12345"}}},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["claude_code"]["selected"] is True
+    assert data["providers"]["ollama"]["selected"] is False
+    assert data["providers"]["ollama"]["base_url"] == "http://localhost:12345"
+
+
+def test_list_ollama_models_returns_model_list(client):
+    mock_model = MagicMock()
+    mock_model.model = "llama3"
+    mock_response = MagicMock()
+    mock_response.models = [mock_model]
+
+    with patch("ollama.Client") as mock_client_cls:
+        mock_client_cls.return_value.list.return_value = mock_response
+        response = client.get(
+            "/ajax-api/3.0/mlflow/assistant/providers/ollama/models",
+            params={"base_url": "http://localhost:11434"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"models": ["llama3"]}
+
+
+def test_list_ollama_models_returns_412_when_not_installed(client):
+    with patch.dict("sys.modules", {"ollama": None}):
+        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/ollama/models")
+
+    assert response.status_code == 412
+    assert "ollama" in response.json()["detail"].lower()
+
+
+def test_list_ollama_models_returns_503_on_connection_failure(client):
+    with patch("ollama.Client") as mock_client_cls:
+        mock_client_cls.return_value.list.side_effect = Exception("Connection refused")
+        response = client.get(
+            "/ajax-api/3.0/mlflow/assistant/providers/ollama/models",
+            params={"base_url": "http://localhost:11434"},
+        )
+
+    assert response.status_code == 503
+    assert "Cannot connect" in response.json()["detail"]
