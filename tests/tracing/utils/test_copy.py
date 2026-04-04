@@ -72,6 +72,7 @@ def test_copy_trace_missing_info():
     new_trace_id = copy_trace_to_experiment(trace_dict)
 
     assert new_trace_id is not None
+    mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(new_trace_id)
     assert trace is not None
 
@@ -116,6 +117,7 @@ def test_copy_trace_empty_metadata_dict():
     new_trace_id = copy_trace_to_experiment(trace_dict)
 
     assert new_trace_id is not None
+    mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(new_trace_id)
 
     # Tags should still be copied

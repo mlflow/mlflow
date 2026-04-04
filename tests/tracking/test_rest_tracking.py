@@ -2923,6 +2923,8 @@ def test_get_trace_handler(mlflow_client, allow_partial: bool, store_type):
     with mlflow.start_span(name="test") as span:
         span.set_attributes({"fruit": "apple"})
 
+    mlflow.flush_trace_async_logging()
+
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/3.0/mlflow/traces/get",
         params={"trace_id": span.trace_id, "allow_partial": allow_partial},
@@ -2944,6 +2946,8 @@ def test_get_trace_artifact_handler(mlflow_client):
     with mlflow.start_span(name="test") as span:
         span.set_attributes({"fruit": "apple"})
         span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
+
+    mlflow.flush_trace_async_logging()
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",

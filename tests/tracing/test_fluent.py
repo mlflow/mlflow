@@ -854,7 +854,10 @@ def test_mlflow_trace_isolated_from_other_otel_processors():
 
     # MLflow only processes spans created with MLflow APIs
     assert len(get_traces()) == 1
-    assert mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True).data.spans[0].name == "mlflow_span"
+    assert (
+        mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True).data.spans[0].name
+        == "mlflow_span"
+    )
 
     # Other spans are processed by the other processor
     assert len(other_exporter.exported_spans) == 1
@@ -2453,14 +2456,16 @@ def _create_trace_with_session(session_id: str, name: str = "test_span") -> str:
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
         span.set_inputs({"input": "test"})
         span.set_outputs({"output": "test"})
-        return span.trace_id
+    mlflow.flush_trace_async_logging()
+    return span.trace_id
 
 
 def _create_trace_without_session(name: str = "test_span") -> str:
     with mlflow.start_span(name=name) as span:
         span.set_inputs({"input": "test"})
         span.set_outputs({"output": "test"})
-        return span.trace_id
+    mlflow.flush_trace_async_logging()
+    return span.trace_id
 
 
 @pytest.mark.skipif(

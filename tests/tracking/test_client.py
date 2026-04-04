@@ -3634,6 +3634,7 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
             pass
 
         trace_id = span.trace_id
+        mlflow.flush_trace_async_logging()
         sql_alchemy_store_module = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
         with (
             mock.patch(f"{sql_alchemy_store_module}.get_trace") as mock_get_trace,

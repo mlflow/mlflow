@@ -608,7 +608,7 @@ def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
         else:
             mock_set_cost.assert_not_called()
 
-    trace = mlflow.get_trace(trace_id=span.trace_id)
+    trace = mlflow.get_trace(trace_id=span.trace_id, flush=True)
     # cost should be set
     assert trace.info.cost is not None
     assert CostKey.INPUT_COST in trace.info.cost

@@ -36,6 +36,7 @@ def trace_id():
     with mlflow.start_span(name="test_span") as span:
         pass
 
+    mlflow.flush_trace_async_logging()
     return span.trace_id
 
 
