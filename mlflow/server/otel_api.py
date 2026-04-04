@@ -129,7 +129,7 @@ async def export_traces(
             # We must convert hex→base64 before calling Parse(), otherwise the
             # IDs are decoded incorrectly and overflow downstream int conversions.
             body = _convert_otlp_json_ids_to_base64(body)
-            ParseJsonProto(body, parsed_request)
+            ParseJsonProto(body, parsed_request, ignore_unknown_fields=True)
         else:
             # In Python protobuf library 5.x, ParseFromString may not raise
             # DecodeError on invalid data
