@@ -163,12 +163,12 @@ def test_otlp_invalid_content_type(monkeypatch):
 
     client = _make_test_client()
 
-    # Test with wrong content type
+    # Test with unsupported content type (application/json is now valid)
     response = client.post(
         OTLP_TRACES_PATH,
         data=_build_otlp_payload(),
         headers={
-            "Content-Type": "application/json",
+            "Content-Type": "text/plain",
             "X-MLflow-Experiment-Id": "42",
         },
     )
