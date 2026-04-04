@@ -1,22 +1,4 @@
-"""
-Pre-commit hook to validate GitHub Action pins in workflow and action files.
-
-Ensures that every remote GitHub Action reference:
-1. Uses a full 40-character SHA pin (not a tag or branch).
-2. Has a trailing ``# vX.Y.Z`` version comment documenting the pinned tag.
-3. The SHA matches the claimed tag (verified via GitHub API, results cached).
-
-Usage:
-    uv run dev/check_action_pins.py [file ...]
-
-When file paths are provided (pre-commit mode), only those files are checked.
-When no arguments are given, all .github/workflows/ and .github/actions/ YAML
-files are scanned.
-
-Cache:
-    Verification results are stored in .cache/action-pins.json to avoid
-    redundant network calls across repeated runs.
-"""
+"""Validate that all remote GitHub Actions are SHA-pinned with a version comment."""
 
 import functools
 import glob
