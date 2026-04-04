@@ -191,6 +191,7 @@ repos:
         entry: uv run --only-group lint dev/check_action_pins.py
         language: system
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
+        pass_filenames: false
         stages: [pre-commit]
         require_serial: true
 

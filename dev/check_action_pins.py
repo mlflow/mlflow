@@ -5,6 +5,7 @@ import json
 import re
 import subprocess
 import sys
+from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -81,17 +82,14 @@ def _resolve_tag(repo: str, sha: str, tag: str) -> bool:
     return any(line.split()[0] == sha for line in output.splitlines() if line)
 
 
-def _iter_files(args: list[str]) -> Iterator[Path]:
-    if args:
-        yield from map(Path, args)
-    else:
-        for pattern in (
-            ".github/workflows/*.yml",
-            ".github/workflows/*.yaml",
-            ".github/actions/**/*.yml",
-            ".github/actions/**/*.yaml",
-        ):
-            yield from map(Path, glob.glob(pattern, recursive=True))
+def _iter_files() -> Iterator[Path]:
+    for pattern in (
+        ".github/workflows/*.yml",
+        ".github/workflows/*.yaml",
+        ".github/actions/**/*.yml",
+        ".github/actions/**/*.yaml",
+    ):
+        yield from map(Path, glob.glob(pattern, recursive=True))
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,21 +134,34 @@ def _check_action(a: ActionRef, cache: dict[str, bool]) -> str | None:
     return None
 
 
-def check_file(path: Path, cache: dict[str, bool]) -> Iterator[str]:
-    try:
-        for action_ref in _iter_actions(path):
-            if error := _check_action(action_ref, cache):
-                yield error
-    except OSError as e:
-        yield f"{path}: cannot read file: {e}"
+def _check_version_consistency(all_action_refs: list[ActionRef]) -> list[str]:
+    by_action: dict[str, list[ActionRef]] = defaultdict(list)
+    for action_ref in all_action_refs:
+        by_action[action_ref.action].append(action_ref)
+
+    errors = []
+    for action, refs in sorted(by_action.items()):
+        versions = {(ref.ref, ref.comment) for ref in refs}
+        if len(versions) > 1:
+            lines = "\n".join(f"  {ref.prefix}" for ref in refs)
+            errors.append(f"{action} is pinned to multiple versions:\n{lines}")
+    return errors
 
 
 def main() -> int:
-    args = sys.argv[1:]
     cache = _load_cache()
     all_errors: list[str] = []
-    for path in _iter_files(args):
-        all_errors.extend(check_file(path, cache))
+    all_action_refs: list[ActionRef] = []
+    for path in _iter_files():
+        try:
+            for action_ref in _iter_actions(path):
+                all_action_refs.append(action_ref)
+                if error := _check_action(action_ref, cache):
+                    all_errors.append(error)
+        except OSError as e:
+            all_errors.append(f"{path}: cannot read file: {e}")
+
+    all_errors.extend(_check_version_consistency(all_action_refs))
 
     if all_errors:
         print("action-pins: the following violations were found:\n", file=sys.stderr)
