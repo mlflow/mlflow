@@ -1250,10 +1250,10 @@ def test_search_traces_with_run_id():
         _create_trace(name="tr-5", tags={"fruit": "apple"})
 
     traces = mlflow.search_traces(flush=True)
-    assert set(_get_names(traces)) == set(["tr-5", "tr-4", "tr-3", "tr-2", "tr-1"])
+    assert set(_get_names(traces)) == {"tr-5", "tr-4", "tr-3", "tr-2", "tr-1"}
 
     traces = mlflow.search_traces(run_id=run1.info.run_id, flush=True)
-    assert set(_get_names(traces)) == set(["tr-2", "tr-1"])
+    assert set(_get_names(traces)) == {"tr-2", "tr-1"}
 
     traces = mlflow.search_traces(
         run_id=run2.info.run_id,
