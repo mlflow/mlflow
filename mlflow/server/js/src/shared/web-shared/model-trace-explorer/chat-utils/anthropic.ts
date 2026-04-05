@@ -85,7 +85,15 @@ type AnthropicToolUseBlock = {
 };
 
 // Content blocks that can appear inside a tool_result
-type AnthropicToolResultContentBlock = AnthropicTextBlockParam | AnthropicImageBlockParam;
+type AnthropicToolReferenceBlockParam = {
+  tool_name: string;
+  type: 'tool_reference';
+};
+
+type AnthropicToolResultContentBlock =
+  | AnthropicTextBlockParam
+  | AnthropicImageBlockParam
+  | AnthropicToolReferenceBlockParam;
 
 type AnthropicToolResultBlockParam = {
   content: string | AnthropicToolResultContentBlock[];
@@ -93,12 +101,15 @@ type AnthropicToolResultBlockParam = {
   type: 'tool_result';
 };
 
-// Helper to validate content blocks inside tool_result (text or image)
+// Helper to validate content blocks inside tool_result (text, image, or tool_reference)
 const isAnthropicToolResultContentBlock = (obj: unknown): obj is AnthropicToolResultContentBlock => {
   if (isNil(obj) || !isObject(obj) || !has(obj, 'type')) {
     return false;
   }
   if (obj.type === 'text' && has(obj, 'text') && isString(obj.text)) {
+    return true;
+  }
+  if (obj.type === 'tool_reference' && has(obj, 'tool_name') && isString(obj.tool_name)) {
     return true;
   }
   if (obj.type === 'image' && has(obj, 'source') && has(obj.source, 'type')) {
@@ -233,7 +244,11 @@ const processAnthropicMessageContent = (
       // to convert to the final ModelTraceChatMessage format (with string content)
       const normalizedContent = isString(item.content)
         ? item.content
-        : item.content.map((block) => normalizeAnthropicContentBlockParam(block));
+        : item.content.map((block) =>
+            block.type === 'tool_reference'
+              ? { type: 'text' as const, text: `[Tool: ${block.tool_name}]` }
+              : normalizeAnthropicContentBlockParam(block),
+          );
       const toolMessage = prettyPrintChatMessage({
         type: 'message',
         role: 'tool',

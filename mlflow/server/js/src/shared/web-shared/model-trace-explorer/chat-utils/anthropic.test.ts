@@ -145,4 +145,41 @@ describe('normalizeConversation', () => {
       expect(result?.[0]).not.toHaveProperty('reasoning');
     });
   });
+
+  describe('tool_reference content blocks', () => {
+    it('handles tool_result with tool_reference content', () => {
+      const input = {
+        messages: [
+          { role: 'user', content: 'search the web' },
+          {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'toolu_1', name: 'ToolSearch', input: { query: 'WebSearch' } },
+            ],
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'toolu_1',
+                content: [{ type: 'tool_reference', tool_name: 'WebSearch' }],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = normalizeConversation(input, 'anthropic');
+      expect(result).not.toBeNull();
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: 'tool',
+            content: expect.stringContaining('WebSearch'),
+          }),
+        ]),
+      );
+    });
+  });
 });
