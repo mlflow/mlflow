@@ -40,6 +40,12 @@ module.exports = async ({ github, context }) => {
     // Same workflow run: higher run_attempt takes priority (re-runs)
     return newRun.run_attempt > existingRun.run_attempt;
   }
+  function isJobFailed({ status, conclusion }) {
+    return (
+      conclusion === "cancelled" ||
+      (status === "completed" && conclusion !== "success" && conclusion !== "skipped")
+    );
+  }
 
   async function fetchChecks(ref) {
     // Check runs (e.g., DCO check, but excluding GitHub Actions)
@@ -49,6 +55,7 @@ module.exports = async ({ github, context }) => {
         repo,
         ref,
         filter: "latest",
+        per_page: 100,
       })
     ).filter(({ app }) => app?.slug !== "github-actions");
 
@@ -64,6 +71,7 @@ module.exports = async ({ github, context }) => {
     }
     const checks = Object.values(latestCheckRuns).map(({ name, status, conclusion }) => ({
       name,
+      pendingJobs: 0,
       status:
         conclusion === "cancelled"
           ? STATE.failure
@@ -80,6 +88,7 @@ module.exports = async ({ github, context }) => {
         owner,
         repo,
         head_sha: ref,
+        per_page: 100,
       })
     ).filter(
       ({ path, event }) =>
@@ -99,39 +108,51 @@ module.exports = async ({ github, context }) => {
       }
     }
 
-    // Fetch jobs for each workflow run
-    const runs = [];
     for (const run of Object.values(latestRuns)) {
-      // Fetch jobs for this workflow run
-      const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-        owner,
-        repo,
-        run_id: run.id,
-      });
-
-      // Process each job as a separate check
-      for (const job of jobs) {
-        const runName = run.path.replace(".github/workflows/", "");
-        runs.push({
-          name: `${job.name} (${runName}, attempt ${run.run_attempt})`,
+      const runName = run.path.replace(".github/workflows/", "");
+      if (run.status === "completed") {
+        // Use run-level status directly (0 extra API calls).
+        checks.push({
+          name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          pendingJobs: 0,
           status:
-            job.conclusion === "cancelled"
+            run.conclusion === "cancelled"
               ? STATE.failure
-              : job.status !== "completed"
-              ? STATE.pending
-              : job.conclusion === "success" || job.conclusion === "skipped"
+              : run.conclusion === "success" || run.conclusion === "skipped"
               ? STATE.success
               : STATE.failure,
+        });
+      } else {
+        let failed = false;
+        let pendingJobs = 0;
+        const jobsIter = github.paginate.iterator(github.rest.actions.listJobsForWorkflowRun, {
+          owner,
+          repo,
+          run_id: run.id,
+          per_page: 100,
+        });
+        for await (const { data: jobs } of jobsIter) {
+          if (jobs.some(isJobFailed)) {
+            failed = true;
+            break;
+          }
+          pendingJobs += jobs.filter(({ status }) => status !== "completed").length;
+        }
+        checks.push({
+          name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          pendingJobs: failed ? 0 : pendingJobs,
+          status: failed ? STATE.failure : STATE.pending,
         });
       }
     }
 
-    return [...checks, ...runs].sort((a, b) => a.name.localeCompare(b.name));
+    return checks;
   }
 
   const start = new Date();
   let iterationCount = 0;
   const TIMEOUT = 120 * 60 * 1000; // 2 hours
+  await logRateLimit();
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
     const checks = await fetchChecks(sha);
@@ -153,9 +174,11 @@ module.exports = async ({ github, context }) => {
     }
 
     await logRateLimit();
-    const pendingJobs = checks.filter(({ status }) => status === STATE.pending);
-    const sleepLength = getSleepLength(iterationCount, pendingJobs.length);
-    console.log(`Sleeping for ${sleepLength / 1000} seconds (${pendingJobs.length} pending jobs)`);
+    const pendingJobs = checks
+      .filter(({ status }) => status === STATE.pending)
+      .reduce((sum, check) => sum + check.pendingJobs, 0);
+    const sleepLength = getSleepLength(iterationCount, pendingJobs);
+    console.log(`Sleeping for ${sleepLength / 1000} seconds (${pendingJobs} pending jobs)`);
     await sleep(sleepLength);
   }
 

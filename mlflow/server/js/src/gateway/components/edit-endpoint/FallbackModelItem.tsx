@@ -33,7 +33,7 @@ interface FallbackModelItemProps {
   onModelChange: (index: number, updates: Partial<FallbackModel>) => void;
   onRemove: (index: number) => void;
   onMove: (fromIndex: number, toIndex: number) => void;
-  componentIdPrefix: string;
+  componentId: string;
 }
 
 export const FallbackModelItem = ({
@@ -42,7 +42,7 @@ export const FallbackModelItem = ({
   onModelChange,
   onRemove,
   onMove,
-  componentIdPrefix,
+  componentId,
 }: FallbackModelItemProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -132,7 +132,7 @@ export const FallbackModelItem = ({
             <DragIcon css={{ color: theme.colors.textSecondary }} />
           </div>
           <Button
-            componentId={`${componentIdPrefix}.expand.${index}`}
+            componentId={`${componentId}.expand`}
             icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
             onClick={() => setIsExpanded(!isExpanded)}
             size="small"
@@ -151,17 +151,13 @@ export const FallbackModelItem = ({
           )}
         </div>
         <Tooltip
-          componentId={`${componentIdPrefix}.remove-tooltip.${index}`}
+          componentId={`${componentId}.remove-tooltip`}
           content={intl.formatMessage({
             defaultMessage: 'Remove fallback model',
             description: 'Tooltip for remove fallback model button',
           })}
         >
-          <Button
-            componentId={`${componentIdPrefix}.remove.${index}`}
-            icon={<TrashIcon />}
-            onClick={() => onRemove(index)}
-          />
+          <Button componentId={`${componentId}.remove`} icon={<TrashIcon />} onClick={() => onRemove(index)} />
         </Tooltip>
       </div>
 
@@ -183,14 +179,14 @@ export const FallbackModelItem = ({
                 },
               });
             }}
-            componentIdPrefix={`${componentIdPrefix}.provider.${index}`}
+            componentId={`${componentId}.provider`}
           />
 
           <ModelSelect
             provider={model.provider}
             value={model.modelName}
             onChange={(modelName) => onModelChange(index, { modelName })}
-            componentIdPrefix={`${componentIdPrefix}.model.${index}`}
+            componentId={`${componentId}.model`}
           />
 
           <ApiKeyConfigurator
@@ -202,7 +198,7 @@ export const FallbackModelItem = ({
             authModes={authModes}
             defaultAuthMode={defaultAuthMode}
             isLoadingProviderConfig={isLoadingProviderConfig}
-            componentIdPrefix={`${componentIdPrefix}.api-key.${index}`}
+            componentId={`${componentId}.api-key`}
           />
         </>
       )}

@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { isNil } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Empty, SearchIcon, Table, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, SearchIcon, Table, TableSkeletonRows, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import { isV4TraceId } from '../model-trace-explorer/ModelTraceExplorer.utils';
 import { shouldUseUnifiedModelTraceComparisonUI } from '../model-trace-explorer/FeatureUtils';
@@ -20,8 +20,6 @@ import { MemoizedGenAiTracesTableSessionGroupedRows } from './GenAiTracesTableSe
 import { GenAiTracesTableHeader } from './GenAiTracesTableHeader';
 import { groupTracesBySessionForTable } from './utils/SessionGroupingUtils';
 import { HeaderCellRenderer } from './cellRenderers/HeaderCellRenderer';
-import { GenAITraceComparisonModal } from './components/GenAITraceComparisonModal';
-import { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import { REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID, SERVER_SORTABLE_INFO_COLUMNS } from './hooks/useTableColumns';
 import {
@@ -40,6 +38,15 @@ import {
 import { getAssessmentAggregates } from './utils/AggregationUtils';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
 import { getExperimentIdFromTraceLocation, getRowIdFromEvaluation } from './utils/TraceUtils';
+
+const GenAITraceComparisonModal = React.lazy(() =>
+  import('./components/GenAITraceComparisonModal').then((m) => ({ default: m.GenAITraceComparisonModal })),
+);
+const GenAiEvaluationTracesReviewModal = React.lazy(() =>
+  import('./components/GenAiEvaluationTracesReviewModal').then((m) => ({
+    default: m.GenAiEvaluationTracesReviewModal,
+  })),
+);
 
 export const GenAiTracesTableBody = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
@@ -72,6 +79,9 @@ export const GenAiTracesTableBody = React.memo(
     isTableLoading,
     isGroupedBySession,
     searchQuery,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   }: {
     experimentId?: string;
     selectedColumns: TracesTableColumn[];
@@ -109,6 +119,10 @@ export const GenAiTracesTableBody = React.memo(
     isGroupedBySession?: boolean;
     /** When set, matching text in the Request column is highlighted. */
     searchQuery?: string;
+    // Infinite scroll props (active when shouldUseInfinitePaginatedTraces is true)
+    fetchNextPage?: () => void;
+    hasNextPage?: boolean;
+    isFetchingNextPage?: boolean;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -450,6 +464,8 @@ export const GenAiTracesTableBody = React.memo(
     const tableHeaderGroups = table.getHeaderGroups();
     const columnSizingInfo = table.getState().columnSizingInfo;
 
+    const columnSizeInfo = table.getState().columnSizingInfo;
+
     /**
      * Instead of calling `column.getSize()` on every render for every header
      * and especially every data cell (very expensive),
@@ -530,11 +546,23 @@ export const GenAiTracesTableBody = React.memo(
       return null;
     }, [selectedEvaluation]);
 
+    const handleScrollForInfiniteFetch = useCallback(
+      (e: React.UIEvent<HTMLDivElement>) => {
+        if (!fetchNextPage || !hasNextPage || isFetchingNextPage) return;
+        const { scrollHeight, scrollTop, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 200) {
+          fetchNextPage();
+        }
+      },
+      [fetchNextPage, hasNextPage, isFetchingNextPage],
+    );
+
     return (
       <>
         <div
           className="container"
           ref={tableContainerRef}
+          onScroll={handleScrollForInfiniteFetch}
           css={{
             height: '100%',
             position: 'relative',
@@ -608,32 +636,35 @@ export const GenAiTracesTableBody = React.memo(
                 rowSelectionChangeHandler={rowSelectionChangeHandler}
               />
             )}
+            {isFetchingNextPage && <TableSkeletonRows table={table} />}
           </Table>
         </div>
-        {comparedTraceIds && shouldUseUnifiedModelTraceComparisonUI() ? (
-          <GenAITraceComparisonModal
-            traceIds={comparedTraceIds}
-            onClose={() => onChangeEvaluationId(undefined)}
-            // prettier-ignore
-          />
-        ) : (
-          selectedEvaluationId &&
-          selectedEvaluationExperimentId && (
-            <GenAiEvaluationTracesReviewModal
-              experimentId={selectedEvaluationExperimentId}
-              runUuid={runUuid}
-              runDisplayName={runDisplayName}
-              otherRunDisplayName={compareToRunDisplayName}
-              evaluations={rows.map((row) => row.original)}
-              selectedEvaluationId={selectedEvaluationId}
-              onChangeEvaluationId={onChangeEvaluationId}
-              exportToEvalsInstanceEnabled={exportToEvalsInstanceEnabled}
-              assessmentInfos={assessmentInfos}
-              getTrace={getTrace}
-              saveAssessmentsQuery={saveAssessmentsQuery}
+        <React.Suspense fallback={null}>
+          {comparedTraceIds && shouldUseUnifiedModelTraceComparisonUI() ? (
+            <GenAITraceComparisonModal
+              traceIds={comparedTraceIds}
+              onClose={() => onChangeEvaluationId(undefined)}
+              // prettier-ignore
             />
-          )
-        )}
+          ) : (
+            selectedEvaluationId &&
+            selectedEvaluationExperimentId && (
+              <GenAiEvaluationTracesReviewModal
+                experimentId={selectedEvaluationExperimentId}
+                runUuid={runUuid}
+                runDisplayName={runDisplayName}
+                otherRunDisplayName={compareToRunDisplayName}
+                evaluations={rows.map((row) => row.original)}
+                selectedEvaluationId={selectedEvaluationId}
+                onChangeEvaluationId={onChangeEvaluationId}
+                exportToEvalsInstanceEnabled={exportToEvalsInstanceEnabled}
+                assessmentInfos={assessmentInfos}
+                getTrace={getTrace}
+                saveAssessmentsQuery={saveAssessmentsQuery}
+              />
+            )
+          )}
+        </React.Suspense>
       </>
     );
   },

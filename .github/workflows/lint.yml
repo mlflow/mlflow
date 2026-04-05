@@ -47,6 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           # To ensure `git diff` works correctly in dev/check_function_signatures.py,
           # we need to fetch enough history to include the base branch.
           fetch-depth: 300
@@ -65,6 +66,10 @@ jobs:
       - name: Install Python dependencies
         run: |
           uv sync --locked --only-group lint --only-group pytest
+      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: .cache/action-pins.json
+          key: action-pins-${{ hashFiles('dev/check_action_pins.py') }}
       - name: Install pre-commit hooks
         run: |
           uv run --no-sync pre-commit install --install-hooks

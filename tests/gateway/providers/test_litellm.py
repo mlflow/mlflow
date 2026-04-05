@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
@@ -109,6 +110,13 @@ def mock_litellm_embeddings_response():
     response.usage.total_tokens = 5
 
     return response
+
+
+def test_litellm_not_installed():
+    config = chat_config()
+    with mock.patch("importlib.util.find_spec", return_value=None):
+        with pytest.raises(MlflowException, match="pip install litellm"):
+            LiteLLMProvider(EndpointConfig(**config))
 
 
 @pytest.mark.asyncio
