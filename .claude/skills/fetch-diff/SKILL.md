@@ -7,11 +7,7 @@ allowed-tools:
 
 # Fetch PR Diff
 
-Fetches a pull request diff and adds line numbers for easier review comment placement.
-
-Auto-generated files (protobuf `.py`/`.pyi` in `mlflow/protos`, lock files like `yarn.lock`/`uv.lock`/`package-lock.json`, and generated `.java` files) are included in the output with their `diff --git` header lines visible, but their hunk content is replaced with `[Auto-generated file - diff masked]`. This lets reviewers know that a PR touches these files without being overwhelmed by noisy generated diffs.
-
-Notebook (`.ipynb`) files are treated as regular files and show their full diff.
+Fetches a pull request diff and adds line numbers for easier review comment placement. Auto-generated files are shown with masked diffs.
 
 ## Usage
 
@@ -59,10 +55,10 @@ index abc123..def456 100644
 **Auto-generated file (masked):**
 
 ```
-diff --git a/mlflow/protos/service_pb2.py b/mlflow/protos/service_pb2.py
+diff --git a/uv.lock b/uv.lock
 index abc123..def456 100644
---- a/mlflow/protos/service_pb2.py
-+++ b/mlflow/protos/service_pb2.py
+--- a/uv.lock
++++ b/uv.lock
 [Auto-generated file - diff masked]
 ```
 
