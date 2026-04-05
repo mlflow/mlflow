@@ -1,10 +1,10 @@
 import json
 
 import mlflow.qwen_code.tracing as tracing_module
-from mlflow.codex.tracing import get_hook_response
 from mlflow.entities.span import SpanType
 from mlflow.qwen_code.tracing import (
     QWEN_TRACING_LEVEL,
+    get_hook_response,
     parse_timestamp_to_ns,
     process_transcript,
     setup_logging,

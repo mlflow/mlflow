@@ -244,15 +244,30 @@ def _create_child_spans(
     Returns the last assistant text response for trace preview.
     """
     final_response = None
+    child_uuids = children_map.get(record_uuid, [])
+    default_duration_ns = int(1000 * NANOSECONDS_PER_MS)
 
-    for child_uuid in children_map.get(record_uuid, []):
+    for idx, child_uuid in enumerate(child_uuids):
         child = records_by_uuid.get(child_uuid)
         if not child:
             continue
 
         record_type = child.get("type")
         timestamp_ns = parse_timestamp_to_ns(child.get("timestamp"))
+        if not timestamp_ns:
+            continue
+
         model = child.get("model", "unknown")
+
+        # Derive end time from the next sibling's timestamp or use default duration
+        end_time_ns = None
+        for next_uuid in child_uuids[idx + 1 :]:
+            if next_record := records_by_uuid.get(next_uuid):
+                if next_ts := parse_timestamp_to_ns(next_record.get("timestamp")):
+                    end_time_ns = next_ts
+                    break
+        if not end_time_ns or end_time_ns <= timestamp_ns:
+            end_time_ns = timestamp_ns + default_duration_ns
 
         # Tool result records → TOOL span
         if child.get("toolCallResult"):
@@ -268,7 +283,7 @@ def _create_child_spans(
                 attributes={"tool_name": tool_name},
             )
             tool_span.set_outputs({"result": tool_result.get("output", "")})
-            tool_span.end(end_time_ns=timestamp_ns)
+            tool_span.end(end_time_ns=end_time_ns)
 
         # Assistant text records → LLM span
         elif record_type == RECORD_TYPE_ASSISTANT:
@@ -288,7 +303,7 @@ def _create_child_spans(
                 usage = child.get("usageMetadata", {})
                 _set_token_usage_attribute(llm_span, usage)
                 llm_span.set_outputs({"content": text})
-                llm_span.end(end_time_ns=timestamp_ns)
+                llm_span.end(end_time_ns=end_time_ns)
 
         # Recurse into children
         if child_text := _create_child_spans(
