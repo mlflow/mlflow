@@ -193,20 +193,27 @@ def _find_last_user_record(records: list[dict[str, Any]]) -> dict[str, Any] | No
     """Find the last user record in the transcript."""
     for record in reversed(records):
         if record.get("type") == RECORD_TYPE_USER:
-            msg = record.get("message", "")
-            if isinstance(msg, str) and msg.strip():
-                return record
-            if isinstance(msg, dict) and msg.get("content", ""):
+            text = _get_message_text(record)
+            if text.strip():
                 return record
     return None
 
 
 def _get_message_text(record: dict[str, Any]) -> str:
-    """Extract text content from a ChatRecord's message field."""
+    """Extract text content from a ChatRecord's message field.
+
+    Qwen Code messages use Gemini-style format: {role, parts: [{text}]}.
+    Also handles plain strings and {content: ...} for flexibility.
+    """
     msg = record.get("message", "")
     if isinstance(msg, str):
         return msg
     if isinstance(msg, dict):
+        # Qwen uses Gemini-style {role, parts: [{text}, ...]}
+        if isinstance(msg.get("parts"), list):
+            parts = [p.get("text", "") for p in msg["parts"] if isinstance(p, dict)]
+            return "\n".join(parts)
+        # Also handle {content: ...} for flexibility
         content = msg.get("content", "")
         if isinstance(content, str):
             return content
