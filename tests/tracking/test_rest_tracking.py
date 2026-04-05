@@ -2644,16 +2644,22 @@ def test_search_traces(mlflow_client):
         mlflow_client.end_trace(request_id=span.request_id, status=status)
         return span.request_id
 
+    # Flush between creations to ensure distinct timestamps. Without this, all three traces
+    # can land in the same millisecond on a fast local server, making max_results ordering
+    # non-deterministic.
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
     request_id_3 = _create_trace(name="trace3", status=TraceStatus.ERROR)
+    mlflow.flush_trace_async_logging()
 
     def _get_request_ids(traces):
         return [t.info.request_id for t in traces]
 
     # Validate search
-    traces = mlflow_client.search_traces(locations=[experiment_id], flush=True)
-    assert set(_get_request_ids(traces)) == set([request_id_3, request_id_2, request_id_1])
+    traces = mlflow_client.search_traces(locations=[experiment_id])
+    assert set(_get_request_ids(traces)) == {request_id_3, request_id_2, request_id_1}
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
@@ -2661,14 +2667,14 @@ def test_search_traces(mlflow_client):
         filter_string="status = 'OK'",
         order_by=["timestamp ASC"],
     )
-    assert set(_get_request_ids(traces)) == set([request_id_1, request_id_2])
+    assert set(_get_request_ids(traces)) == {request_id_1, request_id_2}
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
         locations=[experiment_id],
         max_results=2,
     )
-    assert set(_get_request_ids(traces)) == set([request_id_3, request_id_2])
+    assert set(_get_request_ids(traces)) == {request_id_3, request_id_2}
     assert traces.token is not None
     traces = mlflow_client.search_traces(
         locations=[experiment_id],
@@ -2749,7 +2755,6 @@ def test_delete_traces(mlflow_client):
     mlflow.flush_trace_async_logging()
     assert _is_trace_exists(request_id_1)
     assert _is_trace_exists(request_id_2)
-
 
     deleted_count = mlflow_client.delete_traces(experiment_id, max_timestamp_millis=int(1e15))
     assert deleted_count == 2

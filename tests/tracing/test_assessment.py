@@ -539,7 +539,7 @@ def test_log_issue_with_run_id_and_span_id(tracking_uri):
             metadata={"category": "data", "priority": "high"},
             span_id=span.span_id,
         )
-
+    mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(span.trace_id)
     assert len(trace.info.assessments) == 1
     assessment = trace.info.assessments[0]
@@ -769,7 +769,7 @@ def test_search_traces_with_assessments():
             value=1.0,
         )
 
-    mlflow.flush_async_logging()
+    mlflow.flush_trace_async_logging()
 
     traces = mlflow.search_traces(
         locations=["0"],

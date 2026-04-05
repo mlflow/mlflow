@@ -591,7 +591,8 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
     assert any("Prompt linking failed" in msg for msg in warning_calls)
 
 
-def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
+def test_no_log_spans_to_artifacts_if_stored_in_tracking_store(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
     # Create a mock OTEL span and trace
     otel_span = create_mock_otel_span(
         name="root",

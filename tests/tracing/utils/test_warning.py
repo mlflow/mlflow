@@ -83,7 +83,7 @@ def test_request_id_backward_compatible():
     # Valid usage without request_id -> no warning
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-
+        mlflow.flush_trace_async_logging()
         trace = mlflow.get_trace(parent_span.trace_id)
 
         request_id_warnings = _filter_request_id_warnings(w)

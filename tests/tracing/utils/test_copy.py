@@ -91,6 +91,7 @@ def test_copy_trace_missing_metadata():
 
     # Should not raise an error, just skip metadata copying
     new_trace_id = copy_trace_to_experiment(trace_dict)
+    mlflow.flush_trace_async_logging()
 
     assert new_trace_id is not None
     trace = mlflow.get_trace(new_trace_id)
@@ -117,6 +118,7 @@ def test_copy_trace_empty_metadata_dict():
 
     # Should not raise an error
     new_trace_id = copy_trace_to_experiment(trace_dict)
+    mlflow.flush_trace_async_logging()
 
     assert new_trace_id is not None
     trace = mlflow.get_trace(new_trace_id)
