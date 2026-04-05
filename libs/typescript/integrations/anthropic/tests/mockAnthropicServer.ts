@@ -151,6 +151,112 @@ export function createStreamingErrorHandler() {
   });
 }
 
+export function createStreamingWithUnsupportedContentHandler() {
+  return http.post('https://api.anthropic.com/v1/messages', async ({ request }) => {
+    const body = (await request.json()) as MessagesCreateRequest;
+
+    if (body.stream) {
+      const messageId = `msg_${Math.random().toString(36).slice(2)}`;
+
+      const events = [
+        `event: message_start\ndata: ${JSON.stringify({
+          type: 'message_start',
+          message: {
+            id: messageId,
+            type: 'message',
+            role: 'assistant',
+            model: body.model,
+            content: [],
+            stop_reason: null,
+            stop_sequence: null,
+            usage: { input_tokens: 128, output_tokens: 0 },
+          },
+        })}\n\n`,
+        `event: content_block_start\ndata: ${JSON.stringify({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'thinking', thinking: '' },
+        })}\n\n`,
+        `event: content_block_delta\ndata: ${JSON.stringify({
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'thinking_delta', thinking: 'Let me think...' },
+        })}\n\n`,
+        `event: content_block_stop\ndata: ${JSON.stringify({
+          type: 'content_block_stop',
+          index: 0,
+        })}\n\n`,
+        `event: content_block_start\ndata: ${JSON.stringify({
+          type: 'content_block_start',
+          index: 1,
+          content_block: { type: 'redacted_thinking', data: 'base64signaturedata' },
+        })}\n\n`,
+        `event: content_block_stop\ndata: ${JSON.stringify({
+          type: 'content_block_stop',
+          index: 1,
+        })}\n\n`,
+        `event: content_block_start\ndata: ${JSON.stringify({
+          type: 'content_block_start',
+          index: 2,
+          content_block: { type: 'text', text: '' },
+        })}\n\n`,
+        `event: content_block_delta\ndata: ${JSON.stringify({
+          type: 'content_block_delta',
+          index: 2,
+          delta: { type: 'text_delta', text: 'Here is my response.' },
+        })}\n\n`,
+        `event: content_block_stop\ndata: ${JSON.stringify({
+          type: 'content_block_stop',
+          index: 2,
+        })}\n\n`,
+        `event: message_delta\ndata: ${JSON.stringify({
+          type: 'message_delta',
+          delta: { stop_reason: 'end_turn', stop_sequence: null },
+          usage: { output_tokens: 256 },
+        })}\n\n`,
+        `event: message_stop\ndata: ${JSON.stringify({
+          type: 'message_stop',
+        })}\n\n`,
+      ];
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          for (const event of events) {
+            controller.enqueue(encoder.encode(event));
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }
+          controller.close();
+        },
+      });
+
+      return new HttpResponse(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      });
+    }
+
+    // Non-streaming: return response with unsupported content blocks
+    return HttpResponse.json({
+      id: `msg_${Math.random().toString(36).slice(2)}`,
+      type: 'message',
+      role: 'assistant',
+      model: body.model,
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: { input_tokens: 128, output_tokens: 256, total_tokens: 384 },
+      content: [
+        { type: 'thinking', thinking: 'Let me think...' },
+        { type: 'redacted_thinking', data: 'base64signaturedata' },
+        { type: 'text', text: 'Here is my response.' },
+      ],
+    });
+  });
+}
+
 export const anthropicMockHandlers = [
   http.post('https://api.anthropic.com/v1/messages', async ({ request }) => {
     const body = (await request.json()) as MessagesCreateRequest;
