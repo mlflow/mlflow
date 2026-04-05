@@ -16,9 +16,13 @@ CHECKSUM="61002e5f5c4190e9a775bd9cf90e57fff3f0379fb2c8edc653ac0942a347babd"
 GCS_BUCKET="https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases"
 PLATFORM="linux-x64"
 
-curl -fsSL --retry 3 --retry-delay 2 "$GCS_BUCKET/$VERSION/$PLATFORM/claude" -o /tmp/claude
-echo "${CHECKSUM}  /tmp/claude" | sha256sum -c -
+tmp_claude="$(mktemp)"
+trap 'rm -f "$tmp_claude"' EXIT
+
+curl -fsSL --retry 3 --retry-delay 2 "$GCS_BUCKET/$VERSION/$PLATFORM/claude" -o "$tmp_claude"
+echo "${CHECKSUM}  $tmp_claude" | sha256sum -c -
 mkdir -p ~/.local/bin
-chmod +x /tmp/claude
-mv /tmp/claude ~/.local/bin/claude
+chmod +x "$tmp_claude"
+mv "$tmp_claude" ~/.local/bin/claude
+trap - EXIT
 echo "Installed Claude Code $VERSION"
