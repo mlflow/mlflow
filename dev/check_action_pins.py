@@ -150,17 +150,18 @@ def main() -> int:
     cache = _load_cache()
     all_errors: list[str] = []
     all_action_refs: list[ActionRef] = []
-    for path in _iter_files():
-        try:
-            for action_ref in _iter_actions(path):
-                if error := _check_action(action_ref, cache):
-                    all_errors.append(error)
-                else:
-                    all_action_refs.append(action_ref)
-        except OSError as e:
-            all_errors.append(f"{path}: cannot read file: {e}")
-
-    _save_cache(cache)
+    try:
+        for path in _iter_files():
+            try:
+                for action_ref in _iter_actions(path):
+                    if error := _check_action(action_ref, cache):
+                        all_errors.append(error)
+                    else:
+                        all_action_refs.append(action_ref)
+            except OSError as e:
+                all_errors.append(f"{path}: cannot read file: {e}")
+    finally:
+        _save_cache(cache)
     all_errors.extend(_check_version_consistency(all_action_refs))
 
     if all_errors:
