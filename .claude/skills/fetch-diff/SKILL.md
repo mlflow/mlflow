@@ -62,6 +62,16 @@ index abc123..def456 100644
 [Auto-generated file - diff masked]
 ```
 
+**Deleted file (masked):**
+
+```
+diff --git a/path/to/removed.py b/dev/null
+index abc123..0000000 100644
+--- a/path/to/removed.py
++++ /dev/null
+[Deleted file - diff masked]
+```
+
 Each line is annotated as `old_line new_line | <marker> content`:
 
 - `-` marker (left number only) -> deleted line, `side=LEFT`, `line=old_line`
