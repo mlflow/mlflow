@@ -1315,6 +1315,13 @@ try:
 except ImportError:
     pass
 
+# Add Qwen Code integration commands to the autolog group
+try:
+    import mlflow.qwen_code.cli
+
+    mlflow.claude_code.cli.commands.add_command(mlflow.qwen_code.cli.qwen_code)
+except (ImportError, AttributeError):
+    pass
 # Add Assistant CLI commands
 try:
     import mlflow.assistant.cli
