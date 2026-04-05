@@ -24,11 +24,15 @@ export function ensureInitialized(): boolean {
   }
 
   const experimentId = process.env.MLFLOW_EXPERIMENT_ID;
+  if (!experimentId) {
+    console.error('[mlflow] MLFLOW_EXPERIMENT_ID is not set');
+    return false;
+  }
 
   try {
     init({
       trackingUri,
-      experimentId: experimentId ?? undefined,
+      experimentId,
     });
     initialized = true;
     return true;
