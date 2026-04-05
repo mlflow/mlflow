@@ -2,8 +2,6 @@
 # Downloads the Claude Code binary directly from GCS with a pinned SHA256 checksum,
 # avoiding `curl | bash` which pipes an unverified script with access to CI secrets.
 # Ref: https://github.com/dagster-io/erk/blob/61ecee08754717959bb2f9cb6e7079df81ba80ea/.github/actions/setup-claude-code/action.yml
-#
-# Usage: .claude/scripts/install-claude.sh
 set -euo pipefail
 
 if [ "${CI:-}" != "true" ]; then
