@@ -1,6 +1,5 @@
 """Validate that all remote GitHub Actions are SHA-pinned with a version comment."""
 
-import glob
 import json
 import re
 import subprocess
@@ -66,11 +65,10 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
     repo = _repo_from_action(action)
     try:
         result = _resolve_tag(repo, sha, tag)
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return None
 
     cache[cache_key] = result
-    _save_cache(cache)
     return result
 
 
@@ -78,18 +76,20 @@ def _resolve_tag(repo: str, sha: str, tag: str) -> bool:
     output = subprocess.check_output(
         ["git", "ls-remote", "--tags", f"https://github.com/{repo}.git", tag],
         text=True,
+        timeout=10,
     )
     return any(line.split()[0] == sha for line in output.splitlines() if line)
 
 
 def _iter_files() -> Iterator[Path]:
+    root = Path(".github")
     for pattern in (
-        ".github/workflows/*.yml",
-        ".github/workflows/*.yaml",
-        ".github/actions/**/*.yml",
-        ".github/actions/**/*.yaml",
+        "workflows/*.yml",
+        "workflows/*.yaml",
+        "actions/**/*.yml",
+        "actions/**/*.yaml",
     ):
-        yield from map(Path, glob.glob(pattern, recursive=True))
+        yield from root.glob(pattern)
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +160,7 @@ def main() -> int:
         except OSError as e:
             all_errors.append(f"{path}: cannot read file: {e}")
 
+    _save_cache(cache)
     all_errors.extend(_check_version_consistency(all_action_refs))
 
     if all_errors:
