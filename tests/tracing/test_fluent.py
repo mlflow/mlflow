@@ -690,6 +690,7 @@ def test_start_span_context_manager(async_logging_enabled):
                     child_span.set_outputs(z)
                     child_span.set_attributes({"delta": 2, "time": datetime_now})
 
+                time.sleep(0.001)
                 res = self.square(z)
                 root_span.set_outputs(res)
             return res
@@ -732,19 +733,10 @@ def test_start_span_context_manager(async_logging_enabled):
         "mlflow.spanOutputs": 25,
     }
 
-    # Sort by spanType to get a deterministic order regardless of DB retrieval order.
-    # With async logging, spans may be returned in span_id (random hex) order when
-    # start_time_unix_nano values are identical (common on Windows due to ~1ms resolution).
-    child_spans = sorted(
-        [s for s in trace.data.spans if s.parent_id == root_span.span_id],
-        key=lambda s: s.attributes.get("mlflow.spanType"),
-    )
-    assert len(child_spans) == 2
-    llm_span, square_span = child_spans  # LLM < UNKNOWN alphabetically
-
-    assert llm_span.name == "child_span"
-    assert llm_span.parent_id == root_span.span_id
-    assert llm_span.attributes == {
+    child_span_1 = trace.data.spans[1]
+    assert child_span_1.name == "child_span"
+    assert child_span_1.parent_id == root_span.span_id
+    assert child_span_1.attributes == {
         "delta": 2,
         "time": str(datetime_now),
         "mlflow.traceRequestId": trace.info.trace_id,
@@ -753,15 +745,16 @@ def test_start_span_context_manager(async_logging_enabled):
         "mlflow.spanOutputs": 5,
     }
 
-    assert square_span.name == "child_span"
-    assert square_span.parent_id == root_span.span_id
-    assert square_span.attributes == {
+    child_span_2 = trace.data.spans[2]
+    assert child_span_2.name == "child_span"
+    assert child_span_2.parent_id == root_span.span_id
+    assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"t": 5},
         "mlflow.spanOutputs": 25,
     }
-    assert square_span.start_time_ns <= square_span.end_time_ns - 0.1 * 1e6
+    assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
 def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
