@@ -690,6 +690,8 @@ def test_start_span_context_manager(async_logging_enabled):
                     child_span.set_outputs(z)
                     child_span.set_attributes({"delta": 2, "time": datetime_now})
 
+                # Ensure different start_time_ns for the next span on Windows,
+                # where time.time_ns() resolution is ~1.6ms (see #8850).
                 time.sleep(0.001)
                 res = self.square(z)
                 root_span.set_outputs(res)
