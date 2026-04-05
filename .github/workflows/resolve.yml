@@ -166,7 +166,10 @@ jobs:
 
       - name: Install Claude CLI
         run: |
-          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.71
+          .claude/scripts/install-claude.sh
+      - name: Verify Claude CLI
+        run: |
+          claude --version
 
       - name: Run Claude resolve command
         id: claude-fix
