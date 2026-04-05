@@ -55,6 +55,13 @@ def setup_hooks_config(qwen_dir: Path) -> None:
     """Set up Qwen Code hooks for MLflow tracing in .qwen/settings.json."""
     settings_path = qwen_dir / QWEN_SETTINGS_FILE
     config = load_qwen_config(settings_path)
+
+    # Qwen Code requires hooksConfig.enabled=true to activate the hook system.
+    # Without this, hooks are silently ignored regardless of settings.
+    if "hooksConfig" not in config:
+        config["hooksConfig"] = {}
+    config["hooksConfig"]["enabled"] = True
+
     upsert_hook(config, "Stop", "stop-hook")
     save_qwen_config(settings_path, config)
 
