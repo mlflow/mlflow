@@ -380,6 +380,7 @@ function createLlmAndToolSpans(
         inputs: { model, messages },
         attributes: {
           model,
+          'mlflow.llm.model': model,
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
         },
       });
