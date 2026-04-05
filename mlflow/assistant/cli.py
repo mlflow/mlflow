@@ -37,7 +37,7 @@ class Spinner:
         self.thread.start()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *_):
         self.spinning = False
         if self.thread:
             self.thread.join()
@@ -464,8 +464,10 @@ def _install_skills(
         case "global":
             skill_path = provider.resolve_skills_path(Path.home())
         case "project":
+            assert project_path is not None
             skill_path = provider.resolve_skills_path(project_path)
         case "custom":
+            assert skills_config.custom_path is not None
             skill_path = Path(skills_config.custom_path).expanduser()
     if installed_skills := install_skills(skill_path):
         for skill in installed_skills:
