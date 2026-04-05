@@ -449,6 +449,7 @@ def test_update_config_partial_update_preserves_selected_provider(client):
 
 
 def test_list_ollama_models_returns_model_list(client):
+    pytest.importorskip("ollama")
     mock_model = MagicMock()
     mock_model.model = "llama3"
     mock_response = MagicMock()
@@ -474,6 +475,7 @@ def test_list_ollama_models_returns_412_when_not_installed(client):
 
 
 def test_list_ollama_models_returns_503_on_connection_failure(client):
+    pytest.importorskip("ollama")
     with patch("ollama.Client") as mock_client_cls:
         mock_client_cls.return_value.list.side_effect = Exception("Connection refused")
         response = client.get(
