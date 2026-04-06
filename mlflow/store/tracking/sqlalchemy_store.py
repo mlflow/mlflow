@@ -3298,18 +3298,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     _logger.debug(f"Failed to parse token usage metadata: {e}", exc_info=True)
 
             # Signal that start_trace() has written authoritative trace-level values so
-            # that concurrent log_spans() calls do not overwrite them. Covers TOKEN_USAGE,
-            # COST, session ID, request_time, and execution_duration. Only set when
-            # start_trace() provided actual metric data; if TOKEN_USAGE parsing failed and
-            # no other metrics are present, leave the flag unset so log_spans() can still
-            # accumulate a correct value from span attributes.
-            if (
-                trace_metrics
-                or TraceMetadataKey.COST in request_metadata
-                or TraceMetadataKey.TRACE_SESSION in request_metadata
-                or trace_info.request_time is not None
-            ):
-                request_metadata[TraceMetadataKey.TRACE_INFO_FINALIZED] = "true"
+            # that concurrent log_spans() calls do not overwrite them (request_time,
+            # execution_duration, session_id, TOKEN_USAGE, COST).
+            request_metadata[TraceMetadataKey.TRACE_INFO_FINALIZED] = "true"
 
             # The caller may not always specify a trace_id on each assessment when
             # exporting traces with assessments, so backfill it on the SQL entity.
