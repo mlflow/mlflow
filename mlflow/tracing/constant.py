@@ -13,8 +13,9 @@ class TraceMetadataKey:
     TOKEN_USAGE = "mlflow.trace.tokenUsage"
     # Set by start_trace() when it writes the authoritative (DFS-dedup) TOKEN_USAGE / COST
     # so that concurrent log_spans() calls do not accumulate on top of them.
-    TOKEN_USAGE_FINALIZED = "mlflow.trace.tokenUsageFinalized"
-    COST_FINALIZED = "mlflow.trace.costFinalized"
+    # Set by start_trace() after writing authoritative TOKEN_USAGE and COST values,
+    # so that concurrent log_spans() calls do not accumulate on top of them.
+    METRICS_FINALIZED = "mlflow.trace.metricsFinalized"
     # Aggregated cost information in a single trace, stored as a dumped JSON string (USD).
     COST = "mlflow.trace.cost"
     # Store the user ID/name of the application request. Do not confuse this with mlflow.user

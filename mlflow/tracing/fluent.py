@@ -802,6 +802,8 @@ def _flush_pending_async_trace_writes() -> None:
     2. The direct exporter flush handles the no-BSP path (MLFLOW_USE_BATCH_SPAN_PROCESSOR=false),
        where the processor is not in the registry but the exporter still has an async queue.
     """
+    # Lazy import to avoid circular dependency:
+    # base_mlflow imports _set_last_active_trace_id from this module.
     from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
 
     try:
