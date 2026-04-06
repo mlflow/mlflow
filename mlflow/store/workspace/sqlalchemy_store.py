@@ -96,6 +96,8 @@ class SqlAlchemyStore(AbstractStore):
                     name=workspace.name,
                     description=workspace.description,
                     default_artifact_root=workspace.default_artifact_root or None,
+                    trace_archival_location=workspace.trace_archival_location or None,
+                    trace_archival_retention=workspace.trace_archival_retention or None,
                 )
                 session.add(entity)
                 session.flush()
@@ -121,6 +123,10 @@ class SqlAlchemyStore(AbstractStore):
                 # If the default_artifact_root is an empty string, set it to None to "clear" the
                 # value
                 entity.default_artifact_root = workspace.default_artifact_root or None
+            if workspace.trace_archival_location is not None:
+                entity.trace_archival_location = workspace.trace_archival_location or None
+            if workspace.trace_archival_retention is not None:
+                entity.trace_archival_retention = workspace.trace_archival_retention or None
             session.flush()
 
             _logger.info("Updated workspace '%s'", workspace.name)

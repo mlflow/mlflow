@@ -146,6 +146,8 @@ CREATE TABLE workspaces (
 	name VARCHAR(63) NOT NULL,
 	description TEXT,
 	default_artifact_root TEXT,
+	trace_archival_location TEXT,
+	trace_archival_retention VARCHAR(32),
 	CONSTRAINT workspaces_pk PRIMARY KEY (name)
 )
 
