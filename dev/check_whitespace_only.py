@@ -16,7 +16,6 @@ from typing import cast
 BYPASS_LABEL = "allow-whitespace-only"
 
 _RETRY_ATTEMPTS = 3
-_RETRY_DELAYS = [1, 2, 4]
 
 
 def _is_retryable(exc: Exception) -> bool:
@@ -26,19 +25,15 @@ def _is_retryable(exc: Exception) -> bool:
 
 
 def _retry_urlopen(request: urllib.request.Request, timeout: int = 30) -> str:
-    last_exc: Exception | None = None
     for i in range(_RETRY_ATTEMPTS):
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 return cast(str, response.read().decode("utf-8"))
         except Exception as exc:
-            if not _is_retryable(exc):
+            if not _is_retryable(exc) or i == _RETRY_ATTEMPTS - 1:
                 raise
-            last_exc = exc
-            if i < _RETRY_ATTEMPTS - 1:
-                time.sleep(_RETRY_DELAYS[i])
-    assert last_exc is not None
-    raise last_exc
+            time.sleep(2**i)
+    raise AssertionError("unreachable")
 
 
 def github_api_request(url: str, accept: str) -> str:
