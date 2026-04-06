@@ -135,6 +135,10 @@
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
   },
+  "+yb3Nl": {
+    "defaultMessage": "Expand graph",
+    "description": "Tooltip for the button that expands the graph view"
+  },
   "/2InJv": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
@@ -1033,10 +1037,6 @@
   "53j9+9": {
     "defaultMessage": "Date created",
     "description": "Label for endpoint creation date"
-  },
-  "57rIQy": {
-    "defaultMessage": "Collapse graph",
-    "description": "Tooltip for the button that collapses the graph view to its default size"
   },
   "58/xE7": {
     "defaultMessage": "Output /1M",
@@ -2870,6 +2870,10 @@
     "defaultMessage": "Show diff only",
     "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
   },
+  "H/o0P2": {
+    "defaultMessage": "Zoom out",
+    "description": "Tooltip for the button that zooms out of the graph"
+  },
   "H0gTxe": {
     "defaultMessage": "Select a Provider",
     "description": "Modal title for provider selection"
@@ -4561,10 +4565,6 @@
     "defaultMessage": "Invalid structured output JSON",
     "description": "Validation error message for the structured output JSON schema field in the prompt creation modal"
   },
-  "SJciqt": {
-    "defaultMessage": "Scroll to zoom, drag background to pan, drag nodes to reposition",
-    "description": "Navigation hint for graph view"
-  },
   "SJk8DQ": {
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for pre-built LLM judge type filter option"
@@ -5943,10 +5943,6 @@
     "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
     "description": "Feature card summary for experiments"
   },
-  "ahnYpg": {
-    "defaultMessage": "Expand graph",
-    "description": "Tooltip for the button that expands the graph view to a larger size"
-  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -6014,10 +6010,6 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
-  },
-  "bNi9b/": {
-    "defaultMessage": "{count} {count, plural, one {node} other {nodes}}",
-    "description": "Count of workflow nodes displayed in graph view"
   },
   "bO0wxq": {
     "defaultMessage": "Advanced settings",
@@ -6470,6 +6462,10 @@
   "dzoxyA": {
     "defaultMessage": "Reject pending request",
     "description": "Title for a model version stage transition modal when rejecting a pending request"
+  },
+  "e09avc": {
+    "defaultMessage": "Zoom in",
+    "description": "Tooltip for the button that zooms in on the graph"
   },
   "e2AObB": {
     "defaultMessage": "Value",
@@ -7142,6 +7138,10 @@
   "i5mE0b": {
     "defaultMessage": "Execution",
     "description": "Issue category title for execution"
+  },
+  "i5yOgI": {
+    "defaultMessage": "Fit to view",
+    "description": "Tooltip for the button that fits the graph to the viewport"
   },
   "i7UTwK": {
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
@@ -9330,6 +9330,10 @@
   "wDyvFZ": {
     "defaultMessage": "Next",
     "description": "Next page button"
+  },
+  "wElRV+": {
+    "defaultMessage": "Collapse graph",
+    "description": "Tooltip for the button that collapses the graph view"
   },
   "wFaOf0": {
     "defaultMessage": "Source run ID",
