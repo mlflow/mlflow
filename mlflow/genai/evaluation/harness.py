@@ -483,9 +483,7 @@ class _ScoreSubmitter:
             self._times.append(time.monotonic() - start)
         return eval_result
 
-    def run_multi_turn(
-        self, multi_turn_assessments: dict[str, list[Feedback]], progress_bar
-    ) -> None:
+    def run_multi_turn(self, multi_turn_eval_results: dict[str, EvalResult], progress_bar) -> None:
         if not self._multi_turn_scorers or not self._session_groups:
             return
         futures = [
@@ -502,7 +500,7 @@ class _ScoreSubmitter:
         for future in as_completed(futures):
             eval_result = future.result()
             trace_id = eval_result.eval_item.trace.info.trace_id
-            multi_turn_assessments[trace_id] = eval_result.assessments
+            multi_turn_eval_results[trace_id] = eval_result
             if progress_bar:
                 progress_bar.update(1)
 
@@ -516,7 +514,7 @@ def _run_pipeline(
     session_groups: dict[str, list[EvalItem]],
     run_id: str | None,
     progress_bar,
-    multi_turn_assessments: dict[str, list[Feedback]],
+    multi_turn_eval_results: dict[str, EvalResult],
     experiment_id: str | None,
 ) -> tuple[list[float], list[float]]:
     """Run the predict→score pipeline and multi-turn scoring.
@@ -612,7 +610,7 @@ def _run_pipeline(
         # is provided (simulation mode), single-turn scoring creates the traces that
         # multi-turn scorers consume. The traces must exist before they can be grouped
         # into sessions, so the two phases cannot overlap.
-        scorer_submitter.run_multi_turn(multi_turn_assessments, progress_bar)
+        scorer_submitter.run_multi_turn(multi_turn_eval_results, progress_bar)
 
         return predictor.predict_times, scorer_submitter.score_times
     finally:
@@ -657,7 +655,7 @@ def run(
     )
 
     eval_results = [None] * len(eval_items)
-    multi_turn_assessments = {}
+    multi_turn_eval_results: dict[str, EvalResult] = {}
     scorer_stats: dict[str, ScorerStat] = {}
     predict_times: list[float] = []
     score_times: list[float] = []
@@ -672,7 +670,7 @@ def run(
             session_groups=session_groups,
             run_id=run_id,
             progress_bar=progress_bar,
-            multi_turn_assessments=multi_turn_assessments,
+            multi_turn_eval_results=multi_turn_eval_results,
             experiment_id=experiment_id,
         )
     finally:
@@ -694,8 +692,8 @@ def run(
         if result.eval_item.trace is None:
             continue
         trace_id = result.eval_item.trace.info.trace_id
-        if trace_id in multi_turn_assessments:
-            result.assessments.extend(multi_turn_assessments[trace_id])
+        if trace_id in multi_turn_eval_results:
+            result.assessments.extend(multi_turn_eval_results[trace_id].assessments)
 
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
@@ -708,12 +706,11 @@ def run(
     for result in eval_results:
         if result is not None:
             _merge_scorer_stats_dicts(scorer_stats, result.scorer_stats)
-    # Aggregate scorer stats from multi-turn results
-    for feedbacks in multi_turn_assessments.values():
-        for feedback in feedbacks:
-            if feedback.name not in scorer_stats:
-                scorer_stats[feedback.name] = ScorerStat()
-            scorer_stats[feedback.name].record_invocation(failed=feedback.error is not None)
+    # Aggregate scorer stats from multi-turn results.
+    # Use EvalResult.scorer_stats so that we count one invocation per scorer call/session
+    # rather than one per emitted feedback assessment.
+    for mt_result in multi_turn_eval_results.values():
+        _merge_scorer_stats_dicts(scorer_stats, mt_result.scorer_stats)
 
     # Check for scorer failures and log a summary warning
     _log_scorer_failure_summary(scorer_stats)
