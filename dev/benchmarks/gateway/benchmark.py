@@ -15,6 +15,7 @@ import math
 import statistics
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 import aiohttp
 from rich.console import Console  # type: ignore[import-not-found]
@@ -148,7 +149,7 @@ def run_benchmark(
     return results
 
 
-def results_to_dict(results: list[RunResult]) -> dict[str, object]:
+def results_to_dict(results: list[RunResult]) -> dict[str, Any]:
     runs = [
         {
             "n_success": r.n_success,
@@ -164,7 +165,7 @@ def results_to_dict(results: list[RunResult]) -> dict[str, object]:
         }
         for r in results
     ]
-    summary: dict[str, object] = (
+    summary: dict[str, Any] = (
         {
             "avg_mean_ms": round(
                 statistics.mean(
