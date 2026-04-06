@@ -467,12 +467,12 @@ For more details on workspace configuration and management, see the [Workspaces 
 
 ## Response Headers
 
-Every gateway response includes diagnostic headers that let you measure how much latency the gateway itself adds on top of the underlying provider call.
+Gateway responses include diagnostic headers that let you measure how much latency the gateway itself adds on top of the underlying provider call.
 
-| Header | Description |
-|--------|-------------|
-| `X-MLflow-Gateway-Duration-Ms` | Total time in milliseconds from when the gateway received the request to when it returned a response. For streaming endpoints this reflects time-to-first-stream (gateway setup time), not the total streaming duration. |
-| `X-MLflow-Gateway-Overhead-Duration-Ms` | Gateway-only processing time in milliseconds — the difference between total duration and the provider HTTP round-trip. Omitted when provider timing is unavailable (e.g. streaming responses). |
+| Header                                  | Description                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `X-MLflow-Gateway-Duration-Ms`          | Total time in milliseconds from when the gateway received the request to when it returned a response. For streaming endpoints, this reflects gateway setup/handling time before streaming begins (until the `StreamingResponse` is returned), not the total streaming duration or time until the first bytes are sent. |
+| `X-MLflow-Gateway-Overhead-Duration-Ms` | Gateway-only processing time in milliseconds — the difference between total duration and the provider HTTP round-trip. This header is omitted when provider timing is unavailable, including for streaming responses.                                                                                                  |
 
 ```python
 import requests
@@ -485,9 +485,14 @@ response = requests.post(
 total_ms = response.headers.get("X-MLflow-Gateway-Duration-Ms")
 overhead_ms = response.headers.get("X-MLflow-Gateway-Overhead-Duration-Ms")
 
-print(f"Total: {total_ms}ms")
-if overhead_ms:
-    print(f"Gateway overhead: {overhead_ms}ms, Provider: {int(total_ms) - int(overhead_ms)}ms")
+if total_ms is not None:
+    total_ms_value = float(total_ms)
+    print(f"Total: {total_ms_value:.0f}ms")
+
+    if overhead_ms is not None:
+        overhead_ms_value = float(overhead_ms)
+        provider_ms_value = total_ms_value - overhead_ms_value
+        print(f"Gateway overhead: {overhead_ms_value:.0f}ms, Provider: {provider_ms_value:.0f}ms")
 ```
 
 ## Using Gateway Endpoints with MLflow Judges
