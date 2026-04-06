@@ -342,6 +342,6 @@ def test_download_artifacts_nonexistent_raises_resource_does_not_exist(
     local_artifact_repo, tmp_path, dst_path_provided
 ):
     dst = str(tmp_path) if dst_path_provided else None
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(MlflowException, match="No such artifact") as exc_info:
         local_artifact_repo.download_artifacts("nonexistent.txt", dst_path=dst)
     assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
