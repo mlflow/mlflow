@@ -1,5 +1,6 @@
 import { Button, KeyIcon, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ApiKeysList } from '../components/api-keys/ApiKeysList';
@@ -71,7 +72,7 @@ const ApiKeysPage = () => {
   } = useApiKeysPage();
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div
         css={{
@@ -82,10 +83,21 @@ const ApiKeysPage = () => {
           borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         }}
       >
-        <Typography.Title level={3} css={{ margin: 0, display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <KeyIcon />
-          <FormattedMessage defaultMessage="API Keys" description="API Keys page title" />
-        </Typography.Title>
+        <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+          <div
+            css={{
+              borderRadius: theme.borders.borderRadiusSm,
+              backgroundColor: theme.colors.backgroundSecondary,
+              padding: theme.spacing.sm,
+              display: 'flex',
+            }}
+          >
+            <KeyIcon />
+          </div>
+          <Typography.Title withoutMargins level={2}>
+            <FormattedMessage defaultMessage="API Keys" description="API Keys page title" />
+          </Typography.Title>
+        </div>
         <Button
           componentId="mlflow.gateway.api-keys.create-button"
           type="primary"
@@ -154,7 +166,7 @@ const ApiKeysPage = () => {
         onClose={handleDeleteModalClose}
         onSuccess={handleDeleteSuccess}
       />
-    </div>
+    </ScrollablePageWrapper>
   );
 };
 

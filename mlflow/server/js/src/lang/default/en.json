@@ -1966,6 +1966,10 @@
     "defaultMessage": "Previous",
     "description": "Button text for previous trace"
   },
+  "Ai/ANo": {
+    "defaultMessage": "Usage",
+    "description": "Page title"
+  },
   "AoDwev": {
     "defaultMessage": "Description (optional)",
     "description": "Label for description field"
@@ -4753,10 +4757,6 @@
     "defaultMessage": "Retrieval Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval Groundedness: moderately grounded\""
   },
-  "TYidgr": {
-    "defaultMessage": "Gateway Usage",
-    "description": "Page title"
-  },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
     "description": "Evaluation review > evaluations list > sample info tooltip"
@@ -5878,10 +5878,6 @@
   "aQxQIF": {
     "defaultMessage": "(empty)",
     "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
-  },
-  "aRjFm8": {
-    "defaultMessage": "Monitor usage and performance across all endpoints",
-    "description": "Page subtitle"
   },
   "aSnHN9": {
     "defaultMessage": "Tool Call Efficiency",
@@ -8686,10 +8682,6 @@
   "rdrvCs": {
     "defaultMessage": "Created",
     "description": "Secret created label"
-  },
-  "retpTK": {
-    "defaultMessage": "API Keys",
-    "description": "Gateway side nav > API Keys tab"
   },
   "rgSaFx": {
     "defaultMessage": "Span type",

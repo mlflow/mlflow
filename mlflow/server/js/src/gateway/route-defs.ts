@@ -5,17 +5,17 @@ import { GatewayPageId, GatewayRoutePaths } from './routes';
 export const getGatewayRouteDefs = () => {
   return [
     {
+      path: GatewayRoutePaths.apiKeysPage,
+      element: createLazyRouteElement(() => import('./pages/ApiKeysPage')),
+      pageId: GatewayPageId.apiKeysPage,
+      handle: { getPageTitle: () => 'API Keys' } satisfies DocumentTitleHandle,
+    },
+    {
       path: GatewayRoutePaths.gatewayPage,
       element: createLazyRouteElement(() => import('./pages/GatewayPage')),
       pageId: GatewayPageId.gatewayPage,
       handle: { getPageTitle: () => 'AI Gateway' } satisfies DocumentTitleHandle,
       children: [
-        {
-          path: 'api-keys',
-          element: createLazyRouteElement(() => import('./pages/ApiKeysPage')),
-          pageId: GatewayPageId.apiKeysPage,
-          handle: { getPageTitle: () => 'API Keys' } satisfies DocumentTitleHandle,
-        },
         {
           path: 'usage',
           element: createLazyRouteElement(() => import('./pages/GatewayUsagePage')),
