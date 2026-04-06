@@ -153,9 +153,7 @@ describe('normalizeConversation', () => {
           { role: 'user', content: 'search the web' },
           {
             role: 'assistant',
-            content: [
-              { type: 'tool_use', id: 'toolu_1', name: 'ToolSearch', input: { query: 'WebSearch' } },
-            ],
+            content: [{ type: 'tool_use', id: 'toolu_1', name: 'ToolSearch', input: { query: 'WebSearch' } }],
           },
           {
             role: 'user',
@@ -188,9 +186,7 @@ describe('normalizeConversation', () => {
           { role: 'user', content: 'search for tools' },
           {
             role: 'assistant',
-            content: [
-              { type: 'tool_use', id: 'srvtoolu_01ABC', name: 'ToolSearch', input: { query: 'weather' } },
-            ],
+            content: [{ type: 'tool_use', id: 'srvtoolu_01ABC', name: 'ToolSearch', input: { query: 'weather' } }],
           },
           {
             role: 'user',
