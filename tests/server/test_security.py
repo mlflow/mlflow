@@ -359,3 +359,42 @@ def test_fastapi_cors_allows_configured_origin(monkeypatch: pytest.MonkeyPatch):
         headers={"Host": "localhost", "Origin": "http://evil.com"},
     )
     assert response.headers.get("access-control-allow-origin") is None
+
+# -----------------------------------------------------------------------
+# Tests for is_allowed_host_header port-stripping fix (issue #22095)
+# -----------------------------------------------------------------------
+
+def test_host_with_port_matches_bare_hostname():
+    """Host header with port should match bare hostname in allowed list."""
+    from mlflow.server.security_utils import is_allowed_host_header
+
+    allowed = ["mlflow-service.namespace.svc.cluster.local"]
+    assert is_allowed_host_header(allowed, "mlflow-service.namespace.svc.cluster.local:5000") is True
+
+
+def test_host_without_port_still_matches():
+    """Existing behaviour: bare hostname still matches."""
+    from mlflow.server.security_utils import is_allowed_host_header
+
+    assert is_allowed_host_header(["myhost.com"], "myhost.com") is True
+
+
+def test_host_with_port_wrong_hostname_rejected():
+    """Different hostname with port should still be rejected."""
+    from mlflow.server.security_utils import is_allowed_host_header
+
+    assert is_allowed_host_header(["myhost.com"], "otherhost.com:5000") is False
+
+
+def test_wildcard_pattern_matches_host_with_port():
+    """Wildcard patterns should match even when host includes a port."""
+    from mlflow.server.security_utils import is_allowed_host_header
+
+    assert is_allowed_host_header(["*.internal.com"], "app.internal.com:8080") is True
+
+
+def test_ipv6_host_with_port_matches():
+    """IPv6 address with port should match bare IPv6 in allowed list."""
+    from mlflow.server.security_utils import is_allowed_host_header
+
+    assert is_allowed_host_header(["[::1]"], "[::1]:5000") is True
