@@ -50,7 +50,7 @@ class Provider(str, Enum):
     PALM = "palm"
     GEMINI = "gemini"
     BEDROCK = "bedrock"
-    AMAZON_BEDROCK = "amazon-bedrock"
+    AMAZON_BEDROCK = "amazon-bedrock"  # an alias for bedrock
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
@@ -76,14 +76,12 @@ class Provider(str, Enum):
         return self.canonical() == other.canonical()
 
 
-# Maps alias Provider members to their canonical member.
-# This is the single source of truth for provider aliasing across the codebase.
-_PROVIDER_CANONICAL: dict[Provider, Provider] = {
-    Provider.AMAZON_BEDROCK: Provider.BEDROCK,
-}
+# Re-export so `from mlflow.gateway.config import PROVIDER_ALIASES` keeps working.
+from mlflow.utils.provider_filter import PROVIDER_ALIASES
 
-PROVIDER_ALIASES: dict[str, str] = {
-    alias.value: canonical.value for alias, canonical in _PROVIDER_CANONICAL.items()
+# Enum-level alias map, derived from the string-level PROVIDER_ALIASES.
+_PROVIDER_CANONICAL: dict[Provider, Provider] = {
+    Provider(alias): Provider(canonical) for alias, canonical in PROVIDER_ALIASES.items()
 }
 
 

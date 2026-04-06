@@ -202,39 +202,6 @@ def test_get_all_providers_with_allowed_filter(monkeypatch):
         assert "gemini" not in providers
 
 
-def test_get_all_providers_with_blocked_filter(monkeypatch):
-    with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
-        mock_model_cost.return_value = {
-            ("openai", "gpt-4o"): {"mode": "chat"},
-            ("anthropic", "claude-3-5-sonnet"): {"mode": "chat"},
-            ("gemini", "gemini-1.5-pro"): {"mode": "chat"},
-        }
-        monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "gemini")
-        providers = get_all_providers()
-        assert "openai" in providers
-        assert "anthropic" in providers
-        assert "gemini" not in providers
-
-
-def test_get_models_filters_blocked_providers(monkeypatch):
-    with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
-        mock_model_cost.return_value = {
-            ("openai", "gpt-4o"): {
-                "mode": "chat",
-                "supports_function_calling": True,
-            },
-            ("anthropic", "claude-3-5-sonnet"): {
-                "mode": "chat",
-                "supports_function_calling": True,
-            },
-        }
-        monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "anthropic")
-        models = get_models()
-        providers_in_result = {m["provider"] for m in models}
-        assert "openai" in providers_in_result
-        assert "anthropic" not in providers_in_result
-
-
 def test_get_models_filters_with_allowed_providers(monkeypatch):
     with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
         mock_model_cost.return_value = {
@@ -255,12 +222,6 @@ def test_get_models_filters_with_allowed_providers(monkeypatch):
         models = get_models()
         providers_in_result = {m["provider"] for m in models}
         assert providers_in_result == {"openai"}
-
-
-def test_get_provider_config_rejects_blocked_provider(monkeypatch):
-    monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "openai")
-    with pytest.raises(MlflowException, match="not allowed"):
-        get_provider_config_response("openai")
 
 
 def test_get_provider_config_rejects_provider_not_in_allowed_list(monkeypatch):

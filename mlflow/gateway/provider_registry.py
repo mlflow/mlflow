@@ -31,8 +31,7 @@ class ProviderRegistry:
         provider_str = _provider_key_to_str(name)
         if not is_provider_allowed(provider_str):
             _logger.info(
-                "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS "
-                "or MLFLOW_GATEWAY_BLOCKED_PROVIDERS",
+                "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",
                 provider_str,
             )
             raise MlflowException.invalid_parameter_value(

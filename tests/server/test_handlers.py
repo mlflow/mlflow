@@ -2869,16 +2869,6 @@ def test_list_providers_with_allowed_filter(monkeypatch):
         assert "bedrock" not in data["providers"]
 
 
-def test_list_providers_with_blocked_filter(monkeypatch):
-    monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "openai")
-    with app.test_client() as c:
-        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert "openai" not in data["providers"]
-        assert len(data["providers"]) > 0
-
-
 def test_list_models():
     with app.test_client() as c:
         response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models?provider=openai")
@@ -2935,15 +2925,6 @@ def test_get_provider_config_missing_provider():
     with app.test_client() as c:
         response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config")
         assert response.status_code == 400
-
-
-def test_get_provider_config_with_blocked_provider(monkeypatch):
-    monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "openai")
-    with app.test_client() as c:
-        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=openai")
-        assert response.status_code == 400
-        data = response.get_json()
-        assert "not allowed" in data["message"]
 
 
 def test_get_provider_config_with_allowed_filter(monkeypatch):

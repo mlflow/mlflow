@@ -27,7 +27,6 @@ from mlflow.gateway.config import (
     MistralConfig,
     OpenAIAPIType,
     OpenAIConfig,
-    Provider,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.anthropic import AnthropicProvider
@@ -106,12 +105,6 @@ def _make_model_config(provider="openai", model_name="gpt-4o"):
     )
 
 
-def test_build_endpoint_config_rejects_blocked_provider(monkeypatch):
-    monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "openai")
-    with pytest.raises(MlflowException, match="not allowed"):
-        _build_endpoint_config("test-ep", _make_model_config("openai"), EndpointType.LLM_V1_CHAT)
-
-
 def test_build_endpoint_config_rejects_provider_not_in_allowed_list(monkeypatch):
     monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "anthropic")
     with pytest.raises(MlflowException, match="not allowed"):
@@ -132,18 +125,6 @@ def test_build_endpoint_config_allows_provider_when_no_filter():
         "test-ep", _make_model_config("openai"), EndpointType.LLM_V1_CHAT
     )
     assert config.name == "test-ep"
-
-
-def test_build_endpoint_config_rejects_blocked_provider_enum(monkeypatch):
-    model_config = GatewayModelConfig(
-        model_definition_id="md-test",
-        provider=Provider.ANTHROPIC,
-        model_name="claude-3-5-sonnet",
-        secret_value={"api_key": "sk-test"},
-    )
-    monkeypatch.setenv("MLFLOW_GATEWAY_BLOCKED_PROVIDERS", "anthropic")
-    with pytest.raises(MlflowException, match="not allowed"):
-        _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
 
 
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):

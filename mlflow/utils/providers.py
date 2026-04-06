@@ -779,8 +779,7 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
 
     if not is_provider_allowed(provider):
         _logger.info(
-            "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS "
-            "or MLFLOW_GATEWAY_BLOCKED_PROVIDERS",
+            "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",
             provider,
         )
         raise MlflowException.invalid_parameter_value(
