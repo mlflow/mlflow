@@ -98,8 +98,18 @@ class InferenceTableSpanExporter(SpanExporter):
             _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
             _logger.debug(f"Added {trace.info.client_request_id} to TRACE_BUFFER")
 
-            # Export to MLflow backend if experiment ID is set
-            if MLFLOW_EXPERIMENT_ID.get():
+            # Export to MLflow backend if experiment ID is set, but only when there is no
+            # UC trace destination active. When a UCSchemaLocation/UnityCatalog destination
+            # is set, DatabricksUCTableSpanProcessor (which extends MlflowV3SpanExporter)
+            # already handles the MLflow backend export. Exporting here too would write the
+            # same trace to the same experiment twice.
+            from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
+            from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+            _uc_destination_active = isinstance(
+                _MLFLOW_TRACE_USER_DESTINATION.get(), (UCSchemaLocation, UnityCatalog)
+            )
+            if MLFLOW_EXPERIMENT_ID.get() and not _uc_destination_active:
                 if trace.info.experiment_id is None:
                     _logger.debug(
                         f"{MLFLOW_EXPERIMENT_ID.name} is set, but trace {trace.info.trace_id} "
