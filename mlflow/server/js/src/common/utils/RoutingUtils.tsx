@@ -97,8 +97,9 @@ const prefixRouteWithWorkspaceForTo = (to: To): To => {
   if (typeof to === 'object' && to !== null) {
     const pathname = 'pathname' in to ? to.pathname : undefined;
 
-    // Skip if workspaces not enabled or pathname not provided
-    if (!getWorkspacesEnabledSync() || typeof pathname !== 'string') {
+    // Keep workspace prefixing when an active workspace is already known, even
+    // if the async server feature flags have not resolved yet.
+    if ((!getWorkspacesEnabledSync() && !getActiveWorkspace()) || typeof pathname !== 'string') {
       return to;
     }
 
