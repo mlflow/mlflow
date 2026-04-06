@@ -22,7 +22,7 @@ on:
         required: false
         default: "200"
       max_concurrent:
-        description: "Max concurrent requests (blank = use per-backend default: 50 sqlite / 10 postgres)"
+        description: "Max concurrent requests (blank = use per-backend default: 10 for both)"
         required: false
         default: ""
       max_p50_ms:
