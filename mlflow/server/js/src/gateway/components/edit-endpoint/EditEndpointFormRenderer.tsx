@@ -36,9 +36,7 @@ import { TracesV3DateSelector } from '../../../experiment-tracking/components/ex
  * returns the first model's provider so the passthrough tab is shown.
  * Otherwise returns undefined so only the MLflow Chat Completions tab is shown.
  */
-export const getStarterCodeProvider = (
-  modelMappings: EndpointModelMapping[],
-): string | undefined => {
+export const getStarterCodeProvider = (modelMappings: EndpointModelMapping[]): string | undefined => {
   const normalized = new Set(
     modelMappings.map((m) => {
       const p = m.model_definition?.provider;
