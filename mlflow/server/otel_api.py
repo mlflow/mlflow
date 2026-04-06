@@ -108,7 +108,7 @@ async def export_traces(
     """
     # Validate Content-Type header. Normalize by stripping parameters like
     # charset (e.g., "application/json; charset=utf-8" → "application/json").
-    media_type = (content_type or "").split(";")[0].strip()
+    media_type = content_type.split(";")[0].strip() if content_type else None
     if media_type not in ("application/x-protobuf", "application/json"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

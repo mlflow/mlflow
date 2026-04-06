@@ -296,12 +296,12 @@ def test_invalid_content_type_returns_400(mlflow_server: str):
     request = ExportTraceServiceRequest()
     request.resource_spans.append(resource_spans)
 
-    # Send request with incorrect Content-Type
+    # Send request with unsupported Content-Type (application/json is now valid)
     response = requests.post(
         f"{mlflow_server}/v1/traces",
         data=request.SerializeToString(),
         headers={
-            "Content-Type": "application/json",  # Wrong content type
+            "Content-Type": "text/plain",
             MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
         },
         timeout=10,
