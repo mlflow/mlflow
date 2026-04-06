@@ -39,8 +39,8 @@ from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.providers.litellm import LiteLLMProvider
 from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
-from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.providers.utils import provider_call_duration_ms
+from mlflow.gateway.schemas import chat, embeddings
 from mlflow.server.fastapi_app import add_gateway_timing_middleware
 from mlflow.server.gateway_api import (
     _create_provider_from_endpoint_name,
