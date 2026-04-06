@@ -8,10 +8,37 @@ import argparse
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.request
 from typing import cast
 
 BYPASS_LABEL = "allow-whitespace-only"
+
+_RETRY_ATTEMPTS = 3
+_RETRY_DELAYS = [1, 2, 4]
+
+
+def _is_retryable(exc: Exception) -> bool:
+    if isinstance(exc, urllib.error.HTTPError):
+        return exc.code >= 500
+    return isinstance(exc, urllib.error.URLError)
+
+
+def _retry_urlopen(request: urllib.request.Request, timeout: int = 30) -> str:
+    last_exc: Exception | None = None
+    for i in range(_RETRY_ATTEMPTS):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return cast(str, response.read().decode("utf-8"))
+        except Exception as exc:
+            if not _is_retryable(exc):
+                raise
+            last_exc = exc
+            if i < _RETRY_ATTEMPTS - 1:
+                time.sleep(_RETRY_DELAYS[i])
+    assert last_exc is not None
+    raise last_exc
 
 
 def github_api_request(url: str, accept: str) -> str:
@@ -24,15 +51,13 @@ def github_api_request(url: str, accept: str) -> str:
         headers["Authorization"] = f"Bearer {github_token}"
 
     request = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return cast(str, response.read().decode("utf-8"))
+    return _retry_urlopen(request)
 
 
 def get_pr_diff(owner: str, repo: str, pull_number: int) -> str:
     url = f"https://github.com/{owner}/{repo}/pull/{pull_number}.diff"
     request = urllib.request.Request(url)
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return cast(str, response.read().decode("utf-8"))
+    return _retry_urlopen(request)
 
 
 def get_pr_labels(owner: str, repo: str, pull_number: int) -> list[str]:
