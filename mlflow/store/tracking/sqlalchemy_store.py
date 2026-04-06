@@ -3297,6 +3297,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 except Exception as e:
                     _logger.debug(f"Failed to parse token usage metadata: {e}", exc_info=True)
 
+            # Signal that start_trace() has written authoritative trace-level values so
+            # that concurrent log_spans() calls do not overwrite them (request_time,
+            # execution_duration, session_id, TOKEN_USAGE, COST).
+            request_metadata[TraceMetadataKey.TRACE_INFO_FINALIZED] = "true"
+
             # The caller may not always specify a trace_id on each assessment when
             # exporting traces with assessments, so backfill it on the SQL entity.
             sql_assessments = []
@@ -4699,30 +4704,32 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             ]
 
             existing_token_usage: dict[str, SqlTraceMetadata] = {}
-            if trace_ids_with_token_usage:
-                existing_token_usage = {
-                    r.request_id: r
-                    for r in session
-                    .query(SqlTraceMetadata)
-                    .filter(
-                        SqlTraceMetadata.request_id.in_(trace_ids_with_token_usage),
-                        SqlTraceMetadata.key == TraceMetadataKey.TOKEN_USAGE,
-                    )
-                    .all()
-                }
-
             existing_cost: dict[str, SqlTraceMetadata] = {}
-            if trace_ids_with_cost:
-                existing_cost = {
-                    r.request_id: r
-                    for r in session
+            # Traces where start_trace() has already written the authoritative values.
+            # log_spans() must not accumulate on top of those to avoid double-counting.
+            finalized_trace_ids: set[str] = set()
+            if trace_ids_with_token_usage or trace_ids_with_cost:
+                all_finalized_ids = list(set(trace_ids_with_token_usage) | set(trace_ids_with_cost))
+                rows = (
+                    session
                     .query(SqlTraceMetadata)
                     .filter(
-                        SqlTraceMetadata.request_id.in_(trace_ids_with_cost),
-                        SqlTraceMetadata.key == TraceMetadataKey.COST,
+                        SqlTraceMetadata.request_id.in_(all_finalized_ids),
+                        SqlTraceMetadata.key.in_([
+                            TraceMetadataKey.TOKEN_USAGE,
+                            TraceMetadataKey.TRACE_INFO_FINALIZED,
+                            TraceMetadataKey.COST,
+                        ]),
                     )
                     .all()
-                }
+                )
+                for row in rows:
+                    if row.key == TraceMetadataKey.TOKEN_USAGE:
+                        existing_token_usage[row.request_id] = row
+                    elif row.key == TraceMetadataKey.TRACE_INFO_FINALIZED:
+                        finalized_trace_ids.add(row.request_id)
+                    elif row.key == TraceMetadataKey.COST:
+                        existing_cost[row.request_id] = row
 
             existing_sessions: set[str] = set()
             if trace_ids_with_session:
@@ -4750,14 +4757,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # processes/threads without race conditions. The database performs the
                 # min/max comparisons atomically, ensuring the trace always reflects the
                 # earliest start and latest end times across all spans.
-                timestamp_update_expr = case(
-                    (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
-                    else_=SqlTraceInfo.timestamp_ms,
-                )
-                update_dict = {
-                    SqlTraceInfo.timestamp_ms: timestamp_update_expr,
-                }
-                if max_end_ms is not None:
+                # Skip if start_trace() has already written the authoritative timestamp
+                # and duration (indicated by TRACE_INFO_FINALIZED flag).
+                update_dict = {}
+                if trace_id not in finalized_trace_ids:
+                    timestamp_update_expr = case(
+                        (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
+                        else_=SqlTraceInfo.timestamp_ms,
+                    )
+                    update_dict[SqlTraceInfo.timestamp_ms] = timestamp_update_expr
+                if max_end_ms is not None and trace_id not in finalized_trace_ids:
                     update_dict[SqlTraceInfo.execution_time_ms] = (
                         case(
                             (
@@ -4783,42 +4792,56 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         self._update_trace_info_attributes(sql_trace_info, root_span_dict)
                     )
 
-                # Token usage metadata + store as trace metrics for aggregation queries
+                # Token usage metadata + store as trace metrics for aggregation queries.
+                # Skip only if start_trace() has already written the authoritative value
+                # (flag set AND an existing record is present). If the flag is set but no
+                # record exists yet (start_trace() lost the race or didn't include token
+                # usage), log_spans() must still write it to avoid data loss.
                 if aggregated_token_usage := agg.aggregated_token_usage:
                     existing_record = existing_token_usage.get(trace_id)
-                    trace_token_usage = update_token_usage(
-                        existing_record.value if existing_record else {},
-                        aggregated_token_usage,
-                    )
-                    session.merge(
-                        SqlTraceMetadata(
-                            request_id=trace_id,
-                            key=TraceMetadataKey.TOKEN_USAGE,
-                            value=json.dumps(trace_token_usage),
+                    if trace_id not in finalized_trace_ids or not existing_record:
+                        trace_token_usage = update_token_usage(
+                            existing_record.value if existing_record else {},
+                            aggregated_token_usage,
                         )
-                    )
-                    for key in TokenUsageKey.all_keys():
-                        if (value := trace_token_usage.get(key)) is not None:
-                            session.merge(
-                                SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
+                        session.merge(
+                            SqlTraceMetadata(
+                                request_id=trace_id,
+                                key=TraceMetadataKey.TOKEN_USAGE,
+                                value=json.dumps(trace_token_usage),
                             )
+                        )
+                        for key in TokenUsageKey.all_keys():
+                            if (value := trace_token_usage.get(key)) is not None:
+                                session.merge(
+                                    SqlTraceMetrics(
+                                        request_id=trace_id, key=key, value=float(value)
+                                    )
+                                )
 
-                # Cost metadata
+                # Cost metadata — skip only if start_trace() has already written the
+                # authoritative value (flag set AND existing record present). If the flag
+                # is set but no record exists, still write to avoid data loss.
                 if aggregated_cost := agg.aggregated_cost:
                     existing_record = existing_cost.get(trace_id)
-                    recorded_cost = update_cost(
-                        existing_record.value if existing_record else {}, aggregated_cost
-                    )
-                    session.merge(
-                        SqlTraceMetadata(
-                            request_id=trace_id,
-                            key=TraceMetadataKey.COST,
-                            value=json.dumps(recorded_cost),
+                    if trace_id not in finalized_trace_ids or not existing_record:
+                        recorded_cost = update_cost(
+                            existing_record.value if existing_record else {}, aggregated_cost
                         )
-                    )
+                        session.merge(
+                            SqlTraceMetadata(
+                                request_id=trace_id,
+                                key=TraceMetadataKey.COST,
+                                value=json.dumps(recorded_cost),
+                            )
+                        )
 
                 # Session ID metadata
-                if agg.session_id and trace_id not in existing_sessions:
+                if (
+                    agg.session_id
+                    and trace_id not in existing_sessions
+                    and trace_id not in finalized_trace_ids
+                ):
                     session.merge(
                         SqlTraceMetadata(
                             request_id=trace_id,
@@ -4847,14 +4870,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             )
                         )
 
-                self._trace_query(session, for_update_or_delete=True).filter(
-                    SqlTraceInfo.request_id == trace_id
-                ).update(
-                    update_dict,
-                    # Skip session synchronization for performance — we don't
-                    # use the ORM object afterward.
-                    synchronize_session=False,
-                )
+                if update_dict:
+                    self._trace_query(session, for_update_or_delete=True).filter(
+                        SqlTraceInfo.request_id == trace_id
+                    ).update(
+                        update_dict,
+                        # Skip session synchronization for performance — we don't
+                        # use the ORM object afterward.
+                        synchronize_session=False,
+                    )
                 # Mark that spans are stored in the tracking store DB (required for
                 # concurrent calls that create or update the trace info).
                 session.merge(

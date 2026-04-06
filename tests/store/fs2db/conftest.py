@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import warnings
@@ -18,15 +19,21 @@ def clients(
     source = tmp / "source"
     target_uri = f"sqlite:///{tmp / 'migrated.db'}"
 
-    subprocess.check_call([
-        sys.executable,
-        "-I",
-        "fs2db/src/generate_synthetic_data.py",
-        "--output",
-        source,
-        "--size",
-        "small",
-    ])
+    # Disable async trace logging in the subprocess so traces are written
+    # synchronously and immediately available for set_trace_tag calls.
+    env = {**os.environ, "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING": "false"}
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-I",
+            "fs2db/src/generate_synthetic_data.py",
+            "--output",
+            source,
+            "--size",
+            "small",
+        ],
+        env=env,
+    )
 
     migrate(Path(source), target_uri, progress=False)
 
