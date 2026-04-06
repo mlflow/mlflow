@@ -485,7 +485,7 @@ class TelemetryClient:
 
             # Send any pending records before flushing
             with self._batch_lock:
-                if self._pending_records and not self._is_stopped:
+                if self._pending_records and (self.config or self._is_databricks_uri()) and not self._is_stopped:
                     self._send_batch()
             # For non-terminating flush, just wait for queue to empty
             try:
