@@ -19,9 +19,15 @@ _RETRY_ATTEMPTS = 3
 
 
 def _is_retryable(exc: Exception) -> bool:
-    if isinstance(exc, urllib.error.HTTPError):
-        return exc.code >= 500
-    return isinstance(exc, urllib.error.URLError)
+    match exc:
+        case urllib.error.HTTPError(code=code) if code >= 500:
+            return True
+        case urllib.error.HTTPError():
+            return False
+        case urllib.error.URLError():
+            return True
+        case _:
+            return False
 
 
 def _retry_urlopen(request: urllib.request.Request, timeout: int = 30) -> str:
