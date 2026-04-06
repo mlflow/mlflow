@@ -15,6 +15,13 @@ def test_databricks_route():
     assert backend.provider is None
 
 
+def test_databricks_agentic_route():
+    backend = ScorerLLMClient("gpt-oss-120b")
+    assert backend.route == "databricks"
+    assert backend.is_native
+    assert backend.model_name == "gpt-oss-120b"
+
+
 def test_endpoints_route():
     backend = ScorerLLMClient("endpoints:/my-endpoint")
     assert backend.route == "endpoints"
@@ -145,7 +152,8 @@ def test_complete_with_dict_response_format(monkeypatch):
     assert mock_call.call_args.kwargs["response_format"] is pre_converted
 
 
-def test_complete_with_retry():
+def test_complete_with_retry(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     call_count = 0
 
     def mock_dispatch_side_effect(*args, **kwargs):
@@ -159,26 +167,23 @@ def test_complete_with_retry():
         "mlflow.genai.scorers.llm_backend._call_llm_provider_api",
         side_effect=mock_dispatch_side_effect,
     ):
-        monkeypatch_env = pytest.MonkeyPatch()
-        monkeypatch_env.setenv("OPENAI_API_KEY", "test-key")
         backend = ScorerLLMClient("openai:/gpt-4")
         response = backend.complete(
             [{"role": "user", "content": "test"}],
             num_retries=1,
         )
-        monkeypatch_env.undo()
 
     assert response == "success"
     assert call_count == 2
 
 
-def test_complete_retry_exhausted():
+def test_complete_retry_exhausted(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
     with patch(
         "mlflow.genai.scorers.llm_backend._call_llm_provider_api",
         side_effect=MlflowException("persistent error"),
     ):
-        monkeypatch_env = pytest.MonkeyPatch()
-        monkeypatch_env.setenv("OPENAI_API_KEY", "test-key")
         backend = ScorerLLMClient("openai:/gpt-4")
 
         with pytest.raises(MlflowException, match="persistent error"):
@@ -186,7 +191,6 @@ def test_complete_retry_exhausted():
                 [{"role": "user", "content": "test"}],
                 num_retries=1,
             )
-        monkeypatch_env.undo()
 
 
 def test_complete_litellm_fallback():

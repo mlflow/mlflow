@@ -18,7 +18,10 @@ from typing import Any, Literal
 import pydantic
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.judges.constants import (
+    _DATABRICKS_AGENTIC_JUDGE_MODEL,
+    _DATABRICKS_DEFAULT_JUDGE_MODEL,
+)
 from mlflow.metrics.genai.model_utils import (
     _call_llm_provider_api,
     _get_provider_instance,
@@ -28,12 +31,14 @@ from mlflow.metrics.genai.model_utils import (
 
 _logger = logging.getLogger(__name__)
 
+_DATABRICKS_MODEL_URIS = {_DATABRICKS_DEFAULT_JUDGE_MODEL, _DATABRICKS_AGENTIC_JUDGE_MODEL}
+
 
 class ScorerLLMClient:
     """LLM client for scorers and simulator that routes model URIs to the best available path.
 
     Routing:
-        1. ``"databricks"`` -> Databricks managed judge
+        1. ``"databricks"`` or ``"gpt-oss-120b"`` -> Databricks managed judge
         2. ``"endpoints:/..."`` -> MLflow deployments API
         3. Providers constructable by ``_get_provider_instance`` -> native gateway
         4. All others -> litellm fallback
@@ -45,7 +50,7 @@ class ScorerLLMClient:
     def __init__(self, model_uri: str):
         self._model_uri = model_uri
 
-        if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        if model_uri in _DATABRICKS_MODEL_URIS:
             self._route = "databricks"
             self._provider = None
             self._model_name = None
@@ -65,7 +70,7 @@ class ScorerLLMClient:
     @property
     def model_name(self) -> str:
         if self._route == "databricks":
-            return _DATABRICKS_DEFAULT_JUDGE_MODEL
+            return self._model_uri
         return f"{self._provider}/{self._model_name}"
 
     @property
@@ -101,14 +106,25 @@ class ScorerLLMClient:
             response_format: Optional Pydantic model class or pre-converted
                 dict for structured output.
             num_retries: Number of retries on transient failures (default 0).
+                For the litellm path, this is passed as ``max_retries`` to
+                ``litellm.completion()`` which handles its own transient errors
+                (rate limits, timeouts). For other paths, retries are handled
+                by this method's retry loop on ``MlflowException``.
             kwargs: Additional parameters passed to the LLM (e.g. temperature).
 
         Returns:
             The model's response content as a string.
         """
+        # Note: exponential backoff starts at 1s (2^0), 2s, 4s, etc.
+        # If retry counts grow significantly, consider adding a cap or jitter.
         for attempt in range(num_retries + 1):
             try:
-                return self._dispatch(messages, response_format=response_format, **kwargs)
+                return self._dispatch(
+                    messages,
+                    response_format=response_format,
+                    num_retries=num_retries,
+                    **kwargs,
+                )
             except MlflowException:
                 if attempt >= num_retries:
                     raise
@@ -138,23 +154,32 @@ class ScorerLLMClient:
         self,
         messages: list[dict[str, str]],
         *,
-        response_format: type[pydantic.BaseModel] | None = None,
+        response_format: type[pydantic.BaseModel] | dict[str, Any] | None = None,
+        num_retries: int = 0,
         **kwargs: Any,
     ) -> str:
-        if self._route == "databricks":
-            return self._complete_databricks(messages)
-        elif self._route == "endpoints":
-            return self._complete_endpoints(messages, response_format=response_format, **kwargs)
-        elif self._route == "native":
-            return self._complete_native(messages, response_format=response_format, **kwargs)
-        else:
-            return self._complete_litellm(messages, response_format=response_format, **kwargs)
+        match self._route:
+            case "databricks":
+                return self._complete_databricks(messages)
+            case "endpoints":
+                return self._complete_endpoints(messages, response_format=response_format, **kwargs)
+            case "native":
+                return self._complete_native(messages, response_format=response_format, **kwargs)
+            case _:
+                return self._complete_litellm(
+                    messages,
+                    response_format=response_format,
+                    num_retries=num_retries,
+                    **kwargs,
+                )
 
     def _complete_databricks(self, messages: list[dict[str, str]]) -> str:
         from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
             call_chat_completions,
         )
 
+        # Databricks managed judge only supports a single user prompt + optional
+        # system prompt. Middle messages (e.g. multi-turn conversation) are dropped.
         user_prompt = messages[-1]["content"] if messages else ""
         system_prompt = ""
         if len(messages) > 1 and messages[0]["role"] == "system":
@@ -166,7 +191,7 @@ class ScorerLLMClient:
         self,
         messages: list[dict[str, str]],
         *,
-        response_format: type[pydantic.BaseModel] | None = None,
+        response_format: type[pydantic.BaseModel] | dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> str:
         response_format_dict = self._convert_response_format(response_format)
@@ -189,7 +214,7 @@ class ScorerLLMClient:
         self,
         messages: list[dict[str, str]],
         *,
-        response_format: type[pydantic.BaseModel] | None = None,
+        response_format: type[pydantic.BaseModel] | dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> str:
         response_format_dict = self._convert_response_format(response_format)
@@ -205,7 +230,8 @@ class ScorerLLMClient:
         self,
         messages: list[dict[str, str]],
         *,
-        response_format: type[pydantic.BaseModel] | None = None,
+        response_format: type[pydantic.BaseModel] | dict[str, Any] | None = None,
+        num_retries: int = 0,
         **kwargs: Any,
     ) -> str:
         try:
@@ -220,6 +246,7 @@ class ScorerLLMClient:
             "model": f"{self._provider}/{self._model_name}",
             "messages": messages,
             "drop_params": True,
+            "max_retries": num_retries,
             **kwargs,
         }
         if response_format is not None:
@@ -232,6 +259,12 @@ class ScorerLLMClient:
     def _convert_response_format(
         response_format: type[pydantic.BaseModel] | dict[str, Any] | None,
     ) -> dict[str, Any] | None:
+        """Convert response_format to dict form for provider APIs.
+
+        Accepts either a Pydantic model class (converted via pydantic_to_response_format)
+        or a pre-converted dict (passed through as-is). This allows callers like TruLens
+        to pre-convert and pass the dict directly without double-conversion.
+        """
         if response_format is None:
             return None
         if isinstance(response_format, dict):
