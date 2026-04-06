@@ -854,6 +854,10 @@
     "defaultMessage": "Run Analysis",
     "description": "Submit button to trigger issue detection job"
   },
+  "3v2Y8K": {
+    "defaultMessage": "AI Gateway",
+    "description": "Shared label for AI Gateway used in sidebar and breadcrumbs"
+  },
   "3vS6G9": {
     "defaultMessage": "{count, plural, one {# trace was} other {# traces were}} removed",
     "description": "Success message after deleting sessions - trace count"
@@ -1053,6 +1057,10 @@
   "5N1yG6": {
     "defaultMessage": "Datasets",
     "description": "Label for the datasets tab in the MLflow experiment navbar"
+  },
+  "5P59Ey": {
+    "defaultMessage": "New",
+    "description": "Sidebar > AI Gateway > New feature tag"
   },
   "5PlfiT": {
     "defaultMessage": "This request exceeds the maximum queries per second limit. Please wait and try again.",
@@ -1797,10 +1805,6 @@
   "9qUuQ6": {
     "defaultMessage": "Average of {count} values",
     "description": "Tooltip for numeric assessment average in session header"
-  },
-  "9tCd/m": {
-    "defaultMessage": "AI Gateway",
-    "description": "Header title for the AI Gateway configuration page"
   },
   "9ut1Fj": {
     "defaultMessage": "Create",
