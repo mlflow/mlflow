@@ -15,15 +15,13 @@ from typing import cast
 
 BYPASS_LABEL = "allow-whitespace-only"
 
-_RETRY_ATTEMPTS = 3
+_MAX_ATTEMPTS = 3
 
 
 def _is_retryable(exc: Exception) -> bool:
     match exc:
-        case urllib.error.HTTPError(code=code) if code >= 500:
-            return True
-        case urllib.error.HTTPError():
-            return False
+        case urllib.error.HTTPError(code=code):
+            return code >= 500
         case urllib.error.URLError():
             return True
         case _:
@@ -31,15 +29,15 @@ def _is_retryable(exc: Exception) -> bool:
 
 
 def _retry_urlopen(request: urllib.request.Request, timeout: int = 30) -> str:
-    for i in range(_RETRY_ATTEMPTS):
+    for i in range(_MAX_ATTEMPTS):
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 return cast(str, response.read().decode("utf-8"))
         except Exception as exc:
-            if not _is_retryable(exc) or i == _RETRY_ATTEMPTS - 1:
+            if not _is_retryable(exc) or i == _MAX_ATTEMPTS - 1:
                 raise
             time.sleep(2**i)
-    raise AssertionError("unreachable")
+    raise RuntimeError("unreachable")
 
 
 def github_api_request(url: str, accept: str) -> str:
