@@ -143,18 +143,28 @@ class TelemetryClient:
     def __exit__(self, exc_type, exc_value, traceback):
         self._clean_up()
 
+    def _is_databricks_uri(self) -> bool:
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+
+        try:
+            uri = get_tracking_uri()
+            return any(uri.startswith(s) for s in ("databricks", "uc"))
+        except Exception:
+            return False
+
     def _fetch_config(self):
         def _fetch():
             try:
                 self._get_config()
-                if self.config is None:
+                if self.config is None and not self._is_databricks_uri():
                     self._is_stopped = True
                     _set_telemetry_client(None)
                 self._is_config_fetched = True
             except Exception:
-                self._is_stopped = True
+                if not self._is_databricks_uri():
+                    self._is_stopped = True
+                    _set_telemetry_client(None)
                 self._is_config_fetched = True
-                _set_telemetry_client(None)
 
         self._config_thread = threading.Thread(
             target=_fetch,
@@ -387,8 +397,13 @@ class TelemetryClient:
             self._process_records(records)
             self._queue.task_done()
 
-        # clear the queue if config is None
-        while self.config is None and not self._queue.empty():
+        # clear the queue if config is None and not on Databricks path
+        is_databricks = self.info.get("tracking_uri_scheme") in (
+            "databricks",
+            "databricks-uc",
+            "uc",
+        )
+        while self.config is None and not is_databricks and not self._queue.empty():
             try:
                 self._queue.get_nowait()
                 self._queue.task_done()
@@ -470,7 +485,7 @@ class TelemetryClient:
 
             # Send any pending records before flushing
             with self._batch_lock:
-                if self._pending_records and self.config and not self._is_stopped:
+                if self._pending_records and not self._is_stopped:
                     self._send_batch()
             # For non-terminating flush, just wait for queue to empty
             try:
