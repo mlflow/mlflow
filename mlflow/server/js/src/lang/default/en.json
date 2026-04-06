@@ -127,6 +127,10 @@
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
   },
+  "+n4BXZ": {
+    "defaultMessage": "Fallback",
+    "description": "Gateway > Endpoint details > Label on connector between fallback model sections"
+  },
   "+tURAJ": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling evaluation"
@@ -5495,10 +5499,6 @@
     "defaultMessage": "Download artifact",
     "description": "Link to download the artifact of the experiment"
   },
-  "YAt9oL": {
-    "defaultMessage": "Fallback",
-    "description": "Gateway > Endpoint details > Label on connector between fallback model items"
-  },
   "YECxws": {
     "defaultMessage": "Compare",
     "description": "Label for the compare experiments action on the experiments list page"
@@ -7754,10 +7754,6 @@
   "ls3868": {
     "defaultMessage": "Guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guidelines: moderate\""
-  },
-  "ltjAxR": {
-    "defaultMessage": "Fallback",
-    "description": "Gateway > Endpoint details > Label on the connector between primary and fallback model sections"
   },
   "ltqNpe": {
     "defaultMessage": "Creation time",

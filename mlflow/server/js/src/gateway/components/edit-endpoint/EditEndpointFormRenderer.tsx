@@ -20,6 +20,7 @@ import { GatewayLabel } from '../../../common/components/GatewayNewTag';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
+import { FallbackConnectorLine } from './FallbackConnectorLine';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { StarterCodeCard } from './StarterCodeCard';
 import { EditableEndpointName } from './EditableEndpointName';
@@ -335,44 +336,7 @@ export const EditEndpointFormRenderer = ({
                   </div>
 
                   {/* Vertical connector with optional "Fallback" label */}
-                  <div
-                    css={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <div
-                      css={{
-                        width: 2,
-                        height: theme.spacing.md,
-                        backgroundColor: theme.colors.border,
-                      }}
-                    />
-                    {form.watch('fallbackModels').length > 0 && (
-                      <>
-                        <Typography.Text
-                          color="secondary"
-                          css={{
-                            padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-                            fontSize: theme.typography.fontSizeSm,
-                          }}
-                        >
-                          <FormattedMessage
-                            defaultMessage="Fallback"
-                            description="Gateway > Endpoint details > Label on the connector between primary and fallback model sections"
-                          />
-                        </Typography.Text>
-                        <div
-                          css={{
-                            width: 2,
-                            height: theme.spacing.md,
-                            backgroundColor: theme.colors.border,
-                          }}
-                        />
-                      </>
-                    )}
-                  </div>
+                  <FallbackConnectorLine showLabel={form.watch('fallbackModels').length > 0} />
 
                   {/* Fallback section */}
                   <Controller
