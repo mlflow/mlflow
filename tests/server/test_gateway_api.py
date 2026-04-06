@@ -40,6 +40,7 @@ from mlflow.gateway.providers.litellm import LiteLLMProvider
 from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, embeddings
+from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.server.fastapi_app import add_gateway_timing_middleware
 from mlflow.server.gateway_api import (
     _create_provider_from_endpoint_name,
@@ -977,8 +978,6 @@ def test_response_timing_headers(store: SqlAlchemyStore):
         endpoint_id="test-endpoint-id", endpoint_name="my-endpoint", models=[]
     )
 
-    from mlflow.gateway.providers.utils import provider_call_duration_ms
-
     async def _mock_chat_with_provider_timing(payload):
         # Simulate a real provider call by setting the ContextVar as send_request would.
         provider_call_duration_ms.set(50.0)
@@ -1070,8 +1069,6 @@ def test_response_timing_headers_error(store: SqlAlchemyStore):
     mock_endpoint_config = GatewayEndpointConfig(
         endpoint_id="test-endpoint-id", endpoint_name="my-error-endpoint", models=[]
     )
-
-    from mlflow.gateway.providers.utils import provider_call_duration_ms
 
     async def _mock_chat_raises(payload):
         provider_call_duration_ms.set(30.0)
