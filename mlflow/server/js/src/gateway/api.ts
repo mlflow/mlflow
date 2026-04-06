@@ -454,4 +454,9 @@ export const GatewayApi = {
       error: defaultErrorHandler,
     }) as Promise<UpdateEndpointGuardrailConfigResponse>;
   },
+
+  // Stub — test endpoint not yet available in the backend
+  testGuardrail: (_request: Record<string, unknown>) => {
+    return Promise.reject(new Error('Guardrail testing is not yet available in this version.'));
+  },
 };
