@@ -18,6 +18,12 @@ MODEL_CHILD_TABLES = [
     "registered_model_aliases",
 ]
 
+# Tables that carry a workspace column but belong to non-model root resources.
+# They must also be migrated explicitly during workspace operations.
+OTHER_WORKSPACE_CHILD_TABLES = [
+    "guardrail_configs",
+]
+
 
 _NOT_ENABLED_MSG = (
     "Aborted: the database does not have workspaces enabled. This command "

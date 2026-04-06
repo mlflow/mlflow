@@ -363,10 +363,20 @@ type ModelTraceAudioContentPart = {
   input_audio: ModelTraceInputAudio;
 };
 
+type ModelTraceAnthropicImageContentPart = {
+  type: 'image';
+  source: {
+    type: 'base64';
+    media_type: string;
+    data: string;
+  };
+};
+
 export type ModelTraceContentParts =
   | ModelTraceTextContentPart
   | ModelTraceImageContentPart
-  | ModelTraceAudioContentPart;
+  | ModelTraceAudioContentPart
+  | ModelTraceAnthropicImageContentPart;
 
 export type ModelTraceContentType = string | ModelTraceContentParts[];
 

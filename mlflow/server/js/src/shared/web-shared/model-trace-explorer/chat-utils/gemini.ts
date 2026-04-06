@@ -245,11 +245,14 @@ const processGeminiContentParts = (
       }
     } else if (isGeminiInlineDataPart(part)) {
       const { mime_type } = part.inline_data;
-      const data = cleanBase64Data(part.inline_data.data);
+      const rawData = part.inline_data.data;
+      // If data is an mlflow-attachment:// URI (from auto-extraction), use it directly
+      const isAttachment = rawData.startsWith('mlflow-attachment://');
+      const data = isAttachment ? rawData : cleanBase64Data(rawData);
       if (mime_type.startsWith('image/')) {
         textParts.push({
           type: 'image_url',
-          image_url: { url: `data:${mime_type};base64,${data}` },
+          image_url: { url: isAttachment ? data : `data:${mime_type};base64,${data}` },
         });
       } else if (mime_type.startsWith('audio/')) {
         const format = getAudioFormat(mime_type);

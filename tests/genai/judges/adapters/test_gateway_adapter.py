@@ -797,6 +797,88 @@ def test_response_format_fallback():
     assert json.loads(output.response) == {"result": "yes"}
 
 
+def test_response_format_capability_cached_globally():
+    from mlflow.genai.judges.adapters.gateway_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+
+    class TestSchema(pydantic.BaseModel):
+        result: str = pydantic.Field(description="test")
+
+    cache_key = "openai/gpt-4-test-cache"
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.pop(cache_key, None)
+
+    final_response = _chat_response(json.dumps({"result": "yes"}))
+
+    call_count = 0
+
+    def mock_send_side_effect(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise ChatCompletionError(
+                status_code=400,
+                message="response_format is not supported",
+            )
+        return final_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=mock_send_side_effect,
+        ),
+    ):
+        # First call: fails with response_format, retries without, caches
+        GatewayAdapter()._invoke_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4-test-cache",
+            messages=[ChatMessage(role="user", content="test")],
+            trace=None,
+            num_retries=3,
+            response_format=TestSchema,
+        )
+
+    assert cache_key in _MODEL_RESPONSE_FORMAT_CAPABILITIES
+    assert _MODEL_RESPONSE_FORMAT_CAPABILITIES[cache_key] is False
+
+    # Second call: should skip response_format without hitting an error
+    call_count = 0
+
+    def mock_send_no_error(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        return final_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=mock_send_no_error,
+        ) as mock_send,
+    ):
+        GatewayAdapter()._invoke_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4-test-cache",
+            messages=[ChatMessage(role="user", content="test")],
+            trace=None,
+            num_retries=3,
+            response_format=TestSchema,
+        )
+
+    # Should succeed on first try (no error), meaning response_format was skipped
+    assert call_count == 1
+    payload = mock_send.call_args.kwargs["payload"]
+    assert "response_format" not in payload
+
+    # Cleanup
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.pop(cache_key, None)
+
+
 def test_custom_base_url_overrides_provider():
     response_json = _chat_response(json.dumps({"result": "yes"}))
 
@@ -826,38 +908,22 @@ def test_custom_base_url_overrides_provider():
 # --- _get_max_context_tokens tests ---
 
 
-def test_lookup_with_provider_prefix():
-    mock_cost = {"openai/gpt-4": {"max_input_tokens": 128000}}
+def test_lookup_with_provider():
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost
-    ):
+        "mlflow.genai.judges.adapters.gateway_adapter._lookup_model_info",
+        return_value={"max_input_tokens": 128000},
+    ) as mock_lookup:
         assert _get_max_context_tokens("openai", "gpt-4") == 128000
-
-
-def test_lookup_without_provider_prefix():
-    mock_cost = {"gpt-4": {"max_input_tokens": 8192}}
-    with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost
-    ):
-        assert _get_max_context_tokens("openai", "gpt-4") == 8192
+        mock_lookup.assert_called_once_with("gpt-4", custom_llm_provider="openai")
 
 
 def test_lookup_missing_model():
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value={}
-    ):
+        "mlflow.genai.judges.adapters.gateway_adapter._lookup_model_info",
+        return_value=None,
+    ) as mock_lookup:
         assert _get_max_context_tokens("openai", "unknown-model") is None
-
-
-def test_provider_prefix_takes_priority():
-    mock_cost = {
-        "openai/gpt-4": {"max_input_tokens": 128000},
-        "gpt-4": {"max_input_tokens": 8192},
-    }
-    with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost
-    ):
-        assert _get_max_context_tokens("openai", "gpt-4") == 128000
+        mock_lookup.assert_called_once_with("unknown-model", custom_llm_provider="openai")
 
 
 # --- _should_proactively_prune tests ---
