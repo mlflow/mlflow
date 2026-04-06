@@ -142,6 +142,7 @@ from mlflow.protos.prompt_optimization_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    AddGuardrailToEndpoint,
     AttachModelToGatewayEndpoint,
     BatchGetTraceInfos,
     BatchGetTraces,
@@ -153,6 +154,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
+    CreateGatewayGuardrail,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
@@ -169,6 +171,7 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
+    DeleteGatewayGuardrail,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -193,6 +196,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     GetGatewayBudgetPolicy,
     GetGatewayEndpoint,
+    GetGatewayGuardrail,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
     GetLoggedModel,
@@ -208,10 +212,12 @@ from mlflow.protos.service_pb2 import (
     LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
+    ListEndpointGuardrailConfigs,
     ListGatewayBudgetPolicies,
     ListGatewayBudgetWindows,
     ListGatewayEndpointBindings,
     ListGatewayEndpoints,
+    ListGatewayGuardrails,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
     ListLoggedModelArtifacts,
@@ -229,6 +235,7 @@ from mlflow.protos.service_pb2 import (
     QueryTraceMetrics,
     RegisterScorer,
     RemoveDatasetFromExperiments,
+    RemoveGuardrailFromEndpoint,
     RestoreExperiment,
     RestoreRun,
     SearchDatasets,
@@ -249,6 +256,7 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
+    UpdateEndpointGuardrailConfig,
     UpdateExperiment,
     UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
@@ -5561,6 +5569,172 @@ def _list_budget_windows():
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_gateway_guardrail():
+    request_message = _get_request_message(
+        CreateGatewayGuardrail(),
+        schema={
+            "name": [_assert_required, _assert_string],
+            "scorer_id": [_assert_required, _assert_string],
+            "scorer_version": [_assert_required, _assert_intlike],
+            "stage": [_assert_required],
+            "action": [_assert_required],
+            "action_endpoint_id": [_assert_string],
+        },
+    )
+    from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
+
+    stage = GuardrailStage.from_proto(request_message.stage)
+    if stage is None:
+        raise MlflowException(
+            message=f"Invalid stage: {request_message.stage}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    action = GuardrailAction.from_proto(request_message.action)
+    if action is None:
+        raise MlflowException(
+            message=f"Invalid action: {request_message.action}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    guardrail = _get_tracking_store().create_gateway_guardrail(
+        name=request_message.name,
+        scorer_id=request_message.scorer_id,
+        scorer_version=request_message.scorer_version,
+        stage=stage,
+        action=action,
+        action_endpoint_id=request_message.action_endpoint_id or None,
+        created_by=_get_user(),
+    )
+    response_message = CreateGatewayGuardrail.Response()
+    response_message.guardrail.CopyFrom(guardrail.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_gateway_guardrail():
+    request_message = _get_request_message(
+        GetGatewayGuardrail(),
+        schema={"guardrail_id": [_assert_required, _assert_string]},
+    )
+    guardrail = _get_tracking_store().get_gateway_guardrail(
+        guardrail_id=request_message.guardrail_id,
+    )
+    response_message = GetGatewayGuardrail.Response()
+    response_message.guardrail.CopyFrom(guardrail.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_gateway_guardrail():
+    request_message = _get_request_message(
+        DeleteGatewayGuardrail(),
+        schema={"guardrail_id": [_assert_required, _assert_string]},
+    )
+    _get_tracking_store().delete_gateway_guardrail(request_message.guardrail_id)
+    return _wrap_response(DeleteGatewayGuardrail.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_gateway_guardrails():
+    request_message = _get_request_message(
+        ListGatewayGuardrails(),
+        schema={
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    guardrails = _get_tracking_store().list_gateway_guardrails(
+        max_results=request_message.max_results or SEARCH_MAX_RESULTS_DEFAULT,
+        page_token=request_message.page_token or None,
+    )
+    response_message = ListGatewayGuardrails.Response()
+    response_message.guardrails.extend([g.to_proto() for g in guardrails])
+    if guardrails.token:
+        response_message.next_page_token = guardrails.token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _add_guardrail_to_endpoint():
+    request_message = _get_request_message(
+        AddGuardrailToEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "guardrail_id": [_assert_required, _assert_string],
+            "execution_order": [_assert_intlike],
+        },
+    )
+    config = _get_tracking_store().add_guardrail_to_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        guardrail_id=request_message.guardrail_id,
+        execution_order=(
+            request_message.execution_order if request_message.HasField("execution_order") else None
+        ),
+        created_by=_get_user(),
+    )
+    response_message = AddGuardrailToEndpoint.Response()
+    response_message.config.CopyFrom(config.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _remove_guardrail_from_endpoint():
+    request_message = _get_request_message(
+        RemoveGuardrailFromEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "guardrail_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().remove_guardrail_from_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        guardrail_id=request_message.guardrail_id,
+    )
+    return _wrap_response(RemoveGuardrailFromEndpoint.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_endpoint_guardrail_configs():
+    request_message = _get_request_message(
+        ListEndpointGuardrailConfigs(),
+        schema={"endpoint_id": [_assert_required, _assert_string]},
+    )
+    configs = _get_tracking_store().list_endpoint_guardrail_configs(
+        endpoint_id=request_message.endpoint_id,
+    )
+    response_message = ListEndpointGuardrailConfigs.Response()
+    response_message.configs.extend([c.to_proto() for c in configs])
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+def _update_endpoint_guardrail_config():
+    request_message = _get_request_message(
+        UpdateEndpointGuardrailConfig(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "guardrail_id": [_assert_required, _assert_string],
+        },
+    )
+    kwargs = {
+        "endpoint_id": request_message.endpoint_id,
+        "guardrail_id": request_message.guardrail_id,
+    }
+    if request_message.HasField("execution_order"):
+        kwargs["execution_order"] = request_message.execution_order
+    config = _get_tracking_store().update_endpoint_guardrail_config(**kwargs)
+    response_message = UpdateEndpointGuardrailConfig.Response()
+    response_message.config.CopyFrom(config.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
 def _get_server_info():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -6774,6 +6948,15 @@ HANDLERS = {
     DeleteGatewayBudgetPolicy: _delete_budget_policy,
     ListGatewayBudgetPolicies: _list_budget_policies,
     ListGatewayBudgetWindows: _list_budget_windows,
+    # Guardrail APIs
+    CreateGatewayGuardrail: _create_gateway_guardrail,
+    GetGatewayGuardrail: _get_gateway_guardrail,
+    DeleteGatewayGuardrail: _delete_gateway_guardrail,
+    ListGatewayGuardrails: _list_gateway_guardrails,
+    AddGuardrailToEndpoint: _add_guardrail_to_endpoint,
+    RemoveGuardrailFromEndpoint: _remove_guardrail_from_endpoint,
+    ListEndpointGuardrailConfigs: _list_endpoint_guardrail_configs,
+    UpdateEndpointGuardrailConfig: _update_endpoint_guardrail_config,
     # Prompt Optimization APIs
     CreatePromptOptimizationJob: _create_prompt_optimization_job,
     GetPromptOptimizationJob: _get_prompt_optimization_job,

@@ -13225,6 +13225,65 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
         }
 
 
+def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_merge_preserves_metrics")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    loc = trace_location.TraceLocation.from_experiment_id(experiment_id)
+    ts = get_current_time_millis()
+
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=loc,
+            request_time=ts,
+            execution_duration=100,
+            state=TraceStatus.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                    "input_tokens": 10,
+                    "output_tokens": 20,
+                    "total_tokens": 30,
+                })
+            },
+        )
+    )
+
+    # Second start_trace with a subset of metric keys triggers the merge path.
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=loc,
+            request_time=ts,
+            execution_duration=200,
+            state=TraceStatus.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                    "total_tokens": 110,
+                    "cache_read_input_tokens": 5,
+                })
+            },
+        )
+    )
+
+    assert result.trace_id == trace_id
+
+    with store.ManagedSessionMaker() as session:
+        metrics = (
+            session
+            .query(SqlTraceMetrics)
+            .filter(SqlTraceMetrics.request_id == trace_id)
+            .order_by(SqlTraceMetrics.key)
+            .all()
+        )
+        metrics_by_key = {m.key: m.value for m in metrics}
+        assert metrics_by_key == {
+            "cache_read_input_tokens": 5,
+            "input_tokens": 10,
+            "output_tokens": 20,
+            "total_tokens": 110,
+        }
+
+
 def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_metrics")
     trace_id = f"tr-{uuid.uuid4().hex}"

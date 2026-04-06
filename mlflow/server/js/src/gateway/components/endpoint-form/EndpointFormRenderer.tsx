@@ -14,6 +14,7 @@ import { LongFormSection } from '../../../common/components/long-form/LongFormSe
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
+import { getModelCapabilities } from '../../utils/getModelCapabilities';
 import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
 
 const LONG_FORM_TITLE_WIDTH = 200;
@@ -403,9 +404,7 @@ const ModelSummary = ({ model, modelName }: { model: ProviderModel | undefined; 
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const capabilities: string[] = [];
-  if (model?.supports_function_calling) capabilities.push('Tools');
-  if (model?.supports_reasoning) capabilities.push('Reasoning');
+  const capabilities = getModelCapabilities(model);
 
   const contextWindow = formatTokens(model?.max_input_tokens);
   const inputCost = formatCost(model?.input_cost_per_token);

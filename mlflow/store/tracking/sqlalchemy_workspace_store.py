@@ -26,6 +26,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
+    SqlGatewayGuardrail,
+    SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
     SqlIssue,
@@ -106,6 +108,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             SqlGatewayEndpoint,
             SqlGatewayModelDefinition,
             SqlGatewayBudgetPolicy,
+            SqlGatewayGuardrail,
+            SqlGatewayGuardrailConfig,
         ):
             return query.filter(model.workspace == workspace)
 

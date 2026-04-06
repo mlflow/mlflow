@@ -10,8 +10,9 @@ import {
   ChevronRightIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { useNavigate } from '../../../../../common/utils/RoutingUtils';
+import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../routes';
+import { getTimeRangeQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
@@ -36,6 +37,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const modelSelectionRef = useRef<IssueDetectionModelSelectionRef>(null);
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -109,7 +111,10 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           onSuccess: (response) => {
             resetForm();
             onClose();
-            navigate(Routes.getIssueDetectionRunDetailsRoute(experimentId, response.run_id));
+            navigate({
+              pathname: Routes.getIssueDetectionRunDetailsRoute(experimentId, response.run_id),
+              search: getTimeRangeQueryString(location.search),
+            });
           },
         },
       );

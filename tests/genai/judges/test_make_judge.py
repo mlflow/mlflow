@@ -3030,6 +3030,70 @@ def test_make_judge_validates_feedback_value_type():
         )
 
 
+def test_make_judge_validates_optional_top_level_feedback_value_type():
+    # typing.Optional[T] and T | None should be accepted as top-level feedback_value_type
+    for fvt in [
+        typing.Optional[int],  # noqa: UP045
+        typing.Optional[float],  # noqa: UP045
+        typing.Optional[str],  # noqa: UP045
+        typing.Optional[bool],  # noqa: UP045
+        int | None,
+        float | None,
+        str | None,
+        bool | None,
+    ]:
+        make_judge(
+            name="optional_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=fvt,
+        )
+
+    # Multi-type union without None should still be rejected
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported feedback_value_type",
+    ):
+        make_judge(
+            name="invalid_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=int | str,
+        )
+
+    # Verify serialization and round-trip for int | None
+    judge = make_judge(
+        name="optional_int_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=int | None,
+    )
+    serialized = judge.model_dump()
+    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "anyOf": [{"type": "integer"}, {"type": "null"}],
+        "title": "Result",
+    }
+    restored = Scorer.model_validate(serialized)
+    assert typing.get_origin(restored._feedback_value_type) in (typing.Union, types.UnionType)
+    assert set(typing.get_args(restored._feedback_value_type)) == {int, type(None)}
+
+    # Verify serialization and round-trip for Optional[str]
+    judge_str = make_judge(
+        name="optional_str_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=typing.Optional[str],  # noqa: UP045
+    )
+    serialized_str = judge_str.model_dump()
+    assert serialized_str["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "anyOf": [{"type": "string"}, {"type": "null"}],
+        "title": "Result",
+    }
+    restored_str = Scorer.model_validate(serialized_str)
+    restored_args = set(typing.get_args(restored_str._feedback_value_type))
+    assert restored_args == {str, type(None)}
+
+
 def test_make_judge_with_default_feedback_value_type():
     judge = make_judge(
         name="default_judge",
@@ -3935,6 +3999,97 @@ def test_inference_params_preserved_after_round_trip_serialization():
 
     assert restored.inference_params == inference_params
     assert restored_from_json.inference_params == inference_params
+
+
+@pytest.mark.parametrize(
+    ("feedback_value_type", "expected_aggregations"),
+    [
+        (bool, ["mean"]),
+        (int, ["mean"]),
+        (float, ["mean"]),
+        (str, []),
+        (Literal["good", "bad"], []),
+    ],
+)
+def test_make_judge_default_aggregations(feedback_value_type, expected_aggregations):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        feedback_value_type=feedback_value_type,
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations == expected_aggregations
+
+
+def test_make_judge_bool_judge_has_mean_aggregation(mock_invoke_judge_model):
+    judge = make_judge(
+        name="correctness",
+        instructions="Is {{ outputs }} correct given {{ inputs }}?",
+        feedback_value_type=bool,
+        model="openai:/gpt-4",
+    )
+
+    data = pd.DataFrame({
+        "inputs": [{"q": "2+2?"}, {"q": "3+3?"}],
+        "outputs": ["4", "6"],
+    })
+
+    result = mlflow.genai.evaluate(data=data, scorers=[judge])
+    assert "correctness/mean" in result.metrics
+
+
+def test_instructions_judge_accepts_aggregations_kwarg():
+    judge = InstructionsJudge(
+        name="custom_agg",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        aggregations=["mean", "max"],
+    )
+    assert judge.aggregations == ["mean", "max"]
+
+
+def test_instructions_judge_aggregations_none_by_default():
+    judge = InstructionsJudge(
+        name="no_agg",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations is None
+
+
+def test_make_judge_aggregations_round_trip_serialization():
+    judge = make_judge(
+        name="bool_judge",
+        instructions="Is {{ outputs }} correct?",
+        feedback_value_type=bool,
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations == ["mean"]
+
+    serialized = judge.model_dump()
+    assert serialized["aggregations"] == ["mean"]
+
+    restored = Scorer.model_validate(serialized)
+    assert restored.aggregations == ["mean"]
+
+    restored_from_json = Scorer.model_validate_json(json.dumps(serialized))
+    assert restored_from_json.aggregations == ["mean"]
+
+
+def test_make_judge_no_aggregations_round_trip_serialization():
+    judge = make_judge(
+        name="str_judge",
+        instructions="Categorize {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations == []
+
+    serialized = judge.model_dump()
+    assert serialized["aggregations"] == []
+
+    restored = Scorer.model_validate(serialized)
+    assert restored.aggregations == []
 
 
 @pytest.mark.parametrize("include_timing", [True, False])

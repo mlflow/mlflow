@@ -1,5 +1,3 @@
-export const COMPONENT_ID_PREFIX = 'mlflow.experiment-scorers';
-
 export const SCORER_FORM_MODE = {
   CREATE: 'create',
   EDIT: 'edit',
