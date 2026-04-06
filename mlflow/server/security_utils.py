@@ -140,6 +140,17 @@ def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:
     if "*" in allowed_hosts:
         return True
 
+    # Strip port from host header before matching.
+    # Handles regular hosts (e.g. "myhost.com:5000" -> "myhost.com")
+    # and IPv6 addresses (e.g. "[::1]:5000" -> "[::1]")
+
+    if host.startswith("["):
+        # IPv6: strip port after closing bracket
+        host = host.split("]")[0] + "]"
+    elif ":" in host:
+        # Regular hostname: strip port
+        host = host.rsplit(":", 1)[0]
+
     return any(
         fnmatch.fnmatch(host, allowed) if "*" in allowed else host == allowed
         for allowed in allowed_hosts
