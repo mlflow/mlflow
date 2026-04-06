@@ -469,7 +469,7 @@ export const EditEndpointFormRenderer = ({
         </div>
       </Tabs.Root>
 
-      {activeTab === 'overview' && (
+      {hasChanges && activeTab === 'overview' && (
         <div
           css={{
             display: 'flex',
@@ -496,12 +496,7 @@ export const EditEndpointFormRenderer = ({
                       defaultMessage: 'Please configure at least one model in traffic split',
                       description: 'Tooltip shown when save button is disabled due to incomplete form',
                     })
-                  : !hasChanges
-                    ? intl.formatMessage({
-                        defaultMessage: 'No changes to save',
-                        description: 'Tooltip shown when save button is disabled due to no changes',
-                      })
-                    : undefined
+                  : undefined
             }
           >
             <Button
@@ -509,7 +504,7 @@ export const EditEndpointFormRenderer = ({
               type="primary"
               onClick={form.handleSubmit(onSubmit)}
               loading={isSubmitting}
-              disabled={!isFormComplete || !hasChanges}
+              disabled={!isFormComplete}
             >
               <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
             </Button>
