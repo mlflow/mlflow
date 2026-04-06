@@ -18,6 +18,12 @@ fi
 
 cd mlflow/server/js
 
+npx_version=$(npx --version)
+if [ "$(printf '%s\n' "11.10.0" "$npx_version" | sort -V | head -n1)" != "11.10.0" ]; then
+  echo "Error: npx >= 11.10.0 is required (found $npx_version)" >&2
+  exit 1
+fi
+
 # Convert paths from repo root to relative paths
 files=()
 for f in "$@"; do
