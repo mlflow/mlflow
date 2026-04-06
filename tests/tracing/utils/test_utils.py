@@ -691,6 +691,14 @@ def test_builtin_cost_fallback_with_provider_case_insensitive(model_provider):
     assert result["total_cost"] == pytest.approx(0.0075)
 
 
+@pytest.mark.parametrize("model_name", ["gateway:/my-endpoint", "endpoints:/my-endpoint"])
+def test_cost_skipped_for_internal_routing_uris(model_name):
+    result = calculate_cost_by_model_and_token_usage(
+        model_name, {"input_tokens": 1000, "output_tokens": 500}
+    )
+    assert result is None
+
+
 def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
     litellm.suppress_debug_info = False
 
