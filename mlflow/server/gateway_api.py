@@ -33,7 +33,10 @@ from mlflow.gateway.config import (
     _AuthConfigKey,
     _OpenAICompatibleConfig,
 )
-from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CALLER_HEADER,
+    GatewayCaller,
+)
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -42,6 +45,7 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     TrafficRouteProvider,
 )
+from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
@@ -117,10 +121,16 @@ def _get_user_metadata(request: Request) -> dict[str, Any]:
 
 def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
     """
-    Decorator to record telemetry for gateway invocation endpoints.
+    Decorator for gateway invocation endpoints that records telemetry:
+    success/failure status, duration, streaming mode, and caller.
 
-    Automatically tracks success/failure status, duration, and streaming mode
-    (determined by checking if the response is a StreamingResponse).
+    As a side effect, relays provider call duration to the gateway timing middleware by
+    writing `request.state.gateway_provider_duration_ms`. This is required because
+    Starlette's call_next() copies the ContextVar context for the handler task, so
+    mutations to provider_call_duration_ms don't propagate back to the middleware.
+
+    Timing headers (X-MLflow-Gateway-Duration-Ms, X-MLflow-Gateway-Overhead-Duration-Ms)
+    are injected by gateway_timing_middleware in fastapi_app.py.
 
     Args:
         invocation_type: The type of invocation endpoint.
@@ -129,7 +139,7 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            start_time = time.time()
+            start_time = time.perf_counter()
             success = True
             result = None
 
@@ -144,12 +154,11 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
 
             try:
                 result = await func(*args, **kwargs)
-                return result  # noqa: RET504
             except Exception:
                 success = False
                 raise
             finally:
-                duration_ms = int((time.time() - start_time) * 1000)
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
                 params = {
                     "is_streaming": isinstance(result, StreamingResponse),
                     "invocation_type": invocation_type,
@@ -162,6 +171,15 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                     success=success,
                     duration_ms=duration_ms,
                 )
+                # Relay provider timing to the middleware via request.state.
+                # ContextVar values set in the handler task don't propagate back
+                # to the middleware task (Starlette copies the context for call_next).
+                if request is not None:
+                    request.state.gateway_provider_duration_ms = int(
+                        provider_call_duration_ms.get()
+                    )
+
+            return result
 
         return wrapper
 
