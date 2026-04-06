@@ -7,7 +7,6 @@ import {
   Typography,
   useDesignSystemTheme,
   TrashIcon,
-  DragIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useState, useRef } from 'react';
@@ -117,26 +116,17 @@ export const FallbackModelItem = ({
       }}
     >
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flex: 1 }}>
-          <div
-            ref={drag}
-            css={{
-              cursor: 'grab',
-              display: 'flex',
-              alignItems: 'center',
-              '&:active': {
-                cursor: 'grabbing',
-              },
-            }}
-          >
-            <DragIcon css={{ color: theme.colors.textSecondary }} />
-          </div>
-          <Button
-            componentId={`${componentId}.expand`}
-            icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-            onClick={() => setIsExpanded(!isExpanded)}
-            size="small"
-          />
+        <div
+          ref={drag}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            flex: 1,
+            cursor: 'grab',
+            '&:active': { cursor: 'grabbing' },
+          }}
+        >
           <FormUI.Label css={{ margin: 0, fontWeight: 'bold' }}>
             <FormattedMessage
               defaultMessage="Fallback Model {order}"
@@ -144,6 +134,12 @@ export const FallbackModelItem = ({
               values={{ order: index + 1 }}
             />
           </FormUI.Label>
+          <Button
+            componentId={`${componentId}.expand`}
+            icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+            onClick={() => setIsExpanded(!isExpanded)}
+            size="small"
+          />
           {!isExpanded && hasModelInfo && (
             <Typography.Text css={{ fontFamily: 'monospace', color: theme.colors.textSecondary }}>
               {formatProviderName(model.provider)} / {model.modelName}

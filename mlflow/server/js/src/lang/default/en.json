@@ -387,6 +387,10 @@
     "defaultMessage": "Endpoints",
     "description": "Endpoints using this key column header"
   },
+  "0RVMB3": {
+    "defaultMessage": "Add model",
+    "description": "Button to add model for traffic split"
+  },
   "0Rao9q": {
     "defaultMessage": "Error registering model",
     "description": "Notification title for model registration failure on the logged model details page"
@@ -3538,10 +3542,6 @@
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
   },
-  "Lh4Pv4": {
-    "defaultMessage": "Models in this priority will be tested first, with traffic split load balancing",
-    "description": "Traffic split description"
-  },
   "LhxSrc": {
     "defaultMessage": "Incorrect",
     "description": "Evaluation results > correctness assessment > negative value label. Displayed if evaluation result is considered as incorrect."
@@ -3729,10 +3729,6 @@
   "Mp01o5": {
     "defaultMessage": "View all integrations",
     "description": "Link text directing users to additional tracing integrations"
-  },
-  "MsSpWB": {
-    "defaultMessage": "Add model for traffic split",
-    "description": "Button to add model for traffic split"
   },
   "Mtj9Ay": {
     "defaultMessage": "Edit description",
@@ -4424,10 +4420,6 @@
   "RJenO+": {
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
-  },
-  "RMdf6R": {
-    "defaultMessage": "Priority 2 (Fallback)",
-    "description": "Section title for fallback models"
   },
   "RRvtnM": {
     "defaultMessage": "Did the conversation avoid causing user frustration?",
@@ -5502,6 +5494,10 @@
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
     "description": "Link to download the artifact of the experiment"
+  },
+  "YAt9oL": {
+    "defaultMessage": "Fallback",
+    "description": "Gateway > Endpoint details > Label on connector between fallback model items"
   },
   "YECxws": {
     "defaultMessage": "Compare",
@@ -7759,6 +7755,10 @@
     "defaultMessage": "Guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guidelines: moderate\""
   },
+  "ltjAxR": {
+    "defaultMessage": "Fallback",
+    "description": "Gateway > Endpoint details > Label on the connector between primary and fallback model sections"
+  },
   "ltqNpe": {
     "defaultMessage": "Creation time",
     "description": "Label for the creation time column in the logged model list page"
@@ -7967,6 +7967,10 @@
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
   },
+  "n7MxV7": {
+    "defaultMessage": "Use multiple models for load balancing by splitting traffic with weights",
+    "description": "Gateway > Endpoint details > Description for adding more primary models"
+  },
   "nAhHpm": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for create workspace modal"
@@ -7990,10 +7994,6 @@
   "nEoTsR": {
     "defaultMessage": "Completed Runs",
     "description": "Label for the progress bar to show the number of completed runs"
-  },
-  "nF/4Eh": {
-    "defaultMessage": "Models in this priority will be tested second, after models in Priority 1 have failed. Models will be attempted in order from top to bottom.",
-    "description": "Fallback models description"
   },
   "nF10K1": {
     "defaultMessage": "Machine learning",
@@ -8386,6 +8386,10 @@
   "pm1RNL": {
     "defaultMessage": "Pass",
     "description": "Passing assessment label"
+  },
+  "prRya4": {
+    "defaultMessage": "Model",
+    "description": "Gateway > Endpoint details > Section title for model configuration card"
   },
   "puATD8": {
     "defaultMessage": "Are you sure you want to delete this assessment?",
@@ -8915,10 +8919,6 @@
     "defaultMessage": "Conversational role adherence",
     "description": "LLM template option"
   },
-  "t8zXLd": {
-    "defaultMessage": "Priority 1 (Traffic Split)",
-    "description": "Section title for traffic split"
-  },
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
     "description": "Tooltip suggestion to create new key for different provider"
@@ -9042,6 +9042,10 @@
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
+  },
+  "uANtE/": {
+    "defaultMessage": "Primary Model",
+    "description": "Gateway > Endpoint details > Sub-section title for primary traffic split models"
   },
   "uAv9Zs": {
     "defaultMessage": "Home",
