@@ -2704,15 +2704,25 @@ class DeletePromptOptimizationJob(_message.Message):
     job_id: str
     def __init__(self, job_id: _Optional[str] = ...) -> None: ...
 
+class TraceArchivalConfig(_message.Message):
+    __slots__ = ("location", "retention")
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    RETENTION_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    retention: str
+    def __init__(self, location: _Optional[str] = ..., retention: _Optional[str] = ...) -> None: ...
+
 class Workspace(_message.Message):
-    __slots__ = ("name", "description", "default_artifact_root")
+    __slots__ = ("name", "description", "default_artifact_root", "trace_archival_config")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ARCHIVAL_CONFIG_FIELD_NUMBER: _ClassVar[int]
     name: str
     description: str
     default_artifact_root: str
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ...) -> None: ...
+    trace_archival_config: TraceArchivalConfig
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ..., trace_archival_config: _Optional[_Union[TraceArchivalConfig, _Mapping]] = ...) -> None: ...
 
 class ListWorkspaces(_message.Message):
     __slots__ = ()
@@ -2724,7 +2734,7 @@ class ListWorkspaces(_message.Message):
     def __init__(self) -> None: ...
 
 class CreateWorkspace(_message.Message):
-    __slots__ = ("name", "description", "default_artifact_root")
+    __slots__ = ("name", "description", "default_artifact_root", "trace_archival_config")
     class Response(_message.Message):
         __slots__ = ("workspace",)
         WORKSPACE_FIELD_NUMBER: _ClassVar[int]
@@ -2733,10 +2743,12 @@ class CreateWorkspace(_message.Message):
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ARCHIVAL_CONFIG_FIELD_NUMBER: _ClassVar[int]
     name: str
     description: str
     default_artifact_root: str
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ...) -> None: ...
+    trace_archival_config: TraceArchivalConfig
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ..., trace_archival_config: _Optional[_Union[TraceArchivalConfig, _Mapping]] = ...) -> None: ...
 
 class GetWorkspace(_message.Message):
     __slots__ = ("workspace_name",)
@@ -2750,7 +2762,7 @@ class GetWorkspace(_message.Message):
     def __init__(self, workspace_name: _Optional[str] = ...) -> None: ...
 
 class UpdateWorkspace(_message.Message):
-    __slots__ = ("workspace_name", "description", "default_artifact_root")
+    __slots__ = ("workspace_name", "description", "default_artifact_root", "trace_archival_config")
     class Response(_message.Message):
         __slots__ = ("workspace",)
         WORKSPACE_FIELD_NUMBER: _ClassVar[int]
@@ -2759,10 +2771,12 @@ class UpdateWorkspace(_message.Message):
     WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ARCHIVAL_CONFIG_FIELD_NUMBER: _ClassVar[int]
     workspace_name: str
     description: str
     default_artifact_root: str
-    def __init__(self, workspace_name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ...) -> None: ...
+    trace_archival_config: TraceArchivalConfig
+    def __init__(self, workspace_name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ..., trace_archival_config: _Optional[_Union[TraceArchivalConfig, _Mapping]] = ...) -> None: ...
 
 class DeleteWorkspace(_message.Message):
     __slots__ = ("workspace_name",)

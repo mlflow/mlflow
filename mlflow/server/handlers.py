@@ -763,6 +763,10 @@ def _assert_array(x):
     assert isinstance(x, list)
 
 
+def _assert_dict(x):
+    assert isinstance(x, dict)
+
+
 def _assert_map_key_present(x):
     _assert_array(x)
     for entry in x:
@@ -1100,7 +1104,8 @@ def _workspace_not_supported(message: str) -> MlflowException:
     return MlflowException(message, FEATURE_DISABLED)
 
 
-def _validate_artifact_root_uri(value: str, field_name: str) -> str:
+def _validate_storage_location_uri(value: str, field_name: str) -> str:
+    """Validate a storage URI shared by experiment and workspace settings."""
     parsed = urllib.parse.urlparse(value)
     if parsed.fragment or parsed.params:
         raise MlflowException.invalid_parameter_value(
@@ -1113,7 +1118,7 @@ def _validate_artifact_root_uri(value: str, field_name: str) -> str:
     return value
 
 
-def _validate_workspace_default_artifact_root(value: str | None) -> str | None:
+def _validate_optional_workspace_storage_location(value: str | None, field_name: str) -> str | None:
     if value is None:
         return None
 
@@ -1121,7 +1126,65 @@ def _validate_workspace_default_artifact_root(value: str | None) -> str | None:
     if not trimmed:
         return ""
 
-    return _validate_artifact_root_uri(trimmed, "default_artifact_root")
+    return _validate_storage_location_uri(trimmed, field_name)
+
+
+def _validate_workspace_default_artifact_root(value: str | None) -> str | None:
+    return _validate_optional_workspace_storage_location(value, "default_artifact_root")
+
+
+def _validate_workspace_trace_archival_location(value: str | None) -> str | None:
+    return _validate_optional_workspace_storage_location(value, "trace_archival_config.location")
+
+
+def _validate_workspace_trace_archival_retention(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    trimmed = value.strip()
+    if not trimmed:
+        return ""
+
+    if len(trimmed) > 32:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid value for 'trace_archival_config.retention'. Maximum length is 32 characters."
+        )
+
+    if re.fullmatch(r"[1-9][0-9]*[mhd]", trimmed) is None:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid value for 'trace_archival_config.retention'. Expected a duration in the "
+            "form `<int><unit>`, where unit is one of 'm', 'h', or 'd' (for example '30d' "
+            "or '12h')."
+        )
+
+    return trimmed
+
+
+def _get_workspace_request_message(
+    request_message, schema: dict[str, list[Callable[..., Any]]] | None = None
+) -> tuple[Any, dict[str, Any]]:
+    request_json = _get_normalized_request_json()
+    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=None)
+
+    trace_archival_config_json = request_json.get("trace_archival_config")
+    if trace_archival_config_json is not None:
+        _validate_param_against_schema(
+            schema=[_assert_dict],
+            param="trace_archival_config",
+            value=trace_archival_config_json,
+            proto_parsing_succeeded=False,
+        )
+        _validate_request_json_with_schema(
+            trace_archival_config_json,
+            {
+                "location": [_assert_string],
+                "retention": [_assert_string],
+            },
+            proto_parsing_succeeded=None,
+        )
+
+    parse_dict(request_json, request_message)
+    return request_message, request_json
 
 
 def _ensure_artifact_root_available(workspace_artifact_root: str | None) -> None:
@@ -1163,7 +1226,7 @@ def _list_workspaces_handler():
 @catch_mlflow_exception
 @_disable_if_workspaces_disabled
 def _create_workspace_handler():
-    request_message = _get_request_message(
+    request_message, request_json = _get_workspace_request_message(
         CreateWorkspace(),
         schema={
             "name": [_assert_required, _assert_string],
@@ -1183,7 +1246,20 @@ def _create_workspace_handler():
         if request_message.HasField("default_artifact_root")
         else None
     )
+    trace_archival_config_json = request_json.get("trace_archival_config") or {}
+    has_trace_archival_location = "location" in trace_archival_config_json
+    has_trace_archival_retention = "retention" in trace_archival_config_json
+    trace_archival_location = (
+        request_message.trace_archival_config.location if has_trace_archival_location else None
+    )
+    trace_archival_retention = (
+        request_message.trace_archival_config.retention if has_trace_archival_retention else None
+    )
     default_artifact_root = _validate_workspace_default_artifact_root(default_artifact_root)
+    trace_archival_location = _validate_workspace_trace_archival_location(trace_archival_location)
+    trace_archival_retention = _validate_workspace_trace_archival_retention(
+        trace_archival_retention
+    )
     _ensure_artifact_root_available(default_artifact_root)
     store = _get_workspace_store()
     try:
@@ -1192,6 +1268,8 @@ def _create_workspace_handler():
                 name=request_message.name,
                 description=description,
                 default_artifact_root=default_artifact_root,
+                trace_archival_location=trace_archival_location,
+                trace_archival_retention=trace_archival_retention,
             )
         )
     except NotImplementedError:
@@ -1220,7 +1298,7 @@ def _get_workspace_handler(workspace_name: str):
 def _update_workspace_handler(workspace_name: str):
     if workspace_name != DEFAULT_WORKSPACE_NAME:
         WorkspaceNameValidator.validate(workspace_name)
-    request_message = _get_request_message(
+    request_message, request_json = _get_workspace_request_message(
         UpdateWorkspace(),
         schema={
             "description": [_assert_string],
@@ -1228,15 +1306,33 @@ def _update_workspace_handler(workspace_name: str):
         },
     )
 
-    has_description = request_message.HasField("description")
-    has_artifact_root = request_message.HasField("default_artifact_root")
+    has_description = "description" in request_json
+    has_artifact_root = "default_artifact_root" in request_json
+    trace_archival_config_json = request_json.get("trace_archival_config") or {}
+    has_trace_archival_location = "location" in trace_archival_config_json
+    has_trace_archival_retention = "retention" in trace_archival_config_json
 
-    if not has_description and not has_artifact_root:
+    if (
+        not has_description
+        and not has_artifact_root
+        and not has_trace_archival_location
+        and not has_trace_archival_retention
+    ):
         raise MlflowException.invalid_parameter_value("Workspace update must have at least one key")
 
     description = request_message.description if has_description else None
     default_artifact_root = request_message.default_artifact_root if has_artifact_root else None
+    trace_archival_location = (
+        request_message.trace_archival_config.location if has_trace_archival_location else None
+    )
+    trace_archival_retention = (
+        request_message.trace_archival_config.retention if has_trace_archival_retention else None
+    )
     default_artifact_root = _validate_workspace_default_artifact_root(default_artifact_root)
+    trace_archival_location = _validate_workspace_trace_archival_location(trace_archival_location)
+    trace_archival_retention = _validate_workspace_trace_archival_retention(
+        trace_archival_retention
+    )
 
     # If the user is clearing the workspace artifact root (empty string), ensure the server
     # has a default artifact root configured
@@ -1250,6 +1346,8 @@ def _update_workspace_handler(workspace_name: str):
                 name=workspace_name,
                 description=description,
                 default_artifact_root=default_artifact_root,
+                trace_archival_location=trace_archival_location,
+                trace_archival_retention=trace_archival_retention,
             )
         )
     except NotImplementedError:
@@ -1329,7 +1427,7 @@ def _create_experiment():
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
 
     if request_message.artifact_location:
-        _validate_artifact_root_uri(request_message.artifact_location, "artifact_location")
+        _validate_storage_location_uri(request_message.artifact_location, "artifact_location")
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
     )
