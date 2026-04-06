@@ -94,7 +94,7 @@ from mlflow.entities.webhook import (
     WebhookStatus,
     WebhookTestResult,
 )
-from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
+from mlflow.entities.workspace import TraceArchivalConfig, Workspace, WorkspaceDeletionMode
 
 __all__ = [
     "Experiment",
@@ -182,6 +182,7 @@ __all__ = [
     "WebhookEvent",
     "WebhookStatus",
     "WebhookTestResult",
+    "TraceArchivalConfig",
     "Workspace",
     "WorkspaceDeletionMode",
     "GatewayGuardrail",

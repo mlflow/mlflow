@@ -145,6 +145,8 @@ CREATE TABLE workspaces (
 	name VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	default_artifact_root VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	trace_archival_location VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	trace_archival_retention VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT workspaces_pk PRIMARY KEY (name)
 )
 

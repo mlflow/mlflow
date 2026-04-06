@@ -64,18 +64,42 @@ def test_list_workspaces_endpoint(app, mock_workspace_store):
 
 
 def test_create_workspace_endpoint(app, mock_workspace_store, mock_tracking_store):
-    created = Workspace(name="team-b", description="Team B")
+    created = Workspace(
+        name="team-b",
+        description="Team B",
+        trace_archival_location="s3://archive/team-b",
+        trace_archival_retention="30d",
+    )
     mock_workspace_store.create_workspace.return_value = created
     with app.test_client() as client:
         response = client.post(
             "/api/3.0/mlflow/workspaces",
-            json={"name": "team-b", "description": "Team B"},
+            json={
+                "name": "team-b",
+                "description": "Team B",
+                "trace_archival_config": {
+                    "location": "s3://archive/team-b",
+                    "retention": "30d",
+                },
+            },
         )
 
     assert response.status_code == 201
     payload = _workspace_to_json(response.get_data(True))
-    assert payload == {"workspace": {"name": "team-b", "description": "Team B"}}
+    assert payload == {
+        "workspace": {
+            "name": "team-b",
+            "description": "Team B",
+            "trace_archival_config": {
+                "location": "s3://archive/team-b",
+                "retention": "30d",
+            },
+        }
+    }
     mock_workspace_store.create_workspace.assert_called_once()
+    args, _ = mock_workspace_store.create_workspace.call_args
+    assert args[0].trace_archival_location == "s3://archive/team-b"
+    assert args[0].trace_archival_retention == "30d"
     mock_tracking_store.get_experiment_by_name.assert_not_called()
     mock_tracking_store.create_experiment.assert_not_called()
 
@@ -92,18 +116,41 @@ def test_get_workspace_endpoint(app, mock_workspace_store):
 
 
 def test_update_workspace_endpoint(app, mock_workspace_store):
-    updated = Workspace(name="team-d", description="Updated")
+    updated = Workspace(
+        name="team-d",
+        description="Updated",
+        trace_archival_location="s3://archive/team-d",
+        trace_archival_retention="14d",
+    )
     mock_workspace_store.update_workspace.return_value = updated
     with app.test_client() as client:
         response = client.patch(
             "/api/3.0/mlflow/workspaces/team-d",
-            json={"description": "Updated"},
+            json={
+                "description": "Updated",
+                "trace_archival_config": {
+                    "location": "s3://archive/team-d",
+                    "retention": "14d",
+                },
+            },
         )
 
     assert response.status_code == 200
     payload = _workspace_to_json(response.get_data(True))
-    assert payload == {"workspace": {"name": "team-d", "description": "Updated"}}
+    assert payload == {
+        "workspace": {
+            "name": "team-d",
+            "description": "Updated",
+            "trace_archival_config": {
+                "location": "s3://archive/team-d",
+                "retention": "14d",
+            },
+        }
+    }
     mock_workspace_store.update_workspace.assert_called_once()
+    args, _ = mock_workspace_store.update_workspace.call_args
+    assert args[0].trace_archival_location == "s3://archive/team-d"
+    assert args[0].trace_archival_retention == "14d"
 
 
 def test_update_default_workspace_allows_reserved_name(app, mock_workspace_store):
@@ -145,6 +192,172 @@ def test_update_workspace_can_clear_default_artifact_root(
     assert args[0].name == "team-clear"
     # Handler passes "" to indicate "clear"; the store converts "" to None
     assert args[0].default_artifact_root == ""
+
+
+def test_update_workspace_can_clear_trace_archival_location(app, mock_workspace_store):
+    cleared = Workspace(name="team-clear", description=None, trace_archival_location=None)
+    mock_workspace_store.update_workspace.return_value = cleared
+    with app.test_client() as client:
+        response = client.patch(
+            "/api/3.0/mlflow/workspaces/team-clear",
+            json={"trace_archival_config": {"location": ""}},
+        )
+
+    assert response.status_code == 200
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload == {"workspace": {"name": "team-clear"}}
+    args, _ = mock_workspace_store.update_workspace.call_args
+    assert isinstance(args[0], Workspace)
+    assert args[0].name == "team-clear"
+    assert args[0].trace_archival_location == ""
+
+
+def test_update_workspace_can_clear_trace_archival_retention(app, mock_workspace_store):
+    cleared = Workspace(name="team-clear", description=None, trace_archival_retention=None)
+    mock_workspace_store.update_workspace.return_value = cleared
+    with app.test_client() as client:
+        response = client.patch(
+            "/api/3.0/mlflow/workspaces/team-clear",
+            json={"trace_archival_config": {"retention": ""}},
+        )
+
+    assert response.status_code == 200
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload == {"workspace": {"name": "team-clear"}}
+    args, _ = mock_workspace_store.update_workspace.call_args
+    assert isinstance(args[0], Workspace)
+    assert args[0].name == "team-clear"
+    assert args[0].trace_archival_retention == ""
+
+
+def test_update_workspace_with_only_trace_archival_location(app, mock_workspace_store):
+    updated = Workspace(name="team-only-location", trace_archival_location="s3://archive/team-only")
+    mock_workspace_store.update_workspace.return_value = updated
+    with app.test_client() as client:
+        response = client.patch(
+            "/api/3.0/mlflow/workspaces/team-only-location",
+            json={"trace_archival_config": {"location": "s3://archive/team-only"}},
+        )
+
+    assert response.status_code == 200
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload == {
+        "workspace": {
+            "name": "team-only-location",
+            "trace_archival_config": {"location": "s3://archive/team-only"},
+        }
+    }
+    args, _ = mock_workspace_store.update_workspace.call_args
+    assert args[0].trace_archival_location == "s3://archive/team-only"
+    assert args[0].trace_archival_retention is None
+
+
+def test_update_workspace_with_only_trace_archival_retention(app, mock_workspace_store):
+    updated = Workspace(name="team-only-retention", trace_archival_retention="14d")
+    mock_workspace_store.update_workspace.return_value = updated
+    with app.test_client() as client:
+        response = client.patch(
+            "/api/3.0/mlflow/workspaces/team-only-retention",
+            json={"trace_archival_config": {"retention": "14d"}},
+        )
+
+    assert response.status_code == 200
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload == {
+        "workspace": {
+            "name": "team-only-retention",
+            "trace_archival_config": {"retention": "14d"},
+        }
+    }
+    args, _ = mock_workspace_store.update_workspace.call_args
+    assert args[0].trace_archival_location is None
+    assert args[0].trace_archival_retention == "14d"
+
+
+def test_create_workspace_rejects_invalid_trace_archival_retention(
+    app, mock_workspace_store, mock_tracking_store
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={"name": "team-bad", "trace_archival_config": {"retention": "90days"}},
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload["message"] == (
+        "Invalid value for 'trace_archival_config.retention'. Expected a duration in the form "
+        "`<int><unit>`, where unit is one of 'm', 'h', or 'd' (for example '30d' or '12h')."
+    )
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
+def test_create_workspace_rejects_invalid_trace_archival_location(
+    app, mock_workspace_store, mock_tracking_store
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={
+                "name": "team-bad",
+                "trace_archival_config": {"location": "s3://archive/team#fragment"},
+            },
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert "trace_archival_config.location" in payload["message"]
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
+def test_update_workspace_rejects_invalid_trace_archival_retention(app, mock_workspace_store):
+    with app.test_client() as client:
+        response = client.patch(
+            "/api/3.0/mlflow/workspaces/team-bad",
+            json={"trace_archival_config": {"retention": "5w"}},
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload["message"] == (
+        "Invalid value for 'trace_archival_config.retention'. Expected a duration in the form "
+        "`<int><unit>`, where unit is one of 'm', 'h', or 'd' (for example '30d' or '12h')."
+    )
+    mock_workspace_store.update_workspace.assert_not_called()
+
+
+def test_create_workspace_rejects_trace_archival_retention_longer_than_32_chars(
+    app, mock_workspace_store, mock_tracking_store
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={"name": "team-bad", "trace_archival_config": {"retention": f"{'1' * 32}d"}},
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload["message"] == (
+        "Invalid value for 'trace_archival_config.retention'. Maximum length is 32 characters."
+    )
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
+def test_update_workspace_rejects_trace_archival_retention_longer_than_32_chars(
+    app, mock_workspace_store
+):
+    with app.test_client() as client:
+        response = client.patch(
+            "/api/3.0/mlflow/workspaces/team-bad",
+            json={"trace_archival_config": {"retention": f"{'1' * 32}d"}},
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload["message"] == (
+        "Invalid value for 'trace_archival_config.retention'. Maximum length is 32 characters."
+    )
+    mock_workspace_store.update_workspace.assert_not_called()
 
 
 def test_delete_workspace_endpoint(app, mock_workspace_store):
