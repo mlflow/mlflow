@@ -17,7 +17,7 @@ export class GatewayRoutePaths {
   }
 
   static get apiKeysPage() {
-    return createMLflowRoutePath('/api-keys');
+    return createMLflowRoutePath('/gateway/api-keys');
   }
 
   static get usagePage() {

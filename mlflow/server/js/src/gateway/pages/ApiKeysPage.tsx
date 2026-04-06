@@ -1,6 +1,8 @@
-import { Button, KeyIcon, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Breadcrumb, Button, KeyIcon, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
+import { Link } from '../../common/utils/RoutingUtils';
+import { GatewayLabel } from '../../common/components/GatewayNewTag';
+import GatewayRoutes from '../routes';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ApiKeysList } from '../components/api-keys/ApiKeysList';
@@ -72,7 +74,7 @@ const ApiKeysPage = () => {
   } = useApiKeysPage();
 
   return (
-    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       {/* Header */}
       <div
         css={{
@@ -83,20 +85,29 @@ const ApiKeysPage = () => {
           borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         }}
       >
-        <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <div
-            css={{
-              borderRadius: theme.borders.borderRadiusSm,
-              backgroundColor: theme.colors.backgroundSecondary,
-              padding: theme.spacing.sm,
-              display: 'flex',
-            }}
-          >
-            <KeyIcon />
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Breadcrumb includeTrailingCaret>
+            <Breadcrumb.Item>
+              <Link componentId="mlflow.gateway.api-keys.breadcrumb_gateway_link" to={GatewayRoutes.gatewayPageRoute}>
+                <GatewayLabel />
+              </Link>
+            </Breadcrumb.Item>
+          </Breadcrumb>
+          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+            <div
+              css={{
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+                display: 'flex',
+              }}
+            >
+              <KeyIcon />
+            </div>
+            <Typography.Title withoutMargins level={2}>
+              <FormattedMessage defaultMessage="API Keys" description="API Keys page title" />
+            </Typography.Title>
           </div>
-          <Typography.Title withoutMargins level={2}>
-            <FormattedMessage defaultMessage="API Keys" description="API Keys page title" />
-          </Typography.Title>
         </div>
         <Button
           componentId="mlflow.gateway.api-keys.create-button"
@@ -166,7 +177,7 @@ const ApiKeysPage = () => {
         onClose={handleDeleteModalClose}
         onSuccess={handleDeleteSuccess}
       />
-    </ScrollablePageWrapper>
+    </div>
   );
 };
 
