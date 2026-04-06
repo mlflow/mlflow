@@ -4784,11 +4784,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
 
                 # Token usage metadata + store as trace metrics for aggregation queries.
-                # Skip if start_trace() has already written the authoritative values
-                # (indicated by TRACE_INFO_FINALIZED flag) to prevent double-counting.
+                # Skip only if start_trace() has already written the authoritative value
+                # (flag set AND an existing record is present). If the flag is set but no
+                # record exists yet (start_trace() lost the race or didn't include token
+                # usage), log_spans() must still write it to avoid data loss.
                 if aggregated_token_usage := agg.aggregated_token_usage:
-                    if trace_id not in finalized_trace_ids:
-                        existing_record = existing_token_usage.get(trace_id)
+                    existing_record = existing_token_usage.get(trace_id)
+                    if trace_id not in finalized_trace_ids or not existing_record:
                         trace_token_usage = update_token_usage(
                             existing_record.value if existing_record else {},
                             aggregated_token_usage,
@@ -4808,11 +4810,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                     )
                                 )
 
-                # Cost metadata — skip if start_trace() has already written the
-                # authoritative cost value to prevent double-counting.
+                # Cost metadata — skip only if start_trace() has already written the
+                # authoritative value (flag set AND existing record present). If the flag
+                # is set but no record exists, still write to avoid data loss.
                 if aggregated_cost := agg.aggregated_cost:
-                    if trace_id not in finalized_trace_ids:
-                        existing_record = existing_cost.get(trace_id)
+                    existing_record = existing_cost.get(trace_id)
+                    if trace_id not in finalized_trace_ids or not existing_record:
                         recorded_cost = update_cost(
                             existing_record.value if existing_record else {}, aggregated_cost
                         )
