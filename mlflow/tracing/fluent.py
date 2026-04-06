@@ -794,26 +794,30 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
     return None
 
 
-def _flush_pending_async_trace_writes() -> None:
+def _flush_pending_async_trace_writes(terminate: bool = False) -> None:
     """Flush all pending async trace writes through the BSP and exporter queues.
 
     Two-layer flush:
     1. flush_all_batch_processors() drains BSP-registered processors and their exporters.
     2. The direct exporter flush handles the no-BSP path (MLFLOW_USE_BATCH_SPAN_PROCESSOR=false),
        where the processor is not in the registry but the exporter still has an async queue.
+
+    Args:
+        terminate: If True, shut down background threads after flushing. Used in test teardown
+            to prevent thread leaks between tests.
     """
     # Lazy import to avoid circular dependency:
     # base_mlflow imports _set_last_active_trace_id from this module.
     from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
 
     try:
-        flush_all_batch_processors()
+        flush_all_batch_processors(terminate=terminate)
     except Exception:
         _logger.debug("Failed to flush batch processors.", exc_info=True)
     try:
         if trace_exporter := _get_trace_exporter():
             if hasattr(trace_exporter, "_async_queue"):
-                trace_exporter._async_queue.flush()
+                trace_exporter._async_queue.flush(terminate=terminate)
     except Exception:
         _logger.debug("Failed to flush trace exporter async queue.", exc_info=True)
 

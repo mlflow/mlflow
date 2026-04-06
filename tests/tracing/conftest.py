@@ -11,8 +11,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
-from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
-from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.tracing.fluent import _flush_pending_async_trace_writes
 
 
 @pytest.fixture(autouse=True)
@@ -28,16 +27,7 @@ def enable_async_trace_logging(monkeypatch):
 
     yield
 
-    try:
-        flush_all_batch_processors(terminate=True)
-    except Exception:
-        pass
-    try:
-        if exporter := _get_trace_exporter():
-            if hasattr(exporter, "_async_queue"):
-                exporter._async_queue.flush(terminate=True)
-    except Exception:
-        pass
+    _flush_pending_async_trace_writes(terminate=True)
 
 
 @pytest.fixture(autouse=True)
