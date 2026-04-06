@@ -5650,6 +5650,15 @@ message DeletePromptOptimizationJob {
 // Workspace Management Messages
 // =============================================================================
 
+// Trace archival settings accepted by workspace APIs and returned in workspace metadata.
+message TraceArchivalConfig {
+  // Optional archival repository root override.
+  optional string location = 1;
+
+  // Optional archival retention override. Format: <int><unit>, for example 30d.
+  optional string retention = 2;
+}
+
 // Workspace metadata returned by workspace APIs.
 message Workspace {
   // The unique workspace name.
@@ -5660,6 +5669,9 @@ message Workspace {
 
   // Optional default artifact root override for this workspace.
   optional string default_artifact_root = 3;
+
+  // Optional trace archival settings for this workspace.
+  optional TraceArchivalConfig trace_archival_config = 4;
 }
 
 // List workspaces available to the current principal.
@@ -5684,6 +5696,9 @@ message CreateWorkspace {
 
   // Optional default artifact root override to apply at creation time.
   optional string default_artifact_root = 3;
+
+  // Optional trace archival settings to apply at creation time.
+  optional TraceArchivalConfig trace_archival_config = 4;
 
   message Response {
     // Metadata describing the created workspace.
@@ -5716,6 +5731,9 @@ message UpdateWorkspace {
 
   // Optional default artifact root override update.
   optional string default_artifact_root = 3;
+
+  // Optional trace archival settings update.
+  optional TraceArchivalConfig trace_archival_config = 4;
 
   message Response {
     // Metadata describing the updated workspace.
