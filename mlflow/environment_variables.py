@@ -1446,6 +1446,22 @@ _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
 )
 
 
+#: Base URI to fetch the latest model catalog from. Each provider file is fetched
+#: as ``{uri}/{provider}.json``. Supports http(s):// and file:// schemes.
+#: Set to an empty string to disable remote fetch.
+#: (default: ``https://github.com/mlflow/mlflow/releases/download/model-catalog%2Flatest``)
+MLFLOW_MODEL_CATALOG_URI = _EnvironmentVariable(
+    "MLFLOW_MODEL_CATALOG_URI",
+    str,
+    "https://github.com/mlflow/mlflow/releases/download/model-catalog%2Flatest",
+)
+
+
+#: TTL in seconds for the local model catalog cache. Set to 0 to disable caching.
+#: (default: ``86400`` — 24 hours)
+MLFLOW_MODEL_CATALOG_CACHE_TTL = _EnvironmentVariable("MLFLOW_MODEL_CATALOG_CACHE_TTL", int, 86400)
+
+
 #: Specifies whether to enable automatic UV project detection during model logging.
 #: When enabled, MLflow will look for uv.lock and pyproject.toml in the current working
 #: directory and use ``uv export`` for dependency inference instead of capturing imported packages.
