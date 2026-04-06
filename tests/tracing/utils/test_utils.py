@@ -586,8 +586,17 @@ def test_get_spans_table_name_for_trace_no_destination():
 @pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
+    # Mock should_compute_cost_client_side in the span module (where it's bound at import time)
+    # rather than is_databricks_uri. Mocking is_databricks_uri captures the reference in
+    # mlflow_v3.py during lazy import and causes _export_spans_incrementally to skip spans.
     with (
-        mock.patch("mlflow.utils.uri.is_databricks_uri", return_value=is_databricks),
+        mock.patch(
+            "mlflow.entities.span.should_compute_cost_client_side", return_value=is_databricks
+        ),
+        mock.patch(
+            "mlflow.tracing.processor.base_mlflow.should_compute_cost_client_side",
+            return_value=is_databricks,
+        ),
         mock.patch(
             "mlflow.entities.span.set_span_cost_attribute", wraps=lambda span: None
         ) as mock_set_cost,
