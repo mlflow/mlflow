@@ -112,11 +112,6 @@ class LocalArtifactRepository(ArtifactRepository):
                 for f in artifact_files
             ]
             return sorted(infos, key=lambda f: f.path)
-        elif path and not os.path.exists(list_dir):
-            raise MlflowException(
-                f"No such artifact: '{path}'",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
         else:
             return []
 
