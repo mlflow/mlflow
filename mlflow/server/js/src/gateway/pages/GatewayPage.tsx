@@ -22,6 +22,7 @@ import BudgetsPage from './BudgetsPage';
 import GatewayUsagePage from './GatewayUsagePage';
 import GatewayRoutes from '../routes';
 import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureUtils';
+import { GatewayLabel } from '../../common/components/GatewayNewTag';
 
 const GatewayPage = () => {
   const { theme } = useDesignSystemTheme();
