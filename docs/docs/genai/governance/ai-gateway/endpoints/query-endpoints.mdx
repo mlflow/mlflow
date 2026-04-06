@@ -465,9 +465,38 @@ The workspace header applies to all gateway API endpoints, including:
 
 For more details on workspace configuration and management, see the [Workspaces documentation](/self-hosting/workspaces/getting-started).
 
+## Response Headers
+
+Every gateway response includes diagnostic headers that let you measure how much latency the gateway itself adds on top of the underlying provider call.
+
+| Header | Description |
+|--------|-------------|
+| `X-MLflow-Gateway-Duration-Ms` | Total time in milliseconds from when the gateway received the request to when it returned a response. For streaming endpoints this reflects time-to-first-stream (gateway setup time), not the total streaming duration. |
+| `X-MLflow-Gateway-Overhead-Duration-Ms` | Gateway-only processing time in milliseconds — the difference between total duration and the provider HTTP round-trip. Omitted when provider timing is unavailable (e.g. streaming responses). |
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:5000/gateway/my-endpoint/mlflow/invocations",
+    json={"messages": [{"role": "user", "content": "Hello!"}]},
+)
+
+total_ms = response.headers.get("X-MLflow-Gateway-Duration-Ms")
+overhead_ms = response.headers.get("X-MLflow-Gateway-Overhead-Duration-Ms")
+
+print(f"Total: {total_ms}ms")
+if overhead_ms:
+    print(f"Gateway overhead: {overhead_ms}ms, Provider: {int(total_ms) - int(overhead_ms)}ms")
+```
+
 ## Using Gateway Endpoints with MLflow Judges
 
 AI Gateway endpoints can be used as the backing LLM for MLflow's [LLM Judges](/genai/eval-monitor/scorers/#llms-as-judges). This allows you to run judge evaluations through the gateway, benefiting from centralized API key management and cost tracking.
+
+:::note
+When MLflow Judges call the gateway, they automatically include the `X-MLflow-Gateway-Caller: judge` request header. The gateway records this in telemetry to distinguish judge traffic from regular endpoint traffic. You do not need to set this header manually.
+:::
 
 To use a gateway endpoint as a judge model, use the `gateway:/` prefix followed by your endpoint name:
 
