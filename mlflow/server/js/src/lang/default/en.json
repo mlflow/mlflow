@@ -1030,10 +1030,6 @@
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
   },
-  "53j9+9": {
-    "defaultMessage": "Date created",
-    "description": "Label for endpoint creation date"
-  },
   "58/xE7": {
     "defaultMessage": "Output /1M",
     "description": "Table header for output cost"
@@ -3457,10 +3453,6 @@
   "L8czct": {
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
-  },
-  "LBaK9z": {
-    "defaultMessage": "Open dataset",
-    "description": "Text for the button that opens the dataset source URL in a new tab"
   },
   "LBbyku": {
     "defaultMessage": "Endpoint",
