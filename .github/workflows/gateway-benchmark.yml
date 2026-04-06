@@ -80,7 +80,9 @@ jobs:
           BACKEND: ${{ matrix.backend }}
         run: |
           uv sync --extra gateway
-          [[ "$BACKEND" == "postgres" ]] && uv pip install "psycopg2-binary>=2.9,<3"
+          if [[ "$BACKEND" == "postgres" ]]; then
+            uv pip install "psycopg2-binary>=2.9,<3"
+          fi
       - name: Run benchmark (${{ matrix.backend }})
         env:
           EVENT_NAME: ${{ github.event_name }}
