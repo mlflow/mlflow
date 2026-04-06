@@ -1770,6 +1770,10 @@
     "defaultMessage": "MLflow runs:",
     "description": "A label for the associated MLflow runs in the prompt details page"
   },
+  "9ZzOhu": {
+    "defaultMessage": "API Keys",
+    "description": "Sidebar link for gateway API keys"
+  },
   "9cTaBs": {
     "defaultMessage": "Fail",
     "description": "Failing assessment label"
@@ -1965,6 +1969,10 @@
   "AhfXyS": {
     "defaultMessage": "Previous",
     "description": "Button text for previous trace"
+  },
+  "Ai/ANo": {
+    "defaultMessage": "Usage",
+    "description": "Page title"
   },
   "AoDwev": {
     "defaultMessage": "Description (optional)",
@@ -4753,10 +4761,6 @@
     "defaultMessage": "Retrieval Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval Groundedness: moderately grounded\""
   },
-  "TYidgr": {
-    "defaultMessage": "Gateway Usage",
-    "description": "Page title"
-  },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
     "description": "Evaluation review > evaluations list > sample info tooltip"
@@ -5878,10 +5882,6 @@
   "aQxQIF": {
     "defaultMessage": "(empty)",
     "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
-  },
-  "aRjFm8": {
-    "defaultMessage": "Monitor usage and performance across all endpoints",
-    "description": "Page subtitle"
   },
   "aSnHN9": {
     "defaultMessage": "Tool Call Efficiency",
@@ -7146,10 +7146,6 @@
   "i7UTwK": {
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
-  },
-  "i7hyJK": {
-    "defaultMessage": "API Keys",
-    "description": "Sidebar link for API keys"
   },
   "i9OADf": {
     "defaultMessage": "Params",

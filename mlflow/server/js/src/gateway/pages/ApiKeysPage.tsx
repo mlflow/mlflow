@@ -1,5 +1,8 @@
-import { Button, KeyIcon, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Breadcrumb, Button, KeyIcon, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { Link } from '../../common/utils/RoutingUtils';
+import { GatewayLabel } from '../../common/components/GatewayNewTag';
+import GatewayRoutes from '../routes';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ApiKeysList } from '../components/api-keys/ApiKeysList';
@@ -82,10 +85,30 @@ const ApiKeysPage = () => {
           borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         }}
       >
-        <Typography.Title level={3} css={{ margin: 0, display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <KeyIcon />
-          <FormattedMessage defaultMessage="API Keys" description="API Keys page title" />
-        </Typography.Title>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Breadcrumb includeTrailingCaret>
+            <Breadcrumb.Item>
+              <Link componentId="mlflow.gateway.api-keys.breadcrumb_gateway_link" to={GatewayRoutes.gatewayPageRoute}>
+                <GatewayLabel />
+              </Link>
+            </Breadcrumb.Item>
+          </Breadcrumb>
+          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+            <div
+              css={{
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+                display: 'flex',
+              }}
+            >
+              <KeyIcon />
+            </div>
+            <Typography.Title withoutMargins level={2}>
+              <FormattedMessage defaultMessage="API Keys" description="API Keys page title" />
+            </Typography.Title>
+          </div>
+        </div>
         <Button
           componentId="mlflow.gateway.api-keys.create-button"
           type="primary"
