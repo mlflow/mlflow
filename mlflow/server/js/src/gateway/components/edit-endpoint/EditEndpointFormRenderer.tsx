@@ -24,11 +24,27 @@ import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { StarterCodeCard } from './StarterCodeCard';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
-import type { Endpoint } from '../../types';
+import type { Endpoint, EndpointModelMapping } from '../../types';
 import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+
+/**
+ * Returns the provider string to pass to StarterCodeCard.
+ * If all models share the same passthrough API (treating openai and azure as equivalent),
+ * returns the first model's provider so the passthrough tab is shown.
+ * Otherwise returns undefined so only the MLflow Chat Completions tab is shown.
+ */
+export const getStarterCodeProvider = (modelMappings: EndpointModelMapping[]): string | undefined => {
+  const normalized = new Set(
+    modelMappings.map((m) => {
+      const p = m.model_definition?.provider;
+      return p === 'azure' ? 'openai' : p;
+    }),
+  );
+  return normalized.size <= 1 ? modelMappings[0]?.model_definition?.provider : undefined;
+};
 
 const LogsTabContent = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -273,7 +289,7 @@ export const EditEndpointFormRenderer = ({
                 {endpoint && (
                   <StarterCodeCard
                     endpointName={endpoint.name}
-                    provider={endpoint.model_mappings[0]?.model_definition?.provider}
+                    provider={getStarterCodeProvider(endpoint.model_mappings)}
                   />
                 )}
 
@@ -469,7 +485,7 @@ export const EditEndpointFormRenderer = ({
         </div>
       </Tabs.Root>
 
-      {activeTab === 'overview' && (
+      {hasChanges && activeTab === 'overview' && (
         <div
           css={{
             display: 'flex',
@@ -496,12 +512,7 @@ export const EditEndpointFormRenderer = ({
                       defaultMessage: 'Please configure at least one model in traffic split',
                       description: 'Tooltip shown when save button is disabled due to incomplete form',
                     })
-                  : !hasChanges
-                    ? intl.formatMessage({
-                        defaultMessage: 'No changes to save',
-                        description: 'Tooltip shown when save button is disabled due to no changes',
-                      })
-                    : undefined
+                  : undefined
             }
           >
             <Button
@@ -509,7 +520,7 @@ export const EditEndpointFormRenderer = ({
               type="primary"
               onClick={form.handleSubmit(onSubmit)}
               loading={isSubmitting}
-              disabled={!isFormComplete || !hasChanges}
+              disabled={!isFormComplete}
             >
               <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
             </Button>
