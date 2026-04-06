@@ -240,9 +240,7 @@ def _fetch_remote_provider(provider: str) -> dict[str, ModelInfo] | None:
 
     match parsed.scheme:
         case "file":
-            result = _fetch_local_provider(
-                provider, Path(urllib.request.url2pathname(parsed.path))
-            )
+            result = _fetch_local_provider(provider, Path(urllib.request.url2pathname(parsed.path)))
         case "http" | "https":
             result = _fetch_http_provider(provider, url)
         case _:
