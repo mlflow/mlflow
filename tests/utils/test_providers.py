@@ -189,12 +189,12 @@ def test_get_models_dedupes_models_after_normalization():
 
 
 def test_get_all_providers_with_allowed_filter(monkeypatch):
-    with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
-        mock_model_cost.return_value = {
-            ("openai", "gpt-4o"): {"mode": "chat"},
-            ("anthropic", "claude-3-5-sonnet"): {"mode": "chat"},
-            ("gemini", "gemini-1.5-pro"): {"mode": "chat"},
-        }
+    data = {
+        "openai": {"gpt-4o": {"mode": "chat"}},
+        "anthropic": {"claude-3-5-sonnet": {"mode": "chat"}},
+        "gemini": {"gemini-1.5-pro": {"mode": "chat"}},
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
         monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai,anthropic")
         providers = get_all_providers()
         assert "openai" in providers
@@ -203,21 +203,12 @@ def test_get_all_providers_with_allowed_filter(monkeypatch):
 
 
 def test_get_models_filters_with_allowed_providers(monkeypatch):
-    with mock.patch("mlflow.utils.providers._get_model_cost") as mock_model_cost:
-        mock_model_cost.return_value = {
-            ("openai", "gpt-4o"): {
-                "mode": "chat",
-                "supports_function_calling": True,
-            },
-            ("anthropic", "claude-3-5-sonnet"): {
-                "mode": "chat",
-                "supports_function_calling": True,
-            },
-            ("gemini", "gemini-1.5-pro"): {
-                "mode": "chat",
-                "supports_function_calling": True,
-            },
-        }
+    data = {
+        "openai": {"gpt-4o": {"mode": "chat", "supports_function_calling": True}},
+        "anthropic": {"claude-3-5-sonnet": {"mode": "chat", "supports_function_calling": True}},
+        "gemini": {"gemini-1.5-pro": {"mode": "chat", "supports_function_calling": True}},
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
         monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai")
         models = get_models()
         providers_in_result = {m["provider"] for m in models}
