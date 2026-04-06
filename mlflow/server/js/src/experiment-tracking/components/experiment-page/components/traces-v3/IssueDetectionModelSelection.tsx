@@ -18,7 +18,6 @@ import {
   Tag,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
 import { ModelSelect } from '../../../../../gateway/components/create-endpoint/ModelSelect';
 import { IssueDetectionApiKeyConfigurator } from './IssueDetectionApiKeyConfigurator';
 import { IssueDetectionAdvancedSettings } from './IssueDetectionAdvancedSettings';
@@ -26,6 +25,7 @@ import { useApiKeyConfiguration } from '../../../../../gateway/components/model-
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import { generateRandomName } from '../../../../../common/utils/NameUtils';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
+import { useSecretsConfigQuery } from '../../../../../gateway/hooks/useSecretsConfigQuery';
 import { getEndpointDisplayInfo } from '../../../../../gateway/utils/gatewayUtils';
 
 type ModelConfigMode = 'endpoint' | 'direct';
@@ -33,6 +33,20 @@ type ModelConfigMode = 'endpoint' | 'direct';
 const CONFIGURE_DIRECTLY_VALUE = '__configure_directly__';
 
 const DEFAULT_PROVIDER = 'openai';
+
+// Allowed core providers for issue detection, for these we support fetching API keys
+// and set them when running jobs. For other providers, users should configure gateway
+// endpoints directly.
+// TODO: add bedrock (requires boto3)
+const ALLOWED_PROVIDERS = ['openai', 'anthropic', 'gemini', 'azure'] as const;
+
+// Display names for providers
+const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  gemini: 'Google Gemini',
+  azure: 'Azure OpenAI',
+};
 
 const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
   mode: 'new',
@@ -50,7 +64,6 @@ const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
   openai: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-6',
   gemini: 'gemini-2.5-pro',
-  databricks: 'databricks-gpt-5-1',
 };
 
 export interface ModelSelectionValues {
@@ -129,7 +142,7 @@ export const IssueDetectionModelSelection = forwardRef<
 
   // Get display value for the dropdown
   const dropdownDisplayValue = useMemo(() => {
-    if (mode === 'direct') {
+    if (hasInitializedMode && mode === 'direct') {
       return intl.formatMessage({
         defaultMessage: 'Configure model directly',
         description: 'Option to configure model directly instead of using an endpoint',
@@ -141,7 +154,7 @@ export const IssueDetectionModelSelection = forwardRef<
     }
     // No endpoint selected yet - return empty to show placeholder
     return '';
-  }, [mode, selectedEndpointName, endpointOptions, intl]);
+  }, [mode, selectedEndpointName, endpointOptions, intl, hasInitializedMode]);
 
   // Handle selection from dropdown
   const handleDropdownSelect = useCallback((value: string) => {
@@ -283,7 +296,11 @@ export const IssueDetectionModelSelection = forwardRef<
               componentId="mlflow.traces.issue-detection-modal.model-source"
               id="mlflow.traces.issue-detection-modal.model-source"
               value={
-                mode === 'direct' ? [CONFIGURE_DIRECTLY_VALUE] : selectedEndpointName ? [selectedEndpointName] : []
+                hasInitializedMode && mode === 'direct'
+                  ? [CONFIGURE_DIRECTLY_VALUE]
+                  : selectedEndpointName
+                    ? [selectedEndpointName]
+                    : []
               }
             >
               <DialogComboboxTrigger
@@ -295,28 +312,32 @@ export const IssueDetectionModelSelection = forwardRef<
                 })}
                 renderDisplayedValue={() => (dropdownDisplayValue ? <span>{dropdownDisplayValue}</span> : null)}
               />
-              <DialogComboboxContent maxHeight={350}>
+              <DialogComboboxContent>
                 <DialogComboboxOptionList>
-                  {endpointOptions.map((option) => (
-                    <DialogComboboxOptionListSelectItem
-                      key={option.value}
-                      value={option.value}
-                      onChange={() => handleDropdownSelect(option.value)}
-                      checked={mode === 'endpoint' && selectedEndpointName === option.value}
-                    >
-                      {option.label}
-                      {option.provider && option.modelName && (
-                        <DialogComboboxHintRow>
-                          {option.provider} / {option.modelName}
-                        </DialogComboboxHintRow>
-                      )}
-                    </DialogComboboxOptionListSelectItem>
-                  ))}
+                  {endpointOptions.length > 0 && (
+                    <div css={{ maxHeight: 150, overflowY: 'auto' }}>
+                      {endpointOptions.map((option) => (
+                        <DialogComboboxOptionListSelectItem
+                          key={option.value}
+                          value={option.value}
+                          onChange={() => handleDropdownSelect(option.value)}
+                          checked={mode === 'endpoint' && selectedEndpointName === option.value}
+                        >
+                          {option.label}
+                          {option.provider && option.modelName && (
+                            <DialogComboboxHintRow>
+                              {option.provider} / {option.modelName}
+                            </DialogComboboxHintRow>
+                          )}
+                        </DialogComboboxOptionListSelectItem>
+                      ))}
+                    </div>
+                  )}
                   {endpointOptions.length > 0 && <DialogComboboxSeparator />}
                   <DialogComboboxOptionListSelectItem
                     value={CONFIGURE_DIRECTLY_VALUE}
                     onChange={() => handleDropdownSelect(CONFIGURE_DIRECTLY_VALUE)}
-                    checked={mode === 'direct'}
+                    checked={hasInitializedMode && mode === 'direct'}
                   >
                     <FormattedMessage
                       defaultMessage="Configure model directly"
@@ -333,12 +354,44 @@ export const IssueDetectionModelSelection = forwardRef<
         {mode === 'direct' && (
           <>
             <div>
-              <ProviderSelect
-                value={provider}
-                onChange={handleProviderChange}
-                componentIdPrefix="mlflow.traces.issue-detection-modal.provider"
-                hideLabel
-              />
+              <DialogCombobox
+                componentId="mlflow.traces.issue-detection-modal.provider"
+                id="mlflow.traces.issue-detection-modal.provider"
+                value={provider ? [provider] : []}
+              >
+                <DialogComboboxTrigger
+                  withInlineLabel={false}
+                  allowClear={false}
+                  placeholder={intl.formatMessage({
+                    defaultMessage: 'Select provider',
+                    description: 'Placeholder for provider selector',
+                  })}
+                  renderDisplayedValue={() => (provider ? <span>{PROVIDER_DISPLAY_NAMES[provider]}</span> : null)}
+                />
+                <DialogComboboxContent>
+                  <DialogComboboxOptionList>
+                    {ALLOWED_PROVIDERS.map((providerOption) => (
+                      <DialogComboboxOptionListSelectItem
+                        key={providerOption}
+                        value={providerOption}
+                        onChange={() => handleProviderChange(providerOption)}
+                        checked={provider === providerOption}
+                      >
+                        {PROVIDER_DISPLAY_NAMES[providerOption]}
+                      </DialogComboboxOptionListSelectItem>
+                    ))}
+                    <DialogComboboxSeparator />
+                    <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.md}px`, pointerEvents: 'none' }}>
+                      <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                        <FormattedMessage
+                          defaultMessage="To use other providers, create an AI Gateway endpoint and select it."
+                          description="Hint explaining how to use other providers via Gateway"
+                        />
+                      </Typography.Text>
+                    </div>
+                  </DialogComboboxOptionList>
+                </DialogComboboxContent>
+              </DialogCombobox>
               {provider && DEFAULT_MODEL_BY_PROVIDER[provider] && (
                 <div css={{ marginTop: theme.spacing.xs }}>
                   <Tooltip
@@ -364,7 +417,7 @@ export const IssueDetectionModelSelection = forwardRef<
                     provider={provider}
                     value={model}
                     onChange={setModel}
-                    componentIdPrefix="mlflow.traces.issue-detection-modal.model"
+                    componentId="mlflow.traces.issue-detection-modal.model"
                     label={
                       <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
                         <FormattedMessage defaultMessage="Model *" description="Label for model selection (required)" />

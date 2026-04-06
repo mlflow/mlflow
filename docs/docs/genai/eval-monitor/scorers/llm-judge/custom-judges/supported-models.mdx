@@ -19,20 +19,30 @@ To use AI Gateway endpoints, select the endpoint from the UI dropdown or specify
 
 ## Direct Model Providers
 
-MLflow also supports calling model providers directly:
+MLflow supports calling model providers directly using the format `provider:/model-name`. Each provider may require specific credentials set as environment variables:
 
-- OpenAI / Azure OpenAI
-- Anthropic
-- Amazon Bedrock
-- Cohere
-- Together AI
-- Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
+| Provider       | URI Format                                                      | Environment Variables                                                                                                                                                                   |
+| -------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI         | `openai:/gpt-5.4-mini`                                          | `OPENAI_API_KEY`                                                                                                                                                                        |
+| Azure OpenAI   | `azure:/my-deployment`                                          | `AZURE_API_KEY`, `AZURE_API_BASE`, `AZURE_API_VERSION`                                                                                                                                  |
+| Anthropic      | `anthropic:/claude-sonnet-4-5`                                  | `ANTHROPIC_API_KEY`                                                                                                                                                                     |
+| Amazon Bedrock | `bedrock:/google.gemma-3-4b-it`                                 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` (optional). Alternatively: `AWS_BEARER_TOKEN_BEDROCK` for API key auth, or `AWS_ROLE_ARN` for IAM role. |
+| Google Gemini  | `gemini:/gemini-3.1-pro-preview`                                | `GEMINI_API_KEY`                                                                                                                                                                        |
+| Mistral        | `mistral:/mistral-small-2603`                                   | `MISTRAL_API_KEY`                                                                                                                                                                       |
+| xAI            | `xai:/grok-4.20-0309-reasoning`                                 | `XAI_API_KEY`                                                                                                                                                                           |
+| Vertex AI      | `vertex_ai:/gemini-3-flash-preview`                             | `VERTEX_PROJECT`, `VERTEX_LOCATION` (optional), `VERTEX_CREDENTIALS` (optional)                                                                                                         |
+| Groq           | `groq:/llama-3.3-70b-versatile`                                 | `GROQ_API_KEY`                                                                                                                                                                          |
+| DeepSeek       | `deepseek:/deepseek-chat`                                       | `DEEPSEEK_API_KEY`                                                                                                                                                                      |
+| OpenRouter     | `openrouter:/openai/gpt-5.4-nano`                               | `OPENROUTER_API_KEY`. See [OpenRouter model list](https://openrouter.ai/models) for model names.                                                                                        |
+| Together AI    | `togetherai:/meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8` | `TOGETHERAI_API_KEY`                                                                                                                                                                    |
+| Ollama         | `ollama:/llama3.2`                                              | None (local)                                                                                                                                                                            |
+| Databricks     | `databricks:/databricks-claude-sonnet-4-5`                      | [Databricks SDK authentication](https://docs.databricks.com/aws/en/dev-tools/auth/index.html) (e.g. `DATABRICKS_HOST` + `DATABRICKS_TOKEN`, or other supported methods)                 |
 
 :::warning
-Judges configured with direct model providers require API keys to be set locally (e.g., `OPENAI_API_KEY`) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run the judges from the UI.
+Judges configured with direct model providers require credentials to be available locally (typically via environment variables) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run the judges from the UI.
 :::
 
-To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
+For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers.
 
 ## Databricks-Hosted Models
 

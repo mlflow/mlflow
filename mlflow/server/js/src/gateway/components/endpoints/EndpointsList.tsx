@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  CloudModelIcon,
   Empty,
   Input,
   SearchIcon,
@@ -17,6 +16,7 @@ import { EndpointsColumnsButton, EndpointsColumn, DEFAULT_VISIBLE_COLUMNS } from
 import { EndpointBindingsDrawer } from './EndpointBindingsDrawer';
 import { DeleteEndpointModal } from './DeleteEndpointModal';
 import { EndpointRow } from './EndpointRow';
+import { QuickStartTemplates } from './QuickStartTemplates';
 import type { Endpoint, EndpointBinding } from '../../types';
 
 interface EndpointsListProps {
@@ -66,25 +66,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     }
 
     if (endpoints.length === 0) {
-      return (
-        <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Empty
-            image={<CloudModelIcon />}
-            title={
-              <FormattedMessage
-                defaultMessage="No endpoints created"
-                description="Empty state title for endpoints list"
-              />
-            }
-            description={
-              <FormattedMessage
-                defaultMessage='Use the "Create endpoint" button to create a new endpoint'
-                description="Empty state message for endpoints list explaining how to create"
-              />
-            }
-          />
-        </div>
-      );
+      return <QuickStartTemplates />;
     }
 
     return null;

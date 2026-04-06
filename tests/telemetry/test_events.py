@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+import pandas as pd
 import pytest
 
 from mlflow.entities.evaluation_dataset import DatasetGranularity, EvaluationDataset
@@ -10,7 +11,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetTargetScope,
     BudgetUnit,
 )
-from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.genai.discovery.entities import DiscoverIssuesResult
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
@@ -33,6 +34,7 @@ from mlflow.telemetry.events import (
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
     GatewayUpdateEndpointEvent,
+    GenAIEvaluateEvent,
     LogAssessmentEvent,
     MakeJudgeEvent,
     MergeRecordsEvent,
@@ -40,6 +42,7 @@ from mlflow.telemetry.events import (
     PromptOptimizationEvent,
     SimulateConversationEvent,
     StartTraceEvent,
+    UpdateIssueEvent,
 )
 
 
@@ -140,6 +143,18 @@ def test_event_name():
     assert PromptOptimizationEvent.name == "prompt_optimization"
     assert SimulateConversationEvent.name == "simulate_conversation"
     assert DiscoverIssuesEvent.name == "discover_issues"
+    assert UpdateIssueEvent.name == "update_issue"
+
+
+def test_start_trace_parse_format_native():
+    result = StartTraceEvent.parse({})
+    assert result["format"] == "native"
+
+
+def test_start_trace_parse_format_genai_semconv(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_OTEL_GENAI_SEMCONV", "true")
+    result = StartTraceEvent.parse({})
+    assert result["format"] == "genai_semconv"
 
 
 @pytest.mark.parametrize(
@@ -560,22 +575,42 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
     ("arguments", "expected_params"),
     [
         (
-            {"model": "openai:/gpt-4", "traces": [Mock(), Mock()], "categories": ["hallucination"]},
-            {"model": "openai:/gpt-4", "trace_count": 2, "categories": ["hallucination"]},
+            {
+                "model": "openai:/gpt-4",
+                "traces": [Mock(), Mock()],
+                "categories": ["hallucination"],
+                "run_id": "run-1",
+            },
+            {
+                "model": "openai:/gpt-4",
+                "trace_count": 2,
+                "categories": ["hallucination"],
+                "source_run_id": "run-1",
+            },
         ),
         (
             {"model": "databricks:/dbrx", "traces": [Mock()], "categories": None},
-            {"model": "databricks:/dbrx", "trace_count": 1, "categories": None},
+            {
+                "model": "databricks:/dbrx",
+                "trace_count": 1,
+                "categories": None,
+                "source_run_id": None,
+            },
         ),
         (
             {"model": None, "traces": [], "categories": ["accuracy", "safety"]},
-            {"model": None, "trace_count": 0, "categories": ["accuracy", "safety"]},
+            {
+                "model": None,
+                "trace_count": 0,
+                "categories": ["accuracy", "safety"],
+                "source_run_id": None,
+            },
         ),
         (
             {"traces": None, "categories": []},
-            {"model": None, "trace_count": 0, "categories": []},
+            {"model": None, "trace_count": 0, "categories": [], "source_run_id": None},
         ),
-        ({}, {"model": None, "trace_count": 0, "categories": None}),
+        ({}, {"model": None, "trace_count": 0, "categories": None, "source_run_id": None}),
     ],
 )
 def test_discover_issues_parse_params(arguments, expected_params):
@@ -621,7 +656,12 @@ def test_discover_issues_parse_params(arguments, expected_params):
                 total_traces_analyzed=100,
                 total_cost_usd=2.5,
             ),
-            {"issue_count": 3, "total_traces_analyzed": 100, "total_cost_usd": 2.5},
+            {
+                "issue_count": 3,
+                "total_traces_analyzed": 100,
+                "total_cost_usd": 2.5,
+                "triage_run_id": "run",
+            },
         ),
         (
             DiscoverIssuesResult(
@@ -641,7 +681,12 @@ def test_discover_issues_parse_params(arguments, expected_params):
                 total_traces_analyzed=50,
                 total_cost_usd=1.0,
             ),
-            {"issue_count": 1, "total_traces_analyzed": 50, "total_cost_usd": 1.0},
+            {
+                "issue_count": 1,
+                "total_traces_analyzed": 50,
+                "total_cost_usd": 1.0,
+                "triage_run_id": "run",
+            },
         ),
         (
             DiscoverIssuesResult(
@@ -651,19 +696,91 @@ def test_discover_issues_parse_params(arguments, expected_params):
                 total_traces_analyzed=10,
                 total_cost_usd=0.0,
             ),
-            {"issue_count": 0, "total_traces_analyzed": 10, "total_cost_usd": 0.0},
+            {
+                "issue_count": 0,
+                "total_traces_analyzed": 10,
+                "total_cost_usd": 0.0,
+                "triage_run_id": "run",
+            },
         ),
         (
             DiscoverIssuesResult(
                 issues=[],
-                triage_run_id="run",
+                triage_run_id=None,
                 summary="summary",
                 total_traces_analyzed=0,
                 total_cost_usd=None,
             ),
-            {"issue_count": 0, "total_traces_analyzed": 0, "total_cost_usd": None},
+            {
+                "issue_count": 0,
+                "total_traces_analyzed": 0,
+                "total_cost_usd": None,
+                "triage_run_id": None,
+            },
         ),
     ],
 )
 def test_discover_issues_parse_result(result, expected_params):
     assert DiscoverIssuesEvent.parse_result(result) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        # String values pass through; name/description tracked as booleans
+        (
+            {"status": "pending", "name": "Test Issue", "description": "Desc", "severity": "high"},
+            {"status": "pending", "has_name": True, "has_description": True, "severity": "high"},
+        ),
+        # Enum values are converted to their string value
+        (
+            {
+                "status": IssueStatus.RESOLVED,
+                "name": "Issue",
+                "description": "Desc",
+                "severity": IssueSeverity.MEDIUM,
+            },
+            {"status": "resolved", "has_name": True, "has_description": True, "severity": "medium"},
+        ),
+        # Missing fields: status/severity None, has_name/has_description False
+        (
+            {},
+            {"status": None, "has_name": False, "has_description": False, "severity": None},
+        ),
+    ],
+)
+def test_update_issue_parse_params(arguments, expected_params):
+    assert UpdateIssueEvent.name == "update_issue"
+    assert UpdateIssueEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("source_run_id", "expected_params"),
+    [
+        ("run-123", {"source_run_id": "run-123"}),
+        (None, {"source_run_id": None}),
+    ],
+)
+def test_update_issue_parse_result(source_run_id, expected_params):
+    mock_issue = Mock()
+    mock_issue.source_run_id = source_run_id
+    assert UpdateIssueEvent.parse_result(mock_issue) == expected_params
+
+
+def test_update_issue_parse_result_none():
+    assert UpdateIssueEvent.parse_result(None) == {}
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_eval_data_type"),
+    [
+        ({"data": [{"inputs": {"q": "a"}}]}, "list[dict]"),
+        ({"data": pd.DataFrame([{"inputs": {"q": "a"}}])}, "pd.DataFrame"),
+        ({"data": "unexpected_type"}, "unknown"),
+        ({"data": None}, None),
+        ({}, None),
+    ],
+)
+def test_genai_evaluate_event_parse_eval_data_type(arguments, expected_eval_data_type):
+    result = GenAIEvaluateEvent.parse(arguments)
+    assert result.get("eval_data_type") == expected_eval_data_type

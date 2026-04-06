@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "Llama-3.3-70B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4028,
+        "max_tokens": 4028
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Llama-3.3-8B-Instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4028,
+        "max_tokens": 4028
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Llama-4-Maverick-17B-128E-Instruct-FP8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 4028,
+        "max_tokens": 4028
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "Llama-4-Scout-17B-16E-Instruct-FP8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 10000000,
+        "max_output": 4028,
+        "max_tokens": 4028
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

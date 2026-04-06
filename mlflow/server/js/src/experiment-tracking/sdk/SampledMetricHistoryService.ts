@@ -1,6 +1,6 @@
 import { difference } from 'lodash';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { fetchEndpoint, jsonBigIntResponseParser } from '../../common/utils/FetchUtils';
+import { defaultResponseParser, fetchEndpoint } from '../../common/utils/FetchUtils';
 import type { AsyncAction, ReduxState, ThunkDispatch } from '../../redux-types';
 import { createChartAxisRangeKey } from '../components/runs-charts/components/RunsCharts.common';
 import type { MetricEntity } from '../types';
@@ -100,7 +100,7 @@ export const getSampledMetricHistoryBulkAction =
 
     const request = fetchEndpoint({
       relativeUrl: `ajax-api/2.0/mlflow/metrics/get-history-bulk-interval?${queryParams}`,
-      success: jsonBigIntResponseParser,
+      success: defaultResponseParser,
     });
 
     return dispatch({

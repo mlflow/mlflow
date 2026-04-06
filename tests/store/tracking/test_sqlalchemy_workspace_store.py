@@ -1,3 +1,4 @@
+import json
 import math
 import time
 import uuid
@@ -14,6 +15,8 @@ from mlflow.entities import (
     GatewayEndpointModelConfig,
     GatewayModelLinkageType,
     GatewayResourceType,
+    GuardrailAction,
+    GuardrailStage,
     InputTag,
     IssueStatus,
     LoggedModelParameter,
@@ -2237,3 +2240,73 @@ def test_search_issues_is_workspace_scoped(workspace_tracking_store):
         results = workspace_tracking_store.search_issues(filter_string="status = 'pending'")
         assert len(results) == 1
         assert results[0].issue_id == issue_b.issue_id
+
+
+def _create_scorer_in_workspace(store, workspace_name):
+    suffix = uuid.uuid4().hex[:8]
+    secret = store.create_gateway_secret(
+        secret_name=f"secret-{suffix}",
+        secret_value={"api_key": f"key-{suffix}"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"def-{suffix}",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name=f"ep-{suffix}",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                weight=1.0,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+            )
+        ],
+    )
+    experiment_id = store.create_experiment(f"scorer-exp-{suffix}")
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input safe?",
+        }
+    })
+    scorer = store.register_scorer(experiment_id, f"judge-{suffix}", serialized_scorer)
+    return scorer, endpoint
+
+
+def test_guardrails_are_workspace_scoped(gateway_workspace_store):
+    with WorkspaceContext("team-guard-a"):
+        scorer_a, _ = _create_scorer_in_workspace(gateway_workspace_store, "team-guard-a")
+        guardrail_a = gateway_workspace_store.create_gateway_guardrail(
+            name="guardrail-a",
+            scorer_id=scorer_a.scorer_id,
+            scorer_version=scorer_a.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+
+    with WorkspaceContext("team-guard-b"):
+        scorer_b, _ = _create_scorer_in_workspace(gateway_workspace_store, "team-guard-b")
+        guardrail_b = gateway_workspace_store.create_gateway_guardrail(
+            name="guardrail-b",
+            scorer_id=scorer_b.scorer_id,
+            scorer_version=scorer_b.scorer_version,
+            stage=GuardrailStage.AFTER,
+            action=GuardrailAction.SANITIZATION,
+        )
+
+        guardrails = gateway_workspace_store.list_gateway_guardrails()
+        assert len(guardrails) == 1
+        assert guardrails[0].guardrail_id == guardrail_b.guardrail_id
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.get_gateway_guardrail(guardrail_a.guardrail_id)
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.delete_gateway_guardrail(guardrail_a.guardrail_id)
+
+    with WorkspaceContext("team-guard-a"):
+        guardrails = gateway_workspace_store.list_gateway_guardrails()
+        assert len(guardrails) == 1
+        assert guardrails[0].guardrail_id == guardrail_a.guardrail_id

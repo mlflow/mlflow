@@ -1,7 +1,11 @@
 ---
+title: Tracing LangChain🦜⛓️
+description: Trace LangChain LLM application chains and agent executions with MLflow for full observability into retrieval, generation, and tool-use workflows.
 sidebar_position: 2
 sidebar_label: LangChain
 toc_max_heading_level: 2
+keywords: [langchain, tracing, mlflow, llm, rag, agent, chain]
+image: /images/llms/tracing/langgraph-agent-trace.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -53,7 +57,7 @@ Start the MLflow server following the [Self-Hosting Guide](/self-hosting), if yo
 ### 2. Install dependencies
 
 ```bash
-pip install langchain langchain-openai 'mlflow[genai]'
+pip install langchain langchain-openai mlflow
 ```
 
 ### 3. Enable tracing

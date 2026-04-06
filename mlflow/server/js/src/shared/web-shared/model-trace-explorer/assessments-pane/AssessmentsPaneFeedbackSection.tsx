@@ -23,6 +23,7 @@ import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSear
 import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import { isEvaluatingTracesInDetailsViewEnabled } from '../FeatureUtils';
 import { INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE } from '../constants';
+import { NOTES_ASSESSMENT_NAME } from './AssessmentsPaneNotesSection';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -138,7 +139,12 @@ export const AssessmentsPaneFeedbackSection = ({
   sessionId?: string;
 }) => {
   const visibleFeedbacks = useMemo(
-    () => feedbacks.filter((f) => f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE),
+    () =>
+      feedbacks.filter(
+        (f) =>
+          f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE &&
+          f.assessment_name !== NOTES_ASSESSMENT_NAME,
+      ),
     [feedbacks],
   );
   const groupedFeedbacks = useMemo(() => groupFeedbacks(visibleFeedbacks), [visibleFeedbacks]);
@@ -201,8 +207,8 @@ export const AssessmentsPaneFeedbackSection = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          marginTop: theme.spacing.sm,
           marginBottom: theme.spacing.sm,
-          height: theme.spacing.lg,
           flexShrink: 0,
         }}
       >
@@ -213,15 +219,10 @@ export const AssessmentsPaneFeedbackSection = ({
           />{' '}
           {!isEmpty(groupedFeedbacks) && <>({visibleFeedbacks.length})</>}
         </Typography.Text>
-      </div>
-
-      {!isSectionEmpty && (
-        <div
-          css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
-        >
+        {!isSectionEmpty && (
           <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
-        </div>
-      )}
+        )}
+      </div>
 
       {currentTraceEvaluationErrors.map((evaluation) => (
         <div key={evaluation.requestKey} css={{ marginBottom: theme.spacing.sm }}>
@@ -326,7 +327,7 @@ export const AssessmentsPaneFeedbackSection = ({
         <AssessmentCreateForm
           spanId={activeSpanId}
           traceId={traceId}
-          initialAssessmentType="feedback"
+          assessmentType="feedback"
           setExpanded={() => setCreateFormVisible(false)}
         />
       )}

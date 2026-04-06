@@ -32,6 +32,7 @@ from mlflow.gateway.providers.base import (
     FallbackProvider,
     TrafficRouteProvider,
 )
+from mlflow.gateway.providers.databricks import DatabricksConfig, DatabricksProvider
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.providers.litellm import LiteLLMProvider
 from mlflow.gateway.providers.mistral import MistralProvider
@@ -415,16 +416,10 @@ def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(
         store, endpoint.name, EndpointType.LLM_V1_CHAT
     )
 
-    assert isinstance(provider, LiteLLMProvider)
-    assert isinstance(provider.config.model.config, LiteLLMConfig)
+    assert isinstance(provider, DatabricksProvider)
+    assert isinstance(provider.config.model.config, DatabricksConfig)
     # Verify the base URL was normalized to include /serving-endpoints
-    assert (
-        provider.config.model.config.litellm_auth_config["api_base"]
-        == "https://my-workspace.databricks.com/serving-endpoints"
-    )
-    assert provider.config.model.config.litellm_provider == "databricks"
-    # get_provider_name() returns "databricks" (the actual provider) instead of "LiteLLM"
-    assert provider.get_provider_name() == "databricks"
+    assert provider._api_base == "https://my-workspace.databricks.com/serving-endpoints"
 
 
 def test_api_key_not_read_from_file(store: SqlAlchemyStore, tmp_path: Path, monkeypatch):
@@ -2071,16 +2066,16 @@ async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler)
         == GatewayRequestType.UNIFIED_CHAT
     )
 
-    # Verify span has provider information (OpenAI uses capitalized provider name)
+    # Verify span has provider information (provider name is lowercased for cost lookup alignment)
     span_names = {span.name for span in trace.data.spans}
-    assert "provider/OpenAI/gpt-4" in span_names
+    assert "provider/openai/gpt-4" in span_names
 
     # Find the provider span and check attributes
     provider_span = next(
-        (span for span in trace.data.spans if span.name == "provider/OpenAI/gpt-4"), None
+        (span for span in trace.data.spans if span.name == "provider/openai/gpt-4"), None
     )
     assert provider_span is not None
-    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "OpenAI"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
 
     # Verify token usage is captured on the provider span

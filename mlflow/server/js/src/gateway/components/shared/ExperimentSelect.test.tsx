@@ -27,7 +27,7 @@ describe('ExperimentSelect', () => {
       error: null,
     });
 
-    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentIdPrefix="test" />);
+    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentId="test" />);
 
     expect(screen.getByText('Loading experiments...')).toBeInTheDocument();
   });
@@ -39,7 +39,7 @@ describe('ExperimentSelect', () => {
       error: new Error('Failed to fetch experiments'),
     });
 
-    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentIdPrefix="test" />);
+    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentId="test" />);
 
     expect(screen.getByText('Failed to fetch experiments')).toBeInTheDocument();
   });
@@ -51,7 +51,7 @@ describe('ExperimentSelect', () => {
       error: null,
     });
 
-    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentIdPrefix="test" />);
+    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentId="test" />);
 
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
@@ -63,7 +63,7 @@ describe('ExperimentSelect', () => {
       error: null,
     });
 
-    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentIdPrefix="test" />);
+    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentId="test" />);
 
     expect(screen.getByText('Auto-create experiment')).toBeInTheDocument();
   });
@@ -75,7 +75,7 @@ describe('ExperimentSelect', () => {
       error: null,
     });
 
-    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentIdPrefix="test" disabled />);
+    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentId="test" disabled />);
 
     // The SimpleSelect component uses a button role for the trigger
     const trigger = screen.getByRole('combobox');
@@ -90,7 +90,7 @@ describe('ExperimentSelect', () => {
       error: new Error(),
     });
 
-    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentIdPrefix="test" />);
+    renderWithDesignSystem(<ExperimentSelect value="" onChange={jest.fn()} componentId="test" />);
 
     expect(screen.getByText('Failed to load experiments')).toBeInTheDocument();
   });

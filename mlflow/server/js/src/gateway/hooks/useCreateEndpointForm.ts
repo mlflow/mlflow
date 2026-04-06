@@ -29,6 +29,14 @@ export interface CreateEndpointFormData {
 export interface UseCreateEndpointFormOptions {
   onSuccess?: (endpoint: Endpoint) => void;
   onCancel?: () => void;
+  /** Pre-fill the provider field (e.g. from quick-start templates) */
+  defaultProvider?: string;
+  /** Pre-fill the model field (e.g. from quick-start templates) */
+  defaultModel?: string;
+  /** Pre-fill the endpoint name field */
+  defaultName?: string;
+  /** Pre-fill the new secret name field */
+  defaultSecretName?: string;
 }
 
 export interface UseCreateEndpointFormResult {
@@ -47,16 +55,20 @@ export interface UseCreateEndpointFormResult {
 export function useCreateEndpointForm({
   onSuccess,
   onCancel,
+  defaultProvider,
+  defaultModel,
+  defaultName,
+  defaultSecretName,
 }: UseCreateEndpointFormOptions = {}): UseCreateEndpointFormResult {
   const form = useForm<CreateEndpointFormData>({
     defaultValues: {
-      name: '',
-      provider: '',
-      modelName: '',
+      name: defaultName ?? '',
+      provider: defaultProvider ?? '',
+      modelName: defaultModel ?? '',
       secretMode: 'new',
       existingSecretId: '',
       newSecret: {
-        name: '',
+        name: defaultSecretName ?? '',
         authMode: '',
         secretFields: {},
         configFields: {},
