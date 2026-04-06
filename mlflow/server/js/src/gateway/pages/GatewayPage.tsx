@@ -1,12 +1,10 @@
 import { useMemo } from 'react';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import {
+  Breadcrumb,
   Button,
   ChainIcon,
-  CloudModelIcon,
-  Header,
   PlusIcon,
-  Spacer,
   Spinner,
   Typography,
   useDesignSystemTheme,
@@ -18,32 +16,12 @@ import ErrorUtils from '../../common/utils/ErrorUtils';
 import { EndpointsList } from '../components/endpoints';
 import { GatewaySideNav, type GatewayTab } from '../components/side-nav';
 import { GatewaySetupGuide } from '../components/SecretsSetupGuide';
-import { DefaultPassphraseBanner } from '../components/DefaultPassphraseBanner';
 import { useSecretsConfigQuery } from '../hooks/useSecretsConfigQuery';
 import ApiKeysPage from './ApiKeysPage';
 import BudgetsPage from './BudgetsPage';
 import GatewayUsagePage from './GatewayUsagePage';
 import GatewayRoutes from '../routes';
 import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureUtils';
-
-const GatewayPageTitle = () => {
-  const { theme } = useDesignSystemTheme();
-  return (
-    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-      <span
-        css={{
-          display: 'flex',
-          borderRadius: theme.borders.borderRadiusSm,
-          backgroundColor: theme.colors.backgroundSecondary,
-          padding: theme.spacing.sm,
-        }}
-      >
-        <CloudModelIcon />
-      </span>
-      <FormattedMessage defaultMessage="AI Gateway" description="Header title for the AI Gateway configuration page" />
-    </span>
-  );
-};
 
 const GatewayPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -72,8 +50,6 @@ const GatewayPage = () => {
   if (isLoadingConfig) {
     return (
       <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <Spacer shrinks={false} />
-        <Header title={<GatewayPageTitle />} />
         <div
           css={{
             flex: 1,
@@ -91,13 +67,10 @@ const GatewayPage = () => {
   }
 
   const secretsAvailable = secretsConfig?.secrets_available ?? false;
-  const isUsingDefaultPassphrase = secretsConfig?.using_default_passphrase ?? false;
 
   if (!secretsAvailable) {
     return (
       <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <Spacer shrinks={false} />
-        <Header title={<GatewayPageTitle />} />
         <div
           css={{
             flex: 1,
@@ -114,9 +87,6 @@ const GatewayPage = () => {
 
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Spacer shrinks={false} />
-      <Header title={<GatewayPageTitle />} />
-      {isUsingDefaultPassphrase && <DefaultPassphraseBanner />}
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {!enableWorkflowBasedNavigation && <GatewaySideNav activeTab={activeTab} />}
         <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -135,13 +105,33 @@ const GatewayPage = () => {
                       borderBottom: `1px solid ${theme.colors.borderDecorative}`,
                     }}
                   >
-                    <Typography.Title
-                      level={3}
-                      css={{ margin: 0, display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}
-                    >
-                      <ChainIcon />
-                      <FormattedMessage defaultMessage="Endpoints" description="Endpoints page title" />
-                    </Typography.Title>
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                      <Breadcrumb includeTrailingCaret>
+                        <Breadcrumb.Item>
+                          <Link
+                            componentId="mlflow.gateway.endpoints.breadcrumb_gateway_link"
+                            to={GatewayRoutes.gatewayPageRoute}
+                          >
+                            <GatewayLabel />
+                          </Link>
+                        </Breadcrumb.Item>
+                      </Breadcrumb>
+                      <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+                        <div
+                          css={{
+                            borderRadius: theme.borders.borderRadiusSm,
+                            backgroundColor: theme.colors.backgroundSecondary,
+                            padding: theme.spacing.sm,
+                            display: 'flex',
+                          }}
+                        >
+                          <ChainIcon />
+                        </div>
+                        <Typography.Title withoutMargins level={2}>
+                          <FormattedMessage defaultMessage="Endpoints" description="Endpoints page title" />
+                        </Typography.Title>
+                      </div>
+                    </div>
                     <Link
                       componentId="mlflow.gateway.page.create_endpoint_link"
                       to={GatewayRoutes.createEndpointPageRoute}
