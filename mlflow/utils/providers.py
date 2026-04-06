@@ -301,19 +301,17 @@ def _load_provider(provider: str) -> dict[str, ModelInfo]:
 
 
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
-    """Look up model cost info, loading only the relevant provider file when possible."""
+    """Look up model cost info, loading only the relevant provider file."""
     bare_model = model.split("/", 1)[-1]
 
     if custom_llm_provider:
-        # Fast path: load only the one provider file we need
-        if info := _load_provider(custom_llm_provider).get(bare_model):
-            return info
+        return _load_provider(custom_llm_provider).get(bare_model)
 
-    # Fallback: scan all providers for bare model name.
-    # Prefer entries that have pricing data over empty/stub entries.
+    # No provider given — scan bundled providers only (no remote fetch)
+    # to avoid O(N) network requests across all providers.
     fallback = None
     for provider in _list_provider_names():
-        if info := _load_provider(provider).get(bare_model):
+        if info := _load_bundled_provider(provider).get(bare_model):
             if info.get("input_cost_per_token"):
                 return info
             if fallback is None:
