@@ -208,6 +208,8 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
             "endpoint_model_mappings",
             "endpoint_bindings",
             "workspaces",
+            "guardrails",
+            "guardrail_configs",
         }
         assert expected_tables.issubset(all_table_names)
 
@@ -224,6 +226,10 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
             "idx_secrets_workspace",
             "idx_endpoints_workspace",
             "idx_model_definitions_workspace",
+            "idx_guardrails_workspace",
+            "idx_guardrails_scorer",
+            "idx_guardrail_configs_endpoint_id",
+            "idx_guardrail_configs_guardrail_id",
         }
         assert expected_named_indexes.issubset(all_index_names)
 
@@ -348,6 +354,24 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "budget_action": "ALERT",
             "created_at": seed,
             "last_updated_at": seed,
+            "workspace": workspace,
+        },
+        "guardrails": {
+            "guardrail_id": f"gr_{seed}",
+            "name": f"guardrail_{seed}",
+            "scorer_id": f"scorer_{seed}",
+            "scorer_version": seed,
+            "stage": "BEFORE",
+            "action": "VALIDATION",
+            "created_at": seed,
+            "last_updated_at": seed,
+            "workspace": workspace,
+        },
+        "guardrail_configs": {
+            "endpoint_id": f"endpoint_{seed}",
+            "guardrail_id": f"gr_{seed}",
+            "execution_order": seed,
+            "created_at": seed,
             "workspace": workspace,
         },
         "jobs": {

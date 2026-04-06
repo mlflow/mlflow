@@ -22,31 +22,45 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
+)
 from mlflow.protos.service_pb2 import (
+    AddGuardrailToEndpoint,
     AttachModelToGatewayEndpoint,
     CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
+    CreateGatewayGuardrail,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     DeleteGatewayBudgetPolicy,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
+    DeleteGatewayGuardrail,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DetachModelFromGatewayEndpoint,
     FallbackConfig,
     GetGatewayBudgetPolicy,
     GetGatewayEndpoint,
+    GetGatewayGuardrail,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
+    ListEndpointGuardrailConfigs,
     ListGatewayBudgetPolicies,
     ListGatewayEndpointBindings,
     ListGatewayEndpoints,
+    ListGatewayGuardrails,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
+    RemoveGuardrailFromEndpoint,
     SetGatewayEndpointTag,
+    UpdateEndpointGuardrailConfig,
     UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
@@ -97,6 +111,14 @@ class RestGatewayStoreMixin:
         UpdateGatewayBudgetPolicy,
         DeleteGatewayBudgetPolicy,
         ListGatewayBudgetPolicies,
+        CreateGatewayGuardrail,
+        GetGatewayGuardrail,
+        DeleteGatewayGuardrail,
+        ListGatewayGuardrails,
+        AddGuardrailToEndpoint,
+        RemoveGuardrailFromEndpoint,
+        ListEndpointGuardrailConfigs,
+        UpdateEndpointGuardrailConfig,
     }
 
     # ========== Secrets Management APIs ==========
@@ -696,3 +718,96 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(ListGatewayBudgetPolicies, req_body)
         policies = [GatewayBudgetPolicy.from_proto(p) for p in response_proto.budget_policies]
         return PagedList(policies, response_proto.next_page_token or None)
+
+    # ========== Guardrail APIs ==========
+
+    def create_gateway_guardrail(
+        self,
+        name: str,
+        scorer_id: str,
+        scorer_version: int,
+        stage: GuardrailStage,
+        action: GuardrailAction,
+        action_endpoint_id: str | None = None,
+    ) -> GatewayGuardrail:
+        kwargs = {
+            "name": name,
+            "scorer_id": scorer_id,
+            "scorer_version": scorer_version,
+            "stage": stage.to_proto(),
+            "action": action.to_proto(),
+        }
+        if action_endpoint_id is not None:
+            kwargs["action_endpoint_id"] = action_endpoint_id
+        req_body = message_to_json(CreateGatewayGuardrail(**kwargs))
+        response_proto = self._call_endpoint(CreateGatewayGuardrail, req_body)
+        return GatewayGuardrail.from_proto(response_proto.guardrail)
+
+    def get_gateway_guardrail(self, guardrail_id: str) -> GatewayGuardrail:
+        req_body = message_to_json(GetGatewayGuardrail(guardrail_id=guardrail_id))
+        response_proto = self._call_endpoint(GetGatewayGuardrail, req_body)
+        return GatewayGuardrail.from_proto(response_proto.guardrail)
+
+    def delete_gateway_guardrail(self, guardrail_id: str) -> None:
+        req_body = message_to_json(DeleteGatewayGuardrail(guardrail_id=guardrail_id))
+        self._call_endpoint(DeleteGatewayGuardrail, req_body)
+
+    def list_gateway_guardrails(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayGuardrail]:
+        req_body = message_to_json(
+            ListGatewayGuardrails(max_results=max_results, page_token=page_token)
+        )
+        response_proto = self._call_endpoint(ListGatewayGuardrails, req_body)
+        guardrails = [GatewayGuardrail.from_proto(g) for g in response_proto.guardrails]
+        return PagedList(guardrails, response_proto.next_page_token or None)
+
+    def add_guardrail_to_endpoint(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+        created_by: str | None = None,
+    ) -> GatewayGuardrailConfig:
+        kwargs = {
+            "endpoint_id": endpoint_id,
+            "guardrail_id": guardrail_id,
+        }
+        if execution_order is not None:
+            kwargs["execution_order"] = execution_order
+        req_body = message_to_json(AddGuardrailToEndpoint(**kwargs))
+        response_proto = self._call_endpoint(AddGuardrailToEndpoint, req_body)
+        return GatewayGuardrailConfig.from_proto(response_proto.config)
+
+    def remove_guardrail_from_endpoint(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+    ) -> None:
+        req_body = message_to_json(
+            RemoveGuardrailFromEndpoint(endpoint_id=endpoint_id, guardrail_id=guardrail_id)
+        )
+        self._call_endpoint(RemoveGuardrailFromEndpoint, req_body)
+
+    def list_endpoint_guardrail_configs(
+        self,
+        endpoint_id: str,
+    ) -> list[GatewayGuardrailConfig]:
+        req_body = message_to_json(ListEndpointGuardrailConfigs(endpoint_id=endpoint_id))
+        response_proto = self._call_endpoint(ListEndpointGuardrailConfigs, req_body)
+        return [GatewayGuardrailConfig.from_proto(c) for c in response_proto.configs]
+
+    def update_endpoint_guardrail_config(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+    ) -> GatewayGuardrailConfig:
+        kwargs = {"endpoint_id": endpoint_id, "guardrail_id": guardrail_id}
+        if execution_order is not None:
+            kwargs["execution_order"] = execution_order
+        req_body = message_to_json(UpdateEndpointGuardrailConfig(**kwargs))
+        response_proto = self._call_endpoint(UpdateEndpointGuardrailConfig, req_body)
+        return GatewayGuardrailConfig.from_proto(response_proto.config)

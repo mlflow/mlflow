@@ -227,6 +227,10 @@
     "defaultMessage": "Please input a name for the new workspace.",
     "description": "Error message for name requirement in create workspace modal"
   },
+  "/UWNW9": {
+    "defaultMessage": "Query endpoint",
+    "description": "Title for try-it modal dialog"
+  },
   "/UktTY": {
     "defaultMessage": "Are the expected facts supported by the response?",
     "description": "Hint for Correctness template"
@@ -434,10 +438,6 @@
   "0tU5gv": {
     "defaultMessage": "Cancel",
     "description": "Cancel text to cancel the flow to copy the model"
-  },
-  "0trCaF": {
-    "defaultMessage": "Use the \"Create endpoint\" button to create a new endpoint",
-    "description": "Empty state message for endpoints list explaining how to create"
   },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
@@ -779,6 +779,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
   },
+  "37ReeZ": {
+    "defaultMessage": "On",
+    "description": "Usage tracking enabled state"
+  },
   "3CWJEU": {
     "defaultMessage": "Issues",
     "description": "Column label for issues"
@@ -849,6 +853,10 @@
   "3pUugt": {
     "defaultMessage": "Run Analysis",
     "description": "Submit button to trigger issue detection job"
+  },
+  "3v2Y8K": {
+    "defaultMessage": "AI Gateway",
+    "description": "Shared label for AI Gateway used in sidebar and breadcrumbs"
   },
   "3vS6G9": {
     "defaultMessage": "{count, plural, one {# trace was} other {# traces were}} removed",
@@ -1018,13 +1026,13 @@
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
-  "5+bcQe": {
-    "defaultMessage": "No endpoints created",
-    "description": "Empty state title for endpoints list"
-  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
+  },
+  "53j9+9": {
+    "defaultMessage": "Date created",
+    "description": "Label for endpoint creation date"
   },
   "57rIQy": {
     "defaultMessage": "Collapse graph",
@@ -1053,6 +1061,10 @@
   "5N1yG6": {
     "defaultMessage": "Datasets",
     "description": "Label for the datasets tab in the MLflow experiment navbar"
+  },
+  "5P59Ey": {
+    "defaultMessage": "New",
+    "description": "Sidebar > AI Gateway > New feature tag"
   },
   "5PlfiT": {
     "defaultMessage": "This request exceeds the maximum queries per second limit. Please wait and try again.",
@@ -1121,10 +1133,6 @@
   "5umyLP": {
     "defaultMessage": "Edit endpoint name",
     "description": "Aria label for edit endpoint name button"
-  },
-  "5vzPok": {
-    "defaultMessage": "AI Gateway",
-    "description": "Sidebar link for gateway configuration"
   },
   "5xPlEu": {
     "defaultMessage": "Source run",
@@ -1618,6 +1626,10 @@
     "defaultMessage": "No API keys found",
     "description": "Empty state title when filter returns no results"
   },
+  "8mP5Mz": {
+    "defaultMessage": "Enable Usage Tracking in the Overview tab to view logs",
+    "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
+  },
   "8qJt7/": {
     "defaultMessage": "Experimental",
     "description": "Experimental badge shown for features which are experimental"
@@ -1738,6 +1750,10 @@
     "defaultMessage": "Tags",
     "description": "Row group title for tags of runs on the experiment compare runs page"
   },
+  "9MHcPE": {
+    "defaultMessage": "Overview",
+    "description": "Tab label for endpoint overview"
+  },
   "9TOU1G": {
     "defaultMessage": "No charts in this section",
     "description": "Runs compare page > Charts tab > No charts placeholder title"
@@ -1797,10 +1813,6 @@
   "9qUuQ6": {
     "defaultMessage": "Average of {count} values",
     "description": "Tooltip for numeric assessment average in session header"
-  },
-  "9tCd/m": {
-    "defaultMessage": "AI Gateway",
-    "description": "Header title for the AI Gateway configuration page"
   },
   "9ut1Fj": {
     "defaultMessage": "Create",
@@ -2462,6 +2474,10 @@
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
   },
+  "Dz/+6s": {
+    "defaultMessage": "Usage tracking",
+    "description": "Label for usage tracking toggle in sidebar"
+  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
@@ -2646,10 +2662,6 @@
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
   },
-  "FKoHx5": {
-    "defaultMessage": "Security Notice: Default Passphrase in Use",
-    "description": "Gateway > Default passphrase warning banner title"
-  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -2669,6 +2681,10 @@
   "FYxQgz": {
     "defaultMessage": "Key",
     "description": "Add new key-value tag modal > Key input label"
+  },
+  "FZL3HX": {
+    "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
+    "description": "Tooltip explaining what usage tracking does"
   },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
@@ -3454,6 +3470,10 @@
     "defaultMessage": "Open dataset",
     "description": "Text for the button that opens the dataset source URL in a new tab"
   },
+  "LBbyku": {
+    "defaultMessage": "Endpoint",
+    "description": "Run page > Overview > Endpoint used for issue detection"
+  },
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
     "description": "Content in an info popover that instructs the user on how to disable the display. The disable and enable functions are code snippets with the real function names"
@@ -3841,6 +3861,10 @@
   "NhEmyj": {
     "defaultMessage": "Training runs",
     "description": "Label for the training runs tab in the MLflow experiment navbar"
+  },
+  "NhrkEN": {
+    "defaultMessage": "Gateway Endpoint Details",
+    "description": "Sidebar title for endpoint details panel"
   },
   "NiSPrL": {
     "defaultMessage": "Model metrics",
@@ -4952,10 +4976,6 @@
     "defaultMessage": "Add chart",
     "description": "Confirm button label within a modal when adding a new runs comparison chart"
   },
-  "Uzii0L": {
-    "defaultMessage": "AI Gateway",
-    "description": "Sidebar link for gateway"
-  },
   "V+4GZQ": {
     "defaultMessage": "View logs for this period",
     "description": "Link text to navigate to gateway endpoint logs tab"
@@ -5111,6 +5131,10 @@
   "Vn+uJi": {
     "defaultMessage": "Version",
     "description": "Header for the version column in the registered prompts table"
+  },
+  "VnnPrX": {
+    "defaultMessage": "Enable Usage Tracking in the Overview tab to view usage metrics",
+    "description": "Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first"
   },
   "VpFZR/": {
     "defaultMessage": "Cancel",
@@ -5319,6 +5343,10 @@
   "X3F7x3": {
     "defaultMessage": "No Artifacts Recorded",
     "description": "Empty state string when there are no artifacts record for the experiment"
+  },
+  "X3Uuiw": {
+    "defaultMessage": "Off",
+    "description": "Usage tracking disabled state"
   },
   "X6P8tX": {
     "defaultMessage": "No models found",
@@ -5963,13 +5991,13 @@
     "defaultMessage": "Pre-built LLM-as-a-judge | Session level",
     "description": "Label indicating a pre-built session-level LLM-as-a-judge template"
   },
-  "b6hjrM": {
-    "defaultMessage": "Fallback Models",
-    "description": "Summary fallback models label"
-  },
   "b7OpMB": {
     "defaultMessage": "Data Type",
     "description": "Field label for assessment data type in an edit form"
+  },
+  "b9zfzK": {
+    "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
+    "description": "Try it description in starter code modal"
   },
   "bCdY2j": {
     "defaultMessage": "Add \"{label}\"",
@@ -6086,6 +6114,10 @@
   "bqn2bk": {
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
+  },
+  "buuQsF": {
+    "defaultMessage": "A tag value is required",
+    "description": "Key-value tag editor modal > Value required error message"
   },
   "by+x8N": {
     "defaultMessage": "Type",
@@ -6363,6 +6395,10 @@
     "defaultMessage": "Workspace Name",
     "description": "Label for workspace name field"
   },
+  "dSaI6E": {
+    "defaultMessage": "Failed to load audio attachment",
+    "description": "Error message when trace audio attachment fails to load"
+  },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
@@ -6575,6 +6611,14 @@
     "defaultMessage": "Model version alias created",
     "description": "Webhook event label"
   },
+  "embiKN": {
+    "defaultMessage": "JSON body sent to the endpoint. Edit the fields and click Send request.",
+    "description": "Request body tooltip in starter code try-it modal"
+  },
+  "en7FHE": {
+    "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking through MLflow Tracing, budget controls, and more.",
+    "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
+  },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
     "description": "Label for the evaluations tab in the MLflow experiment navbar"
@@ -6786,6 +6830,10 @@
   "gC2Kxm": {
     "defaultMessage": "Give instructions to the model. Use '{{ }}' or the \"Add new variable\" button to add variables to your prompt.",
     "description": "Experiment page > new run modal > prompt template input hint"
+  },
+  "gCCsKd": {
+    "defaultMessage": "View starter code",
+    "description": "Title for starter code card on endpoint overview"
   },
   "gFYM0j": {
     "defaultMessage": "Cancel",
@@ -7275,6 +7323,10 @@
     "defaultMessage": "Edit API key",
     "description": "Gateway > API keys list > Edit API key button aria label"
   },
+  "jFk49l": {
+    "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
+    "description": "Gateway > Endpoints > Quick start call to action"
+  },
   "jH0+gA": {
     "defaultMessage": "Metrics",
     "description": "Label for 'metrics' option group in the compare runs chart configure modal"
@@ -7498,10 +7550,6 @@
   "ka9hO4": {
     "defaultMessage": "Try it",
     "description": "Try it - interactive request/response"
-  },
-  "kbOsmf": {
-    "defaultMessage": "The AI Gateway is using the default encryption passphrase. This is acceptable for development or single-user deployments, but for multi-user production environments, you should rotate the passphrase using the CLI command: mlflow crypto rotate-kek",
-    "description": "Gateway > Default passphrase warning banner description"
   },
   "kbWXwv": {
     "defaultMessage": "Refresh traces",
@@ -7907,10 +7955,6 @@
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
   },
-  "mz/gog": {
-    "defaultMessage": "Traffic Split",
-    "description": "Summary traffic split label"
-  },
   "n/MCHF": {
     "defaultMessage": "Window Start",
     "description": "Budget window start date column header"
@@ -8247,10 +8291,6 @@
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
   },
-  "p8KS2c": {
-    "defaultMessage": "Usage Tracking",
-    "description": "Section title for usage tracking"
-  },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
     "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
@@ -8391,10 +8431,6 @@
     "defaultMessage": "Error",
     "description": "Title of editor error fallback component"
   },
-  "qApcFv": {
-    "defaultMessage": "Configuration",
-    "description": "Tab label for endpoint configuration"
-  },
   "qB4ZRq": {
     "defaultMessage": "Conversational guidelines",
     "description": "LLM template option"
@@ -8426,6 +8462,10 @@
   "qKGnLV": {
     "defaultMessage": "Model Config:",
     "description": "Label for model configuration in the prompt details page"
+  },
+  "qKHKw4": {
+    "defaultMessage": "API key",
+    "description": "Label for endpoint API key"
   },
   "qMwRy3": {
     "defaultMessage": "Registered Models",
@@ -8466,10 +8506,6 @@
   "qZKsz+": {
     "defaultMessage": "Cancel",
     "description": "Cancel webhook form button"
-  },
-  "qa80t1": {
-    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view usage metrics",
-    "description": "Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first"
   },
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
@@ -8534,6 +8570,10 @@
   "r26KQf": {
     "defaultMessage": "Edit Budget Policy",
     "description": "Title for edit budget policy modal"
+  },
+  "r2dcrJ": {
+    "defaultMessage": "Try in Browser",
+    "description": "Button to open try-it dialog for endpoint"
   },
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
@@ -9007,10 +9047,6 @@
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
   },
-  "uABFy0": {
-    "defaultMessage": "AI Gateway",
-    "description": "Breadcrumb link to gateway page"
-  },
   "uAv9Zs": {
     "defaultMessage": "Home",
     "description": "Sidebar link for home page"
@@ -9074,6 +9110,10 @@
   "ue/dsm": {
     "defaultMessage": "Pending",
     "description": "Issue status tag label for pending issues"
+  },
+  "ueI+tl": {
+    "defaultMessage": "Or browse all providers and models →",
+    "description": "Gateway > Quick start > Link to create endpoint with full model selection"
   },
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",
@@ -9331,6 +9371,10 @@
     "defaultMessage": "Retrieval groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval groundedness: moderately grounded\""
   },
+  "wY8GPK": {
+    "defaultMessage": "Get started with AI Gateway",
+    "description": "Gateway > Endpoints > Quick start title"
+  },
   "wZtuCR": {
     "defaultMessage": "AutoML",
     "description": "Label for generic AutoML experiments"
@@ -9523,10 +9567,6 @@
     "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
     "description": "Request body tooltip for unified Chat Completions API"
   },
-  "xcmW/z": {
-    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view logs",
-    "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
-  },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
     "description": "Dataset name label"
@@ -9642,10 +9682,6 @@
   "yL9JKm": {
     "defaultMessage": "NaN",
     "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
-  },
-  "yLAJ6r": {
-    "defaultMessage": "Use",
-    "description": "Use endpoint button"
   },
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",

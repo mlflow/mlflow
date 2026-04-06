@@ -73,6 +73,12 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
@@ -861,7 +867,10 @@ class SqlTraceMetrics(Base):
     Metric value: `Float`. Could be *null* if not available. Supports both integer values
     (e.g., token counts) and decimal values (e.g., API costs).
     """
-    trace_info = relationship("SqlTraceInfo", backref=backref("metrics", cascade="all"))
+    trace_info = relationship(
+        "SqlTraceInfo",
+        backref=backref("metrics", cascade="all, delete-orphan", passive_deletes=True),
+    )
     """
     SQLAlchemy relationship (many:one) with
     :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
@@ -893,7 +902,10 @@ class SqlSpanMetrics(Base):
     """
     Metric value: `Float`. Could be *null* if not available.
     """
-    span = relationship("SqlSpan", backref=backref("metrics", cascade="all"))
+    span = relationship(
+        "SqlSpan",
+        backref=backref("metrics", cascade="all, delete-orphan", passive_deletes=True),
+    )
     """
     SQLAlchemy relationship (many:one) with
     :py:class:`mlflow.store.dbmodels.models.SqlSpan`.
@@ -2997,5 +3009,204 @@ class SqlGatewayBudgetPolicy(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
+        )
+
+
+class SqlGatewayGuardrail(Base):
+    """
+    DB model for guardrails. These are recorded in ``guardrails`` table.
+    A guardrail wraps a scorer with a stage (BEFORE/AFTER) and action (VALIDATION/SANITIZATION).
+    """
+
+    __tablename__ = "guardrails"
+
+    guardrail_id = Column(String(36), nullable=False)
+    """
+    Guardrail ID: `String` (limit 36 characters). *Primary Key*.
+    """
+    name = Column(String(255), nullable=False)
+    """
+    Human-readable guardrail name: `String` (limit 255 characters).
+    """
+    scorer_id = Column(String(36), nullable=False)
+    """
+    Scorer ID referencing the MLflow scorer: `String`.
+    """
+    scorer_version = Column(Integer, nullable=False)
+    """
+    Scorer version: `Integer`.
+    """
+
+    scorer_version_ref = relationship(
+        "SqlScorerVersion",
+        foreign_keys=[scorer_id, scorer_version],
+        primaryjoin=(
+            "and_(SqlGatewayGuardrail.scorer_id == SqlScorerVersion.scorer_id, "
+            "SqlGatewayGuardrail.scorer_version == SqlScorerVersion.scorer_version)"
+        ),
+        viewonly=True,
+        lazy="joined",
+    )
+
+    stage = Column(String(32), nullable=False)
+    """
+    Guardrail stage: `String` (BEFORE, AFTER).
+    """
+    action = Column(String(32), nullable=False)
+    """
+    Guardrail action: `String` (VALIDATION, SANITIZATION).
+    """
+    action_endpoint_id = Column(String(36), nullable=True)
+    """
+    Optional endpoint ID for sanitization LLM: `String`. Used when action is SANITIZATION.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
+
+    action_endpoint = relationship(
+        "SqlGatewayEndpoint",
+        foreign_keys=[action_endpoint_id],
+        viewonly=True,
+        lazy="joined",
+    )
+
+    configs = relationship(
+        "SqlGatewayGuardrailConfig",
+        backref="guardrail",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("guardrail_id", name="guardrails_pk"),
+        ForeignKeyConstraint(
+            ["scorer_id", "scorer_version"],
+            ["scorer_versions.scorer_id", "scorer_versions.scorer_version"],
+            name="fk_guardrails_scorer_version",
+        ),
+        ForeignKeyConstraint(
+            ["action_endpoint_id"],
+            ["endpoints.endpoint_id"],
+            name="fk_guardrails_action_endpoint_id",
+            ondelete="SET NULL",
+        ),
+        Index("idx_guardrails_workspace", "workspace"),
+        Index("idx_guardrails_scorer", "scorer_id", "scorer_version"),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewayGuardrail ({self.guardrail_id})>"
+
+    def to_mlflow_entity(self):
+        return GatewayGuardrail(
+            guardrail_id=self.guardrail_id,
+            name=self.name,
+            scorer=self.scorer_version_ref.to_mlflow_entity(),
+            stage=GuardrailStage(self.stage),
+            action=GuardrailAction(self.action),
+            action_endpoint_name=(self.action_endpoint.name if self.action_endpoint else None),
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
+        )
+
+
+class SqlGatewayGuardrailConfig(Base):
+    """
+    DB model for guardrail-endpoint associations. These are recorded in
+    ``guardrail_configs`` table. Each row links a guardrail to an endpoint
+    with an execution order.
+    """
+
+    __tablename__ = "guardrail_configs"
+
+    endpoint_id = Column(String(36), nullable=False)
+    """
+    Endpoint ID: `String` (limit 36 characters). *Composite Primary Key*.
+    """
+    guardrail_id = Column(String(36), nullable=False)
+    """
+    Guardrail ID: `String` (limit 36 characters). *Composite Primary Key*.
+    """
+    execution_order = Column(Integer, nullable=True)
+    """
+    Execution order: `Integer`. Lower values run first. NULL if unspecified.
+    Not unique in the DB, and uniqueness is guaranteed by the application logic.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("endpoint_id", "guardrail_id", name="guardrail_configs_pk"),
+        ForeignKeyConstraint(
+            ["endpoint_id"],
+            ["endpoints.endpoint_id"],
+            name="fk_guardrail_configs_endpoint_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["guardrail_id"],
+            ["guardrails.guardrail_id"],
+            name="fk_guardrail_configs_guardrail_id",
+            ondelete="CASCADE",
+        ),
+        Index("idx_guardrail_configs_endpoint_id", "endpoint_id"),
+        Index("idx_guardrail_configs_guardrail_id", "guardrail_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlGatewayGuardrailConfig "
+            f"(endpoint={self.endpoint_id}, guardrail={self.guardrail_id})>"
+        )
+
+    def to_mlflow_entity(self):
+        return GatewayGuardrailConfig(
+            endpoint_id=self.endpoint_id,
+            guardrail_id=self.guardrail_id,
+            execution_order=self.execution_order,
+            created_at=self.created_at,
+            guardrail=self.guardrail.to_mlflow_entity() if self.guardrail else None,
+            created_by=self.created_by,
             workspace=self.workspace,
         )

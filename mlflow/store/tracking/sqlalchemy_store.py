@@ -3356,6 +3356,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             )
                             break
 
+                    new_metric_keys = {m.key for m in sql_trace_info.metrics}
+                    for metric in db_sql_trace_info.metrics:
+                        if metric.key not in new_metric_keys:
+                            sql_trace_info.metrics.append(
+                                SqlTraceMetrics(
+                                    request_id=trace_id, key=metric.key, value=metric.value
+                                )
+                            )
+
                     # Preserve request/response previews computed by log_spans()
                     if (
                         sql_trace_info.request_preview is None
