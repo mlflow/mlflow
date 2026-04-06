@@ -11,6 +11,8 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
+from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
+from mlflow.tracing.provider import _get_trace_exporter
 
 
 @pytest.fixture(autouse=True)
@@ -25,9 +27,6 @@ def enable_async_trace_logging(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_LOGGING.name, "true")
 
     yield
-
-    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
-    from mlflow.tracing.provider import _get_trace_exporter
 
     try:
         flush_all_batch_processors(terminate=True)
