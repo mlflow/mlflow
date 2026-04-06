@@ -834,6 +834,22 @@ class PyFuncModel:
         self._input_example = value
 
     def predict(self, data: PyFuncInput, params: dict[str, Any] | None = None) -> PyFuncOutput:
+        # TODO: Remove before merge — temporary test hook for sqlstate e2e validation
+        _sqlstate_test_mode = os.environ.get("MLFLOW_TEST_SQLSTATE_ERROR")
+        if _sqlstate_test_mode == "client_system":
+            raise MlflowException(
+                "Test: simulated client system error",
+                error_code=INTERNAL_ERROR,
+                sqlstate="XXM01",
+                error_class="CLIENT_INTERNAL_ERROR_TEST",
+            )
+        if _sqlstate_test_mode == "client_user":
+            raise MlflowException.invalid_parameter_value(
+                "Test: simulated client user error",
+                sqlstate="KAM01",
+                error_class="SCHEMA_ENFORCEMENT_FAILED",
+            )
+
         context = _try_get_prediction_context() or Context()
         with set_prediction_context(context):
             if schema := _get_dependencies_schema_from_model(self._model_meta):
