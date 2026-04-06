@@ -38,6 +38,7 @@ type AnthropicContentBlockParam =
   | AnthropicImageBlockParam
   | AnthropicToolUseBlockParam
   | AnthropicToolResultBlockParam
+  | AnthropicToolSearchToolResultBlockParam
   | AnthropicThinkingBlock;
 // | DocumentBlockParam
 // | RedactedThinkingBlockParam
@@ -99,6 +100,15 @@ type AnthropicToolResultBlockParam = {
   content: string | AnthropicToolResultContentBlock[];
   tool_use_id: string;
   type: 'tool_result';
+};
+
+type AnthropicToolSearchToolResultBlockParam = {
+  tool_use_id: string;
+  type: 'tool_search_tool_result';
+  content: {
+    type: 'tool_search_tool_search_result';
+    tool_references: AnthropicToolReferenceBlockParam[];
+  };
 };
 
 // Helper to validate content blocks inside tool_result (text, image, or tool_reference)
@@ -168,6 +178,10 @@ const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBloc
       return isString(obj.tool_use_id) && contentValid;
     }
 
+    if (obj.type === 'tool_search_tool_result' && has(obj, 'tool_use_id') && has(obj, 'content')) {
+      return true;
+    }
+
     if (obj.type === 'thinking' && has(obj, 'thinking') && isString(obj.thinking)) {
       return true;
     }
@@ -188,7 +202,9 @@ const isAnthropicMessageParam = (obj: unknown): obj is AnthropicMessageParam => 
   return hasRole && hasContent;
 };
 
-const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): ModelTraceContentParts => {
+const normalizeAnthropicContentBlockParam = (
+  item: AnthropicContentBlockParam | AnthropicToolReferenceBlockParam,
+): ModelTraceContentParts => {
   switch (item.type) {
     case 'text': {
       return { type: 'text', text: item.text };
@@ -209,6 +225,10 @@ const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): 
           return { type: 'image_url', image_url: { url: item.source.url } };
         }
       }
+      break;
+    }
+    case 'tool_reference': {
+      return { type: 'text', text: `[Tool: ${item.tool_name}]` };
     }
   }
   throw new Error(`Unsupported content block type: ${(item as any).type}`);
@@ -244,11 +264,18 @@ const processAnthropicMessageContent = (
       // to convert to the final ModelTraceChatMessage format (with string content)
       const normalizedContent = isString(item.content)
         ? item.content
-        : item.content.map((block) =>
-            block.type === 'tool_reference'
-              ? { type: 'text' as const, text: `[Tool: ${block.tool_name}]` }
-              : normalizeAnthropicContentBlockParam(block),
-          );
+        : item.content.map(normalizeAnthropicContentBlockParam);
+      const toolMessage = prettyPrintChatMessage({
+        type: 'message',
+        role: 'tool',
+        tool_call_id: item.tool_use_id,
+        content: normalizedContent,
+      });
+      if (toolMessage) {
+        messages.push(toolMessage);
+      }
+    } else if (item.type === 'tool_search_tool_result') {
+      const normalizedContent = item.content.tool_references.map(normalizeAnthropicContentBlockParam);
       const toolMessage = prettyPrintChatMessage({
         type: 'message',
         role: 'tool',

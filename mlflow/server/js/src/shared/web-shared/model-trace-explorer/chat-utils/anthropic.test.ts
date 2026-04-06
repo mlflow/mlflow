@@ -181,5 +181,46 @@ describe('normalizeConversation', () => {
         ]),
       );
     });
+
+    it('handles tool_search_tool_result content block', () => {
+      const input = {
+        messages: [
+          { role: 'user', content: 'search for tools' },
+          {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'srvtoolu_01ABC', name: 'ToolSearch', input: { query: 'weather' } },
+            ],
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_search_tool_result',
+                tool_use_id: 'srvtoolu_01ABC',
+                content: {
+                  type: 'tool_search_tool_search_result',
+                  tool_references: [
+                    { type: 'tool_reference', tool_name: 'get_weather' },
+                    { type: 'tool_reference', tool_name: 'get_forecast' },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = normalizeConversation(input, 'anthropic');
+      expect(result).not.toBeNull();
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: 'tool',
+            content: expect.stringContaining('get_weather'),
+          }),
+        ]),
+      );
+    });
   });
 });
