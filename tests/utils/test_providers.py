@@ -233,6 +233,9 @@ def mock_model_cost():
             "mlflow.utils.providers._load_provider", side_effect=_mock_load_provider
         ) as m_load,
         mock.patch(
+            "mlflow.utils.providers._load_bundled_provider", side_effect=_mock_load_provider
+        ),
+        mock.patch(
             "mlflow.utils.providers._list_provider_names",
             return_value=list(_MOCK_PROVIDER_DATA.keys()),
         ),
@@ -331,6 +334,10 @@ def test_cost_per_token_no_cache_cost_falls_back_to_input_rate():
     with (
         mock.patch(
             "mlflow.utils.providers._load_provider",
+            side_effect=lambda p: no_cache_data.get(p, {}),
+        ),
+        mock.patch(
+            "mlflow.utils.providers._load_bundled_provider",
             side_effect=lambda p: no_cache_data.get(p, {}),
         ),
         mock.patch(
