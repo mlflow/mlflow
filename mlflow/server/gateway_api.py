@@ -64,7 +64,7 @@ from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationTyp
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
-from mlflow.utils.provider_filter import _normalize_provider_name, is_provider_allowed
+from mlflow.utils.provider_filter import is_provider_allowed, normalize_provider_name
 from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
@@ -221,7 +221,7 @@ def _build_endpoint_config(
     """
     provider_name = _provider_key_to_str(model_config.provider)
     if not is_provider_allowed(provider_name):
-        _logger.info(
+        _logger.debug(
             "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",
             provider_name,
         )
@@ -284,7 +284,7 @@ def _build_endpoint_config(
         Provider.OLLAMA,
     }:
         provider_config = _build_openai_compatible_config(model_config)
-    elif _normalize_provider_name(model_config.provider) == Provider.DATABRICKS:
+    elif normalize_provider_name(model_config.provider) == Provider.DATABRICKS:
         from mlflow.gateway.providers.databricks import DatabricksConfig
 
         auth_config = model_config.auth_config or {}
@@ -299,7 +299,7 @@ def _build_endpoint_config(
             config_kwargs["token"] = model_config.secret_value.get(_AuthConfigKey.API_KEY)
         provider_config = DatabricksConfig(**config_kwargs)
         model_config.provider = Provider.DATABRICKS
-    elif _normalize_provider_name(model_config.provider) == Provider.BEDROCK:
+    elif normalize_provider_name(model_config.provider) == Provider.BEDROCK:
         auth_config = model_config.auth_config or {}
         auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "api_key")
         if auth_mode == "api_key":

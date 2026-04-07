@@ -10,7 +10,7 @@ _logger = logging.getLogger(__name__)
 
 # Single source of truth for provider name aliases (string-level).
 # mlflow.gateway.config derives its enum-level _PROVIDER_CANONICAL from this map.
-PROVIDER_ALIASES: dict[str, str] = {
+_PROVIDER_ALIASES: dict[str, str] = {
     "amazon-bedrock": "bedrock",
     "databricks-model-serving": "databricks",
 }
@@ -19,15 +19,15 @@ _provider_filter_cache = LRUCache(maxsize=16)
 _provider_filter_cache_lock = threading.RLock()
 
 
-def _normalize_provider_name(name: str) -> str:
-    return PROVIDER_ALIASES.get(name, name)
+def normalize_provider_name(name: str) -> str:
+    return _PROVIDER_ALIASES.get(name, name)
 
 
 def _parse_provider_list(value: str | None) -> frozenset[str]:
     if not value:
         return frozenset()
     return frozenset(
-        _normalize_provider_name(p.strip().lower()) for p in value.split(",") if p.strip()
+        normalize_provider_name(p.strip().lower()) for p in value.split(",") if p.strip()
     )
 
 
@@ -44,7 +44,7 @@ def is_provider_allowed(provider_name: str) -> bool:
     allowed = _get_allowed_providers()
     if allowed is None:
         return True
-    name = _normalize_provider_name(provider_name.lower())
+    name = normalize_provider_name(provider_name.lower())
     return name in allowed
 
 
@@ -55,7 +55,7 @@ def filter_providers(providers: list[str]) -> list[str]:
 
     result = []
     for p in providers:
-        name = _normalize_provider_name(p.lower())
+        name = normalize_provider_name(p.lower())
         if name not in allowed:
             _logger.debug("Provider '%s' is not in MLFLOW_GATEWAY_ALLOWED_PROVIDERS", p)
             continue

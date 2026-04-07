@@ -69,19 +69,15 @@ class Provider(str, Enum):
     def values(cls):
         return {p.value for p in cls}
 
-    def canonical(self) -> "Provider":
+    def _canonical(self) -> "Provider":
         return _PROVIDER_CANONICAL.get(self, self)
 
-    def is_alias_of(self, other: "Provider") -> bool:
-        return self.canonical() == other.canonical()
 
+# Enum-level alias map, derived from the string-level _PROVIDER_ALIASES.
+from mlflow.utils.provider_filter import _PROVIDER_ALIASES
 
-# Re-export so `from mlflow.gateway.config import PROVIDER_ALIASES` keeps working.
-from mlflow.utils.provider_filter import PROVIDER_ALIASES
-
-# Enum-level alias map, derived from the string-level PROVIDER_ALIASES.
 _PROVIDER_CANONICAL: dict[Provider, Provider] = {
-    Provider(alias): Provider(canonical) for alias, canonical in PROVIDER_ALIASES.items()
+    Provider(alias): Provider(canonical) for alias, canonical in _PROVIDER_ALIASES.items()
 }
 
 

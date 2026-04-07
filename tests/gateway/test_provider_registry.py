@@ -1,8 +1,9 @@
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import PROVIDER_ALIASES, Provider
-from mlflow.gateway.provider_registry import is_supported_provider, provider_registry
+from mlflow.gateway.config import Provider
+from mlflow.gateway.provider_registry import provider_registry
+from mlflow.utils.provider_filter import _PROVIDER_ALIASES
 
 
 def test_registry_keys_returns_all_providers_by_default():
@@ -17,15 +18,6 @@ def test_registry_get_returns_provider_by_default():
     assert provider_class is not None
 
 
-def test_registry_keys_filters_with_allowed_list(monkeypatch):
-    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai,anthropic")
-    keys = provider_registry.keys()
-    assert "openai" in keys
-    assert "anthropic" in keys
-    assert "litellm" not in keys
-    assert "bedrock" not in keys
-
-
 def test_registry_get_rejects_provider_not_in_allowed_list(monkeypatch):
     monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai")
     with pytest.raises(MlflowException, match="not allowed"):
@@ -38,39 +30,24 @@ def test_registry_get_allows_provider_in_allowed_list(monkeypatch):
     assert provider_class is not None
 
 
-def test_is_supported_provider_respects_allowed_list(monkeypatch):
-    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai")
-    assert is_supported_provider("openai") is True
-    assert is_supported_provider("litellm") is False
-
-
-def test_allowing_bedrock_also_allows_amazon_bedrock(monkeypatch):
-    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "bedrock,openai")
+def test_keys_unfiltered_even_with_allowed_list(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "anthropic")
     keys = provider_registry.keys()
-    assert "bedrock" in keys
-    assert "amazon-bedrock" in keys
     assert "openai" in keys
-    assert "anthropic" not in keys
+    assert "anthropic" in keys
+    assert "litellm" in keys
 
 
 def test_provider_canonical_resolves_alias():
-    assert Provider.AMAZON_BEDROCK.canonical() == Provider.BEDROCK
-    assert Provider.BEDROCK.canonical() == Provider.BEDROCK
-    assert Provider.DATABRICKS_MODEL_SERVING.canonical() == Provider.DATABRICKS
-    assert Provider.DATABRICKS.canonical() == Provider.DATABRICKS
-    assert Provider.OPENAI.canonical() == Provider.OPENAI
-
-
-def test_provider_is_alias_of():
-    assert Provider.AMAZON_BEDROCK.is_alias_of(Provider.BEDROCK) is True
-    assert Provider.BEDROCK.is_alias_of(Provider.AMAZON_BEDROCK) is True
-    assert Provider.DATABRICKS_MODEL_SERVING.is_alias_of(Provider.DATABRICKS) is True
-    assert Provider.DATABRICKS.is_alias_of(Provider.DATABRICKS_MODEL_SERVING) is True
-    assert Provider.OPENAI.is_alias_of(Provider.BEDROCK) is False
+    assert Provider.AMAZON_BEDROCK._canonical() == Provider.BEDROCK
+    assert Provider.BEDROCK._canonical() == Provider.BEDROCK
+    assert Provider.DATABRICKS_MODEL_SERVING._canonical() == Provider.DATABRICKS
+    assert Provider.DATABRICKS._canonical() == Provider.DATABRICKS
+    assert Provider.OPENAI._canonical() == Provider.OPENAI
 
 
 def test_provider_aliases_matches_canonical():
-    assert PROVIDER_ALIASES == {
+    assert _PROVIDER_ALIASES == {
         "amazon-bedrock": "bedrock",
         "databricks-model-serving": "databricks",
     }

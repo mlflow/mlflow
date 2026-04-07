@@ -13,7 +13,11 @@ from typing_extensions import NotRequired
 
 from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URI
 from mlflow.exceptions import MlflowException
-from mlflow.utils.provider_filter import filter_providers, is_provider_allowed
+from mlflow.utils.provider_filter import (
+    filter_providers,
+    is_provider_allowed,
+    normalize_provider_name,
+)
 from mlflow.utils.request_utils import cloud_storage_http_request
 
 _logger = logging.getLogger(__name__)
@@ -778,7 +782,7 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
         raise ValueError("Provider parameter is required")
 
     if not is_provider_allowed(provider):
-        _logger.info(
+        _logger.debug(
             "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",
             provider,
         )
@@ -786,6 +790,7 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
             f"Provider '{provider}' is not allowed by the current gateway provider policy."
         )
 
+    provider = normalize_provider_name(provider.lower())
     config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider
 
     if config_provider in _PROVIDER_AUTH_MODES:
