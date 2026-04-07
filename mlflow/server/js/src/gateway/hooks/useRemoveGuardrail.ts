@@ -7,7 +7,9 @@ export const useRemoveGuardrail = () => {
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, RemoveGuardrailFromEndpointRequest>({
-    mutationFn: (request) => GatewayApi.removeGuardrailFromEndpoint(request) as Promise<void>,
+    mutationFn: async (request): Promise<void> => {
+      await GatewayApi.removeGuardrailFromEndpoint(request);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(GatewayQueryKeys.guardrails);
     },
