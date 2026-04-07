@@ -152,7 +152,7 @@ class CodexProvider(AssistantProvider):
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
                 limit=100 * 1024 * 1024,
-                env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
+                env={**os.environ, "MLFLOW_TRACKING_URI": tracking_uri},
             )
 
             process.stdin.write(user_message.encode("utf-8"))

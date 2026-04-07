@@ -69,7 +69,7 @@ async def _execute_bash(
     if not command:
         return "No command provided", True
 
-    env = {**os.environ.copy()}
+    env = os.environ.copy()
     if tracking_uri:
         env["MLFLOW_TRACKING_URI"] = tracking_uri
 
