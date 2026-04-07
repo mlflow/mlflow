@@ -48,6 +48,12 @@ def test_litellm_fallback_route():
     assert backend.model_name == "some_unknown/model"
 
 
+def test_config_error_propagates_not_fallback(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(MlflowException, match="OPENAI_API_KEY"):
+        ScorerLLMClient("openai:/gpt-4")
+
+
 def test_gateway_route():
     with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_provider:
         backend = ScorerLLMClient("gateway:/my-endpoint")

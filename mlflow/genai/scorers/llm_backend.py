@@ -64,8 +64,14 @@ class ScorerLLMClient:
             try:
                 _get_provider_instance(self._provider, self._model_name)
                 self._route = "native"
-            except MlflowException:
-                self._route = "litellm"
+            except MlflowException as e:
+                # Only fall back to litellm for genuinely unsupported providers.
+                # Config errors (e.g., missing API key) should propagate so
+                # the user sees the real error, not a confusing litellm message.
+                if "is not supported for evaluation" in str(e):
+                    self._route = "litellm"
+                else:
+                    raise
 
     @property
     def model_name(self) -> str:
