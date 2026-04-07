@@ -322,9 +322,7 @@ def get_model_version_dependencies(model_dir):
         _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
         _DB_DEPENDENCY_KEY = "databricks_dependency"
 
-        databricks_dependencies = model.flavors.get("langchain", {}).get(
-            _DB_DEPENDENCY_KEY, {}
-        )
+        databricks_dependencies = model.flavors.get("langchain", {}).get(_DB_DEPENDENCY_KEY, {})
 
         index_names = _fetch_langchain_dependency_from_model_info(
             databricks_dependencies, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY

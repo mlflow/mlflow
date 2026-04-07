@@ -2,11 +2,11 @@ import json
 from unittest import mock
 from unittest.mock import ANY
 
-import mlflow
 import pytest
 from google.cloud.storage import Client
 from requests import Response
 
+import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
