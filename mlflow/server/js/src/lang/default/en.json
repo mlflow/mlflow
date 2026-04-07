@@ -555,6 +555,10 @@
     "defaultMessage": "No dataset",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
   },
+  "1dpbMP": {
+    "defaultMessage": "Delete {count, plural, one {# Endpoint} other {# Endpoints}}",
+    "description": "Gateway > Bulk delete endpoints modal > Title"
+  },
   "1f72BQ": {
     "defaultMessage": "Version",
     "description": "Column title text for model version in model version table"
@@ -1258,13 +1262,13 @@
     "defaultMessage": "The AI Gateway requires additional dependencies installed on the MLflow tracking server (not client machines):",
     "description": "AI Gateway setup guide > Step 1 description"
   },
+  "6csnxr": {
+    "defaultMessage": "Delete",
+    "description": "Gateway > Endpoints list > Delete button"
+  },
   "6d5JTO": {
     "defaultMessage": "No traces recorded",
     "description": "Message displayed when there are no traces logged to the experiment"
-  },
-  "6di5qX": {
-    "defaultMessage": "Create endpoint",
-    "description": "Gateway > Endpoints page > Create endpoint button"
   },
   "6ejdmD": {
     "defaultMessage": "Requests",
@@ -3458,6 +3462,10 @@
     "defaultMessage": "Runs",
     "description": "Label for the runs tab in the MLflow experiment navbar"
   },
+  "L12vyN": {
+    "defaultMessage": "The following {count, plural, one {endpoint} other {endpoints}} will be deleted:",
+    "description": "Gateway > Bulk delete endpoints modal > Description"
+  },
   "L26D19": {
     "defaultMessage": "X-axis:",
     "description": "Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
@@ -4365,6 +4373,10 @@
     "defaultMessage": "Optimize Prompt",
     "description": "Title of the optimize prompt modal"
   },
+  "QsVaFr": {
+    "defaultMessage": "{count, plural, one {# endpoint is} other {# endpoints are}} currently in use. Deleting will break connections to resources using them.",
+    "description": "Gateway > Bulk delete endpoints modal > Bindings warning"
+  },
   "Qsgg+9": {
     "defaultMessage": "Experiment Name:",
     "description": "Row title for the experiment IDs of runs on the experiment compare runs page"
@@ -4887,10 +4899,6 @@
   "ULljUX": {
     "defaultMessage": "Filter: {filterString}",
     "description": "Filter display for scorer"
-  },
-  "UNoKOI": {
-    "defaultMessage": "Delete endpoint",
-    "description": "Gateway > Endpoints list > Delete endpoint button aria label"
   },
   "UQhorr": {
     "defaultMessage": "Edit",
@@ -6047,6 +6055,10 @@
     "defaultMessage": "Try selecting a longer time range.",
     "description": "Suggestion to select a longer time range"
   },
+  "bWh+VF": {
+    "defaultMessage": "Create",
+    "description": "Gateway > Endpoints list > Create endpoint button"
+  },
   "bXA79t": {
     "defaultMessage": "On",
     "description": "Runs charts > line chart > ignore outliers > on setting label"
@@ -6943,6 +6955,10 @@
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
   },
+  "grMcuy": {
+    "defaultMessage": "Failed to delete some endpoints. Please try again.",
+    "description": "Gateway > Bulk delete endpoints modal > Error message"
+  },
   "gt4t2m": {
     "defaultMessage": "Issue detection completed",
     "description": "Issue detection progress > Step label when completed"
@@ -7006,6 +7022,10 @@
   "hN4qL/": {
     "defaultMessage": "Create workspace",
     "description": "Home page workspaces empty state CTA"
+  },
+  "hP8kyS": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Gateway > Endpoints list > Delete button with count"
   },
   "hR27A2": {
     "defaultMessage": "View full dashboard",
@@ -8595,6 +8615,10 @@
     "defaultMessage": "Save",
     "description": "Save button in unified trace tag assignment modal"
   },
+  "r91Gz/": {
+    "defaultMessage": "Duplicate",
+    "description": "Gateway > Endpoints list > Duplicate button"
+  },
   "rAJDzz": {
     "defaultMessage": "Transition existing {currentStage} model version to {archivedStage}",
     "description": "Description text for checkbox for archiving existing model versions\n                  in the toStage for model version stage transition request"
@@ -9350,6 +9374,10 @@
   "wKXJ6U": {
     "defaultMessage": "Toggle visibility of evaluation runs",
     "description": "Evaluation runs table > toggle visibility of runs > accessible label"
+  },
+  "wLoYcw": {
+    "defaultMessage": "Duplicate ({count})",
+    "description": "Gateway > Endpoints list > Duplicate button with count"
   },
   "wMG8+P": {
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
