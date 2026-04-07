@@ -716,9 +716,7 @@ def test_score_model_databricks(monkeypatch):
 
     assert response == "\n\nThis is a test!"
     call_kwargs = mock_request.call_args[1]
-    assert (
-        "serving-endpoints/chat/completions" in call_kwargs["endpoint"]
-    )
+    assert "serving-endpoints/chat/completions" in call_kwargs["endpoint"]
 
 
 def test_score_model_vertex_ai(monkeypatch):
