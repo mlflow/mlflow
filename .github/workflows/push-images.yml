@@ -12,7 +12,7 @@ defaults:
 
 jobs:
   push-images:
-    if: "!contains(github.ref_name, 'rc')"
+    if: "startsWith(github.ref_name, 'v') && !contains(github.ref_name, 'rc')"
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
