@@ -235,4 +235,6 @@ def test_complete_databricks_extracts_system_prompt():
             {"role": "user", "content": "Hi"},
         ])
 
-    mock_call.assert_called_once_with(user_prompt="Hi", system_prompt="You are helpful")
+    mock_call.assert_called_once_with(
+        user_prompt="Hi", system_prompt="You are helpful", model="databricks"
+    )

@@ -190,7 +190,11 @@ class ScorerLLMClient:
         system_prompt = ""
         if len(messages) > 1 and messages[0]["role"] == "system":
             system_prompt = messages[0]["content"]
-        result = call_chat_completions(user_prompt=user_prompt, system_prompt=system_prompt)
+        result = call_chat_completions(
+            user_prompt=user_prompt,
+            system_prompt=system_prompt,
+            model=self._model_uri,
+        )
         return result.output
 
     def _complete_endpoints(
@@ -256,6 +260,9 @@ class ScorerLLMClient:
             **kwargs,
         }
         if response_format is not None:
+            # litellm expects a Pydantic class, not a pre-converted dict.
+            # Dicts would only arrive here if a caller pre-converted and then
+            # hit the litellm fallback, which doesn't happen in current usage.
             call_kwargs["response_format"] = response_format
 
         response = litellm.completion(**call_kwargs)
