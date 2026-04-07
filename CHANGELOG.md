@@ -23,7 +23,7 @@ MLflow 3.11.0 includes several major features and improvements.
 
 **Features**:
 
-- [Tracking] Update databricks API calls to use new GRPC APIs instead of py4j APIs (#22205, @WeichenXu123)
+- [Tracking] Update Databricks API calls to use new gRPC APIs instead of py4j APIs (#22205, @WeichenXu123)
 - [Evaluation] Extend `_get_provider_instance` with groq, deepseek, xai, openrouter, ollama, databricks, vertex_ai (#22148, @kriscon-db)
 - [UI] Move native providers to non-LiteLLM in gateway UI (#22203, @TomeHirata)
 - [Tracing / Tracking] Add trace_location parameter to create_experiment (#22075, @dbrx-euirim)
