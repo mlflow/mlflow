@@ -2682,6 +2682,10 @@
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
   },
+  "FRsU9y": {
+    "defaultMessage": "API keys",
+    "description": "Label for endpoint API keys (plural)"
+  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"

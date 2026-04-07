@@ -144,6 +144,13 @@ export const EditEndpointFormRenderer = ({
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
 
+  const uniqueSecretNames = useMemo(
+    () => [
+      ...new Set(endpoint?.model_mappings.map((m) => m.model_definition?.secret_name).filter(Boolean) as string[]),
+    ],
+    [endpoint?.model_mappings],
+  );
+
   if (isLoadingEndpoint) {
     return (
       <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -404,23 +411,33 @@ export const EditEndpointFormRenderer = ({
                     </Typography.Text>
                   </div>
 
-                  {endpoint.model_mappings[0]?.model_definition?.secret_name && (
+                  {uniqueSecretNames.length > 0 && (
                     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                       <Typography.Text bold color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                        <FormattedMessage defaultMessage="API key" description="Label for endpoint API key" />
+                        {uniqueSecretNames.length === 1 ? (
+                          <FormattedMessage defaultMessage="API key" description="Label for endpoint API key" />
+                        ) : (
+                          <FormattedMessage
+                            defaultMessage="API keys"
+                            description="Label for endpoint API keys (plural)"
+                          />
+                        )}
                       </Typography.Text>
-                      <Link
-                        componentId="mlflow.gateway.edit-endpoint.api-key-link"
-                        to={GatewayRoutes.apiKeysPageRoute}
-                        css={{
-                          fontSize: theme.typography.fontSizeSm,
-                          color: theme.colors.actionPrimaryBackgroundDefault,
-                          textDecoration: 'none',
-                          '&:hover': { textDecoration: 'underline' },
-                        }}
-                      >
-                        {endpoint.model_mappings[0].model_definition.secret_name}
-                      </Link>
+                      {uniqueSecretNames.map((secretName) => (
+                        <Link
+                          key={secretName}
+                          componentId="mlflow.gateway.edit-endpoint.api-key-link"
+                          to={GatewayRoutes.apiKeysPageRoute}
+                          css={{
+                            fontSize: theme.typography.fontSizeSm,
+                            color: theme.colors.actionPrimaryBackgroundDefault,
+                            textDecoration: 'none',
+                            '&:hover': { textDecoration: 'underline' },
+                          }}
+                        >
+                          {secretName}
+                        </Link>
+                      ))}
                     </div>
                   )}
 
