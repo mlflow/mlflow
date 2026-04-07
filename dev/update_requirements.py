@@ -5,12 +5,14 @@ specification (e.g. requirements/core-requirements.yaml) to the maximum availabl
 
 import os
 import re
+from datetime import datetime, timedelta, timezone
 
 import requests
 import yaml
 from packaging.version import InvalidVersion, Version
 
 PACKAGE_NAMES = ["tracing", "skinny", "core", "gateway"]
+RELEASE_CUTOFF_DAYS = 14
 
 
 def get_latest_major_version(package_name: str) -> int:
@@ -18,9 +20,19 @@ def get_latest_major_version(package_name: str) -> int:
     response = requests.get(url)
     response.raise_for_status()
     data = response.json()
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=RELEASE_CUTOFF_DAYS)
     versions = []
     for version, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
+            continue
+
+        upload_times = [
+            datetime.fromisoformat(ut.replace("Z", "+00:00"))
+            for dist in distributions
+            if (ut := dist.get("upload_time_iso_8601"))
+        ]
+        release_date = min(upload_times) if upload_times else None
+        if not release_date or release_date >= cutoff:
             continue
 
         try:

@@ -32,10 +32,13 @@ def save_file(src, path):
         f.write(src)
 
 
-def uploaded_recently(dist) -> bool:
+RELEASE_CUTOFF_DAYS = 14
+
+
+def uploaded_within_cutoff(dist) -> bool:
     if ut := dist.get("upload_time_iso_8601"):
         delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut.replace("Z", "+00:00"))
-        return delta.days < 1
+        return delta.days < RELEASE_CUTOFF_DAYS
     return False
 
 
@@ -72,7 +75,7 @@ def get_package_version_infos(package_name: str) -> list[VersionInfo]:
         if (
             len(dist_files) > 0
             and not is_dev_or_pre_release(version)
-            and not any(uploaded_recently(dist) for dist in dist_files)
+            and not any(uploaded_within_cutoff(dist) for dist in dist_files)
             and not any(dist.get("yanked", False) for dist in dist_files)
         )
     ]
