@@ -16,22 +16,22 @@ a fake OpenAI-compatible server that responds with a fixed 50 ms latency. All ML
 config resolution, secret decryption, provider dispatch — runs in that path, so results reflect gateway
 cost rather than provider variance.
 
-| Parameter              | Value                                                                        |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| Simulated upstream     | Fixed **50 ms** per request from a fake OpenAI-compatible server             |
-| MLflow instances       | **4** instances behind nginx                                                 |
-| Database               | PostgreSQL (default benchmark configuration)                                 |
-| Client concurrency     | **50** concurrent requests                                                   |
-| Request path           | Benchmark client → nginx → MLflow AI Gateway → fake provider                 |
-| What is measured       | Gateway processing overhead: config resolution, secret decryption, dispatch  |
+| Parameter          | Value                                                                       |
+| ------------------ | --------------------------------------------------------------------------- |
+| Simulated upstream | Fixed **50 ms** per request from a fake OpenAI-compatible server            |
+| MLflow instances   | **4** instances behind nginx                                                |
+| Database           | PostgreSQL (default benchmark configuration)                                |
+| Client concurrency | **50** concurrent requests                                                  |
+| Request path       | Benchmark client → nginx → MLflow AI Gateway → fake provider                |
+| What is measured   | Gateway processing overhead: config resolution, secret decryption, dispatch |
 
-| Not measured                              | Why                                                                          |
-| ----------------------------------------- | ---------------------------------------------------------------------------- |
-| Real provider latency variance            | The upstream server returns a fixed-delay response                           |
-| Internet/network distance to an LLM API   | Requests stay within the local benchmark environment                         |
-| Model generation time beyond fixed delay  | The fake provider returns a synthetic response immediately                   |
-| TLS/SSL overhead                          | The benchmark runs in a local test environment without TLS                   |
-| Authentication / RBAC checks             | The benchmark isolates gateway processing rather than auth flows              |
+| Not measured                             | Why                                                              |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| Real provider latency variance           | The upstream server returns a fixed-delay response               |
+| Internet/network distance to an LLM API  | Requests stay within the local benchmark environment             |
+| Model generation time beyond fixed delay | The fake provider returns a synthetic response immediately       |
+| TLS/SSL overhead                         | The benchmark runs in a local test environment without TLS       |
+| Authentication / RBAC checks             | The benchmark isolates gateway processing rather than auth flows |
 
 See [`dev/benchmarks/gateway/`](https://github.com/mlflow/mlflow/tree/master/dev/benchmarks/gateway)
 for the full methodology, architecture, and options reference.
@@ -58,10 +58,10 @@ Every gateway response includes the `X-MLflow-Gateway-Duration-Ms` header. For n
 responses, `X-MLflow-Gateway-Overhead-Duration-Ms` is also included when provider timing is
 available:
 
-| Header                                  | Description                                                                                                                                      | Streaming |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| `X-MLflow-Gateway-Duration-Ms`          | Non-streaming: total time in the gateway handler (ms), including the LLM provider call. Streaming: gateway setup time until the stream starts.  | ✅ Always  |
-| `X-MLflow-Gateway-Overhead-Duration-Ms` | Gateway-only processing time: `total_ms - provider_call_ms`                                                                                     | ❌ Absent  |
+| Header                                  | Description                                                                                                                                    | Streaming |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `X-MLflow-Gateway-Duration-Ms`          | Non-streaming: total time in the gateway handler (ms), including the LLM provider call. Streaming: gateway setup time until the stream starts. | ✅ Always |
+| `X-MLflow-Gateway-Overhead-Duration-Ms` | Gateway-only processing time: `total_ms - provider_call_ms`                                                                                    | ❌ Absent |
 
 ```bash
 curl -si -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
