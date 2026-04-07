@@ -6,7 +6,7 @@ description: Manage multiple LLM providers through a single, secure endpoint. Ce
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import { Shield, Globe, Zap, Users, Wrench, Play, GitBranch, BarChart3, Lock, DollarSign } from "lucide-react";
+import { Shield, Globe, Zap, Users, Wrench, Play, GitBranch, BarChart3, Lock, DollarSign, Gauge } from "lucide-react";
 import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
 
 # MLflow AI Gateway
@@ -103,5 +103,12 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
     description="Configure HTTP Basic Authentication for AI Gateway resources"
     href="/self-hosting/security/basic-http-auth#ai-gateway-permissions"
     linkText="Learn more →"
+  />
+  <TileCard
+    icon={Gauge}
+    title="Performance & Benchmarks"
+    description="Benchmark results and how to measure gateway overhead in your own environment"
+    href="./benchmarks"
+    linkText="View benchmarks →"
   />
 </TilesGrid>

@@ -176,15 +176,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "2.0.2"
         }
     },
-    "litellm": {
-        "package_info": {
-            "pip_release": "litellm"
-        },
-        "autologging": {
-            "minimum": "1.63.14",
-            "maximum": "1.74.9"
-        }
-    },
     "groq": {
         "package_info": {
             "pip_release": "groq"
@@ -464,7 +455,6 @@ GENAI_FLAVOR_TO_MODULE_NAME = {
     "smolagents": "smolagents",
     "strands": "strands",
     "mistral": "mistralai",
-    "litellm": "litellm",
     "groq": "groq",
     "bedrock": "boto3"
 }

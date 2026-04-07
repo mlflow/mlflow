@@ -6,7 +6,15 @@ import requests
 from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
+from mlflow.genai.utils.gateway_utils import get_gateway_config
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.providers import (
+    AZURE_API_BASE_ENV_VAR,
+    AZURE_API_KEY_ENV_VAR,
+    AZURE_API_VERSION_ENV_VAR,
+)
 
 if TYPE_CHECKING:
     from mlflow.gateway.providers import BaseProvider
@@ -37,22 +45,32 @@ def get_endpoint_type(endpoint_uri: str) -> str | None:
 
 # TODO: improve this name
 def score_model_on_payload(
-    model_uri,
-    payload,
-    eval_parameters=None,
-    extra_headers=None,
-    proxy_url=None,
-    endpoint_type=None,
+    model_uri: str,
+    payload: str,
+    eval_parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
+    endpoint_type: str | None = None,
 ):
     """Call the model identified by the given uri with the given string prompt."""
-    from mlflow.deployments import get_deploy_client
-
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
 
     prefix, suffix = _parse_model_uri(model_uri)
 
-    if prefix in ["gateway", "endpoints"]:
+    if prefix == "gateway":
+        return _call_llm_provider_api(
+            "gateway",
+            suffix,
+            input_data=payload,
+            eval_parameters=eval_parameters,
+            extra_headers=extra_headers,
+            proxy_url=proxy_url,
+        )
+
+    elif prefix == "endpoints":
+        from mlflow.deployments import get_deploy_client
+
         if isinstance(payload, str) and endpoint_type is None:
             client = get_deploy_client()
             endpoint_type = client.get_endpoint(suffix).endpoint_type
@@ -125,6 +143,44 @@ def _is_supported_llm_provider(schema: str) -> bool:
     from mlflow.gateway.provider_registry import provider_registry
 
     return schema in provider_registry.keys()
+
+
+_MODELS_WITHOUT_OUTPUT_CONFIG: set[tuple[str, str]] = set()
+
+
+def _is_unsupported_output_format_error(exc: MlflowException) -> bool:
+    """Check if the error indicates the model doesn't support structured output.
+
+    Older Anthropic models (e.g. claude-sonnet-4-20250514) don't support ``output_config``
+    and return a 400 with::
+
+        {
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": "'claude-sonnet-4-20250514' does not support output format.",
+            },
+        }
+
+    Newer models (e.g. claude-sonnet-4-5-20250929) support it.
+    """
+    match exc.__cause__:
+        case requests.exceptions.HTTPError(
+            response=requests.Response(status_code=400) as response,
+        ):
+            try:
+                body = response.json()
+            except Exception:
+                return False
+            match body:
+                case {
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": str(msg),
+                    }
+                }:
+                    return "does not support output format" in msg.lower()
+    return False
 
 
 def _call_llm_provider_api(
@@ -208,11 +264,28 @@ def _call_llm_provider_api(
             )
         response = provider._request(chat_payload)
     else:
-        response = _send_request(
-            endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
-            headers=provider.headers | extra_headers,
-            payload=chat_payload,
-        )
+        if (provider_name, model) in _MODELS_WITHOUT_OUTPUT_CONFIG:
+            chat_payload.pop("output_config", None)
+            chat_payload.pop("response_format", None)
+
+        try:
+            response = _send_request(
+                endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+                headers=provider.headers | extra_headers,
+                payload=chat_payload,
+            )
+        except MlflowException as e:
+            if provider_name != "anthropic" or not _is_unsupported_output_format_error(e):
+                raise
+            # Model doesn't support structured output; remember and retry.
+            _MODELS_WITHOUT_OUTPUT_CONFIG.add((provider_name, model))
+            chat_payload.pop("output_config", None)
+            chat_payload.pop("response_format", None)
+            response = _send_request(
+                endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+                headers=provider.headers | extra_headers,
+                payload=chat_payload,
+            )
     chat_response = provider.adapter_class.model_to_chat(response, provider.config)
     if len(chat_response.choices) == 0:
         raise MlflowException(
@@ -225,9 +298,25 @@ def _call_llm_provider_api(
     return content[0].text if isinstance(content, list) else content
 
 
+class _MlflowGatewayProvider(OpenAIProvider):
+    """OpenAI-compatible provider for MLflow AI Gateway endpoints.
+
+    Overrides ``headers`` to use gateway auth headers instead of
+    the standard ``Bearer {api_key}`` used by OpenAIProvider.
+    """
+
+    def __init__(self, config: EndpointConfig, extra_headers: dict[str, str] | None = None):
+        super().__init__(config)
+        self._extra_headers = extra_headers
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {**(self._extra_headers or {})}
+
+
 def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     """Get the provider instance for the given provider name and the model name."""
-    from mlflow.gateway.config import EndpointConfig, Provider
+    from mlflow.gateway.config import Provider
 
     def _get_route_config(config):
         return EndpointConfig(
@@ -243,20 +332,25 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
     # new ones as requested, as long as the provider support chat endpoints.
     if provider == Provider.OPENAI:
-        from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
-        from mlflow.openai.model import _get_api_config, _OAITokenHolder
+        if not os.environ.get("OPENAI_API_KEY"):
+            raise MlflowException.invalid_parameter_value(
+                "OPENAI_API_KEY environment variable must be set to use the openai provider."
+            )
+        config = OpenAIConfig(openai_api_key=os.environ["OPENAI_API_KEY"])
+        return OpenAIProvider(_get_route_config(config))
 
-        api_config = _get_api_config()
-        api_token = _OAITokenHolder(api_config.api_type)
-        api_token.refresh()
-
+    elif provider == Provider.AZURE:
+        if not os.environ.get(AZURE_API_KEY_ENV_VAR):
+            raise MlflowException.invalid_parameter_value(
+                f"{AZURE_API_KEY_ENV_VAR} environment variable must be set "
+                "to use the azure provider."
+            )
         config = OpenAIConfig(
-            openai_api_key=api_token.token,
-            openai_api_type=api_config.api_type or "openai",
-            openai_api_base=api_config.api_base,
-            openai_api_version=api_config.api_version,
-            openai_deployment_name=api_config.deployment_id,
-            openai_organization=api_config.organization,
+            openai_api_key=os.environ[AZURE_API_KEY_ENV_VAR],
+            openai_api_type="azure",
+            openai_api_base=os.environ.get(AZURE_API_BASE_ENV_VAR),
+            openai_api_version=os.environ.get(AZURE_API_VERSION_ENV_VAR),
+            openai_deployment_name=model,
         )
         return OpenAIProvider(_get_route_config(config))
 
@@ -267,10 +361,15 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         return AnthropicProvider(_get_route_config(config))
 
     elif provider in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
-        from mlflow.gateway.config import AWSIdAndKey, AWSRole
+        from mlflow.gateway.config import AWSBearerToken, AWSIdAndKey, AWSRole
         from mlflow.gateway.providers.bedrock import AmazonBedrockConfig, AmazonBedrockProvider
 
-        if aws_role_arn := os.environ.get("AWS_ROLE_ARN"):
+        if bearer_token := os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+            aws_config = AWSBearerToken(
+                aws_region=os.environ.get("AWS_REGION"),
+                aws_bearer_token=bearer_token,
+            )
+        elif aws_role_arn := os.environ.get("AWS_ROLE_ARN"):
             aws_config = AWSRole(
                 aws_region=os.environ.get("AWS_REGION"),
                 aws_role_arn=aws_role_arn,
@@ -312,6 +411,79 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         config = TogetherAIConfig(togetherai_api_key=os.environ.get("TOGETHERAI_API_KEY"))
         return TogetherAIProvider(_get_route_config(config))
 
+    elif provider == "gateway":
+        gw_config = get_gateway_config(model)
+        openai_config = OpenAIConfig(
+            openai_api_key="mlflow-gateway-auth",
+            openai_api_base=gw_config.api_base.rstrip("/"),
+        )
+        route_config = EndpointConfig(
+            name="gateway",
+            endpoint_type="llm/v1/chat",
+            model={
+                "provider": "openai",
+                "name": model,
+                "config": openai_config.model_dump(),
+            },
+        )
+        return _MlflowGatewayProvider(route_config, extra_headers=gw_config.extra_headers)
+
+    elif provider == Provider.GROQ:
+        from mlflow.gateway.config import _OpenAICompatibleConfig
+        from mlflow.gateway.providers.groq import GroqProvider
+
+        config = _OpenAICompatibleConfig(api_key=os.environ.get("GROQ_API_KEY"))
+        return GroqProvider(_get_route_config(config))
+
+    elif provider == Provider.DEEPSEEK:
+        from mlflow.gateway.config import _OpenAICompatibleConfig
+        from mlflow.gateway.providers.deepseek import DeepSeekProvider
+
+        config = _OpenAICompatibleConfig(api_key=os.environ.get("DEEPSEEK_API_KEY"))
+        return DeepSeekProvider(_get_route_config(config))
+
+    elif provider == Provider.XAI:
+        from mlflow.gateway.config import _OpenAICompatibleConfig
+        from mlflow.gateway.providers.xai import XAIProvider
+
+        config = _OpenAICompatibleConfig(api_key=os.environ.get("XAI_API_KEY"))
+        return XAIProvider(_get_route_config(config))
+
+    elif provider == Provider.OPENROUTER:
+        from mlflow.gateway.config import _OpenAICompatibleConfig
+        from mlflow.gateway.providers.openrouter import OpenRouterProvider
+
+        config = _OpenAICompatibleConfig(api_key=os.environ.get("OPENROUTER_API_KEY"))
+        return OpenRouterProvider(_get_route_config(config))
+
+    elif provider == Provider.OLLAMA:
+        from mlflow.gateway.providers.ollama import OllamaConfig, OllamaProvider
+
+        config = OllamaConfig(api_key=os.environ.get("OLLAMA_API_KEY", "ollama"))
+        return OllamaProvider(_get_route_config(config))
+
+    elif provider == Provider.DATABRICKS:
+        from mlflow.gateway.providers.databricks import DatabricksConfig, DatabricksProvider
+
+        config = DatabricksConfig(
+            host=os.environ.get("DATABRICKS_HOST"),
+            token=os.environ.get("DATABRICKS_TOKEN"),
+            client_id=os.environ.get("DATABRICKS_CLIENT_ID"),
+            client_secret=os.environ.get("DATABRICKS_CLIENT_SECRET"),
+        )
+        return DatabricksProvider(_get_route_config(config))
+
+    elif provider == Provider.VERTEX_AI:
+        from mlflow.gateway.config import VertexAIConfig
+        from mlflow.gateway.providers.vertex_ai import VertexAIProvider
+
+        config = VertexAIConfig(
+            vertex_project=os.environ.get("VERTEX_PROJECT", ""),
+            vertex_location=os.environ.get("VERTEX_LOCATION"),
+            vertex_credentials=os.environ.get("VERTEX_CREDENTIALS"),
+        )
+        return VertexAIProvider(_get_route_config(config))
+
     raise MlflowException(f"Provider '{provider}' is not supported for evaluation.")
 
 
@@ -327,9 +499,11 @@ def _send_request(
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
+        body = getattr(e.response, "text", "")
         raise MlflowException(
-            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n- Input payload: {payload}."
-        )
+            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n"
+            f"- Response body: {body}\n- Input payload: {payload}."
+        ) from e
 
     return response.json()
 

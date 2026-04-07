@@ -1,5 +1,6 @@
 ---
 title: Create and Manage Endpoints
+description: Create and manage MLflow AI Gateway endpoints that route requests to LLM models. Configure single-model endpoints or set up traffic splitting and fallback chains.
 ---
 
 # Create and Manage Endpoints
@@ -21,7 +22,7 @@ Navigate to the AI Gateway section at `http://localhost:5000/#/gateway`. The End
    - This name becomes part of your API path: `/gateway/my-chat-endpoint/...`
 3. Select your provider from 100+ supported options
    - Common providers (OpenAI, Anthropic, Google Gemini) appear first
-   - Click "View all providers" for the full LiteLLM catalog
+   - Click "LiteLLM" for the full LiteLLM catalog (**Note:** you will need to install LiteLLM separately)
 4. Choose your model
    - The selector displays capability badges (Tools, Reasoning, Caching)
    - Context window size and token costs are shown

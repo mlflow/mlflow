@@ -64,6 +64,13 @@ def completions_response():
     }
 
 
+def test_get_provider_name():
+    config = completions_config()
+    provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
+    assert provider.DISPLAY_NAME == "Hugging Face Text Generation Inference"
+    assert provider.get_provider_name() == "huggingface"
+
+
 @pytest.mark.asyncio
 async def test_completions():
     resp = completions_response()

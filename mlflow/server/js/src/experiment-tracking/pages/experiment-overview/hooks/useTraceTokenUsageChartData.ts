@@ -108,7 +108,9 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     filters,
   });
 
-  // Fetch total tokens (without time bucketing) for the header
+  // Fetch total tokens (without time bucketing) for the header.
+  // Uses [SUM, AVG] so React Query deduplicates with the identical call
+  // in useTraceTokenStatsChartData.
   const {
     data: totalTokensData,
     isLoading: isLoadingTotal,
@@ -119,7 +121,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     endTimeMs,
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TOTAL_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.SUM }],
+    aggregations: [{ aggregation_type: AggregationType.SUM }, { aggregation_type: AggregationType.AVG }],
     filters,
   });
 

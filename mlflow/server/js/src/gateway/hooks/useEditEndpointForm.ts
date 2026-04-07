@@ -272,8 +272,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   );
 
   const handleCancel = useCallback(() => {
-    navigate(GatewayRoutes.gatewayPageRoute);
-  }, [navigate]);
+    form.reset();
+  }, [form]);
 
   const handleNameUpdate = useCallback(
     async (newName: string) => {

@@ -12,26 +12,20 @@ import {
   getDefaultHeadersFromCookies,
   HTTPMethods,
   HTTPRetryStatuses,
-  jsonBigIntResponseParser,
   parseResponse,
   yamlResponseParser,
   retry,
   fetchEndpointRaw,
   fetchEndpoint,
   getJson,
-  getBigIntJson,
-  putBigIntJson,
-  patchBigIntJson,
   getYaml,
   putJson,
   putYaml,
   patchJson,
   patchYaml,
   postJson,
-  postBigIntJson,
   postYaml,
   deleteJson,
-  deleteBigIntJson,
   deleteYaml,
 } from './FetchUtils';
 import { ErrorWrapper } from './ErrorWrapper';
@@ -128,13 +122,22 @@ describe('FetchUtils', () => {
       await new Promise(setImmediate);
       expect(mockResolve).toHaveBeenCalledWith({ a: 123, b: 'flying monkey' });
     });
-    it('jsonBigIntResponseParser', async () => {
+    it('defaultResponseParser preserves decimal metrics as numbers', async () => {
       const mockResponse = {
-        text: () => Promise.resolve('{"a": 11111111222222223333333344444445555555555}'),
+        text: () => Promise.resolve('{"metric":{"value":0.00011124613492593128}}'),
       };
-      jsonBigIntResponseParser({ resolve: mockResolve, response: mockResponse });
+      defaultResponseParser({ resolve: mockResolve, response: mockResponse });
       await new Promise(setImmediate);
-      expect(mockResolve).toHaveBeenCalledWith({ a: '11111111222222223333333344444445555555555' });
+      expect(mockResolve).toHaveBeenCalledWith({ metric: { value: 0.00011124613492593128 } });
+      expect(mockResolve.mock.calls[0][0].metric.value).toBeCloseTo(0.00011124613492593128);
+    });
+    it('defaultResponseParser returns objects with a standard prototype', async () => {
+      const mockResponse = {
+        text: () => Promise.resolve('{"metric":{"value":1}}'),
+      };
+      defaultResponseParser({ resolve: mockResolve, response: mockResponse });
+      await new Promise(setImmediate);
+      expect(Object.getPrototypeOf(mockResolve.mock.calls[0][0])).toBe(Object.prototype);
     });
     it('yamlResponseParser', async () => {
       const mockResponse = {
@@ -480,7 +483,7 @@ describe('FetchUtils', () => {
       jest.clearAllMocks();
     });
     it('GET requests bake data in query params', () => {
-      [getJson, getBigIntJson, getYaml].forEach(async (getCall) => {
+      [getJson, getYaml].forEach(async (getCall) => {
         await getCall({ relativeUrl, data: mockData });
         expect(mockFetch).toHaveBeenCalledWith(
           `${relativeUrl}?group_id=12345&user_id=qwerty&experimental_user=false&null_field=null`,
@@ -498,16 +501,12 @@ describe('FetchUtils', () => {
     it('other requests pass data to request body', () => {
       [
         { fetchCall: putJson, method: HTTPMethods.PUT },
-        { fetchCall: putBigIntJson, method: HTTPMethods.PUT },
         { fetchCall: putYaml, method: HTTPMethods.PUT },
         { fetchCall: patchJson, method: HTTPMethods.PATCH },
-        { fetchCall: patchBigIntJson, method: HTTPMethods.PATCH },
         { fetchCall: patchYaml, method: HTTPMethods.PATCH },
         { fetchCall: postJson, method: HTTPMethods.POST },
-        { fetchCall: postBigIntJson, method: HTTPMethods.POST },
         { fetchCall: postYaml, method: HTTPMethods.POST },
         { fetchCall: deleteJson, method: HTTPMethods.DELETE },
-        { fetchCall: deleteBigIntJson, method: HTTPMethods.DELETE },
         { fetchCall: deleteYaml, method: HTTPMethods.DELETE },
       ].forEach((args) => {
         const { fetchCall, method } = args;

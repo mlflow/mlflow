@@ -709,6 +709,14 @@ MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_
 # How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
+#: When enabled, automatically extracts base64-encoded multimodal content (images, audio) from
+#: span inputs/outputs and stores them as separate trace attachments. This keeps trace JSON
+#: lightweight while preserving the binary content as downloadable artifacts.
+#: (default: ``True``)
+MLFLOW_TRACE_EXTRACT_ATTACHMENTS = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_EXTRACT_ATTACHMENTS", True
+)
+
 #: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.
 #: This cache improves performance by avoiding repeated network calls for the same prompt version.
 #: (default: ``128``)
@@ -987,6 +995,15 @@ MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
     "MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR", str, None
 )
 
+# Temporary workaround: on Databricks Serverless, artifacts uploaded via spark.addArtifact
+# may not be visible inside the UDF executor sandbox. Set to True to skip the addArtifact
+# path and let each executor fetch the model directly from the artifact store instead.
+# Once the Serverless platform fixes the sandbox visibility issue, this flag can be removed.
+# (default: ``False``)
+_MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT = _BooleanEnvironmentVariable(
+    "_MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT", False
+)
+
 # Specifies whether to log environment variable names used during model logging.
 MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
@@ -1081,7 +1098,6 @@ _MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_
 #######################################################################################
 
 #: Specifies whether to enable async trace logging to Databricks Tracing Server.
-#: TODO: Update OSS MLflow Server to logging async by default
 #: Default: ``True``.
 MLFLOW_ENABLE_ASYNC_TRACE_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", True
@@ -1130,11 +1146,25 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
 
-
+#: Specifies whether to export spans incrementally as they complete, in addition to
+#: exporting the full trace. When enabled, spans are written to the tracking store
+#: individually via ``log_spans`` as each span finishes. This provides real-time span
+#: visibility for long-running traces but adds extra DB round-trips that may increase
+#: latency under high concurrency. When disabled, spans are batch-written to the database
 #: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
 #: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
 #: (default: ``None`` (an active MLflow experiment will be used))
 MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", str, None)
+
+#: When set to ``True``, use OTel BatchSpanProcessor to export spans in a background thread
+#: instead of inline during on_end. This decouples trace export from request handling under
+#: concurrent load. Takes effect whenever async trace logging is active (i.e. when
+#: ``MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`` is ``True``, which is the default for OSS MLflow
+#: and Databricks non-notebook workloads).
+#: (default: ``True``)
+MLFLOW_USE_BATCH_SPAN_PROCESSOR = _BooleanEnvironmentVariable(
+    "MLFLOW_USE_BATCH_SPAN_PROCESSOR", True
+)
 
 
 #######################################################################################
@@ -1414,6 +1444,22 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
 )
+
+
+#: Base URI to fetch the latest model catalog from. Each provider file is fetched
+#: as ``{uri}/{provider}.json``. Supports http(s):// and file:// schemes.
+#: Set to an empty string to disable remote fetch.
+#: (default: ``https://github.com/mlflow/mlflow/releases/download/model-catalog%2Flatest``)
+MLFLOW_MODEL_CATALOG_URI = _EnvironmentVariable(
+    "MLFLOW_MODEL_CATALOG_URI",
+    str,
+    "https://github.com/mlflow/mlflow/releases/download/model-catalog%2Flatest",
+)
+
+
+#: TTL in seconds for the local model catalog cache. Set to 0 to disable caching.
+#: (default: ``86400`` — 24 hours)
+MLFLOW_MODEL_CATALOG_CACHE_TTL = _EnvironmentVariable("MLFLOW_MODEL_CATALOG_CACHE_TTL", int, 86400)
 
 
 #: Specifies whether to enable automatic UV project detection during model logging.

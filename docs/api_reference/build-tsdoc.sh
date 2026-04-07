@@ -15,11 +15,8 @@ build_tsdoc() {
 
     pushd "$package_path"
 
-    # Skip npm install since we're using yarn workspaces
-    # Dependencies should be installed at the workspace root
-
     # Generate TypeDoc documentation
-    npx typedoc \
+    npm exec -- typedoc \
         --out "$output_path" \
         --name "$package_name" \
         --readme README.md \
@@ -44,7 +41,7 @@ DOCS_OUTPUT_BASE="build/html/typescript_api"
 # First ensure dependencies are installed at workspace root
 echo "Ensuring TypeScript workspace dependencies are installed..."
 pushd "$TYPESCRIPT_BASE"
-npm install
+npm ci
 popd
 
 # Remove existing docs if they exist

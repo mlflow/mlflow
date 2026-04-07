@@ -960,6 +960,9 @@ const isContentPart = (part: any) => {
         return false;
       }
       return isString(input_audio.data) && (isNil(input_audio.format) || ['wav', 'mp3'].includes(input_audio.format));
+    case 'image':
+      // Anthropic format: {"type": "image", "source": {"type": "base64", "data": "..."}}
+      return !isNil(part.source) && isString((part as any).source.data);
     default:
       return false;
   }
@@ -1188,6 +1191,17 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
         case 'image_url':
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
+        case 'image': {
+          // Anthropic format: {"type": "image", "source": {"type": "base64", "media_type": "...", "data": "..."}}
+          const source = (part as any)?.source;
+          const imageData = source?.data;
+          if (!imageData) return '[image]';
+          if (isString(imageData) && imageData.startsWith('mlflow-attachment://')) {
+            return `![](${imageData})`;
+          }
+          const mediaType = source?.media_type;
+          return mediaType ? `![](data:${mediaType};base64,${imageData})` : '[image]';
+        }
         case 'input_audio':
           // Audio parts are rendered as <audio> elements by the component,
           // so they are excluded from the markdown string
@@ -1225,6 +1239,14 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
   }
 
   const audioParts = extractAudioParts(message.content);
+
+  // Extract audio from assistant message output (e.g., gpt-4o-audio-preview response)
+  const messageAudio = (message as any).audio;
+  if (messageAudio && isString(messageAudio.data)) {
+    const format =
+      isString(messageAudio.format) && ['wav', 'mp3'].includes(messageAudio.format) ? messageAudio.format : 'wav';
+    audioParts.push({ data: messageAudio.data, format });
+  }
 
   return {
     ...message,

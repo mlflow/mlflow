@@ -1,9 +1,10 @@
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useRef, useMemo, useCallback, memo } from 'react';
 import { Input, useDesignSystemTheme, FormUI, Tag, ModelsIcon } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ModelSelectorModal } from '../model-selector/ModelSelectorModal';
 import { useModelsQuery } from '../../hooks/useModelsQuery';
 import type { ProviderModel } from '../../types';
+import { getModelCapabilities } from '../../utils/getModelCapabilities';
 
 interface ModelSelectProps {
   provider: string;
@@ -11,8 +12,8 @@ interface ModelSelectProps {
   onChange: (model: string) => void;
   disabled?: boolean;
   error?: string;
-  /** Component ID prefix for telemetry (default: 'mlflow.gateway.model-select') */
-  componentIdPrefix?: string;
+  /** Component ID for telemetry (default: 'mlflow.gateway.model-select') */
+  componentId?: string;
   /** Custom label for the select field. If not provided, defaults to "Model" */
   label?: React.ReactNode;
   /** If true, hides the model capabilities tags (Tools, Reasoning, Caching) */
@@ -25,12 +26,13 @@ export const ModelSelect = ({
   onChange,
   disabled,
   error,
-  componentIdPrefix = 'mlflow.gateway.model-select',
+  componentId = 'mlflow.gateway.model-select',
   label,
   hideCapabilities,
 }: ModelSelectProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const domId = useRef(`model-select-${Math.random().toString(36).slice(2, 9)}`).current;
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch models to get the selected model's details
@@ -56,12 +58,12 @@ export const ModelSelect = ({
 
   return (
     <div>
-      <FormUI.Label htmlFor={componentIdPrefix}>
+      <FormUI.Label htmlFor={domId}>
         {label ?? <FormattedMessage defaultMessage="Model" description="Label for model select field" />}
       </FormUI.Label>
       <Input
-        id={componentIdPrefix}
-        componentId={componentIdPrefix}
+        id={domId}
+        componentId={componentId}
         placeholder={
           !provider
             ? intl.formatMessage({
@@ -88,7 +90,13 @@ export const ModelSelect = ({
       />
       {error && <FormUI.Message type="error" message={error} />}
       {selectedModel && !hideCapabilities && <ModelCapabilities model={selectedModel} />}
-      <ModelSelectorModal isOpen={isModalOpen} onClose={handleClose} onSelect={handleSelect} provider={provider} />
+      <ModelSelectorModal
+        isOpen={isModalOpen}
+        onClose={handleClose}
+        onSelect={handleSelect}
+        provider={provider}
+        initialValue={value}
+      />
     </div>
   );
 };
@@ -96,13 +104,7 @@ export const ModelSelect = ({
 const ModelCapabilities = memo(function ModelCapabilities({ model }: { model: ProviderModel }) {
   const { theme } = useDesignSystemTheme();
 
-  const capabilities = useMemo(() => {
-    const caps: string[] = [];
-    if (model.supports_function_calling) caps.push('Tools');
-    if (model.supports_reasoning) caps.push('Reasoning');
-    if (model.supports_prompt_caching) caps.push('Caching');
-    return caps;
-  }, [model.supports_function_calling, model.supports_reasoning, model.supports_prompt_caching]);
+  const capabilities = getModelCapabilities(model);
 
   if (capabilities.length === 0) {
     return null;
@@ -119,7 +121,7 @@ const ModelCapabilities = memo(function ModelCapabilities({ model }: { model: Pr
       }}
     >
       {capabilities.map((cap) => (
-        <Tag key={cap} componentId={`mlflow.gateway.model-select.capability.${cap.toLowerCase()}`}>
+        <Tag key={cap} componentId="mlflow.gateway.model-select.capability">
           {cap}
         </Tag>
       ))}

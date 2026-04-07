@@ -74,11 +74,10 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('renders page title and subtitle', () => {
+    test('renders page title', () => {
       renderComponent();
 
-      expect(screen.getByText('Gateway Usage')).toBeInTheDocument();
-      expect(screen.getByText('Monitor usage and performance across all endpoints')).toBeInTheDocument();
+      expect(screen.getAllByText('Usage').length).toBeGreaterThanOrEqual(1);
     });
 
     test('renders endpoint selector with "All endpoints" option', () => {

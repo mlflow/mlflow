@@ -10,6 +10,9 @@ import {
   ChevronRightIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
+import Routes from '../../../../routes';
+import { getTimeRangeQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
@@ -22,7 +25,6 @@ interface IssueDetectionModalProps {
   experimentId?: string;
   initialSelectedTraceIds?: string[];
   availableTraceIds?: string[];
-  onSubmitSuccess?: (runId?: string) => void;
   defaultGroupBySession?: boolean;
 }
 
@@ -31,10 +33,11 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   experimentId,
   initialSelectedTraceIds = [],
   availableTraceIds = [],
-  onSubmitSuccess,
   defaultGroupBySession = false,
 }) => {
   const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
   const modelSelectionRef = useRef<IssueDetectionModelSelectionRef>(null);
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -106,9 +109,12 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         },
         {
           onSuccess: (response) => {
-            onSubmitSuccess?.(response.run_id);
             resetForm();
             onClose();
+            navigate({
+              pathname: Routes.getIssueDetectionRunDetailsRoute(experimentId, response.run_id),
+              search: getTimeRangeQueryString(location.search),
+            });
           },
         },
       );
@@ -212,7 +218,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           </div>
         }
         visible
-        onCancel={handleClose}
+        onCancel={isCreatingSecret || isInvokingIssueDetection ? undefined : handleClose}
         footer={currentStep === 1 ? renderStep1Footer() : renderStep2Footer()}
       >
         {(createSecretError || issueDetectionError) && (
