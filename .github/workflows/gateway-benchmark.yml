@@ -2,16 +2,11 @@
 # Runs against both sqlite (1 instance) and postgres (4 instances + nginx) backends.
 #
 # THRESHOLD CALIBRATION: The default threshold values below are conservative
-# starting points. Run this workflow a few times without thresholds via
-# workflow_dispatch (leave threshold inputs empty) to collect baseline data,
-# then tighten thresholds to ~2x the observed average.
+# starting points. Run this workflow a few times and tighten thresholds to
+# ~2x the observed average. Override per-run via workflow_dispatch inputs.
 name: MLflow Gateway Benchmark
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/gateway-benchmark.yml"
-      - "dev/benchmarks/gateway/**"
   schedule:
     # Run daily at 06:00 UTC (off-peak; slow-tests runs at 13:00)
     - cron: "0 6 * * *"
@@ -26,11 +21,11 @@ on:
         required: false
         default: ""
       max_p50_ms:
-        description: "Max P50 latency ms -- leave blank to skip threshold check"
+        description: "Max P50 latency ms (blank = use per-backend default)"
         required: false
         default: ""
       max_p99_ms:
-        description: "Max P99 latency ms -- leave blank to skip threshold check"
+        description: "Max P99 latency ms (blank = use per-backend default)"
         required: false
         default: ""
 
@@ -48,7 +43,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -82,7 +77,6 @@ jobs:
           MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT: "true"
           MLFLOW_USE_BATCH_SPAN_PROCESSOR: "true"
           MLFLOW_ENABLE_ASYNC_TRACE_LOGGING: "true"
-          EVENT_NAME: ${{ github.event_name }}
           BACKEND: ${{ matrix.backend }}
           INSTANCES: ${{ matrix.instances }}
           DEFAULT_MAX_CONCURRENT: ${{ matrix.default_max_concurrent }}
@@ -90,24 +84,21 @@ jobs:
           DEFAULT_MAX_P99_MS: ${{ matrix.default_max_p99_ms }}
           REQUESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.requests || '200' }}
           MAX_CONCURRENT_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.max_concurrent || '' }}
-          MAX_P50_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_p50_ms || '' }}
-          MAX_P99_MS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_p99_ms || '' }}
+          MAX_P50_MS_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.max_p50_ms || '' }}
+          MAX_P99_MS_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.max_p99_ms || '' }}
         run: |
           MAX_CONCURRENT="${MAX_CONCURRENT_OVERRIDE:-$DEFAULT_MAX_CONCURRENT}"
+          MAX_P50_MS="${MAX_P50_MS_OVERRIDE:-$DEFAULT_MAX_P50_MS}"
+          MAX_P99_MS="${MAX_P99_MS_OVERRIDE:-$DEFAULT_MAX_P99_MS}"
           ARGS=(
             --instances "$INSTANCES"
             --database "$BACKEND"
             --requests "$REQUESTS"
             --max-concurrent "$MAX_CONCURRENT"
+            --max-p50-ms "$MAX_P50_MS"
+            --max-p99-ms "$MAX_P99_MS"
             --runs 3
           )
-          # Only pass threshold flags when values are provided (blank = calibration run)
-          [[ -n "$MAX_P50_MS" ]] && ARGS+=(--max-p50-ms "$MAX_P50_MS")
-          [[ -n "$MAX_P99_MS" ]] && ARGS+=(--max-p99-ms "$MAX_P99_MS")
-          # On scheduled runs, apply the per-backend default thresholds
-          if [[ "$EVENT_NAME" == "schedule" ]]; then
-            ARGS+=(--max-p50-ms "$DEFAULT_MAX_P50_MS" --max-p99-ms "$DEFAULT_MAX_P99_MS")
-          fi
           uv run --no-sync dev/benchmarks/gateway/run.py "${ARGS[@]}" \
             --output "benchmark-results-$BACKEND.json"
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

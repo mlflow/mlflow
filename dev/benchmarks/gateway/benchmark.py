@@ -155,27 +155,24 @@ def results_to_dict(results: list[RunResult]) -> dict[str, Any]:
             "n_success": r.n_success,
             "n_failures": r.n_failures,
             "failures": r.failures,
-            "wall_time_s": round(r.wall_time, 3),
-            "mean_ms": round(statistics.mean(r.latencies_ms) if r.latencies_ms else 0.0, 2),
-            "p50_ms": round(r.percentile(50), 2),
-            "p95_ms": round(r.percentile(95), 2),
-            "p99_ms": round(r.percentile(99), 2),
-            "max_ms": round(max(r.latencies_ms) if r.latencies_ms else 0.0, 2),
-            "rps": round(r.throughput, 2),
+            "wall_time_s": r.wall_time,
+            "mean_ms": statistics.mean(r.latencies_ms) if r.latencies_ms else 0.0,
+            "p50_ms": r.percentile(50),
+            "p95_ms": r.percentile(95),
+            "p99_ms": r.percentile(99),
+            "max_ms": max(r.latencies_ms) if r.latencies_ms else 0.0,
+            "rps": r.throughput,
         }
         for r in results
     ]
     summary: dict[str, Any] = (
         {
-            "avg_mean_ms": round(
-                statistics.mean(
-                    statistics.mean(r.latencies_ms) if r.latencies_ms else 0.0 for r in results
-                ),
-                2,
+            "avg_mean_ms": statistics.mean(
+                statistics.mean(r.latencies_ms) if r.latencies_ms else 0.0 for r in results
             ),
-            "avg_p50_ms": round(statistics.mean(r.percentile(50) for r in results), 2),
-            "avg_p99_ms": round(statistics.mean(r.percentile(99) for r in results), 2),
-            "avg_rps": round(statistics.mean(r.throughput for r in results), 2),
+            "avg_p50_ms": statistics.mean(r.percentile(50) for r in results),
+            "avg_p99_ms": statistics.mean(r.percentile(99) for r in results),
+            "avg_rps": statistics.mean(r.throughput for r in results),
         }
         if results
         else {}
