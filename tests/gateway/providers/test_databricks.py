@@ -187,53 +187,24 @@ def test_config_all_optional():
     assert config.client_secret is None
 
 
-def test_get_endpoint_url_chat():
+@pytest.mark.parametrize(
+    ("route_type", "expected_suffix"),
+    [
+        ("llm/v1/chat", "chat/completions"),
+        ("llm/v1/completions", "completions"),
+        ("llm/v1/embeddings", "embeddings"),
+    ],
+)
+def test_get_endpoint_url(route_type: str, expected_suffix: str):
     provider = _make_provider()
-    url = provider.get_endpoint_url("llm/v1/chat")
-    assert url == "https://my-workspace.databricks.com/serving-endpoints/chat/completions"
-
-
-def test_get_endpoint_url_completions():
-    provider = _make_provider()
-    url = provider.get_endpoint_url("llm/v1/completions")
-    assert url == "https://my-workspace.databricks.com/serving-endpoints/completions"
-
-
-def test_get_endpoint_url_embeddings():
-    endpoint_config = EndpointConfig(
-        name="databricks-endpoint",
-        endpoint_type="llm/v1/embeddings",
-        model={
-            "provider": "databricks",
-            "name": "bge-large-en",
-            "config": {"host": "https://my-workspace.databricks.com", "token": "dapi-test-key"},
-        },
-    )
-    provider = DatabricksProvider(endpoint_config)
-    provider._workspace_client = _mock_workspace_client()
-    url = provider.get_endpoint_url("llm/v1/embeddings")
-    assert url == "https://my-workspace.databricks.com/serving-endpoints/embeddings"
+    url = provider.get_endpoint_url(route_type)
+    assert url == f"https://my-workspace.databricks.com/serving-endpoints/{expected_suffix}"
 
 
 def test_get_endpoint_url_unsupported():
     provider = _make_provider()
     with pytest.raises(ValueError, match="Unsupported route_type"):
         provider.get_endpoint_url("llm/v1/unsupported")
-
-
-def test_passthrough_provider_paths():
-    provider = _make_provider()
-    paths = provider.PASSTHROUGH_PROVIDER_PATHS
-    assert paths[PassthroughAction.OPENAI_CHAT] == "chat/completions"
-    assert paths[PassthroughAction.OPENAI_EMBEDDINGS] == "embeddings"
-    assert paths[PassthroughAction.OPENAI_RESPONSES] == "responses"
-    assert paths[PassthroughAction.ANTHROPIC_MESSAGES] == "anthropic/v1/messages"
-    assert paths[PassthroughAction.GEMINI_GENERATE_CONTENT] == (
-        "gemini/v1beta/models/{model}:generateContent"
-    )
-    assert paths[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT] == (
-        "gemini/v1beta/models/{model}:streamGenerateContent"
-    )
 
 
 @pytest.mark.asyncio
@@ -248,6 +219,7 @@ async def test_passthrough_openai_chat():
         )
 
     assert result["id"] == "chatcmpl-db-123"
+    mock_client.post.assert_called_once()
     call_args = mock_client.post.call_args
     assert call_args[0][0] == (
         "https://my-workspace.databricks.com/serving-endpoints/chat/completions"
@@ -276,6 +248,7 @@ async def test_passthrough_openai_chat_streaming():
         collected = [chunk async for chunk in result]
 
     assert len(collected) > 0
+    mock_client.post.assert_called_once()
     call_args = mock_client.post.call_args
     assert call_args[0][0] == (
         "https://my-workspace.databricks.com/serving-endpoints/chat/completions"
@@ -294,10 +267,9 @@ async def test_passthrough_openai_embeddings():
         )
 
     assert result["data"][0]["embedding"] == [0.1, 0.2, 0.3]
+    mock_client.post.assert_called_once()
     call_args = mock_client.post.call_args
-    assert call_args[0][0] == (
-        "https://my-workspace.databricks.com/serving-endpoints/embeddings"
-    )
+    assert call_args[0][0] == ("https://my-workspace.databricks.com/serving-endpoints/embeddings")
 
 
 @pytest.mark.asyncio
@@ -321,7 +293,62 @@ async def test_passthrough_anthropic_messages():
         )
 
     assert result["id"] == "msg-123"
+    mock_client.post.assert_called_once()
     call_args = mock_client.post.call_args
     assert call_args[0][0] == (
         "https://my-workspace.databricks.com/serving-endpoints/anthropic/v1/messages"
+    )
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_generate_content():
+    provider = _make_provider()
+    gemini_response = {
+        "candidates": [
+            {
+                "content": {"parts": [{"text": "Hello!"}], "role": "model"},
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 5, "candidatesTokenCount": 3},
+        "headers": {"Content-Type": "application/json"},
+    }
+    mock_client = mock_http_client(MockAsyncResponse(gemini_response))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.passthrough(
+            action=PassthroughAction.GEMINI_GENERATE_CONTENT,
+            payload={"contents": [{"parts": [{"text": "Hello"}]}]},
+        )
+
+    assert result["candidates"][0]["content"]["parts"][0]["text"] == "Hello!"
+    mock_client.post.assert_called_once()
+    call_args = mock_client.post.call_args
+    # {model} should be formatted with the actual model name
+    assert call_args[0][0] == (
+        "https://my-workspace.databricks.com/serving-endpoints/"
+        "gemini/v1beta/models/databricks-dbrx-instruct:generateContent"
+    )
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_streaming():
+    provider = _make_provider()
+    chunk_data = b'data: {"candidates":[{"content":{"parts":[{"text":"Hi"}],"role":"model"}}]}\n\n'
+    chunks = [chunk_data, b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.passthrough(
+            action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT,
+            payload={"contents": [{"parts": [{"text": "Hello"}]}]},
+        )
+        collected = [chunk async for chunk in result]
+
+    assert len(collected) > 0
+    mock_client.post.assert_called_once()
+    call_args = mock_client.post.call_args
+    assert call_args[0][0] == (
+        "https://my-workspace.databricks.com/serving-endpoints/"
+        "gemini/v1beta/models/databricks-dbrx-instruct:streamGenerateContent"
     )

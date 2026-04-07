@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterable
 from typing import Any
 
 from mlflow.gateway.base_models import ConfigModel
@@ -7,10 +8,15 @@ from mlflow.gateway.providers.openai_compatible import (
     OpenAICompatibleAdapter,
     OpenAICompatibleProvider,
 )
+from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat
 from mlflow.gateway.utils import normalize_databricks_base_url
 
 _SUPPORTED_CONTENT_PART_TYPES = {"text", "image_url", "input_audio"}
+_GEMINI_ACTIONS = {
+    PassthroughAction.GEMINI_GENERATE_CONTENT,
+    PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT,
+}
 
 
 class DatabricksConfig(ConfigModel):
@@ -122,6 +128,38 @@ class DatabricksProvider(OpenAICompatibleProvider):
                 f"Supported: {sorted(_ROUTE_SUFFIXES)}"
             )
         return f"{self._api_base}/{_ROUTE_SUFFIXES[route_type]}"
+
+    async def _passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        if action not in _GEMINI_ACTIONS:
+            return await super()._passthrough(action, payload, headers)
+
+        # Gemini actions need {model} formatted in the path and use
+        # action-based streaming (not payload-based).
+        provider_path = self._validate_passthrough_action(action)
+        provider_path = provider_path.format(model=self.config.model.name)
+        request_headers = self._get_headers(headers)
+
+        is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
+        if is_streaming:
+            stream = send_stream_request(
+                headers=request_headers,
+                base_url=self._api_base,
+                path=provider_path,
+                payload=payload,
+            )
+            return self._stream_passthrough_with_usage(stream)
+        else:
+            return await send_request(
+                headers=request_headers,
+                base_url=self._api_base,
+                path=provider_path,
+                payload=payload,
+            )
 
     @property
     def headers(self) -> dict[str, str]:
