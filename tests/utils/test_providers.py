@@ -97,14 +97,14 @@ def _mock_catalog(provider_data):
 
 
 def test_get_all_providers_consolidates_vertex_ai_variants():
-    data = {
-        "openai": {"gpt-4o": {"mode": "chat"}},
-        "anthropic": {"claude-3-5-sonnet": {"mode": "chat"}},
-        "vertex_ai": {"gemini-1.5-pro": {"mode": "chat"}},
-        "vertex_ai-llama_models": {"meta/llama-4-scout": {"mode": "chat"}},
-        "vertex_ai-anthropic": {"claude-3-5-sonnet": {"mode": "chat"}},
-    }
-    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
+    provider_names = [
+        "openai",
+        "anthropic",
+        "vertex_ai",
+        "vertex_ai-llama_models",
+        "vertex_ai-anthropic",
+    ]
+    with mock.patch("mlflow.utils.providers._list_provider_names", return_value=provider_names):
         providers = get_all_providers()
 
         assert "vertex_ai" in providers
