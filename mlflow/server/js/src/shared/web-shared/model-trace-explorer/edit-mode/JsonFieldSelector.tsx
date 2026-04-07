@@ -175,7 +175,7 @@ export const JsonFieldSelector = ({
     <div>
       <Typography.Text
         css={{
-          fontSize: theme.typography.fontSizeXs,
+          fontSize: theme.typography.fontSizeSm,
           textTransform: 'uppercase',
           letterSpacing: 0.5,
           color: theme.colors.textSecondary,
