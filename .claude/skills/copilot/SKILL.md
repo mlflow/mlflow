@@ -63,7 +63,7 @@ After sending feedback, Copilot starts a new session, typically within ~10 secon
 
 ## Approving workflows
 
-Approve workflows to run once the PR is finalized:
+Copilot commits require approval to trigger workflows for security reasons, while maintainer commits do not. Once the PR is finalized, run the approve script:
 
 ```bash
 bash .claude/skills/copilot/approve.sh "<owner>/<repo>" <pr_number>

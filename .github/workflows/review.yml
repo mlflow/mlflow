@@ -28,7 +28,7 @@ jobs:
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
-       (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot') &&
+       github.event.pull_request.draft == false &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
       ||
       (github.event_name == 'issue_comment' &&
@@ -78,7 +78,10 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install Claude CLI
         run: |
-          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.71
+          .claude/scripts/install-claude.sh
+      - name: Verify Claude CLI
+        run: |
+          claude --version
 
       - name: Extract optional prompt from comment
         if: github.event_name == 'issue_comment'
