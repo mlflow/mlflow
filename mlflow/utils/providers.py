@@ -820,10 +820,7 @@ def _normalize_provider(provider: str) -> str:
 
 def get_all_providers() -> list[str]:
     """
-    Get a list of all providers that have chat, completion, or embedding capabilities.
-
-    Only returns providers that have at least one chat, completion, or embedding model,
-    excluding providers that only offer image generation, audio, or other non-text services.
+    Get a list of all providers.
 
     Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
     variants are returned as just vertex_ai).
@@ -832,11 +829,7 @@ def get_all_providers() -> list[str]:
     for provider in _list_provider_names():
         if provider in _EXCLUDED_PROVIDERS:
             continue
-        # Check that the provider has at least one model with a supported mode
-        for info in _load_provider(provider).values():
-            if info.get("mode") in _SUPPORTED_MODEL_MODES:
-                providers.add(_normalize_provider(provider))
-                break
+        providers.add(_normalize_provider(provider))
     return list(providers)
 
 
