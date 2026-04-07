@@ -370,6 +370,7 @@ const TracesV3LogsImpl = React.memo(
 
     const assessmentCountMetrics = useAssessmentCountMetrics({
       experimentIds,
+      timeRange,
       disabled: isQueryDisabled,
     });
 

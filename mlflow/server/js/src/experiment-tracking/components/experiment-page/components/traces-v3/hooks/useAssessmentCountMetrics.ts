@@ -9,11 +9,6 @@ import {
   AssessmentDimensionKey,
   createTraceMetadataFilter,
 } from '@databricks/web-shared/model-trace-explorer';
-import {
-  getAbsoluteStartEndTime,
-  useMonitoringFilters,
-} from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 
 /**
  * Fetches categorical assessment value distributions from the trace metrics API.
@@ -27,27 +22,24 @@ import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hook
 export function useAssessmentCountMetrics({
   experimentIds,
   runUuid,
+  timeRange,
   disabled,
 }: {
   experimentIds: string[];
   runUuid?: string;
+  timeRange?: { startTime?: string; endTime?: string };
   disabled: boolean;
 }): AssessmentCountMetrics | undefined {
   const usingInfinitePagination = shouldUseInfinitePaginatedTraces();
+  const enabled = usingInfinitePagination && !disabled;
+
   const filters = useMemo(
     () => (runUuid ? [createTraceMetadataFilter('mlflow.sourceRun', runUuid)] : undefined),
     [runUuid],
   );
 
-  const [monitoringFilters] = useMonitoringFilters();
-  const monitoringConfig = useMonitoringConfig();
-  const { startTime, endTime } = useMemo(
-    () => getAbsoluteStartEndTime(monitoringConfig.dateNow, monitoringFilters),
-    [monitoringConfig.dateNow, monitoringFilters],
-  );
-
-  const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
-  const endTimeMs = endTime ? new Date(endTime).getTime() : 0;
+  const startTimeMs = timeRange?.startTime ? Number(timeRange.startTime) : undefined;
+  const endTimeMs = timeRange?.endTime ? Number(timeRange.endTime) : undefined;
 
   const { data, isLoading } = useTraceMetricsQuery({
     experimentIds,
@@ -57,12 +49,12 @@ export function useAssessmentCountMetrics({
     dimensions: [AssessmentDimensionKey.ASSESSMENT_NAME, AssessmentDimensionKey.ASSESSMENT_VALUE],
     startTimeMs,
     endTimeMs,
-    enabled: usingInfinitePagination && !disabled,
+    enabled,
     filters,
   });
 
   return useMemo(() => {
-    if (!usingInfinitePagination) return undefined;
+    if (!enabled) return undefined;
 
     const metrics =
       data?.data_points?.map((dp) => ({
@@ -72,5 +64,5 @@ export function useAssessmentCountMetrics({
       })) ?? [];
 
     return { data: metrics, isLoading };
-  }, [usingInfinitePagination, data, isLoading]);
+  }, [enabled, data, isLoading]);
 }
