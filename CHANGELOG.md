@@ -4,14 +4,24 @@
 
 MLflow 3.11.0 includes several major features and improvements
 
-Breaking changes:
+**Major New Features**:
 
+- 🔍 **Automatic Issue Identification**: Automatically identify quality issues in your agent with AI! Use the new "Detect Issues" button in the traces table to analyze selected traces and surface potential problems across categories like correctness, safety, and performance. Issues are linked directly to traces for easy investigation and debugging. (#21431, #21204, #21165, #21163, #21161, @smoorjani, @serena-ruan)
+- 💰 **Gateway Budget Alerts & Limits**: Control your AI Gateway spending with configurable budget policies! Set spending limits by time window (daily, weekly, or monthly), receive alerts before hitting limits, and prevent runaway costs with automatic request blocking. The new budget management UI lets you track spending, configure webhooks for notifications, and monitor violations across all your gateway endpoints. (#21116, #21534, #21569, #21473, #21108, @TomeHirata, @copilot-swe-agent)
+- 📊 **Trace Graph View**: Visualize complex trace hierarchies with an interactive graph view! Navigate multi-level trace structures, understand parent-child relationships at a glance, and debug complex systems more effectively with a visual representation of your trace topology. (#20607, @joelrobin18)
+- 🌐 **Native OpenTelemetry GenAI Convention Support**: MLflow now natively supports the OpenTelemetry GenAI Semantic Conventions for trace export! When exporting traces via OTLP with `MLFLOW_ENABLE_OTEL_GENAI_SEMCONV` enabled, MLflow automatically translates them to follow the OTel GenAI semantic conventions, enabling seamless integration with OTel-compatible observability platforms while preserving GenAI-specific metadata. (#21494, #21495, @B-Step62)
+- 🔧 **Opencode Tracing Integration**: Debug smarter with Opencode CLI integration! Track and analyze code execution flows directly from your development workflow, making it easier to identify performance bottlenecks and trace issues back to specific code paths. (#20133, @joelrobin18)
+- ⚡ **UV Package Manager Support**: Automatic dependency inference now supports UV! MLflow automatically detects UV projects and captures exact, locked dependencies from your lockfile when logging models, ensuring reproducible environments. (#20344, #20935, @debu-sinha)
+- 🔒 **Pickle-Free Model Serialization**: Enhance security with pickle-free model formats! MLflow now supports safer model serialization using torch.export and skops formats, with improved controls when `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=False`. Comprehensive documentation guides you through migrating existing models to pickle-free formats for production deployments. (#21404, #21188, #20774, @WeichenXu123)
+
+**Breaking Changes**:
+
+- ⚠️ **TypeScript SDK Package Renaming**: The MLflow TypeScript SDK packages have been renamed to use npm organization scoping. If you're using the TypeScript SDK, update your `package.json` dependencies and import statements: `mlflow-tracing` → `@mlflow/core`, `mlflow-openai` → `@mlflow/openai`, `mlflow-anthropic` → `@mlflow/anthropic`, `mlflow-gemini` → `@mlflow/gemini`. All packages are now at version `0.2.0`. (#20792, @B-Step62)
 - [Docs / Tracing] Remove `MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT` environment variable (#22182, @PattaraS)
 - [Build] Remove `litellm` and `gepa` from `genai` extras (#22059, @TomeHirata)
 - [Model Registry] Block `/` and `:` in Registered Model names (#21458, @Bhuvan-08)
-- [Docs / Tracing] Migrate TypeScript packages to @mlflow/* org scope (#20792, @B-Step62)
 
-Features:
+**Features**:
 
 - [Tracking] Update databricks API calls to use new GRPC APIs instead of py4j APIs (#22205, @WeichenXu123)
 - [Evaluation] Extend `_get_provider_instance` with groq, deepseek, xai, openrouter, ollama, databricks, vertex_ai (#22148, @kriscon-db)
@@ -86,7 +96,7 @@ Features:
 - [] MCP server expansion (#19830, @joelrobin18)
 - [Tracing / UI] Include response body in HTTP error messages with 1000 character limit (#20794, @copilot-swe-agent)
 
-Bug fixes:
+**Bug fixes**:
 
 - [Evaluation] fix: use EvalResult.scorer_stats for multi-turn scorer stat aggregation (#22364, @copilot-swe-agent)
 - [Scoring / Tracing] Revert "Register `InferenceTableSpanProcessor` alongside `DatabricksUCTableSpanProcessor` in model serving (#22332)" (#22362, @smurching)
@@ -210,7 +220,7 @@ Bug fixes:
 - [Tracing] Fix SpanEvent timestamp resolution to use nanoseconds (#20828, @copilot-swe-agent)
 - [] Escape regex special chars in search_experiments LIKE filter (#16667, @joelrobin18)
 
-Documentation updates:
+**Documentation updates**:
 
 - [Docs] docs: clarify `uv` dependency management vs `MLFLOW_LOCK_MODEL_DEPENDENCIES`, add uv workspace limitation (#22312, @copilot-swe-agent)
 - [Docs] Document supported provider environment variables for judge models (#22195, @kriscon-db)
@@ -241,7 +251,7 @@ Documentation updates:
 - [Docs] Add Amazon Nova bedrock model examples for mlflow.metrics.genai (#21063, @ManasVardhan)
 - [Docs] Update SSO oidc plugin doc: add google identity platform / AWS cognito / Azure Entra ID configuration guide (#20591, @WeichenXu123)
 
-Small bug fixes and documentation updates:
+**Small bug fixes and documentation updates**:
 
 #22377, #22258, #22260, #22259, #21988, #22000, #21994, #21992, #21991, #21990, #21989, #21986, #21918, #21919, #20739, #21753, #21784, #21785, #21786, #21653, #21647, #21558, #21572, #21567, #21571, #21540, #21544, #21542, #21120, #21114, #21112, #21198, #21111, #21289, #21110, #20743, #21109, #20960, #21125, #21124, @TomeHirata; #22370, #22277, @xq-yin; #22346, #22311, #22091, #21930, #22235, #22232, #22086, #22008, #21975, #21866, #21940, #21920, #21931, #21820, #21830, #21825, #21810, #21788, #21712, #21620, #21702, #21479, #21495, #21506, #21377, #21010, @B-Step62; #22166, @SomtochiUmeh; #22283, #22083, #22200, #22248, #21317, #22242, #22173, #22239, #22193, #22197, #22224, #22225, #22222, #22138, #22175, #22176, #21932, #22053, #22039, #21860, #21268, #21863, #21833, #21917, #21864, #21804, #21854, #21803, #21840, #21837, #21802, #21831, #21835, #21797, #21821, #21758, #21793, #21747, #21796, #21746, #21718, #21756, #21787, #21745, #21741, #21734, #21719, #21715, #21713, #21716, #21661, #21701, #21407, #21589, #21655, #21703, #21664, #21700, #21663, #21662, #21623, #21622, #21619, #21618, #21546, #21654, #21597, #21625, #21596, #21595, #21594, #21613, #21593, #21592, #21591, #21590, #21588, #21579, #21578, #21577, #21575, #21536, #21531, #21510, #21509, #21492, #21500, #21363, #21499, #21498, #21532, #21497, #21502, #21491, #21361, #21409, #21360, #21408, #21437, #21189, #21187, #21167, #21398, #21209, #21208, #21166, #21207, #21286, #21284, #21367, #21366, #21365, #21206, #21164, #21162, #21297, #21303, #21261, #21090, @serena-ruan; #22179, #22191, #22178, #22007, #22004, #21852, #21799, #21832, #21759, #21717, #21657, #21624, #21541, @kriscon-db; #22374, #21503, #20795, #21372, @WeichenXu123; #22192, #22139, #22136, #22108, #22107, #22104, #22103, #22099, #22094, #22093, #22090, #22087, #22079, #22065, #22064, #22058, #22062, #22051, #22048, #22044, #22035, #22026, #22025, #22021, #21965, #21961, #21959, #21952, #21937, #21936, #21926, #21924, #21916, #21914, #21912, #21911, #21901, #21900, #21897, #21896, #21894, #21891, #21888, #21887, #21885, #21880, #21879, #21878, #21876, #21877, #21875, #21868, #21862, #21861, #21859, #21834, #21808, #21822, #21807, #21766, #21782, #21761, #21757, #21742, #21740, #21737, #21733, #21730, #21729, #21728, #21710, #21694, #21683, #21684, #21677, #21675, #21672, #21671, #21670, #21652, #21651, #21634, #21629, #21627, #21621, #21610, #21543, #21529, #21527, #21523, #21513, #21511, #21508, #21501, #21496, #21486, #21485, #21481, #21477, #21474, #21472, #21471, #21464, #21462, #21457, #21459, #21456, #21455, #21452, #21451, #21449, #21448, #21442, #21441, #21415, #21411, #21402, #21397, #21375, #21369, #21330, #21353, #21335, #21331, #21328, #21285, #21251, #21239, #21235, #21229, #21228, #21224, #21210, #21153, #21147, #21139, #21122, #21113, #21117, #21095, #21091, #21092, #21089, #21088, #21056, #21047, #21044, #21043, #21042, #21040, #21031, #21032, #21024, #21021, #21018, #21011, #21016, #20997, #20994, #20985, #20982, #20981, #20978, #20967, #20966, #20942, #20921, #20916, #20911, #20905, #20909, #20906, #20823, #20820, #20811, #20810, #20788, #20798, #20786, #20754, #20745, #20735, #20724, #20722, #20721, @copilot-swe-agent; #22140, #22180, #22171, #22014, #22009, #22005, #22001, #21921, #21858, #21780, #21640, #21612, #21643, #21563, #21537, #21525, #21275, #21145, #21358, #21272, #21068, #21066, #20789, #21026, #20790, @daniellok-db; #22131, @amotl; #22080, #22056, #22019, #22017, #22018, #22015, #22016, #22013, #22011, #22002, #21996, #21985, #21984, #21981, #21971, #21939, #21838, #21806, #21798, #21748, #21666, #21665, #21642, #21637, #21566, #21539, #21405, #21484, #21439, #21440, #21395, #21195, #21194, #21150, #21029, #21014, #20987, #20738, @harupy; #22115, @sebneira; #21641, #21632, #21614, @dbrx-euirim; #21849, #20939, #20938, #20937, @alkispoly-db; #21846, #21764, #21678, #21644, #21636, #21342, #21430, #21429, #21428, #21446, #21427, #21336, #21339, #21344, #21345, #21033, @smoorjani; #21853, @bbqiu; #21827, @kevin-lyn; #21350, #21777, #21696, #21691, #21515, #21488, #21386, @dbczumar; #21528, #21673, #21549, @debu-sinha; #21658, #21600, #21493, #21393, @yangbaechu; #21660, #21639, #21443, #21444, @PattaraS; #21581, @kennyvoo; #21219, @mprahl; #21424, #21232, #21184, #21178, @danielseong1; #21173, @nananosirova; #20388, @mdalvz0000; #21080, @ManasVardhan
 
