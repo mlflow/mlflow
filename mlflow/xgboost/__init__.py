@@ -125,6 +125,7 @@ def save_model(
     model_format="ubj",
     metadata=None,
     extra_files=None,
+    uv=None,
     **kwargs,
 ):
     """Save an XGBoost model to a path on the local file system.
@@ -208,6 +209,7 @@ def save_model(
                 path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                uv=uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -232,6 +234,13 @@ def save_model(
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files
+
+        source_dir = uv.resolve_project_dir()
+        if source_dir is not None:
+            copy_uv_project_files(path, source_dir)
+
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
@@ -254,6 +263,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    uv=None,
     **kwargs,
 ):
     """Log an XGBoost model as an MLflow artifact for the current run.
@@ -312,6 +322,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        uv=uv,
         **kwargs,
     )
 

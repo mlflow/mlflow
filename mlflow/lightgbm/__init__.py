@@ -142,6 +142,7 @@ def save_model(
     serialization_format="cloudpickle",
     skops_trusted_types=None,
     extra_files=None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -289,6 +290,7 @@ def save_model(
                 path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                uv=uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -312,6 +314,13 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files
+
+        source_dir = uv.resolve_project_dir()
+        if source_dir is not None:
+            copy_uv_project_files(path, source_dir)
 
 
 def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types):
@@ -360,6 +369,7 @@ def log_model(
     model_id: str | None = None,
     serialization_format="cloudpickle",
     skops_trusted_types: list[str] | None = None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -469,6 +479,7 @@ def log_model(
         model_id=model_id,
         serialization_format=serialization_format,
         skops_trusted_types=skops_trusted_types,
+        uv=uv,
         **kwargs,
     )
 

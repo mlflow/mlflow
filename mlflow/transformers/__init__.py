@@ -298,6 +298,7 @@ def save_model(
     prompt_template: str | None = None,
     save_pretrained: bool = True,
     base_model_path: str | None = None,
+    uv=None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
@@ -823,6 +824,7 @@ def save_model(
                     flavor=FLAVOR_NAME,
                     fallback=default_reqs,
                     timeout=MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get(),
+                    uv=uv,
                 )
                 default_reqs = set(inferred_reqs).union(default_reqs)
             default_reqs = sorted(default_reqs)
@@ -843,6 +845,13 @@ def save_model(
     write_to(str(path.joinpath(_REQUIREMENTS_FILE_NAME)), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
+
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files
+
+        source_dir = uv.resolve_project_dir()
+        if source_dir is not None:
+            copy_uv_project_files(str(path), source_dir)
 
 
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
@@ -874,6 +883,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     base_model_path: str | None = None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -1108,6 +1118,7 @@ def log_model(
         prompt_template=prompt_template,
         save_pretrained=save_pretrained,
         base_model_path=base_model_path,
+        uv=uv,
         prompts=prompts,
         params=params,
         tags=tags,
