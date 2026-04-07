@@ -230,7 +230,7 @@ MLflow 3.11.0 includes several major features and improvements.
 - [Docs / Tracing] Fix `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING` docs to reflect OSS default behavior (#21731, @copilot-swe-agent)
 - [Docs] Add note for pickle-free model doc (#21732, @WeichenXu123)
 - [Docs] Add experiment note to the pickle-free model format doc page (#21709, @WeichenXu123)
-- [Docs] Add Guide: Deploy MLflow to google cloud (#21599, @WeichenXu123)
+- [Docs] Add Guide: Deploy MLflow to Google Cloud (#21599, @WeichenXu123)
 - [Docs] Add Guide: Deploy MLflow to Azure cloud (#21128, @WeichenXu123)
 - [Docs / Tracing] Add Goose tracing integration documentation (#21190, @B-Step62)
 - [Docs] Expand Koog integration doc (#21218, @B-Step62)
