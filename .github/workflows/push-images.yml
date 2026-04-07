@@ -12,6 +12,7 @@ defaults:
 
 jobs:
   push-images:
+    # Only run for version tags (vX.Y.Z); skips non-version release tags like `model-catalog/latest`.
     if: "startsWith(github.ref_name, 'v') && !contains(github.ref_name, 'rc')"
     runs-on: ubuntu-latest
     timeout-minutes: 30
