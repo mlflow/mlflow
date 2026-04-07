@@ -25,6 +25,8 @@ cost rather than provider variance.
 | Request path       | Benchmark client → nginx → MLflow AI Gateway → fake provider                |
 | What is measured   | Gateway processing overhead: config resolution, secret decryption, dispatch |
 
+The following factors are **not** captured by this setup:
+
 | Not measured                             | Why                                                              |
 | ---------------------------------------- | ---------------------------------------------------------------- |
 | Real provider latency variance           | The upstream server returns a fixed-delay response               |
