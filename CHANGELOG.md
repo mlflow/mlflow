@@ -208,7 +208,7 @@ MLflow 3.11.0 includes several major features and improvements.
 - [Evaluation / Tracing] Fix ConversationSimulator validation for predict_fn signatures and context fields (#21171, @yangbaechu)
 - [UI] [ML-63097] Fix broken LLM judge documentation links (#21347, @smoorjani)
 - [Tracing / Tracking] Add authentication support to OTLP exporter headers (#21230, @giulio-leone)
-- [Evaluation / Tracking] deletion of assessments associated with a run (#20624, @retrowhiz)
+- [Evaluation / Tracking] Fix deletion of assessments associated with a run (#20624, @retrowhiz)
 - [Models] Fix `_deduplicate_requirements` merging marker-differentiated requirements (#21098, @harupy)
 - [UI] Fix Tags functionality in Recent Experiments table on Home page (#20907, @joelrobin18)
 - [Tracing] Fix MCP fn_wrapper handling of Click UNSET defaults (#20953) (#20962, @yangbaechu)
