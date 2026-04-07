@@ -1,0 +1,107 @@
+---
+title: Performance & Benchmarks
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Performance & Benchmarks
+
+The MLflow AI Gateway is designed to add minimal overhead over a direct LLM call. The gateway handles
+config caching, secret decryption, tracing, and provider dispatch while keeping latency additions in
+the single-digit-to-tens-of-milliseconds range. You can observe this overhead in real time using the
+[timing headers](#measuring-gateway-overhead) included in every response.
+
+## Test Setup
+
+The benchmark measures **pure MLflow overhead** by placing the gateway between the benchmark client and
+a fake OpenAI-compatible server that responds with a fixed 50 ms latency. All MLflow processing —
+config resolution, secret decryption, provider dispatch — runs in that path, so results reflect gateway
+cost rather than provider variance.
+
+See [`dev/benchmarks/gateway/`](https://github.com/mlflow/mlflow/tree/master/dev/benchmarks/gateway)
+for the full methodology, architecture, and options reference.
+
+## Results
+
+The following numbers were recorded under the test setup described above (50 ms simulated provider
+latency, 4 MLflow instances, 50 concurrent requests).
+
+| Metric    | MLflow Gateway |
+| --------- | -------------- |
+| Req/s     | **598**        |
+| Mean (ms) | **84.9**       |
+| P50 (ms)  | **78.6**       |
+| P95 (ms)  | **151.6**      |
+| P99 (ms)  | **184.2**      |
+
+The 50 ms simulated provider time is reflected in the P50 numbers: MLflow adds approximately 29 ms
+of overhead over the fake delay.
+
+## Measuring Gateway Overhead {#measuring-gateway-overhead}
+
+Every gateway response includes two headers that let you measure overhead live:
+
+| Header                                  | Description                                                             |
+| --------------------------------------- | ----------------------------------------------------------------------- |
+| `X-MLflow-Gateway-Duration-Ms`          | Total time in the gateway handler (ms), including the LLM provider call |
+| `X-MLflow-Gateway-Overhead-Duration-Ms` | Gateway-only processing time: `total_ms − provider_call_ms`             |
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl -si -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Hello!"}]}' \
+  | grep -i "x-mlflow-gateway"
+# X-MLflow-Gateway-Duration-Ms: 87.3
+# X-MLflow-Gateway-Overhead-Duration-Ms: 3.1
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:5000/gateway/my-endpoint/mlflow/invocations",
+    json={"messages": [{"role": "user", "content": "Hello!"}]},
+)
+print("Total duration (ms):", response.headers["X-MLflow-Gateway-Duration-Ms"])
+print("Gateway overhead (ms):", response.headers["X-MLflow-Gateway-Overhead-Duration-Ms"])
+```
+
+</TabItem>
+</Tabs>
+
+:::note Streaming responses
+For streaming responses, `X-MLflow-Gateway-Overhead-Duration-Ms` reflects only the gateway setup time
+before the stream starts. This is the intended behavior — it shows that MLflow adds minimal latency
+before data starts flowing.
+:::
+
+## Run Your Own Benchmarks
+
+The full benchmark suite, including setup instructions, all CLI options, and architecture notes,
+lives in [`dev/benchmarks/gateway/`](https://github.com/mlflow/mlflow/tree/master/dev/benchmarks/gateway).
+
+```bash
+cd dev/benchmarks/gateway
+
+# 4 instances behind nginx, PostgreSQL (default) — requires Docker
+uv run run.py
+
+# Single instance, SQLite (no Docker needed)
+uv run run.py --instances 1
+
+# Single instance, PostgreSQL
+uv run run.py --instances 1 --database postgres
+
+# Scale up
+uv run run.py --instances 8 --workers 8
+
+# Benchmark an existing endpoint directly (skips all setup)
+uv run run.py --url http://your-server/gateway/my-endpoint/mlflow/invocations
+```
