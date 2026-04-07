@@ -204,9 +204,6 @@ const RunViewEvaluationsTabInner = ({
     data: compareToRunData,
     displayName: compareToRunDisplayName,
     loading: compareToRunLoading,
-    fetchNextPage: compareFetchNextPage,
-    hasNextPage: compareHasNextPage,
-    isFetchingNextPage: compareIsFetchingNextPage,
   } = useGetCompareToData({
     experimentId,
     traceLocations,
@@ -276,16 +273,6 @@ const RunViewEvaluationsTabInner = ({
   }, [deleteTracesAction, showEditTagsModalForTrace, EditTagsModal]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
-
-  // When scrolling, fetch the next page for both the current and comparison runs together.
-  const combinedFetchNextPage = useCallback(() => {
-    if (fetchNextPage) fetchNextPage();
-    if (compareFetchNextPage) compareFetchNextPage();
-  }, [fetchNextPage, compareFetchNextPage]);
-
-  const combinedHasNextPage = (hasNextPage ?? false) || (compareHasNextPage ?? false);
-
-  const combinedIsFetchingNextPage = (isFetchingNextPage ?? false) || (compareIsFetchingNextPage ?? false);
 
   const selectedRunColor = getRunColor(runUuid);
   const compareToRunColor = compareToRunUuid ? getRunColor(compareToRunUuid) : undefined;
@@ -419,9 +406,9 @@ const RunViewEvaluationsTabInner = ({
                     onTraceTagsEdit={showEditTagsModalForTrace}
                     isTableLoading={isTableLoading}
                     isGroupedBySession={isGroupedBySession}
-                    fetchNextPage={combinedFetchNextPage}
-                    hasNextPage={combinedHasNextPage}
-                    isFetchingNextPage={combinedIsFetchingNextPage}
+                    fetchNextPage={fetchNextPage}
+                    hasNextPage={hasNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
                     assessmentCountMetrics={assessmentCountMetrics}
                     compareAssessmentCountMetrics={compareAssessmentCountMetrics}
                   />
@@ -520,18 +507,9 @@ const useGetCompareToData = (params: {
   data: ModelTraceInfoV3[] | undefined;
   displayName: string;
   loading: boolean;
-  fetchNextPage?: () => void;
-  hasNextPage?: boolean;
-  isFetchingNextPage?: boolean;
 } => {
   const { compareToRunUuid, experimentId, traceLocations, isQueryDisabled } = params;
-  const {
-    data: traceInfos,
-    isLoading: traceInfosLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useSearchMlflowTraces({
+  const { data: traceInfos, isLoading: traceInfosLoading } = useSearchMlflowTraces({
     locations: traceLocations,
     currentRunDisplayName: undefined,
     runUuid: compareToRunUuid,
@@ -550,8 +528,5 @@ const useGetCompareToData = (params: {
     data: traceInfos,
     displayName: Utils.getRunDisplayName(runData?.info, compareToRunUuid),
     loading: traceInfosLoading || runDetailsLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
   };
 };
