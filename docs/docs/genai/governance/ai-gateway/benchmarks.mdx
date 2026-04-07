@@ -2,9 +2,6 @@
 title: Performance & Benchmarks
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-
 # Performance & Benchmarks
 
 The MLflow AI Gateway is designed to add minimal overhead over a direct LLM call. The gateway handles
@@ -47,9 +44,6 @@ Every gateway response includes two headers that let you measure overhead live:
 | `X-MLflow-Gateway-Duration-Ms`          | Total time in the gateway handler (ms), including the LLM provider call |
 | `X-MLflow-Gateway-Overhead-Duration-Ms` | Gateway-only processing time: `total_ms − provider_call_ms`             |
 
-<Tabs>
-<TabItem value="curl" label="cURL" default>
-
 ```bash
 curl -si -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
   -H "Content-Type: application/json" \
@@ -58,23 +52,6 @@ curl -si -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
 # X-MLflow-Gateway-Duration-Ms: 87.3
 # X-MLflow-Gateway-Overhead-Duration-Ms: 3.1
 ```
-
-</TabItem>
-<TabItem value="python" label="Python">
-
-```python
-import requests
-
-response = requests.post(
-    "http://localhost:5000/gateway/my-endpoint/mlflow/invocations",
-    json={"messages": [{"role": "user", "content": "Hello!"}]},
-)
-print("Total duration (ms):", response.headers["X-MLflow-Gateway-Duration-Ms"])
-print("Gateway overhead (ms):", response.headers["X-MLflow-Gateway-Overhead-Duration-Ms"])
-```
-
-</TabItem>
-</Tabs>
 
 :::note Streaming responses
 For streaming responses, `X-MLflow-Gateway-Overhead-Duration-Ms` reflects only the gateway setup time
