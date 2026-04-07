@@ -16,6 +16,16 @@ from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
 
 _logger = logging.getLogger(__name__)
 
+# Cap serialized session history at 50 KB. Older turns are dropped first (system
+# message at index 0 is always kept) to prevent unbounded growth over long conversations.
+_MAX_SESSION_BYTES = 50 * 1024
+
+
+def _trim_session(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    while len(json.dumps(messages).encode()) > _MAX_SESSION_BYTES and len(messages) > 2:
+        messages.pop(1)
+    return messages
+
 
 class OllamaProvider(AssistantProvider):
     @property
@@ -216,7 +226,7 @@ class OllamaProvider(AssistantProvider):
                         "tool_name": tool_name,
                     })
 
-            new_session_id = json.dumps(messages)
+            new_session_id = json.dumps(_trim_session(messages))
             yield Event.from_result(result=None, session_id=new_session_id)
 
         except Exception as e:
