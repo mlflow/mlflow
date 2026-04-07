@@ -35,6 +35,10 @@
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
     "description": "AI Gateway setup guide > Subtitle"
   },
+  "+BQX0P": {
+    "defaultMessage": "Judge model (optional)",
+    "description": "Label for judge model endpoint selector"
+  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -1410,6 +1414,10 @@
     "defaultMessage": "Ignore outliers",
     "description": "Runs charts > line chart > ignore outliers > label"
   },
+  "7HxtKw": {
+    "defaultMessage": "Create Custom Guardrail",
+    "description": "Title for custom guardrail creation modal"
+  },
   "7KKvmS": {
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
@@ -2485,6 +2493,10 @@
   "DaF+KK": {
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
+  },
+  "DagNrs": {
+    "defaultMessage": "e.g., Check if the text contains personally identifiable information (PII) such as email addresses, phone numbers, or social security numbers.",
+    "description": "Placeholder for judge instructions"
   },
   "DcGPfO": {
     "defaultMessage": "Row height",
@@ -4166,6 +4178,10 @@
     "defaultMessage": "Production",
     "description": "Column title for production phase version in the registered model page"
   },
+  "PGgXTi": {
+    "defaultMessage": "Gateway endpoint to use for the LLM judge. If not set, the default model will be used.",
+    "description": "Help text for judge model selector"
+  },
   "PIsgM0": {
     "defaultMessage": "Experiments",
     "description": "Issue detection run details > Breadcrumb > Experiments"
@@ -4376,6 +4392,10 @@
   "QZXOSm": {
     "defaultMessage": "Frequency Penalty",
     "description": "Label for frequency penalty input"
+  },
+  "QZfDzY": {
+    "defaultMessage": "e.g., pii-detector",
+    "description": "Placeholder for guardrail name"
   },
   "QaHhPd": {
     "defaultMessage": "Add Guardrail",
@@ -5064,6 +5084,10 @@
     "defaultMessage": "Budget policy exceeded",
     "description": "Webhook event label"
   },
+  "V5XofY": {
+    "defaultMessage": "Guardrail name",
+    "description": "Label for guardrail name input"
+  },
   "V5cjvM": {
     "defaultMessage": "Copy your MLflow models to another registered model for simple model promotion across environments. For more mature production-grade setups, we recommend setting up automated model training workflows to produce models in controlled environments. <link>Learn more</link>",
     "description": "Model registry > OSS Promote model modal > description paragraph body"
@@ -5319,6 +5343,10 @@
   "WWv3EQ": {
     "defaultMessage": "Options",
     "description": "Label for categorical options input"
+  },
+  "WacX0U": {
+    "defaultMessage": "Describe what the judge should check for. The LLM will evaluate requests/responses against these instructions.",
+    "description": "Help text for guardrail judge instructions"
   },
   "WcHytj": {
     "defaultMessage": "Total Cost",
@@ -5654,6 +5682,10 @@
   "YeIhTa": {
     "defaultMessage": "Enter artifact root URI",
     "description": "Placeholder for artifact root input in edit modal"
+  },
+  "YfW9EI": {
+    "defaultMessage": "Select endpoint...",
+    "description": "Placeholder for judge model endpoint"
   },
   "Yhydp3": {
     "defaultMessage": "Relevance",
@@ -6746,6 +6778,10 @@
   "f4CfIz": {
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
+  },
+  "f61+cA": {
+    "defaultMessage": "Judge instructions",
+    "description": "Label for guardrail judge prompt textarea"
   },
   "f6q6EM": {
     "defaultMessage": "Configure the model to power issue detection",
@@ -8331,6 +8367,10 @@
     "defaultMessage": "Budgets",
     "description": "Gateway side nav > Budgets tab"
   },
+  "odXNvc": {
+    "defaultMessage": "Back",
+    "description": "Back button in custom guardrail form"
+  },
   "odkg7W": {
     "defaultMessage": "Compact view",
     "description": "Run page > artifact view > logged table view > compact view toggle button"
@@ -8422,6 +8462,10 @@
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
+  },
+  "pOHD6D": {
+    "defaultMessage": "Create",
+    "description": "Create custom guardrail button"
   },
   "pOqgMC": {
     "defaultMessage": "Weight",
