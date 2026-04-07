@@ -72,10 +72,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const appendToStreamingMessage = useCallback(
     (text: string) => {
-      // Add paragraph separator between content parts (e.g. reasoning vs response)
-      if (streamingMessageRef.current && !streamingMessageRef.current.endsWith('\n') && !text.startsWith('\n')) {
-        streamingMessageRef.current += '\n\n';
-      }
       streamingMessageRef.current += text;
       if (rafPendingRef.current === null) {
         rafPendingRef.current = requestAnimationFrame(flushStreamingMessage);
