@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 import anthropic
 import pytest
@@ -264,7 +265,24 @@ def test_messages_autolog_multi_modal(is_async):
     span = traces[0].data.spans[0]
     assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.inputs == dummy_multi_modal_request
+    # MLflow autologging replaces inline base64 image data with an mlflow-attachment:// URI
+    span_inputs = span.inputs
+    assert span_inputs["model"] == dummy_multi_modal_request["model"]
+    assert span_inputs["max_tokens"] == dummy_multi_modal_request["max_tokens"]
+    messages = span_inputs["messages"]
+    assert len(messages) == 1
+    content = messages[0]["content"]
+    assert content[0] == {"type": "text", "text": "What text is in this image?"}
+    image_block = content[1]
+    assert image_block["type"] == "image"
+    assert image_block["source"]["type"] == "base64"
+    assert image_block["source"]["media_type"] == "image/png"
+    attachment_uri = image_block["source"]["data"]
+    assert attachment_uri.startswith("mlflow-attachment://")
+    parsed = urlparse(attachment_uri)
+    params = parse_qs(parsed.query)
+    assert params["content_type"] == ["image/png"]
+    assert params["trace_id"] == [traces[0].info.trace_id]
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 10,
