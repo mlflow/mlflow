@@ -907,10 +907,7 @@ def test_databricks_tracking_uri_scheme_does_not_use_oss_path(
             "mlflow.telemetry.client.http_request",
             return_value=mock.Mock(status_code=200),
         ),
-        mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock.Mock(),
-        ),
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
         TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
@@ -921,7 +918,6 @@ def test_databricks_tracking_uri_scheme_does_not_use_oss_path(
 
 @pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
 def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
-    """End-to-end test: records go through consumer → _process_records → _forward_to_databricks."""
     record = Record(
         event_name="test_event",
         timestamp_ns=time.time_ns(),
@@ -936,10 +932,7 @@ def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
             "mlflow.telemetry.client.http_request",
             return_value=mock.Mock(status_code=200),
         ) as mock_http,
-        mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock.Mock(),
-        ),
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
         TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
@@ -972,10 +965,7 @@ def test_forward_to_databricks_successful(tracking_uri_scheme):
                 "mlflow.telemetry.client.http_request",
                 return_value=mock.Mock(status_code=200),
             ) as mock_http,
-            mock.patch(
-                "mlflow.utils.databricks_utils.get_databricks_host_creds",
-                return_value=mock.Mock(),
-            ),
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
             mock.patch(
                 "mlflow.tracking._tracking_service.utils.get_tracking_uri",
                 return_value=tracking_uri_scheme,
@@ -1006,10 +996,7 @@ def test_forward_to_databricks_params_json_serialization():
                 "mlflow.telemetry.client.http_request",
                 return_value=mock.Mock(status_code=200),
             ) as mock_http,
-            mock.patch(
-                "mlflow.utils.databricks_utils.get_databricks_host_creds",
-                return_value=mock.Mock(),
-            ),
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
             mock.patch(
                 "mlflow.tracking._tracking_service.utils.get_tracking_uri",
                 return_value="databricks",
@@ -1023,7 +1010,7 @@ def test_forward_to_databricks_params_json_serialization():
         assert json.loads(event["params_json"]) == {"predict_fn_provided": True}
 
 
-@pytest.mark.parametrize("status_code", [c for c in UNRECOVERABLE_ERRORS])
+@pytest.mark.parametrize("status_code", list(UNRECOVERABLE_ERRORS))
 def test_forward_to_databricks_unrecoverable_error_non_fatal(status_code):
     with TelemetryClient() as client:
         client.info["tracking_uri_scheme"] = "databricks"
@@ -1038,10 +1025,7 @@ def test_forward_to_databricks_unrecoverable_error_non_fatal(status_code):
                 "mlflow.telemetry.client.http_request",
                 return_value=mock.Mock(status_code=status_code),
             ),
-            mock.patch(
-                "mlflow.utils.databricks_utils.get_databricks_host_creds",
-                return_value=mock.Mock(),
-            ),
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
             mock.patch(
                 "mlflow.tracking._tracking_service.utils.get_tracking_uri",
                 return_value="databricks",
@@ -1097,10 +1081,7 @@ def test_forward_to_databricks_retries_on_retryable_error(error_code):
                     mock.Mock(status_code=200),
                 ],
             ) as mock_http,
-            mock.patch(
-                "mlflow.utils.databricks_utils.get_databricks_host_creds",
-                return_value=mock.Mock(),
-            ),
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
             mock.patch(
                 "mlflow.tracking._tracking_service.utils.get_tracking_uri",
                 return_value="databricks",

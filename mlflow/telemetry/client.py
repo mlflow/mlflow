@@ -34,6 +34,8 @@ from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.utils.rest_utils import http_request
 
+_DATABRICKS_SCHEMES = ("databricks", "databricks-uc", "uc")
+
 
 # Cache per tracking URI; 16 is more than enough for any realistic number of
 # distinct tracking URIs within a single process.
@@ -148,7 +150,7 @@ class TelemetryClient:
 
         try:
             uri = get_tracking_uri()
-            return any(uri.startswith(s) for s in ("databricks", "uc"))
+            return any(uri.startswith(s) for s in _DATABRICKS_SCHEMES)
         except Exception:
             return False
 
@@ -268,12 +270,7 @@ class TelemetryClient:
         try:
             self._update_backend_store()
 
-            is_databricks = self.info.get("tracking_uri_scheme") in (
-                "databricks",
-                "databricks-uc",
-                "uc",
-            )
-            if is_databricks:
+            if self.info.get("tracking_uri_scheme") in _DATABRICKS_SCHEMES:
                 self._forward_to_databricks(records, request_timeout)
                 return
 
@@ -289,40 +286,19 @@ class TelemetryClient:
                 }
                 for record in records
             ]
-            # changing this value can affect total time for processing records
-            # the total time = request_timeout * max_attempts + sleep_time * (max_attempts - 1)
-            max_attempts = 3
-            sleep_time = 1
-            for i in range(max_attempts):
-                should_retry = False
-                response = None
-                try:
-                    response = requests.post(
-                        self.config.ingestion_url,
-                        json={"records": records},
-                        headers={"Content-Type": "application/json"},
-                        timeout=request_timeout,
-                    )
-                    should_retry = response.status_code in RETRYABLE_ERRORS
-                except (ConnectionError, TimeoutError):
-                    should_retry = True
-                # NB: DO NOT retry when terminating
-                # otherwise this increases shutdown overhead significantly
-                if self._is_stopped:
-                    return
-                if i < max_attempts - 1 and should_retry:
-                    # we do not use exponential backoff to avoid increasing
-                    # the processing time significantly
-                    time.sleep(sleep_time)
-                elif response and response.status_code in UNRECOVERABLE_ERRORS:
-                    self._is_stopped = True
-                    self.is_active = False
-                    # this is executed in the consumer thread, so
-                    # we cannot join the thread here, but this should
-                    # be enough to stop the telemetry collection
-                    return
-                else:
-                    return
+
+            def send(timeout):
+                return requests.post(
+                    self.config.ingestion_url,
+                    json={"records": records},
+                    headers={"Content-Type": "application/json"},
+                    timeout=timeout,
+                )
+
+            response = self._send_with_retries(send, request_timeout)
+            if response and response.status_code in UNRECOVERABLE_ERRORS:
+                self._is_stopped = True
+                self.is_active = False
         except Exception as e:
             _log_error(f"Failed to send telemetry records: {e}")
 
@@ -344,34 +320,42 @@ class TelemetryClient:
                 event["params_json"] = event.pop("params")
             events.append(event)
 
+        def send(timeout):
+            return http_request(
+                host_creds=creds,
+                endpoint="/api/2.0/mlflow/client-telemetry/ingest",
+                method="POST",
+                timeout=timeout,
+                max_retries=0,
+                raise_on_status=False,
+                json={"events": events},
+            )
+
+        response = self._send_with_retries(send, request_timeout)
+        if response and 200 <= response.status_code < 300:
+            return True
+        return False
+
+    def _send_with_retries(self, send_fn, request_timeout: float = 1):
+        """Send a request with retries. Returns the response or None."""
         max_attempts, sleep_time = 3, 1
         for i in range(max_attempts):
             response = None
             should_retry = False
             try:
-                response = http_request(
-                    host_creds=creds,
-                    endpoint="/api/2.0/mlflow/client-telemetry/ingest",
-                    method="POST",
-                    timeout=request_timeout,
-                    max_retries=0,
-                    raise_on_status=False,
-                    json={"events": events},
-                )
+                response = send_fn(request_timeout)
                 should_retry = response.status_code in RETRYABLE_ERRORS
             except (ConnectionError, TimeoutError):
                 should_retry = True
+            # NB: DO NOT retry when terminating
+            # otherwise this increases shutdown overhead significantly
             if self._is_stopped:
-                return False
+                return None
             if i < max_attempts - 1 and should_retry:
                 time.sleep(sleep_time)
-            elif response and response.status_code in UNRECOVERABLE_ERRORS:
-                return False
-            elif response and 200 <= response.status_code < 300:
-                return True
             else:
-                return False
-        return False
+                return response
+        return None
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
@@ -398,11 +382,7 @@ class TelemetryClient:
             self._queue.task_done()
 
         # clear the queue if config is None and not on Databricks path
-        is_databricks = self.info.get("tracking_uri_scheme") in (
-            "databricks",
-            "databricks-uc",
-            "uc",
-        )
+        is_databricks = self.info.get("tracking_uri_scheme") in _DATABRICKS_SCHEMES
         while self.config is None and not is_databricks and not self._queue.empty():
             try:
                 self._queue.get_nowait()
@@ -484,8 +464,9 @@ class TelemetryClient:
             self._config_thread.join(timeout=1)
 
             # Send any pending records before flushing
+            can_send = self.config or self._is_databricks_uri()
             with self._batch_lock:
-                if self._pending_records and (self.config or self._is_databricks_uri()) and not self._is_stopped:
+                if self._pending_records and can_send and not self._is_stopped:
                     self._send_batch()
             # For non-terminating flush, just wait for queue to empty
             try:
