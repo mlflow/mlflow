@@ -68,6 +68,14 @@ public final class Jobs {
      * <code>JOB_STATUS_CANCELED = 5;</code>
      */
     JOB_STATUS_CANCELED(5),
+    /**
+     * <pre>
+     * Job backend work may still exist, but the current watcher is unresponsive.
+     * </pre>
+     *
+     * <code>JOB_STATUS_NEEDS_RECOVERY = 6;</code>
+     */
+    JOB_STATUS_NEEDS_RECOVERY(6),
     ;
 
     /**
@@ -114,6 +122,14 @@ public final class Jobs {
      * <code>JOB_STATUS_CANCELED = 5;</code>
      */
     public static final int JOB_STATUS_CANCELED_VALUE = 5;
+    /**
+     * <pre>
+     * Job backend work may still exist, but the current watcher is unresponsive.
+     * </pre>
+     *
+     * <code>JOB_STATUS_NEEDS_RECOVERY = 6;</code>
+     */
+    public static final int JOB_STATUS_NEEDS_RECOVERY_VALUE = 6;
 
 
     public final int getNumber() {
@@ -142,6 +158,7 @@ public final class Jobs {
         case 3: return JOB_STATUS_COMPLETED;
         case 4: return JOB_STATUS_FAILED;
         case 5: return JOB_STATUS_CANCELED;
+        case 6: return JOB_STATUS_NEEDS_RECOVERY;
         default: return null;
       }
     }
@@ -189,6 +206,1002 @@ public final class Jobs {
     }
 
     // @@protoc_insertion_point(enum_scope:mlflow.JobStatus)
+  }
+
+  public interface JobProgressOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.JobProgress)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <code>optional string phase = 1;</code>
+     * @return Whether the phase field is set.
+     */
+    boolean hasPhase();
+    /**
+     * <code>optional string phase = 1;</code>
+     * @return The phase.
+     */
+    java.lang.String getPhase();
+    /**
+     * <code>optional string phase = 1;</code>
+     * @return The bytes for phase.
+     */
+    com.google.protobuf.ByteString
+        getPhaseBytes();
+
+    /**
+     * <code>optional int64 completed = 2;</code>
+     * @return Whether the completed field is set.
+     */
+    boolean hasCompleted();
+    /**
+     * <code>optional int64 completed = 2;</code>
+     * @return The completed.
+     */
+    long getCompleted();
+
+    /**
+     * <code>optional int64 total = 3;</code>
+     * @return Whether the total field is set.
+     */
+    boolean hasTotal();
+    /**
+     * <code>optional int64 total = 3;</code>
+     * @return The total.
+     */
+    long getTotal();
+
+    /**
+     * <code>optional string unit = 4;</code>
+     * @return Whether the unit field is set.
+     */
+    boolean hasUnit();
+    /**
+     * <code>optional string unit = 4;</code>
+     * @return The unit.
+     */
+    java.lang.String getUnit();
+    /**
+     * <code>optional string unit = 4;</code>
+     * @return The bytes for unit.
+     */
+    com.google.protobuf.ByteString
+        getUnitBytes();
+  }
+  /**
+   * <pre>
+   * Structured best-effort progress payload for a running job.
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.JobProgress}
+   */
+  public static final class JobProgress extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.JobProgress)
+      JobProgressOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use JobProgress.newBuilder() to construct.
+    private JobProgress(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private JobProgress() {
+      phase_ = "";
+      unit_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new JobProgress();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private JobProgress(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              phase_ = bs;
+              break;
+            }
+            case 16: {
+              bitField0_ |= 0x00000002;
+              completed_ = input.readInt64();
+              break;
+            }
+            case 24: {
+              bitField0_ |= 0x00000004;
+              total_ = input.readInt64();
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
+              unit_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Jobs.internal_static_mlflow_JobProgress_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Jobs.internal_static_mlflow_JobProgress_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Jobs.JobProgress.class, org.mlflow.api.proto.Jobs.JobProgress.Builder.class);
+    }
+
+    private int bitField0_;
+    public static final int PHASE_FIELD_NUMBER = 1;
+    private volatile java.lang.Object phase_;
+    /**
+     * <code>optional string phase = 1;</code>
+     * @return Whether the phase field is set.
+     */
+    @java.lang.Override
+    public boolean hasPhase() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <code>optional string phase = 1;</code>
+     * @return The phase.
+     */
+    @java.lang.Override
+    public java.lang.String getPhase() {
+      java.lang.Object ref = phase_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          phase_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string phase = 1;</code>
+     * @return The bytes for phase.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getPhaseBytes() {
+      java.lang.Object ref = phase_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        phase_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int COMPLETED_FIELD_NUMBER = 2;
+    private long completed_;
+    /**
+     * <code>optional int64 completed = 2;</code>
+     * @return Whether the completed field is set.
+     */
+    @java.lang.Override
+    public boolean hasCompleted() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <code>optional int64 completed = 2;</code>
+     * @return The completed.
+     */
+    @java.lang.Override
+    public long getCompleted() {
+      return completed_;
+    }
+
+    public static final int TOTAL_FIELD_NUMBER = 3;
+    private long total_;
+    /**
+     * <code>optional int64 total = 3;</code>
+     * @return Whether the total field is set.
+     */
+    @java.lang.Override
+    public boolean hasTotal() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <code>optional int64 total = 3;</code>
+     * @return The total.
+     */
+    @java.lang.Override
+    public long getTotal() {
+      return total_;
+    }
+
+    public static final int UNIT_FIELD_NUMBER = 4;
+    private volatile java.lang.Object unit_;
+    /**
+     * <code>optional string unit = 4;</code>
+     * @return Whether the unit field is set.
+     */
+    @java.lang.Override
+    public boolean hasUnit() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <code>optional string unit = 4;</code>
+     * @return The unit.
+     */
+    @java.lang.Override
+    public java.lang.String getUnit() {
+      java.lang.Object ref = unit_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          unit_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string unit = 4;</code>
+     * @return The bytes for unit.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getUnitBytes() {
+      java.lang.Object ref = unit_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        unit_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, phase_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeInt64(2, completed_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        output.writeInt64(3, total_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, unit_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, phase_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(2, completed_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(3, total_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, unit_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Jobs.JobProgress)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Jobs.JobProgress other = (org.mlflow.api.proto.Jobs.JobProgress) obj;
+
+      if (hasPhase() != other.hasPhase()) return false;
+      if (hasPhase()) {
+        if (!getPhase()
+            .equals(other.getPhase())) return false;
+      }
+      if (hasCompleted() != other.hasCompleted()) return false;
+      if (hasCompleted()) {
+        if (getCompleted()
+            != other.getCompleted()) return false;
+      }
+      if (hasTotal() != other.hasTotal()) return false;
+      if (hasTotal()) {
+        if (getTotal()
+            != other.getTotal()) return false;
+      }
+      if (hasUnit() != other.hasUnit()) return false;
+      if (hasUnit()) {
+        if (!getUnit()
+            .equals(other.getUnit())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasPhase()) {
+        hash = (37 * hash) + PHASE_FIELD_NUMBER;
+        hash = (53 * hash) + getPhase().hashCode();
+      }
+      if (hasCompleted()) {
+        hash = (37 * hash) + COMPLETED_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getCompleted());
+      }
+      if (hasTotal()) {
+        hash = (37 * hash) + TOTAL_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getTotal());
+      }
+      if (hasUnit()) {
+        hash = (37 * hash) + UNIT_FIELD_NUMBER;
+        hash = (53 * hash) + getUnit().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Jobs.JobProgress parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Jobs.JobProgress prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * Structured best-effort progress payload for a running job.
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.JobProgress}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.JobProgress)
+        org.mlflow.api.proto.Jobs.JobProgressOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Jobs.internal_static_mlflow_JobProgress_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Jobs.internal_static_mlflow_JobProgress_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Jobs.JobProgress.class, org.mlflow.api.proto.Jobs.JobProgress.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Jobs.JobProgress.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        phase_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        completed_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        total_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000004);
+        unit_ = "";
+        bitField0_ = (bitField0_ & ~0x00000008);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Jobs.internal_static_mlflow_JobProgress_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Jobs.JobProgress getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Jobs.JobProgress build() {
+        org.mlflow.api.proto.Jobs.JobProgress result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Jobs.JobProgress buildPartial() {
+        org.mlflow.api.proto.Jobs.JobProgress result = new org.mlflow.api.proto.Jobs.JobProgress(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.phase_ = phase_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          result.completed_ = completed_;
+          to_bitField0_ |= 0x00000002;
+        }
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          result.total_ = total_;
+          to_bitField0_ |= 0x00000004;
+        }
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.unit_ = unit_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Jobs.JobProgress) {
+          return mergeFrom((org.mlflow.api.proto.Jobs.JobProgress)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Jobs.JobProgress other) {
+        if (other == org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance()) return this;
+        if (other.hasPhase()) {
+          bitField0_ |= 0x00000001;
+          phase_ = other.phase_;
+          onChanged();
+        }
+        if (other.hasCompleted()) {
+          setCompleted(other.getCompleted());
+        }
+        if (other.hasTotal()) {
+          setTotal(other.getTotal());
+        }
+        if (other.hasUnit()) {
+          bitField0_ |= 0x00000008;
+          unit_ = other.unit_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Jobs.JobProgress parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Jobs.JobProgress) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object phase_ = "";
+      /**
+       * <code>optional string phase = 1;</code>
+       * @return Whether the phase field is set.
+       */
+      public boolean hasPhase() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <code>optional string phase = 1;</code>
+       * @return The phase.
+       */
+      public java.lang.String getPhase() {
+        java.lang.Object ref = phase_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            phase_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string phase = 1;</code>
+       * @return The bytes for phase.
+       */
+      public com.google.protobuf.ByteString
+          getPhaseBytes() {
+        java.lang.Object ref = phase_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          phase_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string phase = 1;</code>
+       * @param value The phase to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPhase(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        phase_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string phase = 1;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPhase() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        phase_ = getDefaultInstance().getPhase();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string phase = 1;</code>
+       * @param value The bytes for phase to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPhaseBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        phase_ = value;
+        onChanged();
+        return this;
+      }
+
+      private long completed_ ;
+      /**
+       * <code>optional int64 completed = 2;</code>
+       * @return Whether the completed field is set.
+       */
+      @java.lang.Override
+      public boolean hasCompleted() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <code>optional int64 completed = 2;</code>
+       * @return The completed.
+       */
+      @java.lang.Override
+      public long getCompleted() {
+        return completed_;
+      }
+      /**
+       * <code>optional int64 completed = 2;</code>
+       * @param value The completed to set.
+       * @return This builder for chaining.
+       */
+      public Builder setCompleted(long value) {
+        bitField0_ |= 0x00000002;
+        completed_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional int64 completed = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearCompleted() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        completed_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private long total_ ;
+      /**
+       * <code>optional int64 total = 3;</code>
+       * @return Whether the total field is set.
+       */
+      @java.lang.Override
+      public boolean hasTotal() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <code>optional int64 total = 3;</code>
+       * @return The total.
+       */
+      @java.lang.Override
+      public long getTotal() {
+        return total_;
+      }
+      /**
+       * <code>optional int64 total = 3;</code>
+       * @param value The total to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTotal(long value) {
+        bitField0_ |= 0x00000004;
+        total_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional int64 total = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearTotal() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        total_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object unit_ = "";
+      /**
+       * <code>optional string unit = 4;</code>
+       * @return Whether the unit field is set.
+       */
+      public boolean hasUnit() {
+        return ((bitField0_ & 0x00000008) != 0);
+      }
+      /**
+       * <code>optional string unit = 4;</code>
+       * @return The unit.
+       */
+      public java.lang.String getUnit() {
+        java.lang.Object ref = unit_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            unit_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string unit = 4;</code>
+       * @return The bytes for unit.
+       */
+      public com.google.protobuf.ByteString
+          getUnitBytes() {
+        java.lang.Object ref = unit_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          unit_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string unit = 4;</code>
+       * @param value The unit to set.
+       * @return This builder for chaining.
+       */
+      public Builder setUnit(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        unit_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string unit = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearUnit() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        unit_ = getDefaultInstance().getUnit();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string unit = 4;</code>
+       * @param value The bytes for unit to set.
+       * @return This builder for chaining.
+       */
+      public Builder setUnitBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        unit_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.JobProgress)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.JobProgress)
+    private static final org.mlflow.api.proto.Jobs.JobProgress DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Jobs.JobProgress();
+    }
+
+    public static org.mlflow.api.proto.Jobs.JobProgress getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<JobProgress>
+        PARSER = new com.google.protobuf.AbstractParser<JobProgress>() {
+      @java.lang.Override
+      public JobProgress parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new JobProgress(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<JobProgress> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<JobProgress> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Jobs.JobProgress getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
   }
 
   public interface JobStateOrBuilder extends
@@ -304,6 +1317,81 @@ public final class Jobs {
 
     java.lang.String getMetadataOrThrow(
         java.lang.String key);
+
+    /**
+     * <pre>
+     * Latest best-effort in-flight status message.
+     * </pre>
+     *
+     * <code>optional string status_message = 4;</code>
+     * @return Whether the statusMessage field is set.
+     */
+    boolean hasStatusMessage();
+    /**
+     * <pre>
+     * Latest best-effort in-flight status message.
+     * </pre>
+     *
+     * <code>optional string status_message = 4;</code>
+     * @return The statusMessage.
+     */
+    java.lang.String getStatusMessage();
+    /**
+     * <pre>
+     * Latest best-effort in-flight status message.
+     * </pre>
+     *
+     * <code>optional string status_message = 4;</code>
+     * @return The bytes for statusMessage.
+     */
+    com.google.protobuf.ByteString
+        getStatusMessageBytes();
+
+    /**
+     * <pre>
+     * Latest best-effort structured progress payload.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+     * @return Whether the progressPayload field is set.
+     */
+    boolean hasProgressPayload();
+    /**
+     * <pre>
+     * Latest best-effort structured progress payload.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+     * @return The progressPayload.
+     */
+    org.mlflow.api.proto.Jobs.JobProgress getProgressPayload();
+    /**
+     * <pre>
+     * Latest best-effort structured progress payload.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+     */
+    org.mlflow.api.proto.Jobs.JobProgressOrBuilder getProgressPayloadOrBuilder();
+
+    /**
+     * <pre>
+     * Timestamp of the latest progress update in milliseconds since epoch.
+     * </pre>
+     *
+     * <code>optional int64 progress_updated_at = 6;</code>
+     * @return Whether the progressUpdatedAt field is set.
+     */
+    boolean hasProgressUpdatedAt();
+    /**
+     * <pre>
+     * Timestamp of the latest progress update in milliseconds since epoch.
+     * </pre>
+     *
+     * <code>optional int64 progress_updated_at = 6;</code>
+     * @return The progressUpdatedAt.
+     */
+    long getProgressUpdatedAt();
   }
   /**
    * <pre>
@@ -325,6 +1413,7 @@ public final class Jobs {
     private JobState() {
       status_ = 0;
       errorMessage_ = "";
+      statusMessage_ = "";
     }
 
     @java.lang.Override
@@ -387,6 +1476,30 @@ public final class Jobs {
                   MetadataDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
               metadata_.getMutableMap().put(
                   metadata__.getKey(), metadata__.getValue());
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              statusMessage_ = bs;
+              break;
+            }
+            case 42: {
+              org.mlflow.api.proto.Jobs.JobProgress.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000008) != 0)) {
+                subBuilder = progressPayload_.toBuilder();
+              }
+              progressPayload_ = input.readMessage(org.mlflow.api.proto.Jobs.JobProgress.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(progressPayload_);
+                progressPayload_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000008;
+              break;
+            }
+            case 48: {
+              bitField0_ |= 0x00000010;
+              progressUpdatedAt_ = input.readInt64();
               break;
             }
             default: {
@@ -625,6 +1738,131 @@ public final class Jobs {
       return map.get(key);
     }
 
+    public static final int STATUS_MESSAGE_FIELD_NUMBER = 4;
+    private volatile java.lang.Object statusMessage_;
+    /**
+     * <pre>
+     * Latest best-effort in-flight status message.
+     * </pre>
+     *
+     * <code>optional string status_message = 4;</code>
+     * @return Whether the statusMessage field is set.
+     */
+    @java.lang.Override
+    public boolean hasStatusMessage() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * Latest best-effort in-flight status message.
+     * </pre>
+     *
+     * <code>optional string status_message = 4;</code>
+     * @return The statusMessage.
+     */
+    @java.lang.Override
+    public java.lang.String getStatusMessage() {
+      java.lang.Object ref = statusMessage_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          statusMessage_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Latest best-effort in-flight status message.
+     * </pre>
+     *
+     * <code>optional string status_message = 4;</code>
+     * @return The bytes for statusMessage.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getStatusMessageBytes() {
+      java.lang.Object ref = statusMessage_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        statusMessage_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int PROGRESS_PAYLOAD_FIELD_NUMBER = 5;
+    private org.mlflow.api.proto.Jobs.JobProgress progressPayload_;
+    /**
+     * <pre>
+     * Latest best-effort structured progress payload.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+     * @return Whether the progressPayload field is set.
+     */
+    @java.lang.Override
+    public boolean hasProgressPayload() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <pre>
+     * Latest best-effort structured progress payload.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+     * @return The progressPayload.
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Jobs.JobProgress getProgressPayload() {
+      return progressPayload_ == null ? org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progressPayload_;
+    }
+    /**
+     * <pre>
+     * Latest best-effort structured progress payload.
+     * </pre>
+     *
+     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Jobs.JobProgressOrBuilder getProgressPayloadOrBuilder() {
+      return progressPayload_ == null ? org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progressPayload_;
+    }
+
+    public static final int PROGRESS_UPDATED_AT_FIELD_NUMBER = 6;
+    private long progressUpdatedAt_;
+    /**
+     * <pre>
+     * Timestamp of the latest progress update in milliseconds since epoch.
+     * </pre>
+     *
+     * <code>optional int64 progress_updated_at = 6;</code>
+     * @return Whether the progressUpdatedAt field is set.
+     */
+    @java.lang.Override
+    public boolean hasProgressUpdatedAt() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <pre>
+     * Timestamp of the latest progress update in milliseconds since epoch.
+     * </pre>
+     *
+     * <code>optional int64 progress_updated_at = 6;</code>
+     * @return The progressUpdatedAt.
+     */
+    @java.lang.Override
+    public long getProgressUpdatedAt() {
+      return progressUpdatedAt_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -651,6 +1889,15 @@ public final class Jobs {
           internalGetMetadata(),
           MetadataDefaultEntryHolder.defaultEntry,
           3);
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, statusMessage_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        output.writeMessage(5, getProgressPayload());
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        output.writeInt64(6, progressUpdatedAt_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -676,6 +1923,17 @@ public final class Jobs {
             .build();
         size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(3, metadata__);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, statusMessage_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(5, getProgressPayload());
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(6, progressUpdatedAt_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -703,6 +1961,21 @@ public final class Jobs {
       }
       if (!internalGetMetadata().equals(
           other.internalGetMetadata())) return false;
+      if (hasStatusMessage() != other.hasStatusMessage()) return false;
+      if (hasStatusMessage()) {
+        if (!getStatusMessage()
+            .equals(other.getStatusMessage())) return false;
+      }
+      if (hasProgressPayload() != other.hasProgressPayload()) return false;
+      if (hasProgressPayload()) {
+        if (!getProgressPayload()
+            .equals(other.getProgressPayload())) return false;
+      }
+      if (hasProgressUpdatedAt() != other.hasProgressUpdatedAt()) return false;
+      if (hasProgressUpdatedAt()) {
+        if (getProgressUpdatedAt()
+            != other.getProgressUpdatedAt()) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -725,6 +1998,19 @@ public final class Jobs {
       if (!internalGetMetadata().getMap().isEmpty()) {
         hash = (37 * hash) + METADATA_FIELD_NUMBER;
         hash = (53 * hash) + internalGetMetadata().hashCode();
+      }
+      if (hasStatusMessage()) {
+        hash = (37 * hash) + STATUS_MESSAGE_FIELD_NUMBER;
+        hash = (53 * hash) + getStatusMessage().hashCode();
+      }
+      if (hasProgressPayload()) {
+        hash = (37 * hash) + PROGRESS_PAYLOAD_FIELD_NUMBER;
+        hash = (53 * hash) + getProgressPayload().hashCode();
+      }
+      if (hasProgressUpdatedAt()) {
+        hash = (37 * hash) + PROGRESS_UPDATED_AT_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getProgressUpdatedAt());
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -881,6 +2167,7 @@ public final class Jobs {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getProgressPayloadFieldBuilder();
         }
       }
       @java.lang.Override
@@ -891,6 +2178,16 @@ public final class Jobs {
         errorMessage_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
         internalGetMutableMetadata().clear();
+        statusMessage_ = "";
+        bitField0_ = (bitField0_ & ~0x00000008);
+        if (progressPayloadBuilder_ == null) {
+          progressPayload_ = null;
+        } else {
+          progressPayloadBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000010);
+        progressUpdatedAt_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000020);
         return this;
       }
 
@@ -929,6 +2226,22 @@ public final class Jobs {
         result.errorMessage_ = errorMessage_;
         result.metadata_ = internalGetMetadata();
         result.metadata_.makeImmutable();
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.statusMessage_ = statusMessage_;
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          if (progressPayloadBuilder_ == null) {
+            result.progressPayload_ = progressPayload_;
+          } else {
+            result.progressPayload_ = progressPayloadBuilder_.build();
+          }
+          to_bitField0_ |= 0x00000008;
+        }
+        if (((from_bitField0_ & 0x00000020) != 0)) {
+          result.progressUpdatedAt_ = progressUpdatedAt_;
+          to_bitField0_ |= 0x00000010;
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -988,6 +2301,17 @@ public final class Jobs {
         }
         internalGetMutableMetadata().mergeFrom(
             other.internalGetMetadata());
+        if (other.hasStatusMessage()) {
+          bitField0_ |= 0x00000008;
+          statusMessage_ = other.statusMessage_;
+          onChanged();
+        }
+        if (other.hasProgressPayload()) {
+          mergeProgressPayload(other.getProgressPayload());
+        }
+        if (other.hasProgressUpdatedAt()) {
+          setProgressUpdatedAt(other.getProgressUpdatedAt());
+        }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
         return this;
@@ -1356,6 +2680,325 @@ public final class Jobs {
             .putAll(values);
         return this;
       }
+
+      private java.lang.Object statusMessage_ = "";
+      /**
+       * <pre>
+       * Latest best-effort in-flight status message.
+       * </pre>
+       *
+       * <code>optional string status_message = 4;</code>
+       * @return Whether the statusMessage field is set.
+       */
+      public boolean hasStatusMessage() {
+        return ((bitField0_ & 0x00000008) != 0);
+      }
+      /**
+       * <pre>
+       * Latest best-effort in-flight status message.
+       * </pre>
+       *
+       * <code>optional string status_message = 4;</code>
+       * @return The statusMessage.
+       */
+      public java.lang.String getStatusMessage() {
+        java.lang.Object ref = statusMessage_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            statusMessage_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Latest best-effort in-flight status message.
+       * </pre>
+       *
+       * <code>optional string status_message = 4;</code>
+       * @return The bytes for statusMessage.
+       */
+      public com.google.protobuf.ByteString
+          getStatusMessageBytes() {
+        java.lang.Object ref = statusMessage_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          statusMessage_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Latest best-effort in-flight status message.
+       * </pre>
+       *
+       * <code>optional string status_message = 4;</code>
+       * @param value The statusMessage to set.
+       * @return This builder for chaining.
+       */
+      public Builder setStatusMessage(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        statusMessage_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Latest best-effort in-flight status message.
+       * </pre>
+       *
+       * <code>optional string status_message = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearStatusMessage() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        statusMessage_ = getDefaultInstance().getStatusMessage();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Latest best-effort in-flight status message.
+       * </pre>
+       *
+       * <code>optional string status_message = 4;</code>
+       * @param value The bytes for statusMessage to set.
+       * @return This builder for chaining.
+       */
+      public Builder setStatusMessageBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        statusMessage_ = value;
+        onChanged();
+        return this;
+      }
+
+      private org.mlflow.api.proto.Jobs.JobProgress progressPayload_;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Jobs.JobProgress, org.mlflow.api.proto.Jobs.JobProgress.Builder, org.mlflow.api.proto.Jobs.JobProgressOrBuilder> progressPayloadBuilder_;
+      /**
+       * <pre>
+       * Latest best-effort structured progress payload.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       * @return Whether the progressPayload field is set.
+       */
+      public boolean hasProgressPayload() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <pre>
+       * Latest best-effort structured progress payload.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       * @return The progressPayload.
+       */
+      public org.mlflow.api.proto.Jobs.JobProgress getProgressPayload() {
+        if (progressPayloadBuilder_ == null) {
+          return progressPayload_ == null ? org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progressPayload_;
+        } else {
+          return progressPayloadBuilder_.getMessage();
+        }
+      }
+      /**
+       * <pre>
+       * Latest best-effort structured progress payload.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       */
+      public Builder setProgressPayload(org.mlflow.api.proto.Jobs.JobProgress value) {
+        if (progressPayloadBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          progressPayload_ = value;
+          onChanged();
+        } else {
+          progressPayloadBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000010;
+        return this;
+      }
+      /**
+       * <pre>
+       * Latest best-effort structured progress payload.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       */
+      public Builder setProgressPayload(
+          org.mlflow.api.proto.Jobs.JobProgress.Builder builderForValue) {
+        if (progressPayloadBuilder_ == null) {
+          progressPayload_ = builderForValue.build();
+          onChanged();
+        } else {
+          progressPayloadBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000010;
+        return this;
+      }
+      /**
+       * <pre>
+       * Latest best-effort structured progress payload.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       */
+      public Builder mergeProgressPayload(org.mlflow.api.proto.Jobs.JobProgress value) {
+        if (progressPayloadBuilder_ == null) {
+          if (((bitField0_ & 0x00000010) != 0) &&
+              progressPayload_ != null &&
+              progressPayload_ != org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance()) {
+            progressPayload_ =
+              org.mlflow.api.proto.Jobs.JobProgress.newBuilder(progressPayload_).mergeFrom(value).buildPartial();
+          } else {
+            progressPayload_ = value;
+          }
+          onChanged();
+        } else {
+          progressPayloadBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000010;
+        return this;
+      }
+      /**
+       * <pre>
+       * Latest best-effort structured progress payload.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       */
+      public Builder clearProgressPayload() {
+        if (progressPayloadBuilder_ == null) {
+          progressPayload_ = null;
+          onChanged();
+        } else {
+          progressPayloadBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000010);
+        return this;
+      }
+      /**
+       * <pre>
+       * Latest best-effort structured progress payload.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       */
+      public org.mlflow.api.proto.Jobs.JobProgress.Builder getProgressPayloadBuilder() {
+        bitField0_ |= 0x00000010;
+        onChanged();
+        return getProgressPayloadFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * Latest best-effort structured progress payload.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       */
+      public org.mlflow.api.proto.Jobs.JobProgressOrBuilder getProgressPayloadOrBuilder() {
+        if (progressPayloadBuilder_ != null) {
+          return progressPayloadBuilder_.getMessageOrBuilder();
+        } else {
+          return progressPayload_ == null ?
+              org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progressPayload_;
+        }
+      }
+      /**
+       * <pre>
+       * Latest best-effort structured progress payload.
+       * </pre>
+       *
+       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Jobs.JobProgress, org.mlflow.api.proto.Jobs.JobProgress.Builder, org.mlflow.api.proto.Jobs.JobProgressOrBuilder> 
+          getProgressPayloadFieldBuilder() {
+        if (progressPayloadBuilder_ == null) {
+          progressPayloadBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Jobs.JobProgress, org.mlflow.api.proto.Jobs.JobProgress.Builder, org.mlflow.api.proto.Jobs.JobProgressOrBuilder>(
+                  getProgressPayload(),
+                  getParentForChildren(),
+                  isClean());
+          progressPayload_ = null;
+        }
+        return progressPayloadBuilder_;
+      }
+
+      private long progressUpdatedAt_ ;
+      /**
+       * <pre>
+       * Timestamp of the latest progress update in milliseconds since epoch.
+       * </pre>
+       *
+       * <code>optional int64 progress_updated_at = 6;</code>
+       * @return Whether the progressUpdatedAt field is set.
+       */
+      @java.lang.Override
+      public boolean hasProgressUpdatedAt() {
+        return ((bitField0_ & 0x00000020) != 0);
+      }
+      /**
+       * <pre>
+       * Timestamp of the latest progress update in milliseconds since epoch.
+       * </pre>
+       *
+       * <code>optional int64 progress_updated_at = 6;</code>
+       * @return The progressUpdatedAt.
+       */
+      @java.lang.Override
+      public long getProgressUpdatedAt() {
+        return progressUpdatedAt_;
+      }
+      /**
+       * <pre>
+       * Timestamp of the latest progress update in milliseconds since epoch.
+       * </pre>
+       *
+       * <code>optional int64 progress_updated_at = 6;</code>
+       * @param value The progressUpdatedAt to set.
+       * @return This builder for chaining.
+       */
+      public Builder setProgressUpdatedAt(long value) {
+        bitField0_ |= 0x00000020;
+        progressUpdatedAt_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Timestamp of the latest progress update in milliseconds since epoch.
+       * </pre>
+       *
+       * <code>optional int64 progress_updated_at = 6;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearProgressUpdatedAt() {
+        bitField0_ = (bitField0_ & ~0x00000020);
+        progressUpdatedAt_ = 0L;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -1410,6 +3053,11 @@ public final class Jobs {
   }
 
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_JobProgress_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_JobProgress_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_JobState_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -1429,28 +3077,39 @@ public final class Jobs {
   static {
     java.lang.String[] descriptorData = {
       "\n\njobs.proto\022\006mlflow\032\025scalapb/scalapb.pr" +
-      "oto\"\247\001\n\010JobState\022!\n\006status\030\001 \001(\0162\021.mlflo" +
-      "w.JobStatus\022\025\n\rerror_message\030\002 \001(\t\0220\n\010me" +
-      "tadata\030\003 \003(\0132\036.mlflow.JobState.MetadataE" +
-      "ntry\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005va" +
-      "lue\030\002 \001(\t:\0028\001*\245\001\n\tJobStatus\022\032\n\026JOB_STATU" +
-      "S_UNSPECIFIED\020\000\022\026\n\022JOB_STATUS_PENDING\020\001\022" +
-      "\032\n\026JOB_STATUS_IN_PROGRESS\020\002\022\030\n\024JOB_STATU" +
-      "S_COMPLETED\020\003\022\025\n\021JOB_STATUS_FAILED\020\004\022\027\n\023" +
-      "JOB_STATUS_CANCELED\020\005B\036\n\024org.mlflow.api." +
-      "proto\220\001\001\342?\002\020\001"
+      "oto\"L\n\013JobProgress\022\r\n\005phase\030\001 \001(\t\022\021\n\tcom" +
+      "pleted\030\002 \001(\003\022\r\n\005total\030\003 \001(\003\022\014\n\004unit\030\004 \001(" +
+      "\t\"\213\002\n\010JobState\022!\n\006status\030\001 \001(\0162\021.mlflow." +
+      "JobStatus\022\025\n\rerror_message\030\002 \001(\t\0220\n\010meta" +
+      "data\030\003 \003(\0132\036.mlflow.JobState.MetadataEnt" +
+      "ry\022\026\n\016status_message\030\004 \001(\t\022-\n\020progress_p" +
+      "ayload\030\005 \001(\0132\023.mlflow.JobProgress\022\033\n\023pro" +
+      "gress_updated_at\030\006 \001(\003\032/\n\rMetadataEntry\022" +
+      "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001*\304\001\n\tJobS" +
+      "tatus\022\032\n\026JOB_STATUS_UNSPECIFIED\020\000\022\026\n\022JOB" +
+      "_STATUS_PENDING\020\001\022\032\n\026JOB_STATUS_IN_PROGR" +
+      "ESS\020\002\022\030\n\024JOB_STATUS_COMPLETED\020\003\022\025\n\021JOB_S" +
+      "TATUS_FAILED\020\004\022\027\n\023JOB_STATUS_CANCELED\020\005\022" +
+      "\035\n\031JOB_STATUS_NEEDS_RECOVERY\020\006B\036\n\024org.ml" +
+      "flow.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
         });
-    internal_static_mlflow_JobState_descriptor =
+    internal_static_mlflow_JobProgress_descriptor =
       getDescriptor().getMessageTypes().get(0);
+    internal_static_mlflow_JobProgress_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_JobProgress_descriptor,
+        new java.lang.String[] { "Phase", "Completed", "Total", "Unit", });
+    internal_static_mlflow_JobState_descriptor =
+      getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_JobState_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_JobState_descriptor,
-        new java.lang.String[] { "Status", "ErrorMessage", "Metadata", });
+        new java.lang.String[] { "Status", "ErrorMessage", "Metadata", "StatusMessage", "ProgressPayload", "ProgressUpdatedAt", });
     internal_static_mlflow_JobState_MetadataEntry_descriptor =
       internal_static_mlflow_JobState_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_JobState_MetadataEntry_fieldAccessorTable = new

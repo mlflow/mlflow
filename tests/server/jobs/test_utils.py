@@ -55,9 +55,11 @@ def test_job_status_conversion():
     from mlflow.entities._job_status import JobStatus
 
     assert JobStatus.from_int(1) == JobStatus.RUNNING
+    assert JobStatus.from_int(6) == JobStatus.NEEDS_RECOVERY
     assert JobStatus.from_str("RUNNING") == JobStatus.RUNNING
 
     assert JobStatus.RUNNING.to_int() == 1
+    assert JobStatus.NEEDS_RECOVERY.to_int() == 6
     assert str(JobStatus.RUNNING) == "RUNNING"
 
     with pytest.raises(
@@ -66,9 +68,9 @@ def test_job_status_conversion():
         JobStatus.from_int(-1)
 
     with pytest.raises(
-        MlflowException, match="The value 6 can't be converted to JobStatus enum value."
+        MlflowException, match="The value 7 can't be converted to JobStatus enum value."
     ):
-        JobStatus.from_int(6)
+        JobStatus.from_int(7)
 
     with pytest.raises(
         MlflowException, match="The string 'ABC' can't be converted to JobStatus enum value."

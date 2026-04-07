@@ -19,7 +19,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\njobs.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\"\xa7\x01\n\x08JobState\x12!\n\x06status\x18\x01 \x01(\x0e\x32\x11.mlflow.JobStatus\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x30\n\x08metadata\x18\x03 \x03(\x0b\x32\x1e.mlflow.JobState.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*\xa5\x01\n\tJobStatus\x12\x1a\n\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x16\n\x12JOB_STATUS_PENDING\x10\x01\x12\x1a\n\x16JOB_STATUS_IN_PROGRESS\x10\x02\x12\x18\n\x14JOB_STATUS_COMPLETED\x10\x03\x12\x15\n\x11JOB_STATUS_FAILED\x10\x04\x12\x17\n\x13JOB_STATUS_CANCELED\x10\x05\x42\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\njobs.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\"L\n\x0bJobProgress\x12\r\n\x05phase\x18\x01 \x01(\t\x12\x11\n\tcompleted\x18\x02 \x01(\x03\x12\r\n\x05total\x18\x03 \x01(\x03\x12\x0c\n\x04unit\x18\x04 \x01(\t\"\x8b\x02\n\x08JobState\x12!\n\x06status\x18\x01 \x01(\x0e\x32\x11.mlflow.JobStatus\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x30\n\x08metadata\x18\x03 \x03(\x0b\x32\x1e.mlflow.JobState.MetadataEntry\x12\x16\n\x0estatus_message\x18\x04 \x01(\t\x12-\n\x10progress_payload\x18\x05 \x01(\x0b\x32\x13.mlflow.JobProgress\x12\x1b\n\x13progress_updated_at\x18\x06 \x01(\x03\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*\xc4\x01\n\tJobStatus\x12\x1a\n\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x16\n\x12JOB_STATUS_PENDING\x10\x01\x12\x1a\n\x16JOB_STATUS_IN_PROGRESS\x10\x02\x12\x18\n\x14JOB_STATUS_COMPLETED\x10\x03\x12\x15\n\x11JOB_STATUS_FAILED\x10\x04\x12\x17\n\x13JOB_STATUS_CANCELED\x10\x05\x12\x1d\n\x19JOB_STATUS_NEEDS_RECOVERY\x10\x06\x42\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -29,12 +29,14 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['DESCRIPTOR']._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001'
     _globals['_JOBSTATE_METADATAENTRY']._loaded_options = None
     _globals['_JOBSTATE_METADATAENTRY']._serialized_options = b'8\001'
-    _globals['_JOBSTATUS']._serialized_start=216
-    _globals['_JOBSTATUS']._serialized_end=381
-    _globals['_JOBSTATE']._serialized_start=46
-    _globals['_JOBSTATE']._serialized_end=213
-    _globals['_JOBSTATE_METADATAENTRY']._serialized_start=166
-    _globals['_JOBSTATE_METADATAENTRY']._serialized_end=213
+    _globals['_JOBSTATUS']._serialized_start=394
+    _globals['_JOBSTATUS']._serialized_end=590
+    _globals['_JOBPROGRESS']._serialized_start=45
+    _globals['_JOBPROGRESS']._serialized_end=121
+    _globals['_JOBSTATE']._serialized_start=124
+    _globals['_JOBSTATE']._serialized_end=391
+    _globals['_JOBSTATE_METADATAENTRY']._serialized_start=344
+    _globals['_JOBSTATE_METADATAENTRY']._serialized_end=391
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -56,7 +58,7 @@ else:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\njobs.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\"\xa7\x01\n\x08JobState\x12!\n\x06status\x18\x01 \x01(\x0e\x32\x11.mlflow.JobStatus\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x30\n\x08metadata\x18\x03 \x03(\x0b\x32\x1e.mlflow.JobState.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*\xa5\x01\n\tJobStatus\x12\x1a\n\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x16\n\x12JOB_STATUS_PENDING\x10\x01\x12\x1a\n\x16JOB_STATUS_IN_PROGRESS\x10\x02\x12\x18\n\x14JOB_STATUS_COMPLETED\x10\x03\x12\x15\n\x11JOB_STATUS_FAILED\x10\x04\x12\x17\n\x13JOB_STATUS_CANCELED\x10\x05\x42\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\njobs.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\"L\n\x0bJobProgress\x12\r\n\x05phase\x18\x01 \x01(\t\x12\x11\n\tcompleted\x18\x02 \x01(\x03\x12\r\n\x05total\x18\x03 \x01(\x03\x12\x0c\n\x04unit\x18\x04 \x01(\t\"\x8b\x02\n\x08JobState\x12!\n\x06status\x18\x01 \x01(\x0e\x32\x11.mlflow.JobStatus\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x30\n\x08metadata\x18\x03 \x03(\x0b\x32\x1e.mlflow.JobState.MetadataEntry\x12\x16\n\x0estatus_message\x18\x04 \x01(\t\x12-\n\x10progress_payload\x18\x05 \x01(\x0b\x32\x13.mlflow.JobProgress\x12\x1b\n\x13progress_updated_at\x18\x06 \x01(\x03\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*\xc4\x01\n\tJobStatus\x12\x1a\n\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x16\n\x12JOB_STATUS_PENDING\x10\x01\x12\x1a\n\x16JOB_STATUS_IN_PROGRESS\x10\x02\x12\x18\n\x14JOB_STATUS_COMPLETED\x10\x03\x12\x15\n\x11JOB_STATUS_FAILED\x10\x04\x12\x17\n\x13JOB_STATUS_CANCELED\x10\x05\x12\x1d\n\x19JOB_STATUS_NEEDS_RECOVERY\x10\x06\x42\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
 
   _JOBSTATUS = DESCRIPTOR.enum_types_by_name['JobStatus']
   JobStatus = enum_type_wrapper.EnumTypeWrapper(_JOBSTATUS)
@@ -66,10 +68,19 @@ else:
   JOB_STATUS_COMPLETED = 3
   JOB_STATUS_FAILED = 4
   JOB_STATUS_CANCELED = 5
+  JOB_STATUS_NEEDS_RECOVERY = 6
 
 
+  _JOBPROGRESS = DESCRIPTOR.message_types_by_name['JobProgress']
   _JOBSTATE = DESCRIPTOR.message_types_by_name['JobState']
   _JOBSTATE_METADATAENTRY = _JOBSTATE.nested_types_by_name['MetadataEntry']
+  JobProgress = _reflection.GeneratedProtocolMessageType('JobProgress', (_message.Message,), {
+    'DESCRIPTOR' : _JOBPROGRESS,
+    '__module__' : 'jobs_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.JobProgress)
+    })
+  _sym_db.RegisterMessage(JobProgress)
+
   JobState = _reflection.GeneratedProtocolMessageType('JobState', (_message.Message,), {
 
     'MetadataEntry' : _reflection.GeneratedProtocolMessageType('MetadataEntry', (_message.Message,), {
@@ -91,11 +102,13 @@ else:
     DESCRIPTOR._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001'
     _JOBSTATE_METADATAENTRY._options = None
     _JOBSTATE_METADATAENTRY._serialized_options = b'8\001'
-    _JOBSTATUS._serialized_start=216
-    _JOBSTATUS._serialized_end=381
-    _JOBSTATE._serialized_start=46
-    _JOBSTATE._serialized_end=213
-    _JOBSTATE_METADATAENTRY._serialized_start=166
-    _JOBSTATE_METADATAENTRY._serialized_end=213
+    _JOBSTATUS._serialized_start=394
+    _JOBSTATUS._serialized_end=590
+    _JOBPROGRESS._serialized_start=45
+    _JOBPROGRESS._serialized_end=121
+    _JOBSTATE._serialized_start=124
+    _JOBSTATE._serialized_end=391
+    _JOBSTATE_METADATAENTRY._serialized_start=344
+    _JOBSTATE_METADATAENTRY._serialized_end=391
   # @@protoc_insertion_point(module_scope)
 

@@ -1,5 +1,6 @@
 from unittest import mock
 
+from mlflow.exceptions import MlflowException
 from mlflow.server.jobs.progress import (
     JobTracker,
     NoOpTracker,
@@ -153,3 +154,17 @@ def test_update_status_details_with_additional_fields():
         )
 
     _set_job_tracker(None)
+
+
+def test_job_tracker_ignores_already_finalized_error():
+    job_id = "test-job-finalized"
+    tracker = JobTracker(job_id)
+
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_store.update_status_details.side_effect = MlflowException("already finalized")
+        mock_get_store.return_value = mock_store
+
+        tracker.update({"stage": "late-heartbeat"})
+
+        mock_store.update_status_details.assert_called_once_with(job_id, {"stage": "late-heartbeat"})

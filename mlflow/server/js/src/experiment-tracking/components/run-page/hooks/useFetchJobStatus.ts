@@ -10,11 +10,21 @@ export enum JobStatus {
   FAILED = 'FAILED',
   TIMEOUT = 'TIMEOUT',
   CANCELED = 'CANCELED',
+  NEEDS_RECOVERY = 'NEEDS_RECOVERY',
 }
 
 export interface FetchJobStatusResponse {
   status: JobStatus;
   result?: unknown;
+  error_message?: string | null;
+  status_message?: string | null;
+  progress_payload?: {
+    phase?: string;
+    completed?: number;
+    total?: number;
+    unit?: string;
+  } | null;
+  progress_updated_at?: number | null;
   status_details?: {
     stage?: string;
   };
@@ -34,6 +44,15 @@ export const isJobComplete = (status: JobStatus | undefined): boolean => {
 export interface UseFetchJobStatusResult {
   status: JobStatus | undefined;
   result: unknown;
+  error_message?: string | null;
+  status_message?: string | null;
+  progress_payload?: {
+    phase?: string;
+    completed?: number;
+    total?: number;
+    unit?: string;
+  } | null;
+  progress_updated_at?: number | null;
   status_details?: {
     stage?: string;
   };
@@ -73,6 +92,10 @@ export const useFetchJobStatus = ({
   return {
     status: data?.status,
     result: data?.result,
+    error_message: data?.error_message,
+    status_message: data?.status_message,
+    progress_payload: data?.progress_payload,
+    progress_updated_at: data?.progress_updated_at,
     status_details: data?.status_details,
     isLoading,
     isFetching,

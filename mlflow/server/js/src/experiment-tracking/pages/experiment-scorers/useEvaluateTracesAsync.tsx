@@ -15,19 +15,46 @@ import { parseJSONSafe } from '../../../common/utils/TagUtils';
 
 const JOB_POLLING_INTERVAL = 1500;
 
-type JobStatusMap = Record<string, { status: TrackingJobStatus; result?: unknown }>;
+const isTerminalStatus = (status: TrackingJobStatus | undefined): boolean =>
+  status === TrackingJobStatus.SUCCEEDED ||
+  status === TrackingJobStatus.FAILED ||
+  status === TrackingJobStatus.TIMEOUT ||
+  status === TrackingJobStatus.CANCELED;
+
+type JobStatusMap = Record<
+  string,
+  {
+    status: TrackingJobStatus;
+    result?: unknown;
+    error_message?: string | null;
+    status_message?: string | null;
+    progress_payload?: {
+      phase?: string;
+      completed?: number;
+      total?: number;
+      unit?: string;
+    } | null;
+    progress_updated_at?: number | null;
+  }
+>;
 
 type EvaluateTracesAsyncJobResult = Record<
   string,
   { assessments: FeedbackAssessment[]; failures?: { error_code: string; error_message: string }[] }
 >;
 
+const isInFlightStatus = (status: TrackingJobStatus | undefined): boolean =>
+  !status ||
+  status === TrackingJobStatus.RUNNING ||
+  status === TrackingJobStatus.PENDING ||
+  status === TrackingJobStatus.NEEDS_RECOVERY;
+
 /** Check if any job is still running or pending */
 const isJobsLoading = (jobStatuses: JobStatusMap, jobIds: string[]): boolean => {
   if (!jobIds.length) return true; // No jobs yet = still loading
   return jobIds.some((id) => {
     const status = jobStatuses[id]?.status;
-    return !status || status === TrackingJobStatus.RUNNING || status === TrackingJobStatus.PENDING;
+    return isInFlightStatus(status);
   });
 };
 
@@ -65,11 +92,11 @@ const deriveRequestStatus = (evaluationRequest: ScorerEvaluation): TrackingJobSt
   const { jobIds, jobStatuses } = evaluationRequest;
   if (!jobIds.length) return TrackingJobStatus.PENDING;
   const statuses = jobIds.map((id) => jobStatuses[id]?.status);
-  if (
-    statuses.some((status) => !status || status === TrackingJobStatus.RUNNING || status === TrackingJobStatus.PENDING)
-  ) {
+  if (statuses.some((status) => isInFlightStatus(status))) {
     return statuses.some((status) => status === TrackingJobStatus.RUNNING)
       ? TrackingJobStatus.RUNNING
+      : statuses.some((status) => status === TrackingJobStatus.NEEDS_RECOVERY)
+        ? TrackingJobStatus.NEEDS_RECOVERY
       : TrackingJobStatus.PENDING;
   }
   // All jobs are complete - check if at least one succeeded
@@ -100,6 +127,9 @@ const buildResults = (evaluationRequest: ScorerEvaluation): JudgeEvaluationResul
     if (job?.status !== TrackingJobStatus.FAILED) {
       continue;
     }
+    if (!failedJobError && typeof job.error_message === 'string') {
+      failedJobError = job.error_message;
+    }
     if (!failedJobError && typeof job.result === 'string') {
       failedJobError = job.result;
     }
@@ -111,7 +141,11 @@ const buildResults = (evaluationRequest: ScorerEvaluation): JudgeEvaluationResul
   }
 
   // Default error for traces without results when some jobs failed
-  const hasFailedJobs = jobIds.some((id) => jobStatuses[id]?.status === TrackingJobStatus.FAILED);
+  const hasFailedJobs = jobIds.some(
+    (id) =>
+      jobStatuses[id]?.status === TrackingJobStatus.FAILED ||
+      jobStatuses[id]?.status === TrackingJobStatus.TIMEOUT,
+  );
   const defaultError = hasFailedJobs ? failedJobError || 'Evaluation job failed' : null;
 
   if (sessionsData) {
@@ -162,8 +196,14 @@ const buildResults = (evaluationRequest: ScorerEvaluation): JudgeEvaluationResul
 const extractError = (jobStatuses: JobStatusMap, jobIds: string[]): Error => {
   for (const jobId of jobIds) {
     const job = jobStatuses[jobId];
-    if (job?.status === TrackingJobStatus.FAILED) {
-      return new Error(typeof job.result === 'string' ? job.result : 'Job failed');
+    if (job?.status === TrackingJobStatus.FAILED || job?.status === TrackingJobStatus.TIMEOUT) {
+      return new Error(
+        typeof job.error_message === 'string'
+          ? job.error_message
+          : typeof job.result === 'string'
+            ? job.result
+            : 'Job failed',
+      );
     }
   }
   return new Error('Unknown error');
@@ -203,7 +243,7 @@ export const useEvaluateTracesAsync = ({
         }
         for (const jobId of ev.jobIds) {
           const status = ev.jobStatuses[jobId]?.status;
-          if (status !== TrackingJobStatus.SUCCEEDED && status !== TrackingJobStatus.FAILED) {
+          if (!isTerminalStatus(status)) {
             jobsToPoll.push(jobId);
           }
         }
@@ -217,9 +257,22 @@ export const useEvaluateTracesAsync = ({
         jobsToPoll.map(async (jobId) => {
           try {
             const res = await fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/${jobId}`));
-            return { jobId, status: res.status as TrackingJobStatus, result: res.result };
+            return {
+              jobId,
+              status: res.status as TrackingJobStatus,
+              result: res.result,
+              error_message: res.error_message,
+              status_message: res.status_message,
+              progress_payload: res.progress_payload,
+              progress_updated_at: res.progress_updated_at,
+            };
           } catch {
-            return { jobId, status: TrackingJobStatus.FAILED, result: 'Failed to fetch job status' };
+            return {
+              jobId,
+              status: TrackingJobStatus.FAILED,
+              result: 'Failed to fetch job status',
+              error_message: 'Failed to fetch job status',
+            };
           }
         }),
       );

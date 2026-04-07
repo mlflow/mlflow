@@ -126,6 +126,22 @@ def test_create_job_initializes_metadata_as_none(tmp_path: Path):
 
     job = store.create_job("test_job", '{"param": "value"}')
     assert job.status_details is None
+    assert job.error_message is None
+    assert job.executor_backend is None
+    assert job.lease_expires_at is None
+    assert job.status_message is None
+    assert job.progress_payload is None
+    assert job.progress_updated_at is None
+    assert job.token_hash is None
+    assert job.scoped_permissions is None
 
     fetched_job = store.get_job(job.job_id)
     assert fetched_job.status_details is None
+    assert fetched_job.error_message is None
+    assert fetched_job.executor_backend is None
+    assert fetched_job.lease_expires_at is None
+    assert fetched_job.status_message is None
+    assert fetched_job.progress_payload is None
+    assert fetched_job.progress_updated_at is None
+    assert fetched_job.token_hash is None
+    assert fetched_job.scoped_permissions is None

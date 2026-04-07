@@ -415,6 +415,77 @@ describe('useEvaluateTracesAsync', () => {
     }, 30000);
   });
 
+  describe('Recovery state polling', () => {
+    it('should continue polling when a job enters NEEDS_RECOVERY before succeeding', async () => {
+      const traceId = 'trace-1';
+      const experimentId = 'exp-123';
+      const jobId = 'job-recovering';
+      const serializedScorer = 'mock-serialized-scorer';
+
+      const mockTrace = createMockTrace(traceId);
+      const traces = new Map([[traceId, mockTrace]]);
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/search', (_req, res, ctx) => {
+          return res(ctx.json({ traces: [{ trace_id: traceId }], next_page_token: undefined }));
+        }),
+        rest.post('ajax-api/3.0/mlflow/scorer/invoke', (_req, res, ctx) => {
+          return res(ctx.json({ jobs: [{ job_id: jobId }] }));
+        }),
+      );
+
+      let jobStatusCallCount = 0;
+      server.use(
+        rest.get(`ajax-api/3.0/jobs/${jobId}`, (_req, res, ctx) => {
+          jobStatusCallCount++;
+          if (jobStatusCallCount === 1) {
+            return res(ctx.json({ status: 'NEEDS_RECOVERY' }));
+          }
+          return res(
+            ctx.json({
+              status: 'SUCCEEDED',
+              result: {
+                [traceId]: {
+                  assessments: [
+                    {
+                      assessment_name: 'test_scorer',
+                      numeric_value: 0.9,
+                      rationale: 'Recovered successfully',
+                    },
+                  ],
+                },
+              },
+            }),
+          );
+        }),
+      );
+
+      setupTraceFetchHandlers(server, traces);
+
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), { wrapper });
+
+      act(() => {
+        const [evaluateFunction] = result.current;
+        evaluateFunction({
+          itemIds: ['trace-1'],
+          locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
+          experimentId,
+          judgeInstructions: 'Test instructions',
+          serializedScorer,
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current[1].isLoading).toBe(false);
+        expect(result.current[1].latestEvaluation).not.toBeNull();
+        expect(result.current[1].error).toBeNull();
+      });
+
+      expect(jobStatusCallCount).toBeGreaterThanOrEqual(2);
+      expect(result.current[1].error).toBeNull();
+    });
+  });
+
   describe('Reset Functionality', () => {
     it('should reset state when reset is called', async () => {
       const traceId = 'trace-1';
@@ -509,7 +580,7 @@ describe('useEvaluateTracesAsync', () => {
         }),
         // Cancel endpoint - fire-and-forget, just acknowledge
         rest.patch('ajax-api/3.0/jobs/cancel/:jobId', (_req, res, ctx) => {
-          return res(ctx.json({ status: 'CANCELLED' }));
+          return res(ctx.json({ status: 'CANCELED' }));
         }),
       );
 
