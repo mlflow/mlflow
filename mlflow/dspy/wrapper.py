@@ -146,12 +146,18 @@ class DspyModelWrapper(PythonModel):
         if self.output_schema is None:
             raise MlflowException(
                 "Output schema of the DSPy model is not set. Please log your DSPy "
-                "model with `signature` or `input_example` to use streaming API."
+                "model with `signature` or `input_example` to use streaming API.",
+                error_code=INVALID_PARAMETER_VALUE,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )
 
         if any(spec.type != DataType.string for spec in self.output_schema):
             raise MlflowException(
-                f"All output fields must be string to use streaming API. Got {self.output_schema}."
+                f"All output fields must be string to use streaming API. Got {self.output_schema}.",
+                error_code=INVALID_PARAMETER_VALUE,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )
 
 
@@ -190,6 +196,8 @@ class DspyChatModelWrapper(DspyModelWrapper):
                         "'llm/v1/chat', the DSPy model must return a dict, a dspy.Prediction, or a "
                         "list of dicts or dspy.Prediction.",
                         INVALID_PARAMETER_VALUE,
+                        sqlstate="KAM00",
+                        error_class="INVALID_PARAMETER_VALUE",
                     )
         else:
             raise MlflowException(
@@ -197,6 +205,8 @@ class DspyChatModelWrapper(DspyModelWrapper):
                 "'llm/v1/chat', the DSPy model must return a dict, a dspy.Prediction, or a list of "
                 "dicts or dspy.Prediction.",
                 INVALID_PARAMETER_VALUE,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )
 
         return {"choices": choices}
