@@ -892,9 +892,7 @@ def test_warning_suppression_in_shutdown(recwarn, mock_telemetry_client: Telemet
 
 
 @pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
-def test_databricks_tracking_uri_scheme_does_not_use_oss_path(
-    mock_requests, tracking_uri_scheme
-):
+def test_databricks_tracking_uri_scheme_does_not_use_oss_path(mock_requests, tracking_uri_scheme):
     record = Record(
         event_name="test_event",
         timestamp_ns=time.time_ns(),
