@@ -256,23 +256,7 @@ class ToolTrajectory(GoogleADKScorer):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
-        session: list[Trace] | None = None,
     ) -> Feedback:
-        """
-        Evaluate tool call trajectory accuracy.
-
-        Args:
-            inputs: The input to evaluate
-            outputs: The output to evaluate
-            expectations: Must contain "expected_tool_calls" (list of dicts
-                with "name" and "args" keys). Optionally contains
-                "actual_tool_calls" for the agent's observed calls.
-            trace: MLflow trace for evaluation
-            session: List of traces for session-level evaluation (unused)
-
-        Returns:
-            Feedback with YES/NO value and trajectory score in metadata
-        """
         assessment_source = AssessmentSource(
             source_type=AssessmentSourceType.CODE,
             source_id=f"google_adk/{self.metric_name}",
@@ -363,22 +347,7 @@ class ResponseMatch(GoogleADKScorer):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
-        session: list[Trace] | None = None,
     ) -> Feedback:
-        """
-        Evaluate response similarity via ROUGE-1.
-
-        Args:
-            inputs: The input to evaluate
-            outputs: The output to evaluate
-            expectations: Should contain "expected_response" or "reference"
-                with the golden response text.
-            trace: MLflow trace for evaluation
-            session: List of traces for session-level evaluation (unused)
-
-        Returns:
-            Feedback with YES/NO value and ROUGE score in metadata
-        """
         assessment_source = AssessmentSource(
             source_type=AssessmentSourceType.CODE,
             source_id=f"google_adk/{self.metric_name}",
@@ -436,27 +405,29 @@ class ResponseMatch(GoogleADKScorer):
 
 
 def _create_trajectory_evaluator(threshold: float, match_type: str):
-    from google.adk.evaluation.eval_metrics import ToolTrajectoryCriterion
+    from google.adk.evaluation.eval_metrics import EvalMetric, ToolTrajectoryCriterion
     from google.adk.evaluation.trajectory_evaluator import TrajectoryEvaluator
 
-    evaluator = TrajectoryEvaluator(threshold=threshold)
-
-    # TrajectoryEvaluator does not accept match_type in its constructor,
-    # so we set the private attribute directly after instantiation.
     match match_type.upper():
         case "EXACT":
-            evaluator._match_type = ToolTrajectoryCriterion.MatchType.EXACT
+            mt = ToolTrajectoryCriterion.MatchType.EXACT
         case "IN_ORDER":
-            evaluator._match_type = ToolTrajectoryCriterion.MatchType.IN_ORDER
+            mt = ToolTrajectoryCriterion.MatchType.IN_ORDER
         case "ANY_ORDER":
-            evaluator._match_type = ToolTrajectoryCriterion.MatchType.ANY_ORDER
+            mt = ToolTrajectoryCriterion.MatchType.ANY_ORDER
         case _:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid match_type '{match_type}'. "
                 f"Must be one of: 'EXACT', 'IN_ORDER', 'ANY_ORDER'."
             )
 
-    return evaluator
+    criterion = ToolTrajectoryCriterion(match_type=mt)
+    eval_metric = EvalMetric(
+        metric_name="tool_trajectory_avg_score",
+        threshold=threshold,
+        criterion=criterion,
+    )
+    return TrajectoryEvaluator(eval_metric=eval_metric)
 
 
 def _create_rouge_evaluator(threshold: float):
