@@ -48,7 +48,7 @@ The following patterns are detected and extracted automatically:
 | Bedrock image            | `{"image": {"format": "png", "source": {"bytes": "..."}}}`                 | `image/<format>` attachment           |
 | Gemini inline data       | `{"inline_data": {"mime_type": "image/png", "data": "..."}}`               | Attachment with original `mime_type`  |
 
-After extraction, the base64 data in the span is replaced with a lightweight `mlflow-attachment://` reference URI. The MLflow UI resolves these URIs and renders the content inline.
+After extraction, the base64 data in the span is replaced with a lightweight `mlflow-attachment://` reference URI. The MLflow UI resolves these URIs and renders supported content types (images, audio, PDFs) inline.
 
 :::tip
 Auto-extraction is enabled by default. To disable it and keep raw base64 data in trace JSON, set the environment variable:
@@ -71,7 +71,7 @@ When using [auto-instrumentation](/genai/tracing/app-instrumentation/automatic),
 | Gemini    |   ✓    |   ✗   | `inline_data` extracted into attachments                |
 | LangChain |   ✓    |   ✓   | Audio format normalized from LangChain to OpenAI schema |
 
-### OpenAI -- Image (URL)
+### OpenAI — Image (URL)
 
 Send an image URL in a chat completion and MLflow captures it automatically:
 
@@ -101,7 +101,7 @@ response = client.chat.completions.create(
 )
 ```
 
-### OpenAI -- Image (Base64)
+### OpenAI — Image (Base64)
 
 Encode a local image file as a base64 data URI. MLflow automatically extracts the base64 data into an attachment:
 
@@ -140,7 +140,7 @@ response = client.chat.completions.create(
 )
 ```
 
-### OpenAI -- Audio
+### OpenAI — Audio
 
 Send audio input using the `gpt-4o-audio-preview` model:
 
@@ -178,7 +178,7 @@ response = client.chat.completions.create(
 )
 ```
 
-### OpenAI -- Image Generation
+### OpenAI — Image Generation
 
 DALL-E image generation is also traced automatically. The `b64_json` output is extracted into an image attachment:
 
@@ -197,7 +197,7 @@ response = client.images.generate(
 )
 ```
 
-### Anthropic -- Image
+### Anthropic — Image
 
 Anthropic uses a different message format, but MLflow normalizes it to the standard `image_url` schema automatically:
 
@@ -283,10 +283,10 @@ When base64 content has been extracted into attachments, the **Content** tab sho
 
 ## Trace Attachments
 
-MLflow stores binary content as separate artifact files alongside trace data, keeping the trace JSON lightweight while supporting rich media. There are two ways attachments are created:
+MLflow stores binary content as separate artifact files alongside trace data, keeping the trace JSON lightweight while supporting rich media. There are two ways to create attachments:
 
 1. **Automatic extraction** (default) -- base64-encoded content in span inputs/outputs is detected, extracted, and replaced with `mlflow-attachment://` reference URIs. See [Automatic Base64 Extraction](#automatic-base64-extraction).
-2. **Explicit `Attachment` objects** -- for binary content that is not base64-encoded in a recognized pattern (e.g., raw bytes from an API, file uploads, PDFs).
+2. **Manual `Attachment` creation** -- for binary content that does not follow recognized autologging formats (e.g., for custom tracing use cases). See [Creating Attachments](#creating-attachments) for instructions.
 
 ### How It Works
 
