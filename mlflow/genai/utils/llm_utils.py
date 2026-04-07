@@ -255,19 +255,18 @@ class _ModelCost:
 
 
 @functools.lru_cache(maxsize=64)
-def _fetch_model_cost(model_name: str) -> _ModelCost | None:
-    from mlflow.utils.providers import _get_model_cost
+def _fetch_model_cost(provider: str, model_name: str) -> _ModelCost | None:
+    from mlflow.utils.providers import _lookup_model_info
 
-    model_cost = _get_model_cost()
-    if entry := model_cost.get(model_name):
-        return _ModelCost.from_dict(entry)
+    if info := _lookup_model_info(model_name, custom_llm_provider=provider):
+        return _ModelCost.from_dict(info)
     return None
 
 
 def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float | None:
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    _, model_name = _parse_model_uri(model_uri)
-    if cost := _fetch_model_cost(model_name):
+    provider, model_name = _parse_model_uri(model_uri)
+    if cost := _fetch_model_cost(provider, model_name):
         return input_tokens * cost.input_cost_per_token + output_tokens * cost.output_cost_per_token
     return None
