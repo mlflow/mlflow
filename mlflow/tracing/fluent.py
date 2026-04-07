@@ -1270,13 +1270,13 @@ def _set_last_active_trace_id(trace_id: str):
 def update_current_trace(
     tags: dict[str, str] | None = None,
     metadata: dict[str, str] | None = None,
-    session_id: str | None = None,
-    user: str | None = None,
     client_request_id: str | None = None,
     request_preview: str | None = None,
     response_preview: str | None = None,
     state: TraceState | str | None = None,
     model_id: str | None = None,
+    session_id: str | None = None,
+    user: str | None = None,
 ):
     """
     Update the current active trace with the given options.
@@ -1287,10 +1287,6 @@ def update_current_trace(
         metadata: A dictionary of metadata to update the trace with. Metadata cannot be updated
             once the trace is logged. It is suitable for recording immutable values like the
             git hash of the application version that produced the trace.
-        session_id: Session ID to associate with the trace. Stored as metadata under the
-            ``mlflow.trace.session`` key.
-        user: User identifier to associate with the trace. Stored as metadata under the
-            ``mlflow.trace.user`` key.
         client_request_id: Client supplied request ID to associate with the trace. This is
             useful for linking the trace back to a specific request in your application or
             external system. If None, the client request ID is not updated.
@@ -1305,6 +1301,10 @@ def update_current_trace(
             affecting the status of the current span.
         model_id: The ID of the model to associate with the trace. If not set, the active
             model ID is associated with the trace.
+        session_id: Session ID to associate with the trace. Stored as metadata under the
+            ``mlflow.trace.session`` key.
+        user: User identifier to associate with the trace. Stored as metadata under the
+            ``mlflow.trace.user`` key.
 
     Example:
 
