@@ -64,6 +64,7 @@ class Provider(str, Enum):
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"
     VERTEX_AI = "vertex_ai"
+    MINIMAX = "minimax"
 
     @classmethod
     def values(cls):

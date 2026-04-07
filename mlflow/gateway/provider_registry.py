@@ -35,6 +35,7 @@ def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.groq import GroqProvider
     from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
     from mlflow.gateway.providers.litellm import LiteLLMProvider
+    from mlflow.gateway.providers.minimax import MiniMaxProvider
     from mlflow.gateway.providers.mistral import MistralProvider
     from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
     from mlflow.gateway.providers.mosaicml import MosaicMLProvider
@@ -61,6 +62,7 @@ def _register_default_providers(registry: ProviderRegistry):
         Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE, HFTextGenerationInferenceServerProvider
     )
     registry.register(Provider.LITELLM, LiteLLMProvider)
+    registry.register(Provider.MINIMAX, MiniMaxProvider)
     registry.register(Provider.MISTRAL, MistralProvider)
     registry.register(Provider.MLFLOW_MODEL_SERVING, MlflowModelServingProvider)
     registry.register(Provider.MOSAICML, MosaicMLProvider)
