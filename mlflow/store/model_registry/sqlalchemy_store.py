@@ -156,8 +156,14 @@ class SqlAlchemyStore(AbstractStore):
         """
         Return a query for ``model``.
         Workspace-aware subclasses override this to enforce scoping.
+
+        In single-tenant mode we still filter on the default workspace so that
+        the database can use the (workspace, ...) primary-key index efficiently.
         """
-        return session.query(model)
+        query = session.query(model)
+        if hasattr(model, "workspace"):
+            query = query.filter(model.workspace == self._get_active_workspace())
+        return query
 
     def _with_workspace_field(self, instance):
         """
@@ -330,7 +336,12 @@ class SqlAlchemyStore(AbstractStore):
         Return workspace filter clauses for the model.
         Used for select() queries that can't use _get_query().
         Workspace-aware subclasses override to return actual filters.
+
+        In single-tenant mode we still filter on the default workspace so that
+        the database can use the (workspace, ...) primary-key index efficiently.
         """
+        if hasattr(model, "workspace"):
+            return [model.workspace == self._get_active_workspace()]
         return []
 
     def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
@@ -601,15 +612,19 @@ class SqlAlchemyStore(AbstractStore):
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
-                select(SqlRegisteredModelTag.name)
+                select(SqlRegisteredModelTag.workspace, SqlRegisteredModelTag.name)
                 .filter(sqlalchemy.or_(*sql_tag_filters))
-                .group_by(SqlRegisteredModelTag.name)
+                .group_by(SqlRegisteredModelTag.workspace, SqlRegisteredModelTag.name)
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )
 
             return rm_query.join(
-                tag_filter_query, SqlRegisteredModel.name == tag_filter_query.c.name
+                tag_filter_query,
+                sqlalchemy.and_(
+                    SqlRegisteredModel.workspace == tag_filter_query.c.workspace,
+                    SqlRegisteredModel.name == tag_filter_query.c.name,
+                ),
             )
         else:
             return rm_query
@@ -700,15 +715,24 @@ class SqlAlchemyStore(AbstractStore):
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
-                select(SqlModelVersionTag.name, SqlModelVersionTag.version)
+                select(
+                    SqlModelVersionTag.workspace,
+                    SqlModelVersionTag.name,
+                    SqlModelVersionTag.version,
+                )
                 .filter(sqlalchemy.or_(*sql_tag_filters))
-                .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version)
+                .group_by(
+                    SqlModelVersionTag.workspace,
+                    SqlModelVersionTag.name,
+                    SqlModelVersionTag.version,
+                )
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )
             return mv_query.join(
                 tag_filter_query,
                 sqlalchemy.and_(
+                    SqlModelVersion.workspace == tag_filter_query.c.workspace,
                     SqlModelVersion.name == tag_filter_query.c.name,
                     SqlModelVersion.version == tag_filter_query.c.version,
                 ),
@@ -743,17 +767,22 @@ class SqlAlchemyStore(AbstractStore):
         # Filter to get all prompt rows
         equal = SearchUtils.get_sql_comparison_func("=", dialect)
         prompts_subquery = (
-            select(tag_db_model.name)
+            select(tag_db_model.workspace, tag_db_model.name)
             .filter(
                 equal(tag_db_model.key, IS_PROMPT_TAG_KEY),
                 equal(tag_db_model.value, "true"),
                 *self._get_workspace_clauses(tag_db_model),
             )
-            .group_by(tag_db_model.name)
+            .group_by(tag_db_model.workspace, tag_db_model.name)
             .subquery()
         )
         return query.join(
-            prompts_subquery, main_db_model.name == prompts_subquery.c.name, isouter=True
+            prompts_subquery,
+            sqlalchemy.and_(
+                main_db_model.workspace == prompts_subquery.c.workspace,
+                main_db_model.name == prompts_subquery.c.name,
+            ),
+            isouter=True,
         ).filter(prompts_subquery.c.name.is_(None))
 
     @classmethod
