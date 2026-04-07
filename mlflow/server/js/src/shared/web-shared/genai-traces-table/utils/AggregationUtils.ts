@@ -789,6 +789,24 @@ export function getUniqueValueCountsBySourceId(
 }
 
 /**
+ * Converts a raw string value from the metrics API into a typed AssessmentValueType.
+ * The API JSON-encodes assessment values, so "\"yes\"" → "yes",
+ * "true" → true, "1.0" → 1.0, etc.
+ *
+ * "null" maps to ERROR_KEY because the metrics API only returns null for assessments
+ * that exist but have a null value (i.e. errored assessments). Truly missing assessments
+ * (no row at all) are excluded by the inner join and don't appear in the response.
+ */
+function parseMetricAssessmentValue(rawValue: string): AssessmentValueType {
+  try {
+    const parsed = JSON.parse(rawValue);
+    return parsed ?? ERROR_KEY;
+  } catch {
+    return rawValue;
+  }
+}
+
+/**
  * Builds AssessmentAggregates from server-side count metrics.
  * Used when infinite pagination is enabled to get accurate counts across all traces.
  * Handles both categorical (pass-fail, boolean, string) and numeric assessments.
@@ -829,12 +847,7 @@ export function buildAggregatesFromCountMetrics(
   // For categorical assessments, build the value → count map directly.
   const currentCounts: AssessmentRunCounts = new Map();
   for (const metric of relevantMetrics) {
-    let typedValue: AssessmentValueType;
-    if (assessmentInfo.dtype === 'boolean') {
-      typedValue = metric.assessmentValue.toLowerCase() === 'true';
-    } else {
-      typedValue = metric.assessmentValue;
-    }
+    const typedValue = parseMetricAssessmentValue(metric.assessmentValue);
     currentCounts.set(typedValue, metric.count);
   }
 

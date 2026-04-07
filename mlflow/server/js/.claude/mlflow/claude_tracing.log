@@ -1,0 +1,39 @@
+2026-04-07 12:57:51,249 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 12:57:51,289 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 12:57:54,105 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-c4631c76ead6e7777048d0853a5d03cd
+2026-04-07 13:01:11,499 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:01:11,516 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:01:13,073 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-c3f58efff1726aa21beb85b5caf664b9
+2026-04-07 13:02:15,951 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:02:15,965 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:02:17,361 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-3174fd2f66aa9a0d85f6df18dfafe240
+2026-04-07 13:02:57,170 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:02:57,185 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:02:58,586 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-00b9540c3e3a28cb8dec65a30c78e0eb
+2026-04-07 13:13:15,800 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:13:15,816 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:13:17,352 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-049b0f3bcc6e34c38bc828157844dbd6
+2026-04-07 13:13:56,798 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:13:56,811 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:13:58,213 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-c1eedc8adfd71ff6c3d9fe2bfb260fd0
+2026-04-07 13:19:31,937 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:19:31,955 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:19:33,824 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-9793ccbf3d9526a30eecccb60799becf
+2026-04-07 13:20:10,125 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:20:10,140 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:20:11,559 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-e680e89244fa60a4be3eb947d1b04569
+2026-04-07 13:20:53,779 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:20:53,796 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:20:55,298 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-fa26313ea701ec78e7f794ab88e43003
+2026-04-07 13:21:13,585 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:21:13,599 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:21:14,995 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-db4a8fabefbc3e5a2a924ca05db952c1
+2026-04-07 13:46:08,837 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:46:08,855 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:46:10,455 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-0aea2b2983f714f7cfca045df4b4d44d
+2026-04-07 13:48:50,321 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:48:50,337 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:48:51,842 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-df9918c7c3756e1f94ee02ac2c1a12fd
+2026-04-07 13:51:12,289 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=4a5e6ff3-fc94-4184-bf46-ece363c5ca82, transcript=/Users/daniel.lok/.claude/projects/-Users-daniel-lok-mlflow/4a5e6ff3-fc94-4184-bf46-ece363c5ca82.jsonl
+2026-04-07 13:51:12,307 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 4a5e6ff3-fc94-4184-bf46-ece363c5ca82
+2026-04-07 13:51:13,794 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-4da0ee3dac208ba24aeaa959cf2a4ac9
