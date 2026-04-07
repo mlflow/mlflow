@@ -18,6 +18,7 @@ from typing import Any, Literal
 import pydantic
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
@@ -60,18 +61,22 @@ class ScorerLLMClient:
 
         if self._provider == "endpoints":
             self._route = "endpoints"
-        else:
+        elif is_supported_provider(self._provider) or self._provider == "gateway":
+            # Provider is known (registry or gateway special case) — try to construct it.
             try:
                 _get_provider_instance(self._provider, self._model_name)
                 self._route = "native"
-            except MlflowException as e:
-                # Only fall back to litellm for genuinely unsupported providers.
-                # Config errors (e.g., missing API key) should propagate so
-                # the user sees the real error, not a confusing litellm message.
-                if "is not supported for evaluation" in str(e):
-                    self._route = "litellm"
-                else:
-                    raise
+            except MlflowException:
+                # Config errors (e.g., missing API key) for a known provider.
+                # Fall back to litellm which may have its own auth mechanism,
+                # but log a warning so the user knows what happened.
+                _logger.debug(
+                    f"Provider '{self._provider}' is registered but failed to "
+                    f"construct (possibly missing credentials). Falling back to litellm."
+                )
+                self._route = "litellm"
+        else:
+            self._route = "litellm"
 
     @property
     def model_name(self) -> str:

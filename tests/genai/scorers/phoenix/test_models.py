@@ -31,6 +31,7 @@ def test_databricks_phoenix_model_call(mock_call_chat_completions):
     mock_call_chat_completions.assert_called_once_with(
         user_prompt="Test prompt",
         system_prompt="",
+        model="databricks",
     )
 
 

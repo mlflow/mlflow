@@ -52,6 +52,7 @@ def test_databricks_ragas_llm_generate(mock_call_chat_completions):
             "Do not add markdown formatting to the response."
         ),
         system_prompt="",
+        model="databricks",
     )
 
 
