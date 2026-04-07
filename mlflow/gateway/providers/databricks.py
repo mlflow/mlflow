@@ -79,7 +79,9 @@ class DatabricksProvider(OpenAICompatibleProvider):
         PassthroughAction.OPENAI_RESPONSES: "responses",
         PassthroughAction.ANTHROPIC_MESSAGES: "anthropic/v1/messages",
         PassthroughAction.GEMINI_GENERATE_CONTENT: "gemini/v1beta/models/{model}:generateContent",
-        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "gemini/v1beta/models/{model}:streamGenerateContent",
+        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: (
+            "gemini/v1beta/models/{model}:streamGenerateContent"
+        ),
     }
 
     @property
