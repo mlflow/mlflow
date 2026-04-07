@@ -61,7 +61,6 @@ To record user and session information within a function you control, use the <A
     ```python
     import mlflow
 
-
     @mlflow.trace
     def chat_completion(message: list[dict], user_id: str, session_id: str):
         # Add user and session context to the current trace
