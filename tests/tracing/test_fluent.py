@@ -168,6 +168,10 @@ class ErroringStreamTestModel:
     @mlflow.trace
     def predict_stream(self, x):
         for i in range(x):
+            if i > 0:
+                # Ensure distinct start_time_ns on Windows (~1ms timer resolution).
+                # See #8850 / #22343.
+                time.sleep(0.001)
             yield self.some_operation_raise_error(i)
 
     @mlflow.trace
