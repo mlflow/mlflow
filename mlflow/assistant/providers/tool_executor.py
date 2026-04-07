@@ -74,6 +74,7 @@ async def _execute_bash(
         env["MLFLOW_TRACKING_URI"] = tracking_uri
 
     try:
+        # Shell required: LLM-generated commands may use pipes, redirects, or && chaining.
         proc = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
