@@ -110,7 +110,6 @@ MLflow 3.11.0 includes several major features and improvements.
 - [Tracing / Tracking] Fix mlflow-skinny: guard numpy-dependent imports in mlflow.types (#22211, @Suraj-kumar00)
 - [Tracing / UI] Fix dropdown showing wrong selection state before endpoints load in issue detection modal (#22236, @serena-ruan)
 - [Tracking / UI] Fix `log_image` with slash-containing keys: replace `#` with `~` as path separator (#22172, @copilot-swe-agent)
-- [Tracing / Tracking] Add trace_location parameter to create_experiment (#22075, @dbrx-euirim)
 - [Evaluation] Fix discovery pipeline `_call_llm_via_gateway` to handle `gateway:/` URIs (#22153, @TomeHirata)
 - [UI] Auto-dismiss and fade-out judge run notifications in trace UI (#22137, @copilot-swe-agent)
 - [Evaluation / Tracking] Add polars version guard in `polars_dataset.py` to fix import failure with polars<1 (#22085, @TomeHirata)
