@@ -1641,7 +1641,7 @@ def test_get_dataset_records_pagination(mock_tracking_store):
 def test_register_scorer(mock_get_request_message, mock_tracking_store):
     experiment_id = "123"
     name = "accuracy_scorer"
-    serialized_scorer = "serialized_scorer_data"
+    serialized_scorer = '{"name": "accuracy_scorer"}'
 
     mock_get_request_message.return_value = RegisterScorer(
         experiment_id=experiment_id, name=name, serialized_scorer=serialized_scorer
