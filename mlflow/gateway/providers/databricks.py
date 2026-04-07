@@ -77,9 +77,9 @@ class DatabricksProvider(OpenAICompatibleProvider):
         PassthroughAction.OPENAI_CHAT: "chat/completions",
         PassthroughAction.OPENAI_EMBEDDINGS: "embeddings",
         PassthroughAction.OPENAI_RESPONSES: "responses",
-        PassthroughAction.ANTHROPIC_MESSAGES: "messages",
-        PassthroughAction.GEMINI_GENERATE_CONTENT: "{model}:generateContent",
-        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "{model}:streamGenerateContent",
+        PassthroughAction.ANTHROPIC_MESSAGES: "anthropic/v1/messages",
+        PassthroughAction.GEMINI_GENERATE_CONTENT: "gemini/v1beta/models/{model}:generateContent",
+        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "gemini/v1beta/models/{model}:streamGenerateContent",
     }
 
     @property
@@ -109,18 +109,17 @@ class DatabricksProvider(OpenAICompatibleProvider):
         return normalize_databricks_base_url(host)
 
     def get_endpoint_url(self, route_type: str) -> str:
-        _SUPPORTED = {
-            EndpointType.LLM_V1_CHAT,
-            EndpointType.LLM_V1_COMPLETIONS,
-            EndpointType.LLM_V1_EMBEDDINGS,
+        _ROUTE_SUFFIXES = {
+            EndpointType.LLM_V1_CHAT: "chat/completions",
+            EndpointType.LLM_V1_COMPLETIONS: "completions",
+            EndpointType.LLM_V1_EMBEDDINGS: "embeddings",
         }
-        if route_type not in _SUPPORTED:
+        if route_type not in _ROUTE_SUFFIXES:
             raise ValueError(
                 f"Unsupported route_type '{route_type}' for Databricks provider. "
-                f"Supported: {sorted(_SUPPORTED)}"
+                f"Supported: {sorted(_ROUTE_SUFFIXES)}"
             )
-        model_name = self.config.model.name
-        return f"{self._api_base}/{model_name}/invocations"
+        return f"{self._api_base}/{_ROUTE_SUFFIXES[route_type]}"
 
     @property
     def headers(self) -> dict[str, str]:

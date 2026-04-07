@@ -717,8 +717,7 @@ def test_score_model_databricks(monkeypatch):
     assert response == "\n\nThis is a test!"
     call_kwargs = mock_request.call_args[1]
     assert (
-        "serving-endpoints/databricks-meta-llama-3-3-70b-instruct/invocations"
-        in call_kwargs["endpoint"]
+        "serving-endpoints/chat/completions" in call_kwargs["endpoint"]
     )
 
 
