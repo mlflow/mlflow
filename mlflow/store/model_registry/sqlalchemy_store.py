@@ -265,9 +265,8 @@ class SqlAlchemyStore(AbstractStore):
             sqlalchemy.orm.subqueryload(SqlRegisteredModel.registered_model_aliases),
         ]
 
-    @classmethod
     def _get_latest_versions_for_models(
-        cls, session, model_names: list[str]
+        self, session, model_names: list[str]
     ) -> dict[str, list[SqlModelVersion]]:
         """
         Batch-fetch the latest model version per stage for multiple registered models.
@@ -277,6 +276,8 @@ class SqlAlchemyStore(AbstractStore):
         """
         if not model_names:
             return {}
+
+        workspace_clauses = self._get_workspace_clauses(SqlModelVersion)
 
         row_num = (
             sqlalchemy.func
@@ -291,6 +292,7 @@ class SqlAlchemyStore(AbstractStore):
         subquery = (
             select(SqlModelVersion, row_num)
             .where(
+                *workspace_clauses,
                 SqlModelVersion.name.in_(model_names),
                 SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL,
             )
@@ -299,15 +301,17 @@ class SqlAlchemyStore(AbstractStore):
 
         query = (
             select(SqlModelVersion)
+            .where(*workspace_clauses)
             .join(
                 subquery,
                 sqlalchemy.and_(
+                    SqlModelVersion.workspace == subquery.c.workspace,
                     SqlModelVersion.name == subquery.c.name,
                     SqlModelVersion.version == subquery.c.version,
                 ),
             )
             .where(subquery.c.rn == 1)
-            .options(*cls._get_eager_model_version_query_options())
+            .options(*self._get_eager_model_version_query_options())
         )
 
         latest_versions = session.execute(query).scalars().all()
