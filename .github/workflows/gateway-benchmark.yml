@@ -42,12 +42,6 @@ defaults:
   run:
     shell: bash
 
-env:
-  MLFLOW_HOME: ${{ github.workspace }}
-  MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT: "true"
-  MLFLOW_USE_BATCH_SPAN_PROCESSOR: "true"
-  MLFLOW_ENABLE_ASYNC_TRACE_LOGGING: "true"
-
 jobs:
   benchmark:
     runs-on: ubuntu-latest
@@ -85,6 +79,9 @@ jobs:
           fi
       - name: Run benchmark (${{ matrix.backend }})
         env:
+          MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT: "true"
+          MLFLOW_USE_BATCH_SPAN_PROCESSOR: "true"
+          MLFLOW_ENABLE_ASYNC_TRACE_LOGGING: "true"
           EVENT_NAME: ${{ github.event_name }}
           BACKEND: ${{ matrix.backend }}
           INSTANCES: ${{ matrix.instances }}
@@ -118,3 +115,4 @@ jobs:
         with:
           name: benchmark-results-${{ matrix.backend }}-${{ github.run_id }}
           path: benchmark-results-${{ matrix.backend }}.json
+          retention-days: 30
