@@ -4659,9 +4659,7 @@ def _register_scorer():
     try:
         serialized_data = json.loads(request_message.serialized_scorer)
     except json.JSONDecodeError as e:
-        raise MlflowException.invalid_parameter_value(
-            "serialized_scorer must be valid JSON"
-        ) from e
+        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
     if serialized_data.get("call_source") is not None:
         from mlflow.genai.scorers.scorer_utils import (
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
