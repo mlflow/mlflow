@@ -94,6 +94,7 @@ def save_model(
     metadata: dict[str, Any] | None = None,
     resources: str | Path | list[Resource] | None = None,
     use_dspy_model_save: bool = False,
+    uv=None,
 ):
     """
     Save a Dspy model.
@@ -278,7 +279,7 @@ def save_model(
             default_reqs = get_default_pip_requirements()
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
-            inferred_reqs = infer_pip_requirements(path, FLAVOR_NAME, fallback=default_reqs)
+            inferred_reqs = infer_pip_requirements(path, FLAVOR_NAME, fallback=default_reqs, uv=uv)
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
@@ -301,6 +302,13 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files
+
+        source_dir = uv.resolve_project_dir()
+        if source_dir is not None:
+            copy_uv_project_files(path, source_dir)
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -328,6 +336,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     use_dspy_model_save: bool = False,
+    uv=None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -434,4 +443,5 @@ def log_model(
         step=step,
         model_id=model_id,
         use_dspy_model_save=use_dspy_model_save,
+        uv=uv,
     )

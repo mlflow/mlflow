@@ -166,6 +166,7 @@ def log_model(
     model_id: str | None = None,
     export_model: bool = False,
     serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PICKLE,
+    uv=None,
     **kwargs,
 ):
     """
@@ -324,6 +325,7 @@ def log_model(
         model_id=model_id,
         export_model=export_model,
         serialization_format=serialization_format,
+        uv=uv,
         **kwargs,
     )
 
@@ -344,6 +346,7 @@ def save_model(
     metadata=None,
     export_model: bool = False,
     serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PICKLE,
+    uv=None,
     **kwargs,
 ):
     """
@@ -615,6 +618,7 @@ def save_model(
                 model_data_path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                uv=uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -638,6 +642,13 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files
+
+        source_dir = uv.resolve_project_dir()
+        if source_dir is not None:
+            copy_uv_project_files(path, source_dir)
 
 
 def _load_by_pickle_check(is_loading_state_dict: bool):
