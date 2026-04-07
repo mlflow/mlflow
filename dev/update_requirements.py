@@ -15,7 +15,7 @@ PACKAGE_NAMES = ["tracing", "skinny", "core", "gateway"]
 RELEASE_CUTOFF_DAYS = 14
 
 
-def get_latest_major_version(package_name: str) -> int:
+def get_latest_major_version(package_name: str) -> int | None:
     url = f"https://pypi.org/pypi/{package_name}/json"
     response = requests.get(url)
     response.raise_for_status()
@@ -46,7 +46,7 @@ def get_latest_major_version(package_name: str) -> int:
 
         versions.append(version)
 
-    return max(versions).major
+    return max(versions).major if versions else None
 
 
 def update_max_major_version(raw: str, key: str, old_value: int, new_value: int) -> str:
@@ -83,6 +83,9 @@ def main() -> None:
             if req_info.get("freeze", False):
                 continue
             latest_major_version = get_latest_major_version(pip_release)
+            if latest_major_version is None:
+                print(f"Skipping {key}: no releases older than {RELEASE_CUTOFF_DAYS}d found")
+                continue
             if latest_major_version > max_major_version:
                 updated_src = update_max_major_version(
                     updated_src, key, max_major_version, latest_major_version
