@@ -1,16 +1,19 @@
 import hashlib
 from typing import Any
 
-from packaging.version import Version
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 MAX_ROWS = 10000
+_DIGEST_SIZE = 32
 
 
 def compute_pandas_digest(df) -> str:
     """Computes a digest for the given Pandas DataFrame.
+
+    Uses head+tail sampling to detect changes beyond the first MAX_ROWS rows,
+    and includes all column types (not just string/numeric) to prevent
+    collision attacks via excluded columns.
 
     Args:
         df: A Pandas DataFrame.
@@ -21,26 +24,29 @@ def compute_pandas_digest(df) -> str:
     import numpy as np
     import pandas as pd
 
-    # trim to max rows
-    trimmed_df = df.head(MAX_ROWS)
+    hashable_elements = []
 
-    # keep string and number columns, drop other column types
-    if Version(pd.__version__) >= Version("2.1.0"):
-        string_columns = trimmed_df.columns[(df.map(type) == str).all(0)]
+    # For large DataFrames, sample both head and tail to prevent deterministic collision attacks
+    if len(df) > MAX_ROWS:
+        sample_size = MAX_ROWS // 2
+        head_sample = df.head(sample_size)
+        tail_sample = df.tail(sample_size)
+        hashable_elements.append(pd.util.hash_pandas_object(head_sample).values)
+        hashable_elements.append(pd.util.hash_pandas_object(tail_sample).values)
     else:
-        string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
-    numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
+        # For small DataFrames, hash all rows
+        hashable_elements.append(pd.util.hash_pandas_object(df).values)
 
-    desired_columns = string_columns.union(numeric_columns)
-    trimmed_df = trimmed_df[desired_columns]
+    # Include total row count
+    hashable_elements.append(np.int64(len(df)))
 
-    return get_normalized_md5_digest(
-        [
-            pd.util.hash_pandas_object(trimmed_df).values,
-            np.int64(len(df)),
-        ]
-        + [str(x).encode() for x in df.columns]
-    )
+    # Include column names
+    hashable_elements.extend(str(col).encode() for col in df.columns)
+
+    # Include dtype information to prevent type-coercion collisions
+    hashable_elements.extend(str(dtype).encode() for dtype in df.dtypes)
+
+    return _compute_sha256_digest(hashable_elements)
 
 
 def compute_numpy_digest(features, targets=None) -> str:
@@ -60,14 +66,29 @@ def compute_numpy_digest(features, targets=None) -> str:
 
     def hash_array(array):
         flattened_array = array.flatten()
-        trimmed_array = flattened_array[0:MAX_ROWS]
-        try:
-            hashable_elements.append(pd.util.hash_array(trimmed_array))
-        except TypeError:
-            hashable_elements.append(np.int64(trimmed_array.size))
 
-        # hash full array dimensions
+        # For large arrays, sample both head and tail
+        if flattened_array.size > MAX_ROWS:
+            sample_size = MAX_ROWS // 2
+            head_sample = flattened_array[:sample_size]
+            tail_sample = flattened_array[-sample_size:]
+            try:
+                hashable_elements.append(pd.util.hash_array(head_sample))
+                hashable_elements.append(pd.util.hash_array(tail_sample))
+            except TypeError:
+                hashable_elements.append(np.int64(head_sample.size))
+                hashable_elements.append(np.int64(tail_sample.size))
+        else:
+            # For small arrays, hash all elements
+            try:
+                hashable_elements.append(pd.util.hash_array(flattened_array))
+            except TypeError:
+                hashable_elements.append(np.int64(flattened_array.size))
+
+        # Hash full array dimensions
         hashable_elements.extend(np.int64(x) for x in array.shape)
+        # Include dtype to prevent type-coercion collisions
+        hashable_elements.append(str(array.dtype).encode())
 
     def hash_dict_of_arrays(array_dict):
         for key in sorted(array_dict.keys()):
@@ -81,27 +102,42 @@ def compute_numpy_digest(features, targets=None) -> str:
         else:
             hash_array(item)
 
-    return get_normalized_md5_digest(hashable_elements)
+    return _compute_sha256_digest(hashable_elements)
+
+
+def _compute_sha256_digest(elements: list[Any]) -> str:
+    """Computes a SHA-256 digest for a list of hashable elements.
+
+    Args:
+        elements: A list of hashable elements for inclusion in the digest.
+
+    Returns:
+        A hex digest string truncated to _DIGEST_SIZE characters.
+    """
+    if not elements:
+        raise MlflowException(
+            "No hashable elements were provided for digest creation",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    sha = hashlib.sha256()
+    for element in elements:
+        sha.update(element)
+
+    return sha.hexdigest()[:_DIGEST_SIZE]
 
 
 def get_normalized_md5_digest(elements: list[Any]) -> str:
     """Computes a normalized digest for a list of hashable elements.
 
+    .. deprecated::
+        This function now uses SHA-256 internally. The name is retained for
+        backward compatibility. Use _compute_sha256_digest for new code.
+
     Args:
-        elements: A list of hashable elements for inclusion in the md5 digest.
+        elements: A list of hashable elements for inclusion in the digest.
 
     Returns:
-        An 8-character, truncated md5 digest.
+        A hex digest string.
     """
-
-    if not elements:
-        raise MlflowException(
-            "No hashable elements were provided for md5 digest creation",
-            INVALID_PARAMETER_VALUE,
-        )
-
-    md5 = hashlib.md5(usedforsecurity=False)
-    for element in elements:
-        md5.update(element)
-
-    return md5.hexdigest()[:8]
+    return _compute_sha256_digest(elements)
