@@ -535,4 +535,6 @@ def _validate_attachment_path(path: str) -> None:
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM04",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )

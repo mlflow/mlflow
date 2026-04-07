@@ -92,7 +92,10 @@ class SpanStatus:
             status_code = getattr(trace_api.StatusCode, self.status_code.name)
         except AttributeError:
             raise MlflowException(
-                f"Invalid status code: {self.status_code}", error_code=INVALID_PARAMETER_VALUE
+                f"Invalid status code: {self.status_code}",
+                error_code=INVALID_PARAMETER_VALUE,
+                sqlstate="KAM04",
+                error_class="ATTRIBUTE_NOT_FOUND",
             )
         return trace_api.Status(status_code, self.description)
 

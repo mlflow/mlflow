@@ -370,7 +370,9 @@ class BuiltInScorer(Judge):
             scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
         except AttributeError:
             raise MlflowException.invalid_parameter_value(
-                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
+                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
+                sqlstate="KAM04",
+                error_class="ATTRIBUTE_NOT_FOUND",
             )
 
         constructor_args = serialized.builtin_scorer_pydantic_data or {}

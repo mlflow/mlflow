@@ -3042,7 +3042,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     col = getattr(SqlLoggedModel, name)
                 except AttributeError:
                     raise MlflowException.invalid_parameter_value(
-                        f"Invalid order by field name: {field_name}"
+                        f"Invalid order by field name: {field_name}",
+                        sqlstate="KAM04",
+                        error_class="ATTRIBUTE_NOT_FOUND",
                     )
                 # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
                 order_by_clauses.extend([

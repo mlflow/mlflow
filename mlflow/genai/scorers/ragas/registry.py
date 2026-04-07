@@ -126,7 +126,9 @@ def get_metric_class(metric_name: str):
     except AttributeError:
         raise MlflowException.invalid_parameter_value(
             f"Unknown RAGAS metric: '{metric_name}'. Could not find class '{class_name}' "
-            f"in module '{module_path}'."
+            f"in module '{module_path}'.",
+            sqlstate="KAM04",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )
 
 

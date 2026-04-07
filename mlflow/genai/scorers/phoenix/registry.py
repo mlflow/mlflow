@@ -44,5 +44,7 @@ def get_evaluator_class(metric_name: str):
         available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
         raise MlflowException.invalid_parameter_value(
             f"Unknown Phoenix metric: '{metric_name}'. Could not find '{evaluator_class_name}' "
-            f"in 'phoenix.evals'. Available pre-configured metrics: {available_metrics}"
+            f"in 'phoenix.evals'. Available pre-configured metrics: {available_metrics}",
+            sqlstate="KAM04",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )

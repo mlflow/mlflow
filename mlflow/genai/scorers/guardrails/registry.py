@@ -37,5 +37,7 @@ def get_validator_class(validator_name: str):
         raise MlflowException.invalid_parameter_value(
             f"Unknown Guardrails AI validator: '{validator_name}'. Could not find "
             f"'{validator_name}' in 'guardrails.hub'. "
-            f"Available pre-configured validators: {available}"
+            f"Available pre-configured validators: {available}",
+            sqlstate="KAM04",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )
