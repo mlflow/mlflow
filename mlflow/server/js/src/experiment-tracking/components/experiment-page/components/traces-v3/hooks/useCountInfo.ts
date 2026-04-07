@@ -10,11 +10,6 @@ import {
   TraceMetricKey,
   createTraceMetadataFilter,
 } from '@databricks/web-shared/model-trace-explorer';
-import {
-  getAbsoluteStartEndTime,
-  useMonitoringFilters,
-} from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 
 /**
  * Returns the countInfo object for the traces table toolbar badge.
@@ -29,6 +24,7 @@ import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hook
 export function useCountInfo({
   experimentIds,
   runUuid,
+  timeRange,
   traceInfosCount,
   traceInfosLoading,
   metadataTotalCount,
@@ -36,6 +32,7 @@ export function useCountInfo({
 }: {
   experimentIds: string[];
   runUuid?: string;
+  timeRange?: { startTime?: string; endTime?: string };
   traceInfosCount: number | undefined;
   traceInfosLoading: boolean;
   metadataTotalCount: number;
@@ -47,17 +44,8 @@ export function useCountInfo({
     [runUuid],
   );
 
-  // Use getAbsoluteStartEndTime to properly compute time range from labels
-  const [monitoringFilters] = useMonitoringFilters();
-  const monitoringConfig = useMonitoringConfig();
-  const { startTime, endTime } = useMemo(
-    () => getAbsoluteStartEndTime(monitoringConfig.dateNow, monitoringFilters),
-    [monitoringConfig.dateNow, monitoringFilters],
-  );
-
-  // Convert ISO strings to milliseconds for the API
-  const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
-  const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
+  const startTimeMs = timeRange?.startTime ? Number(timeRange.startTime) : undefined;
+  const endTimeMs = timeRange?.endTime ? Number(timeRange.endTime) : undefined;
 
   const { data: traceCountMetrics, isLoading: traceCountLoading } = useTraceMetricsQuery({
     experimentIds,

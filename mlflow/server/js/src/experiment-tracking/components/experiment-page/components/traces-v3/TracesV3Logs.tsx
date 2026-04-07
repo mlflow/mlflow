@@ -360,6 +360,7 @@ const TracesV3LogsImpl = React.memo(
 
     const countInfo = useCountInfo({
       experimentIds,
+      timeRange,
       traceInfosCount: traceInfos?.length,
       traceInfosLoading,
       metadataTotalCount: totalCount,
