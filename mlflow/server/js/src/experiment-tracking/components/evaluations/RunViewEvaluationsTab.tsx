@@ -196,6 +196,8 @@ const RunViewEvaluationsTabInner = ({
     tableSort,
     disabled: isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    // Disable pagination in comparison mode — both runs need complete data to join on inputs
+    enablePagination: isNil(compareToRunUuid),
   });
 
   const {
@@ -535,6 +537,7 @@ const useGetCompareToData = (params: {
     runUuid: compareToRunUuid,
     disabled: isNil(compareToRunUuid) || isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    enablePagination: false,
   });
 
   const { data: runData, loading: runDetailsLoading } = useSearchRunsQuery({

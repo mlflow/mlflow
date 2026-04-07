@@ -522,7 +522,13 @@ export const GenAiTracesTableBody = React.memo(
         }
       }
       return result;
-    }, [selectedAssessmentInfos, evaluations, assessmentFilters, assessmentCountMetrics, compareAssessmentCountMetrics]);
+    }, [
+      selectedAssessmentInfos,
+      evaluations,
+      assessmentFilters,
+      assessmentCountMetrics,
+      compareAssessmentCountMetrics,
+    ]);
 
     const evalEntryMatchesEvaluationId = useCallback((evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {
       if (isV4TraceId(evaluationId) && entry?.fullTraceId === evaluationId) {
