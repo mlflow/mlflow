@@ -4656,7 +4656,12 @@ def _register_scorer():
     # that check is client-side only and can be bypassed by calling the REST API directly.
     # Enforce the same restriction here in the server handler so it applies regardless of
     # how the request arrives.
-    serialized_data = json.loads(request_message.serialized_scorer)
+    try:
+        serialized_data = json.loads(request_message.serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException.invalid_parameter_value(
+            "serialized_scorer must be valid JSON"
+        ) from e
     if serialized_data.get("call_source") is not None:
         from mlflow.genai.scorers.scorer_utils import (
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
