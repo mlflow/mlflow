@@ -47,7 +47,6 @@ jobs:
           # That's expected — the fixes are picked up by the subsequent git diff.
           uv run --no-sync pre-commit run --files mlflow/utils/model_catalog/*.json || true
 
-
       - name: Check for changes
         id: diff
         run: |

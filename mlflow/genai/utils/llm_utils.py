@@ -196,7 +196,6 @@ def _call_llm_via_gateway(
         _send_request,
     )
 
-
     provider_name, model_name = _parse_model_uri(model)
     provider = _get_provider_instance(provider_name, model_name)
 
