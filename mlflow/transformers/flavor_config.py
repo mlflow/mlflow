@@ -204,6 +204,8 @@ def build_flavor_config_from_local_checkpoint(
             f"The provided directory {local_checkpoint_dir} does not contain a config.json file."
             "Please ensure that the directory contains a valid transformers model checkpoint.",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
     with open(config_path) as f:
@@ -234,6 +236,8 @@ def build_flavor_config_from_local_checkpoint(
             "Transformers model from a local checkpoint, please make sure that the "
             "checkpoint directory contains a valid tokenizer configuration as well.",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         ) from e
 
     tokenizer_conf = _get_component_config(tokenizer, FlavorKey.TOKENIZER)
@@ -260,6 +264,8 @@ def update_flavor_conf_to_persist_pretrained_model(
         raise MlflowException(
             "It appears that the pretrained model weight is already saved to the artifact path.",
             error_code=ALREADY_EXISTS,
+            sqlstate="KAM00",
+            error_class="RESOURCE_ALREADY_EXISTS",
         )
 
     from mlflow.transformers.model_io import _MODEL_BINARY_FILE_NAME

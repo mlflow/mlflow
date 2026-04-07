@@ -76,7 +76,9 @@ def infer_signature_from_llm_inference_task(
     if signature is not None and signature != inferred_signature:
         raise MlflowException(
             f"When `task` is specified as `{inference_task}`, the signature would "
-            "be set by MLflow. Please do not set the signature."
+            "be set by MLflow. Please do not set the signature.",
+            sqlstate="XXM00",
+            error_class="CLIENT_INTERNAL_ERROR",
         )
     return inferred_signature
 
@@ -95,12 +97,18 @@ def convert_messages_to_prompt(messages: list[dict[str, Any]], tokenizer) -> str
         raise MlflowException(
             f"Input messages should be list of dictionaries, but got: {type(messages)}.",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
     try:
         return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     except Exception as e:
-        raise MlflowException(f"Failed to apply chat template: {e}")
+        raise MlflowException(
+            f"Failed to apply chat template: {e}",
+            sqlstate="XXM00",
+            error_class="CLIENT_INTERNAL_ERROR",
+        )
 
 
 def preprocess_llm_inference_input(
@@ -132,6 +140,8 @@ def preprocess_llm_inference_input(
             "Input data for a Transformer model logged with `llm/v1/chat` or `llm/v1/completions`"
             f"task is expected to be a pandas DataFrame or a dictionary, but got: {type(data)}.",
             error_code=BAD_REQUEST,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
     flavor_config = flavor_config or {}
@@ -145,6 +155,8 @@ def preprocess_llm_inference_input(
             f"Transformer model saved with `{task}` task excepts `{input_col}`"
             "to be passed as input data.",
             error_code=BAD_REQUEST,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
     update_data = data.pop(input_col)
 
