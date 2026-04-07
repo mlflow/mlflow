@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -62,8 +61,6 @@ def invoke_model_without_tracing(
     Invoke a model without tracing. This method will delete the last trace created by the
     invocation, if any.
     """
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-
     with delete_trace_if_created():
         if model_uri in (_DATABRICKS_DEFAULT_JUDGE_MODEL, _DATABRICKS_AGENTIC_JUDGE_MODEL):
             user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
@@ -86,63 +83,16 @@ def invoke_model_without_tracing(
             parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
             return _create_message_from_databricks_response(parsed_json).content
 
-        provider, model_name = _parse_model_uri(model_uri)
+        from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+
+        backend = ScorerLLMClient(model_uri)
         message_dicts = [{"role": msg.role, "content": msg.content} for msg in messages]
-        return _invoke_llm(
-            provider, model_name, message_dicts, inference_params, response_format, num_retries
+        return backend.complete(
+            message_dicts,
+            response_format=response_format,
+            num_retries=num_retries,
+            **(inference_params or {}),
         )
-
-
-def _invoke_llm(
-    provider: str,
-    model_name: str,
-    messages: list[dict[str, str]],
-    inference_params: dict[str, Any] | None,
-    response_format: type[pydantic.BaseModel] | None,
-    num_retries: int = 3,
-) -> str:
-    from mlflow.gateway.provider_registry import is_supported_provider
-    from mlflow.genai.utils.message_utils import pydantic_to_response_format
-    from mlflow.metrics.genai.model_utils import (
-        _call_llm_provider_api,
-        call_deployments_api,
-    )
-
-    response_format_dict = pydantic_to_response_format(response_format) if response_format else None
-
-    for attempt in range(num_retries + 1):
-        try:
-            if provider in ("gateway", "endpoints"):
-                payload = {"messages": messages}
-                if inference_params:
-                    payload.update(inference_params)
-                if response_format_dict:
-                    payload["response_format"] = response_format_dict
-
-                result = call_deployments_api(
-                    model_name,
-                    payload,
-                    endpoint_type="llm/v1/chat",
-                )
-                if result is None:
-                    raise MlflowException("Empty response from deployment endpoint")
-                return result
-
-            if is_supported_provider(provider):
-                return _call_llm_provider_api(
-                    provider,
-                    model_name,
-                    messages=messages,
-                    eval_parameters=inference_params,
-                    response_format=response_format_dict,
-                )
-
-            raise MlflowException.invalid_parameter_value(f"Unsupported provider: {provider}")
-        except MlflowException:
-            if attempt >= num_retries:
-                raise
-            _logger.debug(f"LLM call failed (attempt {attempt + 1}/{num_retries + 1}), retrying...")
-            time.sleep(2**attempt)
 
 
 def format_history(history: list[dict[str, Any]]) -> str | None:
