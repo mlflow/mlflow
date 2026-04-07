@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 import mlflow.store.jobs.sqlalchemy_store
+from mlflow.entities._job import JobProgress, JobScopedPermission
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
 from mlflow.exceptions import MlflowException
@@ -28,8 +29,10 @@ from mlflow.server.jobs.utils import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR,
     _enqueue_unfinished_jobs,
 )
+from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
+from mlflow.store.tracking.dbmodels.models import SqlJob, SqlJobLock
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -135,6 +138,7 @@ def test_error_job(monkeypatch, tmp_path):
         assert job.job_name == "err_fun"
         assert job.params == '{"data": null}'
         assert job.result.startswith("RuntimeError()")
+        assert job.error_message.startswith("RuntimeError()")
         assert job.status == JobStatus.FAILED
         assert job.retry_count == 0
 
@@ -359,6 +363,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job1 = store.get_job(job1_id)
         assert job1.status == JobStatus.FAILED
         assert job1.result == "RuntimeError('test transient error.')"
+        assert job1.error_message == "RuntimeError('test transient error.')"
         assert job1.retry_count == 2
 
         # Test 2: Job that fails once then succeeds should succeed with retry_count=1
@@ -371,6 +376,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job2 = store.get_job(job2_id)
         assert job2.status == JobStatus.SUCCEEDED
         assert job2.result == "100"
+        assert job2.error_message is None
         assert job2.retry_count == 1
 
         # Test 3: Same as test 2 but with custom transient_error_classes
@@ -383,7 +389,122 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job3 = store.get_job(job3_id)
         assert job3.status == JobStatus.SUCCEEDED
         assert job3.result == "100"
+        assert job3.error_message is None
         assert job3.retry_count == 1
+
+
+def test_retry_or_fail_job_clears_transient_fields_on_exhaustion(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "0")
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.start_job(job.job_id)
+
+    with store.ManagedSessionMaker() as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.lease_expires_at: int(time.time() * 1000),
+            SqlJob.status_message: "running",
+            SqlJob.progress_payload: {"completed": 1, "total": 2},
+            SqlJob.progress_updated_at: int(time.time() * 1000),
+            SqlJob.token_hash: "abc123",
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "1",
+                    "workspace": None,
+                    "permission": "EDIT",
+                }
+            ],
+        })
+
+    retry_count = store.retry_or_fail_job(job.job_id, "retry exhausted")
+    assert retry_count is None
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status == JobStatus.FAILED
+    assert updated_job.result == "retry exhausted"
+    assert updated_job.error_message == "retry exhausted"
+    assert updated_job.status_message is None
+    assert updated_job.progress_payload is None
+    assert updated_job.progress_updated_at is None
+
+    with store.ManagedSessionMaker() as session:
+        sql_job = session.query(SqlJob).filter(SqlJob.id == job.job_id).one()
+        assert sql_job.lease_expires_at is None
+        assert sql_job.token_hash is None
+        assert sql_job.scoped_permissions is None
+
+
+def test_job_progress_payload_hydrates_to_dataclass(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    with store.ManagedSessionMaker() as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.progress_payload: {
+                "phase": "scoring",
+                "completed": 2,
+                "total": 5,
+                "unit": "traces",
+            }
+        })
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.progress_payload == JobProgress(
+        phase="scoring",
+        completed=2,
+        total=5,
+        unit="traces",
+    )
+
+
+def test_job_progress_round_trips_to_proto():
+    progress = JobProgress(phase="scoring", completed=2, total=5, unit="traces")
+
+    proto = progress.to_proto()
+    assert JobProgress.from_proto(proto) == progress
+
+
+def test_job_scoped_permissions_payload_hydrates_to_dataclass(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    with store.ManagedSessionMaker() as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "2",
+                    "workspace": "team-a",
+                    "permission": "EDIT",
+                },
+                {
+                    "resource_type": "gateway_endpoint",
+                    "resource_identifier": "endpoint-1",
+                    "workspace": "team-a",
+                    "permission": "USE",
+                },
+            ]
+        })
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.scoped_permissions == [
+        JobScopedPermission(
+            resource_type="experiment",
+            resource_identifier="2",
+            workspace="team-a",
+            permission="EDIT",
+        ),
+        JobScopedPermission(
+            resource_type="gateway_endpoint",
+            resource_identifier="endpoint-1",
+            workspace="team-a",
+            permission="USE",
+        ),
+    ]
 
 
 # `submit_job` API is designed to be called inside MLflow server handler,
@@ -456,8 +577,20 @@ def test_job_timeout(monkeypatch, tmp_path):
         assert job.job_name == "sleep_fun"
         assert job.timeout == 3.0
         assert job.result is None
+        assert job.error_message is None
         assert job.status == JobStatus.TIMEOUT
         assert job.retry_count == 0
+
+
+def test_update_status_details_raises_specific_exception_for_terminal_job(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.fail_job(job.job_id, "boom")
+
+    with pytest.raises(JobTerminalStateUpdateException, match="already finalized"):
+        store.update_status_details(job.job_id, {"stage": "late-heartbeat"})
 
 
 def test_list_job_pagination(monkeypatch, tmp_path):
@@ -648,11 +781,22 @@ def test_delete_jobs_only_deletes_finalized(tmp_path: Path):
     store.mark_job_timed_out(timeout_job.job_id)
     timeout_job = store.get_job(timeout_job.job_id)
     assert timeout_job.status == JobStatus.TIMEOUT
+    assert timeout_job.error_message is None
 
     canceled_job = store.create_job("canceled_job", "{}")
     store.cancel_job(canceled_job.job_id)
     canceled_job = store.get_job(canceled_job.job_id)
     assert canceled_job.status == JobStatus.CANCELED
+
+    needs_recovery_job = store.create_job("needs_recovery_job", "{}")
+    store.start_job(needs_recovery_job.job_id)
+    with store.ManagedSessionMaker() as session:
+        session.query(SqlJob).filter(SqlJob.id == needs_recovery_job.job_id).update({
+            SqlJob.status: JobStatus.NEEDS_RECOVERY.to_int(),
+            SqlJob.last_update_time: int(time.time() * 1000),
+        })
+    needs_recovery_job = store.get_job(needs_recovery_job.job_id)
+    assert needs_recovery_job.status == JobStatus.NEEDS_RECOVERY
 
     deleted_ids = store.delete_jobs()
 
@@ -666,6 +810,7 @@ def test_delete_jobs_only_deletes_finalized(tmp_path: Path):
     # Non-finalized jobs should still exist
     assert store.get_job(pending_job.job_id).status == JobStatus.PENDING
     assert store.get_job(running_job.job_id).status == JobStatus.RUNNING
+    assert store.get_job(needs_recovery_job.job_id).status == JobStatus.NEEDS_RECOVERY
 
     # Finalized jobs should be deleted
     with pytest.raises(MlflowException, match=r"Job .+ not found"):
@@ -892,6 +1037,35 @@ def test_reenqueued_jobs_respect_workspace_disabled(monkeypatch, db_uri):
         assert workspace is None
 
 
+@pytest.mark.parametrize("workspaces_enabled", [False], indirect=True)
+def test_reenqueued_needs_recovery_jobs_are_reset_and_resubmitted(monkeypatch, db_uri):
+    job_store = SqlAlchemyJobStore(db_uri)
+    job = job_store.create_job("basic_job_fun", '{"x": 1, "y": 2}', None)
+    job_store.start_job(job.job_id)
+
+    with job_store.ManagedSessionMaker() as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.status: JobStatus.NEEDS_RECOVERY.to_int()
+        })
+
+    with (
+        mock.patch("mlflow.server.handlers._get_job_store", return_value=job_store),
+        mock.patch(
+            "mlflow.server.jobs.utils.get_job_fn_fullname",
+            return_value="tests.server.jobs.test_jobs.basic_job_fun",
+        ),
+        mock.patch("mlflow.server.jobs.utils._load_function", return_value=basic_job_fun),
+        mock.patch("mlflow.server.jobs.utils._get_or_init_huey_instance") as mock_huey,
+    ):
+        mock_submit = mock.Mock()
+        mock_huey.return_value.submit_task = mock_submit
+
+        _enqueue_unfinished_jobs(int(time.time() * 1000))
+
+    mock_submit.assert_called_once()
+    assert job_store.get_job(job.job_id).status == JobStatus.PENDING
+
+
 def test_update_status_details(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
@@ -906,6 +1080,55 @@ def test_update_status_details(tmp_path: Path):
     store.update_status_details(job.job_id, {"stage": "processing", "progress": "50%"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "processing", "progress": "50%"}
+
+
+def test_update_status_details_rejects_finalized_job(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.start_job(job.job_id)
+    store.finish_job(job.job_id, "done")
+
+    with pytest.raises(MlflowException, match="already finalized"):
+        store.update_status_details(job.job_id, {"stage": "should-fail"})
+
+
+def test_delete_jobs_cascades_job_locks(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("finished_job", "{}")
+    store.start_job(job.job_id)
+    store.finish_job(job.job_id, "result")
+
+    with store.ManagedSessionMaker() as session:
+        session.add(
+            SqlJobLock(
+                lock_key="finished_job:1234",
+                job_id=job.job_id,
+                acquired_at=int(time.time() * 1000),
+            )
+        )
+
+    deleted_ids = store.delete_jobs(job_ids=[job.job_id])
+    assert deleted_ids == [job.job_id]
+
+    with store.ManagedSessionMaker() as session:
+        remaining_locks = session.query(SqlJobLock).filter(SqlJobLock.job_id == job.job_id).count()
+        assert remaining_locks == 0
+
+
+def test_finalized_jobs_cannot_be_retransitioned(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("finished_job", "{}")
+    store.start_job(job.job_id)
+    store.finish_job(job.job_id, "result")
+
+    with pytest.raises(MlflowException, match="already finalized"):
+        store.cancel_job(job.job_id)
 
 
 def test_update_status_details_merges_with_existing(tmp_path: Path):

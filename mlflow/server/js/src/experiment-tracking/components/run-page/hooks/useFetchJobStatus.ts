@@ -1,5 +1,6 @@
 import { useQuery } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import type { JobProgressMetadata } from '../../../../common/types';
 
 export const FETCH_JOB_STATUS_QUERY_KEY = 'FETCH_JOB_STATUS';
 
@@ -10,9 +11,10 @@ export enum JobStatus {
   FAILED = 'FAILED',
   TIMEOUT = 'TIMEOUT',
   CANCELED = 'CANCELED',
+  NEEDS_RECOVERY = 'NEEDS_RECOVERY',
 }
 
-export interface FetchJobStatusResponse {
+export interface FetchJobStatusResponse extends JobProgressMetadata {
   status: JobStatus;
   result?: unknown;
   status_details?: {
@@ -31,7 +33,7 @@ export const isJobComplete = (status: JobStatus | undefined): boolean => {
   );
 };
 
-export interface UseFetchJobStatusResult {
+export interface UseFetchJobStatusResult extends JobProgressMetadata {
   status: JobStatus | undefined;
   result: unknown;
   status_details?: {
@@ -73,6 +75,10 @@ export const useFetchJobStatus = ({
   return {
     status: data?.status,
     result: data?.result,
+    error_message: data?.error_message,
+    status_message: data?.status_message,
+    progress_payload: data?.progress_payload,
+    progress_updated_at: data?.progress_updated_at,
     status_details: data?.status_details,
     isLoading,
     isFetching,

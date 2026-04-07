@@ -93,6 +93,13 @@ CREATE TABLE jobs (
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	status_details JSON,
+	executor_backend VARCHAR(255),
+	lease_expires_at BIGINT,
+	status_message TEXT,
+	progress_payload JSON,
+	progress_updated_at BIGINT,
+	token_hash VARCHAR(64),
+	scoped_permissions JSON,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
@@ -104,6 +111,14 @@ CREATE TABLE registered_models (
 	description VARCHAR(5000),
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	CONSTRAINT registered_model_pk PRIMARY KEY (workspace, name)
+)
+
+
+CREATE TABLE scheduler_leases (
+	lease_key VARCHAR(255) NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	ttl_seconds INTEGER NOT NULL,
+	CONSTRAINT scheduler_leases_pk PRIMARY KEY (lease_key)
 )
 
 
@@ -218,6 +233,15 @@ CREATE TABLE experiment_tags (
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	CONSTRAINT experiment_tags_experiment_id_fkey FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE job_locks (
+	lock_key VARCHAR(255) NOT NULL,
+	job_id VARCHAR(36) NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	CONSTRAINT job_locks_pk PRIMARY KEY (lock_key),
+	CONSTRAINT fk_job_locks_job_id FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE
 )
 
 

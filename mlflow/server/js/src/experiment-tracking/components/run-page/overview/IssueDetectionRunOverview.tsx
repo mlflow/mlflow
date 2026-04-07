@@ -44,6 +44,7 @@ export const IssueDetectionRunOverview = ({
   const {
     status: jobStatus,
     result: rawResult,
+    error_message: rawErrorMessage,
     status_details: jobStatusDetails,
     isLoading: isLoadingJobStatus,
     error: jobStatusError,
@@ -54,7 +55,12 @@ export const IssueDetectionRunOverview = ({
 
   // Parse issue-specific result format from job if available
   const isFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT;
-  const jobErrorMessage = isFailed && typeof rawResult === 'string' ? rawResult : undefined;
+  const jobErrorMessage =
+    isFailed && typeof rawErrorMessage === 'string'
+      ? rawErrorMessage
+      : isFailed && typeof rawResult === 'string'
+        ? rawResult
+        : undefined;
   const jobResult =
     !isFailed && typeof rawResult === 'object' && rawResult !== null ? (rawResult as IssueJobResult) : undefined;
 

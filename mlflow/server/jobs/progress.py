@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException
+
 _job_tracker: "JobTracker | NoOpTracker | None" = None
 
 
@@ -15,7 +17,12 @@ class JobTracker:
         from mlflow.server.handlers import _get_job_store
 
         job_store = _get_job_store()
-        job_store.update_status_details(self.job_id, status_details)
+        try:
+            job_store.update_status_details(self.job_id, status_details)
+        except JobTerminalStateUpdateException:
+            # Progress updates are best-effort. Once the job is already terminal,
+            # late heartbeats should be ignored rather than turning into failures.
+            pass
 
 
 class NoOpTracker:
