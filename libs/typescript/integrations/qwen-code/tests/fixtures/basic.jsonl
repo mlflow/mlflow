@@ -1,0 +1,2 @@
+{"uuid":"user-001","parentUuid":null,"sessionId":"test-session-001","timestamp":"2026-04-05T10:00:00Z","type":"user","message":{"role":"user","parts":[{"text":"what is 2+2"}]}}
+{"uuid":"assistant-001","parentUuid":"user-001","sessionId":"test-session-001","timestamp":"2026-04-05T10:00:01Z","type":"assistant","message":{"role":"model","parts":[{"text":"4"}]},"model":"qwen3-coder","usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":10,"totalTokenCount":110}}
