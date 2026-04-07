@@ -11,7 +11,7 @@ import {
 } from '@databricks/design-system';
 
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
-import { checkProviderHealth, listOllamaModels, updateConfig } from '../AssistantService';
+import { checkProviderHealth, listProviderModels, updateConfig } from '../AssistantService';
 import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
 import type { AuthState } from '../types';
 
@@ -55,7 +55,7 @@ export const SetupStepAuth = ({
       if (provider === 'ollama') {
         setIsFetchingModels(true);
         try {
-          const models = await listOllamaModels(ollamaUrl);
+          const models = await listProviderModels('ollama', ollamaUrl);
           setOllamaModels(models);
           if (models.length > 0) {
             setOllamaModel(models[0]);

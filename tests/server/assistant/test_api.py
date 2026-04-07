@@ -485,3 +485,10 @@ def test_list_ollama_models_returns_503_on_connection_failure(client):
 
     assert response.status_code == 503
     assert "Cannot connect" in response.json()["detail"]
+
+
+def test_list_provider_models_returns_404_for_unsupported_provider(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers/claude_code/models")
+
+    assert response.status_code == 404
+    assert "not supported" in response.json()["detail"]

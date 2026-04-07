@@ -394,8 +394,14 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
     return SkillsInstallResponse(installed_skills=installed, skills_directory=str(destination))
 
 
-@assistant_router.get("/providers/ollama/models")
-async def list_ollama_models(base_url: str | None = None) -> dict[str, Any]:
+@assistant_router.get("/providers/{provider}/models")
+async def list_provider_models(provider: str, base_url: str | None = None) -> dict[str, Any]:
+    if provider != "ollama":
+        raise HTTPException(
+            status_code=404,
+            detail=f"Model listing is not supported for provider '{provider}'",
+        )
+
     try:
         import ollama
     except ImportError:

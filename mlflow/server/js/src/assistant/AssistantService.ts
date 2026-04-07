@@ -258,13 +258,13 @@ export const sendMessageStream = async (
   }
 };
 
-export const listOllamaModels = async (baseUrl: string): Promise<string[]> => {
-  const url = `${API_BASE}/providers/ollama/models?base_url=${encodeURIComponent(baseUrl)}`;
+export const listProviderModels = async (provider: string, baseUrl: string): Promise<string[]> => {
+  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?base_url=${encodeURIComponent(baseUrl)}`;
   const response = await fetch(url, {
     headers: { ...getDefaultHeaders(document.cookie) },
   });
   if (!response.ok) {
-    throw new Error(`Failed to list Ollama models: ${response.statusText}`);
+    throw new Error(`Failed to list models for provider '${provider}': ${response.statusText}`);
   }
   const data = await response.json();
   return data.models as string[];
