@@ -2,6 +2,7 @@ import json
 from unittest import mock
 
 import pytest
+import requests
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
@@ -170,6 +171,25 @@ def test_sanitization_invalid_json_raises():
         guard.process_request(_make_request())
 
 
+def test_sanitization_network_error_raises():
+    scorer = _mock_scorer(_feedback(value=False, rationale="issue"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        "test",
+        action_llm_url="http://localhost:5000/gateway/ep-sanitizer/mlflow/invocations",
+    )
+    with (
+        mock.patch(
+            "mlflow.gateway.guardrails.requests.post",
+            side_effect=requests.exceptions.Timeout("timed out"),
+        ),
+        pytest.raises(GuardrailViolation, match="Sanitization request failed"),
+    ):
+        guard.process_request(_make_request())
+
+
 def test_sanitization_passes_on_good_content():
     scorer = _mock_scorer(_feedback(value=True))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION, "test")
@@ -206,6 +226,7 @@ def test_is_passing_feedback_values(value, expected_pass):
     else:
         with pytest.raises(GuardrailViolation, match="blocked"):
             guard.process_request(_make_request())
+    scorer.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +254,7 @@ def test_is_passing_plain_scalar(value, expected_pass):
     else:
         with pytest.raises(GuardrailViolation, match="blocked"):
             guard.process_request(_make_request())
+    scorer.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +267,7 @@ def test_list_feedback_all_pass():
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
     result = guard.process_request(_make_request())
     assert result is not None
+    scorer.assert_called_once()
 
 
 def test_list_feedback_one_fails():
@@ -255,6 +278,7 @@ def test_list_feedback_one_fails():
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, name="multi")
     with pytest.raises(GuardrailViolation, match="multi.*unsafe"):
         guard.process_request(_make_request())
+    scorer.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

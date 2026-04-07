@@ -211,8 +211,11 @@ class JudgeGuardrail(Guardrail):
 
         headers = dict(auth_headers) if auth_headers else {}
 
-        resp = requests.post(url, json=body, headers=headers, timeout=60)
-        resp.raise_for_status()
+        try:
+            resp = requests.post(url, json=body, headers=headers, timeout=60)
+            resp.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            raise GuardrailViolation(self.name, f"Sanitization request failed: {e}") from e
 
         try:
             resp_json = resp.json()
@@ -291,7 +294,7 @@ class JudgeGuardrail(Guardrail):
         Returns:
             A ``JudgeGuardrail`` ready to process requests/responses.
         """
-        from mlflow.genai.scorers import Scorer
+        from mlflow.genai.scorers import Scorer  # lazy: heavy transitive deps
 
         action_llm_url = None
         if entity.action_endpoint_name and server_url:
