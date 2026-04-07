@@ -352,7 +352,7 @@ describe('WorkspaceSelector', () => {
     }
   });
 
-  it('does not show the typed workspace action when matching workspace options are available', async () => {
+  it('does not show the typed workspace action when there is an exact workspace match', async () => {
     fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }, { name: 'team-b' }] });
     const originalLocation = mockWindowLocation();
 
@@ -365,13 +365,35 @@ describe('WorkspaceSelector', () => {
 
       await userEvent.click(screen.getByRole('combobox'));
       const searchInput = getWorkspaceSearchInput();
-      fireEvent.change(searchInput, { target: { value: 'team' } });
+      fireEvent.change(searchInput, { target: { value: 'team-a' } });
 
-      expect(screen.queryByText('Go to workspace "team"')).not.toBeInTheDocument();
+      expect(screen.queryByText('Go to workspace "team-a"')).not.toBeInTheDocument();
+    } finally {
+      restoreWindowLocation(originalLocation);
+    }
+  });
 
-      fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+  it('shows the typed workspace action alongside partial matches', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'workspace-aaa' }] });
+    const originalLocation = mockWindowLocation();
 
-      expect(window.location.hash).not.toBe('#/experiments?workspace=team');
+    try {
+      renderWithProviders(<WorkspaceSelector />);
+
+      await waitFor(() => {
+        expect(screen.getByText('default')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByRole('combobox'));
+      const searchInput = getWorkspaceSearchInput();
+      fireEvent.change(searchInput, { target: { value: 'workspace-a' } });
+
+      expect(screen.getByText('workspace-aaa')).toBeInTheDocument();
+      expect(screen.getByText('Go to workspace "workspace-a"')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByText('Go to workspace "workspace-a"'));
+      expect(window.location.hash).toBe('#/experiments?workspace=workspace-a');
+      expect(window.location.reload).toHaveBeenCalled();
     } finally {
       restoreWindowLocation(originalLocation);
     }

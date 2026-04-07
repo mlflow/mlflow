@@ -95,13 +95,10 @@ export const WorkspaceSelector = () => {
     [typedWorkspace, currentWorkspace],
   );
   const showTypedWorkspaceOption = useMemo(
-    () =>
-      canSubmitTypedWorkspace &&
-      filteredOptions.length === 0 &&
-      !options.some((workspace) => workspace.name === typedWorkspace),
-    [canSubmitTypedWorkspace, filteredOptions.length, options, typedWorkspace],
+    () => canSubmitTypedWorkspace && !options.some((workspace) => workspace.name === typedWorkspace),
+    [canSubmitTypedWorkspace, options, typedWorkspace],
   );
-  const allowEnterToSubmitTypedWorkspace = showTypedWorkspaceOption;
+  const allowEnterToSubmitTypedWorkspace = showTypedWorkspaceOption && filteredOptions.length === 0;
   const showEmptyState = filteredOptions.length === 0 && typedWorkspace.length > 0 && !showTypedWorkspaceOption;
 
   const handleTypedWorkspaceSubmit = useCallback(() => {

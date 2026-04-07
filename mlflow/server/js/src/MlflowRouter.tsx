@@ -134,7 +134,7 @@ export const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: 
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate({ bypassWorkspacePrefix: true });
-  const { isLoading } = useWorkspaces(workspacesEnabled);
+  useWorkspaces(workspacesEnabled);
 
   useEffect(() => {
     if (!workspacesEnabled) {
@@ -151,19 +151,11 @@ export const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: 
     const activeWorkspace = getActiveWorkspace();
     const isRootPath = location.pathname === '/' || location.pathname === '';
 
-    // If workspace is in query param, keep it active once the initial workspace
-    // list fetch has settled. The list is not authoritative because users may
-    // still have access to individual resources inside a workspace even when the
-    // workspace itself is filtered out from listWorkspaces.
+    // If workspace is in query param, keep it active. The workspace list is not
+    // authoritative because users may still have access to individual resources
+    // inside a workspace even when the workspace itself is filtered out from
+    // listWorkspaces.
     if (workspaceFromQuery) {
-      if (isLoading) {
-        // Still loading workspaces, optimistically set the workspace.
-        if (activeWorkspace !== workspaceFromQuery) {
-          setActiveWorkspace(workspaceFromQuery);
-        }
-        return;
-      }
-
       if (activeWorkspace !== workspaceFromQuery) {
         setActiveWorkspace(workspaceFromQuery);
       }
@@ -190,7 +182,7 @@ export const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: 
     } else {
       navigate(location.pathname + '?workspace=' + lastUsedWorkspace, { replace: true });
     }
-  }, [location, navigate, workspacesEnabled, searchParams, isLoading]);
+  }, [location, navigate, workspacesEnabled, searchParams]);
 
   return null;
 };
