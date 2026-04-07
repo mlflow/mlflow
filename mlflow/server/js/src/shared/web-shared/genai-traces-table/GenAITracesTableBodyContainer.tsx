@@ -151,9 +151,6 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
     // Handle assessment filter toggle
     const handleAssessmentFilterToggle = useCallback(
       (assessmentName: string, filterValue: any, run: string) => {
-        // Use IS_NULL operator for undefined/missing values so the backend can filter them.
-        // TODO: fix this in databricks as IS NULL operator is not supported yet
-        const operator = filterValue === undefined ? FilterOperator.IS_NULL : FilterOperator.EQUALS;
         const filter = filters.find(
           (filter) => filter.column === TracesTableColumnGroup.ASSESSMENT && filter.key === assessmentName,
         );
@@ -163,7 +160,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
             {
               column: TracesTableColumnGroup.ASSESSMENT,
               key: assessmentName,
-              operator,
+              operator: FilterOperator.EQUALS,
               value: filterValue,
             },
           ]);
@@ -182,7 +179,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 return {
                   column: TracesTableColumnGroup.ASSESSMENT,
                   key: assessmentName,
-                  operator,
+                  operator: FilterOperator.EQUALS,
                   value: filterValue,
                 };
               }
