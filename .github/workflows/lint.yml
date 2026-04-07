@@ -62,6 +62,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/clint.json"
           echo "::add-matcher::.github/workflows/matchers/format.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
+          echo "::add-matcher::.github/workflows/matchers/ty.json"
           echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install Python dependencies
         run: |
