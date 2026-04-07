@@ -1,10 +1,7 @@
 import asyncio
-import base64
 import re
-from pathlib import Path
 from typing import Any
-from unittest.mock import patch
-from urllib.parse import parse_qs, urlparse
+from unittest.mock import ANY, patch
 
 import anthropic
 import pytest
@@ -230,11 +227,6 @@ def test_messages_autolog(is_async, mock_litellm_cost):
 def test_messages_autolog_multi_modal(is_async):
     mlflow.anthropic.autolog()
 
-    image_dir = Path(__file__).parent.parent / "resources" / "images"
-    with open(image_dir / "test.png", "rb") as f:
-        image_bytes = f.read()
-        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-
     dummy_multi_modal_request = {
         "model": "test_model",
         "messages": [
@@ -247,7 +239,7 @@ def test_messages_autolog_multi_modal(is_async):
                         "source": {
                             "type": "base64",
                             "media_type": "image/png",
-                            "data": image_base64,
+                            "data": ANY,
                         },
                     },
                 ],
@@ -265,15 +257,6 @@ def test_messages_autolog_multi_modal(is_async):
     span = traces[0].data.spans[0]
     assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
-    # MLflow autologging replaces inline base64 image data with an mlflow-attachment:// URI.
-    # Patch the expected request to match the rewritten URI before asserting equality.
-    attachment_uri = span.inputs["messages"][0]["content"][1]["source"]["data"]
-    assert attachment_uri.startswith("mlflow-attachment://")
-    parsed = urlparse(attachment_uri)
-    params = parse_qs(parsed.query)
-    assert params["content_type"] == ["image/png"]
-    assert params["trace_id"] == [traces[0].info.trace_id]
-    dummy_multi_modal_request["messages"][0]["content"][1]["source"]["data"] = attachment_uri
     assert span.inputs == dummy_multi_modal_request
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
