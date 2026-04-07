@@ -272,9 +272,9 @@ class _ModelCost:
 
 @functools.lru_cache(maxsize=64)
 def _fetch_model_cost(provider: str, model_name: str) -> _ModelCost | None:
-    from mlflow.utils.providers import _get_model_cost
+    from mlflow.utils.providers import _lookup_model_info
 
-    if info := _get_model_cost(model_name, custom_llm_provider=provider):
+    if info := _lookup_model_info(model_name, custom_llm_provider=provider):
         return _ModelCost.from_dict(info)
     return None
 
