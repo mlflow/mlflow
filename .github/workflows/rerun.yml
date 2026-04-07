@@ -32,3 +32,4 @@ jobs:
         with:
           name: pr_number
           path: /tmp/pr/
+          retention-days: 1
