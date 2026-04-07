@@ -1122,6 +1122,56 @@ def test_search_model_versions_by_tag(store):
     assert search_versions("tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
 
 
+def test_search_queries_include_workspace_predicate(store):
+    from sqlalchemy import event
+
+    name = "test_ws_predicate"
+    _rm_maker(store, name)
+    _mv_maker(
+        store,
+        name=name,
+        source="A/B",
+        tags=[ModelVersionTag("t1", "abc")],
+    )
+
+    search_cases = [
+        f"name = '{name}'",
+        "tag.t1 = 'abc'",
+        f"name = '{name}' AND tag.t1 = 'abc'",
+    ]
+
+    for filter_string in search_cases:
+        captured_sql: list[str] = []
+
+        def _capture(conn, cursor, statement, parameters, context, executemany):
+            captured_sql.append(statement)
+
+        event.listen(store.engine, "before_cursor_execute", _capture)
+        try:
+            store.search_model_versions(filter_string)
+        finally:
+            event.remove(store.engine, "before_cursor_execute", _capture)
+
+        # The main search query is the one with ORDER BY + LIMIT — the actual
+        # search result query.  Tag-loading subqueries don't have ORDER BY.
+        main_queries = [
+            s
+            for s in captured_sql
+            if "ORDER BY" in s
+            and "model_versions" in s
+            and "LIMIT" in s
+        ]
+        assert main_queries, f"No main search query found for filter: {filter_string}"
+
+        for sql in main_queries:
+            where_clause = sql.split("WHERE", 1)[-1] if "WHERE" in sql else ""
+            assert "workspace" in where_clause.lower(), (
+                f"search_model_versions('{filter_string}') missing workspace "
+                f"predicate in WHERE — causes full table scan on "
+                f"(workspace, ...) PK:\n{sql}"
+            )
+
+
 def _search_registered_models(store, filter_string, max_results=10, order_by=None, page_token=None):
     result = store.search_registered_models(
         filter_string=filter_string,
