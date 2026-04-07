@@ -8,6 +8,7 @@ import {
   searchTreeBySpanId,
 } from './ModelTraceExplorer.utils';
 import type { TraceView } from './hooks/useTraceViews';
+import { useTraceViewEditMode } from './hooks/useTraceViewEditMode';
 import { getTimelineTreeNodesMap } from './timeline-tree/TimelineTree.utils';
 import { useModelTraceExplorerPreferences } from './ModelTraceExplorerPreferencesContext';
 
@@ -57,6 +58,7 @@ export type ModelTraceExplorerViewState = {
   setActiveTraceView: (view: TraceView | null) => void;
   subscribeToHighlightEvent: (assessmentId: string, callback: () => void) => () => void;
   highlightAssessment: (assessmentId: string) => void;
+  editMode: ReturnType<typeof useTraceViewEditMode>;
 };
 
 export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplorerViewState>({
@@ -84,6 +86,17 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   topLevelNodes: [],
   subscribeToHighlightEvent: () => () => {},
   highlightAssessment: () => {},
+  editMode: {
+    isEditMode: false,
+    draftView: null,
+    enterEditMode: () => {},
+    exitEditMode: () => {},
+    setName: () => {},
+    addRange: () => {},
+    removeRange: () => {},
+    updateRange: () => {},
+    reorderRanges: () => {},
+  },
 });
 
 export const useModelTraceExplorerViewState = () => {
@@ -162,6 +175,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [showGraph, setShowGraph] = useState(!!rootNode);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [activeTraceView, setActiveTraceView] = useState<TraceView | null>(null);
+  const editMode = useTraceViewEditMode();
 
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedInternal] = useState(() => {
     if (preferences.assessmentsPaneExpanded !== undefined) {
@@ -247,6 +261,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       topLevelNodes,
       subscribeToHighlightEvent,
       highlightAssessment,
+      editMode,
     }),
     [
       activeView,
@@ -269,6 +284,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       topLevelNodes,
       subscribeToHighlightEvent,
       highlightAssessment,
+      editMode,
     ],
   );
 
