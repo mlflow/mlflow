@@ -146,11 +146,14 @@ class TelemetryClient:
         self._clean_up()
 
     def _is_databricks_uri(self) -> bool:
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.tracking._tracking_service.utils import (
+            _get_tracking_scheme_with_resolved_uri,
+            get_tracking_uri,
+        )
 
         try:
-            uri = get_tracking_uri()
-            return any(uri.startswith(s) for s in _DATABRICKS_SCHEMES)
+            scheme = _get_tracking_scheme_with_resolved_uri(get_tracking_uri())
+            return scheme in _DATABRICKS_SCHEMES
         except Exception:
             return False
 
@@ -337,7 +340,6 @@ class TelemetryClient:
         return False
 
     def _send_with_retries(self, send_fn, request_timeout: float = 1):
-        """Send a request with retries. Returns the response or None."""
         max_attempts, sleep_time = 3, 1
         for i in range(max_attempts):
             response = None
@@ -355,7 +357,6 @@ class TelemetryClient:
                 time.sleep(sleep_time)
             else:
                 return response
-        return None
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
