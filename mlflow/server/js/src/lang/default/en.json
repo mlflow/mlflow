@@ -1142,6 +1142,10 @@
     "defaultMessage": "Delete",
     "description": "Delete button text"
   },
+  "5r5xoN": {
+    "defaultMessage": "Configure safety guardrails that run before or after LLM invocation to validate or modify requests and responses.",
+    "description": "Guardrails section description"
+  },
   "5umyLP": {
     "defaultMessage": "Edit endpoint name",
     "description": "Aria label for edit endpoint name button"
@@ -2262,6 +2266,10 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
+  "CO/f9x": {
+    "defaultMessage": "No guardrails configured.",
+    "description": "Empty guardrail section"
+  },
   "CO81il": {
     "defaultMessage": "No usage data available",
     "description": "Empty state title"
@@ -2613,6 +2621,10 @@
   "EcjcgN": {
     "defaultMessage": "Metrics",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
+  },
+  "EkJvEn": {
+    "defaultMessage": "Action",
+    "description": "Label for guardrail action selector"
   },
   "EkUD0b": {
     "defaultMessage": "No results",
@@ -4337,6 +4349,10 @@
     "defaultMessage": "Frequency Penalty",
     "description": "Label for frequency penalty input"
   },
+  "QaHhPd": {
+    "defaultMessage": "Add Guardrail",
+    "description": "Title for add guardrail modal"
+  },
   "Qaq9vK": {
     "defaultMessage": "Enter the allowed values, one per line.",
     "description": "Hint for categorical options"
@@ -4660,6 +4676,10 @@
   "Sm0bXt": {
     "defaultMessage": "None",
     "description": "Label for a user_frustration assessment with 'none' value"
+  },
+  "Smi0O2": {
+    "defaultMessage": "Search guardrails...",
+    "description": "Search placeholder in add guardrail modal"
   },
   "Smixdu": {
     "defaultMessage": "Day",
@@ -5208,6 +5228,10 @@
     "defaultMessage": "Model Name",
     "description": "Label for model name input in model config form"
   },
+  "WAtcIW": {
+    "defaultMessage": "Add guardrail",
+    "description": "Add guardrail button"
+  },
   "WDqWWa": {
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the evaluation runs table"
@@ -5295,6 +5319,10 @@
   "WiaEQ3": {
     "defaultMessage": "Model output",
     "description": "Evaluation review > Response section > model output > title"
+  },
+  "Wl2g6v": {
+    "defaultMessage": "When the guardrail runs",
+    "description": "Label for guardrail stage selector"
   },
   "WlZLz9": {
     "defaultMessage": "Expectations Guidelines",
@@ -5958,6 +5986,10 @@
   "aecpPo": {
     "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
     "description": "Feature card summary for experiments"
+  },
+  "aexMYp": {
+    "defaultMessage": "Modify (sequential)",
+    "description": "Modify sub-header in guardrail section"
   },
   "akmaST": {
     "defaultMessage": "Irrelevant",
@@ -6714,6 +6746,10 @@
   "fWm1UC": {
     "defaultMessage": "Group by",
     "description": "Experiment page > artifact compare view > \"group by column\" select dropdown label"
+  },
+  "fYFN9k": {
+    "defaultMessage": "Block (parallel)",
+    "description": "Validation sub-header in guardrail section"
   },
   "fYtbd8": {
     "defaultMessage": "An error occurred while rendering the chat session.",
@@ -8003,6 +8039,10 @@
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
   },
+  "n76KO5": {
+    "defaultMessage": "No scorers found matching your search.",
+    "description": "Empty state for scorer search in guardrail modal"
+  },
   "n7MxV7": {
     "defaultMessage": "Use multiple models for load balancing by splitting traffic with weights",
     "description": "Gateway > Endpoint details > Description for adding more primary models"
@@ -8699,6 +8739,10 @@
     "defaultMessage": "Execution time (ms)",
     "description": "Column label for execution time with the unit suffix"
   },
+  "rUnwqR": {
+    "defaultMessage": "+ Create custom guardrail",
+    "description": "Link to create a custom guardrail"
+  },
   "rY00Iw": {
     "defaultMessage": "Add filter",
     "description": "Button to add a new filter in the tags filter popover for experiments page search by tags"
@@ -9127,6 +9171,10 @@
     "defaultMessage": "Next, you can log traces to this logged model depending on your framework:",
     "description": "Introductory text for the code example for logging traces to an existing logged model. This part is displayed after the code example for setting the active model."
   },
+  "uYPg+e": {
+    "defaultMessage": "Add",
+    "description": "Add guardrail button"
+  },
   "uYkbr+": {
     "defaultMessage": "Default",
     "description": "Label for the default render mode selector in the model trace explorer summary view"
@@ -9346,6 +9394,10 @@
   "w4bpXQ": {
     "defaultMessage": "Use a custom model name",
     "description": "Label for custom model input section"
+  },
+  "w51ILf": {
+    "defaultMessage": "Guardrails",
+    "description": "Guardrails section title"
   },
   "w80phd": {
     "defaultMessage": "Error",
