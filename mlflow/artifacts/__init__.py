@@ -70,11 +70,15 @@ def download_artifacts(
         raise MlflowException(
             message="Exactly one of `run_id` or `artifact_uri` must be specified",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
     elif artifact_uri is not None and artifact_path is not None:
         raise MlflowException(
             message="`artifact_path` cannot be specified if `artifact_uri` is specified",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if dst_path is not None:
@@ -131,10 +135,14 @@ def list_artifacts(
     if (run_id, artifact_uri).count(None) != 1:
         raise MlflowException.invalid_parameter_value(
             message="Exactly one of `run_id` or `artifact_uri` must be specified",
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
     elif artifact_uri is not None and artifact_path is not None:
         raise MlflowException.invalid_parameter_value(
             message="`artifact_path` cannot be specified if `artifact_uri` is specified",
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if artifact_uri is not None:
@@ -189,7 +197,12 @@ def load_text(artifact_uri: str) -> str:
             try:
                 return str(local_artifact_fd.read())
             except Exception:
-                raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
+                raise MlflowException(
+                    "Unable to form a str object from file content",
+                    BAD_REQUEST,
+                    sqlstate="KAM00",
+                    error_class="INVALID_PARAMETER_VALUE",
+                )
 
 
 def load_dict(artifact_uri: str) -> dict[str, Any]:
@@ -223,7 +236,12 @@ def load_dict(artifact_uri: str) -> dict[str, Any]:
             try:
                 return json.load(local_artifact_fd)
             except json.JSONDecodeError:
-                raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
+                raise MlflowException(
+                    "Unable to form a JSON object from file content",
+                    BAD_REQUEST,
+                    sqlstate="KAM00",
+                    error_class="INVALID_PARAMETER_VALUE",
+                )
 
 
 def load_image(artifact_uri: str):
@@ -268,5 +286,8 @@ def load_image(artifact_uri: str):
             return image_obj
         except Exception:
             raise MlflowException(
-                "Unable to form a PIL Image object from file content", BAD_REQUEST
+                "Unable to form a PIL Image object from file content",
+                BAD_REQUEST,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )

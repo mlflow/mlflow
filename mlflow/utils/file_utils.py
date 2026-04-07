@@ -558,7 +558,9 @@ def parallelized_download_file_using_http_uri(
 
 ----- stderr -----
 {e.stderr.strip()}
-"""
+""",
+                sqlstate="XXM00",
+                error_class="CLIENT_INTERNAL_ERROR",
             ) from e
 
     chunks = _yield_chunks(remote_file_path, file_size, chunk_size)
@@ -834,11 +836,17 @@ def get_total_file_size(path: str | pathlib.Path) -> int | None:
             path = str(path)
         if not os.path.exists(path):
             raise MlflowException(
-                message=f"The given {path} does not exist.", error_code=INVALID_PARAMETER_VALUE
+                message=f"The given {path} does not exist.",
+                error_code=INVALID_PARAMETER_VALUE,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )
         if not os.path.isdir(path):
             raise MlflowException(
-                message=f"The given {path} is not a directory.", error_code=INVALID_PARAMETER_VALUE
+                message=f"The given {path} is not a directory.",
+                error_code=INVALID_PARAMETER_VALUE,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )
 
         total_size = 0
@@ -893,7 +901,11 @@ class ExclusiveFileLock:
 
     def __init__(self, path: str):
         if os.name == "nt":
-            raise MlflowException("ExclusiveFileLock class does not support Windows system.")
+            raise MlflowException(
+                "ExclusiveFileLock class does not support Windows system.",
+                sqlstate="XXM00",
+                error_class="CLIENT_INTERNAL_ERROR",
+            )
         self.path = path
         self.fd = None
 
@@ -949,7 +961,9 @@ def check_tarfile_security(archive_path: str) -> None:
                 if resolved == ".." or resolved.startswith("../"):
                     raise MlflowException.invalid_parameter_value(
                         "Hard link target that escapes the extraction directory is not "
-                        f"allowed, but got {path} -> {link_target}."
+                        f"allowed, but got {path} -> {link_target}.",
+                        sqlstate="KAM00",
+                        error_class="INVALID_PARAMETER_VALUE",
                     )
         for m in tar.getmembers():
             if not m.issym() and not m.islnk():
@@ -960,7 +974,9 @@ def check_tarfile_security(archive_path: str) -> None:
                     if prefix_path in symlink_set:
                         raise MlflowException.invalid_parameter_value(
                             "Destination path in the archive file can not go through a symlink, "
-                            f"but got path {path}."
+                            f"but got path {path}.",
+                            sqlstate="KAM00",
+                            error_class="INVALID_PARAMETER_VALUE",
                         )
 
 
@@ -970,17 +986,23 @@ def _check_path_is_safe(path: str, context: str = "") -> None:
     if path.startswith("/"):
         raise MlflowException.invalid_parameter_value(
             f"Absolute path destination in the archive file is not allowed, "
-            f"but got path {path}{label}."
+            f"but got path {path}{label}.",
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
     # Reject Windows drive-letter absolute paths (e.g., C:/...) and UNC paths (//server/...)
     if len(path) >= 3 and path[0].isalpha() and path[1:3] == ":/":
         raise MlflowException.invalid_parameter_value(
             f"Absolute path destination in the archive file is not allowed, "
-            f"but got path {path}{label}."
+            f"but got path {path}{label}.",
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
     path_parts = path.split("/")
     if path_parts[0] == "..":
         raise MlflowException.invalid_parameter_value(
             f"Escaped path destination in the archive file is not allowed, "
-            f"but got path {path}{label}."
+            f"but got path {path}{label}.",
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )

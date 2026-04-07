@@ -30,6 +30,7 @@ from mlflow.exceptions import (
     InvalidUrlException,
     MlflowException,
     RestException,
+    _get_cp_error_class,
     _get_cp_sqlstate,
     get_error_code,
 )
@@ -257,6 +258,8 @@ def http_request(
             "To use OAuth authentication, set environmental variable "
             f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
             error_code=CUSTOMER_UNAUTHORIZED,
+            sqlstate="KAM00",
+            error_class="PERMISSION_DENIED",
         )
 
     if auth_str:
@@ -294,12 +297,18 @@ def http_request(
         raise MlflowException(
             f"API request to {url} failed with timeout exception {to}."
             " To increase the timeout, set the environment variable "
-            f"{MLFLOW_HTTP_REQUEST_TIMEOUT!s} to a larger value."
+            f"{MLFLOW_HTTP_REQUEST_TIMEOUT!s} to a larger value.",
+            sqlstate="XXM00",
+            error_class="CLIENT_INTERNAL_ERROR",
         ) from to
     except requests.exceptions.InvalidURL as iu:
         raise InvalidUrlException(f"Invalid url: {url}") from iu
     except Exception as e:
-        raise MlflowException(f"API request to {url} failed with exception {e}")
+        raise MlflowException(
+            f"API request to {url} failed with exception {e}",
+            sqlstate="XXM00",
+            error_class="CLIENT_INTERNAL_ERROR",
+        )
 
 
 @lru_cache(maxsize=5)
@@ -367,10 +376,12 @@ def verify_rest_response(
                 f"!= {expected_status}"
             )
             error_code = get_error_code(response.status_code)
+            error_code_name = ErrorCode.Name(error_code)
             raise MlflowException(
                 f"{base_msg}. Response body: '{response.text}'",
                 error_code=error_code,
-                sqlstate=_get_cp_sqlstate(ErrorCode.Name(error_code)),
+                sqlstate=_get_cp_sqlstate(error_code_name),
+                error_class=_get_cp_error_class(error_code_name),
             )
 
     if response.status_code == 204:
@@ -383,7 +394,11 @@ def verify_rest_response(
             "API request to endpoint was successful but the response body was not "
             "in a valid JSON format"
         )
-        raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
+        raise MlflowException(
+            f"{base_msg}. Response body: '{response.text}'",
+            sqlstate="XXM00",
+            error_class="CLIENT_INTERNAL_ERROR",
+        )
 
     return response
 
@@ -396,18 +411,24 @@ def _validate_max_retries(max_retries):
             message=f"The current maximum retry limit is invalid ({max_retry_limit}). "
             "Cannot be negative.",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
     if max_retries > max_retry_limit:
         raise MlflowException(
             message=f"The configured max_retries value ({max_retries}) is "
             f"in excess of the maximum allowable retries ({max_retry_limit})",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if max_retries < 0:
         raise MlflowException(
             message=f"The max_retries value must be either 0 a positive integer. Got {max_retries}",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -419,6 +440,8 @@ def _validate_backoff_factor(backoff_factor):
             message="The current maximum backoff factor limit is invalid "
             f"({max_backoff_factor_limit}). Cannot be negative.",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if backoff_factor > max_backoff_factor_limit:
@@ -427,6 +450,8 @@ def _validate_backoff_factor(backoff_factor):
             "of the maximum allowable backoff_factor limit "
             f"({max_backoff_factor_limit})",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if backoff_factor < 0:
@@ -434,6 +459,8 @@ def _validate_backoff_factor(backoff_factor):
             message="The backoff_factor value must be either 0 a positive integer. "
             f"Got {backoff_factor}",
             error_code=INVALID_PARAMETER_VALUE,
+            sqlstate="KAM00",
+            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -741,6 +768,8 @@ class MlflowHostCreds:
             raise MlflowException(
                 message="host is a required parameter for MlflowHostCreds",
                 error_code=INVALID_PARAMETER_VALUE,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )
         if ignore_tls_verification and (server_cert_path is not None):
             raise MlflowException(
@@ -752,6 +781,8 @@ class MlflowHostCreds:
                     "variables may be set."
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )
         self.host = host
         self.username = username

@@ -134,23 +134,25 @@ def test_invalid_parameter_value_with_sqlstate():
 def test_rest_exception_maps_cp_sqlstate():
     exc = RestException({"error_code": "PERMISSION_DENIED", "message": "no access"})
     assert exc.sqlstate == "KAMC1"
+    assert exc.error_class == "CP_PERMISSION_DENIED"
 
 
 @pytest.mark.parametrize(
-    ("error_code", "expected_sqlstate"),
+    ("error_code", "expected_sqlstate", "expected_error_class"),
     [
-        ("PERMISSION_DENIED", "KAMC1"),
-        ("RESOURCE_DOES_NOT_EXIST", "KAMC2"),
-        ("REQUEST_LIMIT_EXCEEDED", "KAMC3"),
-        ("INVALID_PARAMETER_VALUE", "KAMC4"),
-        ("INTERNAL_ERROR", "XXMC0"),
-        ("TEMPORARILY_UNAVAILABLE", "XXMC1"),
-        ("INVALID_STATE", "XXMC2"),
+        ("PERMISSION_DENIED", "KAMC1", "CP_PERMISSION_DENIED"),
+        ("RESOURCE_DOES_NOT_EXIST", "KAMC2", "CP_RESOURCE_NOT_FOUND"),
+        ("REQUEST_LIMIT_EXCEEDED", "KAMC3", "CP_REQUEST_RATE_LIMITED"),
+        ("INVALID_PARAMETER_VALUE", "KAMC4", "CP_INVALID_PARAMETER_VALUE"),
+        ("INTERNAL_ERROR", "XXMC0", "CP_INTERNAL_ERROR"),
+        ("TEMPORARILY_UNAVAILABLE", "XXMC1", "CP_TEMPORARILY_UNAVAILABLE"),
+        ("INVALID_STATE", "XXMC2", "CP_INVALID_STATE"),
     ],
 )
-def test_rest_exception_cp_sqlstate_mapping(error_code, expected_sqlstate):
+def test_rest_exception_cp_sqlstate_mapping(error_code, expected_sqlstate, expected_error_class):
     exc = RestException({"error_code": error_code, "message": "test"})
     assert exc.sqlstate == expected_sqlstate
+    assert exc.error_class == expected_error_class
 
 
 def test_rest_exception_preserves_sqlstate_from_json():

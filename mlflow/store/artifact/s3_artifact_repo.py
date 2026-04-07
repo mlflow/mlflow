@@ -350,6 +350,8 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartDo
             raise MlflowException(
                 f"Failed to list artifacts in {self.artifact_uri}: {error_message}",
                 error_code=mlflow_error_code,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )
 
     def list_artifacts(self, path=None):
@@ -407,7 +409,9 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartDo
             raise MlflowException(
                 "The path of the listed S3 object does not begin with the specified"
                 f" artifact path. Artifact path: {artifact_path}. Object path:"
-                f" {listed_object_path}."
+                f" {listed_object_path}.",
+                sqlstate="XXM00",
+                error_class="CLIENT_INTERNAL_ERROR",
             )
 
     def _download_file(self, remote_file_path, local_path):
@@ -588,6 +592,8 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartDo
             raise MlflowException(
                 error.response["Error"]["Message"],
                 error_code=mlflow_error_code,
+                sqlstate="KAM00",
+                error_class="INVALID_PARAMETER_VALUE",
             )
         file_size = head_response.get("ContentLength")
 

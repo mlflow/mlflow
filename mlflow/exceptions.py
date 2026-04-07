@@ -150,9 +150,31 @@ _CP_ERROR_CODE_TO_SQLSTATE = {
     "INVALID_STATE": "XXMC2",
 }
 
+_CP_ERROR_CODE_TO_ERROR_CLASS = {
+    "PERMISSION_DENIED": "CP_PERMISSION_DENIED",
+    "CUSTOMER_UNAUTHORIZED": "CP_PERMISSION_DENIED",
+    "UNAUTHENTICATED": "CP_PERMISSION_DENIED",
+    "RESOURCE_DOES_NOT_EXIST": "CP_RESOURCE_NOT_FOUND",
+    "ENDPOINT_NOT_FOUND": "CP_RESOURCE_NOT_FOUND",
+    "NOT_FOUND": "CP_RESOURCE_NOT_FOUND",
+    "REQUEST_LIMIT_EXCEEDED": "CP_REQUEST_RATE_LIMITED",
+    "RESOURCE_EXHAUSTED": "CP_REQUEST_RATE_LIMITED",
+    "INVALID_PARAMETER_VALUE": "CP_INVALID_PARAMETER_VALUE",
+    "BAD_REQUEST": "CP_INVALID_PARAMETER_VALUE",
+    "RESOURCE_ALREADY_EXISTS": "CP_RESOURCE_CONFLICT",
+    "RESOURCE_CONFLICT": "CP_RESOURCE_CONFLICT",
+    "INTERNAL_ERROR": "CP_INTERNAL_ERROR",
+    "TEMPORARILY_UNAVAILABLE": "CP_TEMPORARILY_UNAVAILABLE",
+    "INVALID_STATE": "CP_INVALID_STATE",
+}
+
 
 def _get_cp_sqlstate(error_code):
     return _CP_ERROR_CODE_TO_SQLSTATE.get(error_code)
+
+
+def _get_cp_error_class(error_code):
+    return _CP_ERROR_CODE_TO_ERROR_CLASS.get(error_code)
 
 
 class RestException(MlflowException):
@@ -191,6 +213,8 @@ class RestException(MlflowException):
             self.sqlstate = _get_cp_sqlstate(self.error_code)
         if "error_class" in json:
             self.error_class = json["error_class"]
+        elif self.error_class is None:
+            self.error_class = _get_cp_error_class(self.error_code)
 
     def __reduce__(self):
         """
