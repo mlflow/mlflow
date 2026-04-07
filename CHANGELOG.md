@@ -2,7 +2,7 @@
 
 ## 3.11.0 (2026-04-07)
 
-MLflow 3.11.0 includes several major features and improvements
+MLflow 3.11.0 includes several major features and improvements.
 
 **Major New Features**:
 
