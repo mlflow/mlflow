@@ -50,7 +50,9 @@ latency, 4 MLflow instances, 50 concurrent requests).
 The 50 ms simulated provider time is reflected in the P50 numbers: MLflow adds approximately 29 ms
 of overhead over the fake delay.
 
-## Measuring Gateway Overhead {#measuring-gateway-overhead}
+<a id="measuring-gateway-overhead"></a>
+
+## Measuring Gateway Overhead
 
 Every gateway response includes the `X-MLflow-Gateway-Duration-Ms` header. For non-streaming
 responses, `X-MLflow-Gateway-Overhead-Duration-Ms` is also included when provider timing is
