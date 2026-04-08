@@ -530,6 +530,27 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
         #     ],
         # },
     },
+    "azure_ai": {
+        "api_key": {
+            "display_name": "API Key",
+            "description": "Use Azure AI Foundry API Key",
+            "default": True,
+            "fields": [
+                {
+                    "name": "api_key",
+                    "description": "Azure AI Foundry API Key",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "api_base",
+                    "description": "Azure AI Foundry endpoint URL",
+                    "secret": False,
+                    "required": True,
+                },
+            ],
+        },
+    },
     "vertex_ai": {
         "service_account_json": {
             "display_name": "Service Account JSON",

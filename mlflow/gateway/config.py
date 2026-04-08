@@ -64,6 +64,7 @@ class Provider(str, Enum):
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"
     VERTEX_AI = "vertex_ai"
+    AZURE_FOUNDRY = "azure_foundry"
 
     @classmethod
     def values(cls):
@@ -289,6 +290,15 @@ class VertexAIConfig(ConfigModel):
     vertex_project: str
     vertex_location: str | None = None
     vertex_credentials: str | None = None
+
+
+class AzureFoundryConfig(ConfigModel):
+    azure_api_key: str
+    azure_api_base: str
+
+    @field_validator("azure_api_key", mode="before")
+    def validate_azure_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class LiteLLMConfig(ConfigModel):

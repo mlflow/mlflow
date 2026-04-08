@@ -20,6 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
     AnthropicConfig,
+    AzureFoundryConfig,
     EndpointConfig,
     EndpointType,
     GatewayRequestType,
@@ -327,6 +328,12 @@ def _build_endpoint_config(
             vertex_project=auth_config.get("vertex_project"),
             vertex_location=auth_config.get("vertex_location"),
             vertex_credentials=model_config.secret_value.get("vertex_credentials"),
+        )
+    elif model_config.provider == Provider.AZURE_FOUNDRY:
+        auth_config = model_config.auth_config or {}
+        provider_config = AzureFoundryConfig(
+            azure_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+            azure_api_base=auth_config.get(_AuthConfigKey.API_BASE),
         )
     else:
         # Use LiteLLM as fallback for unsupported providers

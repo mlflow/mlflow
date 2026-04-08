@@ -772,6 +772,7 @@ mlflow.gateway.config.AWSIdAndKey
 mlflow.gateway.config.AWSRole
 mlflow.gateway.config.AliasedConfigModel
 mlflow.gateway.config.AmazonBedrockConfig
+mlflow.gateway.config.AzureFoundryConfig
 mlflow.gateway.config.AnthropicConfig
 mlflow.gateway.config.AnthropicConfig.validate_anthropic_api_key
 mlflow.gateway.config.CohereConfig

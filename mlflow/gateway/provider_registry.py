@@ -27,6 +27,7 @@ class ProviderRegistry:
 def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.ai21labs import AI21LabsProvider
     from mlflow.gateway.providers.anthropic import AnthropicProvider
+    from mlflow.gateway.providers.azure_foundry import AzureFoundryProvider
     from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
     from mlflow.gateway.providers.cohere import CohereProvider
     from mlflow.gateway.providers.databricks import DatabricksProvider
@@ -50,6 +51,7 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.AMAZON_BEDROCK, AmazonBedrockProvider)
     registry.register(Provider.ANTHROPIC, AnthropicProvider)
     registry.register(Provider.AZURE, OpenAIProvider)
+    registry.register(Provider.AZURE_FOUNDRY, AzureFoundryProvider)
     registry.register(Provider.BEDROCK, AmazonBedrockProvider)
     registry.register(Provider.COHERE, CohereProvider)
     registry.register(Provider.DATABRICKS, DatabricksProvider)
