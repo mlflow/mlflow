@@ -1,29 +1,26 @@
+import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { GatewayUsagePage } from './GatewayUsagePage';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 
-// Mock GatewayChartsPanel - use createElement to avoid JSX transpilation issues in mock factories
-jest.mock('../components/GatewayChartsPanel', () => {
-  const React = require('react');
-  return {
-    GatewayChartsPanel: ({ additionalControls }) =>
-      React.createElement(
-        'div',
-        { 'data-testid': 'gateway-charts-panel' },
-        additionalControls,
-        React.createElement('div', { 'data-testid': 'time-unit-selector' }, 'Time Unit Selector'),
-        React.createElement('div', { 'data-testid': 'date-selector' }, 'Date Selector'),
-        React.createElement('div', { 'data-testid': 'trace-requests-chart' }, 'Requests Chart'),
-        React.createElement('div', { 'data-testid': 'trace-latency-chart' }, 'Latency Chart'),
-        React.createElement('div', { 'data-testid': 'trace-errors-chart' }, 'Errors Chart'),
-        React.createElement('div', { 'data-testid': 'trace-token-usage-chart' }, 'Token Usage Chart'),
-        React.createElement('div', { 'data-testid': 'trace-token-stats-chart' }, 'Token Stats Chart'),
-        React.createElement('div', { 'data-testid': 'trace-cost-breakdown-chart' }, 'Cost Breakdown Chart'),
-        React.createElement('div', { 'data-testid': 'trace-cost-over-time-chart' }, 'Cost Over Time Chart'),
-      ),
-  };
-});
+// Mock GatewayChartsPanel
+jest.mock('../components/GatewayChartsPanel', () => ({
+  GatewayChartsPanel: ({ additionalControls }: { additionalControls?: React.ReactNode }) => (
+    <div data-testid="gateway-charts-panel">
+      {additionalControls}
+      <div data-testid="time-unit-selector">Time Unit Selector</div>
+      <div data-testid="date-selector">Date Selector</div>
+      <div data-testid="trace-requests-chart">Requests Chart</div>
+      <div data-testid="trace-latency-chart">Latency Chart</div>
+      <div data-testid="trace-errors-chart">Errors Chart</div>
+      <div data-testid="trace-token-usage-chart">Token Usage Chart</div>
+      <div data-testid="trace-token-stats-chart">Token Stats Chart</div>
+      <div data-testid="trace-cost-breakdown-chart">Cost Breakdown Chart</div>
+      <div data-testid="trace-cost-over-time-chart">Cost Over Time Chart</div>
+    </div>
+  ),
+}));
 
 // Mock useEndpointsQuery
 const mockUseEndpointsQuery = jest.fn();
