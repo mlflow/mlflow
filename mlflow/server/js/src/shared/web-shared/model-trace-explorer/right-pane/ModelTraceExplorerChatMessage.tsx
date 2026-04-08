@@ -13,7 +13,13 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
-import { attachmentAwareUrlTransform, isAttachmentUri, useAttachmentUrl } from '../attachment-utils';
+import {
+  attachmentAwareUrlTransform,
+  isAttachmentUri,
+  parseAttachmentUri,
+  useAttachmentUrl,
+} from '../attachment-utils';
+import { ModelTraceExplorerAttachmentRenderer } from '../field-renderers/ModelTraceExplorerAttachmentRenderer';
 
 import { ModelTraceExplorerChatMessageHeader } from './ModelTraceExplorerChatMessageHeader';
 import {
@@ -38,6 +44,18 @@ function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
 
 const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }) => {
   if (src && isAttachmentUri(src)) {
+    const parsed = parseAttachmentUri(src);
+    if (parsed && !parsed.contentType.startsWith('image/')) {
+      // Non-image attachments (PDF, audio, etc.) use the full AttachmentRenderer
+      return (
+        <ModelTraceExplorerAttachmentRenderer
+          title=""
+          attachmentId={parsed.attachmentId}
+          traceId={parsed.traceId}
+          contentType={parsed.contentType}
+        />
+      );
+    }
     return <AttachmentImage src={src} alt={alt} />;
   }
   return <img src={src} alt={alt} css={{ maxWidth: '100%' }} />;

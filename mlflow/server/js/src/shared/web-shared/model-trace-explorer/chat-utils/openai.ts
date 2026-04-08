@@ -108,10 +108,17 @@ const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage):
       const text = get(item, 'text');
       if (get(item, 'type') === 'input_text' && isString(text)) {
         contentParts.push({ type: 'text', text });
-      } else {
-        const imageUrl = get(item, 'image_url');
-        if (get(item, 'type') === 'input_image' && isString(imageUrl)) {
-          contentParts.push({ type: 'image_url', image_url: { url: imageUrl } });
+      } else if (get(item, 'type') === 'input_image' && isString(get(item, 'image_url'))) {
+        contentParts.push({ type: 'image_url', image_url: { url: get(item, 'image_url') as string } });
+      } else if (get(item, 'type') === 'input_file') {
+        const filename = get(item, 'filename');
+        const fileData = get(item, 'file_data');
+        if (isString(fileData) && fileData.startsWith('mlflow-attachment://')) {
+          // Render as image_url so the attachment renderer picks it up
+          // (AttachmentRenderer handles PDFs, images, audio, etc.)
+          contentParts.push({ type: 'image_url', image_url: { url: fileData } });
+        } else if (isString(filename)) {
+          contentParts.push({ type: 'text', text: `[File: ${filename}]` });
         }
       }
     }
