@@ -16,6 +16,10 @@ AVAILABLE COMMANDS:
     get-assessment      Retrieve assessment details
     update-assessment   Modify existing assessments
     delete-assessment   Remove assessments from traces
+    create-view         Create a trace view to filter and focus on spans
+    list-views          List trace views for a trace or experiment
+    get-view            Get trace view details
+    delete-view         Delete a trace view
 
 EXAMPLE USAGE:
     # Search traces across multiple experiments
@@ -879,3 +883,246 @@ def evaluate_traces(
     from mlflow.cli.eval import evaluate_traces as run_evaluation
 
     run_evaluation(experiment_id, trace_ids, scorers, output_format)
+
+
+@commands.command("create-view")
+@mlflow_mcp(tool_name="create_trace_view")
+@click.option("--trace-id", type=click.STRING, help="Trace ID (for trace-scoped views)")
+@click.option("--experiment-id", type=click.STRING, help="Experiment ID (for experiment-scoped views)")
+@click.option("--name", type=click.STRING, required=True, help="View name")
+@click.option("--span-type", type=click.STRING, help="Filter spans by type (e.g., TOOL, LLM, RETRIEVER, CHAT_MODEL)")
+@click.option("--span-name", type=click.STRING, help="Filter spans by exact name")
+@click.option("--attribute-key", type=click.STRING, help="Filter spans by attribute key")
+@click.option("--attribute-value", type=click.STRING, help="Filter spans by attribute value (requires --attribute-key)")
+@click.option("--input-path", type=click.STRING, help="JSONPath expression to extract input (e.g., $.query)")
+@click.option("--output-path", type=click.STRING, help="JSONPath expression to extract output (e.g., $.result)")
+@click.option(
+    "--ranges-json",
+    type=click.STRING,
+    help=(
+        "JSON array of span ranges for multi-range views. Each element is an object with "
+        "from_selector (required), to_selector, label, description, input_path, output_path, "
+        "and position. Cannot be combined with --span-type, --span-name, --attribute-key, "
+        "--input-path, or --output-path."
+    ),
+)
+@click.option("--created-by", type=click.STRING, help="Attribution for the view creator")
+def create_view(
+    trace_id: str | None,
+    experiment_id: str | None,
+    name: str,
+    span_type: str | None = None,
+    span_name: str | None = None,
+    attribute_key: str | None = None,
+    attribute_value: str | None = None,
+    input_path: str | None = None,
+    output_path: str | None = None,
+    ranges_json: str | None = None,
+    created_by: str | None = None,
+) -> None:
+    """
+    Create a trace view to filter and focus on specific parts of a trace.
+
+    Exactly one of --trace-id or --experiment-id must be provided.
+    Trace-scoped views apply to a single trace; experiment-scoped views
+    apply to all traces in an experiment.
+
+    Use --span-type, --span-name, etc. for simple single-filter views.
+    Use --ranges-json for multi-range views (milestones, walkthroughs).
+
+    \b
+    Examples:
+    # Create a view showing only tool call spans
+    mlflow traces create-view --trace-id tr-abc123 \\
+        --name "Tool Calls" --span-type TOOL
+
+    \b
+    # Create a view filtering to LLM spans with output extraction
+    mlflow traces create-view --trace-id tr-abc123 \\
+        --name "LLM Responses" --span-type LLM \\
+        --output-path "$.choices[0].message.content"
+
+    \b
+    # Create a multi-range milestones view
+    mlflow traces create-view --trace-id tr-abc123 \\
+        --name "Key Milestones" --created-by assistant \\
+        --ranges-json '[
+          {"from_selector": {"span_name": "plan_action"}, "label": "Planning", "position": 0},
+          {"from_selector": {"span_type": "TOOL"}, "label": "Tool Calls", "position": 1},
+          {"from_selector": {"span_name": "generate"}, "label": "Generation", "position": 2}
+        ]'
+
+    \b
+    # Create a view filtering by span name
+    mlflow traces create-view --trace-id tr-abc123 \\
+        --name "Search Step" --span-name search_knowledge_base
+    """
+    from mlflow.entities.trace_view import SpanRange, SpanSelector
+
+    if not trace_id and not experiment_id:
+        raise click.UsageError("Exactly one of --trace-id or --experiment-id must be provided.")
+    if trace_id and experiment_id:
+        raise click.UsageError("Exactly one of --trace-id or --experiment-id must be provided.")
+
+    single_filter_opts = any([span_type, span_name, attribute_key, input_path, output_path])
+    if ranges_json and single_filter_opts:
+        raise click.UsageError(
+            "--ranges-json cannot be combined with --span-type, --span-name, "
+            "--attribute-key, --input-path, or --output-path."
+        )
+
+    ranges = []
+    if ranges_json:
+        try:
+            ranges_data = json.loads(ranges_json)
+        except json.JSONDecodeError as e:
+            raise click.UsageError(f"--ranges-json is not valid JSON: {e}")
+        if not isinstance(ranges_data, list):
+            raise click.UsageError("--ranges-json must be a JSON array.")
+        ranges = [SpanRange.from_dict(r) for r in ranges_data]
+    elif single_filter_opts:
+        selector = SpanSelector(
+            span_type=span_type,
+            span_name=span_name,
+            attribute_key=attribute_key,
+            attribute_value=attribute_value,
+        )
+        ranges.append(
+            SpanRange(
+                from_selector=selector,
+                label=name,
+                description="",
+                input_path=input_path,
+                output_path=output_path,
+                position=0,
+            )
+        )
+
+    client = TracingClient()
+    view = client.create_trace_view(
+        trace_id=trace_id,
+        experiment_id=experiment_id,
+        name=name,
+        ranges=ranges,
+        created_by=created_by,
+    )
+    click.echo(json.dumps(view.to_dict(), indent=2))
+
+
+@commands.command("list-views")
+@mlflow_mcp(tool_name="list_trace_views")
+@click.option("--trace-id", type=click.STRING, help="Trace ID to list views for")
+@click.option("--experiment-id", type=click.STRING, help="Experiment ID to list views for")
+@click.option(
+    "--output",
+    "output_format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format (default: table)",
+)
+def list_views(
+    trace_id: str | None,
+    experiment_id: str | None,
+    output_format: str = "table",
+) -> None:
+    """
+    List trace views for a trace or experiment.
+
+    \b
+    Examples:
+    # List views for a specific trace
+    mlflow traces list-views --trace-id tr-abc123
+
+    \b
+    # List views for an experiment
+    mlflow traces list-views --experiment-id 1
+
+    \b
+    # JSON output
+    mlflow traces list-views --trace-id tr-abc123 --output json
+    """
+    if not trace_id and not experiment_id:
+        raise click.UsageError("At least one of --trace-id or --experiment-id must be provided.")
+
+    client = TracingClient()
+    views = client.list_trace_views(trace_id=trace_id, experiment_id=experiment_id)
+
+    if output_format == "json":
+        click.echo(json.dumps([v.to_dict() for v in views], indent=2))
+    else:
+        if not views:
+            click.echo("No views found.")
+            return
+        headers = ["view_id", "name", "scope", "ranges"]
+        table = []
+        for v in views:
+            range_parts = []
+            for r in v.ranges:
+                parts = []
+                if r.from_selector.span_type:
+                    parts.append(f"type={r.from_selector.span_type}")
+                if r.from_selector.span_name:
+                    parts.append(f"name={r.from_selector.span_name}")
+                if r.from_selector.attribute_key:
+                    parts.append(f"attr={r.from_selector.attribute_key}")
+                if r.input_path:
+                    parts.append(f"in={r.input_path}")
+                if r.output_path:
+                    parts.append(f"out={r.output_path}")
+                range_parts.append(", ".join(parts) if parts else "(all)")
+            table.append([
+                v.view_id or "",
+                v.name,
+                v.scope,
+                "; ".join(range_parts) if range_parts else "",
+            ])
+        click.echo(_create_table(table, headers=headers))
+
+
+@commands.command("get-view")
+@mlflow_mcp(tool_name="get_trace_view")
+@TRACE_ID
+@click.option("--view-id", type=click.STRING, required=True, help="View ID")
+def get_view(trace_id: str, view_id: str) -> None:
+    """
+    Get trace view details as JSON.
+
+    \b
+    Example:
+    mlflow traces get-view --trace-id tr-abc123 --view-id tv-def456
+    """
+    client = TracingClient()
+    view = client.get_trace_view(trace_id, view_id)
+    click.echo(json.dumps(view.to_dict(), indent=2))
+
+
+@commands.command("delete-view")
+@mlflow_mcp(tool_name="delete_trace_view")
+@click.option("--trace-id", type=click.STRING, help="Trace ID (for trace-scoped views)")
+@click.option("--experiment-id", type=click.STRING, help="Experiment ID (for experiment-scoped views)")
+@click.option("--view-id", type=click.STRING, required=True, help="View ID to delete")
+def delete_view(
+    trace_id: str | None,
+    experiment_id: str | None,
+    view_id: str,
+) -> None:
+    """
+    Delete a trace view.
+
+    \b
+    Examples:
+    # Delete a trace-scoped view
+    mlflow traces delete-view --trace-id tr-abc123 --view-id tv-def456
+
+    \b
+    # Delete an experiment-scoped view
+    mlflow traces delete-view --experiment-id 1 --view-id tv-def456
+    """
+    if not trace_id and not experiment_id:
+        raise click.UsageError("Exactly one of --trace-id or --experiment-id must be provided.")
+    if trace_id and experiment_id:
+        raise click.UsageError("Exactly one of --trace-id or --experiment-id must be provided.")
+
+    client = TracingClient()
+    client.delete_trace_view(trace_id=trace_id, experiment_id=experiment_id, view_id=view_id)
+    click.echo(f"Deleted view {view_id}.")
