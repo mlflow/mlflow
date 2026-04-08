@@ -4,7 +4,6 @@ import {
   Button,
   Empty,
   Input,
-  Modal,
   Popover,
   PlusIcon,
   SearchIcon,
@@ -18,6 +17,7 @@ import { FormattedMessage } from 'react-intl';
 import { useGuardrailsQuery } from '../../hooks/useGuardrailsQuery';
 import { useRemoveGuardrail } from '../../hooks/useRemoveGuardrail';
 import { GuardrailModal } from './AddGuardrailModal';
+import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import type { GatewayGuardrailConfig, GuardrailStage } from '../../types';
 
 interface GuardrailsTabContentProps {
@@ -73,9 +73,7 @@ const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
       </div>
 
       {/* Description */}
-      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
-        {STAGE_DESCRIPTIONS[stage]}
-      </Typography.Text>
+      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>{STAGE_DESCRIPTIONS[stage]}</Typography.Text>
     </div>
   );
 };
@@ -129,19 +127,21 @@ const GuardrailRow = ({
   onView,
   onDeleteClick,
   isRemoving,
+  isViewDisabled,
 }: {
   guardrail: GatewayGuardrailConfig;
   onView: (guardrail: GatewayGuardrailConfig) => void;
   onDeleteClick: (guardrail: GatewayGuardrailConfig) => void;
   isRemoving: boolean;
+  isViewDisabled?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const name = guardrail.guardrail?.name ?? guardrail.guardrail_id;
   const stage = guardrail.guardrail?.stage;
   const action = guardrail.guardrail?.action;
-  const stageBadge = stage === 'BEFORE' ? 'Before LLM' : stage === 'AFTER' ? 'After LLM' : stage ?? '—';
+  const stageBadge = stage === 'BEFORE' ? 'Before LLM' : stage === 'AFTER' ? 'After LLM' : (stage ?? '—');
   const stageColor = stage === 'BEFORE' ? '#1677ff' : stage === 'AFTER' ? '#52c41a' : '#999';
-  const actionBadge = action === 'VALIDATION' ? 'Block' : action === 'SANITIZATION' ? 'Sanitize' : action ?? '—';
+  const actionBadge = action === 'VALIDATION' ? 'Block' : action === 'SANITIZATION' ? 'Sanitize' : (action ?? '—');
   const actionColor = action === 'VALIDATION' ? '#cf1322' : action === 'SANITIZATION' ? '#722ed1' : '#999';
 
   return (
@@ -195,7 +195,8 @@ const GuardrailRow = ({
           size="small"
           type="tertiary"
           onClick={() => onView(guardrail)}
-          title="View and edit"
+          disabled={isViewDisabled}
+          aria-label="View and edit guardrail"
         />
       </div>
 
@@ -209,50 +210,10 @@ const GuardrailRow = ({
           onClick={() => onDeleteClick(guardrail)}
           loading={isRemoving}
           danger
-          title="Remove guardrail"
+          aria-label="Remove guardrail"
         />
       </div>
     </div>
-  );
-};
-
-// ─── Delete confirmation modal ───────────────────────────────────────────────
-
-const DeleteConfirmModal = ({
-  guardrail,
-  onConfirm,
-  onCancel,
-}: {
-  guardrail: GatewayGuardrailConfig | null;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) => {
-  const name = guardrail?.guardrail?.name ?? guardrail?.guardrail_id ?? '';
-  return (
-    <Modal
-      componentId="mlflow.gateway.guardrails.delete-confirm-modal"
-      title={<FormattedMessage defaultMessage="Remove Guardrail" description="Delete guardrail modal title" />}
-      visible={!!guardrail}
-      onCancel={onCancel}
-      footer={
-        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button componentId="mlflow.gateway.guardrails.delete-cancel" onClick={onCancel}>
-            <FormattedMessage defaultMessage="Cancel" description="Cancel delete button" />
-          </Button>
-          <Button componentId="mlflow.gateway.guardrails.delete-confirm" type="primary" danger onClick={onConfirm}>
-            <FormattedMessage defaultMessage="Remove" description="Confirm delete button" />
-          </Button>
-        </div>
-      }
-    >
-      <Typography.Text>
-        <FormattedMessage
-          defaultMessage="Are you sure you want to remove {name} from this endpoint? This action cannot be undone."
-          description="Delete guardrail confirmation message"
-          values={{ name: <strong>{name}</strong> }}
-        />
-      </Typography.Text>
-    </Modal>
   );
 };
 
@@ -278,15 +239,19 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
   const handleConfirmDelete = useCallback(async () => {
     if (!pendingDelete) return;
     const guardrailId = pendingDelete.guardrail_id;
-    setPendingDelete(null);
+    const snapshot = localGuardrails;
     setRemovingId(guardrailId);
     setLocalGuardrails((prev) => prev.filter((g) => g.guardrail_id !== guardrailId));
     try {
       await removeGuardrail({ endpoint_id: endpointId, guardrail_id: guardrailId });
+    } catch (e) {
+      setLocalGuardrails(snapshot);
+      refetch();
+      throw e;
     } finally {
       setRemovingId(null);
     }
-  }, [pendingDelete, removeGuardrail, endpointId]);
+  }, [pendingDelete, localGuardrails, removeGuardrail, endpointId, refetch]);
 
   const handleView = useCallback((_guardrail: GatewayGuardrailConfig) => {
     // Detail modal is wired in follow-up PR (7d)
@@ -411,6 +376,7 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
               onView={handleView}
               onDeleteClick={setPendingDelete}
               isRemoving={removingId === g.guardrail_id}
+              isViewDisabled
             />
           ))
         )}
@@ -425,10 +391,14 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
         experimentId={experimentId}
       />
 
-      <DeleteConfirmModal
-        guardrail={pendingDelete}
+      <DeleteConfirmationModal
+        open={!!pendingDelete}
+        onClose={() => setPendingDelete(null)}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setPendingDelete(null)}
+        title="Remove Guardrail"
+        itemName={pendingDelete?.guardrail?.name ?? pendingDelete?.guardrail_id ?? ''}
+        itemType="guardrail"
+        componentId="mlflow.gateway.guardrails.delete-confirm"
       />
     </div>
   );
