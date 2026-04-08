@@ -13,7 +13,7 @@ import {
   CheckCircleIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useAddGuardrail } from '../../hooks/useAddGuardrail';
+import { useCreateGuardrail } from '../../hooks/useCreateGuardrail';
 import { GatewayApi } from '../../api';
 import type { GatewayGuardrailConfig, GuardrailStage, GuardrailAction } from '../../types';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../../../experiment-tracking/pages/experiment-scorers/prompts';
@@ -175,7 +175,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const selectStyles = useSelectStyles();
-  const { mutateAsync: createGuardrail } = useAddGuardrail();
+  const { mutateAsync: createGuardrail } = useCreateGuardrail();
 
   // Wizard state
   const [step, setStep] = useState<1 | 2>(1);
