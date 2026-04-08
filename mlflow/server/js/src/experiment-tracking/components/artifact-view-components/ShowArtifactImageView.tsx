@@ -6,13 +6,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { LegacySkeleton } from '@databricks/design-system';
+import { LegacySkeleton, Typography } from '@databricks/design-system';
 import {
   getArtifactBytesContent,
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from '../../../common/utils/ArtifactUtils';
 import { ImagePreviewGroup, Image } from '../../../shared/building_blocks/Image';
+import { exceedsRenderSizeLimit, formatFileSize } from '../../../shared/web-shared/media-rendering-utils';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
@@ -34,6 +35,9 @@ const ShowArtifactImageView = ({
   const [isLoading, setIsLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [imageUrl, setImageUrl] = useState(null);
+  const [contentLength, setContentLength] = useState(0);
+
+  const contentType = path.toLowerCase().endsWith('.svg') ? 'image/svg+xml' : 'image/png';
 
   useEffect(() => {
     setIsLoading(true);
@@ -52,11 +56,25 @@ const ShowArtifactImageView = ({
       getArtifact,
     ).then((result: any) => {
       const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
+      const blob = new Blob([new Uint8Array(result)], options);
+      setContentLength(blob.size);
       // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
-      setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
+      setImageUrl(URL.createObjectURL(blob));
       setIsLoading(false);
     });
   }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
+
+  if (exceedsRenderSizeLimit(contentType, contentLength) && imageUrl) {
+    return (
+      <div css={{ padding: '10px' }}>
+        <Typography.Text>
+          <a href={imageUrl} download={path.split('/').pop()}>
+            {`Download image (${formatFileSize(contentLength)})`}
+          </a>
+        </Typography.Text>
+      </div>
+    );
+  }
 
   return (
     imageUrl && (
