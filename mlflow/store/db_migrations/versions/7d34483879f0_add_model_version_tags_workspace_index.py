@@ -1,11 +1,11 @@
-"""Add index on model_version_tags (workspace, name, version)
+"""Add indexes for relationship loading after workspace PK migration
 
-The workspace migration (1b5f0d9ad7c1) changed the primary key of
-model_version_tags to (workspace, key, name, version).  SQLAlchemy's
-relationship loader joins on (workspace, name, version) to fetch tags
-for a batch of model versions, but the PK has ``key`` between
-``workspace`` and ``name``, so the join can only use the first PK
-column.  This index provides an efficient lookup path for that join.
+The workspace migration (1b5f0d9ad7c1) changed primary keys to include
+``workspace`` as the leading column.  SQLAlchemy's relationship loader
+joins on (workspace, name, version) for model_version_tags and
+(workspace, name) for registered_model_tags, but the PKs have ``key``
+between ``workspace`` and ``name``, so the join can only use the first
+PK column.  These indexes provide efficient lookup paths for those joins.
 
 Create Date: 2026-04-08 00:00:00.000000
 
@@ -26,9 +26,18 @@ def upgrade():
         "model_version_tags",
         ["workspace", "name", "version"],
     )
+    op.create_index(
+        "idx_registered_model_tags_workspace_name",
+        "registered_model_tags",
+        ["workspace", "name"],
+    )
 
 
 def downgrade():
+    op.drop_index(
+        "idx_registered_model_tags_workspace_name",
+        table_name="registered_model_tags",
+    )
     op.drop_index(
         "idx_model_version_tags_workspace_name_version",
         table_name="model_version_tags",
