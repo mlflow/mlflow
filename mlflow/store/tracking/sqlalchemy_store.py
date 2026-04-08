@@ -3525,7 +3525,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses_for_search_traces(
                 order_by or [], session
             )
-            stmt = select(SqlTraceInfo, *cases_orderby)
+            stmt = select(SqlTraceInfo, *cases_orderby).options(
+                sqlalchemy.orm.selectinload(SqlTraceInfo.tags),
+                sqlalchemy.orm.selectinload(SqlTraceInfo.request_metadata),
+                sqlalchemy.orm.selectinload(SqlTraceInfo.assessments),
+            )
 
             attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
                 _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
