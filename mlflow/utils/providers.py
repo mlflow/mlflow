@@ -824,7 +824,7 @@ _EXCLUDED_PROVIDERS = {"bedrock_converse"}
 # consolidated into vertex_ai to be used by the AI Gateway.
 _PROVIDER_CONSOLIDATION = {
     "vertex_ai": lambda p: p == "vertex_ai" or p.startswith("vertex_ai-"),
-    "azure_foundry": lambda p: p == "azure_ai" or p == "azure_foundry",
+    "azure_foundry": lambda p: p in {"azure_ai", "azure_foundry"},
 }
 
 
