@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { decodeSpanId } from '../ModelTraceExplorer.utils';
-import type { SpanSelector, TraceView } from './useTraceViews';
+import { getTimelineTreeNodesList } from '../timeline-tree/TimelineTree.utils';
+import type { SpanRange, SpanSelector, TraceView } from './useTraceViews';
 
 // Lazy-load jsonpath-plus to avoid top-level import failures
 let JSONPath: ((opts: { path: string; json: unknown }) => unknown[]) | null = null;
@@ -108,32 +109,71 @@ export function applyJsonPathToObject(data: unknown, jsonPath: string | null | u
 }
 
 /**
- * Returns a set of span keys that match the active trace view's span ranges.
- * When no view is active or the view has no ranges, returns null (meaning all spans match).
+ * Checks whether a span falls within a range in tree-order.
+ * For single-span ranges (no to_selector), checks if the span matches from_selector.
+ * For multi-span ranges, checks if the span appears between from and to in the flat node list.
+ */
+export function isSpanInRange(
+  node: ModelTraceSpanNode,
+  flatNodes: ModelTraceSpanNode[],
+  range: SpanRange,
+): boolean {
+  if (!range.to_selector) {
+    return spanMatchesSelector(node, range.from_selector);
+  }
+  let inRange = false;
+  for (const n of flatNodes) {
+    if (spanMatchesSelector(n, range.from_selector)) inRange = true;
+    if (inRange && n.key === node.key) return true;
+    if (spanMatchesSelector(n, range.to_selector) && inRange) break;
+  }
+  return false;
+}
+
+export interface SpanViewRangeInfo {
+  rangeIdx: number;
+  isFirstInRange: boolean;
+}
+
+/**
+ * Returns a set of span keys that match the active trace view's span ranges,
+ * and a map from span key to range info (index, whether it's the first span in range).
+ * When no view is active or the view has no ranges, returns null for both.
  */
 export function useTraceViewSpanMatches(
   allNodes: ModelTraceSpanNode[],
   activeView: TraceView | null,
-): Set<string | number> | null {
+): { matchedKeys: Set<string | number> | null; rangeMap: Map<string | number, SpanViewRangeInfo> | null } {
   return useMemo(() => {
-    if (!activeView?.ranges || activeView.ranges.length === 0) return null;
+    if (!activeView?.ranges || activeView.ranges.length === 0) {
+      return { matchedKeys: null, rangeMap: null };
+    }
 
-    const matches = new Set<string | number>();
+    const matchedKeys = new Set<string | number>();
+    const rangeMap = new Map<string | number, SpanViewRangeInfo>();
+    const flatNodes = getTimelineTreeNodesList(allNodes);
 
-    const walk = (nodes: ModelTraceSpanNode[]) => {
-      for (const node of nodes) {
-        for (const range of activeView.ranges) {
-          if (spanMatchesSelector(node, range.from_selector)) {
-            matches.add(node.key);
-          }
-        }
-        if (node.children) {
-          walk(node.children);
+    // For each range, find the first matching span to mark as isFirstInRange
+    const rangeFirstKeys = new Set<string>();
+    for (let rangeIdx = 0; rangeIdx < activeView.ranges.length; rangeIdx++) {
+      const range = activeView.ranges[rangeIdx];
+      const firstMatch = flatNodes.find((n) => spanMatchesSelector(n, range.from_selector));
+      if (firstMatch) rangeFirstKeys.add(`${rangeIdx}:${firstMatch.key}`);
+    }
+
+    for (const node of flatNodes) {
+      for (let rangeIdx = 0; rangeIdx < activeView.ranges.length; rangeIdx++) {
+        if (isSpanInRange(node, flatNodes, activeView.ranges[rangeIdx])) {
+          matchedKeys.add(node.key);
+          rangeMap.set(node.key, {
+            rangeIdx,
+            isFirstInRange: rangeFirstKeys.has(`${rangeIdx}:${node.key}`),
+          });
+          break;
         }
       }
-    };
+    }
 
-    walk(allNodes);
-    return matches;
+    return { matchedKeys, rangeMap };
   }, [allNodes, activeView]);
 }

@@ -19,18 +19,19 @@ export const ModelTraceExplorerCompactSummaryView = () => {
   const { theme } = useDesignSystemTheme();
   const { rootNode, activeTraceView, topLevelNodes } = useModelTraceExplorerViewState();
   const intermediateNodes = useIntermediateNodes(rootNode);
-  const viewMatchedSpanKeys = useTraceViewSpanMatches(topLevelNodes, activeTraceView);
+  const { matchedKeys: viewMatchedSpanKeys } = useTraceViewSpanMatches(topLevelNodes, activeTraceView);
 
   const rootInputs = rootNode?.inputs;
   const rootOutputs = rootNode?.outputs;
 
+  const firstRange = activeTraceView?.ranges?.[0];
   const filteredInputs = useMemo(
-    () => applyJsonPathToObject(rootInputs, activeTraceView?.input_path),
-    [rootInputs, activeTraceView?.input_path],
+    () => applyJsonPathToObject(rootInputs, firstRange?.input_path),
+    [rootInputs, firstRange?.input_path],
   );
   const filteredOutputs = useMemo(
-    () => applyJsonPathToObject(rootOutputs, activeTraceView?.output_path),
-    [rootOutputs, activeTraceView?.output_path],
+    () => applyJsonPathToObject(rootOutputs, firstRange?.output_path),
+    [rootOutputs, firstRange?.output_path],
   );
 
   const inputList = useMemo(
@@ -68,14 +69,31 @@ export const ModelTraceExplorerCompactSummaryView = () => {
           gap: theme.spacing.md,
         }}
       >
-        <CompactIOCard label="Input" items={inputList} renderMode="default" chatMessageFormat={rootNode.chatMessageFormat} theme={theme} />
-        <CompactIOCard label="Output" items={outputList} renderMode="default" chatMessageFormat={rootNode.chatMessageFormat} theme={theme} assessments={rootNode.assessments} />
+        <CompactIOCard
+          label="Input"
+          items={inputList}
+          renderMode="default"
+          chatMessageFormat={rootNode.chatMessageFormat}
+          theme={theme}
+        />
+        <CompactIOCard
+          label="Output"
+          items={outputList}
+          renderMode="default"
+          chatMessageFormat={rootNode.chatMessageFormat}
+          theme={theme}
+          assessments={rootNode.assessments}
+        />
       </div>
 
       {/* Steps section — only shown when there are intermediate spans */}
       {hasSteps && (
         <div css={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          <Typography.Title level={4} withoutMargins css={{ marginBottom: theme.spacing.sm, color: theme.colors.textSecondary }}>
+          <Typography.Title
+            level={4}
+            withoutMargins
+            css={{ marginBottom: theme.spacing.sm, color: theme.colors.textSecondary }}
+          >
             <FormattedMessage
               defaultMessage="{count, plural, one {# step} other {# steps}}"
               description="Compact summary view steps count header"
@@ -180,13 +198,14 @@ const CompactStepCard = ({
   const { theme } = useDesignSystemTheme();
   const [collapsed, setCollapsed] = useState(false);
 
+  const firstRange = activeTraceView?.ranges?.[0];
   const filteredInputs = useMemo(
-    () => applyJsonPathToObject(node.inputs, activeTraceView?.input_path),
-    [node.inputs, activeTraceView?.input_path],
+    () => applyJsonPathToObject(node.inputs, firstRange?.input_path),
+    [node.inputs, firstRange?.input_path],
   );
   const filteredOutputs = useMemo(
-    () => applyJsonPathToObject(node.outputs, activeTraceView?.output_path),
-    [node.outputs, activeTraceView?.output_path],
+    () => applyJsonPathToObject(node.outputs, firstRange?.output_path),
+    [node.outputs, firstRange?.output_path],
   );
 
   const inputList = useMemo(() => createListFromObject(filteredInputs as any), [filteredInputs]);
@@ -262,7 +281,9 @@ const CompactStepCard = ({
           role="button"
           tabIndex={0}
           onClick={() => setCollapsed(!collapsed)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setCollapsed(!collapsed); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setCollapsed(!collapsed);
+          }}
           css={{
             display: 'flex',
             alignItems: 'center',

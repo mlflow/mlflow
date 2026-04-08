@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import type { SpanRange, SpanSelector } from '../hooks/useTraceViews';
-import { spanMatchesSelector } from '../hooks/useTraceViewFiltering';
+import { isSpanInRange, spanMatchesSelector } from '../hooks/useTraceViewFiltering';
 import { getRangeColor } from './rangeColors';
 
 /**
@@ -14,18 +14,7 @@ const findRangeForSpan = (
   ranges: SpanRange[],
 ): number | null => {
   for (let rangeIdx = 0; rangeIdx < ranges.length; rangeIdx++) {
-    const range = ranges[rangeIdx];
-
-    if (!range.to_selector) {
-      if (spanMatchesSelector(node, range.from_selector)) return rangeIdx;
-    } else {
-      let inRange = false;
-      for (const n of nodes) {
-        if (spanMatchesSelector(n, range.from_selector)) inRange = true;
-        if (inRange && n.key === node.key) return rangeIdx;
-        if (spanMatchesSelector(n, range.to_selector) && inRange) break;
-      }
-    }
+    if (isSpanInRange(node, nodes, ranges[rangeIdx])) return rangeIdx;
   }
   return null;
 };

@@ -5,7 +5,7 @@ import type { getRangeColor } from './rangeColors';
 interface RangeBadgeProps {
   label: string;
   color: ReturnType<typeof getRangeColor>;
-  onDelete: () => void;
+  onDelete?: () => void;
 }
 
 export const RangeBadge = ({ label, color, onDelete }: RangeBadgeProps) => {
@@ -41,18 +41,20 @@ export const RangeBadge = ({ label, color, onDelete }: RangeBadgeProps) => {
       >
         {label}
       </span>
-      <Button
-        componentId="range-badge.delete"
-        type="tertiary"
-        size="small"
-        icon={<CloseIcon />}
-        onClick={(e: React.MouseEvent) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        aria-label="Delete range"
-        css={{ marginLeft: theme.spacing.xs }}
-      />
+      {onDelete && (
+        <Button
+          componentId="range-badge.delete"
+          type="tertiary"
+          size="small"
+          icon={<CloseIcon />}
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          aria-label="Delete range"
+          css={{ marginLeft: theme.spacing.xs }}
+        />
+      )}
     </div>
   );
 };

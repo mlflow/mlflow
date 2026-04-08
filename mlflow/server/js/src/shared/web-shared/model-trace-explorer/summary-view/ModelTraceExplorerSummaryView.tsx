@@ -41,7 +41,7 @@ export const ModelTraceExplorerSummaryView = () => {
   );
 
   const intermediateNodes = useIntermediateNodes(rootNode);
-  const viewMatchedSpanKeys = useTraceViewSpanMatches(topLevelNodes, activeTraceView);
+  const { matchedKeys: viewMatchedSpanKeys } = useTraceViewSpanMatches(topLevelNodes, activeTraceView);
 
   if (!rootNode) {
     return (

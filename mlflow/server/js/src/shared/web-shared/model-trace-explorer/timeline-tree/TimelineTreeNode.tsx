@@ -23,6 +23,8 @@ import { useGatewayTraceLink } from '../hooks/useGatewayTraceLink';
 import { Link } from '../RoutingUtils';
 import type { SpanEditState, SpanRangeSelectionResult } from '../edit-mode/useSpanRangeSelection';
 import type { SpanRange } from '../hooks/useTraceViews';
+import type { SpanViewRangeInfo } from '../hooks/useTraceViewFiltering';
+import { getRangeColor } from '../edit-mode/rangeColors';
 import { RangeBadge } from '../edit-mode/RangeBadge';
 import { JsonFieldSelector } from '../edit-mode/JsonFieldSelector';
 
@@ -43,6 +45,8 @@ export const TimelineTreeNode = ({
   onSelect,
   linesToRender,
   viewMatchedSpanKeys,
+  viewRangeMap,
+  viewRanges,
   editModeProps,
 }: {
   node: ModelTraceSpanNode;
@@ -60,6 +64,11 @@ export const TimelineTreeNode = ({
   // of spans that match the filter. Spans not in the set are visually dimmed.
   // null means no filter is active (all spans shown normally).
   viewMatchedSpanKeys?: Set<string | number> | null;
+  // Per-span range info for the active view (range index, isFirst). Used to
+  // render range badges and colored borders when viewing a saved trace view.
+  viewRangeMap?: Map<string | number, SpanViewRangeInfo> | null;
+  // The ranges from the active trace view, used alongside viewRangeMap for labels.
+  viewRanges?: SpanRange[] | null;
   editModeProps?: TimelineTreeEditModeProps;
 }) => {
   const expanded = expandedKeys.has(node.key);
@@ -80,25 +89,40 @@ export const TimelineTreeNode = ({
   const editState: SpanEditState | null =
     editModeProps && flatIndex !== undefined ? editModeProps.selection.getNodeEditState(flatIndex) : null;
 
+  // View mode range state (when viewing a saved trace view, not editing)
+  const viewRangeInfo = viewRangeMap?.get(node.key) ?? null;
+  const viewRangeColor = viewRangeInfo ? getRangeColor(viewRangeInfo.rangeIdx) : null;
+
   const isDimmedByView = editState
     ? editState.isDimmed
     : viewMatchedSpanKeys != null && !viewMatchedSpanKeys.has(node.key);
 
   const editRangeColor = editState?.inRange ? editState.color : null;
+  const activeRangeColor = editRangeColor ?? viewRangeColor;
   const editDragHighlight = editState?.inDrag ? 'rgba(59, 130, 246, 0.08)' : null;
 
   const backgroundColor = editDragHighlight
-    ?? (editRangeColor ? editRangeColor.background : null)
+    ?? (activeRangeColor ? activeRangeColor.background : null)
     ?? (isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent');
 
   return (
     <>
+      {/* Edit mode badge */}
       {editModeProps && editState?.isFirstInRange && editState.rangeIdx !== undefined && editState.color && (
         <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.sm}px` }}>
           <RangeBadge
             label={editModeProps.ranges[editState.rangeIdx].label}
             color={editState.color}
             onDelete={() => editModeProps.onRemoveRange(editState.rangeIdx as number)}
+          />
+        </div>
+      )}
+      {/* View mode badge */}
+      {!editModeProps && viewRangeInfo?.isFirstInRange && viewRangeColor && viewRanges && (
+        <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.sm}px` }}>
+          <RangeBadge
+            label={viewRanges[viewRangeInfo.rangeIdx].label}
+            color={viewRangeColor}
           />
         </div>
       )}
@@ -112,7 +136,7 @@ export const TimelineTreeNode = ({
             cursor: 'pointer',
             boxSizing: 'border-box',
             backgroundColor,
-            borderLeft: editRangeColor ? `3px solid ${editRangeColor.primary}` : '3px solid transparent',
+            borderLeft: activeRangeColor ? `3px solid ${activeRangeColor.primary}` : '3px solid transparent',
             opacity: isDimmedByView ? 0.3 : 1,
             transition: 'opacity 150ms ease, background-color 150ms ease',
             ':hover': {
@@ -316,6 +340,8 @@ export const TimelineTreeNode = ({
             traceEndTime={traceEndTime}
             onSelect={onSelect}
             viewMatchedSpanKeys={viewMatchedSpanKeys}
+            viewRangeMap={viewRangeMap}
+            viewRanges={viewRanges}
             editModeProps={editModeProps}
             linesToRender={linesToRender.concat({
               // render the connecting line at this depth
