@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
@@ -16,6 +18,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const { objectUrl, isLoading, error } = useTraceAttachment({ traceId, attachmentId, contentType });
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   if (error) {
     return (
@@ -43,8 +46,39 @@ export const ModelTraceExplorerAttachmentRenderer = ({
         <img
           src={objectUrl}
           alt={`Attachment ${attachmentId}`}
-          css={{ maxWidth: '100%', maxHeight: 400, borderRadius: theme.borders.borderRadiusSm }}
+          css={{
+            maxWidth: '100%',
+            maxHeight: 200,
+            borderRadius: theme.borders.borderRadiusSm,
+            cursor: 'pointer',
+            '&:hover': { boxShadow: `0 0 4px ${theme.colors.border}` },
+          }}
+          onClick={() => setPreviewVisible(true)}
         />
+        {previewVisible && (
+          <div
+            css={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            onClick={() => setPreviewVisible(false)}
+          >
+            <img
+              src={objectUrl}
+              alt={`Attachment ${attachmentId}`}
+              css={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 4 }}
+            />
+          </div>
+        )}
       </div>
     );
   }

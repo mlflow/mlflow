@@ -25,6 +25,45 @@ import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallM
 import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
+function ClickToExpandImage({ src, alt }: { src: string; alt?: string }) {
+  const [previewVisible, setPreviewVisible] = useState(false);
+  return (
+    <>
+      <img
+        src={src}
+        alt={alt}
+        css={{
+          maxWidth: '100%',
+          maxHeight: 200,
+          cursor: 'pointer',
+          '&:hover': { boxShadow: '0 0 4px gray' },
+        }}
+        onClick={() => setPreviewVisible(true)}
+      />
+      {previewVisible && (
+        <div
+          css={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+          onClick={() => setPreviewVisible(false)}
+        >
+          <img src={src} alt={alt} css={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 4 }} />
+        </div>
+      )}
+    </>
+  );
+}
+
 function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
   const { url, loading, error } = useAttachmentUrl(src ?? null);
   if (loading) {
@@ -33,12 +72,15 @@ function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
   if (error || !url) {
     return <span>{`[${alt ?? 'Failed to load image'}]`}</span>;
   }
-  return <img src={url} alt={alt} css={{ maxWidth: '100%' }} />;
+  return <ClickToExpandImage src={url} alt={alt} />;
 }
 
 const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }) => {
   if (src && isAttachmentUri(src)) {
     return <AttachmentImage src={src} alt={alt} />;
+  }
+  if (src) {
+    return <ClickToExpandImage src={src} alt={alt} />;
   }
   return <img src={src} alt={alt} css={{ maxWidth: '100%' }} />;
 };
