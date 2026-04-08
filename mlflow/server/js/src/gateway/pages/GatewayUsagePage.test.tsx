@@ -183,9 +183,7 @@ describe('GatewayUsagePage', () => {
 
       expect(screen.getByText('No usage data available')).toBeInTheDocument();
       expect(
-        screen.getByText(
-          'Once you have endpoints with usage tracking enabled, usage metrics will appear here.',
-        ),
+        screen.getByText('Once you have endpoints with usage tracking enabled, usage metrics will appear here.'),
       ).toBeInTheDocument();
     });
 
