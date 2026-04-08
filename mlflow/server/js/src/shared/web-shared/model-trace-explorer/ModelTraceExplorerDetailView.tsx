@@ -24,6 +24,8 @@ import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateCon
 import { useModelTraceSearch } from './hooks/useModelTraceSearch';
 import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from './right-pane/ModelTraceExplorerRightPaneTabs';
 import { TimelineTree } from './timeline-tree/TimelineTree';
+import { TraceViewEditToolbar } from './edit-mode/TraceViewEditToolbar';
+import { useCreateTraceView, useUpdateTraceView } from './hooks/useTraceViewMutations';
 import {
   DEFAULT_EXPAND_DEPTH,
   getModelTraceSpanNodeDepth,
@@ -99,7 +101,23 @@ export const ModelTraceExplorerDetailView = ({
     topLevelNodes,
     activeTraceView,
     setActiveTraceView,
+    editMode,
   } = useModelTraceExplorerViewState();
+
+  const traceId = rootNode?.traceId ?? '';
+  const createMutation = useCreateTraceView(traceId);
+  const updateMutation = useUpdateTraceView(traceId);
+
+  const handleEditSave = useCallback(async () => {
+    if (!editMode.draftView) return;
+    const { view_id, name, ranges } = editMode.draftView;
+    if (view_id) {
+      await updateMutation.mutateAsync({ viewId: view_id, name, ranges });
+    } else {
+      await createMutation.mutateAsync({ name, ranges });
+    }
+    editMode.exitEditMode();
+  }, [editMode, createMutation, updateMutation]);
 
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
   const workflowLayout = useMemo(
@@ -450,6 +468,16 @@ export const ModelTraceExplorerDetailView = ({
                 overflow: 'auto',
               }}
             >
+              {editMode.isEditMode && editMode.draftView && (
+                <TraceViewEditToolbar
+                  name={editMode.draftView.name}
+                  onNameChange={editMode.setName}
+                  ranges={editMode.draftView.ranges}
+                  onCancel={editMode.exitEditMode}
+                  onSave={handleEditSave}
+                  isSaving={createMutation.isLoading || updateMutation.isLoading}
+                />
+              )}
               <TimelineTree
                 rootNodes={filteredTreeNodes}
                 selectedNode={selectedNode}
@@ -466,8 +494,8 @@ export const ModelTraceExplorerDetailView = ({
               />
             </div>
 
-            {/* Graph is secondary — below the tree */}
-            {hasGraph && (
+            {/* Graph is secondary — below the tree, hidden in edit mode */}
+            {hasGraph && !editMode.isEditMode && (
               <>
                 <GraphViewSpanNavigator
                   selectedWorkflowNode={navigatorNode}

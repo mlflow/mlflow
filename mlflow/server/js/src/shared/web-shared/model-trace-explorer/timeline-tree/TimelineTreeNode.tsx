@@ -1,11 +1,13 @@
 import {
   Button,
+  Checkbox,
   Typography,
   useDesignSystemTheme,
   ChevronDownIcon,
   ChevronRightIcon,
   Tag,
   GavelIcon,
+  GearIcon,
   LinkIcon,
   Tooltip,
 } from '@databricks/design-system';
@@ -19,6 +21,17 @@ import { getSpanExceptionCount } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useGatewayTraceLink } from '../hooks/useGatewayTraceLink';
 import { Link } from '../RoutingUtils';
+import type { SpanEditState, SpanRangeSelectionResult } from '../edit-mode/useSpanRangeSelection';
+import type { SpanRange } from '../hooks/useTraceViews';
+import { RangeBadge } from '../edit-mode/RangeBadge';
+import { JsonFieldSelector } from '../edit-mode/JsonFieldSelector';
+
+export interface TimelineTreeEditModeProps {
+  selection: SpanRangeSelectionResult;
+  ranges: SpanRange[];
+  onRemoveRange: (index: number) => void;
+  onUpdateRange: (index: number, updates: Partial<SpanRange>) => void;
+}
 
 export const TimelineTreeNode = ({
   node,
@@ -30,6 +43,7 @@ export const TimelineTreeNode = ({
   onSelect,
   linesToRender,
   viewMatchedSpanKeys,
+  editModeProps,
 }: {
   node: ModelTraceSpanNode;
   selectedKey: string | number;
@@ -46,6 +60,7 @@ export const TimelineTreeNode = ({
   // of spans that match the filter. Spans not in the set are visually dimmed.
   // null means no filter is active (all spans shown normally).
   viewMatchedSpanKeys?: Set<string | number> | null;
+  editModeProps?: TimelineTreeEditModeProps;
 }) => {
   const expanded = expandedKeys.has(node.key);
   const { theme } = useDesignSystemTheme();
@@ -60,11 +75,33 @@ export const TimelineTreeNode = ({
   const hasException = getSpanExceptionCount(node) > 0;
   const gatewayTraceHref = useGatewayTraceLink(node.linkedGatewayTraceId);
 
-  const isDimmedByView = viewMatchedSpanKeys != null && !viewMatchedSpanKeys.has(node.key);
-  const backgroundColor = isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent';
+  // Edit mode state
+  const flatIndex = editModeProps?.selection.spanKeyToFlatIndex.get(String(node.key));
+  const editState: SpanEditState | null =
+    editModeProps && flatIndex !== undefined ? editModeProps.selection.getNodeEditState(flatIndex) : null;
+
+  const isDimmedByView = editState
+    ? editState.isDimmed
+    : viewMatchedSpanKeys != null && !viewMatchedSpanKeys.has(node.key);
+
+  const editRangeColor = editState?.inRange ? editState.color : null;
+  const editDragHighlight = editState?.inDrag ? 'rgba(59, 130, 246, 0.08)' : null;
+
+  const backgroundColor = editDragHighlight
+    ?? (editRangeColor ? editRangeColor.background : null)
+    ?? (isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent');
 
   return (
     <>
+      {editModeProps && editState?.isFirstInRange && editState.rangeIdx !== undefined && editState.color && (
+        <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.sm}px` }}>
+          <RangeBadge
+            label={editModeProps.ranges[editState.rangeIdx].label}
+            color={editState.color}
+            onDelete={() => editModeProps.onRemoveRange(editState.rangeIdx as number)}
+          />
+        </div>
+      )}
       <TimelineTreeSpanTooltip span={node}>
         <div
           data-testid={`timeline-tree-node-${node.key}`}
@@ -75,8 +112,9 @@ export const TimelineTreeNode = ({
             cursor: 'pointer',
             boxSizing: 'border-box',
             backgroundColor,
+            borderLeft: editRangeColor ? `3px solid ${editRangeColor.primary}` : '3px solid transparent',
             opacity: isDimmedByView ? 0.3 : 1,
-            transition: 'opacity 150ms ease',
+            transition: 'opacity 150ms ease, background-color 150ms ease',
             ':hover': {
               backgroundColor: theme.colors.actionDefaultBackgroundHover,
             },
@@ -87,6 +125,8 @@ export const TimelineTreeNode = ({
           onClick={() => {
             onSelect?.(node);
           }}
+          onPointerDown={editModeProps && flatIndex !== undefined ? () => editModeProps.selection.handlePointerDown(flatIndex) : undefined}
+          onPointerMove={editModeProps && flatIndex !== undefined ? () => editModeProps.selection.handlePointerMove(flatIndex) : undefined}
         >
           <div
             css={{
@@ -101,6 +141,18 @@ export const TimelineTreeNode = ({
             }}
           >
             <div css={{ display: 'flex', flexDirection: 'row', alignItems: 'center', overflow: 'hidden', flex: 1 }}>
+              {editModeProps && flatIndex !== undefined && (
+                <Checkbox
+                  componentId={`timeline-tree-node.edit-checkbox-${node.key}`}
+                  isChecked={editState?.inRange ?? false}
+                  onChange={() => {
+                    editModeProps.selection.handleCheckboxClick(flatIndex);
+                  }}
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  aria-label={`Select ${node.title}`}
+                  css={{ flexShrink: 0, marginRight: theme.spacing.xs }}
+                />
+              )}
               {hasChildren ? (
                 <Button
                   size="small"
@@ -193,10 +245,65 @@ export const TimelineTreeNode = ({
                   <Typography.Text css={{ marginLeft: theme.spacing.xs }}>{node.assessments.length}</Typography.Text>
                 </Tag>
               )}
+              {editModeProps && editState?.inRange && (
+                <Button
+                  componentId={`timeline-tree-node.gear-${node.key}`}
+                  type="tertiary"
+                  size="small"
+                  icon={<GearIcon />}
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    editModeProps.selection.toggleExpandedSpan(String(node.key));
+                  }}
+                  aria-label="Configure JSON fields"
+                  css={{ flexShrink: 0, marginLeft: theme.spacing.xs }}
+                />
+              )}
             </div>
           </div>
         </div>
       </TimelineTreeSpanTooltip>
+      {editModeProps && editModeProps.selection.expandedSpanId === String(node.key) && editState?.inRange && editState.rangeIdx !== undefined && (
+        <div
+          css={{
+            marginLeft: theme.spacing.lg + theme.spacing.md,
+            marginRight: theme.spacing.sm,
+            padding: theme.spacing.sm,
+            backgroundColor: theme.colors.backgroundPrimary,
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusMd,
+            marginBottom: theme.spacing.xs,
+          }}
+        >
+          <div
+            css={{
+              color: theme.colors.textSecondary,
+              fontSize: theme.typography.fontSizeSm,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            These paths apply to all spans in this range
+          </div>
+          <div css={{ display: 'flex', gap: theme.spacing.md }}>
+            <div css={{ flex: 1 }}>
+              <JsonFieldSelector
+                data={node.inputs}
+                selectedPath={editModeProps.ranges[editState.rangeIdx].input_path ?? null}
+                onPathChange={(path) => editModeProps.onUpdateRange(editState.rangeIdx as number, { input_path: path })}
+                label="Input Fields"
+              />
+            </div>
+            <div css={{ flex: 1 }}>
+              <JsonFieldSelector
+                data={node.outputs}
+                selectedPath={editModeProps.ranges[editState.rangeIdx].output_path ?? null}
+                onPathChange={(path) => editModeProps.onUpdateRange(editState.rangeIdx as number, { output_path: path })}
+                label="Output Fields"
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {expanded &&
         node.children?.map((child, idx) => (
           <TimelineTreeNode
@@ -209,6 +316,7 @@ export const TimelineTreeNode = ({
             traceEndTime={traceEndTime}
             onSelect={onSelect}
             viewMatchedSpanKeys={viewMatchedSpanKeys}
+            editModeProps={editModeProps}
             linesToRender={linesToRender.concat({
               // render the connecting line at this depth
               // if there are more children to render

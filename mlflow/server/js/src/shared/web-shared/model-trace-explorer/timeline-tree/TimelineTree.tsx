@@ -6,10 +6,12 @@ import { FormattedMessage } from '@databricks/i18n';
 import { getTimelineTreeExpandedNodesList } from './TimelineTree.utils';
 import { TimelineTreeHeader } from './TimelineTreeHeader';
 import { TimelineTreeNode } from './TimelineTreeNode';
+import type { TimelineTreeEditModeProps } from './TimelineTreeNode';
 import { TimelineTreeGanttBars } from './gantt/TimelineTreeGanttBars';
 import type { ModelTraceSpanNode, SpanFilterState } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useTraceViewSpanMatches } from '../hooks/useTraceViewFiltering';
+import { useSpanRangeSelection } from '../edit-mode/useSpanRangeSelection';
 
 export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: NodeType[] }>({
   rootNodes,
@@ -54,6 +56,7 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
     showTimelineTreeGantt: showTimelineInfo,
     setShowTimelineTreeGantt: setShowTimelineInfo,
     activeTraceView,
+    editMode,
   } = useModelTraceExplorerViewState();
 
   const viewMatchedSpanKeys = useTraceViewSpanMatches(rootNodes, activeTraceView);
@@ -61,6 +64,28 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
   const expandedNodesList = useMemo(
     () => getTimelineTreeExpandedNodesList(rootNodes, expandedKeys),
     [rootNodes, expandedKeys],
+  );
+
+  // Edit mode: selection hook operates on the flat expanded node list
+  const draftRanges = editMode.draftView?.ranges ?? [];
+  const selection = useSpanRangeSelection(
+    expandedNodesList,
+    draftRanges,
+    editMode.addRange,
+    editMode.removeRange,
+  );
+
+  const editModePropsForNode: TimelineTreeEditModeProps | undefined = useMemo(
+    () =>
+      editMode.isEditMode && editMode.draftView
+        ? {
+            selection,
+            ranges: editMode.draftView.ranges,
+            onRemoveRange: editMode.removeRange,
+            onUpdateRange: editMode.updateRange,
+          }
+        : undefined,
+    [editMode.isEditMode, editMode.draftView, editMode.removeRange, editMode.updateRange, selection],
   );
 
   const treeElement = useMemo(
@@ -73,7 +98,10 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
+          userSelect: editModePropsForNode ? 'none' : undefined,
         }}
+        onPointerUp={editModePropsForNode ? selection.handlePointerUp : undefined}
+        onPointerLeave={editModePropsForNode ? selection.handlePointerUp : undefined}
       >
         {showTimelineInfo ? (
           <TimelineTreeGanttBars
@@ -96,7 +124,8 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
               traceStartTime={traceStartTime}
               traceEndTime={traceEndTime}
               onSelect={onSpanClick}
-              viewMatchedSpanKeys={viewMatchedSpanKeys}
+              viewMatchedSpanKeys={editModePropsForNode ? undefined : viewMatchedSpanKeys}
+              editModeProps={editModePropsForNode}
               linesToRender={[]}
             />
           ))
@@ -114,6 +143,8 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
       expandedKeys,
       setExpandedKeys,
       viewMatchedSpanKeys,
+      editModePropsForNode,
+      selection,
     ],
   );
 
