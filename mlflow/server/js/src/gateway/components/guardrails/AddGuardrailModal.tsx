@@ -1,52 +1,66 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Button,
   Input,
   Modal,
-  Spinner,
   Typography,
   useDesignSystemTheme,
   SparkleDoubleIcon,
   GearIcon,
-  SearchIcon,
+  ChevronLeftIcon,
+  CheckCircleIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAddGuardrail } from '../../hooks/useAddGuardrail';
 import { GatewayApi } from '../../api';
 import type { GatewayGuardrailConfig, GuardrailStage, GuardrailAction } from '../../types';
 
-// ─── Builtin scorer definitions ─────────────────────────────────────────────
+// ─── Guardrail type definitions ─────────────────────────────────────────────
 
-interface BuiltinScorer {
+interface GuardrailType {
+  id: string;
   name: string;
   description: string;
+  icon: React.ReactNode;
+  builtin: boolean;
 }
 
-const BUILTIN_SCORERS: BuiltinScorer[] = [
-  { name: 'Safety', description: "Does the app's response avoid harmful or toxic content?" },
+const GUARDRAIL_TYPES: GuardrailType[] = [
+  {
+    id: 'safety',
+    name: 'Safety',
+    description: 'Detects harmful, offensive, or toxic content in requests and responses.',
+    icon: <SparkleDoubleIcon />,
+    builtin: true,
+  },
+  {
+    id: 'custom',
+    name: 'Custom Guardrail',
+    description: 'Define your own guardrail with a custom name and description.',
+    icon: <GearIcon />,
+    builtin: false,
+  },
 ];
 
-// ─── Registered scorer item ─────────────────────────────────────────────────
+// ─── Shared select styles ───────────────────────────────────────────────────
 
-interface RegisteredScorer {
-  scorer_id: string;
-  scorer_name: string;
-  scorer_version: number;
-  experiment_id: number;
-}
+const useSelectStyles = () => {
+  const { theme } = useDesignSystemTheme();
+  return {
+    padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+    borderRadius: theme.borders.borderRadiusMd,
+    border: `1px solid ${theme.colors.border}`,
+    backgroundColor: theme.colors.backgroundPrimary,
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.fontSizeBase,
+    cursor: 'pointer',
+    width: '100%',
+  } as const;
+};
 
-// ─── Scorer row ─────────────────────────────────────────────────────────────
+// ─── Type card ──────────────────────────────────────────────────────────────
 
-interface ScorerRowProps {
-  icon: React.ReactNode;
-  name: string;
-  description: string;
-  badge?: string;
-  selected: boolean;
-  onClick: () => void;
-}
-
-export const ScorerRow = ({ icon, name, description, badge, selected, onClick }: ScorerRowProps) => {
+const TypeCard = ({ type, selected, onClick }: { type: GuardrailType; selected: boolean; onClick: () => void }) => {
   const { theme } = useDesignSystemTheme();
   return (
     <div
@@ -57,31 +71,83 @@ export const ScorerRow = ({ icon, name, description, badge, selected, onClick }:
       tabIndex={0}
       css={{
         display: 'flex',
-        alignItems: 'center',
-        padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+        alignItems: 'flex-start',
+        gap: theme.spacing.sm,
+        padding: theme.spacing.md,
+        borderRadius: theme.borders.borderRadiusMd,
+        border: `2px solid ${selected ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.borderDecorative}`,
         cursor: 'pointer',
-        borderBottom: `1px solid ${theme.colors.borderDecorative}`,
-        backgroundColor: selected ? theme.colors.actionTertiaryBackgroundHover : 'transparent',
+        backgroundColor: selected ? `${theme.colors.actionPrimaryBackgroundDefault}08` : 'transparent',
         '&:hover': {
-          backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+          borderColor: theme.colors.actionPrimaryBackgroundDefault,
         },
+        transition: 'border-color 0.15s, background-color 0.15s',
       }}
     >
-      <div css={{ marginRight: theme.spacing.sm, color: theme.colors.textSecondary, display: 'flex' }}>{icon}</div>
+      <div css={{ color: theme.colors.textSecondary, fontSize: 20, flexShrink: 0, marginTop: 2 }}>{type.icon}</div>
       <div css={{ flex: 1, minWidth: 0 }}>
-        <Typography.Text bold>{name}</Typography.Text>
+        <Typography.Text bold>{type.name}</Typography.Text>
         <Typography.Text color="secondary" css={{ display: 'block', fontSize: theme.typography.fontSizeSm }}>
-          {description}
+          {type.description}
         </Typography.Text>
       </div>
-      {badge && (
-        <Typography.Text
-          color="secondary"
-          css={{ fontSize: theme.typography.fontSizeSm, textTransform: 'uppercase', flexShrink: 0 }}
+    </div>
+  );
+};
+
+// ─── Step indicator ─────────────────────────────────────────────────────────
+
+const StepIndicator = ({ step }: { step: 1 | 2 }) => {
+  const { theme } = useDesignSystemTheme();
+  const activeColor = theme.colors.actionPrimaryBackgroundDefault;
+  const inactiveColor = theme.colors.textSecondary;
+
+  return (
+    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginBottom: theme.spacing.lg }}>
+      {step === 2 ? (
+        <CheckCircleIcon css={{ color: activeColor }} />
+      ) : (
+        <div
+          css={{
+            width: 24,
+            height: 24,
+            borderRadius: '50%',
+            backgroundColor: activeColor,
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 12,
+            fontWeight: 'bold',
+          }}
         >
-          {badge}
-        </Typography.Text>
+          1
+        </div>
       )}
+      <Typography.Text bold color={step >= 1 ? undefined : 'secondary'}>
+        <FormattedMessage defaultMessage="Guardrail Type" description="Step 1 label" />
+      </Typography.Text>
+      <div css={{ flex: 1, height: 2, backgroundColor: step === 2 ? activeColor : theme.colors.borderDecorative }} />
+      <div
+        css={{
+          width: 24,
+          height: 24,
+          borderRadius: '50%',
+          backgroundColor: step === 2 ? activeColor : 'transparent',
+          border: step === 2 ? 'none' : `2px solid ${inactiveColor}`,
+          color: step === 2 ? '#fff' : inactiveColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 12,
+          fontWeight: 'bold',
+        }}
+      >
+        2
+      </div>
+      <Typography.Text bold color={step === 2 ? undefined : 'secondary'}>
+        <FormattedMessage defaultMessage="Configuration" description="Step 2 label" />
+      </Typography.Text>
     </div>
   );
 };
@@ -104,95 +170,78 @@ export interface GuardrailModalProps {
 export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experimentId }: GuardrailModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const selectStyles = useSelectStyles();
   const { mutateAsync: createGuardrail } = useAddGuardrail();
 
+  // Wizard state
+  const [step, setStep] = useState<1 | 2>(1);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+
+  // Configuration state (step 2)
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [stage, setStage] = useState<GuardrailStage>('BEFORE');
   const [action, setAction] = useState<GuardrailAction>('VALIDATION');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedScorer, setSelectedScorer] = useState<string | null>(null);
-  const [registeredScorers, setRegisteredScorers] = useState<RegisteredScorer[]>([]);
-  const [isLoadingScorers, setIsLoadingScorers] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch registered scorers when modal opens
-  const fetchRegisteredScorers = useCallback(async () => {
-    if (!experimentId) return;
-    setIsLoadingScorers(true);
-    try {
-      const response = await fetch(
-        `/ajax-api/3.0/mlflow/scorers/list?experiment_id=${encodeURIComponent(experimentId)}`,
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setRegisteredScorers(data.scorers ?? []);
-      }
-    } catch {
-      // Silently fail - registered scorers are optional
-    } finally {
-      setIsLoadingScorers(false);
-    }
-  }, [experimentId]);
-
-  // Reset and fetch when modal opens
+  // Reset on open
   useEffect(() => {
     if (open) {
-      setSearchQuery('');
-      setSelectedScorer(null);
+      setStep(1);
+      setSelectedType(null);
+      setName('');
+      setDescription('');
+      setStage('BEFORE');
+      setAction('VALIDATION');
       setError(null);
-      fetchRegisteredScorers();
     }
-  }, [open, fetchRegisteredScorers]);
+  }, [open]);
 
-  // Filter by search
-  const filteredBuiltins = useMemo(() => {
-    const q = searchQuery.toLowerCase();
-    if (!q) return BUILTIN_SCORERS;
-    return BUILTIN_SCORERS.filter((s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
-  }, [searchQuery]);
+  // Pre-fill when moving to step 2
+  const handleNext = useCallback(() => {
+    if (!selectedType) return;
+    const type = GUARDRAIL_TYPES.find((t) => t.id === selectedType);
+    if (type?.builtin) {
+      setName(type.name);
+      setDescription(type.description);
+    } else {
+      setName('');
+      setDescription('');
+    }
+    setStep(2);
+  }, [selectedType]);
 
-  const filteredRegistered = useMemo(() => {
-    const q = searchQuery.toLowerCase();
-    if (!q) return registeredScorers;
-    return registeredScorers.filter((s) => s.scorer_name.toLowerCase().includes(q));
-  }, [searchQuery, registeredScorers]);
+  const handleBack = useCallback(() => {
+    setStep(1);
+    setError(null);
+  }, []);
 
-  // Submit: register scorer if builtin, create guardrail, then add to endpoint
-  const handleAdd = useCallback(async () => {
-    if (!selectedScorer) return;
+  // Submit
+  const handleCreate = useCallback(async () => {
+    if (!name.trim()) return;
     setIsSubmitting(true);
     setError(null);
     try {
-      const registered = registeredScorers.find((s) => s.scorer_id === selectedScorer);
-      let scorerId: string;
-      let scorerVersion: number;
-      let guardrailName: string;
+      const { registerScorer } = await import('../../../experiment-tracking/pages/experiment-scorers/api');
+      const type = GUARDRAIL_TYPES.find((t) => t.id === selectedType);
 
-      if (registered) {
-        scorerId = registered.scorer_id;
-        scorerVersion = registered.scorer_version;
-        guardrailName = registered.scorer_name;
-      } else {
-        // Builtin scorer — register it first to get a scorer_id + version
-        const { registerScorer } = await import('../../../experiment-tracking/pages/experiment-scorers/api');
-        const builtinName = selectedScorer.toLowerCase();
-        const result = await registerScorer(experimentId ?? '0', {
-          name: builtinName,
-          serialized_scorer: JSON.stringify({
-            name: builtinName,
-            builtin_scorer_class: selectedScorer,
-          }),
-        } as any);
-        scorerId = result.scorer_id;
-        scorerVersion = result.version;
-        guardrailName = selectedScorer;
-      }
+      // Register the scorer
+      const scorerName = name.trim().toLowerCase();
+      const serializedScorer = type?.builtin
+        ? { name: scorerName, builtin_scorer_class: type.name }
+        : { name: scorerName, call_source: description.trim() };
+
+      const registered = await registerScorer(experimentId ?? '0', {
+        name: scorerName,
+        serialized_scorer: JSON.stringify(serializedScorer),
+      } as any);
 
       // Create the guardrail
       const createResponse = await createGuardrail({
-        name: guardrailName,
-        scorer_id: scorerId,
-        scorer_version: scorerVersion,
+        name: name.trim(),
+        scorer_id: registered.scorer_id,
+        scorer_version: registered.version,
         stage,
         action,
       });
@@ -206,11 +255,13 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
       onSuccess();
       onClose();
     } catch (e: any) {
-      setError(e?.message ?? 'Failed to add guardrail');
+      setError(e?.message ?? 'Failed to create guardrail');
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedScorer, registeredScorers, stage, action, endpointId, experimentId, createGuardrail, onSuccess, onClose]);
+  }, [name, description, selectedType, stage, action, endpointId, experimentId, createGuardrail, onSuccess, onClose]);
+
+  const isStep2Valid = name.trim().length > 0;
 
   return (
     <Modal
@@ -218,164 +269,233 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
       title={intl.formatMessage({ defaultMessage: 'Add Guardrail', description: 'Title for add guardrail modal' })}
       visible={open}
       onCancel={onClose}
-      onOk={handleAdd}
       size="wide"
       footer={
-        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
-          <Button componentId="mlflow.gateway.guardrails.cancel" onClick={onClose}>
-            <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
-          </Button>
-          <Button
-            componentId="mlflow.gateway.guardrails.add"
-            type="primary"
-            onClick={handleAdd}
-            loading={isSubmitting}
-            disabled={!selectedScorer || isSubmitting}
-          >
-            <FormattedMessage defaultMessage="Add" description="Add guardrail button" />
-          </Button>
-        </div>
+        step === 1 ? (
+          <div css={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+            <Button componentId="mlflow.gateway.guardrails.cancel" onClick={onClose}>
+              <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
+            </Button>
+            <Button
+              componentId="mlflow.gateway.guardrails.next"
+              type="primary"
+              disabled={!selectedType}
+              onClick={handleNext}
+            >
+              <FormattedMessage defaultMessage="Next" description="Next step button" />
+            </Button>
+          </div>
+        ) : (
+          <div css={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+            <Button
+              componentId="mlflow.gateway.guardrails.back"
+              type="tertiary"
+              icon={<ChevronLeftIcon />}
+              onClick={handleBack}
+            >
+              <FormattedMessage defaultMessage="Back" description="Back button" />
+            </Button>
+            <Button
+              componentId="mlflow.gateway.guardrails.create"
+              type="primary"
+              onClick={handleCreate}
+              loading={isSubmitting}
+              disabled={!isStep2Valid || isSubmitting}
+            >
+              <FormattedMessage defaultMessage="Create Guardrail" description="Create guardrail button" />
+            </Button>
+          </div>
+        )
       }
     >
-      {/* Search */}
-      <Input
-        componentId="mlflow.gateway.guardrails.search"
-        prefix={<SearchIcon />}
-        placeholder={intl.formatMessage({
-          defaultMessage: 'Search guardrails...',
-          description: 'Search placeholder in add guardrail modal',
-        })}
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        css={{ marginBottom: theme.spacing.md }}
-      />
+      <StepIndicator step={step} />
 
-      {/* Scorer list */}
-      <div
-        role="listbox"
-        css={{
-          border: `1px solid ${theme.colors.border}`,
-          borderRadius: theme.borders.borderRadiusMd,
-          maxHeight: 400,
-          overflowY: 'auto',
-        }}
-      >
-        {isLoadingScorers && (
-          <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.lg }}>
-            <Spinner />
-          </div>
-        )}
-
-        {/* Builtin scorers */}
-        {filteredBuiltins.map((scorer) => (
-          <ScorerRow
-            key={scorer.name}
-            icon={<SparkleDoubleIcon />}
-            name={scorer.name}
-            description={scorer.description}
-            badge="BUILTIN"
-            selected={selectedScorer === scorer.name}
-            onClick={() => setSelectedScorer(scorer.name)}
-          />
-        ))}
-
-        {/* Registered scorers */}
-        {filteredRegistered.map((scorer) => (
-          <ScorerRow
-            key={scorer.scorer_id}
-            icon={<GearIcon />}
-            name={scorer.scorer_name}
-            description={`v${scorer.scorer_version} \u00B7 experiment ${scorer.experiment_id}`}
-            badge="REGISTERED"
-            selected={selectedScorer === scorer.scorer_id}
-            onClick={() => setSelectedScorer(scorer.scorer_id)}
-          />
-        ))}
-
-        {!isLoadingScorers && filteredBuiltins.length === 0 && filteredRegistered.length === 0 && (
-          <div css={{ padding: theme.spacing.lg, textAlign: 'center' }}>
-            <Typography.Text color="secondary">
-              <FormattedMessage
-                defaultMessage="No scorers found matching your search."
-                description="Empty state for scorer search in guardrail modal"
-              />
-            </Typography.Text>
-          </div>
-        )}
-      </div>
-
-      {/* Stage and Action selectors */}
-      <div css={{ display: 'flex', gap: theme.spacing.lg, marginTop: theme.spacing.md }}>
-        <div>
-          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+      {step === 1 && (
+        <>
+          <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
             <FormattedMessage
-              defaultMessage="When the guardrail runs"
-              description="Label for guardrail stage selector"
+              defaultMessage="Select the type of guardrail you want to add."
+              description="Step 1 subtitle"
             />
           </Typography.Text>
-          <select
-            id="guardrail-stage-select"
-            value={stage}
-            onChange={(e) => setStage(e.target.value as GuardrailStage)}
+          <div
             css={{
-              padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-              borderRadius: theme.borders.borderRadiusMd,
-              border: `1px solid ${theme.colors.border}`,
-              backgroundColor: theme.colors.backgroundPrimary,
-              color: theme.colors.textPrimary,
-              fontSize: theme.typography.fontSizeBase,
-              cursor: 'pointer',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: theme.spacing.md,
             }}
           >
-            <option value="BEFORE">Before LLM</option>
-            <option value="AFTER">After LLM</option>
-          </select>
-        </div>
-        <div>
-          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-            <FormattedMessage defaultMessage="Action" description="Label for guardrail action selector" />
-          </Typography.Text>
-          <select
-            id="guardrail-action-select"
-            value={action}
-            onChange={(e) => setAction(e.target.value as GuardrailAction)}
-            css={{
-              padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-              borderRadius: theme.borders.borderRadiusMd,
-              border: `1px solid ${theme.colors.border}`,
-              backgroundColor: theme.colors.backgroundPrimary,
-              color: theme.colors.textPrimary,
-              fontSize: theme.typography.fontSizeBase,
-              cursor: 'pointer',
-            }}
-          >
-            <option value="VALIDATION">Block</option>
-            <option value="SANITIZATION">Sanitize</option>
-          </select>
-        </div>
-      </div>
+            {GUARDRAIL_TYPES.map((type) => (
+              <TypeCard
+                key={type.id}
+                type={type}
+                selected={selectedType === type.id}
+                onClick={() => setSelectedType(type.id)}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
-      {/* Create custom link */}
-      <div css={{ marginTop: theme.spacing.md }}>
-        <Button
-          componentId="mlflow.gateway.guardrails.create-custom"
-          type="link"
-          size="small"
-          onClick={() => {
-            // TODO: navigate to custom guardrail creation (follow-up PR)
-          }}
-        >
-          <FormattedMessage
-            defaultMessage="+ Create custom guardrail"
-            description="Link to create a custom guardrail"
-          />
-        </Button>
-      </div>
+      {step === 2 && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          <Typography.Title level={4}>
+            <FormattedMessage defaultMessage="Guardrail Details" description="Step 2 section title" />
+          </Typography.Title>
 
-      {/* Error */}
-      {error && (
-        <div css={{ marginTop: theme.spacing.sm }}>
-          <Typography.Text color="error">{error}</Typography.Text>
+          {/* Name */}
+          <div>
+            <Typography.Text bold color="info" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+              <FormattedMessage defaultMessage="Name" description="Guardrail name label" />
+            </Typography.Text>
+            <Input
+              componentId="mlflow.gateway.guardrails.config-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'e.g., PII Detection & Redaction',
+                description: 'Guardrail name placeholder',
+              })}
+            />
+          </div>
+
+          {/* Description / prompt — only for custom */}
+          {selectedType === 'custom' && (
+            <div>
+              <Typography.Text bold color="info" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                <FormattedMessage defaultMessage="Description" description="Guardrail description label" />
+              </Typography.Text>
+              <Input.TextArea
+                componentId="mlflow.gateway.guardrails.config-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Describe what this guardrail checks for...',
+                  description: 'Guardrail description placeholder',
+                })}
+                autoSize={{ minRows: 3, maxRows: 8 }}
+              />
+            </div>
+          )}
+
+          {/* Placement */}
+          <div>
+            <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+              <FormattedMessage defaultMessage="Placement" description="Guardrail placement label" />
+            </Typography.Text>
+            <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+              <FormattedMessage
+                defaultMessage="Click on a pipeline stage to choose where this guardrail runs."
+                description="Placement help text"
+              />
+            </Typography.Text>
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              {['Request', 'BEFORE', 'LLM', 'AFTER', 'Response'].map((item, i) => {
+                const isStage = item === 'BEFORE' || item === 'AFTER';
+                const isSelected = isStage && item === stage;
+                const label = item === 'BEFORE' ? 'Input Guardrails' : item === 'AFTER' ? 'Output Guardrails' : item;
+                return (
+                  <div key={item} css={{ display: 'flex', alignItems: 'center' }}>
+                    {i > 0 && (
+                      <div
+                        css={{
+                          width: 16,
+                          height: 0,
+                          borderTop: `1px solid ${theme.colors.borderDecorative}`,
+                          margin: `0 ${theme.spacing.xs}px`,
+                        }}
+                      />
+                    )}
+                    {isStage ? (
+                      <Button
+                        componentId={`mlflow.gateway.guardrails.stage-${item}`}
+                        type={isSelected ? 'primary' : 'tertiary'}
+                        size="small"
+                        onClick={() => setStage(item as GuardrailStage)}
+                        icon={isSelected ? <CheckCircleIcon /> : undefined}
+                        css={{
+                          borderStyle: isSelected ? 'solid' : 'dashed',
+                        }}
+                      >
+                        {label}
+                      </Button>
+                    ) : (
+                      <Typography.Text
+                        color="secondary"
+                        css={{ fontSize: theme.typography.fontSizeSm, whiteSpace: 'nowrap' }}
+                      >
+                        {label}
+                      </Typography.Text>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Action */}
+          <div>
+            <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+              <FormattedMessage defaultMessage="Action" description="Guardrail action label" />
+            </Typography.Text>
+            <div css={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.md }}>
+              <div
+                role="option"
+                aria-selected={action === 'VALIDATION'}
+                onClick={() => setAction('VALIDATION')}
+                onKeyDown={(e) => e.key === 'Enter' && setAction('VALIDATION')}
+                tabIndex={0}
+                css={{
+                  padding: theme.spacing.md,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  border: `2px solid ${action === 'VALIDATION' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.borderDecorative}`,
+                  cursor: 'pointer',
+                  '&:hover': { borderColor: theme.colors.actionPrimaryBackgroundDefault },
+                }}
+              >
+                <Typography.Text bold>
+                  <FormattedMessage defaultMessage="Block" description="Block action title" />
+                </Typography.Text>
+                <Typography.Text color="secondary" css={{ display: 'block', fontSize: theme.typography.fontSizeSm }}>
+                  <FormattedMessage
+                    defaultMessage="Reject the request or response entirely and return an error."
+                    description="Block action description"
+                  />
+                </Typography.Text>
+              </div>
+              <div
+                role="option"
+                aria-selected={action === 'SANITIZATION'}
+                onClick={() => setAction('SANITIZATION')}
+                onKeyDown={(e) => e.key === 'Enter' && setAction('SANITIZATION')}
+                tabIndex={0}
+                css={{
+                  padding: theme.spacing.md,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  border: `2px solid ${action === 'SANITIZATION' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.borderDecorative}`,
+                  borderStyle: action === 'SANITIZATION' ? 'solid' : 'dashed',
+                  cursor: 'pointer',
+                  '&:hover': { borderColor: theme.colors.actionPrimaryBackgroundDefault },
+                }}
+              >
+                <Typography.Text bold>
+                  <FormattedMessage defaultMessage="Sanitize" description="Sanitize action title" />
+                </Typography.Text>
+                <Typography.Text color="secondary" css={{ display: 'block', fontSize: theme.typography.fontSizeSm }}>
+                  <FormattedMessage
+                    defaultMessage="Redact or mask flagged content, then allow the request to continue."
+                    description="Sanitize action description"
+                  />
+                </Typography.Text>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div>
+              <Typography.Text color="error">{error}</Typography.Text>
+            </div>
+          )}
         </div>
       )}
     </Modal>

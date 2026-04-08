@@ -1,6 +1,6 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
-import { renderWithDesignSystem, screen, within } from '../../../common/utils/TestUtils.react18';
+import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { GuardrailModal } from './AddGuardrailModal';
 import { useAddGuardrail } from '../../hooks/useAddGuardrail';
 import { GatewayApi } from '../../api';
@@ -28,12 +28,6 @@ describe('GuardrailModal', () => {
       error: null,
       reset: jest.fn(),
     } as any);
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ scorers: [] }),
-      }),
-    ) as any;
   });
 
   const defaultProps = {
@@ -45,103 +39,106 @@ describe('GuardrailModal', () => {
     experimentId: '0',
   };
 
-  test('renders modal with title and selectors when open', () => {
+  // ─── Step 1: Type selection ───────────────────────────────────────────
+
+  test('renders step 1 with guardrail type cards', () => {
     renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
 
     expect(screen.getByText('Add Guardrail')).toBeInTheDocument();
-    expect(screen.getByText('When the guardrail runs')).toBeInTheDocument();
+    expect(screen.getByText('Guardrail Type')).toBeInTheDocument();
+    expect(screen.getByText('Safety')).toBeInTheDocument();
+    expect(screen.getByText('Custom Guardrail')).toBeInTheDocument();
+  });
+
+  test('Next button is disabled until a type is selected', () => {
+    renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
+
+    const nextButton = screen.getByRole('button', { name: 'Next' });
+    expect(nextButton).toBeDisabled();
+  });
+
+  test('selecting a type enables Next button', async () => {
+    renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
+
+    const safetyCard = screen.getByText('Safety').closest('[role="option"]')!;
+    await userEvent.click(safetyCard);
+
+    expect(screen.getByRole('button', { name: 'Next' })).not.toBeDisabled();
+  });
+
+  // ─── Step 2: Configuration ────────────────────────────────────────────
+
+  test('clicking Next moves to step 2 with configuration', async () => {
+    renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByText('Guardrail Details')).toBeInTheDocument();
+    expect(screen.getByText('Placement')).toBeInTheDocument();
     expect(screen.getByText('Action')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create Guardrail' })).toBeInTheDocument();
   });
 
-  test('renders builtin scorers list', () => {
+  test('Safety type pre-fills name', async () => {
     renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
 
-    expect(screen.getByText('Safety')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByDisplayValue('Safety')).toBeInTheDocument();
   });
 
-  test('filters scorers by search query', async () => {
+  test('Custom type shows description field', async () => {
     renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
 
-    const searchInput = screen.getByPlaceholderText('Search guardrails...');
-    await userEvent.type(searchInput, 'safety');
+    await userEvent.click(screen.getByText('Custom Guardrail').closest('[role="option"]')!);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
 
-    expect(screen.getByText('Safety')).toBeInTheDocument();
+    expect(screen.getByText('Description')).toBeInTheDocument();
   });
 
-  test('shows empty state when search matches nothing', async () => {
+  test('Back button returns to step 1', async () => {
     renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
 
-    const searchInput = screen.getByPlaceholderText('Search guardrails...');
-    await userEvent.type(searchInput, 'xyznonexistent');
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(screen.getByRole('button', { name: /Back/ }));
 
-    expect(screen.getByText('No scorers found matching your search.')).toBeInTheDocument();
+    expect(screen.getByText('Select the type of guardrail you want to add.')).toBeInTheDocument();
   });
 
-  test('selecting a scorer enables the Add button', async () => {
-    renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
+  // ─── Submission ───────────────────────────────────────────────────────
 
-    const addButton = screen.getByRole('button', { name: 'Add' });
-    expect(addButton).toBeDisabled();
-
-    // Click on Safety scorer row
-    const safetyRow = screen.getByText('Safety').closest('[role="option"]')!;
-    await userEvent.click(safetyRow);
-
-    expect(addButton).not.toBeDisabled();
-  });
-
-  test('submits register + create + add-to-endpoint on Add click for builtin', async () => {
-    mockRegisterScorer.mockResolvedValue({
-      scorer_id: 'sc-registered-id',
-      version: 1,
-      name: 'safety',
-    });
-    mockCreateGuardrail.mockResolvedValue({
-      guardrail: { guardrail_id: 'g-abc123' },
-    });
-    jest.mocked(GatewayApi.addGuardrailToEndpoint).mockResolvedValue({
-      config: {} as any,
-    });
+  test('creates guardrail with register + create + add flow', async () => {
+    mockRegisterScorer.mockResolvedValue({ scorer_id: 'sc-safety', version: 1 });
+    mockCreateGuardrail.mockResolvedValue({ guardrail: { guardrail_id: 'g-abc123' } });
+    jest.mocked(GatewayApi.addGuardrailToEndpoint).mockResolvedValue({ config: {} as any });
 
     renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
 
-    // Select a builtin scorer
-    const safetyRow = screen.getByText('Safety').closest('[role="option"]')!;
-    await userEvent.click(safetyRow);
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Create Guardrail' }));
 
-    // Click Add
-    const addButton = screen.getByRole('button', { name: 'Add' });
-    await userEvent.click(addButton);
-
-    // Step 1: Register the builtin scorer
     expect(mockRegisterScorer).toHaveBeenCalledWith('0', expect.objectContaining({ name: 'safety' }));
-
-    // Step 2: Create the guardrail with the registered scorer_id
-    expect(mockCreateGuardrail).toHaveBeenCalledWith({
-      name: 'Safety',
-      scorer_id: 'sc-registered-id',
-      scorer_version: 1,
-      stage: 'BEFORE',
-      action: 'VALIDATION',
-    });
-
-    // Step 3: Add to endpoint
+    expect(mockCreateGuardrail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Safety',
+        scorer_id: 'sc-safety',
+        stage: 'BEFORE',
+        action: 'VALIDATION',
+      }),
+    );
     expect(GatewayApi.addGuardrailToEndpoint).toHaveBeenCalledWith({
       endpoint_id: 'e-123',
       guardrail_id: 'g-abc123',
     });
-
     expect(defaultProps.onSuccess).toHaveBeenCalled();
-    expect(defaultProps.onClose).toHaveBeenCalled();
   });
 
   test('does not render when closed', () => {
     renderWithDesignSystem(<GuardrailModal {...defaultProps} open={false} />);
     expect(screen.queryByText('Add Guardrail')).not.toBeInTheDocument();
-  });
-
-  test('renders "+ Create custom guardrail" link', () => {
-    renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
-    expect(screen.getByText('+ Create custom guardrail')).toBeInTheDocument();
   });
 });

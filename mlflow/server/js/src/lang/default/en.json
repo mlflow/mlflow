@@ -23,6 +23,10 @@
     "defaultMessage": "Store it securely and restrict access to server administrators only.",
     "description": "AI Gateway setup guide > Passphrase warning security note"
   },
+  "+6406R": {
+    "defaultMessage": "Name",
+    "description": "Guardrail name label"
+  },
   "+6tmRn": {
     "defaultMessage": "Name",
     "description": "Field label for assessment name in a creation form"
@@ -707,6 +711,10 @@
     "defaultMessage": "Prompt created",
     "description": "Webhook event label"
   },
+  "2XH9oW": {
+    "defaultMessage": "Back",
+    "description": "Back button"
+  },
   "2YEXRM": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the experiment view page"
@@ -1062,6 +1070,10 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
+  "5DWDg/": {
+    "defaultMessage": "Placement",
+    "description": "Guardrail placement label"
+  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -1357,6 +1369,10 @@
   "72uGpl": {
     "defaultMessage": "Evaluate",
     "description": "Experiment page > new run modal > \"evaluate\" button label"
+  },
+  "73n+mN": {
+    "defaultMessage": "Create Guardrail",
+    "description": "Create guardrail button"
   },
   "73ydH0": {
     "defaultMessage": "Off",
@@ -2498,6 +2514,10 @@
     "defaultMessage": "Download attachment ({contentType})",
     "description": "Download link for trace attachment with unknown content type"
   },
+  "DuGw92": {
+    "defaultMessage": "Describe what this guardrail checks for...",
+    "description": "Guardrail description placeholder"
+  },
   "Dw+Z8L": {
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
@@ -2621,10 +2641,6 @@
   "EcjcgN": {
     "defaultMessage": "Metrics",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
-  },
-  "EkJvEn": {
-    "defaultMessage": "Action",
-    "description": "Label for guardrail action selector"
   },
   "EkUD0b": {
     "defaultMessage": "No results",
@@ -3558,6 +3574,10 @@
     "defaultMessage": "Artifact evaluation",
     "description": "A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view"
   },
+  "LVJqEd": {
+    "defaultMessage": "Select the type of guardrail you want to add.",
+    "description": "Step 1 subtitle"
+  },
   "LXz6c5": {
     "defaultMessage": "This setting enables UI telemetry data collection. Learn more about what types of data are collected in our {documentation}.",
     "description": "Enable telemetry settings description"
@@ -3801,6 +3821,10 @@
   "N7BCue": {
     "defaultMessage": "Create dataset",
     "description": "Create evaluation dataset button"
+  },
+  "N8UKHV": {
+    "defaultMessage": "Guardrail Details",
+    "description": "Step 2 section title"
   },
   "N8YuIr": {
     "defaultMessage": "Error while loading metric page",
@@ -4301,6 +4325,10 @@
     "defaultMessage": "No parameters match the search filter",
     "description": "Run page > Overview > Parameters table > No results after filtering"
   },
+  "QDYNSi": {
+    "defaultMessage": "Guardrail Type",
+    "description": "Step 1 label"
+  },
   "QEL+JO": {
     "defaultMessage": "This assessment is the root cause of the overall evaluation failure.",
     "description": "Root cause assessment hint that explains that this assessment is causing the overall assessment to fail."
@@ -4676,10 +4704,6 @@
   "Sm0bXt": {
     "defaultMessage": "None",
     "description": "Label for a user_frustration assessment with 'none' value"
-  },
-  "Smi0O2": {
-    "defaultMessage": "Search guardrails...",
-    "description": "Search placeholder in add guardrail modal"
   },
   "Smixdu": {
     "defaultMessage": "Day",
@@ -5120,6 +5144,10 @@
     "defaultMessage": "Structured output (JSON schema)",
     "description": "Label for the structured output JSON schema field in the prompt creation modal"
   },
+  "VWngGA": {
+    "defaultMessage": "e.g., PII Detection & Redaction",
+    "description": "Guardrail name placeholder"
+  },
   "VXPp00": {
     "defaultMessage": "Got it",
     "description": "Detect issues guidance dismiss button"
@@ -5319,10 +5347,6 @@
   "WiaEQ3": {
     "defaultMessage": "Model output",
     "description": "Evaluation review > Response section > model output > title"
-  },
-  "Wl2g6v": {
-    "defaultMessage": "When the guardrail runs",
-    "description": "Label for guardrail stage selector"
   },
   "WlZLz9": {
     "defaultMessage": "Expectations Guidelines",
@@ -5578,6 +5602,10 @@
   "YLMjFk": {
     "defaultMessage": "Reasoning",
     "description": "Filter option for reasoning support"
+  },
+  "YOG1vG": {
+    "defaultMessage": "Reject the request or response entirely and return an error.",
+    "description": "Block action description"
   },
   "YOp3/x": {
     "defaultMessage": "Unavailable when runs are grouped",
@@ -6011,6 +6039,10 @@
     "defaultMessage": "Maximum",
     "description": "Experiment page > group by runs control > maximum aggregate function"
   },
+  "aw59+I": {
+    "defaultMessage": "Sanitize",
+    "description": "Sanitize action title"
+  },
   "awekbG": {
     "defaultMessage": "Cancel",
     "description": "Tag assignment modal > Cancel button"
@@ -6398,6 +6430,10 @@
   "d8cdYc": {
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
+  },
+  "dBA3Kd": {
+    "defaultMessage": "Description",
+    "description": "Guardrail description label"
   },
   "dEGUt+": {
     "defaultMessage": "Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like correctness, latency, and other quality concerns in your agent.",
@@ -8039,10 +8075,6 @@
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
   },
-  "n76KO5": {
-    "defaultMessage": "No scorers found matching your search.",
-    "description": "Empty state for scorer search in guardrail modal"
-  },
   "n7MxV7": {
     "defaultMessage": "Use multiple models for load balancing by splitting traffic with weights",
     "description": "Gateway > Endpoint details > Description for adding more primary models"
@@ -8579,6 +8611,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel webhook form button"
   },
+  "qbtNJS": {
+    "defaultMessage": "Block",
+    "description": "Block action title"
+  },
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
     "description": "Tooltip message when no sessions are selected"
@@ -8739,10 +8775,6 @@
     "defaultMessage": "Execution time (ms)",
     "description": "Column label for execution time with the unit suffix"
   },
-  "rUnwqR": {
-    "defaultMessage": "+ Create custom guardrail",
-    "description": "Link to create a custom guardrail"
-  },
   "rY00Iw": {
     "defaultMessage": "Add filter",
     "description": "Button to add a new filter in the tags filter popover for experiments page search by tags"
@@ -8842,6 +8874,10 @@
   "sAtY9h": {
     "defaultMessage": "Track and compare versions of your models",
     "description": "Empty state title displayed when no models are logged in the machine learning logged models list page"
+  },
+  "sBle0P": {
+    "defaultMessage": "Configuration",
+    "description": "Step 2 label"
   },
   "sBsRzu": {
     "defaultMessage": "Value",
@@ -8999,6 +9035,10 @@
     "defaultMessage": "Conversational role adherence",
     "description": "LLM template option"
   },
+  "tBHYWH": {
+    "defaultMessage": "Action",
+    "description": "Guardrail action label"
+  },
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
     "description": "Tooltip suggestion to create new key for different provider"
@@ -9087,6 +9127,10 @@
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
   },
+  "tnykaX": {
+    "defaultMessage": "Click on a pipeline stage to choose where this guardrail runs.",
+    "description": "Placement help text"
+  },
   "tqw27y": {
     "defaultMessage": "Evaluation criteria",
     "description": "Accordion section header for evaluation criteria (judge type, guidelines/instructions, and output type)"
@@ -9171,10 +9215,6 @@
     "defaultMessage": "Next, you can log traces to this logged model depending on your framework:",
     "description": "Introductory text for the code example for logging traces to an existing logged model. This part is displayed after the code example for setting the active model."
   },
-  "uYPg+e": {
-    "defaultMessage": "Add",
-    "description": "Add guardrail button"
-  },
   "uYkbr+": {
     "defaultMessage": "Default",
     "description": "Label for the default render mode selector in the model trace explorer summary view"
@@ -9250,6 +9290,10 @@
   "v/njcq": {
     "defaultMessage": "Comparing",
     "description": "Comparing"
+  },
+  "v8QqW5": {
+    "defaultMessage": "Next",
+    "description": "Next step button"
   },
   "v8UFxB": {
     "defaultMessage": "No datasets were recorded for this experiment's runs.",
@@ -9514,6 +9558,10 @@
   "wq+WyH": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the prompt content in the prompt creation modal"
+  },
+  "wqv2gd": {
+    "defaultMessage": "Redact or mask flagged content, then allow the request to continue.",
+    "description": "Sanitize action description"
   },
   "wrNl6F": {
     "defaultMessage": "Preview",
