@@ -43,7 +43,7 @@ type GeminiCandidate = {
 };
 
 type GeminiContent = {
-  role: 'user' | 'model';
+  role?: 'user' | 'model';
   parts: GeminiContentPart[];
 };
 
@@ -134,15 +134,14 @@ const isThinkingPart = (part: GeminiTextPart): boolean => {
 };
 
 const isGeminiContent = (obj: unknown): obj is GeminiContent => {
-  return (
-    isObject(obj) &&
-    'role' in obj &&
-    isString(obj.role) &&
-    ['user', 'model'].includes(obj.role) &&
-    has(obj, 'parts') &&
-    Array.isArray(obj.parts) &&
-    obj.parts.every(isGeminiContentPart)
-  );
+  if (!isObject(obj) || !has(obj, 'parts') || !Array.isArray(obj.parts) || !obj.parts.every(isGeminiContentPart)) {
+    return false;
+  }
+  // role may be omitted by some Gemini SDK versions; treat as valid if parts are present
+  if ('role' in obj) {
+    return isString(obj.role) && ['user', 'model'].includes(obj.role);
+  }
+  return true;
 };
 
 // Gemini SDK serializes bytes as Python literal "b'...'" with escaped hex bytes.
@@ -279,7 +278,7 @@ const processGeminiContentParts = (
 };
 
 const normalizeGeminiContentToMessages = (content: GeminiContent): ModelTraceChatMessage[] => {
-  const role = content.role === 'model' ? 'assistant' : content.role;
+  const role = content.role === 'model' || !content.role ? 'assistant' : content.role;
   const { textParts, thinking, toolCalls, functionResponses } = processGeminiContentParts(content.parts);
 
   // Emit function_response parts as individual tool messages
