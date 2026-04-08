@@ -22,7 +22,7 @@ import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, case, distinct, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Query, Session, aliased, joinedload
+from sqlalchemy.orm import Query, Session, aliased, joinedload, selectinload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
@@ -4988,7 +4988,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sql_trace_info = (
                 self
                 ._trace_query(session)
-                .options(joinedload(SqlTraceInfo.spans))
+                .options(
+                    joinedload(SqlTraceInfo.spans),
+                    selectinload(SqlTraceInfo.tags),
+                    selectinload(SqlTraceInfo.request_metadata),
+                    selectinload(SqlTraceInfo.assessments),
+                )
                 .filter(SqlTraceInfo.request_id == trace_id)
                 .one_or_none()
             )
@@ -5029,7 +5034,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sql_trace_infos = (
                 self
                 ._trace_query(session)
-                .options(joinedload(SqlTraceInfo.spans))
+                .options(
+                    joinedload(SqlTraceInfo.spans),
+                    selectinload(SqlTraceInfo.tags),
+                    selectinload(SqlTraceInfo.request_metadata),
+                    selectinload(SqlTraceInfo.assessments),
+                )
                 .filter(SqlTraceInfo.request_id.in_(trace_ids))
                 .order_by(order_case)
                 .all()
