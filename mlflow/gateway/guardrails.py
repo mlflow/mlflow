@@ -4,6 +4,8 @@ import abc
 import json
 from typing import TYPE_CHECKING, Any
 
+from fastapi import HTTPException
+
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
@@ -11,6 +13,7 @@ from mlflow.entities.gateway_guardrail import (
     GuardrailStage,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.providers.utils import send_request
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -204,10 +207,6 @@ class JudgeGuardrail(Guardrail):
                 },
             ],
         }
-
-        from fastapi import HTTPException
-
-        from mlflow.gateway.providers.utils import send_request
 
         headers = (
             {k: v for k, v in auth_headers.items() if k.lower() in _ALLOWED_AUTH_HEADERS}
