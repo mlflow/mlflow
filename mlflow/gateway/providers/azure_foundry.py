@@ -49,6 +49,10 @@ class AzureFoundryProvider(OpenAICompatibleProvider):
 
     @property
     def headers(self) -> dict[str, str]:
+        # Azure AI Foundry uses "api-key" header (not "Authorization: Bearer").
+        # For passthrough requests, _get_headers() strips "authorization" from
+        # client headers but not "api-key"; the dict merge (client | self.headers)
+        # ensures our api-key always takes precedence.
         return {"api-key": self._api_key}
 
     @property
