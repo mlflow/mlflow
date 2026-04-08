@@ -3,8 +3,6 @@ import {
   Button,
   Input,
   Modal,
-  SimpleSelect,
-  SimpleSelectOption,
   Spinner,
   Typography,
   useDesignSystemTheme,
@@ -307,33 +305,45 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
               description="Label for guardrail stage selector"
             />
           </Typography.Text>
-          <SimpleSelect
+          <select
             id="guardrail-stage-select"
-            componentId="mlflow.gateway.guardrails.stage-select"
             value={stage}
-            onChange={({ target }) => {
-              if (target.value !== stage) setStage(target.value as GuardrailStage);
+            onChange={(e) => setStage(e.target.value as GuardrailStage)}
+            css={{
+              padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+              borderRadius: theme.borders.borderRadiusMd,
+              border: `1px solid ${theme.colors.border}`,
+              backgroundColor: theme.colors.backgroundPrimary,
+              color: theme.colors.textPrimary,
+              fontSize: theme.typography.fontSizeBase,
+              cursor: 'pointer',
             }}
           >
-            <SimpleSelectOption value="BEFORE">Before LLM</SimpleSelectOption>
-            <SimpleSelectOption value="AFTER">After LLM</SimpleSelectOption>
-          </SimpleSelect>
+            <option value="BEFORE">Before LLM</option>
+            <option value="AFTER">After LLM</option>
+          </select>
         </div>
         <div>
           <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
             <FormattedMessage defaultMessage="Action" description="Label for guardrail action selector" />
           </Typography.Text>
-          <SimpleSelect
+          <select
             id="guardrail-action-select"
-            componentId="mlflow.gateway.guardrails.action-select"
             value={action}
-            onChange={({ target }) => {
-              if (target.value !== action) setAction(target.value as GuardrailAction);
+            onChange={(e) => setAction(e.target.value as GuardrailAction)}
+            css={{
+              padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+              borderRadius: theme.borders.borderRadiusMd,
+              border: `1px solid ${theme.colors.border}`,
+              backgroundColor: theme.colors.backgroundPrimary,
+              color: theme.colors.textPrimary,
+              fontSize: theme.typography.fontSizeBase,
+              cursor: 'pointer',
             }}
           >
-            <SimpleSelectOption value="VALIDATION">Block</SimpleSelectOption>
-            <SimpleSelectOption value="SANITIZATION">Sanitize</SimpleSelectOption>
-          </SimpleSelect>
+            <option value="VALIDATION">Block</option>
+            <option value="SANITIZATION">Sanitize</option>
+          </select>
         </div>
       </div>
 
