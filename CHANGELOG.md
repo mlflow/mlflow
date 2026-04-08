@@ -23,7 +23,7 @@ MLflow 3.11.1 includes several major features and improvements.
 
 **Features**:
 
-- [Evaluation] Allow `MetaPromptOptimizer` to work without litellm (#22233, @TomeHirata)
+- [Evaluation] Allow `MetaPromptOptimizer` to work without `litellm` (#22233, @TomeHirata)
 - [Tracking] Update Databricks API calls to use new gRPC APIs instead of py4j APIs (#22205, @WeichenXu123)
 - [Build] Add `aiohttp` as a core dependency of `mlflow` (#22189, @TomeHirata)
 - [Evaluation] Extend `_get_provider_instance` with groq, deepseek, xai, openrouter, ollama, databricks, vertex_ai (#22148, @kriscon-db)
