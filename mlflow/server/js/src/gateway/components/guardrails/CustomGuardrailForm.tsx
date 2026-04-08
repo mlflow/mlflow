@@ -12,6 +12,7 @@ export interface CustomGuardrailFormProps {
   onBack: () => void;
   onSuccess: () => void;
   endpointId: string;
+  experimentId?: string;
   stage: GuardrailStage;
   action: GuardrailAction;
 }
@@ -24,6 +25,7 @@ export const CustomGuardrailForm = ({
   onBack,
   onSuccess,
   endpointId,
+  experimentId,
   stage,
   action,
 }: CustomGuardrailFormProps) => {
@@ -44,18 +46,40 @@ export const CustomGuardrailForm = ({
     setError(null);
     try {
       const { GatewayApi } = await import('../../api');
+      const { registerScorer } = await import('../../../experiment-tracking/pages/experiment-scorers/api');
 
-      // Register the custom scorer, then create guardrail, then add to endpoint
-      // For now, we create a guardrail with the prompt as the scorer definition
+      // Step 1: Register the custom scorer to get a scorer_id + version
+      const scorerName = name.trim();
+      const registered = await registerScorer(experimentId ?? '0', {
+        name: scorerName,
+        serialized_scorer: JSON.stringify({
+          name: scorerName,
+          call_source: prompt.trim(),
+        }),
+      } as any);
+
+      // Step 2: Resolve endpoint name → ID if a model endpoint was selected
+      let actionEndpointId: string | undefined;
+      if (modelEndpoint) {
+        const { fetchAPI, getAjaxUrl } = await import('../../../common/utils/FetchUtils');
+        const params = new URLSearchParams({ name: modelEndpoint });
+        const endpointResp = (await fetchAPI(
+          getAjaxUrl(`ajax-api/3.0/mlflow/gateway/endpoints/get?${params.toString()}`),
+        )) as { endpoint: { endpoint_id: string } };
+        actionEndpointId = endpointResp.endpoint.endpoint_id;
+      }
+
+      // Step 3: Create the guardrail
       const createResponse = await GatewayApi.createGuardrail({
-        name: name.trim(),
-        scorer_id: name.trim(),
-        scorer_version: 1,
+        name: scorerName,
+        scorer_id: registered.scorer_id,
+        scorer_version: registered.version,
         stage,
         action,
-        ...(modelEndpoint ? { action_endpoint_id: modelEndpoint } : {}),
+        ...(actionEndpointId ? { action_endpoint_id: actionEndpointId } : {}),
       });
 
+      // Step 4: Add to endpoint
       await GatewayApi.addGuardrailToEndpoint({
         endpoint_id: endpointId,
         guardrail_id: createResponse.guardrail.guardrail_id,
@@ -68,7 +92,7 @@ export const CustomGuardrailForm = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [isFormValid, name, prompt, modelEndpoint, stage, action, endpointId, onSuccess, onClose]);
+  }, [isFormValid, name, prompt, modelEndpoint, stage, action, endpointId, experimentId, onSuccess, onClose]);
 
   return (
     <Modal

@@ -12,6 +12,14 @@ jest.mock('../../api', () => ({
   },
 }));
 
+jest.mock('../../../experiment-tracking/pages/experiment-scorers/api', () => ({
+  registerScorer: jest.fn<any>().mockResolvedValue({
+    scorer_id: 'sc-custom123',
+    version: 1,
+    name: 'pii-check',
+  }),
+}));
+
 jest.mock('../../../experiment-tracking/components/EndpointSelector', () => ({
   EndpointSelector: ({ onEndpointSelect }: any) => (
     <button type="button" onClick={() => onEndpointSelect('my-model-endpoint')}>
@@ -27,6 +35,7 @@ describe('CustomGuardrailForm', () => {
     onBack: jest.fn(),
     onSuccess: jest.fn(),
     endpointId: 'e-123',
+    experimentId: '0',
     stage: 'BEFORE' as const,
     action: 'VALIDATION' as const,
   };
@@ -78,8 +87,9 @@ describe('CustomGuardrailForm', () => {
     expect(screen.queryByText('Create Custom Guardrail')).not.toBeInTheDocument();
   });
 
-  test('submits form and calls createGuardrail + addGuardrailToEndpoint', async () => {
+  test('submits form: registers scorer, creates guardrail, adds to endpoint', async () => {
     const { GatewayApi } = await import('../../api');
+    const { registerScorer } = await import('../../../experiment-tracking/pages/experiment-scorers/api');
 
     renderWithDesignSystem(<CustomGuardrailForm {...defaultProps} />);
 
@@ -88,14 +98,21 @@ describe('CustomGuardrailForm', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
 
+    // Step 1: Registers the scorer
+    expect(registerScorer).toHaveBeenCalledWith('0', expect.objectContaining({ name: 'pii-check' }));
+
+    // Step 2: Creates the guardrail with the registered scorer_id
     expect(GatewayApi.createGuardrail).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'pii-check',
+        scorer_id: 'sc-custom123',
+        scorer_version: 1,
         stage: 'BEFORE',
         action: 'VALIDATION',
       }),
     );
 
+    // Step 3: Adds to endpoint
     expect(GatewayApi.addGuardrailToEndpoint).toHaveBeenCalledWith({
       endpoint_id: 'e-123',
       guardrail_id: 'g-new123',
