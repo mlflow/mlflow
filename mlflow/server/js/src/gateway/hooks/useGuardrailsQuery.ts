@@ -5,7 +5,7 @@ import { GatewayQueryKeys } from './queryKeys';
 
 export const useGuardrailsQuery = (endpointId?: string) => {
   const queryResult = useQuery<ListEndpointGuardrailConfigsResponse, Error>([...GatewayQueryKeys.guardrails, endpointId], {
-    queryFn: () => GatewayApi.listEndpointGuardrailConfigs(endpointId!),
+    queryFn: () => GatewayApi.listEndpointGuardrailConfigs(endpointId as string),
     retry: false,
     enabled: !!endpointId,
   });
