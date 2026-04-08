@@ -35,6 +35,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.context import _USER_TRACE_CONTEXT
 from mlflow.tracing.provider import (
+    _get_trace_exporter,
     get_current_otel_span,
     is_tracing_enabled,
     safe_set_span_in_context,
@@ -728,7 +729,7 @@ def start_span_no_context(
 
 
 @deprecated_parameter("request_id", "trace_id")
-def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
+def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace | None:
     """
     Get a trace by the given request ID if it exists.
 
@@ -740,6 +741,9 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
         trace_id: The ID of the trace.
         silent: If True, suppress the warning message when the trace is not found. The API will
             return None without any warning. Default to False.
+        flush: If True and the trace is not found, flush any pending async trace writes and
+            retry. Useful in tests or scripts where async logging may not have completed.
+            Default to False.
 
     .. code-block:: python
         :test:
@@ -760,18 +764,62 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
 
+    exc: MlflowException | None = None
     try:
         return TracingClient().get_trace(trace_id)
     except MlflowException as e:
-        if not silent:
-            _logger.warning(
-                f"Failed to get trace from the tracking store: {e} "
-                "For full traceback, set logging level to debug.",
-                exc_info=_logger.isEnabledFor(logging.DEBUG),
-            )
-        else:
-            _logger.debug(f"Failed to get trace from the tracking store: {e}.", exc_info=True)
-        return None
+        exc = e
+
+    if flush:
+        _flush_pending_async_trace_writes()
+        exc = None
+        try:
+            return TracingClient().get_trace(trace_id)
+        except MlflowException as e:
+            exc = e
+
+    if not silent:
+        hint = (
+            " If using async trace logging, pass flush=True to wait for pending writes."
+            if not flush
+            else ""
+        )
+        _logger.warning(
+            f"Failed to get trace from the tracking store: {exc}.{hint} "
+            "For full traceback, set logging level to debug.",
+            exc_info=_logger.isEnabledFor(logging.DEBUG),
+        )
+    else:
+        _logger.debug(f"Failed to get trace from the tracking store: {exc}.", exc_info=True)
+    return None
+
+
+def _flush_pending_async_trace_writes(terminate: bool = False) -> None:
+    """Flush all pending async trace writes through the BSP and exporter queues.
+
+    Two-layer flush:
+    1. flush_all_batch_processors() drains BSP-registered processors and their exporters.
+    2. The direct exporter flush handles the no-BSP path (MLFLOW_USE_BATCH_SPAN_PROCESSOR=false),
+       where the processor is not in the registry but the exporter still has an async queue.
+
+    Args:
+        terminate: If True, shut down background threads after flushing. Used in test teardown
+            to prevent thread leaks between tests.
+    """
+    # Lazy import to avoid circular dependency:
+    # base_mlflow imports _set_last_active_trace_id from this module.
+    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
+
+    try:
+        flush_all_batch_processors(terminate=terminate)
+    except Exception:
+        _logger.debug("Failed to flush batch processors.", exc_info=True)
+    try:
+        if trace_exporter := _get_trace_exporter():
+            if hasattr(trace_exporter, "_async_queue"):
+                trace_exporter._async_queue.flush(terminate=terminate)
+    except Exception:
+        _logger.debug("Failed to flush trace exporter async queue.", exc_info=True)
 
 
 def _get_search_locations(locations: list[str] | None) -> list[str]:
@@ -802,6 +850,7 @@ def search_traces(
     sql_warehouse_id: str | None = None,
     include_spans: bool = True,
     locations: list[str] | None = None,
+    flush: bool = False,
 ) -> "pandas.DataFrame" | list[Trace]:
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -877,6 +926,9 @@ def search_traces(
             a list of locations in the format
             `<catalog_name>.<schema_name>[.<table_prefix>]`.
             If not provided, the search will be performed across the current active experiment.
+
+        flush: If ``True``, flush any pending async trace writes before searching. Useful
+            in tests or scripts to ensure all traces are visible. Default to ``False``.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -975,6 +1027,9 @@ def search_traces(
             )
 
     _validate_list_param("locations", locations, allow_none=True)
+
+    if flush:
+        _flush_pending_async_trace_writes()
 
     if not experiment_ids and not locations:
         _logger.debug("Searching traces in the current active experiment")
@@ -1662,7 +1717,7 @@ def log_trace(
             start_time_ms=int(time.time() * 1000),
             execution_time_ms=5129,
         )
-        trace = mlflow.get_trace(trace_id)
+        trace = mlflow.get_trace(trace_id, flush=True)
 
         print(trace.data.intermediate_outputs)
     """

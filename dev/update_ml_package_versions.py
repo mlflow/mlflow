@@ -32,11 +32,7 @@ def save_file(src, path):
         f.write(src)
 
 
-def uploaded_recently(dist) -> bool:
-    if ut := dist.get("upload_time_iso_8601"):
-        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut.replace("Z", "+00:00"))
-        return delta.days < 1
-    return False
+RELEASE_CUTOFF_DAYS = 14
 
 
 @dataclass
@@ -63,6 +59,13 @@ def get_package_version_infos(package_name: str) -> list[VersionInfo]:
         v = Version(version_str)
         return v.is_devrelease or v.is_prerelease
 
+    cutoff = datetime.now(timezone.utc) - timedelta(days=RELEASE_CUTOFF_DAYS)
+
+    def uploaded_within_cutoff(dist) -> bool:
+        if ut := dist.get("upload_time_iso_8601"):
+            return datetime.fromisoformat(ut.replace("Z", "+00:00")) >= cutoff
+        return False
+
     return [
         VersionInfo(
             version=version,
@@ -72,7 +75,7 @@ def get_package_version_infos(package_name: str) -> list[VersionInfo]:
         if (
             len(dist_files) > 0
             and not is_dev_or_pre_release(version)
-            and not any(uploaded_recently(dist) for dist in dist_files)
+            and not any(uploaded_within_cutoff(dist) for dist in dist_files)
             and not any(dist.get("yanked", False) for dist in dist_files)
         )
     ]

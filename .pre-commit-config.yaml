@@ -66,6 +66,29 @@ repos:
         entry: uv run --only-group lint mypy
         require_serial: true
 
+      - id: unresolved-import
+        name: unresolved-import
+        # Run `ty` to detect broken internal `mlflow.*` imports. Third-party
+        # unresolved imports (optional deps) are filtered out via grep.
+        entry: |
+          bash -c '
+            out=$(uv run --only-group lint ty check \
+              --ignore all \
+              --error unresolved-import \
+              --output-format concise \
+              mlflow/ 2>&1)
+            bad=$(echo "$out" | grep "Module \`mlflow" || true)
+            if [ -n "$bad" ]; then
+              echo "$bad"
+              exit 1
+            fi
+          '
+        language: system
+        pass_filenames: false
+        files: ^mlflow/.*\.py$
+        stages: [pre-commit]
+        require_serial: true
+
       - id: clint
         name: clint
         entry: uv run --only-group lint clint
