@@ -1,9 +1,18 @@
 import { useMemo } from 'react';
 
-import { ChevronDownIcon, DropdownMenu, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  DropdownMenu,
+  PencilIcon,
+  PlusIcon,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 
 import type { TraceView } from './hooks/useTraceViews';
 import { useTraceViews } from './hooks/useTraceViews';
+import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 
 const RAW_TRACE_VALUE = '__raw_trace__';
 
@@ -16,6 +25,7 @@ export interface TraceViewSelectorProps {
 export const TraceViewSelector = ({ traceId, activeViewId, onViewChange }: TraceViewSelectorProps) => {
   const { theme } = useDesignSystemTheme();
   const { data: views, isLoading } = useTraceViews(traceId);
+  const { editMode } = useModelTraceExplorerViewState();
 
   const { traceViews, experimentViews } = useMemo(() => {
     const traceScoped: TraceView[] = [];
@@ -30,19 +40,12 @@ export const TraceViewSelector = ({ traceId, activeViewId, onViewChange }: Trace
     return { traceViews: traceScoped, experimentViews: experimentScoped };
   }, [views]);
 
-  const hasViews = (views?.length ?? 0) > 0;
-
-  // Don't render if there are no views or still loading with no data
-  if (!hasViews && !isLoading) {
-    return null;
-  }
-
-  if (isLoading && !hasViews) {
-    return null;
-  }
-
   const activeView = views?.find((v) => v.view_id === activeViewId);
   const displayLabel = activeView ? activeView.name : 'Raw Trace';
+
+  if (isLoading && !(views?.length)) {
+    return null;
+  }
 
   const handleValueChange = (value: string) => {
     if (value === RAW_TRACE_VALUE) {
@@ -56,63 +59,83 @@ export const TraceViewSelector = ({ traceId, activeViewId, onViewChange }: Trace
   };
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <div
-          css={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: theme.spacing.xs,
-            cursor: 'pointer',
-            padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-            borderRadius: theme.borders.borderRadiusMd,
-            border: `1px solid ${theme.colors.border}`,
-            backgroundColor: theme.colors.backgroundPrimary,
-          }}
-        >
-          <Typography.Text size="sm" color="secondary">
-            {displayLabel}
-          </Typography.Text>
-          <ChevronDownIcon />
-        </div>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content>
-        <DropdownMenu.RadioGroup
-          componentId="shared.model-trace-explorer.trace-view-selector"
-          value={activeViewId ?? RAW_TRACE_VALUE}
-          onValueChange={handleValueChange}
-        >
-          <DropdownMenu.RadioItem value={RAW_TRACE_VALUE}>
-            <DropdownMenu.ItemIndicator />
-            Raw Trace
-          </DropdownMenu.RadioItem>
+    <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <div
+            css={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+              cursor: 'pointer',
+              padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+              borderRadius: theme.borders.borderRadiusMd,
+              border: `1px solid ${theme.colors.border}`,
+              backgroundColor: theme.colors.backgroundPrimary,
+            }}
+          >
+            <Typography.Text size="sm" color="secondary">
+              {displayLabel}
+            </Typography.Text>
+            <ChevronDownIcon />
+          </div>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content>
+          <DropdownMenu.RadioGroup
+            componentId="shared.model-trace-explorer.trace-view-selector"
+            value={activeViewId ?? RAW_TRACE_VALUE}
+            onValueChange={handleValueChange}
+          >
+            <DropdownMenu.RadioItem value={RAW_TRACE_VALUE}>
+              <DropdownMenu.ItemIndicator />
+              Raw Trace
+            </DropdownMenu.RadioItem>
 
-          {traceViews.length > 0 && (
-            <DropdownMenu.Group>
-              <DropdownMenu.Label>Trace Views</DropdownMenu.Label>
-              {traceViews.map((view) => (
-                <DropdownMenu.RadioItem key={view.view_id} value={view.view_id}>
-                  <DropdownMenu.ItemIndicator />
-                  {view.name}
-                </DropdownMenu.RadioItem>
-              ))}
-            </DropdownMenu.Group>
-          )}
+            {traceViews.length > 0 && (
+              <DropdownMenu.Group>
+                <DropdownMenu.Label>Trace Views</DropdownMenu.Label>
+                {traceViews.map((view) => (
+                  <DropdownMenu.RadioItem key={view.view_id} value={view.view_id}>
+                    <DropdownMenu.ItemIndicator />
+                    {view.name}
+                  </DropdownMenu.RadioItem>
+                ))}
+              </DropdownMenu.Group>
+            )}
 
-          {experimentViews.length > 0 && (
-            <DropdownMenu.Group>
-              <DropdownMenu.Label>Experiment Views</DropdownMenu.Label>
-              {experimentViews.map((view) => (
-                <DropdownMenu.RadioItem key={view.view_id} value={view.view_id}>
-                  <DropdownMenu.ItemIndicator />
-                  {view.name}
-                </DropdownMenu.RadioItem>
-              ))}
-            </DropdownMenu.Group>
-          )}
-        </DropdownMenu.RadioGroup>
-        <DropdownMenu.Arrow />
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+            {experimentViews.length > 0 && (
+              <DropdownMenu.Group>
+                <DropdownMenu.Label>Experiment Views</DropdownMenu.Label>
+                {experimentViews.map((view) => (
+                  <DropdownMenu.RadioItem key={view.view_id} value={view.view_id}>
+                    <DropdownMenu.ItemIndicator />
+                    {view.name}
+                  </DropdownMenu.RadioItem>
+                ))}
+              </DropdownMenu.Group>
+            )}
+          </DropdownMenu.RadioGroup>
+          <DropdownMenu.Separator />
+          <DropdownMenu.Item
+            componentId="shared.model-trace-explorer.trace-view-selector.create"
+            onClick={() => editMode.enterEditMode()}
+          >
+            <PlusIcon />
+            Create View
+          </DropdownMenu.Item>
+          <DropdownMenu.Arrow />
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+      {activeView && (
+        <Button
+          componentId="shared.model-trace-explorer.trace-view-selector.edit"
+          type="tertiary"
+          size="small"
+          icon={<PencilIcon />}
+          onClick={() => editMode.enterEditMode(activeView)}
+          aria-label="Edit view"
+        />
+      )}
+    </div>
   );
 };
