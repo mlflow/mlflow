@@ -14,7 +14,9 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCreateGuardrail } from '../../hooks/useCreateGuardrail';
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { GatewayApi } from '../../api';
+import { GatewayQueryKeys } from '../../hooks/queryKeys';
 import type { GatewayGuardrailConfig, GuardrailStage, GuardrailAction } from '../../types';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../../../experiment-tracking/pages/experiment-scorers/prompts';
 import { LLM_TEMPLATE } from '../../../experiment-tracking/pages/experiment-scorers/types';
@@ -176,6 +178,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
   const intl = useIntl();
   const selectStyles = useSelectStyles();
   const { mutateAsync: createGuardrail } = useCreateGuardrail();
+  const queryClient = useQueryClient();
 
   // Wizard state
   const [step, setStep] = useState<1 | 2>(1);
@@ -260,6 +263,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
         endpoint_id: endpointId,
         guardrail_id: createResponse.guardrail.guardrail_id,
       });
+      queryClient.invalidateQueries(GatewayQueryKeys.guardrails);
 
       onSuccess();
       onClose();
