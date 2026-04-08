@@ -1697,23 +1697,31 @@ def test_extract_generation_context():
     assert "What is the capital of France?" not in context
 
 
-def test_extract_generation_context_no_llm_span():
+def _make_chain_only_trace():
     @mlflow.trace(name="root", span_type=SpanType.CHAIN)
     def _predict():
         return "Some answer"
 
     _predict()
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-
-    with pytest.raises(MlflowException, match="No LLM or CHAT_MODEL span found"):
-        extract_generation_context(trace)
+    return mlflow.get_trace(mlflow.get_last_active_trace_id())
 
 
-def test_extract_generation_context_only_user_messages():
-    trace = _make_llm_trace(
-        span_type=SpanType.LLM,
-        messages=[{"role": "user", "content": "Hello"}],
-        response="Some response.",
-    )
-    with pytest.raises(MlflowException, match="No non-user context messages found"):
+@pytest.mark.parametrize(
+    ("trace_factory", "error_match"),
+    [
+        (_make_chain_only_trace, "No LLM or CHAT_MODEL span found"),
+        (
+            lambda: _make_llm_trace(
+                span_type=SpanType.LLM,
+                messages=[{"role": "user", "content": "Hello"}],
+                response="Some response.",
+            ),
+            "No non-user context messages found",
+        ),
+    ],
+    ids=["no-llm-span", "only-user-messages"],
+)
+def test_extract_generation_context_errors(trace_factory, error_match):
+    trace = trace_factory()
+    with pytest.raises(MlflowException, match=error_match):
         extract_generation_context(trace)

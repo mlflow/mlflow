@@ -1,10 +1,8 @@
 HALLUCINATION_FEEDBACK_NAME = "hallucination_detection"
 
 HALLUCINATION_PROMPT = """\
-Determine if {{ outputs }} (the AI response) is faithful to {{ inputs }} (the reference context).
-
 You are an AI assistant tasked with detecting hallucinations in AI-generated responses. \
-Your job is to determine if a given response is faithful to the provided context documents, \
+Your job is to determine if {{ outputs }} (the AI response) is faithful to {{ inputs }} (the reference context), \
 or if it contains hallucinated information.
 
 A response is considered HALLUCINATED ("no") if it:
