@@ -427,6 +427,12 @@ def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
     assert otel_proto.events[0].name == "event1"
     assert otel_proto.events[0].time_unix_nano == 1500000000
 
+    # Verify spanInputs and spanOutputs are encoded as string_value, not kvlist_value
+    # Regression test for https://github.com/mlflow/mlflow/issues/22430
+    attr_by_key = {attr.key: attr.value for attr in otel_proto.attributes}
+    assert attr_by_key["mlflow.spanInputs"].HasField("string_value")
+    assert attr_by_key["mlflow.spanOutputs"].HasField("string_value")
+
 
 def test_span_from_otel_proto_conversion():
     # Create OTel proto span

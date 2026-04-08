@@ -426,7 +426,10 @@ class Span:
                 # Include the MLflow trace request ID only if it's not already present in attributes
                 SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
                 **{
-                    attr.key: dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
+                    attr.key: (
+                        v if isinstance(v := _decode_otel_proto_anyvalue(attr.value), str)
+                        else dump_span_attribute_value(v)
+                    )
                     for attr in otel_proto_span.attributes
                 },
             },
@@ -469,7 +472,7 @@ class Span:
 
         otel_span.status.CopyFrom(self.status.to_otel_proto_status())
 
-        for key, value in self.attributes.items():
+        for key, value in self._span.attributes.items():
             attr = otel_span.attributes.add()
             attr.key = key
             _set_otel_proto_anyvalue(attr.value, value)
