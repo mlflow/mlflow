@@ -286,84 +286,73 @@ export const EditEndpointFormRenderer = ({
           <div css={{ flex: 1 }}>
             <Tabs.Content value="overview">
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+                {/* Unified Model card */}
+                <div
+                  css={{
+                    padding: theme.spacing.md,
+                    border: `1px solid ${theme.colors.border}`,
+                    borderRadius: theme.borders.borderRadiusMd,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                  }}
+                >
+                  <Typography.Title level={3} css={{ margin: 0 }}>
+                    <FormattedMessage
+                      defaultMessage="Model"
+                      description="Gateway > Endpoint details > Section title for model configuration card"
+                    />
+                  </Typography.Title>
+
+                  {/* Primary sub-section */}
+                  <div
+                    css={{
+                      marginTop: theme.spacing.md,
+                      padding: theme.spacing.md,
+                      border: `1px solid ${theme.colors.border}`,
+                      borderRadius: theme.borders.borderRadiusMd,
+                      backgroundColor: theme.colors.backgroundPrimary,
+                    }}
+                  >
+                    <Typography.Title level={4} css={{ margin: 0 }}>
+                      <FormattedMessage
+                        defaultMessage="Primary Model"
+                        description="Gateway > Endpoint details > Sub-section title for primary traffic split models"
+                      />
+                    </Typography.Title>
+
+                    <div css={{ marginTop: theme.spacing.md }}>
+                      <Controller
+                        control={form.control}
+                        name="trafficSplitModels"
+                        render={({ field }) => (
+                          <TrafficSplitConfigurator
+                            value={field.value}
+                            onChange={field.onChange}
+                            componentId="mlflow.gateway.edit-endpoint.traffic-split"
+                          />
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <Controller
+                    control={form.control}
+                    name="fallbackModels"
+                    render={({ field }) => (
+                      <FallbackModelsConfigurator
+                        value={field.value}
+                        onChange={field.onChange}
+                        componentId="mlflow.gateway.edit-endpoint.fallback"
+                      />
+                    )}
+                  />
+                </div>
+
                 {endpoint && (
                   <StarterCodeCard
                     endpointName={endpoint.name}
                     provider={getStarterCodeProvider(endpoint.model_mappings)}
                   />
                 )}
-
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `1px solid ${theme.colors.border}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                  }}
-                >
-                  <Typography.Title level={3}>
-                    <FormattedMessage
-                      defaultMessage="Priority 1 (Traffic Split)"
-                      description="Section title for traffic split"
-                    />
-                  </Typography.Title>
-                  <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                    <FormattedMessage
-                      defaultMessage="Models in this priority will be tested first, with traffic split load balancing"
-                      description="Traffic split description"
-                    />
-                  </Typography.Text>
-
-                  <div css={{ marginTop: theme.spacing.lg }}>
-                    <Controller
-                      control={form.control}
-                      name="trafficSplitModels"
-                      render={({ field }) => (
-                        <TrafficSplitConfigurator
-                          value={field.value}
-                          onChange={field.onChange}
-                          componentId="mlflow.gateway.edit-endpoint.traffic-split"
-                        />
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `1px solid ${theme.colors.border}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                  }}
-                >
-                  <Typography.Title level={3}>
-                    <FormattedMessage
-                      defaultMessage="Priority 2 (Fallback)"
-                      description="Section title for fallback models"
-                    />
-                  </Typography.Title>
-                  <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                    <FormattedMessage
-                      defaultMessage="Models in this priority will be tested second, after models in Priority 1 have failed. Models will be attempted in order from top to bottom."
-                      description="Fallback models description"
-                    />
-                  </Typography.Text>
-
-                  <div css={{ marginTop: theme.spacing.lg }}>
-                    <Controller
-                      control={form.control}
-                      name="fallbackModels"
-                      render={({ field }) => (
-                        <FallbackModelsConfigurator
-                          value={field.value}
-                          onChange={field.onChange}
-                          componentId="mlflow.gateway.edit-endpoint.fallback"
-                        />
-                      )}
-                    />
-                  </div>
-                </div>
               </div>
             </Tabs.Content>
 

@@ -1901,6 +1901,9 @@ def test_rename_experiment(store: SqlAlchemyStore):
     assert renamed_experiment.name == new_name
     assert renamed_experiment.last_update_time > experiment.last_update_time
 
+    with pytest.raises(MlflowException, match=r"'name' exceeds the maximum length"):
+        store.rename_experiment(experiment_id, "x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
+
 
 def test_update_run_info(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_update_run_info")

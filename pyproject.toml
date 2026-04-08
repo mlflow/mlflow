@@ -182,6 +182,7 @@ lint = [
   "toml==0.10.2",
   "types-toml",
   "mypy==1.17.1",
+  "ty==0.0.24",
   "pydantic>=2.0",
   "clint",
   "pyyaml>=6.0.2",
