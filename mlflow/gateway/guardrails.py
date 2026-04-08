@@ -4,8 +4,6 @@ import abc
 import json
 from typing import TYPE_CHECKING, Any
 
-import aiohttp
-
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
@@ -239,6 +237,10 @@ class JudgeGuardrail(Guardrail):
             ],
         }
 
+        from fastapi import HTTPException
+
+        from mlflow.gateway.providers.utils import send_request
+
         headers = (
             {k: v for k, v in auth_headers.items() if k.lower() in _ALLOWED_AUTH_HEADERS}
             if auth_headers
@@ -247,20 +249,14 @@ class JudgeGuardrail(Guardrail):
         # Bypass guardrails on the sanitization call to prevent recursive loops.
         headers[_SANITIZE_BYPASS_HEADER] = "1"
 
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(
-                    url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=60)
-                ) as resp:
-                    resp.raise_for_status()
-                    raw = await resp.text()
-            except aiohttp.ClientError as e:
-                raise GuardrailViolation(self.name, f"Sanitization request failed: {e}") from e
+        try:
+            resp_json = await send_request(headers=headers, base_url=url, path="", payload=body)
+        except HTTPException as e:
+            raise GuardrailViolation(self.name, f"Sanitization request failed: {e.detail}") from e
 
         try:
-            resp_json = json.loads(raw)
             content = resp_json["choices"][0]["message"]["content"]
-        except (ValueError, KeyError, IndexError, TypeError) as e:
+        except (KeyError, IndexError, TypeError) as e:
             raise GuardrailViolation(
                 self.name,
                 "Sanitization LLM response is missing 'choices[0].message.content'.",
