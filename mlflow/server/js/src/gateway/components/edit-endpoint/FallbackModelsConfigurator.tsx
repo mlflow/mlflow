@@ -81,7 +81,13 @@ export const FallbackModelsConfigurator = ({
     <DndProvider backend={HTML5Backend}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         {/* Connector between primary model section and fallback section */}
-        {value.length > 0 ? <FallbackConnectorLine /> : <ConnectorLine />}
+        {value.length > 0 ? (
+          <FallbackConnectorLine />
+        ) : (
+          <div css={{ display: 'flex', justifyContent: 'center' }}>
+            <ConnectorLine />
+          </div>
+        )}
 
         {value.map((model, index) => (
           <div key={index}>
@@ -97,7 +103,11 @@ export const FallbackModelsConfigurator = ({
           </div>
         ))}
 
-        {value.length > 0 && <ConnectorLine />}
+        {value.length > 0 && (
+          <div css={{ display: 'flex', justifyContent: 'center' }}>
+            <ConnectorLine />
+          </div>
+        )}
 
         <Button componentId={`${componentId}.add`} onClick={handleAddModel} css={{ alignSelf: 'center' }}>
           <FormattedMessage defaultMessage="Add fallback" description="Button to add fallback model" />
