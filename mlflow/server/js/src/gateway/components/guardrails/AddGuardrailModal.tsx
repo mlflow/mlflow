@@ -3,6 +3,8 @@ import {
   Button,
   Input,
   Modal,
+  NoIcon,
+  SparkleIcon,
   Typography,
   useDesignSystemTheme,
   SparkleDoubleIcon,
@@ -237,7 +239,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
       const scorerName = name.trim().toLowerCase();
       const serializedScorer = type?.builtin
         ? { name: scorerName, builtin_scorer_class: type.name, instructions: instructions.trim() }
-        : { name: scorerName, call_source: description.trim(), instructions: instructions.trim() };
+        : { name: scorerName, call_source: instructions.trim(), instructions: instructions.trim() };
 
       const registered = await registerScorer(experimentId ?? '0', {
         name: scorerName,
@@ -273,7 +275,11 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
   return (
     <Modal
       componentId="mlflow.gateway.guardrails.add-modal"
-      title={intl.formatMessage({ defaultMessage: 'Add Guardrail', description: 'Title for add guardrail modal' })}
+      title={
+        step === 1
+          ? intl.formatMessage({ defaultMessage: 'Add Guardrail', description: 'Title for add guardrail modal step 1' })
+          : intl.formatMessage({ defaultMessage: 'Configuration', description: 'Title for add guardrail modal step 2' })
+      }
       visible={open}
       onCancel={onClose}
       size="wide"
@@ -315,6 +321,15 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
         )
       }
     >
+      {step === 2 && (
+        <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+          <FormattedMessage
+            defaultMessage="Review and edit the guardrail details, choose placement and action."
+            description="Step 2 subtitle"
+          />
+        </Typography.Text>
+      )}
+
       <StepIndicator step={step} />
 
       {step === 1 && (
@@ -345,115 +360,104 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
       )}
 
       {step === 2 && (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          <Typography.Title level={4}>
-            <FormattedMessage defaultMessage="Guardrail Details" description="Step 2 section title" />
-          </Typography.Title>
-
-          {/* Name */}
-          <div>
-            <Typography.Text bold color="info" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-              <FormattedMessage defaultMessage="Name" description="Guardrail name label" />
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          {/* Section: Guardrail Details */}
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            <Typography.Text bold css={{ fontSize: theme.typography.fontSizeLg }}>
+              <FormattedMessage defaultMessage="Guardrail Details" description="Step 2 section title" />
             </Typography.Text>
-            <Input
-              componentId="mlflow.gateway.guardrails.config-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'e.g., PII Detection & Redaction',
-                description: 'Guardrail name placeholder',
-              })}
-            />
-          </div>
 
-          {/* Description — only for custom */}
-          {selectedType === 'custom' && (
+            {/* Name */}
             <div>
-              <Typography.Text bold color="info" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+              <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                <FormattedMessage defaultMessage="Name" description="Guardrail name label" />
+              </Typography.Text>
+              <Input
+                componentId="mlflow.gateway.guardrails.config-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'e.g., PII Detection & Redaction',
+                  description: 'Guardrail name placeholder',
+                })}
+              />
+            </div>
+
+            {/* Description — judge instructions for all types */}
+            <div>
+              <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
                 <FormattedMessage defaultMessage="Description" description="Guardrail description label" />
               </Typography.Text>
               <Input.TextArea
-                componentId="mlflow.gateway.guardrails.config-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                componentId="mlflow.gateway.guardrails.config-instructions"
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
                 placeholder={intl.formatMessage({
-                  defaultMessage: 'Describe what this guardrail checks for...',
-                  description: 'Guardrail description placeholder',
+                  defaultMessage: 'Enter judge instructions...',
+                  description: 'Judge instructions placeholder',
                 })}
-                autoSize={{ minRows: 2, maxRows: 4 }}
+                autoSize={{ minRows: 4, maxRows: 10 }}
               />
             </div>
-          )}
-
-          {/* Judge instructions — shown for all types, pre-filled for builtins */}
-          <div>
-            <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-              <FormattedMessage defaultMessage="Judge Instructions" description="Guardrail judge instructions label" />
-            </Typography.Text>
-            <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm, fontSize: theme.typography.fontSizeSm }}>
-              <FormattedMessage
-                defaultMessage="Instructions given to the LLM judge. You can customize the default prompt."
-                description="Judge instructions help text"
-              />
-            </Typography.Text>
-            <Input.TextArea
-              componentId="mlflow.gateway.guardrails.config-instructions"
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Enter judge instructions...',
-                description: 'Judge instructions placeholder',
-              })}
-              autoSize={{ minRows: 4, maxRows: 12 }}
-            />
           </div>
 
-          {/* Placement */}
+          {/* Section: Placement */}
           <div>
-            <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+            <Typography.Text bold css={{ display: 'block', fontSize: theme.typography.fontSizeLg, marginBottom: theme.spacing.xs }}>
               <FormattedMessage defaultMessage="Placement" description="Guardrail placement label" />
             </Typography.Text>
-            <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+            <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm, fontSize: theme.typography.fontSizeSm }}>
               <FormattedMessage
                 defaultMessage="Click on a pipeline stage to choose where this guardrail runs."
                 description="Placement help text"
               />
             </Typography.Text>
-            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-              {['Request', 'BEFORE', 'LLM', 'AFTER', 'Response'].map((item, i) => {
+            {/* Pipeline visualizer */}
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: theme.spacing.sm,
+                padding: `${theme.spacing.md}px ${theme.spacing.lg}px`,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.borders.borderRadiusMd,
+              }}
+            >
+              {(['Request', 'BEFORE', 'LLM', 'AFTER', 'Response'] as const).map((item, i) => {
                 const isStage = item === 'BEFORE' || item === 'AFTER';
                 const isSelected = isStage && item === stage;
                 const label = item === 'BEFORE' ? 'Input Guardrails' : item === 'AFTER' ? 'Output Guardrails' : item;
                 return (
-                  <div key={item} css={{ display: 'flex', alignItems: 'center' }}>
+                  <div key={item} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
                     {i > 0 && (
-                      <div
-                        css={{
-                          width: 16,
-                          height: 0,
-                          borderTop: `1px solid ${theme.colors.borderDecorative}`,
-                          margin: `0 ${theme.spacing.xs}px`,
-                        }}
-                      />
+                      <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                        {'>'}
+                      </Typography.Text>
                     )}
                     {isStage ? (
-                      <Button
-                        componentId={`mlflow.gateway.guardrails.stage-${item}`}
-                        type={isSelected ? 'primary' : 'tertiary'}
-                        size="small"
+                      <div
+                        role="option"
+                        aria-selected={isSelected}
                         onClick={() => setStage(item as GuardrailStage)}
-                        icon={isSelected ? <CheckCircleIcon /> : undefined}
+                        onKeyDown={(e) => e.key === 'Enter' && setStage(item as GuardrailStage)}
+                        tabIndex={0}
                         css={{
-                          borderStyle: isSelected ? 'solid' : 'dashed',
+                          padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                          borderRadius: theme.borders.borderRadiusMd,
+                          border: `1.5px dashed ${isSelected ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.border}`,
+                          cursor: 'pointer',
+                          fontWeight: isSelected ? theme.typography.typographyBoldFontWeight : 'normal',
+                          color: isSelected ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.textPrimary,
+                          whiteSpace: 'nowrap',
+                          userSelect: 'none',
+                          '&:hover': { borderColor: theme.colors.actionPrimaryBackgroundDefault, color: theme.colors.actionPrimaryBackgroundDefault },
                         }}
                       >
                         {label}
-                      </Button>
+                      </div>
                     ) : (
-                      <Typography.Text
-                        color="secondary"
-                        css={{ fontSize: theme.typography.fontSizeSm, whiteSpace: 'nowrap' }}
-                      >
+                      <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm, whiteSpace: 'nowrap' }}>
                         {label}
                       </Typography.Text>
                     )}
@@ -463,12 +467,13 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
             </div>
           </div>
 
-          {/* Action */}
+          {/* Section: Action */}
           <div>
-            <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+            <Typography.Text bold css={{ display: 'block', fontSize: theme.typography.fontSizeLg, marginBottom: theme.spacing.sm }}>
               <FormattedMessage defaultMessage="Action" description="Guardrail action label" />
             </Typography.Text>
             <div css={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.md }}>
+              {/* Block */}
               <div
                 role="option"
                 aria-selected={action === 'VALIDATION'}
@@ -476,23 +481,30 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
                 onKeyDown={(e) => e.key === 'Enter' && setAction('VALIDATION')}
                 tabIndex={0}
                 css={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: theme.spacing.sm,
                   padding: theme.spacing.md,
                   borderRadius: theme.borders.borderRadiusMd,
-                  border: `2px solid ${action === 'VALIDATION' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.borderDecorative}`,
+                  border: `2px solid ${action === 'VALIDATION' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.border}`,
                   cursor: 'pointer',
                   '&:hover': { borderColor: theme.colors.actionPrimaryBackgroundDefault },
                 }}
               >
-                <Typography.Text bold>
-                  <FormattedMessage defaultMessage="Block" description="Block action title" />
-                </Typography.Text>
-                <Typography.Text color="secondary" css={{ display: 'block', fontSize: theme.typography.fontSizeSm }}>
-                  <FormattedMessage
-                    defaultMessage="Reject the request or response entirely and return an error."
-                    description="Block action description"
-                  />
-                </Typography.Text>
+                <NoIcon css={{ fontSize: 18, color: theme.colors.textSecondary, flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <Typography.Text bold css={{ display: 'block' }}>
+                    <FormattedMessage defaultMessage="Block" description="Block action title" />
+                  </Typography.Text>
+                  <Typography.Text color="secondary" css={{ display: 'block', fontSize: theme.typography.fontSizeSm }}>
+                    <FormattedMessage
+                      defaultMessage="Reject the request or response entirely and return an error."
+                      description="Block action description"
+                    />
+                  </Typography.Text>
+                </div>
               </div>
+              {/* Sanitize */}
               <div
                 role="option"
                 aria-selected={action === 'SANITIZATION'}
@@ -500,23 +512,28 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
                 onKeyDown={(e) => e.key === 'Enter' && setAction('SANITIZATION')}
                 tabIndex={0}
                 css={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: theme.spacing.sm,
                   padding: theme.spacing.md,
                   borderRadius: theme.borders.borderRadiusMd,
-                  border: `2px solid ${action === 'SANITIZATION' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.borderDecorative}`,
-                  borderStyle: action === 'SANITIZATION' ? 'solid' : 'dashed',
+                  border: `2px solid ${action === 'SANITIZATION' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.border}`,
                   cursor: 'pointer',
                   '&:hover': { borderColor: theme.colors.actionPrimaryBackgroundDefault },
                 }}
               >
-                <Typography.Text bold>
-                  <FormattedMessage defaultMessage="Sanitize" description="Sanitize action title" />
-                </Typography.Text>
-                <Typography.Text color="secondary" css={{ display: 'block', fontSize: theme.typography.fontSizeSm }}>
-                  <FormattedMessage
-                    defaultMessage="Redact or mask flagged content, then allow the request to continue."
-                    description="Sanitize action description"
-                  />
-                </Typography.Text>
+                <SparkleIcon css={{ fontSize: 18, color: theme.colors.textSecondary, flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <Typography.Text bold css={{ display: 'block' }}>
+                    <FormattedMessage defaultMessage="Sanitize" description="Sanitize action title" />
+                  </Typography.Text>
+                  <Typography.Text color="secondary" css={{ display: 'block', fontSize: theme.typography.fontSizeSm }}>
+                    <FormattedMessage
+                      defaultMessage="Redact or mask flagged content, then allow the request to continue."
+                      description="Sanitize action description"
+                    />
+                  </Typography.Text>
+                </div>
               </div>
             </div>
           </div>
