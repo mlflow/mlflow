@@ -20,16 +20,20 @@ from mlflow.server.gateway_api import (
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 
 
-def _make_scorer(*, passing=True, return_value="yes"):
-    """Return a callable mock that behaves like a Scorer."""
-    scorer = mock.MagicMock()
-    scorer.return_value = return_value if passing else "no"
-    return scorer
+class _SimpleScorer:
+    """Minimal scorer that returns 'yes' or 'no' and tracks call count."""
+
+    def __init__(self, *, passing: bool = True) -> None:
+        self.call_count = 0
+        self._passing = passing
+
+    def __call__(self, **kwargs) -> str:
+        self.call_count += 1
+        return "yes" if self._passing else "no"
 
 
 def _make_judge(stage, action=GuardrailAction.VALIDATION, *, passing=True):
-    """Build a real JudgeGuardrail with a mocked scorer."""
-    scorer = _make_scorer(passing=passing)
+    scorer = _SimpleScorer(passing=passing)
     return JudgeGuardrail(
         scorer=scorer,
         stage=GuardrailStage(stage),
@@ -107,7 +111,7 @@ async def test_run_before_guardrails_passes():
     payload = _make_request_payload()
     result = await _run_before_guardrails([g], payload)
     assert result == payload
-    g.scorer.assert_called_once()
+    assert g.scorer.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -116,7 +120,7 @@ async def test_run_before_guardrails_skips_after_stage():
     payload = _make_request_payload()
     result = await _run_before_guardrails([g], payload)
     assert result == payload
-    g.scorer.assert_not_called()
+    assert g.scorer.call_count == 0
 
 
 @pytest.mark.asyncio
@@ -129,16 +133,12 @@ async def test_run_before_guardrails_blocks():
 @pytest.mark.asyncio
 async def test_run_before_guardrails_chains_multiple():
     g1 = _make_judge("BEFORE")
-    g1.scorer.return_value = "yes"
-
     g2 = _make_judge("BEFORE")
-    g2.scorer.return_value = "yes"
-
     payload = _make_request_payload()
     result = await _run_before_guardrails([g1, g2], payload)
     assert result == payload
-    g1.scorer.assert_called_once()
-    g2.scorer.assert_called_once()
+    assert g1.scorer.call_count == 1
+    assert g2.scorer.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -147,7 +147,7 @@ async def test_run_before_guardrails_stops_at_first_failure():
     g2 = _make_judge("BEFORE")
     with pytest.raises(GuardrailViolation, match="blocked"):
         await _run_before_guardrails([g1, g2], _make_request_payload())
-    g2.scorer.assert_not_called()
+    assert g2.scorer.call_count == 0
 
 
 # ─── _run_after_guardrails ────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ async def test_run_after_guardrails_passes():
     response = _make_response_payload()
     result = await _run_after_guardrails([g], req, response)
     assert result.choices[0].message.content == "hi there"
-    g.scorer.assert_called_once()
+    assert g.scorer.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -169,7 +169,7 @@ async def test_run_after_guardrails_skips_before_stage():
     response = _make_response_payload()
     result = await _run_after_guardrails([g], _make_request_payload(), response)
     assert result is response
-    g.scorer.assert_not_called()
+    assert g.scorer.call_count == 0
 
 
 @pytest.mark.asyncio
