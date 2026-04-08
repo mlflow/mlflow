@@ -1,8 +1,6 @@
 import React from 'react';
 
 import {
-  HoverCard,
-  Overflow,
   SpeechBubbleIcon,
   TableCell,
   Tag,
@@ -22,13 +20,10 @@ import {
   isFeedbackAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
 
-const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
-  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
-};
-
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { StackedComponents } from './StackedComponents';
+import { IssuesCell, type Issue } from './IssuesCell';
 import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { RunColorCircle } from '../components/RunColorCircle';
@@ -65,6 +60,10 @@ import { SessionHeaderNumericAggregatedCell } from './SessionHeaderNumericAggreg
 import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregatedCell';
 import { StatusCellRenderer } from './StatusRenderer';
 import { calculateSessionDuration } from '../sessions-table/utils';
+
+const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
+  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
+};
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -688,50 +687,29 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     }
   } else if (column.id === ISSUES_COLUMN_ID) {
     // Issues column - collect all unique issues from all traces in the session
-    const collectUniqueIssues = (tracesList: ModelTraceInfoV3[]): string[] => {
-      const issueSet = new Set<string>();
+    const collectUniqueIssues = (tracesList: ModelTraceInfoV3[]): Issue[] => {
+      const issueMap = new Map<string, Issue>();
       tracesList.forEach((trace) => {
         trace.assessments?.forEach((assessment) => {
           if ('issue' in assessment && assessment.issue) {
-            const issueName = assessment.issue.issue_name || assessment.assessment_name;
-            issueSet.add(issueName);
+            const issueName = assessment.issue.issue_name;
+            const issueId = assessment.assessment_name;
+            // Use issue name as key to deduplicate (same issue name = same issue type)
+            if (!issueMap.has(issueName)) {
+              issueMap.set(issueName, { id: issueId, name: issueName });
+            }
           }
         });
       });
-      return Array.from(issueSet);
+      return Array.from(issueMap.values());
     };
 
     const currentIssues = traces.length > 0 ? collectUniqueIssues(traces) : [];
     const otherIssuesCollected = otherTraces && otherTraces.length > 0 ? collectUniqueIssues(otherTraces) : [];
 
-    const renderIssues = (issueList: string[]) => {
-      if (issueList.length === 0) {
-        return <NullCell isComparing={isComparing} />;
-      }
-
-      return (
-        <Overflow>
-          {issueList.map((issueName, index) => (
-            <Tag
-              key={index}
-              componentId="mlflow.genai-traces-table.session-header-issue-tag"
-              color="coral"
-              css={{ width: 'min-content', maxWidth: '100%' }}
-            >
-              {issueName}
-            </Tag>
-          ))}
-        </Overflow>
-      );
-    };
-
-    if (isComparing) {
-      cellContent = (
-        <StackedComponents first={renderIssues(currentIssues)} second={renderIssues(otherIssuesCollected)} />
-      );
-    } else {
-      cellContent = renderIssues(currentIssues);
-    }
+    cellContent = (
+      <IssuesCell issues={currentIssues} otherIssues={otherIssuesCollected} isComparing={isComparing ?? false} />
+    );
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&
     column.assessmentInfo &&

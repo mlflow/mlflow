@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
+    AmazonBedrockConfig,
     AnthropicConfig,
     EndpointConfig,
     EndpointType,
@@ -28,7 +29,13 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     Provider,
+    VertexAIConfig,
     _AuthConfigKey,
+    _OpenAICompatibleConfig,
+)
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CALLER_HEADER,
+    GatewayCaller,
 )
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
@@ -38,6 +45,7 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     TrafficRouteProvider,
 )
+from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
@@ -113,10 +121,16 @@ def _get_user_metadata(request: Request) -> dict[str, Any]:
 
 def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
     """
-    Decorator to record telemetry for gateway invocation endpoints.
+    Decorator for gateway invocation endpoints that records telemetry:
+    success/failure status, duration, streaming mode, and caller.
 
-    Automatically tracks success/failure status, duration, and streaming mode
-    (determined by checking if the response is a StreamingResponse).
+    As a side effect, relays provider call duration to the gateway timing middleware by
+    writing `request.state.gateway_provider_duration_ms`. This is required because
+    Starlette's call_next() copies the ContextVar context for the handler task, so
+    mutations to provider_call_duration_ms don't propagate back to the middleware.
+
+    Timing headers (X-MLflow-Gateway-Duration-Ms, X-MLflow-Gateway-Overhead-Duration-Ms)
+    are injected by gateway_timing_middleware in fastapi_app.py.
 
     Args:
         invocation_type: The type of invocation endpoint.
@@ -125,31 +139,60 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            start_time = time.time()
+            start_time = time.perf_counter()
             success = True
             result = None
 
+            # Extract caller header from the Request object if present,
+            # only accepting known caller values to avoid logging arbitrary input.
+            caller = None
+            request = next((a for a in (*args, *kwargs.values()) if isinstance(a, Request)), None)
+            if request is not None:
+                raw_caller = request.headers.get(MLFLOW_GATEWAY_CALLER_HEADER)
+                if raw_caller in {e.value for e in GatewayCaller}:
+                    caller = raw_caller
+
             try:
                 result = await func(*args, **kwargs)
-                return result  # noqa: RET504
             except Exception:
                 success = False
                 raise
             finally:
-                duration_ms = int((time.time() - start_time) * 1000)
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                params = {
+                    "is_streaming": isinstance(result, StreamingResponse),
+                    "invocation_type": invocation_type,
+                }
+                if caller:
+                    params["caller"] = caller
                 _record_event(
                     GatewayInvocationEvent,
-                    params={
-                        "is_streaming": isinstance(result, StreamingResponse),
-                        "invocation_type": invocation_type,
-                    },
+                    params=params,
                     success=success,
                     duration_ms=duration_ms,
                 )
+                # Relay provider timing to the middleware via request.state.
+                # ContextVar values set in the handler task don't propagate back
+                # to the middleware task (Starlette copies the context for call_next).
+                if request is not None:
+                    request.state.gateway_provider_duration_ms = int(
+                        provider_call_duration_ms.get()
+                    )
+
+            return result
 
         return wrapper
 
     return decorator
+
+
+def _build_openai_compatible_config(model_config: "GatewayModelConfig"):
+    """Build an _OpenAICompatibleConfig for providers that use the OpenAI API format."""
+    auth_config = model_config.auth_config or {}
+    return _OpenAICompatibleConfig(
+        api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+        api_base=auth_config.get(_AuthConfigKey.API_BASE),
+    )
 
 
 def _build_endpoint_config(
@@ -220,6 +263,70 @@ def _build_endpoint_config(
     elif model_config.provider == Provider.GEMINI:
         provider_config = GeminiConfig(
             gemini_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+        )
+    elif model_config.provider in {
+        Provider.GROQ,
+        Provider.DEEPSEEK,
+        Provider.XAI,
+        Provider.OPENROUTER,
+        Provider.OLLAMA,
+    }:
+        provider_config = _build_openai_compatible_config(model_config)
+    elif model_config.provider in (Provider.DATABRICKS, Provider.DATABRICKS_MODEL_SERVING):
+        from mlflow.gateway.providers.databricks import DatabricksConfig
+
+        auth_config = model_config.auth_config or {}
+        auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "pat_token")
+        config_kwargs = {}
+        if api_base := auth_config.get(_AuthConfigKey.API_BASE):
+            config_kwargs["host"] = api_base
+        if auth_mode == "oauth_m2m":
+            config_kwargs["client_id"] = auth_config.get("client_id")
+            config_kwargs["client_secret"] = model_config.secret_value.get("client_secret")
+        else:
+            config_kwargs["token"] = model_config.secret_value.get(_AuthConfigKey.API_KEY)
+        provider_config = DatabricksConfig(**config_kwargs)
+        model_config.provider = Provider.DATABRICKS
+    elif model_config.provider in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
+        auth_config = model_config.auth_config or {}
+        auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "api_key")
+        if auth_mode == "api_key":
+            # Bearer token auth — bypasses boto3 SigV4
+            provider_config = AmazonBedrockConfig(
+                aws_config={
+                    "aws_bearer_token": model_config.secret_value.get(_AuthConfigKey.API_KEY),
+                    "aws_region": auth_config.get("aws_region_name"),
+                }
+            )
+        elif auth_mode == "access_keys":
+            provider_config = AmazonBedrockConfig(
+                aws_config={
+                    "aws_access_key_id": model_config.secret_value.get("aws_access_key_id"),
+                    "aws_secret_access_key": model_config.secret_value.get("aws_secret_access_key"),
+                    "aws_region": auth_config.get("aws_region_name"),
+                }
+            )
+        elif auth_mode == "iam_role":
+            provider_config = AmazonBedrockConfig(
+                aws_config={
+                    "aws_role_arn": auth_config.get("aws_role_name"),
+                    "aws_region": auth_config.get("aws_region_name"),
+                }
+            )
+        else:
+            # default_chain — boto3 resolves credentials from the
+            # environment (env vars, ~/.aws/credentials, instance profile, etc.)
+            aws_config = {"aws_region": auth_config.get("aws_region_name")}
+            if role_arn := auth_config.get("aws_role_name"):
+                aws_config["aws_role_arn"] = role_arn
+            provider_config = AmazonBedrockConfig(aws_config=aws_config)
+        model_config.provider = Provider.BEDROCK
+    elif model_config.provider == Provider.VERTEX_AI:
+        auth_config = model_config.auth_config or {}
+        provider_config = VertexAIConfig(
+            vertex_project=auth_config.get("vertex_project"),
+            vertex_location=auth_config.get("vertex_location"),
+            vertex_credentials=model_config.secret_value.get("vertex_credentials"),
         )
     else:
         # Use LiteLLM as fallback for unsupported providers

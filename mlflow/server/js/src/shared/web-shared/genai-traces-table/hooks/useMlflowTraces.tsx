@@ -5,12 +5,13 @@ import { useIntl } from '@databricks/i18n';
 import type { NetworkRequestError } from '../../errors/PredefinedErrors';
 import { matchPredefinedErrorFromResponse } from '../../errors/PredefinedErrors';
 import type { QueryClient } from '../../query-client/queryClient';
-import { useQuery } from '../../query-client/queryClient';
+import { useQuery, useInfiniteQuery } from '../../query-client/queryClient';
 
 import {
   EXECUTION_DURATION_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
+  SESSION_COLUMN_ID,
   STATE_COLUMN_ID,
   USER_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
@@ -55,6 +56,7 @@ import {
   getEvalTabTotalTracesLimit,
   shouldUseTracesV4API,
   shouldUseLongRunningTracesAPI,
+  shouldUseInfinitePaginatedTraces,
 } from '../utils/FeatureUtils';
 import { fetchAPI, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
@@ -348,6 +350,9 @@ export const useSearchMlflowTraces = ({
   isFetching: boolean;
   error?: NetworkRequestError | Error;
   refetchMlflowTraces?: () => void;
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
 } => {
   // Client-side filtering is always disabled in OSS MLflow. It is only used in Databricks.
   const useClientSideFiltering = false;
@@ -372,6 +377,9 @@ export const useSearchMlflowTraces = ({
     isFetching: isInnerFetching,
     error,
     refetch: refetchMlflowTraces,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useSearchMlflowTracesInner({
     locations,
     filter,
@@ -459,6 +467,9 @@ export const useSearchMlflowTraces = ({
     isFetching: isInnerFetching,
     error: error || undefined,
     refetchMlflowTraces,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   };
 };
 
@@ -550,6 +561,9 @@ interface UseSearchMlflowTracesInnerResult {
   isFetching: boolean;
   error?: NetworkRequestError | Error | null;
   refetch: () => void;
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
 }
 
 /**
@@ -567,6 +581,80 @@ export function getSearchMlflowTracesQueryCacheConfig(usingV4APIs: boolean) {
     ...(usingV4APIs ? {} : { staleTime: Infinity, cacheTime: Infinity }),
   };
 }
+
+const SEARCH_TRACES_INFINITE_PAGE_SIZE = 100;
+
+type SearchMlflowTracesResponse = {
+  traces: ModelTraceInfoV3[];
+  next_page_token?: string;
+};
+
+/**
+ * Fetches traces using useInfiniteQuery, loading one page at a time.
+ * Enabled only when shouldUseInfinitePaginatedTraces() is true.
+ */
+const useSearchMlflowTracesInfinite = ({
+  locations,
+  filter,
+  orderBy,
+  loggedModelId,
+  sqlWarehouseId,
+  enabled = true,
+}: Omit<UseSearchMlflowTracesInnerParams, 'limit' | 'pageSize'>): UseSearchMlflowTracesInnerResult => {
+  const { data, isLoading, isFetching, isFetchingNextPage, fetchNextPage, hasNextPage, refetch, error } =
+    useInfiniteQuery<SearchMlflowTracesResponse, NetworkRequestError>({
+      keepPreviousData: true,
+      refetchOnWindowFocus: false,
+      staleTime: Infinity,
+      cacheTime: Infinity,
+      enabled,
+      queryKey: [
+        SEARCH_MLFLOW_TRACES_QUERY_KEY,
+        'infinite',
+        {
+          locations,
+          filter,
+          orderBy,
+          loggedModelId,
+          sqlWarehouseId,
+        },
+      ],
+      queryFn: async ({ signal, pageParam }) => {
+        const payload: SearchMlflowTracesRequest = {
+          locations,
+          filter,
+          max_results: SEARCH_TRACES_INFINITE_PAGE_SIZE,
+          order_by: orderBy,
+        };
+        if (loggedModelId && sqlWarehouseId) {
+          payload.model_id = loggedModelId;
+          payload.sql_warehouse_id = sqlWarehouseId;
+        }
+        if (pageParam) {
+          payload.page_token = pageParam;
+        }
+        return fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+          method: 'POST',
+          body: payload,
+          signal,
+        }) as Promise<SearchMlflowTracesResponse>;
+      },
+      getNextPageParam: (lastPage) => lastPage.next_page_token,
+    });
+
+  const allTraces = useMemo(() => data?.pages.flatMap((page) => page.traces).filter(Boolean), [data]);
+
+  return {
+    data: allTraces,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage: hasNextPage ?? false,
+    isFetchingNextPage,
+  };
+};
 
 /**
  * Fetches all mlflow traces for a given location/filter.
@@ -591,15 +679,26 @@ const useSearchMlflowTracesInner = ({
 }: UseSearchMlflowTracesInnerParams): UseSearchMlflowTracesInnerResult => {
   const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
   const usingLongRunningAPI = usingV4APIs && shouldUseLongRunningTracesAPI();
+  const usingInfinitePagination = !usingV4APIs && shouldUseInfinitePaginatedTraces();
 
   const queryCacheConfig = useMemo(() => getSearchMlflowTracesQueryCacheConfig(Boolean(usingV4APIs)), [usingV4APIs]);
 
   const sqlWarehouseQueryKey = usingV4APIs ? sqlWarehouseId : undefined;
 
-  // Standard synchronous search (only active when not using long-running API)
+  // Infinite paginated search (only active when feature flag is enabled)
+  const infiniteResult = useSearchMlflowTracesInfinite({
+    locations,
+    filter,
+    orderBy,
+    loggedModelId,
+    sqlWarehouseId,
+    enabled: enabled && usingInfinitePagination,
+  });
+
+  // Standard synchronous search (only active when not using long-running API or infinite pagination)
   const syncResult = useQuery<ModelTraceInfoV3[], NetworkRequestError>({
     ...queryCacheConfig,
-    enabled: enabled && !usingLongRunningAPI,
+    enabled: enabled && !usingLongRunningAPI && !usingInfinitePagination,
     queryKey: [
       SEARCH_MLFLOW_TRACES_QUERY_KEY,
       {
@@ -623,6 +722,10 @@ const useSearchMlflowTracesInner = ({
         sqlWarehouseId,
       }),
   });
+
+  if (usingInfinitePagination) {
+    return infiniteResult;
+  }
 
   return syncResult;
 };
@@ -685,6 +788,13 @@ export const createMlflowSearchFilter = (
           break;
         case USER_COLUMN_ID:
           filter.push(`request_metadata."mlflow.trace.user" = '${networkFilter.value}'`);
+          break;
+        case SESSION_COLUMN_ID:
+          if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`request_metadata.mlflow.trace.session ILIKE '%${networkFilter.value}%'`);
+          } else {
+            filter.push(`request_metadata.mlflow.trace.session = '${networkFilter.value}'`);
+          }
           break;
         case RUN_NAME_COLUMN_ID:
           filter.push(`attributes.run_id = '${networkFilter.value}'`);

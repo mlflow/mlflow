@@ -1,5 +1,5 @@
 ---
-title: Prompt Registry | MLflow AI Platform
+title: Prompt Registry
 description: Version, track, and reuse prompts across your organization with MLflow Prompt Registry. Maintain consistency and streamline prompt engineering.
 ---
 
@@ -86,7 +86,7 @@ import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
           template=initial_template,
           # Optional: Provide a commit message to describe the changes
           commit_message="Initial commit",
-          # Optional: Set tags applies to the prompt (across versions)
+          # Optional: Specify tags for this prompt
           tags={
               "author": "author@example.com",
               "task": "summarization",
@@ -177,8 +177,8 @@ import mlflow
 import openai
 
 target_text = """
-MLflow is the largest open source AI engineering platform. It enables teams of all sizes
-to debug, evaluate, monitor, and optimize production-quality agents and LLM applications,
+MLflow is the largest open source AI engineering platform for agents and LLMs. It enables teams of all sizes
+to debug, evaluate, monitor, and optimize production-quality AI applications,
 while controlling costs and managing access to LLMs and data.
 """
 

@@ -55,7 +55,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_URI,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -82,6 +82,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlEvaluationDatasetRecord,
     SqlExperiment,
     SqlExperimentTag,
+    SqlGatewaySecret,
     SqlInput,
     SqlInputTag,
     SqlLatestMetric,
@@ -409,6 +410,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlOnlineScoringConfig,
             SqlScorerVersion,
             SqlScorer,
+            SqlGatewaySecret,
             SqlExperiment,
         ):
             session.query(model).delete()
@@ -1898,6 +1900,9 @@ def test_rename_experiment(store: SqlAlchemyStore):
 
     assert renamed_experiment.name == new_name
     assert renamed_experiment.last_update_time > experiment.last_update_time
+
+    with pytest.raises(MlflowException, match=r"'name' exceeds the maximum length"):
+        store.rename_experiment(experiment_id, "x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
 
 
 def test_update_run_info(store: SqlAlchemyStore):
@@ -5009,7 +5014,8 @@ def test_start_trace(store: SqlAlchemyStore):
     assert trace_info.request_time == 1234
     assert trace_info.execution_duration == 100
     assert trace_info.state == TraceState.OK
-    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar"}
+    assert {"rq1": "foo", "rq2": "bar"}.items() <= trace_info.trace_metadata.items()
+    assert trace_info.trace_metadata.get(TraceMetadataKey.TRACE_INFO_FINALIZED) == "true"
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{trace_id}/artifacts")
     assert trace_info.tags == {
@@ -6436,6 +6442,80 @@ def test_search_traces_with_feedback_filters_excludes_invalid_assessments(
     traces, _ = store.search_traces([exp_id], filter_string="feedback.correctness IS NOT NULL")
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {trace1_id, trace2_id}
+
+
+def test_search_traces_session_scoped_assessment_expands_to_all_session_traces(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("test_session_assessment_expansion")
+
+    # Session A: 3 traces
+    _create_trace(
+        store, "sa-t1", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"}
+    )
+    _create_trace(
+        store, "sa-t2", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"}
+    )
+    _create_trace(
+        store, "sa-t3", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"}
+    )
+
+    # Session B: 3 traces
+    _create_trace(
+        store, "sb-t1", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"}
+    )
+    _create_trace(
+        store, "sb-t2", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"}
+    )
+    _create_trace(
+        store, "sb-t3", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"}
+    )
+
+    # Add a session-scoped assessment on the first trace of session A
+    session_feedback = Feedback(
+        trace_id="sa-t1",
+        name="session_quality",
+        value="good",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+        metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    store.create_assessment(session_feedback)
+
+    # Add a non-session assessment on a trace in session B (no session metadata)
+    non_session_feedback = Feedback(
+        trace_id="sb-t1",
+        name="trace_quality",
+        value="bad",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+    )
+    store.create_assessment(non_session_feedback)
+
+    # Searching with the session-scoped assessment filter should return all 3 traces
+    # from session A (not just the one with the assessment)
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.session_quality = "good"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sa-t1", "sa-t2", "sa-t3"}
+
+    # IS NOT NULL with session-scoped assessment should also expand
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.session_quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sa-t1", "sa-t2", "sa-t3"}
+
+    # Searching with non-session assessment should return only the single matching trace
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.trace_quality = "bad"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sb-t1"}
+
+    # IS NOT NULL with non-session assessment should return only the single trace
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.trace_quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sb-t1"}
+
+    # IS NULL with session-scoped assessment should exclude all session siblings too
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.session_quality IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    # All session-A traces are excluded (session-scoped assessment covers the whole session)
+    assert trace_ids == {"sb-t1", "sb-t2", "sb-t3"}
 
 
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
@@ -8121,29 +8201,9 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False, True])
-async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, is_async: bool):
-    # Create two different traces
+def test_log_spans_multiple_traces(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_multi_trace_experiment")
-    trace_info1 = TraceInfo(
-        trace_id="tr-span-test-789",
-        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
-        request_time=1234,
-        execution_duration=100,
-        state=TraceState.OK,
-    )
-    trace_info2 = TraceInfo(
-        trace_id="tr-span-test-999",
-        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
-        request_time=5678,
-        execution_duration=200,
-        state=TraceState.OK,
-    )
-    trace_info1 = store.start_trace(trace_info1)
-    trace_info2 = store.start_trace(trace_info2)
 
-    # Create spans for different traces
     span1 = create_mlflow_span(
         OTelReadableSpan(
             name="span_trace1",
@@ -8154,14 +8214,12 @@ async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, i
                 trace_flags=trace_api.TraceFlags(1),
             ),
             parent=None,
-            attributes={
-                "mlflow.traceRequestId": json.dumps(trace_info1.trace_id, cls=TraceJSONEncoder)
-            },
+            attributes={"mlflow.traceRequestId": json.dumps("tr-multi-1", cls=TraceJSONEncoder)},
             start_time=1000000000,
             end_time=2000000000,
             resource=_OTelResource.get_empty(),
         ),
-        trace_info1.trace_id,
+        "tr-multi-1",
     )
 
     span2 = create_mlflow_span(
@@ -8174,23 +8232,31 @@ async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, i
                 trace_flags=trace_api.TraceFlags(1),
             ),
             parent=None,
-            attributes={
-                "mlflow.traceRequestId": json.dumps(trace_info2.trace_id, cls=TraceJSONEncoder)
-            },
+            attributes={"mlflow.traceRequestId": json.dumps("tr-multi-2", cls=TraceJSONEncoder)},
             start_time=3000000000,
             end_time=4000000000,
             resource=_OTelResource.get_empty(),
         ),
-        trace_info2.trace_id,
+        "tr-multi-2",
     )
 
-    # Try to log spans from different traces - should raise MlflowException
-    if is_async:
-        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
-            await store.log_spans_async(experiment_id, [span1, span2])
-    else:
-        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
-            store.log_spans(experiment_id, [span1, span2])
+    # Multi-trace log_spans should succeed in a single call
+    result = store.log_spans(experiment_id, [span1, span2])
+    assert len(result) == 2
+
+    # Verify both traces were created with correct spans in the database
+    with store.ManagedSessionMaker() as session:
+        trace1 = session.query(SqlTraceInfo).filter_by(request_id="tr-multi-1").one()
+        assert trace1.experiment_id == int(experiment_id)
+
+        trace2 = session.query(SqlTraceInfo).filter_by(request_id="tr-multi-2").one()
+        assert trace2.experiment_id == int(experiment_id)
+
+        span_row1 = session.query(SqlSpan).filter_by(trace_id="tr-multi-1").one()
+        assert span_row1.name == "span_trace1"
+
+        span_row2 = session.query(SqlSpan).filter_by(trace_id="tr-multi-2").one()
+        assert span_row2.name == "span_trace2"
 
 
 @pytest.mark.asyncio
@@ -12727,6 +12793,26 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     assert traces[0].data.spans[0].status.status_code == "OK"
 
 
+def test_batch_get_traces_raises_for_artifact_repo_traces(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_artifact_repo_traces")
+
+    # Create a trace via start_trace only (no log_spans call),
+    # so it has no SPANS_LOCATION tag — simulating spans stored in artifact repo.
+    artifact_trace_id = f"tr-{uuid.uuid4().hex}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=artifact_trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1000,
+            execution_duration=500,
+            state=TraceState.OK,
+        )
+    )
+
+    with pytest.raises(MlflowTracingException, match="not stored in tracking store"):
+        store.batch_get_traces([artifact_trace_id])
+
+
 def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_token_usage")
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -12925,6 +13011,76 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["input_cost"] == 0.015
     assert trace.info.cost["output_cost"] == 0.03
     assert trace.info.cost["total_cost"] == 0.045
+
+
+def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
+    """start_trace() sets TRACE_INFO_FINALIZED; subsequent log_spans() must not overwrite
+    request_time, execution_duration, session_id, token_usage, or cost.
+    """
+    experiment_id = store.create_experiment("test_trace_info_finalized")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # start_trace() writes authoritative trace-level values and sets TRACE_INFO_FINALIZED.
+    authoritative_request_time = 1_000
+    authoritative_duration = 500
+    authoritative_session = "session-from-start-trace"
+    authoritative_token_usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    authoritative_cost = {"input_cost": 0.001, "output_cost": 0.0005, "total_cost": 0.0015}
+
+    _create_trace(
+        store,
+        trace_id,
+        experiment_id,
+        request_time=authoritative_request_time,
+        execution_duration=authoritative_duration,
+        trace_metadata={
+            TraceMetadataKey.TRACE_SESSION: authoritative_session,
+            TraceMetadataKey.TOKEN_USAGE: json.dumps(authoritative_token_usage),
+            TraceMetadataKey.COST: json.dumps(authoritative_cost),
+        },
+    )
+
+    # log_spans() arrives with different values that should all be ignored.
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000,  # earlier start (ms=1) — should NOT update request_time
+        end_time=9_000_000_000,  # later end — should NOT update execution_duration
+        trace_id_num=99999,
+        span_id_num=1,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        "session.id": "session-from-log-spans",
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 999,
+            "output_tokens": 999,
+            "total_tokens": 1998,
+        }),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 9.99,
+            "output_cost": 9.99,
+            "total_cost": 19.98,
+        }),
+    }
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+
+    # Timestamp and duration unchanged
+    assert trace_info.request_time == authoritative_request_time
+    assert trace_info.execution_duration == authoritative_duration
+
+    # Session ID unchanged
+    assert trace_info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == authoritative_session
+
+    # Token usage unchanged
+    assert trace_info.token_usage == authoritative_token_usage
+
+    # Cost unchanged
+    stored_cost = json.loads(trace_info.trace_metadata[TraceMetadataKey.COST])
+    assert stored_cost == authoritative_cost
 
 
 def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
@@ -13140,6 +13296,65 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
             "input_tokens": 100,
             "output_tokens": 50,
             "total_tokens": 150,
+        }
+
+
+def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_merge_preserves_metrics")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    loc = trace_location.TraceLocation.from_experiment_id(experiment_id)
+    ts = get_current_time_millis()
+
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=loc,
+            request_time=ts,
+            execution_duration=100,
+            state=TraceStatus.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                    "input_tokens": 10,
+                    "output_tokens": 20,
+                    "total_tokens": 30,
+                })
+            },
+        )
+    )
+
+    # Second start_trace with a subset of metric keys triggers the merge path.
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=loc,
+            request_time=ts,
+            execution_duration=200,
+            state=TraceStatus.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                    "total_tokens": 110,
+                    "cache_read_input_tokens": 5,
+                })
+            },
+        )
+    )
+
+    assert result.trace_id == trace_id
+
+    with store.ManagedSessionMaker() as session:
+        metrics = (
+            session
+            .query(SqlTraceMetrics)
+            .filter(SqlTraceMetrics.request_id == trace_id)
+            .order_by(SqlTraceMetrics.key)
+            .all()
+        )
+        metrics_by_key = {m.key: m.value for m in metrics}
+        assert metrics_by_key == {
+            "cache_read_input_tokens": 5,
+            "input_tokens": 10,
+            "output_tokens": 20,
+            "total_tokens": 110,
         }
 
 
@@ -13709,6 +13924,70 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
     assert TraceMetadataKey.TRACE_SESSION not in trace_info3.trace_metadata
 
 
+def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_user_id")
+
+    # User ID gets stored from span attributes
+    trace_id1 = f"tr-{uuid.uuid4().hex}"
+    otel_span1 = create_test_otel_span(trace_id=trace_id1)
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id1, cls=TraceJSONEncoder),
+        "user.id": "alice",
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id1, "LLM")
+    store.log_spans(experiment_id, [span1])
+
+    trace_info1 = store.get_trace_info(trace_id1)
+    assert trace_info1.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "alice"
+
+    # Existing user ID is preserved
+    trace_id2 = f"tr-{uuid.uuid4().hex}"
+    trace_with_user = TraceInfo(
+        trace_id=trace_id2,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.IN_PROGRESS,
+        trace_metadata={TraceMetadataKey.TRACE_USER: "existing-user"},
+    )
+    store.start_trace(trace_with_user)
+
+    otel_span2 = create_test_otel_span(trace_id=trace_id2)
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id2, cls=TraceJSONEncoder),
+        "user.id": "different-user",
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id2, "LLM")
+    store.log_spans(experiment_id, [span2])
+
+    trace_info2 = store.get_trace_info(trace_id2)
+    assert trace_info2.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "existing-user"
+
+    # No user ID means no metadata
+    trace_id3 = f"tr-{uuid.uuid4().hex}"
+    otel_span3 = create_test_otel_span(trace_id=trace_id3)
+    span3 = create_mlflow_span(otel_span3, trace_id3, "LLM")
+    store.log_spans(experiment_id, [span3])
+
+    trace_info3 = store.get_trace_info(trace_id3)
+    assert TraceMetadataKey.TRACE_USER not in trace_info3.trace_metadata
+
+    # Both session and user ID work together
+    trace_id4 = f"tr-{uuid.uuid4().hex}"
+    otel_span4 = create_test_otel_span(trace_id=trace_id4)
+    otel_span4._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id4, cls=TraceJSONEncoder),
+        "session.id": "session-456",
+        "user.id": "bob",
+    }
+    span4 = create_mlflow_span(otel_span4, trace_id4, "LLM")
+    store.log_spans(experiment_id, [span4])
+
+    trace_info4 = store.get_trace_info(trace_id4)
+    assert trace_info4.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-456"
+    assert trace_info4.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "bob"
+
+
 def test_find_completed_sessions(store: SqlAlchemyStore):
     """
     Test finding completed sessions based on their last trace timestamp.
@@ -13865,3 +14144,70 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-c"
+
+
+def test_get_decrypted_secret_integration_simple(store):
+    secret_info = store.create_gateway_secret(
+        secret_name="test-simple-secret",
+        secret_value={"api_key": "sk-test-123456"},
+        provider="openai",
+    )
+
+    decrypted = store._get_decrypted_secret(secret_info.secret_id)
+
+    assert decrypted == {"api_key": "sk-test-123456"}
+
+
+def test_get_decrypted_secret_integration_compound(store):
+    secret_info = store.create_gateway_secret(
+        secret_name="test-compound-secret",
+        secret_value={
+            "aws_access_key_id": "AKIA1234567890",
+            "aws_secret_access_key": "secret-key-value",
+        },
+        provider="bedrock",
+    )
+
+    decrypted = store._get_decrypted_secret(secret_info.secret_id)
+
+    assert decrypted == {
+        "aws_access_key_id": "AKIA1234567890",
+        "aws_secret_access_key": "secret-key-value",
+    }
+
+
+def test_get_decrypted_secret_integration_with_auth_config(store):
+    secret_info = store.create_gateway_secret(
+        secret_name="test-auth-config-secret",
+        secret_value={"api_key": "aws-secret"},
+        provider="bedrock",
+        auth_config={"region": "us-east-1", "profile": "default"},
+    )
+
+    decrypted = store._get_decrypted_secret(secret_info.secret_id)
+
+    assert decrypted == {"api_key": "aws-secret"}
+
+
+def test_get_decrypted_secret_integration_not_found(store):
+    with pytest.raises(MlflowException, match="not found"):
+        store._get_decrypted_secret("nonexistent-secret-id")
+
+
+def test_get_decrypted_secret_integration_multiple_secrets(store):
+    secret1 = store.create_gateway_secret(
+        secret_name="secret-1",
+        secret_value={"api_key": "key-1"},
+        provider="openai",
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="secret-2",
+        secret_value={"api_key": "key-2"},
+        provider="anthropic",
+    )
+
+    decrypted1 = store._get_decrypted_secret(secret1.secret_id)
+    decrypted2 = store._get_decrypted_secret(secret2.secret_id)
+
+    assert decrypted1 == {"api_key": "key-1"}
+    assert decrypted2 == {"api_key": "key-2"}

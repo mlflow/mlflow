@@ -1,3 +1,16 @@
+from enum import Enum
+
+MLFLOW_GATEWAY_CALLER_HEADER = "X-MLflow-Gateway-Caller"
+MLFLOW_GATEWAY_DURATION_HEADER = "X-MLflow-Gateway-Duration-Ms"
+MLFLOW_GATEWAY_OVERHEAD_HEADER = "X-MLflow-Gateway-Overhead-Duration-Ms"
+
+
+class GatewayCaller(str, Enum):
+    """Known callers of the gateway, sent via the X-MLflow-Gateway-Caller header."""
+
+    JUDGE = "judge"
+
+
 MLFLOW_GATEWAY_HEALTH_ENDPOINT = "/health"
 MLFLOW_GATEWAY_CRUD_ROUTE_BASE = "/api/2.0/gateway/routes/"
 MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE = "/api/3.0/gateway/endpoint/"

@@ -394,9 +394,27 @@ const getChatMessagesFromSpan = (
     }
   }
 
-  // when either input or output is not chat messages, we do not set the chat message fiels.
+  // When the output is a plain string and inputs parsed as chat messages,
+  // wrap the output as an assistant message so the chat UI can render.
+  if (messagesFromInputs.length > 0 && messagesFromOutputs.length === 0 && typeof outputs === 'string') {
+    return messagesFromInputs.concat([{ role: 'assistant', content: outputs }]);
+  }
+
+  // when either input or output is not chat messages, we do not set the chat message field.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
     return undefined;
+  }
+
+  // LangGraph (and similar frameworks) accumulate all messages in the output state,
+  // so outputs already contain the input messages as a prefix. Detect this overlap
+  // and use only the output messages to avoid duplication.
+  if (
+    messagesFromOutputs.length >= messagesFromInputs.length &&
+    messagesFromInputs.every(
+      (msg, i) => msg.role === messagesFromOutputs[i].role && msg.content === messagesFromOutputs[i].content,
+    )
+  ) {
+    return messagesFromOutputs;
   }
 
   return messagesFromInputs.concat(messagesFromOutputs);
@@ -942,6 +960,9 @@ const isContentPart = (part: any) => {
         return false;
       }
       return isString(input_audio.data) && (isNil(input_audio.format) || ['wav', 'mp3'].includes(input_audio.format));
+    case 'image':
+      // Anthropic format: {"type": "image", "source": {"type": "base64", "data": "..."}}
+      return !isNil(part.source) && isString((part as any).source.data);
     default:
       return false;
   }
@@ -1119,7 +1140,8 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
-        const chatMessages = normalizeOpenAIFormats(input);
+        const chatMessages =
+          normalizeOpenAIFormats(input) ?? normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
         if (chatMessages) return chatMessages;
         const geminiFallbackMessages = normalizeGeminiChatInput(input) ?? normalizeGeminiChatOutput(input);
         if (geminiFallbackMessages) return geminiFallbackMessages;
@@ -1169,6 +1191,17 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
         case 'image_url':
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
+        case 'image': {
+          // Anthropic format: {"type": "image", "source": {"type": "base64", "media_type": "...", "data": "..."}}
+          const source = (part as any)?.source;
+          const imageData = source?.data;
+          if (!imageData) return '[image]';
+          if (isString(imageData) && imageData.startsWith('mlflow-attachment://')) {
+            return `![](${imageData})`;
+          }
+          const mediaType = source?.media_type;
+          return mediaType ? `![](data:${mediaType};base64,${imageData})` : '[image]';
+        }
         case 'input_audio':
           // Audio parts are rendered as <audio> elements by the component,
           // so they are excluded from the markdown string
@@ -1206,6 +1239,14 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
   }
 
   const audioParts = extractAudioParts(message.content);
+
+  // Extract audio from assistant message output (e.g., gpt-4o-audio-preview response)
+  const messageAudio = (message as any).audio;
+  if (messageAudio && isString(messageAudio.data)) {
+    const format =
+      isString(messageAudio.format) && ['wav', 'mp3'].includes(messageAudio.format) ? messageAudio.format : 'wav';
+    audioParts.push({ data: messageAudio.data, format });
+  }
 
   return {
     ...message,
@@ -1418,10 +1459,10 @@ export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
 
 /**
  * Filters the provided assessments to only include those that are at the trace level
- * (i.e., not associated with a specific session).
+ * (i.e., not associated with a specific session) or are IssueReferenceAssessment types.
  */
 export const getTraceLevelAssessments = (assessments?: Assessment[]) =>
-  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment) || 'issue' in assessment) ?? [];
 
 export const isValidException = (
   event: ModelTraceEvent,

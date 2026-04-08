@@ -375,7 +375,7 @@ class Scorer(BaseModel):
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
                     inference_params=data.get("inference_params"),
-                    # TODO: add aggregations here once we support boolean/numeric judge outputs
+                    aggregations=serialized.aggregations,
                 )
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(

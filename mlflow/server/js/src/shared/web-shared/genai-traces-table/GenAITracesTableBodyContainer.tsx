@@ -66,6 +66,11 @@ interface GenAITracesTableBodyContainerProps {
    * Current search query; when set, matching text in the Request column is highlighted.
    */
   searchQuery?: string;
+
+  // Infinite scroll props (active when shouldUseInfinitePaginatedTraces is true)
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -92,6 +97,9 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       isTableLoading = false,
       isGroupedBySession,
       searchQuery,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -260,6 +268,9 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 isTableLoading={isTableLoading}
                 isGroupedBySession={isGroupedBySession}
                 searchQuery={searchQuery}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
               />
             </AssessmentSchemaContextProvider>
           </div>

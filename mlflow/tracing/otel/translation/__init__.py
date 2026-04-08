@@ -16,6 +16,7 @@ from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
+from mlflow.tracing.otel.translation.laminar import LaminarTranslator
 from mlflow.tracing.otel.translation.langfuse import LangfuseTranslator
 from mlflow.tracing.otel.translation.livekit import LiveKitTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
@@ -40,6 +41,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     VercelAITranslator(),
     VoltAgentTranslator(),
     LiveKitTranslator(),
+    LaminarTranslator(),
     LangfuseTranslator(),
 ]
 
@@ -101,6 +103,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
         message_format := _get_message_format(attributes)
     ):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = dump_span_attribute_value(message_format)
+
+    # Translate tool definitions for chat UI rendering
+    if SpanAttributeKey.CHAT_TOOLS not in attributes and (
+        tools := _get_tool_definitions(attributes)
+    ):
+        attributes[SpanAttributeKey.CHAT_TOOLS] = tools
 
     # Extract and normalize model name from various sources
     if SpanAttributeKey.MODEL not in attributes and (model_name := _get_model_name(attributes)):
@@ -255,6 +263,13 @@ def _get_message_format(attributes: dict[str, Any]) -> str | None:
     for translator in _TRANSLATORS:
         if message_format := translator.get_message_format(attributes):
             return message_format
+    return None
+
+
+def _get_tool_definitions(attributes: dict[str, Any]) -> Any:
+    for translator in _TRANSLATORS:
+        if value := translator.get_tool_definitions(attributes):
+            return value
     return None
 
 
@@ -439,12 +454,11 @@ def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
             result = json.loads(value)
             if isinstance(result, str):
                 try:
-                    # If the original value is a string or dict, we store it as
-                    # a JSON-encoded string.  For other types, we store the original value directly.
-                    # For string type, this is to avoid interpreting "1" as an int accidentally.
-                    # For dictionary, we save the json-encoded-once string so that the UI can render
-                    # it correctly after loading.
-                    if isinstance(json.loads(result), (str, dict)):
+                    # If the value was double-encoded (e.g., via OTLP where from_otel_proto
+                    # calls dump_span_attribute_value on an already-serialized string), strip
+                    # one layer of encoding for str/dict/list types. We intentionally exclude
+                    # primitives like int/bool to avoid misinterpreting e.g. "1" as an integer.
+                    if isinstance(json.loads(result), (str, dict, list)):
                         updated_attributes[key] = result
                         continue
                 except json.JSONDecodeError:

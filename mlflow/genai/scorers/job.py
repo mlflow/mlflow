@@ -32,6 +32,7 @@ from mlflow.genai.scorers.online import (
     OnlineSessionScoringProcessor,
     OnlineTraceScoringProcessor,
 )
+from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -189,6 +190,11 @@ def _fetch_traces_batch(
     """
     Fetch traces in batch and return a mapping.
 
+    Attempts to load traces from the tracking store first. For any traces
+    whose span data is stored in an artifact repository (e.g. S3) rather
+    than in the tracking store, falls back to downloading from the artifact
+    repository.
+
     Args:
         trace_ids: List of trace IDs to fetch.
         tracking_store: The tracking store instance.
@@ -199,7 +205,8 @@ def _fetch_traces_batch(
     Raises:
         MlflowException: If any trace IDs are not found.
     """
-    traces = tracking_store.batch_get_traces(trace_ids)
+    loader = OnlineTraceLoader(tracking_store)
+    traces = loader.fetch_traces(trace_ids)
     trace_map = {t.info.trace_id: t for t in traces}
 
     if missing_ids := [tid for tid in trace_ids if tid not in trace_map]:
@@ -251,14 +258,13 @@ def _run_session_scorer(
     first_trace_id = first_trace.info.trace_id
 
     try:
-        result = evaluate_session_level_scorers(
+        eval_result = evaluate_session_level_scorers(
             session_id=session_id,
             session_items=session_items,
             multi_turn_scorers=[scorer],
         )
 
-        # result is {first_trace_id: [feedbacks]}
-        feedbacks = result[first_trace_id]
+        feedbacks = eval_result.assessments
 
         failures = _extract_failures_from_feedbacks(feedbacks)
 
@@ -309,10 +315,11 @@ def _run_single_turn_scorer_batch(
         try:
             # Use _compute_eval_scores from harness - supports scorer tracing,
             # captures stack traces on errors
-            feedbacks = _compute_eval_scores(
+            result = _compute_eval_scores(
                 eval_item=eval_item,
                 scorers=[scorer],
             )
+            feedbacks = result.assessments
 
             failures = _extract_failures_from_feedbacks(feedbacks)
 

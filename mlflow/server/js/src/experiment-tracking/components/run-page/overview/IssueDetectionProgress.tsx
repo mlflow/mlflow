@@ -1,44 +1,67 @@
-import type { ReactNode } from 'react';
-import { FormattedMessage } from 'react-intl';
-import { Button, CheckCircleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useEffect, type ReactNode } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
+import {
+  Button,
+  CheckCircleIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  ParagraphSkeleton,
+  XCircleIcon,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import { GenAIMarkdownRenderer } from '../../../../shared/web-shared/genai-markdown-renderer/GenAIMarkdownRenderer';
 import { useNavigate, useParams } from '../../../../common/utils/RoutingUtils';
 import { RunPageTabName } from '../../../constants';
 import Routes from '../../../routes';
+import Utils from '../../../../common/utils/Utils';
+import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
+import { JobStatus, isJobComplete } from '../hooks/useFetchJobStatus';
+import { useCancelJob } from '../hooks/useCancelJob';
+import { useLogTelemetryEvent } from '../../../../telemetry/hooks/useLogTelemetryEvent';
 
-export interface IssueDetectionProgressProps {
-  /** Callback when cancel button is clicked */
-  onCancel?: () => void;
-  /** Whether the cancel operation is in progress */
-  isCancelling?: boolean;
+export interface IssueJobResult {
+  issues?: number;
+  summary?: string;
+  total_traces_analyzed?: number;
+  total_cost_usd?: number;
 }
 
-const ProgressBar = ({ percent }: { percent: number }) => {
-  const { theme } = useDesignSystemTheme();
-  return (
-    <div
-      css={{
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: theme.colors.grey200,
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        css={{
-          height: '100%',
-          width: `${percent}%`,
-          backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
-          transition: 'width 0.3s ease',
-        }}
-      />
-    </div>
-  );
-};
+export interface IssueDetectionProgressProps {
+  /** Job ID for cancel functionality */
+  jobId?: string;
+  /** Job status from parent */
+  jobStatus?: JobStatus;
+  /** Current job stage */
+  jobStage?: string;
+  /** Total traces count */
+  totalTraces?: number;
+  /** Job result data */
+  result?: IssueJobResult;
+  /** Whether job status is loading */
+  isLoadingJobStatus?: boolean;
+  /** Error from job status fetch */
+  jobStatusError?: Error | null;
+  /** Error message from backend when job failed */
+  jobErrorMessage?: string;
+}
 
-export const IssueDetectionProgress = ({ onCancel, isCancelling }: IssueDetectionProgressProps) => {
+export const IssueDetectionProgress = ({
+  jobId,
+  jobStatus,
+  jobStage,
+  totalTraces,
+  result,
+  isLoadingJobStatus,
+  jobStatusError,
+  jobErrorMessage,
+}: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const logTelemetryEvent = useLogTelemetryEvent();
   const navigate = useNavigate();
   const { experimentId, runUuid } = useParams<{ experimentId: string; runUuid: string }>();
+  const { cancelJob, isCancelling } = useCancelJob();
 
   const handleViewTraces = () => {
     if (experimentId && runUuid) {
@@ -52,17 +75,75 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling }: IssueDetectio
     }
   };
 
-  // TODO: Replace with actual data from backend
-  const totalTraces = 25;
-  const scannedTraces = 20;
-  const identifiedIssues = 8;
-  const isComplete = false;
-  const progress = totalTraces > 0 ? (scannedTraces / totalTraces) * 100 : 0;
+  const handleCancel = () => {
+    if (!jobId) return;
+    cancelJob(
+      { jobId, runUuid },
+      {
+        onError: (error) => {
+          Utils.logErrorAndNotifyUser(
+            intl.formatMessage(
+              {
+                defaultMessage: 'Failed to cancel job: {error}',
+                description: 'Error message when job cancellation fails',
+              },
+              { error: error.message },
+            ),
+          );
+        },
+      },
+    );
+  };
 
-  // TODO: Don't render if detection is complete (once real data is available)
-  // if (isComplete) {
-  //   return null;
-  // }
+  const isJobSucceeded = jobStatus === JobStatus.SUCCEEDED;
+  const isJobFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT || !!jobStatusError;
+  const isJobCanceled = jobStatus === JobStatus.CANCELED;
+  const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
+
+  const { issues } = useSearchIssuesQuery({
+    experimentId: experimentId ?? '',
+    sourceRunId: runUuid ?? '',
+    enabled: !!experimentId && !!runUuid,
+    pollingEnabled: !jobComplete,
+  });
+
+  const identifiedIssues = issues.length;
+
+  useEffect(() => {
+    if (isJobSucceeded && runUuid) {
+      logTelemetryEvent({
+        componentId: 'mlflow.issue-detection.completed',
+        componentType: DesignSystemEventProviderComponentTypes.Card,
+        // Use runUuid as componentViewId to track the same eval result across sessions
+        componentViewId: runUuid ?? '',
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnView,
+        value: JSON.stringify({
+          totalTraces,
+          identifiedIssues: result?.issues,
+          totalCostUsd: result?.total_cost_usd,
+        }),
+      });
+    }
+  }, [isJobSucceeded, runUuid, totalTraces, result?.issues, result?.total_cost_usd, logTelemetryEvent]);
+
+  if (isLoadingJobStatus) {
+    return (
+      <div css={{ marginBottom: theme.spacing.lg }}>
+        <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
+          <FormattedMessage defaultMessage="Detection progress" description="Issue detection progress > Title" />
+        </Typography.Title>
+        <div
+          css={{
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusMd,
+            padding: theme.spacing.md,
+          }}
+        >
+          <ParagraphSkeleton />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div css={{ marginBottom: theme.spacing.lg }}>
@@ -72,8 +153,12 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling }: IssueDetectio
         <Typography.Title level={4} css={{ margin: 0 }}>
           <FormattedMessage defaultMessage="Detection progress" description="Issue detection progress > Title" />
         </Typography.Title>
-        {onCancel && (
-          <Button componentId="mlflow.traces.issue-detection.cancel-button" onClick={onCancel} loading={isCancelling}>
+        {!jobComplete && (
+          <Button
+            componentId="mlflow.traces.issue-detection.cancel-button"
+            onClick={handleCancel}
+            loading={isCancelling}
+          >
             <FormattedMessage defaultMessage="Cancel" description="Issue detection progress > Cancel button" />
           </Button>
         )}
@@ -87,8 +172,10 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling }: IssueDetectio
         }}
       >
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
-          {isComplete ? (
+          {isJobSucceeded ? (
             <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />
+          ) : isJobFailed || isJobCanceled ? (
+            <XCircleIcon css={{ color: theme.colors.textValidationDanger }} />
           ) : (
             <div
               css={{
@@ -96,51 +183,169 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling }: IssueDetectio
                 height: 16,
                 borderRadius: '50%',
                 border: `2px solid ${theme.colors.border}`,
+                borderTopColor: theme.colors.actionPrimaryBackgroundDefault,
+                animation: 'spin 1s linear infinite',
+                '@keyframes spin': {
+                  '0%': { transform: 'rotate(0deg)' },
+                  '100%': { transform: 'rotate(360deg)' },
+                },
               }}
             />
           )}
           <Typography.Text>
-            <FormattedMessage
-              defaultMessage="Identifying issues from traces..."
-              description="Issue detection progress > Step label"
-            />
+            {isJobSucceeded ? (
+              <FormattedMessage
+                defaultMessage="Issue detection completed"
+                description="Issue detection progress > Step label when completed"
+              />
+            ) : isJobFailed ? (
+              <FormattedMessage
+                defaultMessage="Issue detection failed"
+                description="Issue detection progress > Step label when failed"
+              />
+            ) : isJobCanceled ? (
+              <FormattedMessage
+                defaultMessage="Issue detection canceled"
+                description="Issue detection progress > Step label when canceled"
+              />
+            ) : jobStage ? (
+              jobStage
+            ) : (
+              <FormattedMessage
+                defaultMessage="Identifying issues from traces..."
+                description="Issue detection progress > Step label (fallback)"
+              />
+            )}
           </Typography.Text>
         </div>
         <div css={{ marginLeft: 24 }}>
-          {!isComplete && (
-            <div css={{ marginBottom: theme.spacing.xs }}>
-              <ProgressBar percent={progress} />
-            </div>
-          )}
           <Typography.Hint>
-            <FormattedMessage
-              defaultMessage="{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far"
-              description="Issue detection progress > Progress summary"
-              values={{
-                scannedTraces,
-                totalTraces,
-                identifiedIssues,
-                tracesLink: (chunks: ReactNode) => (
-                  <Typography.Link
-                    componentId="mlflow.traces.issue-detection.view-traces-link"
-                    onClick={handleViewTraces}
-                  >
-                    {chunks}
-                  </Typography.Link>
-                ),
-                issuesLink: (chunks: ReactNode) => (
-                  <Typography.Link
-                    componentId="mlflow.traces.issue-detection.view-issues-link"
-                    onClick={handleViewIssues}
-                  >
-                    {chunks}
-                  </Typography.Link>
-                ),
-              }}
-            />
+            {jobComplete ? (
+              <FormattedMessage
+                defaultMessage="Scanned <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> found"
+                description="Issue detection progress > Progress summary when completed"
+                values={{
+                  totalTraces,
+                  identifiedIssues,
+                  tracesLink: (chunks: ReactNode) => (
+                    <Typography.Link
+                      componentId="mlflow.traces.issue-detection.view-traces-link"
+                      onClick={handleViewTraces}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
+                  issuesLink: (chunks: ReactNode) => (
+                    <Typography.Link
+                      componentId="mlflow.traces.issue-detection.view-issues-link"
+                      onClick={handleViewIssues}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
+                }}
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far"
+                description="Issue detection progress > Progress summary while running"
+                values={{
+                  totalTraces,
+                  identifiedIssues,
+                  tracesLink: (chunks: ReactNode) => (
+                    <Typography.Link
+                      componentId="mlflow.traces.issue-detection.view-traces-link"
+                      onClick={handleViewTraces}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
+                  issuesLink: (chunks: ReactNode) => (
+                    <Typography.Link
+                      componentId="mlflow.traces.issue-detection.view-issues-link"
+                      onClick={handleViewIssues}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
+                }}
+              />
+            )}
           </Typography.Hint>
+          {jobComplete && result?.total_cost_usd !== null && result?.total_cost_usd !== undefined && (
+            <Typography.Hint css={{ marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="Total cost: {cost}"
+                description="Issue detection progress > Total cost in USD"
+                values={{ cost: `$${result.total_cost_usd.toFixed(4)}` }}
+              />
+            </Typography.Hint>
+          )}
         </div>
       </div>
+
+      {isJobFailed && jobErrorMessage && (
+        <>
+          <Typography.Title level={4} css={{ marginTop: theme.spacing.lg, marginBottom: theme.spacing.sm }}>
+            <FormattedMessage defaultMessage="Error details" description="Issue detection error details > Title" />
+          </Typography.Title>
+          <div
+            css={{
+              border: `1px solid ${theme.colors.actionDangerPrimaryBackgroundDefault}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              padding: theme.spacing.md,
+              backgroundColor: `${theme.colors.actionDangerPrimaryBackgroundDefault}15`,
+            }}
+          >
+            <Typography.Text css={{ color: theme.colors.textValidationDanger, wordBreak: 'break-word' }}>
+              {jobErrorMessage}
+            </Typography.Text>
+          </div>
+        </>
+      )}
+
+      {isJobSucceeded && result?.summary && (
+        <>
+          <div
+            css={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: theme.spacing.lg,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            <Typography.Title level={4} css={{ margin: 0 }}>
+              <FormattedMessage
+                defaultMessage="Issue detection summary"
+                description="Issue detection summary > Title"
+              />
+            </Typography.Title>
+            {identifiedIssues > 0 && (
+              <Button
+                componentId="mlflow.traces.issue-detection.view-issues-button"
+                type="primary"
+                onClick={handleViewIssues}
+              >
+                <FormattedMessage
+                  defaultMessage="View {count} {count, plural, one {issue} other {issues}}"
+                  description="Issue detection summary > View issues button"
+                  values={{ count: identifiedIssues }}
+                />
+              </Button>
+            )}
+          </div>
+          <div
+            css={{
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              padding: theme.spacing.md,
+            }}
+          >
+            <GenAIMarkdownRenderer compact>{result.summary}</GenAIMarkdownRenderer>
+          </div>
+        </>
+      )}
     </div>
   );
 };

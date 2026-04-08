@@ -7,6 +7,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import GatewayRoutes from '../../gateway/routes';
 import { matchPath } from '../utils/RoutingUtils';
 import type { Location } from '../utils/RoutingUtils';
@@ -38,7 +39,12 @@ export const MlflowSidebarGatewayItems = ({ collapsed }: { collapsed: boolean })
         }}
       >
         <CloudModelIcon />
-        {!collapsed && <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway" />}
+        {!collapsed && (
+          <>
+            <GatewayLabel />
+            <GatewayNewTag />
+          </>
+        )}
       </div>
       <MlflowSidebarLink
         css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
@@ -62,16 +68,6 @@ export const MlflowSidebarGatewayItems = ({ collapsed }: { collapsed: boolean })
       </MlflowSidebarLink>
       <MlflowSidebarLink
         css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
-        to={GatewayRoutes.apiKeysPageRoute}
-        componentId="mlflow.sidebar.gateway_api_keys_tab_link"
-        isActive={isApiKeysActive}
-        icon={<KeyIcon />}
-        collapsed={collapsed}
-      >
-        <FormattedMessage defaultMessage="API Keys" description="Sidebar link for gateway API keys" />
-      </MlflowSidebarLink>
-      <MlflowSidebarLink
-        css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
         to={GatewayRoutes.budgetsPageRoute}
         componentId="mlflow.sidebar.gateway_budgets_tab_link"
         isActive={isBudgetsActive}
@@ -79,6 +75,16 @@ export const MlflowSidebarGatewayItems = ({ collapsed }: { collapsed: boolean })
         collapsed={collapsed}
       >
         <FormattedMessage defaultMessage="Budgets" description="Sidebar link for gateway budgets" />
+      </MlflowSidebarLink>
+      <MlflowSidebarLink
+        css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
+        to={GatewayRoutes.apiKeysPageRoute}
+        componentId="mlflow.sidebar.gateway_api_keys_tab_link"
+        isActive={isApiKeysActive}
+        icon={<KeyIcon />}
+        collapsed={collapsed}
+      >
+        <FormattedMessage defaultMessage="API Keys" description="Sidebar link for gateway API keys" />
       </MlflowSidebarLink>
     </div>
   );

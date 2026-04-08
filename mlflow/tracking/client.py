@@ -109,7 +109,7 @@ from mlflow.store.tracking import (
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.fluent import start_span_no_context
+from mlflow.tracing.fluent import _flush_pending_async_trace_writes, start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -686,9 +686,10 @@ class MlflowClient:
 
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
-            tags: A dictionary of tags associated with the **prompt version**.
-                This is useful for storing version-specific information, such as the author of
-                the changes. Optional.
+            tags: A dictionary of tags for the prompt.
+                These tags are stored on the prompt version and written to prompt-level metadata.
+                For OSS, later ``register_prompt()`` calls can overwrite the same keys at the
+                prompt level. Optional.
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
@@ -1351,13 +1352,16 @@ class MlflowClient:
         )
 
     @deprecated_parameter("request_id", "trace_id", version="3.0.0")
-    def get_trace(self, trace_id: str, display=True) -> Trace:
+    def get_trace(self, trace_id: str, display=True, flush: bool = False) -> Trace:
         """
         Get the trace matching the specified ``trace_id``.
 
         Args:
             trace_id: String ID of the trace to fetch.
             display: If ``True``, display the trace on the notebook.
+            flush: If ``True``, flush any pending async trace writes before fetching.
+                Useful in tests or scripts where async logging may not have completed.
+                Default to ``False``.
 
         Returns:
             The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
@@ -1377,6 +1381,9 @@ class MlflowClient:
                 "the search_traces() API."
             )
 
+        if flush:
+            _flush_pending_async_trace_writes()
+
         trace = self._tracing_client.get_trace(trace_id)
         if display:
             get_display_handler().display_traces([trace])
@@ -1394,6 +1401,7 @@ class MlflowClient:
         include_spans: bool = True,
         model_id: str | None = None,
         locations: list[str] | None = None,
+        flush: bool = False,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -1415,6 +1423,8 @@ class MlflowClient:
             locations: A list of locations to search over. To search over experiments, provide
                 a list of experiment IDs. To search over UC tables on databricks, provide
                 a list of locations in the format `<catalog_name>.<schema_name>`.
+            flush: If ``True``, flush any pending async trace writes before searching.
+                Useful in tests or scripts to ensure all traces are visible. Default to ``False``.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -1426,6 +1436,9 @@ class MlflowClient:
         """
         _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
         _validate_list_param("locations", locations, allow_none=True)
+
+        if flush:
+            _flush_pending_async_trace_writes()
 
         return self._tracing_client.search_traces(
             experiment_ids=experiment_ids,
@@ -3225,8 +3238,11 @@ class MlflowClient:
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
 
-            # Sanitize key to use in filename (replace / with # to avoid subdirectories)
-            sanitized_key = re.sub(r"/", "#", key)
+            # Sanitize key to use in filename (replace / with ~ to avoid subdirectories).
+            # '#' was previously used here but is rejected by validate_path_is_safe(),
+            # making artifacts with slash-containing keys impossible to download.
+            # '~' is an unreserved character (RFC 3986 §2.3) and passes path safety checks.
+            sanitized_key = re.sub(r"/", "~", key)
             filename_uuid = str(uuid.uuid4())
             # Use + as separator instead of % to avoid conflicts with URL encoding.
             # The frontend supports both + and % delimiters for backwards compatibility.
@@ -6332,7 +6348,6 @@ class MlflowClient:
             PromptCache.get_instance().delete_all(name)
             return
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def create_dataset(
         self,
@@ -6371,7 +6386,6 @@ class MlflowClient:
             tags=tags,
         )
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def get_dataset(self, dataset_id: str) -> EvaluationDataset:
         """
@@ -6397,7 +6411,6 @@ class MlflowClient:
         """
         return self._tracking_client.get_dataset(dataset_id)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def delete_dataset(self, dataset_id: str) -> None:
         """
@@ -6417,7 +6430,6 @@ class MlflowClient:
         """
         self._tracking_client.delete_dataset(dataset_id)
 
-    @experimental(version="3.4.0")
     def search_datasets(
         self,
         experiment_ids: list[str] | None = None,
@@ -6464,7 +6476,6 @@ class MlflowClient:
             page_token=page_token,
         )
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks(use_uc_message=True)
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
@@ -6495,7 +6506,6 @@ class MlflowClient:
         """
         self._tracking_client.set_dataset_tags(dataset_id=dataset_id, tags=tags)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks(use_uc_message=True)
     def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
@@ -6516,7 +6526,6 @@ class MlflowClient:
         """
         self._tracking_client.delete_dataset_tag(dataset_id=dataset_id, key=key)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def add_dataset_to_experiments(
         self, dataset_id: str, experiment_ids: list[str]
@@ -6547,7 +6556,6 @@ class MlflowClient:
         """
         return self._tracking_client.add_dataset_to_experiments(dataset_id, experiment_ids)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def remove_dataset_from_experiments(
         self, dataset_id: str, experiment_ids: list[str]

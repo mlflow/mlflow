@@ -1,18 +1,31 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Modal, Button, useDesignSystemTheme, SparkleIcon, Typography, Alert } from '@databricks/design-system';
+import {
+  Modal,
+  Button,
+  useDesignSystemTheme,
+  SparkleIcon,
+  Typography,
+  Alert,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
+import Routes from '../../../../routes';
+import { getTimeRangeQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
 import { IssueDetectionCategorySelection } from './IssueDetectionCategorySelection';
 import { IssueDetectionModelSelection, type IssueDetectionModelSelectionRef } from './IssueDetectionModelSelection';
+import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 
 interface IssueDetectionModalProps {
   onClose: () => void;
   experimentId?: string;
   initialSelectedTraceIds?: string[];
   availableTraceIds?: string[];
-  onSubmitSuccess?: () => void;
+  defaultGroupBySession?: boolean;
 }
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
@@ -20,9 +33,11 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   experimentId,
   initialSelectedTraceIds = [],
   availableTraceIds = [],
-  onSubmitSuccess,
+  defaultGroupBySession = false,
 }) => {
   const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
   const modelSelectionRef = useRef<IssueDetectionModelSelectionRef>(null);
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -39,6 +54,13 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     error: createSecretError,
     reset: resetCreateSecret,
   } = useCreateSecret();
+
+  const {
+    mutate: invokeIssueDetection,
+    isLoading: isInvokingIssueDetection,
+    error: issueDetectionError,
+    reset: resetIssueDetection,
+  } = useInvokeIssueDetection();
 
   const resetForm = useCallback(() => {
     setCurrentStep(1);
@@ -70,18 +92,42 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
 
   const handleSubmit = () => {
     const values = modelSelectionRef.current?.getValues();
-    if (!values) return;
+    if (!values || !experimentId) return;
 
-    const { provider, apiKeyConfig, saveKey } = values;
+    const { mode, endpointName, provider, model, apiKeyConfig, saveKey } = values;
 
-    const completeSubmit = () => {
-      // TODO: Implement backend API call for issue detection
-      onSubmitSuccess?.();
-      resetForm();
-      onClose();
+    const submitIssueDetection = (secretId?: string) => {
+      invokeIssueDetection(
+        {
+          experimentId,
+          traceIds: selectedTraceIds,
+          categories: Array.from(selectedCategories),
+          provider,
+          model,
+          secret_id: secretId,
+          endpoint_name: endpointName,
+        },
+        {
+          onSuccess: (response) => {
+            resetForm();
+            onClose();
+            navigate({
+              pathname: Routes.getIssueDetectionRunDetailsRoute(experimentId, response.run_id),
+              search: getTimeRangeQueryString(location.search),
+            });
+          },
+        },
+      );
     };
 
-    if (saveKey && apiKeyConfig.mode === 'new') {
+    // Endpoint mode - use the selected endpoint
+    if (mode === 'endpoint' && endpointName) {
+      submitIssueDetection();
+      return;
+    }
+
+    // Direct mode - save secret if new API key, or use existing secret
+    if (mode === 'direct' && saveKey && apiKeyConfig.mode === 'new') {
       const authConfig = { ...apiKeyConfig.newSecret.configFields } satisfies Record<string, string>;
       if (apiKeyConfig.newSecret.authMode) {
         authConfig['auth_mode'] = apiKeyConfig.newSecret.authMode;
@@ -95,21 +141,22 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
         },
         {
-          onSuccess: () => {
-            completeSubmit();
+          onSuccess: (response) => {
+            submitIssueDetection(response.secret.secret_id);
           },
         },
       );
-    } else {
-      completeSubmit();
+    } else if (apiKeyConfig.mode === 'existing' && apiKeyConfig.existingSecretId) {
+      submitIssueDetection(apiKeyConfig.existingSecretId);
     }
   };
 
   const handleClose = useCallback(() => {
     resetForm();
     resetCreateSecret();
+    resetIssueDetection();
     onClose();
-  }, [resetForm, resetCreateSecret, onClose]);
+  }, [resetForm, resetCreateSecret, resetIssueDetection, onClose]);
 
   const isStep1Valid = selectedCategories.size > 0;
   const isStep2Valid = isModelSelectionValid;
@@ -119,7 +166,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   }, []);
 
   const renderStep1Footer = () => (
-    <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
+    <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
       <Button componentId="mlflow.traces.issue-detection-modal.cancel" onClick={handleClose}>
         <FormattedMessage defaultMessage="Cancel" description="Cancel button in issue detection modal" />
       </Button>
@@ -128,6 +175,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         type="primary"
         onClick={handleNext}
         disabled={!isStep1Valid}
+        endIcon={<ChevronRightIcon />}
       >
         <FormattedMessage defaultMessage="Next" description="Next button to proceed to provider configuration" />
       </Button>
@@ -135,15 +183,19 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   );
 
   const renderStep2Footer = () => (
-    <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
-      <Button componentId="mlflow.traces.issue-detection-modal.previous" onClick={handlePrevious}>
+    <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <Button
+        componentId="mlflow.traces.issue-detection-modal.previous"
+        onClick={handlePrevious}
+        icon={<ChevronLeftIcon />}
+      >
         <FormattedMessage defaultMessage="Previous" description="Previous button to go back to category selection" />
       </Button>
       <Button
         componentId="mlflow.traces.issue-detection-modal.submit"
         type="primary"
         onClick={handleSubmit}
-        loading={isCreatingSecret}
+        loading={isCreatingSecret || isInvokingIssueDetection}
         disabled={!isStep2Valid}
       >
         <SparkleIcon css={{ marginRight: theme.spacing.xs }} />
@@ -166,16 +218,19 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           </div>
         }
         visible
-        onCancel={handleClose}
+        onCancel={isCreatingSecret || isInvokingIssueDetection ? undefined : handleClose}
         footer={currentStep === 1 ? renderStep1Footer() : renderStep2Footer()}
       >
-        {createSecretError && (
+        {(createSecretError || issueDetectionError) && (
           <Alert
             componentId="mlflow.traces.issue-detection-modal.error"
             type="error"
-            message={createSecretError.message}
+            message={createSecretError?.message || issueDetectionError?.message}
             closable
-            onClose={() => resetCreateSecret()}
+            onClose={() => {
+              resetCreateSecret();
+              resetIssueDetection();
+            }}
             css={{ marginBottom: theme.spacing.md }}
           />
         )}
@@ -207,6 +262,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             setIsSelectTracesModalOpen(false);
           }}
           initialTraceIdsSelected={selectedTraceIds}
+          defaultGroupBySession={defaultGroupBySession}
         />
       )}
     </>

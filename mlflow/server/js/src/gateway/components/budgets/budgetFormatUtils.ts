@@ -14,7 +14,7 @@ export function formatDuration(value: number, unit: DurationUnit): string {
       WEEKS: 'Weekly',
       MONTHS: 'Monthly',
     };
-    if (friendlyLabels[unit]) return friendlyLabels[unit]!;
+    if (friendlyLabels[unit]) return friendlyLabels[unit];
   }
   const typeLabels: Record<DurationUnit, string> = {
     MINUTES: value === 1 ? 'Minute' : 'Minutes',
@@ -35,5 +35,5 @@ export function formatOnExceeded(action: BudgetAction): string {
 }
 
 export function formatBudgetPolicySummary(policy: BudgetPolicy): string {
-  return `${formatBudgetAmount(policy.budget_amount, policy.budget_unit)} / ${formatDuration(policy.duration_value, policy.duration_unit)} — ${formatOnExceeded(policy.budget_action)}`;
+  return `${formatBudgetAmount(policy.budget_amount, policy.budget_unit)} / ${formatDuration(policy.duration.value, policy.duration.unit)} — ${formatOnExceeded(policy.budget_action)}`;
 }

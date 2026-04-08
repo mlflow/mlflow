@@ -37,6 +37,12 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
+      type: 'doc',
+      id: 'eval-monitor/ai-insights/detect-issues',
+      label: 'Automatic Issue Detection',
+      className: 'sidebar-top-level-category',
+    },
+    {
       type: 'html',
       value: '<b>Core Components</b>',
       defaultStyle: true,
@@ -104,6 +110,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/observe-with-traces/delete-traces',
                   label: 'Delete Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/multimodal',
+                  label: 'Multimodal Content',
                 },
               ],
             },
@@ -221,6 +232,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/goose',
+                  label: 'Goose',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/langflow',
                   label: 'Langflow',
                 },
@@ -313,6 +329,27 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/watsonx-orchestrate',
                   label: 'Watsonx Orchestrate',
+                },
+              ],
+            },
+            {
+              type: 'category',
+              label: 'Coding Agents',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_code',
+                  label: 'Claude Code',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/opencode',
+                  label: 'OpenCode',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/openhands',
+                  label: 'OpenHands',
                 },
               ],
             },
@@ -418,18 +455,8 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'tracing/integrations/listing/claude_code',
-                  label: 'Claude Code',
-                },
-                {
-                  type: 'doc',
                   id: 'tracing/integrations/listing/instructor',
                   label: 'Instructor',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracing/integrations/listing/opencode',
-                  label: 'OpenCode',
                 },
               ],
             },
@@ -519,6 +546,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'tracing/opentelemetry/genai-semconv',
+              label: 'GenAI Semantic Conventions',
+            },
+            {
+              type: 'doc',
               id: 'tracing/opentelemetry/attribute-mapping',
               label: 'Attribute Mapping',
             },
@@ -544,6 +576,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'eval-monitor/quickstart',
           label: 'Quickstart',
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/ai-insights/detect-issues',
+          label: 'Automatic Issue Detection',
         },
         {
           type: 'category',
@@ -836,7 +873,7 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'eval-monitor/ai-insights/ai-issue-discovery',
-              label: 'AI Issue Discovery',
+              label: 'AI Issue Discovery (MCP)',
             },
           ],
         },
@@ -987,6 +1024,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/budget-alerts-limits',
           label: 'Budget Alerts & Limits',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/benchmarks',
+          label: 'Performance & Benchmarks',
         },
         {
           type: 'category',

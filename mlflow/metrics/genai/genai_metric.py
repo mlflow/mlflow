@@ -252,9 +252,12 @@ def make_genai_metric_from_prompt(
         :test:
         :caption: Example for creating a genai metric
 
+        import os
         import pandas as pd
         import mlflow
         from mlflow.metrics.genai import make_genai_metric_from_prompt
+
+        os.environ.setdefault("OPENAI_API_KEY", "your-api-key-here")
 
         metric = make_genai_metric_from_prompt(
             name="ease_of_understanding",

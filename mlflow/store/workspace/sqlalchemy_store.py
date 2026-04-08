@@ -25,6 +25,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
     SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
+    SqlGatewayGuardrail,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
     SqlJob,
@@ -51,6 +52,7 @@ _WORKSPACE_ROOT_MODELS = [
     SqlGatewayEndpoint,
     SqlGatewayModelDefinition,
     SqlGatewayBudgetPolicy,
+    SqlGatewayGuardrail,
     SqlJob,
 ]
 

@@ -43,7 +43,7 @@ function CenteredText(props: any) {
   );
 }
 
-function CompareTable(props: any) {
+function CompareTable({ style, ...props }: any) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
@@ -57,6 +57,17 @@ function CompareTable(props: any) {
           backgroundColor: theme.colors.backgroundValidationWarning,
         },
       }}
+      style={
+        {
+          '--mlflow-compare-border-color': theme.colors.border,
+          '--mlflow-compare-header-color': theme.colors.textPrimary,
+          '--mlflow-compare-header-bg': theme.colors.backgroundSecondary,
+          '--mlflow-compare-diff-bg': theme.colors.backgroundWarning,
+          '--mlflow-compare-diff-color': theme.colors.textSecondary,
+          '--mlflow-compare-hover-bg': theme.colors.backgroundSecondary,
+          ...style,
+        } as React.CSSProperties
+      }
       {...props}
     />
   );

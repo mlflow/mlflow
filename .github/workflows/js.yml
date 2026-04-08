@@ -41,6 +41,8 @@ jobs:
         working-directory: mlflow/server/js
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
@@ -62,8 +64,10 @@ jobs:
         run: |
           yarn type-check
       - name: Run tests
+        env:
+          MATRIX_OPTION: ${{ matrix.option }}
         run: |
-          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
+          yarn test --silent $MATRIX_OPTION src/experiment-tracking/components
       - name: Run build
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors

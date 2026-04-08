@@ -771,7 +771,7 @@ def list_evaluators():
 def _start_run_or_reuse_active_run():
     """
     A manager context return:
-     - If there's an active run, return the active run id.
+     - If there's an active run, return the active run.
      - otherwise start a mflow run with the specified run_id,
        if specified run_id is None, start a new run.
     """
@@ -779,9 +779,9 @@ def _start_run_or_reuse_active_run():
     if not active_run:
         # Note `mlflow.start_run` throws if `run_id` is not found.
         with mlflow.start_run() as run:
-            yield run.info.run_id
+            yield run
     else:
-        yield active_run.info.run_id
+        yield active_run
 
 
 # NB: We often pass around evaluator name, config, and its instance together. Ideally, the
@@ -1740,7 +1740,7 @@ def evaluate(
     evaluator_name_list = [evaluator.name for evaluator in evaluators]
     evaluator_name_to_conf_map = {evaluator.name: evaluator.config for evaluator in evaluators}
 
-    with _start_run_or_reuse_active_run() as run_id:
+    with _start_run_or_reuse_active_run() as run:
         if not isinstance(data, Dataset):
             # Convert data to `mlflow.data.dataset.Dataset`.
             if model is None:
@@ -1772,7 +1772,7 @@ def evaluate(
                 tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
                 dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
                 client.log_inputs(
-                    run_id,
+                    run.info.run_id,
                     [dataset_input],
                     models=[LoggedModelInput(model_id)] if model_id else None,
                 )
@@ -1792,7 +1792,7 @@ def evaluate(
                     model_type=model_type,
                     model_id=model_id,
                     dataset=dataset,
-                    run_id=run_id,
+                    run_id=run.info.run_id,
                     evaluator_name_list=evaluator_name_list,
                     evaluator_name_to_conf_map=evaluator_name_to_conf_map,
                     extra_metrics=extra_metrics,
