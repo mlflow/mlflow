@@ -20,7 +20,7 @@ def _make_provider() -> AzureFoundryProvider:
             "name": "Llama-3.3-70B-Instruct",
             "config": {
                 "azure_api_key": "test-api-key",
-                "azure_api_base": "https://my-endpoint.eastus.models.ai.azure.com",
+                "azure_api_base": "https://test-endpoint.example.com",
             },
         },
     )
@@ -53,7 +53,7 @@ def _chat_response():
 
 def test_base_url():
     provider = _make_provider()
-    assert provider._api_base == "https://my-endpoint.eastus.models.ai.azure.com"
+    assert provider._api_base == "https://test-endpoint.example.com"
 
 
 def test_headers_use_api_key():
@@ -88,15 +88,15 @@ async def test_chat():
 def test_basic_config():
     config = AzureFoundryConfig(
         azure_api_key="my-key",
-        azure_api_base="https://my-endpoint.eastus.models.ai.azure.com",
+        azure_api_base="https://test-endpoint.example.com",
     )
     assert config.azure_api_key == "my-key"
-    assert config.azure_api_base == "https://my-endpoint.eastus.models.ai.azure.com"
+    assert config.azure_api_base == "https://test-endpoint.example.com"
 
 
 def test_api_key_required():
     with pytest.raises(ValidationError, match="azure_api_key"):
-        AzureFoundryConfig(azure_api_base="https://my-endpoint.eastus.models.ai.azure.com")
+        AzureFoundryConfig(azure_api_base="https://test-endpoint.example.com")
 
 
 def test_api_base_required():
@@ -107,7 +107,7 @@ def test_api_base_required():
 def test_endpoint_url():
     provider = _make_provider()
     url = provider.get_endpoint_url("llm/v1/chat")
-    assert url == "https://my-endpoint.eastus.models.ai.azure.com/chat/completions"
+    assert url == "https://test-endpoint.example.com/chat/completions"
 
 
 @pytest.mark.asyncio
