@@ -7,25 +7,40 @@ import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { createListFromObject } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
-import { applyJsonPathToObject } from '../hooks/useTraceViewFiltering';
+import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { applyJsonPathToObject, spanMatchesSelector } from '../hooks/useTraceViewFiltering';
+import { getTimelineTreeNodesList } from '../timeline-tree/TimelineTree.utils';
 import type { SpanRange } from '../hooks/useTraceViews';
 
 export function ModelTraceExplorerRangeDetailView({
   range,
-  activeSpan,
+  activeSpan: _activeSpan,
 }: {
   range: SpanRange;
   activeSpan: ModelTraceSpanNode | undefined;
 }) {
   const { theme } = useDesignSystemTheme();
+  const { topLevelNodes } = useModelTraceExplorerViewState();
+
+  // Find the spans matching from_selector and to_selector so we show the
+  // range's own inputs/outputs rather than the currently selected span's.
+  const { fromSpan, toSpan } = useMemo(() => {
+    const flatNodes = getTimelineTreeNodesList(topLevelNodes);
+    const from = flatNodes.find((n) => spanMatchesSelector(n, range.from_selector));
+    const to = range.to_selector ? flatNodes.find((n) => spanMatchesSelector(n, range.to_selector)) : null;
+    return { fromSpan: from, toSpan: to };
+  }, [topLevelNodes, range.from_selector, range.to_selector]);
+
+  const inputSpan = fromSpan;
+  const outputSpan = toSpan ?? fromSpan;
 
   const filteredInputs = useMemo(
-    () => applyJsonPathToObject(activeSpan?.inputs, range.input_path),
-    [activeSpan?.inputs, range.input_path],
+    () => applyJsonPathToObject(inputSpan?.inputs, range.input_path),
+    [inputSpan?.inputs, range.input_path],
   );
   const filteredOutputs = useMemo(
-    () => applyJsonPathToObject(activeSpan?.outputs, range.output_path),
-    [activeSpan?.outputs, range.output_path],
+    () => applyJsonPathToObject(outputSpan?.outputs, range.output_path),
+    [outputSpan?.outputs, range.output_path],
   );
 
   const inputList = useMemo(() => createListFromObject(filteredInputs as any), [filteredInputs]);

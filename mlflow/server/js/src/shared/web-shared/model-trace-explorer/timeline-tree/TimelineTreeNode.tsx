@@ -108,15 +108,23 @@ export const TimelineTreeNode = ({
   return (
     <>
       {/* Edit mode badge */}
-      {editModeProps && editState?.isFirstInRange && editState.rangeIdx !== undefined && editState.color && (
-        <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.sm}px` }}>
-          <RangeBadge
-            label={editModeProps.ranges[editState.rangeIdx].label}
-            color={editState.color}
-            onDelete={() => editModeProps.onRemoveRange(editState.rangeIdx as number)}
-          />
-        </div>
-      )}
+      {editModeProps && editState?.isFirstInRange && editState.rangeIdx !== undefined && editState.color && (() => {
+        const sel = editModeProps.selection;
+        const isEditingThis = sel.editDraft?.rangeIdx === editState.rangeIdx;
+        return (
+          <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.sm}px` }}>
+            <RangeBadge
+              label={editModeProps.ranges[editState.rangeIdx].label}
+              color={editState.color}
+              onDelete={isEditingThis ? undefined : () => editModeProps.onRemoveRange(editState.rangeIdx as number)}
+              onClick={isEditingThis ? undefined : () => sel.startEditingRange(editState.rangeIdx as number)}
+              isEditing={isEditingThis}
+              onConfirmEdit={() => sel.confirmEditDraft()}
+              onCancelEdit={() => sel.cancelEditDraft()}
+            />
+          </div>
+        );
+      })()}
       {/* View mode badge */}
       {!editModeProps && viewRangeInfo?.isFirstInRange && viewRangeColor && viewRanges && (
         <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.sm}px` }}>

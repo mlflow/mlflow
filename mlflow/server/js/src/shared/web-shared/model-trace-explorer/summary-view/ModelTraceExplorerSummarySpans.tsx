@@ -42,7 +42,7 @@ export const ModelTraceExplorerSummarySpans = ({
   const { theme } = useDesignSystemTheme();
   const preferences = useModelTraceExplorerPreferences();
   const [renderMode, setRenderModeInternal] = useState<ModelTraceExplorerRenderMode>(preferences.renderMode);
-  const { readOnly, editMode } = useModelTraceExplorerViewState();
+  const { readOnly, editMode, setActiveTraceView } = useModelTraceExplorerViewState();
 
   useEffect(() => {
     setRenderModeInternal(preferences.renderMode);
@@ -71,18 +71,21 @@ export const ModelTraceExplorerSummarySpans = ({
     draftRanges,
     editMode.addRange,
     editMode.removeRange,
+    editMode.updateRange,
   );
 
   const handleSave = useCallback(async () => {
     if (!editMode.draftView) return;
     const { view_id, name, ranges } = editMode.draftView;
+    let savedView: TraceView;
     if (view_id) {
-      await updateMutation.mutateAsync({ viewId: view_id, name, ranges });
+      savedView = await updateMutation.mutateAsync({ viewId: view_id, name, ranges });
     } else {
-      await createMutation.mutateAsync({ name, ranges });
+      savedView = await createMutation.mutateAsync({ name, ranges });
     }
+    setActiveTraceView(savedView);
     editMode.exitEditMode();
-  }, [editMode, createMutation, updateMutation]);
+  }, [editMode, createMutation, updateMutation, setActiveTraceView]);
 
   const rootInputs = rootNode.inputs;
   const rootOutputs = rootNode.outputs;

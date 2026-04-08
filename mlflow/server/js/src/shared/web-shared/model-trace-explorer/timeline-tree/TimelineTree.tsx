@@ -73,6 +73,7 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
     draftRanges,
     editMode.addRange,
     editMode.removeRange,
+    editMode.updateRange,
   );
 
   const editModePropsForNode: TimelineTreeEditModeProps | undefined = useMemo(

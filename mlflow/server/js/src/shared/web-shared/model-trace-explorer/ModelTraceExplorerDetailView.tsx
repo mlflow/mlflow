@@ -25,6 +25,7 @@ import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from './right-p
 import { TimelineTree } from './timeline-tree/TimelineTree';
 import { TraceViewEditToolbar } from './edit-mode/TraceViewEditToolbar';
 import { useCreateTraceView, useUpdateTraceView } from './hooks/useTraceViewMutations';
+import type { TraceView } from './hooks/useTraceViews';
 import {
   DEFAULT_EXPAND_DEPTH,
   getModelTraceSpanNodeDepth,
@@ -99,6 +100,7 @@ export const ModelTraceExplorerDetailView = ({
     getPaneSizeRatios,
     topLevelNodes,
     setSelectedViewRangeIdx,
+    setActiveTraceView,
     editMode,
   } = useModelTraceExplorerViewState();
 
@@ -109,13 +111,15 @@ export const ModelTraceExplorerDetailView = ({
   const handleEditSave = useCallback(async () => {
     if (!editMode.draftView) return;
     const { view_id, name, ranges } = editMode.draftView;
+    let savedView: TraceView;
     if (view_id) {
-      await updateMutation.mutateAsync({ viewId: view_id, name, ranges });
+      savedView = await updateMutation.mutateAsync({ viewId: view_id, name, ranges });
     } else {
-      await createMutation.mutateAsync({ name, ranges });
+      savedView = await createMutation.mutateAsync({ name, ranges });
     }
+    setActiveTraceView(savedView);
     editMode.exitEditMode();
-  }, [editMode, createMutation, updateMutation]);
+  }, [editMode, createMutation, updateMutation, setActiveTraceView]);
 
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
   const workflowLayout = useMemo(
