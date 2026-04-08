@@ -23,6 +23,7 @@ import {
 } from './ModelTraceExplorerChatRenderer.utils';
 import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
 import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
+import { MARKDOWN_RENDER_SIZE_LIMIT } from '../constants';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
 function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
@@ -79,6 +80,23 @@ function ModelTraceExplorerChatMessageContent({
         containsActiveMatch={false}
         renderMode={CodeSnippetRenderMode.JSON}
       />
+    );
+  }
+
+  if (content.length > MARKDOWN_RENDER_SIZE_LIMIT) {
+    return (
+      <div css={{ padding: theme.spacing.sm, paddingTop: 0 }}>
+        <Typography.Text color="secondary">
+          <FormattedMessage
+            defaultMessage="Content too large to render ({size}). Displaying as plain text."
+            description="Message shown when chat content exceeds the markdown rendering size limit"
+            values={{ size: `${(content.length / 1_000_000).toFixed(1)}MB` }}
+          />
+        </Typography.Text>
+        <pre css={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 400, overflow: 'auto', fontSize: 12 }}>
+          {content.slice(0, 10_000)}
+        </pre>
+      </div>
     );
   }
 
