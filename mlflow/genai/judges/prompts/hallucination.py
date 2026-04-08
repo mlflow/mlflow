@@ -1,5 +1,3 @@
-from mlflow.genai.prompts.utils import format_prompt
-
 HALLUCINATION_FEEDBACK_NAME = "hallucination_detection"
 
 HALLUCINATION_PROMPT_INSTRUCTIONS = """\
@@ -22,28 +20,7 @@ A response is considered FAITHFUL ("yes") if it:
 - Declines to answer due to insufficient information\
 """
 
-HALLUCINATION_PROMPT = (
-    HALLUCINATION_PROMPT_INSTRUCTIONS
-    + """
+HALLUCINATION_PROMPT = """\
+Determine if {{ outputs }} (the AI response) is faithful to {{ inputs }} (the reference context).
 
-<context>
-{{context}}
-</context>
-
-<response>
-{{response}}
-</response>
-
-Evaluate whether the response is faithful to the context. \
-Return your assessment as JSON with the following format. \
-Do not use any markdown formatting or output additional lines.
-{
-  "rationale": "Reason for the assessment. Start with 'Let's think step by step'",
-  "result": "yes|no"
-}\
-"""
-)
-
-
-def get_prompt(*, response: str, context: str) -> str:
-    return format_prompt(HALLUCINATION_PROMPT, response=response, context=context)
+""" + HALLUCINATION_PROMPT_INSTRUCTIONS

@@ -55,7 +55,7 @@ from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUC
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.hallucination import (
     HALLUCINATION_FEEDBACK_NAME,
-    HALLUCINATION_PROMPT_INSTRUCTIONS,
+    HALLUCINATION_PROMPT,
 )
 from mlflow.genai.judges.prompts.knowledge_retention import (
     KNOWLEDGE_RETENTION_ASSESSMENT_NAME,
@@ -3220,14 +3220,26 @@ class HallucinationDetection(BuiltInScorer):
         "Evaluate whether an AI response is faithful to the provided context "
         "or contains hallucinated information."
     )
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
     @property
     def instructions(self) -> str:
-        return HALLUCINATION_PROMPT_INSTRUCTIONS
+        return HALLUCINATION_PROMPT
 
     @property
     def feedback_value_type(self) -> Any:
         return Literal["yes", "no"]
+
+    def _get_judge(self) -> Judge:
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=self.feedback_value_type,
+            )
+        return self._judge
 
     def get_input_fields(self) -> list[JudgeField]:
         return [
@@ -3242,8 +3254,6 @@ class HallucinationDetection(BuiltInScorer):
         ]
 
     def __call__(self, *, trace: Trace) -> Feedback:
-        from mlflow.genai.judges.prompts.hallucination import get_prompt
-
         context = extract_generation_context(trace)
         response = extract_response_from_trace(trace)
 
@@ -3254,15 +3264,7 @@ class HallucinationDetection(BuiltInScorer):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        model = self.model or get_default_model()
-        prompt = get_prompt(response=response, context=context)
-        feedback = invoke_judge_model(
-            model,
-            prompt,
-            assessment_name=self.name,
-            inference_params=self.inference_params,
-        )
-        return _sanitize_scorer_feedback(feedback)
+        return self._get_judge()(inputs=context, outputs=response)
 
 
 def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:

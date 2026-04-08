@@ -14,6 +14,8 @@ from mlflow.genai.utils.trace_utils import (
     extract_messages_from_span_inputs,
 )
 
+_MOCK_INVOKE = "mlflow.genai.judges.instructions_judge.invoke_judge_model"
+
 
 def _make_trace(*, span_type, messages, response):
     @mlflow.trace(name="root", span_type=SpanType.CHAIN)
@@ -120,6 +122,12 @@ def test_extract_generation_context_errors(fixture_name, error_match, request):
 # -- HallucinationDetection scorer tests --
 
 
+def _get_prompt_text(mock_invoke):
+    """Extract the full prompt text from the invoke_judge_model mock call."""
+    messages = mock_invoke.call_args.kwargs["prompt"]
+    return "\n".join(msg.content for msg in messages)
+
+
 @pytest.mark.parametrize(
     ("span_type", "system_content", "response", "expected_context_substr"),
     [
@@ -149,7 +157,7 @@ def test_hallucination_detection(span_type, system_content, response, expected_c
     )
 
     with patch(
-        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        _MOCK_INVOKE,
         return_value=Feedback(name="hallucination_detection", value="yes", rationale="Faithful."),
     ) as mock_invoke:
         result = HallucinationDetection()(trace=trace)
@@ -158,9 +166,9 @@ def test_hallucination_detection(span_type, system_content, response, expected_c
         assert result.value == CategoricalRating.YES
         mock_invoke.assert_called_once()
 
-        prompt_arg = mock_invoke.call_args[0][1]
-        assert expected_context_substr in prompt_arg
-        assert response in prompt_arg
+        prompt_text = _get_prompt_text(mock_invoke)
+        assert expected_context_substr in prompt_text
+        assert response in prompt_text
 
 
 @pytest.mark.parametrize(
@@ -178,19 +186,19 @@ def test_hallucination_detection_errors(fixture_name, error_match, request):
 
 def test_hallucination_detection_custom_name(trace_with_llm_span):
     with patch(
-        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        _MOCK_INVOKE,
         return_value=Feedback(name="my_hallucination", value="yes", rationale="OK."),
     ) as mock_invoke:
         result = HallucinationDetection(name="my_hallucination")(trace=trace_with_llm_span)
 
         assert result.name == "my_hallucination"
         mock_invoke.assert_called_once()
-        assert mock_invoke.call_args[1]["assessment_name"] == "my_hallucination"
+        assert mock_invoke.call_args.kwargs["assessment_name"] == "my_hallucination"
 
 
 def test_hallucination_detection_hallucinated(trace_with_llm_span):
     with patch(
-        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        _MOCK_INVOKE,
         return_value=Feedback(
             name="hallucination_detection", value="no", rationale="Contains unsupported claims."
         ),
