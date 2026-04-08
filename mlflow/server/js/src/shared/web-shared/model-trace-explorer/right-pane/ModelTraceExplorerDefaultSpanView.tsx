@@ -6,8 +6,10 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { createListFromObject } from '../ModelTraceExplorer.utils';
+import { containsAttachmentUri } from '../attachment-utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
+import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 
 export function ModelTraceExplorerDefaultSpanView({
   activeSpan,
@@ -58,16 +60,20 @@ export function ModelTraceExplorerDefaultSpanView({
           }
         >
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            {inputList.map(({ key, value }, index) => (
-              <ModelTraceExplorerCodeSnippet
-                key={key || index}
-                title={key}
-                data={value}
-                searchFilter={searchFilter}
-                activeMatch={activeMatch}
-                containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'inputs' && activeMatch.key === key}
-              />
-            ))}
+            {inputList.map(({ key, value }, index) =>
+              containsAttachmentUri(value) ? (
+                <ModelTraceExplorerFieldRenderer key={key || index} title={key} data={value} renderMode="default" />
+              ) : (
+                <ModelTraceExplorerCodeSnippet
+                  key={key || index}
+                  title={key}
+                  data={value}
+                  searchFilter={searchFilter}
+                  activeMatch={activeMatch}
+                  containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'inputs' && activeMatch.key === key}
+                />
+              ),
+            )}
           </div>
         </ModelTraceExplorerCollapsibleSection>
       )}
@@ -85,16 +91,22 @@ export function ModelTraceExplorerDefaultSpanView({
           }
         >
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            {outputList.map(({ key, value }) => (
-              <ModelTraceExplorerCodeSnippet
-                key={key}
-                title={key}
-                data={value}
-                searchFilter={searchFilter}
-                activeMatch={activeMatch}
-                containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'outputs' && activeMatch.key === key}
-              />
-            ))}
+            {outputList.map(({ key, value }) =>
+              containsAttachmentUri(value) ? (
+                <ModelTraceExplorerFieldRenderer key={key} title={key} data={value} renderMode="default" />
+              ) : (
+                <ModelTraceExplorerCodeSnippet
+                  key={key}
+                  title={key}
+                  data={value}
+                  searchFilter={searchFilter}
+                  activeMatch={activeMatch}
+                  containsActiveMatch={
+                    isActiveMatchSpan && activeMatch.section === 'outputs' && activeMatch.key === key
+                  }
+                />
+              ),
+            )}
           </div>
         </ModelTraceExplorerCollapsibleSection>
       )}
