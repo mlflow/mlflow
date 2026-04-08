@@ -134,11 +134,7 @@ const GuardrailRow = ({
               color={OPERATION_COLORS[guardrail.guardrail?.action ?? ''] ?? '#999'}
             />
           </div>
-          {guardrail.endpoint_id ? (
-            <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-              Endpoint: {guardrail.endpoint_id}
-            </Typography.Text>
-          ) : null}
+          {null}
         </div>
       </div>
 
