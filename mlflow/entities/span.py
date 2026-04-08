@@ -751,6 +751,23 @@ class LiveSpan(Span):
                     "inline_data": {**inline, "data": ref},
                 }
 
+        # OpenAI Responses API image generation:
+        # {"type": "image_generation_call", "result": "<base64>", "output_format": "png"}
+        if value.get("type") == "image_generation_call":
+            data = value.get("result")
+            fmt = value.get("output_format", "png")
+            if isinstance(data, str) and data and not data.startswith("mlflow-attachment://"):
+                if not isinstance(fmt, str) or not fmt:
+                    fmt = "png"
+                try:
+                    content_bytes = base64.b64decode(data, validate=True)
+                except Exception:
+                    return None
+                ref = self._store_attachment(
+                    Attachment(content_type=f"image/{fmt}", content_bytes=content_bytes)
+                )
+                return {**value, "result": ref}
+
         return None
 
     def set_attributes(self, attributes: dict[str, Any]):
