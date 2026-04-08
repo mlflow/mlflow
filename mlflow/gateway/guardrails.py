@@ -132,45 +132,13 @@ class JudgeGuardrail(Guardrail):
         self.name = name
         self.action_llm_url = action_llm_url
 
-    def _content_to_text(self, content: Any) -> str:
-        if content is None:
-            return ""
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            text_parts: list[str] = []
-            for part in content:
-                if isinstance(part, str):
-                    text_parts.append(part)
-                elif isinstance(part, dict):
-                    if isinstance(part.get("text"), str):
-                        text_parts.append(part["text"])
-                    elif part.get("type") == "text" and isinstance(part.get("content"), str):
-                        text_parts.append(part["content"])
-            if text_parts:
-                return "\n".join(text_parts)
-            return json.dumps(content, ensure_ascii=False)
-        if isinstance(content, dict):
-            if isinstance(content.get("text"), str):
-                return content["text"]
-            return json.dumps(content, ensure_ascii=False)
-        return str(content)
-
-    def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
-        if is_response:
-            if choices := payload.get("choices", []):
-                content = choices[0].get("message", {}).get("content")
-                return self._content_to_text(content)
-            return ""
-        if messages := payload.get("messages", []):
-            content = messages[-1].get("content")
-            return self._content_to_text(content)
-        return ""
-
     def _invoke_judge(
-        self, *, inputs: str | None = None, outputs: str | None = None
+        self,
+        *,
+        inputs: dict[str, Any] | None = None,
+        outputs: dict[str, Any] | None = None,
     ) -> ScorerResult:
-        kwargs: dict[str, str] = {}
+        kwargs: dict[str, Any] = {}
         if inputs is not None:
             kwargs["inputs"] = inputs
         if outputs is not None:
@@ -278,8 +246,7 @@ class JudgeGuardrail(Guardrail):
         if self.stage == GuardrailStage.AFTER:
             return request
 
-        text = self._extract_text(request, is_response=False)
-        result = self._invoke_judge(inputs=text)
+        result = self._invoke_judge(inputs=request)
 
         if self._is_passing(result):
             return request
@@ -300,9 +267,7 @@ class JudgeGuardrail(Guardrail):
         if self.stage == GuardrailStage.BEFORE:
             return response
 
-        request_text = self._extract_text(request, is_response=False)
-        response_text = self._extract_text(response, is_response=True)
-        result = self._invoke_judge(inputs=request_text, outputs=response_text)
+        result = self._invoke_judge(inputs=request, outputs=response)
 
         if self._is_passing(result):
             return response
