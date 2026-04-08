@@ -311,7 +311,9 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
             id="guardrail-stage-select"
             componentId="mlflow.gateway.guardrails.stage-select"
             value={stage}
-            onChange={({ target }) => setStage(target.value as GuardrailStage)}
+            onChange={({ target }) => {
+              if (target.value !== stage) setStage(target.value as GuardrailStage);
+            }}
           >
             <SimpleSelectOption value="BEFORE">Before LLM</SimpleSelectOption>
             <SimpleSelectOption value="AFTER">After LLM</SimpleSelectOption>
@@ -325,7 +327,9 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
             id="guardrail-action-select"
             componentId="mlflow.gateway.guardrails.action-select"
             value={action}
-            onChange={({ target }) => setAction(target.value as GuardrailAction)}
+            onChange={({ target }) => {
+              if (target.value !== action) setAction(target.value as GuardrailAction);
+            }}
           >
             <SimpleSelectOption value="VALIDATION">Block</SimpleSelectOption>
             <SimpleSelectOption value="SANITIZATION">Sanitize</SimpleSelectOption>
