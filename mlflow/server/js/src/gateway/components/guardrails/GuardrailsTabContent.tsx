@@ -5,10 +5,10 @@ import {
   Empty,
   Input,
   Modal,
+  Popover,
   PlusIcon,
   SearchIcon,
   Spinner,
-  Tooltip,
   TrashIcon,
   Typography,
   VisibleIcon,
@@ -40,7 +40,7 @@ const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
   const activeColor = stage === 'BEFORE' ? '#1677ff' : '#52c41a';
 
   return (
-    <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px`, minWidth: 380 }}>
+    <div css={{ minWidth: 360, padding: theme.spacing.xs }}>
       {/* Pipeline flow */}
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
         {PIPELINE_STEPS.map((step, i) => {
@@ -61,7 +61,7 @@ const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
                   fontWeight: isActive ? theme.typography.typographyBoldFontWeight : 'normal',
                   color: isActive ? '#fff' : theme.colors.textSecondary,
                   backgroundColor: isActive ? activeColor : 'transparent',
-                  border: isActive ? `1px solid ${activeColor}` : `1px solid transparent`,
+                  border: `1px solid ${isActive ? activeColor : 'transparent'}`,
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -164,17 +164,19 @@ const GuardrailRow = ({
         </Typography.Text>
       </div>
 
-      {/* Placement badge — with pipeline tooltip */}
+      {/* Placement badge — with pipeline popover on hover */}
       <div>
         {stage === 'BEFORE' || stage === 'AFTER' ? (
-          <Tooltip
-            componentId="mlflow.gateway.guardrails.placement-tooltip"
-            content={<PlacementTooltipContent stage={stage} />}
-          >
-            <span css={{ cursor: 'default' }}>
-              <Badge label={stageBadge} color={stageColor} />
-            </span>
-          </Tooltip>
+          <Popover.Root componentId="mlflow.gateway.guardrails.placement-popover">
+            <Popover.Trigger asChild>
+              <span css={{ cursor: 'default', display: 'inline-block' }}>
+                <Badge label={stageBadge} color={stageColor} />
+              </span>
+            </Popover.Trigger>
+            <Popover.Content side="bottom" align="start">
+              <PlacementTooltipContent stage={stage} />
+            </Popover.Content>
+          </Popover.Root>
         ) : (
           <Badge label={stageBadge} color={stageColor} />
         )}
