@@ -1,4 +1,3 @@
-import json
 from unittest import mock
 
 import pytest
@@ -124,6 +123,5 @@ async def test_chat_does_not_inject_model_in_payload():
 
     # Verify the payload sent to the API does not contain the model field
     call_args = mock_session.return_value.post.call_args
-    raw = call_args.kwargs.get("data", "{}")
-    sent_payload = json.loads(raw)
+    sent_payload = call_args.kwargs.get("json", {})
     assert "model" not in sent_payload

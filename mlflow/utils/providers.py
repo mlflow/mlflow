@@ -530,7 +530,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
         #     ],
         # },
     },
-    "azure_ai": {
+    "azure_foundry": {
         "api_key": {
             "display_name": "API Key",
             "description": "Use Azure AI Foundry API Key",
