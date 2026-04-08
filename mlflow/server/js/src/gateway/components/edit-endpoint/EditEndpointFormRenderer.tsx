@@ -414,14 +414,11 @@ export const EditEndpointFormRenderer = ({
                   {uniqueSecretNames.length > 0 && (
                     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                       <Typography.Text bold color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                        {uniqueSecretNames.length === 1 ? (
-                          <FormattedMessage defaultMessage="API key" description="Label for endpoint API key" />
-                        ) : (
-                          <FormattedMessage
-                            defaultMessage="API keys"
-                            description="Label for endpoint API keys (plural)"
-                          />
-                        )}
+                        <FormattedMessage
+                          defaultMessage="{count, plural, =1 {API key} other {API keys}}"
+                          description="Label for endpoint API key(s)"
+                          values={{ count: uniqueSecretNames.length }}
+                        />
                       </Typography.Text>
                       {uniqueSecretNames.map((secretName) => (
                         <Link

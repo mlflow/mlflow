@@ -2682,10 +2682,6 @@
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
   },
-  "FRsU9y": {
-    "defaultMessage": "API keys",
-    "description": "Label for endpoint API keys (plural)"
-  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -4077,6 +4073,10 @@
   "On3g1B": {
     "defaultMessage": "Running",
     "description": "Run page > Overview > Run status cell > Value for running state"
+  },
+  "OnZkIA": {
+    "defaultMessage": "{count, plural, =1 {API key} other {API keys}}",
+    "description": "Label for endpoint API key(s)"
   },
   "OneX+E": {
     "defaultMessage": "Add expectation",
@@ -8478,10 +8478,6 @@
   "qKGnLV": {
     "defaultMessage": "Model Config:",
     "description": "Label for model configuration in the prompt details page"
-  },
-  "qKHKw4": {
-    "defaultMessage": "API key",
-    "description": "Label for endpoint API key"
   },
   "qMwRy3": {
     "defaultMessage": "Registered Models",
