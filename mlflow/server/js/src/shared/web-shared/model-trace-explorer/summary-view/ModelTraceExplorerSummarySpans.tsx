@@ -14,6 +14,7 @@ import { ModelTraceExplorerSummaryViewExceptionsSection } from './ModelTraceExpl
 import type { ModelTraceExplorerRenderMode, ModelTraceSpanNode } from '../ModelTrace.types';
 import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { getTimelineTreeNodesList } from '../timeline-tree/TimelineTree.utils';
 import { AddToDatasetButton } from '../assessments-pane/AddToDatasetButton';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
@@ -59,11 +60,10 @@ export const ModelTraceExplorerSummarySpans = ({
   const createMutation = useCreateTraceView(traceId);
   const updateMutation = useUpdateTraceView(traceId);
 
-  const flattenedNodes = useMemo(() => {
-    const flatten = (nodes: ModelTraceSpanNode[]): ModelTraceSpanNode[] =>
-      nodes.flatMap((node) => [node, ...(node.children ? flatten(node.children) : [])]);
-    return flatten(intermediateNodes);
-  }, [intermediateNodes]);
+  const flattenedNodes = useMemo(
+    () => getTimelineTreeNodesList(intermediateNodes),
+    [intermediateNodes],
+  );
 
   const draftRanges = editMode.draftView?.ranges ?? [];
   const selection = useSpanRangeSelection(

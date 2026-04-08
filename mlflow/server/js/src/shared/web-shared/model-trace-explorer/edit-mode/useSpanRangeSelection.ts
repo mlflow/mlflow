@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import type { SpanRange, SpanSelector } from '../hooks/useTraceViews';
+import { spanMatchesSelector } from '../hooks/useTraceViewFiltering';
 import { getRangeColor } from './rangeColors';
 
 /**
@@ -8,24 +9,21 @@ import { getRangeColor } from './rangeColors';
  * between from_selector and to_selector.
  */
 const findRangeForSpan = (
-  spanId: string,
+  node: ModelTraceSpanNode,
   nodes: ModelTraceSpanNode[],
   ranges: SpanRange[],
 ): number | null => {
   for (let rangeIdx = 0; rangeIdx < ranges.length; rangeIdx++) {
     const range = ranges[rangeIdx];
-    const fromId = range.from_selector.span_id;
-    const toId = range.to_selector?.span_id;
 
-    if (!toId) {
-      if (spanId === fromId) return rangeIdx;
+    if (!range.to_selector) {
+      if (spanMatchesSelector(node, range.from_selector)) return rangeIdx;
     } else {
       let inRange = false;
-      for (const node of nodes) {
-        const nodeId = String(node.key);
-        if (nodeId === fromId) inRange = true;
-        if (inRange && nodeId === spanId) return rangeIdx;
-        if (nodeId === toId && inRange) break;
+      for (const n of nodes) {
+        if (spanMatchesSelector(n, range.from_selector)) inRange = true;
+        if (inRange && n.key === node.key) return rangeIdx;
+        if (spanMatchesSelector(n, range.to_selector) && inRange) break;
       }
     }
   }
@@ -86,7 +84,7 @@ export const useSpanRangeSelection = (
   const spanRangeMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const node of nodes) {
-      const rangeIdx = findRangeForSpan(String(node.key), nodes, ranges);
+      const rangeIdx = findRangeForSpan(node, nodes, ranges);
       if (rangeIdx !== null) map.set(String(node.key), rangeIdx);
     }
     return map;
@@ -95,11 +93,13 @@ export const useSpanRangeSelection = (
   const rangeFirstSpanId = useMemo(() => {
     const result = new Map<number, string>();
     for (let rangeIdx = 0; rangeIdx < ranges.length; rangeIdx++) {
-      const fromId = ranges[rangeIdx].from_selector.span_id;
-      if (fromId) result.set(rangeIdx, fromId);
+      const fromSelector = ranges[rangeIdx].from_selector;
+      // Find the first node in tree order that matches the from_selector
+      const match = nodes.find((n) => spanMatchesSelector(n, fromSelector));
+      if (match) result.set(rangeIdx, String(match.key));
     }
     return result;
-  }, [ranges]);
+  }, [ranges, nodes]);
 
   const isDragging = dragState !== null && dragState.startIdx !== dragState.currentIdx;
   const dragMin = dragState ? Math.min(dragState.startIdx, dragState.currentIdx) : -1;
