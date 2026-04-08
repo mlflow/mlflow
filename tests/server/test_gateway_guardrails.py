@@ -2,13 +2,40 @@ from unittest import mock
 
 import pytest
 
-from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
-from mlflow.gateway.guardrails import GuardrailViolation
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
+)
+from mlflow.entities.scorer import ScorerVersion
+from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
+from mlflow.gateway.schemas.chat import ResponsePayload
 from mlflow.server.gateway_api import (
     _load_guardrails,
     _run_after_guardrails,
     _run_before_guardrails,
 )
+
+# ─── Fixtures ────────────────────────────────────────────────────────────────
+
+
+def _make_scorer(*, passing=True, return_value="yes"):
+    """Return a callable mock that behaves like a Scorer."""
+    scorer = mock.MagicMock()
+    scorer.return_value = return_value if passing else "no"
+    return scorer
+
+
+def _make_judge(stage, action=GuardrailAction.VALIDATION, *, passing=True):
+    """Build a real JudgeGuardrail with a mocked scorer."""
+    scorer = _make_scorer(passing=passing)
+    return JudgeGuardrail(
+        scorer=scorer,
+        stage=GuardrailStage(stage),
+        action=GuardrailAction(action),
+        name=f"test-{stage.lower()}",
+    )
 
 
 def _make_request_payload():
@@ -16,8 +43,6 @@ def _make_request_payload():
 
 
 def _make_response_payload():
-    from mlflow.gateway.schemas.chat import ResponsePayload
-
     return ResponsePayload(**{
         "id": "chatcmpl-1",
         "object": "chat.completion",
@@ -34,92 +59,139 @@ def _make_response_payload():
     })
 
 
-def _mock_guardrail(stage, action="VALIDATION", *, passing=True):
-    g = mock.MagicMock()
-    g.stage = GuardrailStage(stage)
-    g.action = GuardrailAction(action)
-    g.name = f"test-{stage.lower()}"
+def _make_scorer_version(stage="BEFORE", action="VALIDATION"):
+    import json
 
-    def process_request(payload, auth_headers=None):
-        if not passing:
-            raise GuardrailViolation(g.name, "blocked by test")
-        return payload
-
-    def process_response(request, response, auth_headers=None):
-        if not passing:
-            raise GuardrailViolation(g.name, "blocked by test")
-        return response
-
-    g.process_request = mock.MagicMock(side_effect=process_request)
-    g.process_response = mock.MagicMock(side_effect=process_response)
-    return g
-
-
-def test_run_before_guardrails_passes():
-    g = _mock_guardrail("BEFORE")
-    payload = _make_request_payload()
-    result = _run_before_guardrails([g], payload)
-    assert result == payload
-    g.process_request.assert_called_once_with(payload, auth_headers=None)
-
-
-def test_run_before_guardrails_skips_after_stage():
-    g = _mock_guardrail("AFTER")
-    payload = _make_request_payload()
-    result = _run_before_guardrails([g], payload)
-    assert result == payload
-    g.process_request.assert_not_called()
-
-
-def test_run_before_guardrails_blocks():
-    g = _mock_guardrail("BEFORE", passing=False)
-    with pytest.raises(GuardrailViolation, match="blocked by test"):
-        _run_before_guardrails([g], _make_request_payload())
-
-
-def test_run_before_guardrails_chains_multiple():
-    g1 = _mock_guardrail("BEFORE")
-    g1.process_request = mock.MagicMock(
-        side_effect=lambda p, auth_headers=None: {**p, "extra": "from-g1"}
-    )
-    g2 = _mock_guardrail("BEFORE")
-    g2.process_request = mock.MagicMock(
-        side_effect=lambda p, auth_headers=None: {**p, "extra2": "from-g2"}
+    return ScorerVersion(
+        experiment_id="0",
+        scorer_name="safety",
+        scorer_version=1,
+        serialized_scorer=json.dumps({
+            "name": "safety",
+            "builtin_scorer_class": "Safety",
+            "instructions": "check safety",
+        }),
+        creation_time=0,
+        scorer_id="s-1",
     )
 
-    result = _run_before_guardrails([g1, g2], _make_request_payload())
-    assert result["extra"] == "from-g1"
-    assert result["extra2"] == "from-g2"
+
+def _make_guardrail_entity(stage="BEFORE", action="VALIDATION"):
+    return GatewayGuardrail(
+        guardrail_id="gr-1",
+        name="safety",
+        scorer=_make_scorer_version(stage, action),
+        stage=GuardrailStage(stage),
+        action=GuardrailAction(action),
+        created_at=0,
+        last_updated_at=0,
+    )
 
 
-def test_run_after_guardrails_passes():
-    g = _mock_guardrail("AFTER")
+def _make_guardrail_config(stage="BEFORE", action="VALIDATION"):
+    return GatewayGuardrailConfig(
+        endpoint_id="ep-1",
+        guardrail_id="gr-1",
+        execution_order=0,
+        created_at=0,
+        guardrail=_make_guardrail_entity(stage, action),
+    )
+
+
+# ─── _run_before_guardrails ───────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_run_before_guardrails_passes():
+    g = _make_judge("BEFORE")
+    payload = _make_request_payload()
+    result = await _run_before_guardrails([g], payload)
+    assert result == payload
+    g.scorer.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_before_guardrails_skips_after_stage():
+    g = _make_judge("AFTER")
+    payload = _make_request_payload()
+    result = await _run_before_guardrails([g], payload)
+    assert result == payload
+    g.scorer.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_run_before_guardrails_blocks():
+    g = _make_judge("BEFORE", passing=False)
+    with pytest.raises(GuardrailViolation, match="blocked"):
+        await _run_before_guardrails([g], _make_request_payload())
+
+
+@pytest.mark.asyncio
+async def test_run_before_guardrails_chains_multiple():
+    g1 = _make_judge("BEFORE")
+    g1.scorer.return_value = "yes"
+
+    g2 = _make_judge("BEFORE")
+    g2.scorer.return_value = "yes"
+
+    payload = _make_request_payload()
+    result = await _run_before_guardrails([g1, g2], payload)
+    assert result == payload
+    g1.scorer.assert_called_once()
+    g2.scorer.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_before_guardrails_stops_at_first_failure():
+    g1 = _make_judge("BEFORE", passing=False)
+    g2 = _make_judge("BEFORE")
+    with pytest.raises(GuardrailViolation, match="blocked"):
+        await _run_before_guardrails([g1, g2], _make_request_payload())
+    g2.scorer.assert_not_called()
+
+
+# ─── _run_after_guardrails ────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_run_after_guardrails_passes():
+    g = _make_judge("AFTER")
     req = _make_request_payload()
     response = _make_response_payload()
-    result = _run_after_guardrails([g], req, response)
+    result = await _run_after_guardrails([g], req, response)
     assert result.choices[0].message.content == "hi there"
-    g.process_response.assert_called_once()
-    args, _ = g.process_response.call_args
-    assert args[0] == req
+    g.scorer.assert_called_once()
 
 
-def test_run_after_guardrails_skips_before_stage():
-    g = _mock_guardrail("BEFORE")
+@pytest.mark.asyncio
+async def test_run_after_guardrails_skips_before_stage():
+    g = _make_judge("BEFORE")
     response = _make_response_payload()
-    result = _run_after_guardrails([g], _make_request_payload(), response)
+    result = await _run_after_guardrails([g], _make_request_payload(), response)
     assert result is response
-    g.process_response.assert_not_called()
+    g.scorer.assert_not_called()
 
 
-def test_run_after_guardrails_blocks():
-    g = _mock_guardrail("AFTER", passing=False)
-    with pytest.raises(GuardrailViolation, match="blocked by test"):
-        _run_after_guardrails([g], _make_request_payload(), _make_response_payload())
+@pytest.mark.asyncio
+async def test_run_after_guardrails_blocks():
+    g = _make_judge("AFTER", passing=False)
+    with pytest.raises(GuardrailViolation, match="blocked"):
+        await _run_after_guardrails([g], _make_request_payload(), _make_response_payload())
+
+
+@pytest.mark.asyncio
+async def test_run_after_guardrails_no_guardrails_returns_response():
+    response = _make_response_payload()
+    result = await _run_after_guardrails([], _make_request_payload(), response)
+    assert result is response
+
+
+# ─── _load_guardrails ─────────────────────────────────────────────────────────
 
 
 def test_load_guardrails_empty():
     store = mock.MagicMock()
-    store.list_endpoint_guardrail_configs = mock.MagicMock(return_value=[])
+    store.list_endpoint_guardrail_configs.return_value = []
     endpoint_config = mock.MagicMock()
     endpoint_config.endpoint_id = "ep-1"
     request = mock.MagicMock()
@@ -130,51 +202,47 @@ def test_load_guardrails_empty():
     store.list_endpoint_guardrail_configs.assert_called_once_with("ep-1")
 
 
-def test_load_guardrails_converts_entities():
+def test_load_guardrails_converts_real_entity():
+    config = _make_guardrail_config(stage="BEFORE", action="VALIDATION")
     store = mock.MagicMock()
-    config = mock.MagicMock()
-    config.guardrail = mock.MagicMock()
-    config.guardrail_id = "gr-1"
-    store.list_endpoint_guardrail_configs = mock.MagicMock(return_value=[config])
+    store.list_endpoint_guardrail_configs.return_value = [config]
     endpoint_config = mock.MagicMock()
     endpoint_config.endpoint_id = "ep-1"
     request = mock.MagicMock()
     request.base_url = "http://localhost:5000/"
 
-    mock_judge = mock.MagicMock()
-    with mock.patch(
-        "mlflow.server.gateway_api.JudgeGuardrail.from_entity",
-        return_value=mock_judge,
-    ) as mock_from_entity:
+    with mock.patch("mlflow.gateway.guardrails.JudgeGuardrail.from_entity") as mock_from_entity:
+        mock_from_entity.return_value = _make_judge("BEFORE")
         result = _load_guardrails(store, endpoint_config, request)
-        assert result == [mock_judge]
-        mock_from_entity.assert_called_once_with(config.guardrail, "http://localhost:5000")
+
+    assert len(result) == 1
+    assert isinstance(result[0], JudgeGuardrail)
+    mock_from_entity.assert_called_once_with(config.guardrail, "http://localhost:5000")
 
 
 def test_load_guardrails_skips_failed_conversion():
-    store = mock.MagicMock()
-    good_config = mock.MagicMock()
-    good_config.guardrail = mock.MagicMock()
-    good_config.guardrail_id = "gr-good"
-    bad_config = mock.MagicMock()
-    bad_config.guardrail = mock.MagicMock()
+    good_config = _make_guardrail_config(stage="BEFORE")
+    bad_config = _make_guardrail_config(stage="AFTER")
     bad_config.guardrail_id = "gr-bad"
-    store.list_endpoint_guardrail_configs = mock.MagicMock(return_value=[bad_config, good_config])
+
+    store = mock.MagicMock()
+    store.list_endpoint_guardrail_configs.return_value = [bad_config, good_config]
     endpoint_config = mock.MagicMock()
     endpoint_config.endpoint_id = "ep-1"
     request = mock.MagicMock()
     request.base_url = "http://localhost:5000/"
 
-    mock_judge = mock.MagicMock()
+    good_judge = _make_judge("BEFORE")
 
     def from_entity_side_effect(entity, server_url):
         if entity is bad_config.guardrail:
             raise ValueError("bad scorer")
-        return mock_judge
+        return good_judge
 
     with mock.patch(
-        "mlflow.server.gateway_api.JudgeGuardrail.from_entity",
+        "mlflow.gateway.guardrails.JudgeGuardrail.from_entity",
         side_effect=from_entity_side_effect,
     ):
         result = _load_guardrails(store, endpoint_config, request)
-        assert result == [mock_judge]
+
+    assert result == [good_judge]
