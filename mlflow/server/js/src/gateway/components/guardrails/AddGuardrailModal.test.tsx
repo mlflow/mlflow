@@ -12,6 +12,11 @@ jest.mock('../../api', () => ({
   },
 }));
 
+const mockRegisterScorer = jest.fn<any>();
+jest.mock('../../../experiment-tracking/pages/experiment-scorers/api', () => ({
+  registerScorer: (...args: any[]) => mockRegisterScorer(...args),
+}));
+
 const mockCreateGuardrail = jest.fn<any>();
 
 describe('GuardrailModal', () => {
@@ -85,7 +90,12 @@ describe('GuardrailModal', () => {
     expect(addButton).not.toBeDisabled();
   });
 
-  test('submits create + add-to-endpoint on Add click', async () => {
+  test('submits register + create + add-to-endpoint on Add click for builtin', async () => {
+    mockRegisterScorer.mockResolvedValue({
+      scorer_id: 'sc-registered-id',
+      version: 1,
+      name: 'safety',
+    });
     mockCreateGuardrail.mockResolvedValue({
       guardrail: { guardrail_id: 'g-abc123' },
     });
@@ -95,7 +105,7 @@ describe('GuardrailModal', () => {
 
     renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
 
-    // Select a scorer
+    // Select a builtin scorer
     const safetyRow = screen.getByText('Safety').closest('[role="option"]')!;
     await userEvent.click(safetyRow);
 
@@ -103,14 +113,19 @@ describe('GuardrailModal', () => {
     const addButton = screen.getByRole('button', { name: 'Add' });
     await userEvent.click(addButton);
 
+    // Step 1: Register the builtin scorer
+    expect(mockRegisterScorer).toHaveBeenCalledWith('0', expect.objectContaining({ name: 'safety' }));
+
+    // Step 2: Create the guardrail with the registered scorer_id
     expect(mockCreateGuardrail).toHaveBeenCalledWith({
       name: 'Safety',
-      scorer_id: 'Safety',
+      scorer_id: 'sc-registered-id',
       scorer_version: 1,
       stage: 'BEFORE',
       action: 'VALIDATION',
     });
 
+    // Step 3: Add to endpoint
     expect(GatewayApi.addGuardrailToEndpoint).toHaveBeenCalledWith({
       endpoint_id: 'e-123',
       guardrail_id: 'g-abc123',

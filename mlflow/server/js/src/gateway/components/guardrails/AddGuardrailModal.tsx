@@ -157,13 +157,12 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
     return registeredScorers.filter((s) => s.scorer_name.toLowerCase().includes(q));
   }, [searchQuery, registeredScorers]);
 
-  // Submit: create guardrail then add to endpoint
+  // Submit: register scorer if builtin, create guardrail, then add to endpoint
   const handleAdd = useCallback(async () => {
     if (!selectedScorer) return;
     setIsSubmitting(true);
     setError(null);
     try {
-      // Determine scorer_id and scorer_version
       const registered = registeredScorers.find((s) => s.scorer_id === selectedScorer);
       let scorerId: string;
       let scorerVersion: number;
@@ -174,13 +173,22 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
         scorerVersion = registered.scorer_version;
         guardrailName = registered.scorer_name;
       } else {
-        // Builtin - the backend resolves the builtin scorer by name
-        scorerId = selectedScorer;
-        scorerVersion = 1;
+        // Builtin scorer — register it first to get a scorer_id + version
+        const { registerScorer } = await import('../../../experiment-tracking/pages/experiment-scorers/api');
+        const builtinName = selectedScorer.toLowerCase();
+        const result = await registerScorer(experimentId ?? '0', {
+          name: builtinName,
+          serialized_scorer: JSON.stringify({
+            name: builtinName,
+            builtin_scorer_class: selectedScorer,
+          }),
+        } as any);
+        scorerId = result.scorer_id;
+        scorerVersion = result.version;
         guardrailName = selectedScorer;
       }
 
-      // Step 1: Create the guardrail
+      // Create the guardrail
       const createResponse = await createGuardrail({
         name: guardrailName,
         scorer_id: scorerId,
@@ -189,7 +197,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
         action,
       });
 
-      // Step 2: Add to endpoint
+      // Add to endpoint
       await GatewayApi.addGuardrailToEndpoint({
         endpoint_id: endpointId,
         guardrail_id: createResponse.guardrail.guardrail_id,
@@ -202,7 +210,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedScorer, registeredScorers, stage, action, endpointId, createGuardrail, onSuccess, onClose]);
+  }, [selectedScorer, registeredScorers, stage, action, endpointId, experimentId, createGuardrail, onSuccess, onClose]);
 
   return (
     <Modal
