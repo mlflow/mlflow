@@ -9,6 +9,7 @@ Azure-specific authentication (api-key header) and URL patterns.
 from typing import Any
 
 from mlflow.gateway.config import AzureFoundryConfig, EndpointConfig
+from mlflow.gateway.providers.base import ProviderAdapter
 from mlflow.gateway.providers.openai_compatible import (
     OpenAICompatibleAdapter,
     OpenAICompatibleProvider,
@@ -51,5 +52,5 @@ class AzureFoundryProvider(OpenAICompatibleProvider):
         return {"api-key": self._api_key}
 
     @property
-    def adapter_class(self):
+    def adapter_class(self) -> type[ProviderAdapter]:
         return AzureFoundryAdapter
