@@ -71,6 +71,17 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
+# Models that carry a ``workspace`` column and must be filtered
+# by the active workspace in every query.
+_WORKSPACE_MODELS = (
+    SqlRegisteredModel,
+    SqlModelVersion,
+    SqlWebhook,
+    SqlRegisteredModelTag,
+    SqlModelVersionTag,
+    SqlRegisteredModelAlias,
+)
+
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
 # columns defined via backreference are available as Mapper instance attributes (e.g.,
@@ -155,13 +166,10 @@ class SqlAlchemyStore(AbstractStore):
     def _get_query(self, session, model):
         """
         Return a query for ``model``.
-        Workspace-aware subclasses override this to enforce scoping.
-
-        In single-tenant mode we still filter on the default workspace so that
-        the database can use the (workspace, ...) primary-key index efficiently.
+        Always filter on workspace for relevant models, to benefit from DB index.
         """
         query = session.query(model)
-        if hasattr(model, "workspace"):
+        if model in _WORKSPACE_MODELS:
             query = query.filter(model.workspace == self._get_active_workspace())
         return query
 
@@ -283,7 +291,11 @@ class SqlAlchemyStore(AbstractStore):
             sqlalchemy.func
             .row_number()
             .over(
-                partition_by=[SqlModelVersion.name, SqlModelVersion.current_stage],
+                partition_by=[
+                    SqlModelVersion.workspace,
+                    SqlModelVersion.name,
+                    SqlModelVersion.current_stage,
+                ],
                 order_by=SqlModelVersion.version.desc(),
             )
             .label("rn")
@@ -338,13 +350,9 @@ class SqlAlchemyStore(AbstractStore):
     def _get_workspace_clauses(self, model):
         """
         Return workspace filter clauses for the model.
-        Used for select() queries that can't use _get_query().
-        Workspace-aware subclasses override to return actual filters.
-
-        In single-tenant mode we still filter on the default workspace so that
-        the database can use the (workspace, ...) primary-key index efficiently.
+        Always filter on workspace for relevant models, to benefit from DB index.
         """
-        if hasattr(model, "workspace"):
+        if model in _WORKSPACE_MODELS:
             return [model.workspace == self._get_active_workspace()]
         return []
 

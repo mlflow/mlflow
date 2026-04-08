@@ -1155,11 +1155,7 @@ def test_search_queries_include_workspace_predicate(store):
         # The main search query is the one with ORDER BY + LIMIT — the actual
         # search result query.  Tag-loading subqueries don't have ORDER BY.
         main_queries = [
-            s
-            for s in captured_sql
-            if "ORDER BY" in s
-            and "model_versions" in s
-            and "LIMIT" in s
+            s for s in captured_sql if "ORDER BY" in s and "model_versions" in s and "LIMIT" in s
         ]
         assert main_queries, f"No main search query found for filter: {filter_string}"
 
