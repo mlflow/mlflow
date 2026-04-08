@@ -431,4 +431,28 @@ describe('normalizeConversation', () => {
     });
     expect(result![0].content).toContain('![](data:image/png;base64,iVBORw0KGgo=)');
   });
+
+  it('should handle single dict contents (text part)', () => {
+    const input = { contents: { text: 'Say hello in one sentence.' } };
+    const result = normalizeConversation(input, 'gemini');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      role: 'user',
+      content: 'Say hello in one sentence.',
+    });
+  });
+
+  it('should handle single Content object as contents', () => {
+    const input = {
+      contents: { role: 'user', parts: [{ text: 'What is MLflow?' }] },
+    };
+    const result = normalizeConversation(input, 'gemini');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      role: 'user',
+      content: 'What is MLflow?',
+    });
+  });
 });

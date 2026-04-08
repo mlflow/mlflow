@@ -361,6 +361,18 @@ export const normalizeGeminiChatInput = (obj: unknown): ModelTraceChatMessage[] 
         return messages.length > 0 ? messages : null;
       }
     }
+
+    // Handle single content object (e.g., {"role": "user", "parts": [...]})
+    if (isGeminiContent(obj.contents)) {
+      const messages = normalizeGeminiContentToMessages(obj.contents);
+      return messages.length > 0 ? messages : null;
+    }
+
+    // Handle single part dict (e.g., {"text": "Say hello"})
+    if (isGeminiContentPart(obj.contents)) {
+      const messages = normalizeGeminiContentToMessages({ role: 'user', parts: [obj.contents] });
+      return messages.length > 0 ? messages : null;
+    }
   }
 
   return null;
