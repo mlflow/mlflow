@@ -451,6 +451,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel text to cancel the flow to copy the model"
   },
+  "0uYJoi": {
+    "defaultMessage": "Alerts",
+    "description": "Tab label for budget alerts"
+  },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
@@ -2290,6 +2294,10 @@
     "defaultMessage": "Unsafe",
     "description": "Evaluation results > safety assessment > negative value label. Displayed if evaluation result is considered as unsafe."
   },
+  "CX5ia9": {
+    "defaultMessage": "Policies",
+    "description": "Tab label for budget policies"
+  },
   "CX8ytv": {
     "defaultMessage": "Expected output",
     "description": "Evaluation review > Response section > expected output > title"
@@ -2373,10 +2381,6 @@
   "CvNffK": {
     "defaultMessage": "Provider",
     "description": "Provider column header"
-  },
-  "CwJcIQ": {
-    "defaultMessage": "Receive HTTP notifications when a budget policy is exceeded.",
-    "description": "Budget webhooks section description on budgets page"
   },
   "CyTYL6": {
     "defaultMessage": "Line chart",
@@ -5651,6 +5655,10 @@
     "defaultMessage": "Versions",
     "description": "Title text for the versions section under details tab on the\n                       model view page"
   },
+  "Z6E4o7": {
+    "defaultMessage": "Get notified when a budget policy is exceeded. Create a webhook to get started, or <link>learn more</link>.",
+    "description": "Budget webhooks empty state description on budgets page"
+  },
   "Z6kodo": {
     "defaultMessage": "Move down",
     "description": "Experiment page > compare runs tab > chart header > move down option"
@@ -5906,10 +5914,6 @@
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
-  },
-  "aZ9uZO": {
-    "defaultMessage": "Budget alert webhooks",
-    "description": "Budget webhooks section title on budgets page"
   },
   "aZV8M7": {
     "defaultMessage": "Delete",
@@ -6426,10 +6430,6 @@
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
-  },
-  "ddUxQJ": {
-    "defaultMessage": "Use \"Create budget policy\" button to set up cost limits for the AI Gateway",
-    "description": "Empty state message for budgets list"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
@@ -9518,6 +9518,10 @@
   "xBoybr": {
     "defaultMessage": "Tag key already exists on one or more of the selected runs. Please choose a different key.",
     "description": "Add new key-value tag modal > Duplicate tag key error"
+  },
+  "xEr8Gl": {
+    "defaultMessage": "Set spending limits and control costs across your endpoints.",
+    "description": "Empty state message for budgets list"
   },
   "xIP8WW": {
     "defaultMessage": "Are you sure you want to delete these runs?",

@@ -14,9 +14,22 @@ interface WebhooksSettingsProps {
   title?: React.ReactNode;
   /** Description override */
   description?: React.ReactNode;
+  /** Whether to show the section title. Defaults to true. */
+  showTitle?: boolean;
+  /** Whether to show the section description. Defaults to true. */
+  showDescription?: boolean;
+  /** Override the empty state message shown when no webhooks exist */
+  emptyDescription?: React.ReactNode;
 }
 
-const WebhooksSettings = ({ eventFilter, title, description }: WebhooksSettingsProps) => {
+const WebhooksSettings = ({
+  eventFilter,
+  title,
+  description,
+  showTitle = true,
+  showDescription = true,
+  emptyDescription,
+}: WebhooksSettingsProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -157,20 +170,31 @@ const WebhooksSettings = ({ eventFilter, title, description }: WebhooksSettingsP
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <Typography.Title level={4} withoutMargins>
-            {title ?? <FormattedMessage defaultMessage="Webhooks" description="Webhooks settings section title" />}
-          </Typography.Title>
-          <Typography.Text color="secondary">
-            {description ?? (
-              <FormattedMessage
-                defaultMessage="Manage webhooks to receive HTTP notifications when events occur in MLflow."
-                description="Webhooks settings section description"
-              />
+        {(showTitle || showDescription) && (
+          <div>
+            {showTitle && (
+              <Typography.Title level={4} withoutMargins>
+                {title ?? <FormattedMessage defaultMessage="Webhooks" description="Webhooks settings section title" />}
+              </Typography.Title>
             )}
-          </Typography.Text>
-        </div>
-        <Button componentId="mlflow.settings.webhooks.create-button" type="primary" onClick={openCreateModal}>
+            {showDescription && (
+              <Typography.Text color="secondary">
+                {description ?? (
+                  <FormattedMessage
+                    defaultMessage="Manage webhooks to receive HTTP notifications when events occur in MLflow."
+                    description="Webhooks settings section description"
+                  />
+                )}
+              </Typography.Text>
+            )}
+          </div>
+        )}
+        <Button
+          componentId="mlflow.settings.webhooks.create-button"
+          type="primary"
+          onClick={openCreateModal}
+          css={!showTitle && !showDescription ? { marginLeft: 'auto' } : undefined}
+        >
           <FormattedMessage defaultMessage="Create webhook" description="Create webhook button" />
         </Button>
       </div>
@@ -209,17 +233,19 @@ const WebhooksSettings = ({ eventFilter, title, description }: WebhooksSettingsP
           }}
         >
           <Typography.Text color="secondary">
-            <FormattedMessage
-              defaultMessage="No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>"
-              description="Empty state for webhooks list"
-              values={{
-                link: (chunks: any) => (
-                  <a href="https://mlflow.org/docs/latest/ml/webhooks/" target="_blank" rel="noopener noreferrer">
-                    {chunks}
-                  </a>
-                ),
-              }}
-            />
+            {emptyDescription ?? (
+              <FormattedMessage
+                defaultMessage="No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>"
+                description="Empty state for webhooks list"
+                values={{
+                  link: (chunks: any) => (
+                    <a href="https://mlflow.org/docs/latest/ml/webhooks/" target="_blank" rel="noopener noreferrer">
+                      {chunks}
+                    </a>
+                  ),
+                }}
+              />
+            )}
           </Typography.Text>
         </div>
       ) : (
