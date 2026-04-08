@@ -82,6 +82,7 @@ from mlflow.exceptions import (
 )
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
 from mlflow.protos import databricks_pb2
@@ -4661,10 +4662,6 @@ def _register_scorer():
     except json.JSONDecodeError as e:
         raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
     if serialized_data.get("call_source") is not None:
-        from mlflow.genai.scorers.scorer_utils import (
-            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
-        )
-
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )
