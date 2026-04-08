@@ -69,17 +69,6 @@ class Provider(str, Enum):
     def values(cls):
         return {p.value for p in cls}
 
-    def _canonical(self) -> "Provider":
-        return _PROVIDER_CANONICAL.get(self, self)
-
-
-# Enum-level alias map, derived from the string-level _PROVIDER_ALIASES.
-from mlflow.utils.provider_filter import _PROVIDER_ALIASES
-
-_PROVIDER_CANONICAL: dict[Provider, Provider] = {
-    Provider(alias): Provider(canonical) for alias, canonical in _PROVIDER_ALIASES.items()
-}
-
 
 class TogetherAIConfig(ConfigModel):
     togetherai_api_key: str

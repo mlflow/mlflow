@@ -1,9 +1,7 @@
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import Provider
 from mlflow.gateway.provider_registry import provider_registry
-from mlflow.utils.provider_filter import _PROVIDER_ALIASES
 
 
 def test_registry_keys_returns_all_providers_by_default():
@@ -36,18 +34,3 @@ def test_keys_unfiltered_even_with_allowed_list(monkeypatch):
     assert "openai" in keys
     assert "anthropic" in keys
     assert "litellm" in keys
-
-
-def test_provider_canonical_resolves_alias():
-    assert Provider.AMAZON_BEDROCK._canonical() == Provider.BEDROCK
-    assert Provider.BEDROCK._canonical() == Provider.BEDROCK
-    assert Provider.DATABRICKS_MODEL_SERVING._canonical() == Provider.DATABRICKS
-    assert Provider.DATABRICKS._canonical() == Provider.DATABRICKS
-    assert Provider.OPENAI._canonical() == Provider.OPENAI
-
-
-def test_provider_aliases_matches_canonical():
-    assert _PROVIDER_ALIASES == {
-        "amazon-bedrock": "bedrock",
-        "databricks-model-serving": "databricks",
-    }

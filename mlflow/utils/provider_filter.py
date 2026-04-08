@@ -9,7 +9,6 @@ from mlflow.environment_variables import MLFLOW_GATEWAY_ALLOWED_PROVIDERS
 _logger = logging.getLogger(__name__)
 
 # Single source of truth for provider name aliases (string-level).
-# mlflow.gateway.config derives its enum-level _PROVIDER_CANONICAL from this map.
 _PROVIDER_ALIASES: dict[str, str] = {
     "amazon-bedrock": "bedrock",
     "databricks-model-serving": "databricks",

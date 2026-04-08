@@ -37,7 +37,6 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CALLER_HEADER,
     GatewayCaller,
 )
-from mlflow.gateway.provider_registry import _provider_key_to_str
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -219,7 +218,7 @@ def _build_endpoint_config(
     Raises:
         MlflowException: If provider configuration is invalid.
     """
-    provider_name = _provider_key_to_str(model_config.provider)
+    provider_name = model_config.provider
     if not is_provider_allowed(provider_name):
         _logger.debug(
             "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",

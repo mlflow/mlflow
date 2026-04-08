@@ -9,10 +9,6 @@ from mlflow.utils.provider_filter import is_provider_allowed
 _logger = logging.getLogger(__name__)
 
 
-def _provider_key_to_str(key: str | Provider) -> str:
-    return key.value if isinstance(key, Provider) else key
-
-
 class ProviderRegistry:
     def __init__(self):
         self._providers: dict[str | Provider, type[BaseProvider]] = {}
@@ -28,14 +24,13 @@ class ProviderRegistry:
         if name not in self._providers:
             raise MlflowException.invalid_parameter_value(f"Provider '{name}' not found")
 
-        provider_str = _provider_key_to_str(name)
-        if not is_provider_allowed(provider_str):
+        if not is_provider_allowed(name):
             _logger.debug(
                 "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",
-                provider_str,
+                name,
             )
             raise MlflowException.invalid_parameter_value(
-                f"Provider '{provider_str}' is not allowed by the current gateway provider policy."
+                f"Provider '{name}' is not allowed by the current gateway provider policy."
             )
         return self._providers[name]
 
