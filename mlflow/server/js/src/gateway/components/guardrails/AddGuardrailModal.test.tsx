@@ -98,6 +98,29 @@ describe('GuardrailModal', () => {
     expect(screen.getByText('Description')).toBeInTheDocument();
   });
 
+  test('Safety type shows judge instructions pre-filled', async () => {
+    renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByText('Judge Instructions')).toBeInTheDocument();
+    // Safety template prompt is pre-filled
+    const textarea = screen.getByPlaceholderText('Enter judge instructions...');
+    expect((textarea as HTMLTextAreaElement).value).toContain('content safety classifier');
+  });
+
+  test('Custom type shows judge instructions empty', async () => {
+    renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Custom Guardrail').closest('[role="option"]')!);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByText('Judge Instructions')).toBeInTheDocument();
+    const textarea = screen.getByPlaceholderText('Enter judge instructions...');
+    expect(textarea).toHaveValue('');
+  });
+
   test('Back button returns to step 1', async () => {
     renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
 

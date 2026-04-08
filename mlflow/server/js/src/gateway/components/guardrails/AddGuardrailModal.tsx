@@ -14,6 +14,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useAddGuardrail } from '../../hooks/useAddGuardrail';
 import { GatewayApi } from '../../api';
 import type { GatewayGuardrailConfig, GuardrailStage, GuardrailAction } from '../../types';
+import { TEMPLATE_INSTRUCTIONS_MAP } from '../../../experiment-tracking/pages/experiment-scorers/prompts';
+import { LLM_TEMPLATE } from '../../../experiment-tracking/pages/experiment-scorers/types';
 
 // ─── Guardrail type definitions ─────────────────────────────────────────────
 
@@ -180,6 +182,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
   // Configuration state (step 2)
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [instructions, setInstructions] = useState('');
   const [stage, setStage] = useState<GuardrailStage>('BEFORE');
   const [action, setAction] = useState<GuardrailAction>('VALIDATION');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -192,6 +195,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
       setSelectedType(null);
       setName('');
       setDescription('');
+      setInstructions('');
       setStage('BEFORE');
       setAction('VALIDATION');
       setError(null);
@@ -205,9 +209,12 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
     if (type?.builtin) {
       setName(type.name);
       setDescription(type.description);
+      // Pre-fill with the builtin template prompt
+      setInstructions(TEMPLATE_INSTRUCTIONS_MAP[LLM_TEMPLATE.SAFETY] ?? '');
     } else {
       setName('');
       setDescription('');
+      setInstructions('');
     }
     setStep(2);
   }, [selectedType]);
@@ -229,8 +236,8 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
       // Register the scorer
       const scorerName = name.trim().toLowerCase();
       const serializedScorer = type?.builtin
-        ? { name: scorerName, builtin_scorer_class: type.name }
-        : { name: scorerName, call_source: description.trim() };
+        ? { name: scorerName, builtin_scorer_class: type.name, instructions: instructions.trim() }
+        : { name: scorerName, call_source: description.trim(), instructions: instructions.trim() };
 
       const registered = await registerScorer(experimentId ?? '0', {
         name: scorerName,
@@ -259,7 +266,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, description, selectedType, stage, action, endpointId, experimentId, createGuardrail, onSuccess, onClose]);
+  }, [name, description, instructions, selectedType, stage, action, endpointId, experimentId, createGuardrail, onSuccess, onClose]);
 
   const isStep2Valid = name.trim().length > 0;
 
@@ -359,7 +366,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
             />
           </div>
 
-          {/* Description / prompt — only for custom */}
+          {/* Description — only for custom */}
           {selectedType === 'custom' && (
             <div>
               <Typography.Text bold color="info" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
@@ -373,10 +380,33 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
                   defaultMessage: 'Describe what this guardrail checks for...',
                   description: 'Guardrail description placeholder',
                 })}
-                autoSize={{ minRows: 3, maxRows: 8 }}
+                autoSize={{ minRows: 2, maxRows: 4 }}
               />
             </div>
           )}
+
+          {/* Judge instructions — shown for all types, pre-filled for builtins */}
+          <div>
+            <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+              <FormattedMessage defaultMessage="Judge Instructions" description="Guardrail judge instructions label" />
+            </Typography.Text>
+            <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm, fontSize: theme.typography.fontSizeSm }}>
+              <FormattedMessage
+                defaultMessage="Instructions given to the LLM judge. You can customize the default prompt."
+                description="Judge instructions help text"
+              />
+            </Typography.Text>
+            <Input.TextArea
+              componentId="mlflow.gateway.guardrails.config-instructions"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Enter judge instructions...',
+                description: 'Judge instructions placeholder',
+              })}
+              autoSize={{ minRows: 4, maxRows: 12 }}
+            />
+          </div>
 
           {/* Placement */}
           <div>
