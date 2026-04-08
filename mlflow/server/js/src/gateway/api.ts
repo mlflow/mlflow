@@ -400,8 +400,9 @@ export const GatewayApi = {
 
   deleteGuardrail: (guardrailId: string) => {
     return fetchEndpoint({
-      relativeUrl: `ajax-api/3.0/mlflow/gateway/guardrails/delete?guardrail_id=${encodeURIComponent(guardrailId)}`,
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/delete',
       method: 'DELETE',
+      body: JSON.stringify({ guardrail_id: guardrailId }),
       error: defaultErrorHandler,
     });
   },
@@ -431,8 +432,9 @@ export const GatewayApi = {
 
   removeGuardrailFromEndpoint: (request: RemoveGuardrailFromEndpointRequest) => {
     return fetchEndpoint({
-      relativeUrl: `ajax-api/3.0/mlflow/gateway/guardrails/remove-from-endpoint?endpoint_id=${encodeURIComponent(request.endpoint_id)}&guardrail_id=${encodeURIComponent(request.guardrail_id)}`,
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/remove-from-endpoint',
       method: 'DELETE',
+      body: JSON.stringify(request),
       error: defaultErrorHandler,
     });
   },
