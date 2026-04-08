@@ -485,6 +485,26 @@ describe('normalizeConversation', () => {
     ]);
   });
 
+  it('combines multi-part Responses API input into a single message', () => {
+    const input = {
+      input: [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'Describe this image.' },
+            { type: 'input_image', image_url: 'data:image/jpeg;base64,abc123' },
+          ],
+        },
+      ],
+    };
+    const result = normalizeConversation(input, 'openai');
+    // Should produce a single user message, not two separate ones
+    expect(result).toHaveLength(1);
+    expect(result?.[0]).toMatchObject({ role: 'user' });
+    expect(result?.[0]?.content).toContain('Describe this image.');
+    expect(result?.[0]?.content).toContain('data:image/jpeg;base64,abc123');
+  });
+
   describe('OpenAI reasoning support', () => {
     it('handles non-streaming output with reasoning summary', () => {
       const result = normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT_WITH_REASONING, 'openai');
