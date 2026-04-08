@@ -1,5 +1,3 @@
-"""Tests for guardrail execution in gateway_api.py."""
-
 from unittest import mock
 
 import pytest
