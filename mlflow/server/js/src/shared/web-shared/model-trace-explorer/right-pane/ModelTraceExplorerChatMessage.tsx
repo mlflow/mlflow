@@ -271,13 +271,17 @@ export function ModelTraceExplorerChatMessage({
           message.tool_calls.map((toolCall) => (
             <ModelTraceExplorerToolCallMessage key={toolCall.id} toolCall={toolCall} />
           ))}
-        {message.audioParts && message.audioParts.length > 0 && (
-          <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />
-        )}
+        {/* Text content renders before audio parts. The markdown renderer and audio
+            player are separate rendering paths, so original part interleaving is not
+            preserved. Text-first matches the typical pattern where prompts precede
+            media (see https://developers.openai.com/api/docs/guides/audio). */}
         <ModelTraceExplorerChatMessageContent
           content={displayedContent}
           shouldDisplayCodeSnippet={shouldDisplayCodeSnippet}
         />
+        {message.audioParts && message.audioParts.length > 0 && (
+          <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />
+        )}
       </div>
       {isExpandable && (
         <Button
