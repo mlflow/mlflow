@@ -4,9 +4,11 @@ import {
   Button,
   Empty,
   Input,
+  Modal,
   PlusIcon,
   SearchIcon,
   Spinner,
+  Tooltip,
   TrashIcon,
   Typography,
   VisibleIcon,
@@ -16,13 +18,67 @@ import { FormattedMessage } from 'react-intl';
 import { useGuardrailsQuery } from '../../hooks/useGuardrailsQuery';
 import { useRemoveGuardrail } from '../../hooks/useRemoveGuardrail';
 import { GuardrailModal } from './AddGuardrailModal';
-import type { GatewayGuardrailConfig } from '../../types';
+import type { GatewayGuardrailConfig, GuardrailStage } from '../../types';
 
 interface GuardrailsTabContentProps {
   endpointName: string;
   endpointId: string;
   experimentId?: string;
 }
+
+// ─── Pipeline stage tooltip ──────────────────────────────────────────────────
+
+const PIPELINE_STEPS = ['Request', 'BEFORE', 'LLM', 'AFTER', 'Response'] as const;
+const STAGE_LABELS: Record<string, string> = { BEFORE: 'Input Guardrails', AFTER: 'Output Guardrails' };
+const STAGE_DESCRIPTIONS: Record<string, string> = {
+  BEFORE: 'This guardrail runs before the request reaches the LLM',
+  AFTER: 'This guardrail runs after the LLM response is generated',
+};
+
+const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
+  const { theme } = useDesignSystemTheme();
+  const activeColor = stage === 'BEFORE' ? '#1677ff' : '#52c41a';
+
+  return (
+    <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px`, minWidth: 380 }}>
+      {/* Pipeline flow */}
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
+        {PIPELINE_STEPS.map((step, i) => {
+          const isActive = step === stage;
+          const label = STAGE_LABELS[step] ?? step;
+          return (
+            <div key={step} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              {i > 0 && (
+                <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                  {'>'}
+                </Typography.Text>
+              )}
+              <span
+                css={{
+                  padding: `2px ${theme.spacing.sm}px`,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  fontSize: theme.typography.fontSizeSm,
+                  fontWeight: isActive ? theme.typography.typographyBoldFontWeight : 'normal',
+                  color: isActive ? '#fff' : theme.colors.textSecondary,
+                  backgroundColor: isActive ? activeColor : 'transparent',
+                  border: isActive ? `1px solid ${activeColor}` : `1px solid transparent`,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Description */}
+      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
+        {STAGE_DESCRIPTIONS[stage]}
+      </Typography.Text>
+    </div>
+  );
+};
 
 // ─── Badge ──────────────────────────────────────────────────────────────────
 
@@ -71,12 +127,12 @@ const ColumnHeader = ({ children }: { children: React.ReactNode }) => {
 const GuardrailRow = ({
   guardrail,
   onView,
-  onRemove,
+  onDeleteClick,
   isRemoving,
 }: {
   guardrail: GatewayGuardrailConfig;
   onView: (guardrail: GatewayGuardrailConfig) => void;
-  onRemove: (id: string) => void;
+  onDeleteClick: (guardrail: GatewayGuardrailConfig) => void;
   isRemoving: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -108,9 +164,20 @@ const GuardrailRow = ({
         </Typography.Text>
       </div>
 
-      {/* Placement badge */}
+      {/* Placement badge — with pipeline tooltip */}
       <div>
-        <Badge label={stageBadge} color={stageColor} />
+        {stage === 'BEFORE' || stage === 'AFTER' ? (
+          <Tooltip
+            componentId="mlflow.gateway.guardrails.placement-tooltip"
+            content={<PlacementTooltipContent stage={stage} />}
+          >
+            <span css={{ cursor: 'default' }}>
+              <Badge label={stageBadge} color={stageColor} />
+            </span>
+          </Tooltip>
+        ) : (
+          <Badge label={stageBadge} color={stageColor} />
+        )}
       </div>
 
       {/* Action badge */}
@@ -118,7 +185,7 @@ const GuardrailRow = ({
         <Badge label={actionBadge} color={actionColor} />
       </div>
 
-      {/* View / detail icon */}
+      {/* View / edit icon */}
       <div css={{ display: 'flex', justifyContent: 'center' }}>
         <Button
           componentId="mlflow.gateway.guardrails.view"
@@ -126,7 +193,7 @@ const GuardrailRow = ({
           size="small"
           type="tertiary"
           onClick={() => onView(guardrail)}
-          title="View details"
+          title="View and edit"
         />
       </div>
 
@@ -137,13 +204,53 @@ const GuardrailRow = ({
           icon={<TrashIcon />}
           size="small"
           type="tertiary"
-          onClick={() => onRemove(guardrail.guardrail_id)}
+          onClick={() => onDeleteClick(guardrail)}
           loading={isRemoving}
           danger
           title="Remove guardrail"
         />
       </div>
     </div>
+  );
+};
+
+// ─── Delete confirmation modal ───────────────────────────────────────────────
+
+const DeleteConfirmModal = ({
+  guardrail,
+  onConfirm,
+  onCancel,
+}: {
+  guardrail: GatewayGuardrailConfig | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) => {
+  const name = guardrail?.guardrail?.name ?? guardrail?.guardrail_id ?? '';
+  return (
+    <Modal
+      componentId="mlflow.gateway.guardrails.delete-confirm-modal"
+      title={<FormattedMessage defaultMessage="Remove Guardrail" description="Delete guardrail modal title" />}
+      visible={!!guardrail}
+      onCancel={onCancel}
+      footer={
+        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button componentId="mlflow.gateway.guardrails.delete-cancel" onClick={onCancel}>
+            <FormattedMessage defaultMessage="Cancel" description="Cancel delete button" />
+          </Button>
+          <Button componentId="mlflow.gateway.guardrails.delete-confirm" type="primary" danger onClick={onConfirm}>
+            <FormattedMessage defaultMessage="Remove" description="Confirm delete button" />
+          </Button>
+        </div>
+      }
+    >
+      <Typography.Text>
+        <FormattedMessage
+          defaultMessage="Are you sure you want to remove {name} from this endpoint? This action cannot be undone."
+          description="Delete guardrail confirmation message"
+          values={{ name: <strong>{name}</strong> }}
+        />
+      </Typography.Text>
+    </Modal>
   );
 };
 
@@ -154,6 +261,7 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<GatewayGuardrailConfig | null>(null);
 
   const { data: serverGuardrails, isLoading, error, refetch } = useGuardrailsQuery(endpointId);
   const { mutateAsync: removeGuardrail } = useRemoveGuardrail();
@@ -165,18 +273,18 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
     setLocalGuardrails(serverGuardrails);
   }, [serverGuardrails]);
 
-  const handleRemove = useCallback(
-    async (guardrailId: string) => {
-      setRemovingId(guardrailId);
-      setLocalGuardrails((prev) => prev.filter((g) => g.guardrail_id !== guardrailId));
-      try {
-        await removeGuardrail({ endpoint_id: endpointId, guardrail_id: guardrailId });
-      } finally {
-        setRemovingId(null);
-      }
-    },
-    [removeGuardrail, endpointId],
-  );
+  const handleConfirmDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    const guardrailId = pendingDelete.guardrail_id;
+    setPendingDelete(null);
+    setRemovingId(guardrailId);
+    setLocalGuardrails((prev) => prev.filter((g) => g.guardrail_id !== guardrailId));
+    try {
+      await removeGuardrail({ endpoint_id: endpointId, guardrail_id: guardrailId });
+    } finally {
+      setRemovingId(null);
+    }
+  }, [pendingDelete, removeGuardrail, endpointId]);
 
   const handleView = useCallback((_guardrail: GatewayGuardrailConfig) => {
     // Detail modal is wired in follow-up PR (7d)
@@ -299,7 +407,7 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
               key={g.guardrail_id}
               guardrail={g}
               onView={handleView}
-              onRemove={handleRemove}
+              onDeleteClick={setPendingDelete}
               isRemoving={removingId === g.guardrail_id}
             />
           ))
@@ -313,6 +421,12 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
         endpointName={endpointName}
         endpointId={endpointId}
         experimentId={experimentId}
+      />
+
+      <DeleteConfirmModal
+        guardrail={pendingDelete}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDelete(null)}
       />
     </div>
   );
