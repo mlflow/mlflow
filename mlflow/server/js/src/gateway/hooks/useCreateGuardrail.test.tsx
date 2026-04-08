@@ -2,7 +2,7 @@ import { describe, afterEach, test, jest, expect, beforeEach } from '@jest/globa
 import { renderHook, cleanup, waitFor, act } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
-import { useAddGuardrail } from './useAddGuardrail';
+import { useAddGuardrail } from './useCreateGuardrail';
 import { GatewayApi } from '../api';
 
 function createWrapper() {
