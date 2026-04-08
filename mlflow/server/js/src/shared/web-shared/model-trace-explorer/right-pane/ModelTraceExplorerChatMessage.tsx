@@ -13,6 +13,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import { exceedsRenderSizeLimit, formatFileSize } from '../../media-rendering-utils';
 import {
   attachmentAwareUrlTransform,
   isAttachmentUri,
@@ -71,12 +72,19 @@ function ClickToExpandImage({ src, alt }: { src: string; alt?: string }) {
 }
 
 function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
-  const { url, loading, error } = useAttachmentUrl(src ?? null);
+  const { url, contentLength, contentType, loading, error } = useAttachmentUrl(src ?? null);
   if (loading) {
     return <Spinner size="small" />;
   }
   if (error || !url) {
     return <span>{`[${alt ?? 'Failed to load image'}]`}</span>;
+  }
+  if (contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return (
+      <a href={url} download>
+        {`Download ${contentType} (${formatFileSize(contentLength)})`}
+      </a>
+    );
   }
   return <ClickToExpandImage src={url} alt={alt} />;
 }
@@ -257,7 +265,7 @@ function getAudioMimeType(format: string): string {
 }
 
 function AttachmentAudioPlayer({ uri }: { uri: string }) {
-  const { url, loading, error } = useAttachmentUrl(uri);
+  const { url, contentLength, contentType, loading, error } = useAttachmentUrl(uri);
   if (loading) {
     return <Spinner size="small" />;
   }
@@ -269,6 +277,13 @@ function AttachmentAudioPlayer({ uri }: { uri: string }) {
           description="Error message when trace audio attachment fails to load"
         />
       </Typography.Text>
+    );
+  }
+  if (contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return (
+      <a href={url} download>
+        {`Download ${contentType} (${formatFileSize(contentLength)})`}
+      </a>
     );
   }
   // eslint-disable-next-line jsx-a11y/media-has-caption

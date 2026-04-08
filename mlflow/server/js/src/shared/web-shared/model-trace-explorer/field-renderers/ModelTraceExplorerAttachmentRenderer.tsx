@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { exceedsRenderSizeLimit, formatFileSize } from '../../media-rendering-utils';
 import { useTraceAttachment } from '../hooks/useTraceAttachment';
 
 export const ModelTraceExplorerAttachmentRenderer = ({
@@ -17,7 +18,11 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   contentType: string;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { objectUrl, isLoading, error } = useTraceAttachment({ traceId, attachmentId, contentType });
+  const { objectUrl, contentLength, isLoading, error } = useTraceAttachment({
+    traceId,
+    attachmentId,
+    contentType,
+  });
   const [previewVisible, setPreviewVisible] = useState(false);
 
   if (error) {
@@ -33,6 +38,27 @@ export const ModelTraceExplorerAttachmentRenderer = ({
 
   if (isLoading || !objectUrl) {
     return <LegacySkeleton />;
+  }
+
+  const exceedsRenderLimit = exceedsRenderSizeLimit(contentType, contentLength);
+
+  if (exceedsRenderLimit) {
+    return (
+      <div css={{ padding: theme.spacing.sm }}>
+        {title && (
+          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+            {title}
+          </Typography.Text>
+        )}
+        <a href={objectUrl} download={`attachment-${attachmentId}`}>
+          <FormattedMessage
+            defaultMessage="Download {contentType} ({size})"
+            description="Download link for trace attachment that exceeds the rendering size limit"
+            values={{ contentType, size: formatFileSize(contentLength) }}
+          />
+        </a>
+      </div>
+    );
   }
 
   if (contentType.startsWith('image/')) {
