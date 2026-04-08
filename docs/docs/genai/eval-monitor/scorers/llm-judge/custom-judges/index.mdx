@@ -72,6 +72,81 @@ For trace-based judges to analyze the full trace, the `model` argument must be s
 
 For a complete tutorial, see [Create a custom judge using make_judge()](/genai/eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge).
 
+## Enhance judges with skills 
+
+Sometimes the task of evaluating agent traces is more complex than can be expressed in a single prompt. **Skills** solve this by letting you package domain-specific evaluation criteria into separate files that the judge loads on demand — using the same tool-calling mechanism it already uses to explore traces.
+
+### When to use skills
+
+Skills are valuable when your evaluation criteria vary by context. For example, a code quality judge might need Python-specific guidelines for one trace and TypeScript-specific guidelines for another. Rather than including both sets of rules in every evaluation (or maintaining two separate judges), you define each as a skill. The judge sees a summary of available skills and autonomously decides which ones to load based on what it observes in the trace.
+
+### How skills work
+
+A skill is a directory containing a `SKILL.md` file with YAML frontmatter (name and description) and a markdown body with evaluation guidelines. Skills can optionally include companion reference files in a `references/` subdirectory. When a judge is created with skills, its system prompt lists the available skill names and descriptions — but not the full content. During evaluation, the judge uses tool calls to load the full content of whichever skills are relevant to the trace it's currently analyzing.
+
+### Example: adaptive code quality evaluation
+
+Consider a judge that evaluates code quality across a polyglot codebase. You define two skills — one for Python and one for TypeScript — each with its own quality guidelines:
+
+```
+skills/
+├── python-quality/
+│   └── SKILL.md
+└── typescript-quality/
+    └── SKILL.md
+```
+
+Each `SKILL.md` follows the [Agent Skills](https://agentskills.io) standard format:
+
+```yaml
+# skills/python-quality/SKILL.md
+---
+name: python-quality
+description: Python code quality guidelines covering type hints, PEP 8, and idiomatic patterns
+---
+
+## Python Quality Criteria
+
+- Functions should have type annotations for parameters and return values
+- Follow PEP 8 naming conventions (snake_case for functions, PascalCase for classes)
+- Prefer list comprehensions over map/filter for simple transformations
+- Use context managers for resource handling
+...
+```
+
+Then create a single judge that uses both skills:
+
+```python
+from mlflow.genai.judges import make_judge
+from typing import Literal
+
+code_quality_judge = make_judge(
+    name="code_quality",
+    instructions=(
+        "Evaluate the code quality in {{ trace }}. "
+        "Load the relevant language-specific quality guidelines "
+        "based on what programming language the agent is working with."
+    ),
+    feedback_value_type=Literal["excellent", "acceptable", "poor"],
+    model="openai:/gpt-5-mini",
+    skills=["skills/python-quality", "skills/typescript-quality"],
+)
+```
+
+When this judge evaluates a trace from a Python agent, it loads the Python guidelines. When it evaluates a TypeScript agent trace, it loads the TypeScript guidelines. The same judge adapts its evaluation criteria automatically based on what it observes in the trace.
+
+### SKILL.md format
+
+Every skill requires a `SKILL.md` file with two parts:
+
+1. **YAML frontmatter** between `---` markers:
+   - `name` (required): lowercase alphanumeric and hyphens, max 64 characters
+   - `description` (required): a short summary the judge uses to decide when to load the skill
+
+2. **Markdown body**: the full evaluation criteria, rubrics, or guidelines
+
+Skills can also include companion files in a `references/` subdirectory for detailed reference material like scoring rubrics or example patterns. The judge can access these via the `read_skill_companion_file` tool. *Note: there is currently no way for judges to execute scripts.*
+
 ## Selecting Judge Models
 
 By default, MLflow will use **OpenAI's GPT-4o-mini** model as the judge model. You can change the judge model by passing an override to the `model` argument within the scorer definition. The model must be specified in the format of `<provider>:/<model-name>`.
