@@ -416,6 +416,38 @@ def test_extracts_gemini_inline_data():
     assert att.content_bytes == PNG_BYTES
 
 
+def test_extracts_gemini_inline_data_bytes_repr():
+    # Gemini SDK Pydantic serialization produces repr(bytes) instead of base64
+    span = _make_live_span()
+    bytes_repr = repr(PNG_BYTES)
+    span.set_outputs({
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": "A small image."},
+                        {
+                            "inline_data": {
+                                "mime_type": "image/png",
+                                "data": bytes_repr,
+                            }
+                        },
+                    ]
+                }
+            }
+        ]
+    })
+
+    parts = span.outputs["candidates"][0]["content"]["parts"]
+    assert parts[0] == {"text": "A small image."}
+    inline = parts[1]
+    assert inline["inline_data"]["data"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
 def test_gemini_inline_data_with_invalid_base64():
     span = _make_live_span()
     span.set_outputs({
