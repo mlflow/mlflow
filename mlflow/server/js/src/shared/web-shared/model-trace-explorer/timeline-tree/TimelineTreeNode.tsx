@@ -74,7 +74,7 @@ export const TimelineTreeNode = ({
   const expanded = expandedKeys.has(node.key);
   const { theme } = useDesignSystemTheme();
   const hasChildren = (node.children ?? []).length > 0;
-  const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+  const { setAssessmentsPaneExpanded, selectedViewRangeIdx, setSelectedViewRangeIdx } = useModelTraceExplorerViewState();
 
   const isActive = selectedKey === node.key;
   const activeChildIndex = getActiveChildIndex(node, String(selectedKey));
@@ -123,6 +123,12 @@ export const TimelineTreeNode = ({
           <RangeBadge
             label={viewRanges[viewRangeInfo.rangeIdx].label}
             color={viewRangeColor}
+            onClick={() => {
+              setSelectedViewRangeIdx(
+                selectedViewRangeIdx === viewRangeInfo.rangeIdx ? null : viewRangeInfo.rangeIdx,
+              );
+            }}
+            isSelected={selectedViewRangeIdx === viewRangeInfo.rangeIdx}
           />
         </div>
       )}

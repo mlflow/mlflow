@@ -6,22 +6,29 @@ interface RangeBadgeProps {
   label: string;
   color: ReturnType<typeof getRangeColor>;
   onDelete?: () => void;
+  onClick?: () => void;
+  isSelected?: boolean;
 }
 
-export const RangeBadge = ({ label, color, onDelete }: RangeBadgeProps) => {
+export const RangeBadge = ({ label, color, onDelete, onClick, isSelected }: RangeBadgeProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
     <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick ? (e: React.MouseEvent) => { e.stopPropagation(); onClick(); } : undefined}
       css={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: theme.spacing.xs,
         padding: `2px ${theme.spacing.sm}px`,
         backgroundColor: color.background,
-        border: `1px solid ${color.primary}33`,
+        border: `1px solid ${isSelected ? color.primary : `${color.primary}33`}`,
         borderRadius: theme.borders.borderRadiusMd,
         marginBottom: theme.spacing.xs,
+        cursor: onClick ? 'pointer' : undefined,
+        '&:hover': onClick ? { borderColor: color.primary } : undefined,
       }}
     >
       <div

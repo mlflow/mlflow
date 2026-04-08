@@ -9,6 +9,7 @@ import { ModelTraceExplorerAttributesTab } from './ModelTraceExplorerAttributesT
 import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
+import { ModelTraceExplorerRangeDetailView } from './ModelTraceExplorerRangeDetailView';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
 import { SpanModelCostBadge } from './SpanModelCostBadge';
 import type { ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
@@ -47,6 +48,8 @@ function ModelTraceExplorerRightPaneTabsImpl({
     updatePaneSizeRatios,
     getPaneSizeRatios,
     readOnly: displayReadOnlyAssessments,
+    activeTraceView,
+    selectedViewRangeIdx,
   } = useModelTraceExplorerViewState();
   const [paneWidth, setPaneWidth] = useState(500);
   const contentStyle: Interpolation<Theme> = { flex: 1, marginTop: -theme.spacing.md, overflowY: 'auto' };
@@ -63,6 +66,47 @@ function ModelTraceExplorerRightPaneTabsImpl({
     },
     [updatePaneSizeRatios],
   );
+
+  const selectedRange = selectedViewRangeIdx !== null ? activeTraceView?.ranges?.[selectedViewRangeIdx] : null;
+
+  if (selectedRange) {
+    const rangeContent = (
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          borderLeft: `1px solid ${theme.colors.border}`,
+          minWidth: 200,
+          overflowY: 'auto',
+        }}
+      >
+        <ModelTraceExplorerRangeDetailView range={selectedRange} activeSpan={activeSpan} />
+      </div>
+    );
+
+    return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+      <ModelTraceExplorerResizablePane
+        initialRatio={getPaneSizeRatios().detailsSidebar}
+        paneWidth={paneWidth}
+        setPaneWidth={setPaneWidth}
+        leftChild={rangeContent}
+        leftMinWidth={CONTENT_PANE_MIN_WIDTH}
+        rightChild={
+          <AssessmentsPane
+            assessments={getTraceLevelAssessments(activeSpan?.assessments)}
+            traceId={activeSpan?.traceId ?? ''}
+            activeSpanId={activeSpan?.parentId ? String(activeSpan?.key) : undefined}
+            enableRunScorer={!activeSpan?.parentId}
+          />
+        }
+        rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH + 2 * theme.spacing.sm}
+        onRatioChange={onSizeRatioChange}
+      />
+    ) : (
+      rangeContent
+    );
+  }
 
   if (isNil(activeSpan)) {
     return <Empty description="Please select a span to view more information" />;

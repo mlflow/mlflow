@@ -56,6 +56,8 @@ export type ModelTraceExplorerViewState = {
   topLevelNodes: ModelTraceSpanNode[];
   activeTraceView: TraceView | null;
   setActiveTraceView: (view: TraceView | null) => void;
+  selectedViewRangeIdx: number | null;
+  setSelectedViewRangeIdx: (idx: number | null) => void;
   subscribeToHighlightEvent: (assessmentId: string, callback: () => void) => () => void;
   highlightAssessment: (assessmentId: string) => void;
   editMode: ReturnType<typeof useTraceViewEditMode>;
@@ -82,6 +84,8 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   getPaneSizeRatios: () => getDefaultPaneSizeRatios(),
   activeTraceView: null,
   setActiveTraceView: () => {},
+  selectedViewRangeIdx: null,
+  setSelectedViewRangeIdx: () => {},
   readOnly: false,
   topLevelNodes: [],
   subscribeToHighlightEvent: () => () => {},
@@ -175,6 +179,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [showGraph, setShowGraph] = useState(!!rootNode);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [activeTraceView, setActiveTraceView] = useState<TraceView | null>(null);
+  const [selectedViewRangeIdx, setSelectedViewRangeIdx] = useState<number | null>(null);
   const editMode = useTraceViewEditMode();
 
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedInternal] = useState(() => {
@@ -257,6 +262,8 @@ export const ModelTraceExplorerViewStateProvider = ({
       getPaneSizeRatios,
       activeTraceView,
       setActiveTraceView,
+      selectedViewRangeIdx,
+      setSelectedViewRangeIdx,
       readOnly,
       topLevelNodes,
       subscribeToHighlightEvent,
@@ -280,6 +287,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       updatePaneSizeRatios,
       getPaneSizeRatios,
       activeTraceView,
+      selectedViewRangeIdx,
       readOnly,
       topLevelNodes,
       subscribeToHighlightEvent,
