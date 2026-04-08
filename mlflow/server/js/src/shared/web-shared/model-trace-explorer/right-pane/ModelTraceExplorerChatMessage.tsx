@@ -271,13 +271,13 @@ export function ModelTraceExplorerChatMessage({
           message.tool_calls.map((toolCall) => (
             <ModelTraceExplorerToolCallMessage key={toolCall.id} toolCall={toolCall} />
           ))}
-        {message.audioParts && message.audioParts.length > 0 && (
-          <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />
-        )}
         <ModelTraceExplorerChatMessageContent
           content={displayedContent}
           shouldDisplayCodeSnippet={shouldDisplayCodeSnippet}
         />
+        {message.audioParts && message.audioParts.length > 0 && (
+          <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />
+        )}
       </div>
       {isExpandable && (
         <Button
