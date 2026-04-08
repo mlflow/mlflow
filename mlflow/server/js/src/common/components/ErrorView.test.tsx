@@ -102,4 +102,21 @@ describe('ErrorView', () => {
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', workspacePrefixed('/path/to'));
   });
+
+  it('can disable workspace prefixing on the fallback link', () => {
+    renderWithIntl(
+      <MemoryRouter>
+        <ErrorView
+          statusCode={404}
+          fallbackHomePageReactRoute="/path/to"
+          subMessage="sub message"
+          disableWorkspacePrefixOnFallback
+        />
+      </MemoryRouter>,
+    );
+
+    const link = screen.getByRole('link');
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/path/to');
+  });
 });

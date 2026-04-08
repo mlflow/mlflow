@@ -205,6 +205,8 @@ describe('WorkspaceUtils', () => {
 
     it('returns null for invalid workspace names', () => {
       expect(extractWorkspaceFromSearchParams('workspace=UPPERCASE')).toBeNull();
+      expect(extractWorkspaceFromSearchParams('workspace=a')).toBeNull();
+      expect(extractWorkspaceFromSearchParams(`workspace=${'a'.repeat(64)}`)).toBeNull();
       expect(extractWorkspaceFromSearchParams('workspace=has spaces')).toBeNull();
       expect(extractWorkspaceFromSearchParams('workspace=has--double-hyphen')).toBeNull();
     });
@@ -297,7 +299,14 @@ describe('WorkspaceUtils', () => {
 
     it('returns original string when workspaces disabled', () => {
       getWorkspacesEnabledSyncMock.mockReturnValue(false);
+      setActiveWorkspace(null);
       expect(prefixRouteWithWorkspace('/experiments')).toBe('/experiments');
+    });
+
+    it('preserves workspace context during early navigation before feature flags resolve', () => {
+      getWorkspacesEnabledSyncMock.mockReturnValue(false);
+      setActiveWorkspace('default');
+      expect(prefixRouteWithWorkspace('/experiments')).toBe('/experiments?workspace=default');
     });
 
     it('returns original string for absolute URLs', () => {
@@ -412,7 +421,14 @@ describe('WorkspaceUtils', () => {
 
     it('returns pathname without workspace when feature disabled', () => {
       getWorkspacesEnabledSyncMock.mockReturnValue(false);
+      setActiveWorkspace(null);
       expect(appendWorkspaceSearchParams('/experiments')).toBe('/experiments');
+    });
+
+    it('preserves workspace context before feature flags resolve when workspace is already known', () => {
+      getWorkspacesEnabledSyncMock.mockReturnValue(false);
+      setActiveWorkspace('default');
+      expect(appendWorkspaceSearchParams('/experiments')).toBe('/experiments?workspace=default');
     });
 
     it('uses active workspace when set', () => {

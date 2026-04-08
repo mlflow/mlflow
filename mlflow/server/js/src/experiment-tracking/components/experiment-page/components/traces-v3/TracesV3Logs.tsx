@@ -69,6 +69,7 @@ import {
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useCountInfo } from './hooks/useCountInfo';
+import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
 
 const JudgeContextProvider = ({
   children,
@@ -367,6 +368,12 @@ const TracesV3LogsImpl = React.memo(
       disabled: isQueryDisabled,
     });
 
+    const assessmentCountMetrics = useAssessmentCountMetrics({
+      experimentIds,
+      timeRange,
+      disabled: isQueryDisabled,
+    });
+
     // Loading state:
     // - Show skeleton only during initial metadata loading (or initial time filter loading for empty check)
     // - Once metadata is loaded, keep the table mounted and use loading overlay for subsequent fetches
@@ -413,6 +420,7 @@ const TracesV3LogsImpl = React.memo(
                 fetchNextPage={fetchNextPage}
                 hasNextPage={hasNextPage}
                 isFetchingNextPage={isFetchingNextPage}
+                assessmentCountMetrics={assessmentCountMetrics}
               />
             </div>
           </>
@@ -479,6 +487,7 @@ const TracesV3LogsImpl = React.memo(
                   fetchNextPage={fetchNextPage}
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}
+                  assessmentCountMetrics={assessmentCountMetrics}
                 />
               </ContextProviders>
             )}

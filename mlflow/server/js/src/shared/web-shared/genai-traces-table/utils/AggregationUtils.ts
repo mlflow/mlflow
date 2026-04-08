@@ -24,6 +24,7 @@ import {
 } from '../components/GenAiEvaluationTracesReview.utils';
 import type {
   AssessmentAggregates,
+  AssessmentCountMetrics,
   AssessmentRunCounts,
   AssessmentInfo,
   EvalTraceComparisonEntry,
@@ -785,4 +786,73 @@ export function getUniqueValueCountsBySourceId(
   }
 
   return valueCounts;
+}
+
+/**
+ * Converts a raw string value from the metrics API into a typed AssessmentValueType.
+ * The API JSON-encodes assessment values, so "\"yes\"" → "yes",
+ * "true" → true, "1.0" → 1.0, etc.
+ *
+ * "null" maps to ERROR_KEY because the metrics API only returns null for assessments
+ * that exist but have a null value (i.e. errored assessments). Truly missing assessments
+ * (no row at all) are excluded by the inner join and don't appear in the response.
+ */
+function parseMetricAssessmentValue(rawValue: string): AssessmentValueType {
+  try {
+    const parsed = JSON.parse(rawValue);
+    return parsed ?? ERROR_KEY;
+  } catch {
+    return rawValue;
+  }
+}
+
+/**
+ * Builds AssessmentAggregates from server-side count metrics.
+ * Used when infinite pagination is enabled to get accurate counts across all traces.
+ * Handles both categorical (pass-fail, boolean, string) and numeric assessments.
+ */
+export function buildAggregatesFromCountMetrics(
+  assessmentInfo: AssessmentInfo,
+  metricsData: AssessmentCountMetrics['data'],
+  allAssessmentFilters: AssessmentFilter[],
+): AssessmentAggregates {
+  const relevantMetrics = metricsData.filter((m) => m.assessmentName === assessmentInfo.name);
+  const assessmentFilters = allAssessmentFilters.filter((f) => f.assessmentName === assessmentInfo.name);
+
+  if (assessmentInfo.dtype === 'numeric') {
+    // For numeric assessments, expand (value, count) pairs into a values array
+    // and build the histogram using the existing bucketing logic.
+    const numericValues: number[] = [];
+    for (const metric of relevantMetrics) {
+      const value = parseFloat(metric.assessmentValue);
+      if (!isNaN(value)) {
+        for (let i = 0; i < metric.count; i++) {
+          numericValues.push(value);
+        }
+      }
+    }
+    return {
+      assessmentInfo,
+      currentNumericValues: numericValues,
+      currentNumericAggregate: getNumericAggregate(numericValues),
+      currentNumRootCause: 0,
+      otherNumRootCause: 0,
+      assessmentFilters,
+    };
+  }
+
+  // For categorical assessments, build the value → count map directly.
+  const currentCounts: AssessmentRunCounts = new Map();
+  for (const metric of relevantMetrics) {
+    const typedValue = parseMetricAssessmentValue(metric.assessmentValue);
+    currentCounts.set(typedValue, metric.count);
+  }
+
+  return {
+    assessmentInfo,
+    currentCounts,
+    currentNumRootCause: 0,
+    otherNumRootCause: 0,
+    assessmentFilters,
+  };
 }

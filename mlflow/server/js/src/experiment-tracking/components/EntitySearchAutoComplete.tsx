@@ -6,7 +6,6 @@ import {
   InfoPopover,
   InfoSmallIcon,
   Input,
-  LegacyTooltip,
   SearchIcon,
   Tooltip,
   useDesignSystemTheme,
