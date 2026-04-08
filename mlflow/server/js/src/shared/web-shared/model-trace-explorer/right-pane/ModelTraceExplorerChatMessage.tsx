@@ -99,6 +99,10 @@ const tryGetJsonContent = (content: string) => {
   }
 };
 
+// Threshold above which markdown rendering is skipped to prevent browser freezes
+// from extremely large strings (e.g., un-extracted base64 data).
+const MARKDOWN_RENDER_SIZE_LIMIT = 1_000_000;
+
 function ModelTraceExplorerChatMessageContent({
   content,
   shouldDisplayCodeSnippet,
@@ -121,6 +125,24 @@ function ModelTraceExplorerChatMessageContent({
         containsActiveMatch={false}
         renderMode={CodeSnippetRenderMode.JSON}
       />
+    );
+  }
+
+  if (content.length > MARKDOWN_RENDER_SIZE_LIMIT) {
+    return (
+      <div css={{ padding: theme.spacing.sm, paddingTop: 0 }}>
+        <Typography.Text color="secondary">
+          <FormattedMessage
+            defaultMessage="Content too large to render ({size}). Displaying as plain text."
+            description="Message shown when chat content exceeds the markdown rendering size limit"
+            values={{ size: `${(content.length / 1_000_000).toFixed(1)}MB` }}
+          />
+        </Typography.Text>
+        <pre css={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 400, overflow: 'auto', fontSize: 12 }}>
+          {content.slice(0, 10_000)}
+          {content.length > 10_000 ? '\n\n... (truncated)' : ''}
+        </pre>
+      </div>
     );
   }
 
