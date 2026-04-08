@@ -1026,6 +1026,11 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Budget Alerts & Limits',
         },
         {
+          type: 'doc',
+          id: 'governance/ai-gateway/benchmarks',
+          label: 'Performance & Benchmarks',
+        },
+        {
           type: 'category',
           label: 'Gateway Server (Legacy)',
           items: [

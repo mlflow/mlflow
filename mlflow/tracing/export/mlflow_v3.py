@@ -259,11 +259,7 @@ class MlflowV3SpanExporter(SpanExporter):
             _logger.warning(f"Failed to link prompts to trace: {e}")
 
     def _should_enable_async_logging(self) -> bool:
-        if (
-            is_in_databricks_notebook()
-            # NB: Not defaulting OSS backend to async logging for now to reduce blast radius.
-            or not is_databricks_uri(self._client.tracking_uri)
-        ):
+        if is_in_databricks_notebook():
             # NB: We don't turn on async logging in Databricks notebook by default
             # until we are confident that the async logging is working on the
             # offline workload on Databricks, to derisk the inclusion to the

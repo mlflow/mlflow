@@ -329,9 +329,13 @@ def _run_benchmark(
     min_rps: float | None = None,
     max_p50_ms: float | None = None,
     max_p99_ms: float | None = None,
+    output: Path | None = None,
 ) -> None:
     results = bm.run_benchmark(url, n_requests, max_concurrent, runs)
     bm.print_results(results)
+    if output is not None:
+        output.write_text(json.dumps(bm.results_to_dict(results), indent=2))
+        console.print(f"  Results saved to [cyan]{output}[/cyan]")
     if not bm.check_thresholds(
         results, min_rps=min_rps, max_p50_ms=max_p50_ms, max_p99_ms=max_p99_ms
     ):
@@ -462,6 +466,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
             args.min_rps,
             args.max_p50_ms,
             args.max_p99_ms,
+            args.output,
         )
         return
 
@@ -584,6 +589,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
                 args.min_rps,
                 args.max_p50_ms,
                 args.max_p99_ms,
+                args.output,
             )
 
 
@@ -690,6 +696,13 @@ def main() -> None:
             "Simulated provider latency in ms. Set to 0 to measure pure MLflow overhead "
             "with no provider delay. (default: 50)"
         ),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Write benchmark results as JSON to FILE (useful for CI artifact upload)",
     )
     parser.add_argument(
         "--min-rps",

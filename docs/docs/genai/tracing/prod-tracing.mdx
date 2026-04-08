@@ -105,8 +105,6 @@ export MLFLOW_TRACKING_URI="http://your-mlflow-server:5000"
 # Optional: Configure the experiment name for organizing traces
 export MLFLOW_EXPERIMENT_NAME="production-genai-app"
 
-# Optional: Configure async logging (recommended for production)
-export MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true
 export MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS=10
 export MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE=1000
 
@@ -116,11 +114,11 @@ export MLFLOW_TRACE_SAMPLING_RATIO=0.1
 
 ### Asynchronous Trace Logging
 
-For production applications, MLflow can log traces asynchronously to prevent blocking your application. For OSS MLflow and Databricks notebooks, async trace logging is **disabled by default** and must be explicitly enabled by setting `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true`. In Databricks non-notebook workloads (for example, jobs or model serving), async logging is **enabled by default** unless you override it.
+For production applications, MLflow can log traces asynchronously to prevent blocking your application. Async trace logging is **enabled by default** for OSS MLflow and Databricks non-notebook workloads (for example, jobs or model serving). In Databricks notebooks, async logging is **disabled by default** and must be explicitly enabled by setting `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true`.
 
 | Environment Variable                        | Description                                                                                                                                                                                                                                                   | Default Value                                                                    |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`         | Whether to log traces asynchronously. When set to `False`, traces will be logged in a blocking manner.                                                                                                                                                        | `False` (OSS + Databricks notebooks), `True` (Databricks non-notebook workloads) |
+| `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`         | Whether to log traces asynchronously. When set to `False`, traces will be logged in a blocking manner.                                                                                                                                                        | `True` (OSS + Databricks non-notebook workloads), `False` (Databricks notebooks) |
 | `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`    | The maximum number of worker threads to use for async trace logging per process. Increasing this allows higher throughput of trace logging, but also increases CPU usage and memory consumption.                                                              | `10`                                                                             |
 | `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | The maximum number of traces that can be queued before being logged to backend by the worker threads. When the queue is full, new traces will be discarded. Increasing this allows higher durability of trace logging, but also increases memory consumption. | `1000`                                                                           |
 | `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`  | The timeout in seconds for retrying failed trace logging. When a trace logging fails, it will be retried up to this timeout with backoff, after which it will be discarded.                                                                                   | `500`                                                                            |

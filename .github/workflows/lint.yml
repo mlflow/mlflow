@@ -59,10 +59,9 @@ jobs:
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
         run: |
-          echo "::add-matcher::.github/workflows/matchers/clint.json"
-          echo "::add-matcher::.github/workflows/matchers/format.json"
-          echo "::add-matcher::.github/workflows/matchers/ruff.json"
-          echo "::add-matcher::.github/workflows/matchers/typos.json"
+          for f in .github/workflows/matchers/*.json; do
+            echo "::add-matcher::$f"
+          done
       - name: Install Python dependencies
         run: |
           uv sync --locked --only-group lint --only-group pytest

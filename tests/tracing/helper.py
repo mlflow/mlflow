@@ -151,6 +151,8 @@ def create_test_trace_info_with_uc_table(
 
 
 def get_traces(experiment_id=None) -> list[Trace]:
+    # Flush any pending async trace writes before querying so tests see complete results.
+    mlflow.flush_trace_async_logging()
     # Get all traces from the backend
     return TracingClient().search_traces(
         locations=[experiment_id or _get_experiment_id()],
