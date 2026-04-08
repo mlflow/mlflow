@@ -12,7 +12,7 @@ import type {
   OpenAIResponsesStreamingOutputDelta,
   OpenAIResponsesStreamingOutputDone,
 } from './openai.types';
-import type { ModelTraceChatMessage } from '../ModelTrace.types';
+import type { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
 import {
   isModelTraceChatResponse,
   isModelTraceChoices,
@@ -96,42 +96,28 @@ export const isOpenAIResponsesOutputItem = (obj: unknown): obj is OpenAIResponse
   return false;
 };
 
-const normalizeOpenAIResponsesInputItem = (
-  obj: OpenAIResponsesInputText | OpenAIResponsesInputFile | OpenAIResponsesInputImage,
-  role: OpenAIResponsesInputMessageRole,
-): ModelTraceChatMessage | null => {
-  const text = get(obj, 'text');
-  if (get(obj, 'type') === 'input_text' && isString(text)) {
-    return prettyPrintChatMessage({
-      type: 'message',
-      content: [{ type: 'text', text }],
-      role: role,
-    });
-  }
-
-  const imageUrl = get(obj, 'image_url');
-  if (get(obj, 'type') === 'input_image' && isString(imageUrl)) {
-    return prettyPrintChatMessage({
-      type: 'message',
-      content: [{ type: 'image_url', image_url: { url: imageUrl } }],
-      role: role,
-    });
-  }
-
-  // TODO: file input not supported yet
-  // if ('type' in obj && obj.type === 'input_file') {
-  //   return prettyPrintChatMessage({ type: 'message', content: obj.file_url, role: role });
-  // }
-
-  return null;
-};
-
 const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage): ModelTraceChatMessage[] | null => {
   if (isString(obj.content)) {
     const message = prettyPrintChatMessage({ type: 'message', content: obj.content, role: obj.role });
     return message && [message];
   } else {
-    return obj.content.map((item) => normalizeOpenAIResponsesInputItem(item, obj.role)).filter((item) => item !== null);
+    // Combine all content parts into a single message to preserve the original
+    // multi-part structure (e.g., text + image in one user message)
+    const contentParts: ModelTraceContentParts[] = [];
+    for (const item of obj.content) {
+      const text = get(item, 'text');
+      if (get(item, 'type') === 'input_text' && isString(text)) {
+        contentParts.push({ type: 'text', text });
+      } else {
+        const imageUrl = get(item, 'image_url');
+        if (get(item, 'type') === 'input_image' && isString(imageUrl)) {
+          contentParts.push({ type: 'image_url', image_url: { url: imageUrl } });
+        }
+      }
+    }
+    if (contentParts.length === 0) return null;
+    const message = prettyPrintChatMessage({ type: 'message', content: contentParts, role: obj.role });
+    return message && [message];
   }
 };
 
