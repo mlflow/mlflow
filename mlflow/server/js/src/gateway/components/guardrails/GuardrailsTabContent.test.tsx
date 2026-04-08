@@ -17,8 +17,10 @@ const { useRemoveGuardrail } = jest.requireMock<typeof import('../../hooks/useRe
 
 const mockGuardrails = [
   {
+    endpoint_id: 'ep-1',
     guardrail_id: 'g-1',
     execution_order: 0,
+    created_at: 0,
     guardrail: {
       guardrail_id: 'g-1',
       name: 'Safety',
@@ -29,8 +31,10 @@ const mockGuardrails = [
     },
   },
   {
+    endpoint_id: 'ep-1',
     guardrail_id: 'g-2',
     execution_order: 1,
+    created_at: 0,
     guardrail: {
       guardrail_id: 'g-2',
       name: 'PII Filter',
@@ -49,14 +53,14 @@ const defaultProps = {
 };
 
 function setup(guardrails = mockGuardrails, isLoading = false) {
-  const refetch = jest.fn();
+  const refetch = jest.fn() as any;
   jest.mocked(useGuardrailsQuery).mockReturnValue({
     data: guardrails,
     isLoading,
-    error: null,
+    error: undefined,
     refetch,
   });
-  jest.mocked(useRemoveGuardrail).mockReturnValue({ mutateAsync: jest.fn(), isLoading: false });
+  jest.mocked(useRemoveGuardrail).mockReturnValue({ mutateAsync: jest.fn() as any, isPending: false } as any);
   return { refetch };
 }
 
