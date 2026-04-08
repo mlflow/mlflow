@@ -43,7 +43,7 @@ export const TraceViewSelector = ({ traceId, activeViewId, onViewChange }: Trace
   const activeView = views?.find((v) => v.view_id === activeViewId);
   const displayLabel = activeView ? activeView.name : 'Raw Trace';
 
-  if (isLoading && !(views?.length)) {
+  if (isLoading && !((views ?? []).length)) {
     return null;
   }
 

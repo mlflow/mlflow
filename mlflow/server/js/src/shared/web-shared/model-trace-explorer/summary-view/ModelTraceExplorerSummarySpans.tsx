@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { SegmentedControlButton, SegmentedControlGroup, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSummaryIntermediateNode } from './ModelTraceExplorerSummaryIntermediateNode';
@@ -14,6 +19,9 @@ import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
 import type { TraceView } from '../hooks/useTraceViews';
 import { applyJsonPathToObject } from '../hooks/useTraceViewFiltering';
+import { SpanRangeOverlay } from '../edit-mode/SpanRangeOverlay';
+import { TraceViewEditToolbar } from '../edit-mode/TraceViewEditToolbar';
+import { useCreateTraceView, useUpdateTraceView } from '../hooks/useTraceViewMutations';
 
 export const SUMMARY_SPANS_MIN_WIDTH = 400;
 
@@ -33,7 +41,7 @@ export const ModelTraceExplorerSummarySpans = ({
   const { theme } = useDesignSystemTheme();
   const preferences = useModelTraceExplorerPreferences();
   const [renderMode, setRenderModeInternal] = useState<ModelTraceExplorerRenderMode>(preferences.renderMode);
-  const { readOnly } = useModelTraceExplorerViewState();
+  const { readOnly, editMode } = useModelTraceExplorerViewState();
 
   useEffect(() => {
     setRenderModeInternal(preferences.renderMode);
@@ -47,6 +55,27 @@ export const ModelTraceExplorerSummarySpans = ({
     [preferences],
   );
 
+  const traceId = rootNode.traceId;
+  const createMutation = useCreateTraceView(traceId);
+  const updateMutation = useUpdateTraceView(traceId);
+
+  const flattenedNodes = useMemo(() => {
+    const flatten = (nodes: ModelTraceSpanNode[]): ModelTraceSpanNode[] =>
+      nodes.flatMap((node) => [node, ...(node.children ? flatten(node.children) : [])]);
+    return flatten(intermediateNodes);
+  }, [intermediateNodes]);
+
+  const handleSave = useCallback(async () => {
+    if (!editMode.draftView) return;
+    const { view_id, name, ranges } = editMode.draftView;
+    if (view_id) {
+      await updateMutation.mutateAsync({ viewId: view_id, name, ranges });
+    } else {
+      await createMutation.mutateAsync({ name, ranges });
+    }
+    editMode.exitEditMode();
+  }, [editMode, createMutation, updateMutation]);
+
   const rootInputs = rootNode.inputs;
   const rootOutputs = rootNode.outputs;
   const chatMessageFormat = rootNode.chatMessageFormat;
@@ -54,13 +83,14 @@ export const ModelTraceExplorerSummarySpans = ({
   const hasIntermediateNodes = intermediateNodes.length > 0;
   const hasExceptions = exceptions.length > 0;
 
+  const firstRange = activeTraceView?.ranges?.[0];
   const filteredInputs = useMemo(
-    () => applyJsonPathToObject(rootInputs, activeTraceView?.input_path),
-    [rootInputs, activeTraceView?.input_path],
+    () => applyJsonPathToObject(rootInputs, firstRange?.input_path),
+    [rootInputs, firstRange?.input_path],
   );
   const filteredOutputs = useMemo(
-    () => applyJsonPathToObject(rootOutputs, activeTraceView?.output_path),
-    [rootOutputs, activeTraceView?.output_path],
+    () => applyJsonPathToObject(rootOutputs, firstRange?.output_path),
+    [rootOutputs, firstRange?.output_path],
   );
 
   const inputList = useMemo(
@@ -72,7 +102,7 @@ export const ModelTraceExplorerSummarySpans = ({
     [filteredOutputs],
   );
 
-  const hasJsonPathFilter = !!(activeTraceView?.input_path || activeTraceView?.output_path);
+  const hasJsonPathFilter = !!(firstRange?.input_path || firstRange?.output_path);
 
   return (
     <div
@@ -121,7 +151,28 @@ export const ModelTraceExplorerSummarySpans = ({
           </div>
         </div>
       )}
-      {hasJsonPathFilter && activeTraceView && (
+      {editMode.isEditMode && editMode.draftView && (
+        <>
+          <TraceViewEditToolbar
+            name={editMode.draftView.name}
+            onNameChange={editMode.setName}
+            ranges={editMode.draftView.ranges}
+            onCancel={editMode.exitEditMode}
+            onSave={handleSave}
+            isSaving={createMutation.isLoading || updateMutation.isLoading}
+          />
+          <div css={{ marginTop: theme.spacing.sm }}>
+            <SpanRangeOverlay
+              nodes={flattenedNodes}
+              ranges={editMode.draftView.ranges}
+              onAddRange={editMode.addRange}
+              onRemoveRange={editMode.removeRange}
+              onUpdateRange={editMode.updateRange}
+            />
+          </div>
+        </>
+      )}
+      {!editMode.isEditMode && hasJsonPathFilter && activeTraceView && (
         <div
           css={{
             display: 'flex',
@@ -138,8 +189,8 @@ export const ModelTraceExplorerSummarySpans = ({
           </Typography.Text>
         </div>
       )}
-      {hasExceptions && <ModelTraceExplorerSummaryViewExceptionsSection node={rootNode} />}
-      <ModelTraceExplorerSummarySection
+      {!editMode.isEditMode && hasExceptions && <ModelTraceExplorerSummaryViewExceptionsSection node={rootNode} />}
+      {!editMode.isEditMode && <ModelTraceExplorerSummarySection
         title={
           <FormattedMessage
             defaultMessage="Inputs"
@@ -151,8 +202,8 @@ export const ModelTraceExplorerSummarySpans = ({
         data={inputList}
         renderMode={renderMode}
         chatMessageFormat={chatMessageFormat}
-      />
-      {hasIntermediateNodes &&
+      />}
+      {!editMode.isEditMode && hasIntermediateNodes &&
         intermediateNodes.map((node) => (
           <ModelTraceExplorerSummaryIntermediateNode
             key={node.key}
@@ -163,7 +214,7 @@ export const ModelTraceExplorerSummarySpans = ({
             isMatchedByView={viewMatchedSpanKeys != null && viewMatchedSpanKeys.has(node.key)}
           />
         ))}
-      <ModelTraceExplorerSummarySection
+      {!editMode.isEditMode && <ModelTraceExplorerSummarySection
         title={
           <FormattedMessage
             defaultMessage="Outputs"
@@ -175,7 +226,7 @@ export const ModelTraceExplorerSummarySpans = ({
         renderMode={renderMode}
         chatMessageFormat={chatMessageFormat}
         assessments={rootNode.assessments}
-      />
+      />}
     </div>
   );
 };
