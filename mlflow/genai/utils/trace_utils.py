@@ -1223,3 +1223,103 @@ def _try_extract_available_tools_with_llm(
             f"Failed to extract tools from trace using LLM. Returning empty list. Error: {e!r}"
         )
         return []
+
+
+def extract_messages_from_span_inputs(inputs: Any) -> list[dict[str, Any]] | None:
+    """Extract a list of message dicts from span inputs.
+
+    Handles multiple formats:
+    - dict with "messages" key: {"messages": [...]}
+    - JSON string of a list of message dicts: '[{"role": "system", ...}, ...]'
+    - JSON string of a dict with "messages" key: '{"messages": [...]}'
+    - Nested list format (LangChain): '[[{"type": "human", ...}, ...]]'
+    """
+    if not inputs:
+        return None
+
+    if isinstance(inputs, dict):
+        return inputs.get("messages")
+
+    if isinstance(inputs, str):
+        try:
+            parsed = json.loads(inputs)
+        except (json.JSONDecodeError, ValueError):
+            return None
+
+        if isinstance(parsed, list) and parsed:
+            # Handle nested list format: [[msg1, msg2, ...]]
+            if isinstance(parsed[0], list) and parsed[0] and isinstance(parsed[0][0], dict):
+                return parsed[0]
+            if isinstance(parsed[0], dict):
+                return parsed
+        if isinstance(parsed, dict):
+            return parsed.get("messages")
+
+    return None
+
+
+def extract_generation_context(trace: Trace) -> str:
+    """Extract non-user input messages from the last LLM/CHAT_MODEL span as context.
+
+    Finds the last LLM or CHAT_MODEL span (by start time), extracts its input messages,
+    and concatenates all non-user messages into a single context string.
+
+    Raises:
+        MlflowException: If no LLM/CHAT_MODEL span is found, if messages cannot be
+            extracted, or if no non-user context messages exist.
+    """
+    llm_spans = trace.search_spans(span_type=SpanType.LLM) + trace.search_spans(
+        span_type=SpanType.CHAT_MODEL
+    )
+    if not llm_spans:
+        raise MlflowException(
+            "No LLM or CHAT_MODEL span found in the trace. The HallucinationDetection "
+            "scorer requires the trace to contain at least one LLM generation span.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    last_span = max(llm_spans, key=lambda s: s.start_time_ns)
+
+    messages = extract_messages_from_span_inputs(last_span.inputs)
+
+    if not messages:
+        raise MlflowException(
+            "Could not extract input messages from the LLM span. The span's inputs "
+            "must contain a 'messages' key with a list of chat messages, or be a "
+            "JSON-serialized list of messages.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Map LangChain message "type" values to standard role names
+    _USER_ROLES = {"user", "human"}
+
+    context_parts = []
+    for msg in messages:
+        if isinstance(msg, dict):
+            # Support both "role" (standard) and "type" (LangChain) fields
+            role = msg.get("role") or msg.get("type", "")
+            raw_content = msg.get("content", "")
+        else:
+            role = getattr(msg, "role", "") or getattr(msg, "type", "")
+            raw_content = getattr(msg, "content", "")
+
+        # Handle content that is a list of blocks, e.g. [{"text": "..."}]
+        if isinstance(raw_content, list):
+            content = " ".join(
+                block.get("text", "") if isinstance(block, dict) else str(block)
+                for block in raw_content
+            )
+        else:
+            content = str(raw_content) if raw_content else ""
+
+        if role not in _USER_ROLES and content:
+            context_parts.append(content)
+
+    if not context_parts:
+        raise MlflowException(
+            "No non-user context messages found in the LLM span. The HallucinationDetection "
+            "scorer requires at least one system, assistant, or tool message with content.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    return "\n\n".join(context_parts)

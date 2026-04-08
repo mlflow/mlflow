@@ -623,6 +623,7 @@ def test_get_all_scorers():
         "Correctness",
         "Fluency",
         "Equivalence",
+        "HallucinationDetection",
         "Completeness",
         "Summarization",
         "UserFrustration",

@@ -53,6 +53,10 @@ from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTI
 from mlflow.genai.judges.prompts.fluency import FLUENCY_ASSESSMENT_NAME, FLUENCY_PROMPT
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.hallucination import (
+    HALLUCINATION_FEEDBACK_NAME,
+    HALLUCINATION_PROMPT_INSTRUCTIONS,
+)
 from mlflow.genai.judges.prompts.knowledge_retention import (
     KNOWLEDGE_RETENTION_ASSESSMENT_NAME,
     KNOWLEDGE_RETENTION_PROMPT,
@@ -93,6 +97,7 @@ from mlflow.genai.scorers.scorer_utils import (
 )
 from mlflow.genai.utils.trace_utils import (
     extract_available_tools_from_trace,
+    extract_generation_context,
     extract_request_from_trace,
     extract_response_from_trace,
     extract_retrieval_context_from_trace,
@@ -3168,6 +3173,96 @@ class Summarization(BuiltInScorer):
             outputs=outputs,
             trace=trace,
         )
+
+
+@experimental(version="3.11.1")
+@format_docstring(_MODEL_API_DOC)
+class HallucinationDetection(BuiltInScorer):
+    """
+    Hallucination detection evaluates whether an AI response is faithful to the provided
+    context or contains hallucinated information.
+
+    This scorer extracts context from the LLM generation span's non-user input messages
+    (system, assistant, tool roles) and evaluates the full response for faithfulness.
+
+    Result semantics: "yes" = faithful (PASS), "no" = hallucinated (FAIL).
+
+    Args:
+        name: The name of the scorer. Defaults to "hallucination_detection".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import HallucinationDetection
+
+        trace = mlflow.get_trace("<your-trace-id>")
+        feedback = HallucinationDetection()(trace=trace)
+        print(feedback)
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import HallucinationDetection
+
+        data = mlflow.search_traces(...)
+        result = mlflow.genai.evaluate(data=data, scorers=[HallucinationDetection()])
+    """
+
+    name: str = HALLUCINATION_FEEDBACK_NAME
+    model: str | None = None
+    required_columns: set[str] = {"trace"}
+    description: str = (
+        "Evaluate whether an AI response is faithful to the provided context "
+        "or contains hallucinated information."
+    )
+
+    @property
+    def instructions(self) -> str:
+        return HALLUCINATION_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="trace",
+                description=(
+                    "The trace of the model's execution. Must contain at least one span with "
+                    "type LLM or CHAT_MODEL. MLflow will extract context from the non-user "
+                    "input messages of the last LLM span."
+                ),
+            ),
+        ]
+
+    def __call__(self, *, trace: Trace) -> Feedback:
+        from mlflow.genai.judges.prompts.hallucination import get_prompt
+
+        context = extract_generation_context(trace)
+        response = extract_response_from_trace(trace)
+
+        if not response:
+            raise MlflowException(
+                "Could not extract response from the trace. The trace must have a root "
+                "span with outputs.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        model = self.model or get_default_model()
+        prompt = get_prompt(response=response, context=context)
+        feedback = invoke_judge_model(
+            model,
+            prompt,
+            assessment_name=self.name,
+            inference_params=self.inference_params,
+        )
+        return _sanitize_scorer_feedback(feedback)
 
 
 def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
