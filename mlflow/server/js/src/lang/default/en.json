@@ -4569,10 +4569,6 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
   },
-  "SDClGN": {
-    "defaultMessage": "Resources using this endpoint ({count})",
-    "description": "Gateway > Delete endpoint modal > Bindings list header"
-  },
   "SHoy6d": {
     "defaultMessage": "Open full trace viewer",
     "description": "Link to open the full trace viewer for the endpoint's experiment"
@@ -5039,10 +5035,6 @@
   "VF2V6v": {
     "defaultMessage": "Issues identified from traces will appear here.",
     "description": "Issue detection run details > Issues tab > Empty state description"
-  },
-  "VGGGB3": {
-    "defaultMessage": "This endpoint is currently in use. Deleting it will break connections to the resources listed below.",
-    "description": "Warning about resources using this endpoint"
   },
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
@@ -7282,6 +7274,10 @@
   "igK5Su": {
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
+  },
+  "ijHH2H": {
+    "defaultMessage": "Failed to duplicate some endpoints. Please try again.",
+    "description": "Gateway > Endpoints list > Duplicate error message"
   },
   "imKpxw": {
     "defaultMessage": "ID",

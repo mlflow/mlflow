@@ -14,7 +14,6 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { getReadableErrorMessage } from '../../utils/errorUtils';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
 import { useEndpointsListData } from '../../hooks/useEndpointsListData';
@@ -151,7 +150,10 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
         <Alert
           componentId="mlflow.gateway.endpoints-list.duplicate-error"
           type="error"
-          message={getReadableErrorMessage(duplicateError) ?? duplicateError.message}
+          message={formatMessage({
+            defaultMessage: 'Failed to duplicate some endpoints. Please try again.',
+            description: 'Gateway > Endpoints list > Duplicate error message',
+          })}
           closable={false}
         />
       )}
