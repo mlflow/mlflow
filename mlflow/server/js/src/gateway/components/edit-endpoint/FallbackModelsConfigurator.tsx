@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
-import { Button, useDesignSystemTheme } from '@databricks/design-system';
+import { Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import type { FallbackModel } from '../../hooks/useEditEndpointForm';
-import { FallbackConnectorLine } from './FallbackConnectorLine';
+import { ConnectorLine, FallbackConnectorLine } from './FallbackConnectorLine';
 import { FallbackModelItem } from './FallbackModelItem';
 
 export interface FallbackModelsConfiguratorProps {
@@ -18,8 +18,6 @@ export const FallbackModelsConfigurator = ({
   onChange,
   componentId = 'mlflow.gateway.fallback',
 }: FallbackModelsConfiguratorProps) => {
-  const { theme } = useDesignSystemTheme();
-
   const handleAddModel = useCallback(() => {
     const nextOrder = value.length > 0 ? Math.max(...value.map((m) => m.fallbackOrder)) + 1 : 1;
 
@@ -82,6 +80,9 @@ export const FallbackModelsConfigurator = ({
   return (
     <DndProvider backend={HTML5Backend}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Connector between primary model section and fallback section */}
+        {value.length > 0 ? <FallbackConnectorLine /> : <ConnectorLine />}
+
         {value.map((model, index) => (
           <div key={index}>
             {index > 0 && <FallbackConnectorLine />}
@@ -96,8 +97,7 @@ export const FallbackModelsConfigurator = ({
           </div>
         ))}
 
-        {/* Connector line leading to Add fallback button (only when there are fallback models, otherwise the parent connector handles it) */}
-        {value.length > 0 && <FallbackConnectorLine showLabel={false} />}
+        {value.length > 0 && <ConnectorLine />}
 
         <Button componentId={`${componentId}.add`} onClick={handleAddModel} css={{ alignSelf: 'center' }}>
           <FormattedMessage defaultMessage="Add fallback" description="Button to add fallback model" />

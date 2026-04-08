@@ -20,7 +20,6 @@ import { GatewayLabel } from '../../../common/components/GatewayNewTag';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
-import { FallbackConnectorLine } from './FallbackConnectorLine';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { StarterCodeCard } from './StarterCodeCard';
 import { EditableEndpointName } from './EditableEndpointName';
@@ -335,10 +334,6 @@ export const EditEndpointFormRenderer = ({
                     </div>
                   </div>
 
-                  {/* Vertical connector with optional "Fallback" label */}
-                  <FallbackConnectorLine showLabel={form.watch('fallbackModels').length > 0} />
-
-                  {/* Fallback section */}
                   <Controller
                     control={form.control}
                     name="fallbackModels"

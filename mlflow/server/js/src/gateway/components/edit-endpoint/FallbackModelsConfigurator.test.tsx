@@ -65,17 +65,22 @@ describe('FallbackModelsConfigurator', () => {
     expect(screen.getByTestId('fallback-model-1')).toBeInTheDocument();
   });
 
-  it('renders Fallback connector labels between models', () => {
+  it('renders Fallback connector labels between models and at the top', () => {
     const models = [makeModel({ fallbackOrder: 1 }), makeModel({ fallbackOrder: 2 })];
     renderWithDesignSystem(<FallbackModelsConfigurator value={models} onChange={jest.fn()} />);
-    // Should have "Fallback" labels between items
-    expect(screen.getAllByText('Fallback').length).toBeGreaterThanOrEqual(1);
+    // Top connector + between-items connector
+    expect(screen.getAllByText('Fallback').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('does not render Fallback connector label with single model', () => {
+  it('renders top Fallback connector label with single model', () => {
     const models = [makeModel({ fallbackOrder: 1 })];
     renderWithDesignSystem(<FallbackModelsConfigurator value={models} onChange={jest.fn()} />);
-    // No connector between items (only one model), but the label shouldn't appear as a connector
+    // Top connector only (no between-items connector with single model)
+    expect(screen.getAllByText('Fallback')).toHaveLength(1);
+  });
+
+  it('does not render Fallback label when no models exist', () => {
+    renderWithDesignSystem(<FallbackModelsConfigurator value={[]} onChange={jest.fn()} />);
     expect(screen.queryAllByText('Fallback')).toHaveLength(0);
   });
 });
