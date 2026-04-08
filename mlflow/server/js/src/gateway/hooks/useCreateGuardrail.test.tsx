@@ -2,7 +2,7 @@ import { describe, afterEach, test, jest, expect, beforeEach } from '@jest/globa
 import { renderHook, cleanup, waitFor, act } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
-import { useAddGuardrail } from './useCreateGuardrail';
+import { useCreateGuardrail } from './useCreateGuardrail';
 import { GatewayApi } from '../api';
 
 function createWrapper() {
@@ -17,7 +17,7 @@ function createWrapper() {
   );
 }
 
-describe('useAddGuardrail', () => {
+describe('useCreateGuardrail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -40,7 +40,7 @@ describe('useAddGuardrail', () => {
 
     jest.spyOn(GatewayApi, 'createGuardrail').mockResolvedValue(mockResponse as any);
 
-    const { result } = renderHook(() => useAddGuardrail(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useCreateGuardrail(), { wrapper: createWrapper() });
 
     await act(async () => {
       await result.current.mutateAsync({
@@ -69,7 +69,7 @@ describe('useAddGuardrail', () => {
     const mockError = new Error('Scorer not found');
     jest.spyOn(GatewayApi, 'createGuardrail').mockRejectedValue(mockError);
 
-    const { result } = renderHook(() => useAddGuardrail(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useCreateGuardrail(), { wrapper: createWrapper() });
 
     let caughtError: Error | undefined;
     await act(async () => {
