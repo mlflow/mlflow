@@ -833,10 +833,7 @@ export function buildAggregatesFromCountMetrics(
     }
     return {
       assessmentInfo,
-      currentCounts: undefined,
-      otherCounts: undefined,
       currentNumericValues: numericValues,
-      otherNumericValues: undefined,
       currentNumericAggregate: getNumericAggregate(numericValues),
       currentNumRootCause: 0,
       otherNumRootCause: 0,
@@ -854,10 +851,6 @@ export function buildAggregatesFromCountMetrics(
   return {
     assessmentInfo,
     currentCounts,
-    otherCounts: undefined,
-    currentNumericValues: undefined,
-    otherNumericValues: undefined,
-    currentNumericAggregate: undefined,
     currentNumRootCause: 0,
     otherNumRootCause: 0,
     assessmentFilters,
