@@ -37,6 +37,7 @@ from mlflow.gateway.config import (
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.guardrails import (
+    _SANITIZE_BYPASS_HEADER,
     GuardrailViolation,
     JudgeGuardrail,
 )
@@ -555,7 +556,13 @@ def _load_guardrails(
     return guardrails
 
 
-def _run_before_guardrails(
+def _extract_auth_headers(headers: dict[str, str]) -> dict[str, str]:
+    """Return only the Authorization header for internal guardrail calls."""
+    auth = headers.get("authorization") or headers.get("Authorization")
+    return {"authorization": auth} if auth else {}
+
+
+async def _run_before_guardrails(
     guardrails: list[JudgeGuardrail],
     payload_dict: dict[str, Any],
     auth_headers: dict[str, str] | None = None,
@@ -563,24 +570,28 @@ def _run_before_guardrails(
     """Run BEFORE-stage guardrails on the request payload. Returns the (possibly modified) dict."""
     for guardrail in guardrails:
         if guardrail.stage == GuardrailStage.BEFORE:
-            payload_dict = guardrail.process_request(payload_dict, auth_headers=auth_headers)
+            payload_dict = await guardrail.process_request(payload_dict, auth_headers=auth_headers)
     return payload_dict
 
 
-def _run_after_guardrails(
+async def _run_after_guardrails(
     guardrails: list[JudgeGuardrail],
     request_payload: dict[str, Any],
     response: chat.ResponsePayload,
     auth_headers: dict[str, str] | None = None,
 ) -> chat.ResponsePayload:
-    """Run AFTER-stage guardrails on the response. Returns the (possibly modified) response."""
+    """Run AFTER-stage guardrails on the response. Returns the (possibly modified) response.
+
+    Note: AFTER-stage guardrails are skipped for streaming responses. Configure guardrails
+    that must run on all responses to use the BEFORE stage, or disable streaming on the endpoint.
+    """
     after_guardrails = [g for g in guardrails if g.stage == GuardrailStage.AFTER]
     if not after_guardrails:
         return response
 
     response_dict = response.model_dump()
     for guardrail in after_guardrails:
-        response_dict = guardrail.process_response(
+        response_dict = await guardrail.process_response(
             request_payload, response_dict, auth_headers=auth_headers
         )
     return chat.ResponsePayload(**response_dict)
@@ -607,7 +618,10 @@ async def invocations(endpoint_name: str, request: Request):
     _validate_store(store)
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
-    guardrails = _load_guardrails(store, endpoint_config, request)
+    # Skip guardrails for internal sanitization calls to prevent recursive loops.
+    bypass = _SANITIZE_BYPASS_HEADER in headers
+    guardrails = [] if bypass else _load_guardrails(store, endpoint_config, request)
+    auth_headers = _extract_auth_headers(headers)
 
     # Detect request type based on payload structure
     if "messages" in body:
@@ -619,7 +633,9 @@ async def invocations(endpoint_name: str, request: Request):
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
         try:
-            body = _run_before_guardrails(guardrails, payload.model_dump(), auth_headers=headers)
+            body = await _run_before_guardrails(
+                guardrails, payload.model_dump(), auth_headers=auth_headers
+            )
             payload = chat.RequestPayload(**body)
         except GuardrailViolation as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -629,6 +645,7 @@ async def invocations(endpoint_name: str, request: Request):
         )
 
         if payload.stream:
+            # AFTER-stage guardrails are not applied to streaming responses.
             stream = maybe_traced_gateway_call(
                 provider.chat_stream,
                 endpoint_config,
@@ -652,7 +669,9 @@ async def invocations(endpoint_name: str, request: Request):
                 on_complete=make_budget_on_complete(store, workspace),
             )(payload)
             try:
-                return _run_after_guardrails(guardrails, body, response, auth_headers=headers)
+                return await _run_after_guardrails(
+                    guardrails, body, response, auth_headers=auth_headers
+                )
             except GuardrailViolation as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
@@ -718,7 +737,10 @@ async def chat_completions(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     check_budget_limit(store, endpoint_config, workspace=workspace)
-    guardrails = _load_guardrails(store, endpoint_config, request)
+    # Skip guardrails for internal sanitization calls to prevent recursive loops.
+    bypass = _SANITIZE_BYPASS_HEADER in headers
+    guardrails = [] if bypass else _load_guardrails(store, endpoint_config, request)
+    auth_headers = _extract_auth_headers(headers)
 
     try:
         payload = chat.RequestPayload(**body)
@@ -726,12 +748,15 @@ async def chat_completions(request: Request):
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
     try:
-        body = _run_before_guardrails(guardrails, payload.model_dump(), auth_headers=headers)
+        body = await _run_before_guardrails(
+            guardrails, payload.model_dump(), auth_headers=auth_headers
+        )
         payload = chat.RequestPayload(**body)
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     if payload.stream:
+        # AFTER-stage guardrails are not applied to streaming responses.
         stream = maybe_traced_gateway_call(
             provider.chat_stream,
             endpoint_config,
@@ -755,7 +780,9 @@ async def chat_completions(request: Request):
             on_complete=make_budget_on_complete(store, workspace),
         )(payload)
         try:
-            return _run_after_guardrails(guardrails, body, response, auth_headers=headers)
+            return await _run_after_guardrails(
+                guardrails, body, response, auth_headers=auth_headers
+            )
         except GuardrailViolation as e:
             raise HTTPException(status_code=400, detail=str(e))
 
