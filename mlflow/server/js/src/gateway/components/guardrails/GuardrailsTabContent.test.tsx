@@ -6,7 +6,7 @@ import { GuardrailsTabContent } from './GuardrailsTabContent';
 
 jest.mock('../../hooks/useGuardrailsQuery');
 jest.mock('../../hooks/useRemoveGuardrail');
-jest.mock('./AddGuardrailModal', () => ({ GuardrailModal: () => null }));
+jest.mock('./AddGuardrailModal', () => ({ AddGuardrailModal: () => null }));
 
 const { useGuardrailsQuery } = jest.requireMock<typeof import('../../hooks/useGuardrailsQuery')>(
   '../../hooks/useGuardrailsQuery',
@@ -56,7 +56,7 @@ function setup(guardrails = mockGuardrails, isLoading = false) {
     error: null,
     refetch,
   });
-  jest.mocked(useRemoveGuardrail).mockReturnValue({ mutateAsync: jest.fn() });
+  jest.mocked(useRemoveGuardrail).mockReturnValue({ mutateAsync: jest.fn(), isLoading: false });
   return { refetch };
 }
 

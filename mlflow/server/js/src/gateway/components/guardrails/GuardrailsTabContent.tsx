@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   Alert,
   Button,
@@ -8,6 +8,7 @@ import {
   PlusIcon,
   SearchIcon,
   Spinner,
+  Tag,
   TrashIcon,
   Typography,
   VisibleIcon,
@@ -16,7 +17,7 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { useGuardrailsQuery } from '../../hooks/useGuardrailsQuery';
 import { useRemoveGuardrail } from '../../hooks/useRemoveGuardrail';
-import { GuardrailModal } from './AddGuardrailModal';
+import { AddGuardrailModal } from './AddGuardrailModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import type { GatewayGuardrailConfig, GuardrailStage } from '../../types';
 
@@ -37,7 +38,8 @@ const STAGE_DESCRIPTIONS: Record<string, string> = {
 
 const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
   const { theme } = useDesignSystemTheme();
-  const activeColor = stage === 'BEFORE' ? '#1677ff' : '#52c41a';
+  const activeColor =
+    stage === 'BEFORE' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.textValidationSuccess;
 
   return (
     <div css={{ minWidth: 360, padding: theme.spacing.xs }}>
@@ -75,29 +77,6 @@ const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
       {/* Description */}
       <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>{STAGE_DESCRIPTIONS[stage]}</Typography.Text>
     </div>
-  );
-};
-
-// ─── Badge ──────────────────────────────────────────────────────────────────
-
-const Badge = ({ label, color }: { label: string; color: string }) => {
-  const { theme } = useDesignSystemTheme();
-  return (
-    <span
-      css={{
-        display: 'inline-block',
-        padding: `2px ${theme.spacing.sm}px`,
-        borderRadius: theme.borders.borderRadiusMd,
-        backgroundColor: `${color}18`,
-        color,
-        fontSize: theme.typography.fontSizeSm,
-        fontWeight: theme.typography.typographyBoldFontWeight,
-        border: `1px solid ${color}40`,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-    </span>
   );
 };
 
@@ -139,10 +118,11 @@ const GuardrailRow = ({
   const name = guardrail.guardrail?.name ?? guardrail.guardrail_id;
   const stage = guardrail.guardrail?.stage;
   const action = guardrail.guardrail?.action;
-  const stageBadge = stage === 'BEFORE' ? 'Before LLM' : stage === 'AFTER' ? 'After LLM' : (stage ?? '—');
-  const stageColor = stage === 'BEFORE' ? '#1677ff' : stage === 'AFTER' ? '#52c41a' : '#999';
-  const actionBadge = action === 'VALIDATION' ? 'Block' : action === 'SANITIZATION' ? 'Sanitize' : (action ?? '—');
-  const actionColor = action === 'VALIDATION' ? '#cf1322' : action === 'SANITIZATION' ? '#722ed1' : '#999';
+
+  const stageColor = stage === 'BEFORE' ? 'indigo' : stage === 'AFTER' ? 'teal' : 'default';
+  const stageLabel = stage === 'BEFORE' ? 'Before LLM' : stage === 'AFTER' ? 'After LLM' : (stage ?? '—');
+  const actionColor = action === 'VALIDATION' ? 'coral' : action === 'SANITIZATION' ? 'purple' : 'default';
+  const actionLabel = action === 'VALIDATION' ? 'Block' : action === 'SANITIZATION' ? 'Sanitize' : (action ?? '—');
 
   return (
     <div
@@ -170,7 +150,9 @@ const GuardrailRow = ({
           <Popover.Root componentId="mlflow.gateway.guardrails.placement-popover">
             <Popover.Trigger asChild>
               <span css={{ cursor: 'default', display: 'inline-block' }}>
-                <Badge label={stageBadge} color={stageColor} />
+                <Tag componentId="mlflow.gateway.guardrails.stage-tag" color={stageColor}>
+                  {stageLabel}
+                </Tag>
               </span>
             </Popover.Trigger>
             <Popover.Content side="bottom" align="start">
@@ -178,13 +160,17 @@ const GuardrailRow = ({
             </Popover.Content>
           </Popover.Root>
         ) : (
-          <Badge label={stageBadge} color={stageColor} />
+          <Tag componentId="mlflow.gateway.guardrails.stage-tag" color={stageColor}>
+            {stageLabel}
+          </Tag>
         )}
       </div>
 
       {/* Action badge */}
       <div>
-        <Badge label={actionBadge} color={actionColor} />
+        <Tag componentId="mlflow.gateway.guardrails.action-tag" color={actionColor}>
+          {actionLabel}
+        </Tag>
       </div>
 
       {/* View / edit icon */}
@@ -223,35 +209,16 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
   const { theme } = useDesignSystemTheme();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [removingId, setRemovingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<GatewayGuardrailConfig | null>(null);
 
-  const { data: serverGuardrails, isLoading, error, refetch } = useGuardrailsQuery(endpointId);
-  const { mutateAsync: removeGuardrail } = useRemoveGuardrail();
-
-  // Local guardrails state for optimistic removal
-  const [localGuardrails, setLocalGuardrails] = useState<GatewayGuardrailConfig[]>(serverGuardrails);
-
-  useEffect(() => {
-    setLocalGuardrails(serverGuardrails);
-  }, [serverGuardrails]);
+  const { data: serverGuardrails, isLoading, error } = useGuardrailsQuery(endpointId);
+  const { mutateAsync: removeGuardrail, isLoading: isRemoving } = useRemoveGuardrail();
 
   const handleConfirmDelete = useCallback(async () => {
     if (!pendingDelete) return;
-    const guardrailId = pendingDelete.guardrail_id;
-    const snapshot = localGuardrails;
-    setRemovingId(guardrailId);
-    setLocalGuardrails((prev) => prev.filter((g) => g.guardrail_id !== guardrailId));
-    try {
-      await removeGuardrail({ endpoint_id: endpointId, guardrail_id: guardrailId });
-    } catch (e) {
-      setLocalGuardrails(snapshot);
-      refetch();
-      throw e;
-    } finally {
-      setRemovingId(null);
-    }
-  }, [pendingDelete, localGuardrails, removeGuardrail, endpointId, refetch]);
+    setPendingDelete(null);
+    await removeGuardrail({ endpoint_id: endpointId, guardrail_id: pendingDelete.guardrail_id });
+  }, [pendingDelete, removeGuardrail, endpointId]);
 
   const handleView = useCallback((_guardrail: GatewayGuardrailConfig) => {
     // Detail modal is wired in follow-up PR (7d)
@@ -265,7 +232,7 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
     setIsModalOpen(false);
   }, []);
 
-  const filteredGuardrails = localGuardrails.filter((g) => {
+  const filteredGuardrails = serverGuardrails.filter((g) => {
     if (!search.trim()) return true;
     const name = (g.guardrail?.name ?? g.guardrail_id).toLowerCase();
     return name.includes(search.trim().toLowerCase());
@@ -375,17 +342,17 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
               guardrail={g}
               onView={handleView}
               onDeleteClick={setPendingDelete}
-              isRemoving={removingId === g.guardrail_id}
+              isRemoving={isRemoving}
               isViewDisabled
             />
           ))
         )}
       </div>
 
-      <GuardrailModal
+      <AddGuardrailModal
         open={isModalOpen}
         onClose={handleModalClose}
-        onSuccess={() => refetch()}
+        onSuccess={() => {}}
         endpointName={endpointName}
         endpointId={endpointId}
         experimentId={experimentId}

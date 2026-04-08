@@ -15,6 +15,6 @@ interface GuardrailModalProps {
  * Placeholder for the guardrail create/edit modal.
  * The full implementation is added in a follow-up PR.
  */
-export const GuardrailModal = (_props: GuardrailModalProps) => {
+export const AddGuardrailModal = (_props: GuardrailModalProps) => {
   return null;
 };
