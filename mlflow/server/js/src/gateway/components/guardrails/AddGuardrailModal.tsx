@@ -26,17 +26,6 @@ interface BuiltinScorer {
 
 const BUILTIN_SCORERS: BuiltinScorer[] = [
   { name: 'Safety', description: "Does the app's response avoid harmful or toxic content?" },
-  { name: 'Guidelines', description: 'Does the response follow the provided guidelines?' },
-  { name: 'Correctness', description: 'Are the expected facts supported by the response?' },
-  { name: 'Completeness', description: 'Did the response address all explicit requests in the prompt?' },
-  { name: 'RelevanceToQuery', description: "Does app's response directly address the user's input?" },
-  { name: 'Fluency', description: 'Is the text grammatically correct and naturally flowing?' },
-  { name: 'RetrievalGroundedness', description: "Is the app's response grounded in retrieved information?" },
-  { name: 'RetrievalRelevance', description: "Are retrieved documents relevant to the user's request?" },
-  { name: 'RetrievalSufficiency', description: 'Do retrieved documents contain all necessary information?' },
-  { name: 'Summarization', description: 'Is the summary faithful, complete, and concise?' },
-  { name: 'ToolCallCorrectness', description: 'Are the tool calls and their arguments correct for the request?' },
-  { name: 'ToolCallEfficiency', description: 'Is the tool usage free of redundancy and inefficiency?' },
 ];
 
 // ─── Registered scorer item ─────────────────────────────────────────────────
@@ -242,41 +231,6 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
         </div>
       }
     >
-      {/* Stage and Action selectors */}
-      <div css={{ display: 'flex', gap: theme.spacing.lg, marginBottom: theme.spacing.md }}>
-        <div>
-          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-            <FormattedMessage
-              defaultMessage="When the guardrail runs"
-              description="Label for guardrail stage selector"
-            />
-          </Typography.Text>
-          <SimpleSelect
-            id="guardrail-stage-select"
-            componentId="mlflow.gateway.guardrails.stage-select"
-            value={stage}
-            onChange={({ target }) => setStage(target.value as GuardrailStage)}
-          >
-            <SimpleSelectOption value="BEFORE">Before LLM</SimpleSelectOption>
-            <SimpleSelectOption value="AFTER">After LLM</SimpleSelectOption>
-          </SimpleSelect>
-        </div>
-        <div>
-          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-            <FormattedMessage defaultMessage="Action" description="Label for guardrail action selector" />
-          </Typography.Text>
-          <SimpleSelect
-            id="guardrail-action-select"
-            componentId="mlflow.gateway.guardrails.action-select"
-            value={action}
-            onChange={({ target }) => setAction(target.value as GuardrailAction)}
-          >
-            <SimpleSelectOption value="VALIDATION">Block</SimpleSelectOption>
-            <SimpleSelectOption value="SANITIZATION">Sanitize</SimpleSelectOption>
-          </SimpleSelect>
-        </div>
-      </div>
-
       {/* Search */}
       <Input
         componentId="mlflow.gateway.guardrails.search"
@@ -342,6 +296,41 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
             </Typography.Text>
           </div>
         )}
+      </div>
+
+      {/* Stage and Action selectors */}
+      <div css={{ display: 'flex', gap: theme.spacing.lg, marginTop: theme.spacing.md }}>
+        <div>
+          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+            <FormattedMessage
+              defaultMessage="When the guardrail runs"
+              description="Label for guardrail stage selector"
+            />
+          </Typography.Text>
+          <SimpleSelect
+            id="guardrail-stage-select"
+            componentId="mlflow.gateway.guardrails.stage-select"
+            value={stage}
+            onChange={({ target }) => setStage(target.value as GuardrailStage)}
+          >
+            <SimpleSelectOption value="BEFORE">Before LLM</SimpleSelectOption>
+            <SimpleSelectOption value="AFTER">After LLM</SimpleSelectOption>
+          </SimpleSelect>
+        </div>
+        <div>
+          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+            <FormattedMessage defaultMessage="Action" description="Label for guardrail action selector" />
+          </Typography.Text>
+          <SimpleSelect
+            id="guardrail-action-select"
+            componentId="mlflow.gateway.guardrails.action-select"
+            value={action}
+            onChange={({ target }) => setAction(target.value as GuardrailAction)}
+          >
+            <SimpleSelectOption value="VALIDATION">Block</SimpleSelectOption>
+            <SimpleSelectOption value="SANITIZATION">Sanitize</SimpleSelectOption>
+          </SimpleSelect>
+        </div>
       </div>
 
       {/* Create custom link */}

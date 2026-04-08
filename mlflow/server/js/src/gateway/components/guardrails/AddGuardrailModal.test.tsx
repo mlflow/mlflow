@@ -12,7 +12,7 @@ jest.mock('../../api', () => ({
   },
 }));
 
-const mockCreateGuardrail = jest.fn();
+const mockCreateGuardrail = jest.fn<any>();
 
 describe('GuardrailModal', () => {
   beforeEach(() => {
@@ -52,9 +52,6 @@ describe('GuardrailModal', () => {
     renderWithDesignSystem(<GuardrailModal {...defaultProps} />);
 
     expect(screen.getByText('Safety')).toBeInTheDocument();
-    expect(screen.getByText('Guidelines')).toBeInTheDocument();
-    expect(screen.getByText('Correctness')).toBeInTheDocument();
-    expect(screen.getByText('Completeness')).toBeInTheDocument();
   });
 
   test('filters scorers by search query', async () => {
@@ -64,8 +61,6 @@ describe('GuardrailModal', () => {
     await userEvent.type(searchInput, 'safety');
 
     expect(screen.getByText('Safety')).toBeInTheDocument();
-    expect(screen.queryByText('Guidelines')).not.toBeInTheDocument();
-    expect(screen.queryByText('Correctness')).not.toBeInTheDocument();
   });
 
   test('shows empty state when search matches nothing', async () => {
