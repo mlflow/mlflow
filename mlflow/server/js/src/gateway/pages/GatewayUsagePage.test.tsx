@@ -1,26 +1,29 @@
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { GatewayUsagePage } from './GatewayUsagePage';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 
-// Mock GatewayChartsPanel
-jest.mock('../components/GatewayChartsPanel', () => ({
-  GatewayChartsPanel: ({ additionalControls }: { additionalControls?: React.ReactNode }) => (
-    <div data-testid="gateway-charts-panel">
-      {additionalControls}
-      <div data-testid="time-unit-selector">Time Unit Selector</div>
-      <div data-testid="date-selector">Date Selector</div>
-      <div data-testid="trace-requests-chart">Requests Chart</div>
-      <div data-testid="trace-latency-chart">Latency Chart</div>
-      <div data-testid="trace-errors-chart">Errors Chart</div>
-      <div data-testid="trace-token-usage-chart">Token Usage Chart</div>
-      <div data-testid="trace-token-stats-chart">Token Stats Chart</div>
-      <div data-testid="trace-cost-breakdown-chart">Cost Breakdown Chart</div>
-      <div data-testid="trace-cost-over-time-chart">Cost Over Time Chart</div>
-    </div>
-  ),
-}));
+// Mock GatewayChartsPanel - use createElement to avoid JSX transpilation issues in mock factories
+jest.mock('../components/GatewayChartsPanel', () => {
+  const React = require('react');
+  return {
+    GatewayChartsPanel: ({ additionalControls }) =>
+      React.createElement(
+        'div',
+        { 'data-testid': 'gateway-charts-panel' },
+        additionalControls,
+        React.createElement('div', { 'data-testid': 'time-unit-selector' }, 'Time Unit Selector'),
+        React.createElement('div', { 'data-testid': 'date-selector' }, 'Date Selector'),
+        React.createElement('div', { 'data-testid': 'trace-requests-chart' }, 'Requests Chart'),
+        React.createElement('div', { 'data-testid': 'trace-latency-chart' }, 'Latency Chart'),
+        React.createElement('div', { 'data-testid': 'trace-errors-chart' }, 'Errors Chart'),
+        React.createElement('div', { 'data-testid': 'trace-token-usage-chart' }, 'Token Usage Chart'),
+        React.createElement('div', { 'data-testid': 'trace-token-stats-chart' }, 'Token Stats Chart'),
+        React.createElement('div', { 'data-testid': 'trace-cost-breakdown-chart' }, 'Cost Breakdown Chart'),
+        React.createElement('div', { 'data-testid': 'trace-cost-over-time-chart' }, 'Cost Over Time Chart'),
+      ),
+  };
+});
 
 // Mock useEndpointsQuery
 const mockUseEndpointsQuery = jest.fn();
@@ -172,12 +175,20 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('renders empty state', () => {
+    test('renders page header and breadcrumb', () => {
+      renderComponent();
+
+      expect(screen.getAllByText('Usage').length).toBeGreaterThanOrEqual(1);
+    });
+
+    test('renders empty state with correct message', () => {
       renderComponent();
 
       expect(screen.getByText('No usage data available')).toBeInTheDocument();
       expect(
-        screen.getByText('Enable usage tracking on your endpoints to see usage metrics here.'),
+        screen.getByText(
+          'Once you have endpoints with usage tracking enabled, usage metrics will appear here.',
+        ),
       ).toBeInTheDocument();
     });
 
@@ -185,6 +196,13 @@ describe('GatewayUsagePage', () => {
       renderComponent();
 
       expect(screen.getByText('Go to Endpoints')).toBeInTheDocument();
+    });
+
+    test('does not render endpoint or user filters', () => {
+      renderComponent();
+
+      expect(screen.queryByText('Endpoint:')).not.toBeInTheDocument();
+      expect(screen.queryByText('User:')).not.toBeInTheDocument();
     });
 
     test('does not render charts', () => {
@@ -203,18 +221,16 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('shows loading spinner', () => {
+    test('does not show empty state while loading', () => {
       renderComponent();
 
-      // The spinner should be in the controls section
-      expect(screen.getByText('Endpoint:')).toBeInTheDocument();
+      expect(screen.queryByText('No usage data available')).not.toBeInTheDocument();
     });
 
-    test('disables endpoint selector while loading', () => {
+    test('renders charts panel while loading', () => {
       renderComponent();
 
-      const selectors = screen.getAllByRole('combobox');
-      expect(selectors[0]).toBeDisabled();
+      expect(screen.getByTestId('gateway-charts-panel')).toBeInTheDocument();
     });
   });
 
@@ -226,10 +242,18 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('renders empty state', () => {
+    test('renders page header with empty state', () => {
       renderComponent();
 
+      expect(screen.getAllByText('Usage').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('No usage data available')).toBeInTheDocument();
+    });
+
+    test('does not render endpoint or user filters', () => {
+      renderComponent();
+
+      expect(screen.queryByText('Endpoint:')).not.toBeInTheDocument();
+      expect(screen.queryByText('User:')).not.toBeInTheDocument();
     });
   });
 });
