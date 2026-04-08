@@ -4,7 +4,7 @@ import abc
 import json
 from typing import TYPE_CHECKING, Any
 
-import requests
+import aiohttp
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
@@ -21,6 +21,14 @@ if TYPE_CHECKING:
 
 # Scorer.__call__ returns this union type.
 ScorerResult = int | float | bool | str | Feedback | list[Feedback]
+
+# Header added to internal sanitization requests so the gateway can skip guardrails
+# on the call, preventing recursive guardrail execution loops.
+_SANITIZE_BYPASS_HEADER = "X-MLflow-Guardrail-Bypass"
+
+# Only forward these headers to internal sanitization calls — forwarding all
+# incoming headers (e.g. Host, Content-Length) can cause failures.
+_ALLOWED_AUTH_HEADERS = frozenset({"authorization"})
 
 _SANITIZE_SYSTEM_PROMPT = """\
 You are a content sanitizer. You will receive a JSON payload and an issue description.
@@ -53,7 +61,7 @@ class Guardrail(abc.ABC):
     """
 
     @abc.abstractmethod
-    def process_request(
+    async def process_request(
         self,
         request: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
@@ -73,7 +81,7 @@ class Guardrail(abc.ABC):
         """
 
     @abc.abstractmethod
-    def process_response(
+    async def process_response(
         self,
         request: dict[str, Any],
         response: dict[str, Any],
@@ -201,7 +209,7 @@ class JudgeGuardrail(Guardrail):
             return "; ".join(failing) if failing else ""
         return str(result)
 
-    def _sanitize(
+    async def _sanitize(
         self,
         payload: dict[str, Any],
         rationale: str,
@@ -231,16 +239,26 @@ class JudgeGuardrail(Guardrail):
             ],
         }
 
-        headers = dict(auth_headers) if auth_headers else {}
+        headers = (
+            {k: v for k, v in auth_headers.items() if k.lower() in _ALLOWED_AUTH_HEADERS}
+            if auth_headers
+            else {}
+        )
+        # Bypass guardrails on the sanitization call to prevent recursive loops.
+        headers[_SANITIZE_BYPASS_HEADER] = "1"
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(
+                    url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=60)
+                ) as resp:
+                    resp.raise_for_status()
+                    raw = await resp.text()
+            except aiohttp.ClientError as e:
+                raise GuardrailViolation(self.name, f"Sanitization request failed: {e}") from e
 
         try:
-            resp = requests.post(url, json=body, headers=headers, timeout=60)
-            resp.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            raise GuardrailViolation(self.name, f"Sanitization request failed: {e}") from e
-
-        try:
-            resp_json = resp.json()
+            resp_json = json.loads(raw)
             content = resp_json["choices"][0]["message"]["content"]
         except (ValueError, KeyError, IndexError, TypeError) as e:
             raise GuardrailViolation(
@@ -256,7 +274,7 @@ class JudgeGuardrail(Guardrail):
                 "Sanitization LLM returned invalid JSON.",
             ) from e
 
-    def process_request(
+    async def process_request(
         self,
         request: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
@@ -275,9 +293,9 @@ class JudgeGuardrail(Guardrail):
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return self._sanitize(request, rationale, auth_headers=auth_headers)
+        return await self._sanitize(request, rationale, auth_headers=auth_headers)
 
-    def process_response(
+    async def process_response(
         self,
         request: dict[str, Any],
         response: dict[str, Any],
@@ -298,7 +316,7 @@ class JudgeGuardrail(Guardrail):
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return self._sanitize(response, rationale, auth_headers=auth_headers)
+        return await self._sanitize(response, rationale, auth_headers=auth_headers)
 
     @classmethod
     def from_entity(cls, entity: GatewayGuardrail, server_url: str | None = None) -> JudgeGuardrail:
