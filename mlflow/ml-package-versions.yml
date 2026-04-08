@@ -735,15 +735,12 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.12.25"
-    maximum: "0.14.16"
+    maximum: "0.14.18"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
           # https://github.com/openai/openai-python/issues/2525
           "openai>=1.99.9",
-          # Required to test Databricks integration
-          "llama-index-llms-databricks",
-          "llama-index-embeddings-databricks",
           # Required to test external vector stores
           "llama-index-vector-stores-qdrant",
           # Required to run tests/openai/mock_openai.py
@@ -753,10 +750,19 @@ llama_index:
           # https://github.com/run-llama/llama_index/issues/20271 is resolved
           "qdrant-client<1.16.0",
         ]
+      # llama-index>=0.14.17 requires llama-index-llms-openai>=0.7.0, but all
+      # versions of llama-index-llms-databricks transitively require
+      # llama-index-llms-openai<0.7.0 (via llama-index-llms-openai-like),
+      # making them incompatible with newer llama-index releases.
+      "<= 0.14.16": [
+          # Required to test Databricks integration
+          "llama-index-llms-databricks",
+          "llama-index-embeddings-databricks",
+        ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.12.25"
-    maximum: "0.14.16"
+    maximum: "0.14.18"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
