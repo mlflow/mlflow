@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  Alert,
   Button,
   Checkbox,
   Empty,
@@ -13,6 +14,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { getReadableErrorMessage } from '../../utils/errorUtils';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
 import { useEndpointsListData } from '../../hooks/useEndpointsListData';
@@ -46,7 +48,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
   const { endpoints, filteredEndpoints, isLoading, availableProviders, getBindingsForEndpoint, refetch } =
     useEndpointsListData({ searchFilter, filter });
 
-  const { duplicateEndpoints, isLoading: isDuplicating } = useDuplicateEndpoints();
+  const { duplicateEndpoints, isLoading: isDuplicating, error: duplicateError } = useDuplicateEndpoints();
 
   const selectedEndpoints = useMemo(
     () => filteredEndpoints.filter((ep) => rowSelection[ep.endpoint_id]),
@@ -87,7 +89,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
       await duplicateEndpoints(selectedEndpoints, allNames);
       setRowSelection({});
     } catch {
-      // Errors are surfaced via useDuplicateEndpoints error state
+      // Error state is set by useDuplicateEndpoints and displayed via the Alert below
     }
   };
 
@@ -145,6 +147,14 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {duplicateError && (
+        <Alert
+          componentId="mlflow.gateway.endpoints-list.duplicate-error"
+          type="error"
+          message={getReadableErrorMessage(duplicateError) ?? duplicateError.message}
+          closable={false}
+        />
+      )}
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Input
           componentId="mlflow.gateway.endpoints-list.search"
