@@ -20,6 +20,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
+from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     _extract_tool_name_from_span,
@@ -30,7 +31,9 @@ from mlflow.genai.utils.trace_utils import (
     create_minimal_trace,
     extract_available_tools_from_trace,
     extract_expectations_from_trace,
+    extract_generation_context,
     extract_inputs_from_trace,
+    extract_messages_from_span_inputs,
     extract_outputs_from_trace,
     extract_request_from_trace,
     extract_response_from_trace,
@@ -1616,3 +1619,101 @@ def test_evaluate_with_trace_column_preserves_traces():
     remaining_traces = get_traces()
     remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
     assert original_trace_id in remaining_trace_ids
+
+
+# -- extract_messages_from_span_inputs tests --
+
+
+@pytest.mark.parametrize(
+    ("inputs", "expected"),
+    [
+        (
+            {"messages": [{"role": "user", "content": "hi"}]},
+            [{"role": "user", "content": "hi"}],
+        ),
+        (
+            json.dumps([{"role": "system", "content": "ctx"}, {"role": "user", "content": "q"}]),
+            [{"role": "system", "content": "ctx"}, {"role": "user", "content": "q"}],
+        ),
+        (
+            json.dumps({"messages": [{"role": "user", "content": "q"}]}),
+            [{"role": "user", "content": "q"}],
+        ),
+        (
+            json.dumps([[{"type": "human", "content": "q"}, {"type": "ai", "content": "a"}]]),
+            [{"type": "human", "content": "q"}, {"type": "ai", "content": "a"}],
+        ),
+    ],
+    ids=["dict", "json-list", "json-dict", "nested-langchain"],
+)
+def test_extract_messages_from_span_inputs(inputs, expected):
+    assert extract_messages_from_span_inputs(inputs) == expected
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [None, "", "not-json", json.dumps(42)],
+    ids=["none", "empty", "invalid-json", "json-number"],
+)
+def test_extract_messages_from_span_inputs_returns_none(inputs):
+    assert extract_messages_from_span_inputs(inputs) is None
+
+
+# -- extract_generation_context tests --
+
+
+def _make_llm_trace(*, span_type, messages, response):
+    @mlflow.trace(name="root", span_type=SpanType.CHAIN)
+    def _predict():
+        return _llm()
+
+    @mlflow.trace(name="llm_call", span_type=span_type)
+    def _llm():
+        span = mlflow.get_current_active_span()
+        span.set_inputs({"messages": messages})
+        return response
+
+    _predict()
+    return mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+
+def test_extract_generation_context():
+    trace = _make_llm_trace(
+        span_type=SpanType.LLM,
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "assistant",
+                "content": "Based on the document: Paris is the capital of France.",
+            },
+            {"role": "user", "content": "What is the capital of France?"},
+        ],
+        response="Paris is the capital.",
+    )
+    context = extract_generation_context(trace)
+
+    assert "You are a helpful assistant." in context
+    assert "Based on the document: Paris is the capital of France." in context
+    assert "What is the capital of France?" not in context
+
+
+def test_extract_generation_context_no_llm_span():
+    @mlflow.trace(name="root", span_type=SpanType.CHAIN)
+    def _predict():
+        return "Some answer"
+
+    _predict()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    with pytest.raises(MlflowException, match="No LLM or CHAT_MODEL span found"):
+        extract_generation_context(trace)
+
+
+def test_extract_generation_context_only_user_messages():
+    trace = _make_llm_trace(
+        span_type=SpanType.LLM,
+        messages=[{"role": "user", "content": "Hello"}],
+        response="Some response.",
+    )
+    with pytest.raises(MlflowException, match="No non-user context messages found"):
+        extract_generation_context(trace)
