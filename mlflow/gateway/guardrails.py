@@ -126,17 +126,39 @@ class JudgeGuardrail(Guardrail):
         self.name = name
         self.action_llm_url = action_llm_url
 
+    def _content_to_text(self, content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            text_parts: list[str] = []
+            for part in content:
+                if isinstance(part, str):
+                    text_parts.append(part)
+                elif isinstance(part, dict):
+                    if isinstance(part.get("text"), str):
+                        text_parts.append(part["text"])
+                    elif part.get("type") == "text" and isinstance(part.get("content"), str):
+                        text_parts.append(part["content"])
+            if text_parts:
+                return "\n".join(text_parts)
+            return json.dumps(content, ensure_ascii=False)
+        if isinstance(content, dict):
+            if isinstance(content.get("text"), str):
+                return content["text"]
+            return json.dumps(content, ensure_ascii=False)
+        return str(content)
+
     def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
         if is_response:
-            if (choices := payload.get("choices", [])) and (
-                content := choices[0].get("message", {}).get("content", "")
-            ):
-                return content
+            if choices := payload.get("choices", []):
+                content = choices[0].get("message", {}).get("content")
+                return self._content_to_text(content)
             return ""
-        if (messages := payload.get("messages", [])) and (
-            content := messages[-1].get("content", "")
-        ):
-            return content
+        if messages := payload.get("messages", []):
+            content = messages[-1].get("content")
+            return self._content_to_text(content)
         return ""
 
     def _invoke_judge(
@@ -228,10 +250,10 @@ class JudgeGuardrail(Guardrail):
 
         try:
             return json.loads(content)
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, TypeError) as e:
             raise GuardrailViolation(
                 self.name,
-                f"Sanitization LLM returned invalid JSON: {content[:200]}",
+                "Sanitization LLM returned invalid JSON.",
             ) from e
 
     def process_request(
