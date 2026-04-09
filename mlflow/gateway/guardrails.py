@@ -206,6 +206,14 @@ class JudgeGuardrail(Guardrail):
                     ),
                 },
             ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "sanitized_payload",
+                    "strict": False,
+                    "schema": {"type": "object", "additionalProperties": True},
+                },
+            },
         }
 
         headers = (
