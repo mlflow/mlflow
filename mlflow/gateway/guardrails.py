@@ -21,11 +21,20 @@ from mlflow.types.chat import ChatCompletionRequest, ChatCompletionResponse
 if TYPE_CHECKING:
     from mlflow.genai.scorers import Scorer
 
-# Scorer.__call__ returns this union type.
-ScorerResult = int | float | bool | str | Feedback | list[Feedback]
+# In practice scorers return bool or str (e.g. "yes"/"no"), but Feedback and
+# list[Feedback] are also supported for richer structured output.
+ScorerResult = bool | str | Feedback | list[Feedback]
 
 # Header added to internal sanitization requests so the gateway can skip guardrails
 # on the call, preventing recursive guardrail execution loops.
+#
+# Value: a truthy string such as "1".
+#
+# This header is INTERNAL ONLY — it is injected by the gateway itself when making
+# sanitization sub-requests, and is never read from (or honoured for) externally
+# originated client requests.  External clients cannot use this to bypass guardrails
+# on their own requests because the gateway only checks the header on the sub-requests
+# it originates, not on the initial inbound call.
 _SANITIZE_BYPASS_HEADER = "X-MLflow-Guardrail-Bypass"
 
 # Only forward these headers to internal sanitization calls — forwarding all
@@ -156,28 +165,39 @@ class JudgeGuardrail(Guardrail):
         scalars, interprets the value directly. String values are compared
         against ``CategoricalRating.YES``.
         """
+        if isinstance(result, list):
+            return all(self._is_passing(f) for f in result)
         if isinstance(result, Feedback):
             value = result.value
-        elif isinstance(result, list):
-            return all(self._is_passing(f) for f in result)
-        else:
+        elif isinstance(result, (bool, str)):
             value = result
+        else:
+            raise TypeError(
+                f"Scorer returned an unexpected value type {type(result).__name__!r}; "
+                "expected bool, str, Feedback, or list[Feedback]."
+            )
 
         if isinstance(value, bool):
             return value
         if isinstance(value, str):
             return value.strip().lower() == CategoricalRating.YES.value
-        return bool(value)
+        raise TypeError(
+            f"Scorer or Feedback returned an unexpected value type {type(value).__name__!r}; "
+            "expected bool or str."
+        )
+
+    # Maximum characters included in a rationale string to keep error messages concise.
+    _MAX_RATIONALE_LEN = 500
 
     def _get_rationale(self, result: ScorerResult) -> str:
         if isinstance(result, Feedback):
-            if result.rationale:
-                return result.rationale
-            return str(result.value)
-        if isinstance(result, list):
+            raw = result.rationale or str(result.value)
+        elif isinstance(result, list):
             failing = [self._get_rationale(f) for f in result if not self._is_passing(f)]
-            return "; ".join(failing) if failing else ""
-        return str(result)
+            raw = "; ".join(failing) if failing else ""
+        else:
+            raw = str(result)
+        return raw[: self._MAX_RATIONALE_LEN]
 
     async def _sanitize(
         self,
@@ -247,6 +267,29 @@ class JudgeGuardrail(Guardrail):
                 "Sanitization LLM returned invalid JSON.",
             ) from e
 
+    async def _enforce(
+        self,
+        payload: dict[str, Any],
+        payload_model: type[ChatCompletionRequest] | type[ChatCompletionResponse],
+        result: ScorerResult,
+        auth_headers: dict[str, str] | None,
+    ) -> dict[str, Any]:
+        """Block or sanitize *payload* based on *result*.
+
+        Raises ``GuardrailViolation`` for VALIDATION action, or delegates to
+        ``_sanitize`` for SANITIZATION action.  Returns *payload* unchanged
+        when the judge passes.
+        """
+        if self._is_passing(result):
+            return payload
+
+        rationale = self._get_rationale(result)
+
+        if self.action == GuardrailAction.VALIDATION:
+            raise GuardrailViolation(self.name, rationale)
+
+        return await self._sanitize(payload, rationale, payload_model, auth_headers=auth_headers)
+
     async def process_request(
         self,
         request: dict[str, Any],
@@ -256,18 +299,7 @@ class JudgeGuardrail(Guardrail):
             return request
 
         result = self._invoke_judge(inputs=request)
-
-        if self._is_passing(result):
-            return request
-
-        rationale = self._get_rationale(result)
-
-        if self.action == GuardrailAction.VALIDATION:
-            raise GuardrailViolation(self.name, rationale)
-
-        return await self._sanitize(
-            request, rationale, ChatCompletionRequest, auth_headers=auth_headers
-        )
+        return await self._enforce(request, ChatCompletionRequest, result, auth_headers)
 
     async def process_response(
         self,
@@ -279,18 +311,7 @@ class JudgeGuardrail(Guardrail):
             return response
 
         result = self._invoke_judge(inputs=request, outputs=response)
-
-        if self._is_passing(result):
-            return response
-
-        rationale = self._get_rationale(result)
-
-        if self.action == GuardrailAction.VALIDATION:
-            raise GuardrailViolation(self.name, rationale)
-
-        return await self._sanitize(
-            response, rationale, ChatCompletionResponse, auth_headers=auth_headers
-        )
+        return await self._enforce(response, ChatCompletionResponse, result, auth_headers)
 
     @classmethod
     def from_entity(cls, entity: GatewayGuardrail, server_url: str | None = None) -> JudgeGuardrail:

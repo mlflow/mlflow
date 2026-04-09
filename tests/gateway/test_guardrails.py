@@ -256,8 +256,6 @@ async def test_sanitization_uses_json_object_response_format():
         ("no", False),
         ("unknown", False),
         ("anything_else", False),
-        (1, True),
-        (0, False),
     ],
 )
 async def test_is_passing_feedback_values(value, expected_pass):
@@ -272,8 +270,16 @@ async def test_is_passing_feedback_values(value, expected_pass):
     assert scorer.call_count == 1
 
 
+@pytest.mark.asyncio
+async def test_unexpected_feedback_value_type_raises():
+    scorer = _SimpleScorer(_feedback(value=1))  # int inside Feedback is not supported
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
+    with pytest.raises(TypeError, match="unexpected value type"):
+        await guard.process_request(_make_request())
+
+
 # ---------------------------------------------------------------------------
-# Plain scalar return values (scorer returns int/bool/str directly)
+# Plain scalar return values (scorer returns bool/str directly)
 # ---------------------------------------------------------------------------
 
 
@@ -285,8 +291,6 @@ async def test_is_passing_feedback_values(value, expected_pass):
         (False, False),
         ("yes", True),
         ("no", False),
-        (1, True),
-        (0, False),
     ],
 )
 async def test_is_passing_plain_scalar(value, expected_pass):
@@ -299,6 +303,14 @@ async def test_is_passing_plain_scalar(value, expected_pass):
         with pytest.raises(GuardrailViolation, match="blocked"):
             await guard.process_request(_make_request())
     assert scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_unexpected_scorer_type_raises():
+    scorer = _SimpleScorer(42)  # int is not a supported return type
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
+    with pytest.raises(TypeError, match="unexpected value type"):
+        await guard.process_request(_make_request())
 
 
 # ---------------------------------------------------------------------------
