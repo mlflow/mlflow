@@ -416,3 +416,55 @@ def test_from_entity_with_action_endpoint():
         guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
 
     assert guard.action_llm_url == "http://localhost:5000/gateway/my-ep/mlflow/invocations"
+
+
+def test_from_entity_rewrites_gateway_model_uri():
+    """gateway:/ model URIs must be rewritten to openai:/ with an explicit base_url so
+    the judge doesn't hit _resolve_gateway_uri(), which fails when MLFLOW_TRACKING_URI
+    is the backend store URI (e.g. sqlite://) inside the server process."""
+    from mlflow.genai.judges.instructions_judge import InstructionsJudge
+
+    mock_instructions_judge = mock.MagicMock(spec=InstructionsJudge)
+    mock_instructions_judge.model = "gateway:/my-judge-ep"
+    mock_instructions_judge.name = "my-judge"
+    mock_instructions_judge._instructions = "Is this safe?"
+    mock_instructions_judge._feedback_value_type = None
+    mock_instructions_judge._inference_params = None
+
+    entity = mock.MagicMock()
+    entity.scorer.serialized_scorer = {}
+    entity.name = "safety-guard"
+    entity.stage = GuardrailStage.BEFORE
+    entity.action = GuardrailAction.VALIDATION
+    entity.action_endpoint_name = None
+
+    with mock.patch("mlflow.genai.scorers.Scorer.model_validate", return_value=mock_instructions_judge):
+        guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
+
+    assert isinstance(guard.scorer, InstructionsJudge)
+    assert guard.scorer.model == "openai:/my-judge-ep"
+    assert guard.scorer.base_url == "http://localhost:5000/gateway/mlflow/v1/"
+
+
+def test_from_entity_does_not_rewrite_non_gateway_model_uri():
+    """Non-gateway:/ model URIs (e.g. openai:/) must not be rewritten."""
+    from mlflow.genai.judges.instructions_judge import InstructionsJudge
+
+    mock_instructions_judge = mock.MagicMock(spec=InstructionsJudge)
+    mock_instructions_judge.model = "openai:/gpt-4o"
+    mock_instructions_judge.name = "my-judge"
+    mock_instructions_judge._instructions = "Is this safe?"
+    mock_instructions_judge._feedback_value_type = None
+    mock_instructions_judge._inference_params = None
+
+    entity = mock.MagicMock()
+    entity.scorer.serialized_scorer = {}
+    entity.name = "safety-guard"
+    entity.stage = GuardrailStage.BEFORE
+    entity.action = GuardrailAction.VALIDATION
+    entity.action_endpoint_name = None
+
+    with mock.patch("mlflow.genai.scorers.Scorer.model_validate", return_value=mock_instructions_judge):
+        guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
+
+    assert guard.scorer is mock_instructions_judge

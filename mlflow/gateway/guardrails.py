@@ -15,6 +15,7 @@ from mlflow.entities.gateway_guardrail import (
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.providers.utils import send_request
 from mlflow.genai.judges.utils import CategoricalRating
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.chat import ChatCompletionRequest, ChatCompletionResponse
 
@@ -319,6 +320,7 @@ class JudgeGuardrail(Guardrail):
         Returns:
             A ``JudgeGuardrail`` ready to process requests/responses.
         """
+        from mlflow.genai.judges.instructions_judge import InstructionsJudge  # lazy: heavy transitive deps
         from mlflow.genai.scorers import Scorer  # lazy: heavy transitive deps
 
         action_llm_url = None
@@ -329,14 +331,13 @@ class JudgeGuardrail(Guardrail):
 
         scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
 
-        # If the scorer is an InstructionsJudge whose model is a gateway:/ URI,
-        # rewrite it to use the server's own HTTP URL so the call doesn't go
-        # through MLFLOW_TRACKING_URI (which is a SQLite path inside the server).
-        if server_url:
-            from mlflow.genai.judges.instructions_judge import InstructionsJudge
-
-            if isinstance(scorer, InstructionsJudge) and scorer.model.startswith("gateway:/"):
-                endpoint_name = scorer.model[len("gateway:/") :]
+        # Inside the server process MLFLOW_TRACKING_URI points to the backend store
+        # (e.g. sqlite://), so _resolve_gateway_uri() would fail for gateway:/ URIs.
+        # Rewrite to openai:/ with an explicit base_url derived from the HTTP request
+        # URL so the judge calls the gateway directly without touching the tracking URI.
+        if server_url and isinstance(scorer, InstructionsJudge) and scorer.model:
+            provider, endpoint_name = _parse_model_uri(scorer.model)
+            if provider == "gateway":
                 scorer = InstructionsJudge(
                     name=scorer.name,
                     instructions=scorer._instructions,
