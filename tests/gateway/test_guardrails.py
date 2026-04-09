@@ -146,9 +146,7 @@ async def test_after_sanitization_rewrites_response():
         action_llm_url="http://localhost:5000/gateway/ep-sanitizer/mlflow/invocations",
     )
     sanitized = _make_response("Polite version")
-    with mock.patch(
-        "mlflow.gateway.guardrails.send_request", _send_request_returning(sanitized)
-    ):
+    with mock.patch("mlflow.gateway.guardrails.send_request", _send_request_returning(sanitized)):
         result = await guard.process_response(_make_request(), _make_response("rude text"))
     assert result == sanitized
 
@@ -222,7 +220,7 @@ async def test_sanitization_uses_json_object_response_format():
         action_llm_url="http://localhost:5000/gateway/ep-sanitizer/mlflow/invocations",
     )
     sanitized = _make_request("cleaned")
-    captured: list[dict] = []
+    captured: list[dict[str, Any]] = []
 
     async def capture_send_request(*args, **kwargs):
         captured.append(kwargs)
