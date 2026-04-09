@@ -1,0 +1,160 @@
+---
+description: Enhance LLM judges with skills — reusable evaluation criteria that judges load on demand based on what they observe in a trace.
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Enhance judges with skills
+
+Sometimes the task of evaluating agent traces is more complex than can be expressed in a single prompt. **Skills** solve this by letting you package domain-specific evaluation criteria into separate files that the judge uses dynamically when they apply.
+
+Skills are valuable when your evaluation criteria vary by context. For example, a code quality judge might need Python-specific guidelines for one trace and TypeScript-specific guidelines for another. Rather than including both sets of rules in every evaluation (or maintaining two separate judges), you define each as a skill. 
+
+## When to use skills
+
+Common scenarios include:
+
+- **Shared + specialized rules**: a base set of quality guidelines that always apply, plus domain-specific rules loaded only when relevant
+- **Evaluating multiple possible trajectories**: judging multi-agent systems that may invoke different sub-agents depending on tasks or tool responses 
+- **Multi-domain agents**: an agent that handles both SQL queries and API calls, where each domain has its own correctness criteria
+
+Without skills, you'd either pack all guidelines into the prompt (diluting focus) or maintain separate judges for each domain (and apply them selectively). Skills give you one judge that adapts.
+
+## Step 1: Create skill directories
+
+Each skill is a directory containing a `SKILL.md` file, optionally with companion reference files. Skills follow the [Agent Skills](https://agentskills.io) open standard.
+
+```
+eval-criteria/
+├── python-quality/
+│   └── SKILL.md
+└── typescript-quality/
+    └── SKILL.md
+```
+
+For skills with detailed reference material, add a `references/` subdirectory:
+
+```
+eval-criteria/
+└── sql-correctness/
+    ├── SKILL.md
+    └── references/
+        └── SQL_PATTERNS.md
+```
+
+## Step 2: Write SKILL.md files
+
+Every `SKILL.md` has two parts: YAML frontmatter with metadata, and a markdown body with evaluation guidelines.
+
+```yaml
+# eval-criteria/python-quality/SKILL.md
+---
+name: python-quality
+description: >
+  Python code quality guidelines covering type hints, PEP 8 conventions,
+  and idiomatic patterns. Apply when evaluating traces from Python agents.
+---
+
+## Python Quality Criteria
+
+- Functions should have type annotations for parameters and return values
+- Follow PEP 8 naming conventions (snake_case for functions, PascalCase for classes)
+- Prefer list comprehensions over map/filter for simple transformations
+- Use context managers for resource handling
+- Avoid bare `except` clauses — catch specific exceptions
+```
+
+```yaml
+# eval-criteria/typescript-quality/SKILL.md
+---
+name: typescript-quality
+description: >
+  TypeScript code quality guidelines covering strict mode, null safety,
+  and interface patterns. Apply when evaluating traces from TypeScript agents.
+---
+
+## TypeScript Quality Criteria
+
+- Enable strict mode in tsconfig.json
+- Use explicit return types on public functions
+- Prefer `interface` over `type` for object shapes that may be extended
+- Use nullish coalescing (??) and optional chaining (?.) instead of manual null checks
+- Avoid `any` — use `unknown` and narrow with type guards
+```
+
+### Frontmatter fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Lowercase alphanumeric and hyphens, max 64 characters |
+| `description` | Yes | Short summary the judge uses to decide when to load this skill |
+| `metadata` | No | Arbitrary key-value pairs (e.g., `domain: sql`) |
+
+The `description` field is critical — it's what the judge sees when deciding which skills are relevant. Write it so the judge can match it against trace content.
+
+### Companion reference files
+
+For detailed reference material like scoring rubrics, example patterns, or rule catalogs, add files under a `references/` subdirectory. The judge can access these via tool calls during evaluation.
+
+Reference these files from your `SKILL.md` body so the judge knows they exist:
+
+```markdown
+For SQL anti-patterns and preferred alternatives, see [SQL_PATTERNS.md](references/SQL_PATTERNS.md).
+```
+
+## Step 3: Create a judge with skills
+
+Pass skill directory paths to the `skills` parameter of <APILink fn="mlflow.genai.judges.make_judge">`make_judge()`</APILink>:
+
+```python
+from mlflow.genai.judges import make_judge
+from typing import Literal
+
+code_quality_judge = make_judge(
+    name="code_quality",
+    instructions=(
+        "Evaluate the code quality in {{ trace }}. "
+        "Load the relevant language-specific quality guidelines "
+        "based on what programming language the agent is working with."
+    ),
+    feedback_value_type=Literal["excellent", "acceptable", "poor"],
+    model="openai:/gpt-5-mini",
+    skills=[
+        "eval-criteria/python-quality",
+        "eval-criteria/typescript-quality",
+    ],
+)
+```
+
+Each path can point to either a skill directory (containing `SKILL.md`) or directly to a `SKILL.md` file.
+
+## Step 4: Run evaluation
+
+Use the judge like any other scorer. The judge automatically loads relevant skills based on the trace content:
+
+```python
+import mlflow
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=my_agent,
+    scorers=[code_quality_judge],
+)
+```
+
+When the judge evaluates a trace from a Python agent, it loads the Python guidelines. When it evaluates a TypeScript agent trace, it loads the TypeScript guidelines. The same judge adapts its evaluation criteria automatically.
+
+
+## Tips for writing effective skills
+
+- **Write specific descriptions**: The judge relies on the `description` field to decide which skills are relevant. "Python quality guidelines" is better than "quality guidelines."
+- **Keep skills focused**: One skill per domain or concern. A skill covering both Python style and SQL correctness is harder for the judge to apply selectively.
+- **Use reference files for bulk content**: Put scoring rubrics, example catalogs, and pattern libraries in `references/` rather than the main `SKILL.md` body. The judge loads them only when needed.
+- **Test with debug logging**: Enable debug logging to see which skills the judge loads for each trace and verify it's making good choices:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("mlflow.genai.judges").setLevel(logging.DEBUG)
+```

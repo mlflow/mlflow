@@ -769,6 +769,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
                   label: 'Create a Custom Judge',
                 },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/skills',
+                  label: 'Enhance Judges with Skills',
+                },
               ],
               collapsed: false,
             },
