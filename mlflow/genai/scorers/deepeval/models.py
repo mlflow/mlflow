@@ -38,9 +38,10 @@ class MlflowDeepEvalLLM(DeepEvalBaseLLM):
     Handles structured output via JSON prompt injection and response parsing.
     """
 
-    def __init__(self, backend: ScorerLLMClient):
+    def __init__(self, backend: ScorerLLMClient, model_kwargs: dict | None = None):
         super().__init__(model_name=backend.model_name)
         self._backend = backend
+        self._model_kwargs = model_kwargs or {}
 
     def load_model(self, **kwargs):
         return self
@@ -49,7 +50,7 @@ class MlflowDeepEvalLLM(DeepEvalBaseLLM):
         if schema is not None:
             prompt = _build_json_prompt_with_schema(prompt, schema)
 
-        response = self._backend.complete_prompt(prompt)
+        response = self._backend.complete_prompt(prompt, **self._model_kwargs)
 
         if schema is not None:
             return _parse_json_output_with_schema(response.strip(), schema)
@@ -62,15 +63,20 @@ class MlflowDeepEvalLLM(DeepEvalBaseLLM):
         return self._backend.model_name
 
 
-def create_deepeval_model(model_uri: str):
+def create_deepeval_model(model_uri: str, model_kwargs: dict | None = None):
     backend = ScorerLLMClient(model_uri)
 
     if backend.is_native:
-        return MlflowDeepEvalLLM(backend)
+        return MlflowDeepEvalLLM(backend, model_kwargs=model_kwargs)
 
     from deepeval.models import LiteLLMModel
 
-    return LiteLLMModel(
-        model=backend.model_name,
-        generation_kwargs={"drop_params": True},
-    )
+    extra = model_kwargs or {}
+    temperature = extra.pop("temperature", None)
+    generation_kwargs = {"drop_params": True, **extra}
+
+    kwargs = {"model": backend.model_name, "generation_kwargs": generation_kwargs}
+    if temperature is not None:
+        kwargs["temperature"] = temperature
+
+    return LiteLLMModel(**kwargs)
