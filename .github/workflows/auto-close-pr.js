@@ -1,16 +1,19 @@
-// Auto-close PRs that attempt to close an issue without the "ready" label.
-// Only targets PRs with closing keywords (Closes/Fixes/Resolves) because
-// "Relates to #123" PRs don't claim to solve the issue and shouldn't be blocked.
+// Auto-close PRs based on linked-issue policy:
+//   1. PRs that attempt to close an issue without the "ready" label.
+//   2. PRs that don't link to any issue and change more than LOC_THRESHOLD
+//      lines.
 // Skips PRs that reference multiple issues (ambiguous intent).
-// Only enforces on issues created on or after 2026-03-10.
+// Only enforces on issues/PRs created on or after 2026-03-10.
 
 const fs = require("fs");
 const path = require("path");
 
 const READY_LABEL = "ready";
 const PR_TEMPLATE_PATH = ".github/pull_request_template.md";
-// The date we introduced the "ready" label policy; skip older issues.
+// The date we introduced the "ready" label policy; skip older issues/PRs.
 const CUTOFF_DATE = new Date("2026-03-10T00:00:00Z");
+// PRs with more than this many LOC changed must link to an issue.
+const LOC_THRESHOLD = 100;
 
 const QUERY = `
   query($owner: String!, $repo: String!, $number: Int!) {
@@ -44,6 +47,20 @@ function getTemplateHeadings() {
   } catch (err) {
     throw new Error(`Failed to read PR template at ${templatePath}: ${err.message}`);
   }
+}
+
+function hasIssueReference(body) {
+  if (!body) return false;
+  // Strip fenced and inline code blocks so references mentioned inside code
+  // samples don't count.
+  const stripped = body
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/~~~[\s\S]*?~~~/g, "")
+    .replace(/`[^`\n]*`/g, "");
+  // Match `#123`, `owner/repo#123`, or an issue/PR URL.
+  const shortRef = /(?:[\w.-]+\/[\w.-]+)?#\d+/;
+  const urlRef = /https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+/;
+  return shortRef.test(stripped) || urlRef.test(stripped);
 }
 
 function getMissingHeadings(body, headings) {
@@ -82,8 +99,37 @@ async function getCloseReason({ github, context }) {
   const issues = response.repository.pullRequest.closingIssuesReferences.nodes;
 
   if (issues.length === 0) {
-    console.log("No closing issue references found. Skipping.");
-    return undefined;
+    // closingIssuesReferences only catches closing keywords (Fixes/Closes/Resolves).
+    // Also accept `#123`, `owner/repo#123`, or an issue/PR URL in the PR body.
+    if (hasIssueReference(prBody)) {
+      console.log(`PR #${prNumber} body contains an issue reference. Skipping.`);
+      return undefined;
+    }
+
+    const prCreatedAt = new Date(context.payload.pull_request.created_at);
+    if (prCreatedAt < CUTOFF_DATE) {
+      console.log(`PR #${prNumber} was created before ${CUTOFF_DATE.toISOString()}. Skipping.`);
+      return undefined;
+    }
+
+    const { additions, deletions } = context.payload.pull_request;
+    const totalChanges = additions + deletions;
+
+    if (totalChanges <= LOC_THRESHOLD) {
+      console.log(
+        `PR #${prNumber} has no linked issue but only ${totalChanges} LOC changed (<= ${LOC_THRESHOLD}). Skipping.`
+      );
+      return undefined;
+    }
+
+    console.log(
+      `PR #${prNumber} has no linked issue and ${totalChanges} LOC changed (> ${LOC_THRESHOLD}). Closing.`
+    );
+    return [
+      "This PR was automatically closed because it does not link to an issue.",
+      "Please open an issue describing the bug or feature first, wait for a maintainer to triage it, then link it from your PR description (e.g. `Fixes #123`).",
+      "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+    ].join(" ");
   }
 
   if (issues.length > 1) {

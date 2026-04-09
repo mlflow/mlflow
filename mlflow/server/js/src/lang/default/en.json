@@ -1038,6 +1038,10 @@
     "defaultMessage": "Overall assessment added by LLM-as-a-judge",
     "description": "Evaluation review > assessments > tooltip > overall assessment added by LLM-as-a-judge"
   },
+  "4vrv6d": {
+    "defaultMessage": "Content too large to render ({size}). Displaying as plain text.",
+    "description": "Message shown when chat content exceeds the markdown rendering size limit"
+  },
   "4yjF8O": {
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
@@ -3114,6 +3118,10 @@
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected"
   },
+  "IRZcTi": {
+    "defaultMessage": "Add Guardrail",
+    "description": "Add guardrail button"
+  },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
     "description": "Text shown when there are no common artifacts between the runs"
@@ -3994,6 +4002,10 @@
     "defaultMessage": "Predict on a Spark DataFrame.",
     "description": "Code comment which states on how we can predict using spark DataFrame"
   },
+  "OExV7v": {
+    "defaultMessage": "Name",
+    "description": "Guardrail name column header"
+  },
   "OH7hV5": {
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
@@ -4404,6 +4416,10 @@
   "R1FeSE": {
     "defaultMessage": "Advanced settings (optional)",
     "description": "Toggle button for advanced settings in prompt creation modal"
+  },
+  "R28jzs": {
+    "defaultMessage": "Action",
+    "description": "Guardrail action column header"
   },
   "R2NKiZ": {
     "defaultMessage": "Config",
@@ -5059,6 +5075,10 @@
   "VN5B4N": {
     "defaultMessage": "General",
     "description": "Accordion section header for general settings"
+  },
+  "VOP7Y5": {
+    "defaultMessage": "No guardrails match your search.",
+    "description": "Empty state when search has no results"
   },
   "VP+qFF": {
     "defaultMessage": "Show diff only",
@@ -7563,6 +7583,10 @@
     "defaultMessage": "Try it",
     "description": "Try it - interactive request/response"
   },
+  "kaFKCz": {
+    "defaultMessage": "No guardrails configured. Add a guardrail to protect your LLM endpoint.",
+    "description": "Empty state for guardrails"
+  },
   "kbWXwv": {
     "defaultMessage": "Refresh traces",
     "description": "Tooltip for the refresh traces button in the traces table toolbar"
@@ -9227,6 +9251,10 @@
     "defaultMessage": "using Notebook",
     "description": "String for creating a new run from a notebook"
   },
+  "vNmXQ2": {
+    "defaultMessage": "Loading guardrails...",
+    "description": "Loading guardrails"
+  },
   "vPnoNk": {
     "defaultMessage": "Save changes",
     "description": "Confirm button label within a modal when editing a runs comparison chart"
@@ -9510,6 +9538,10 @@
   "x7NsCC": {
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
+  },
+  "x9kyZm": {
+    "defaultMessage": "Placement",
+    "description": "Guardrail placement column header"
   },
   "xBVMQz": {
     "defaultMessage": "LLM",

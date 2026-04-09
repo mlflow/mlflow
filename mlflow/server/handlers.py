@@ -80,6 +80,7 @@ from mlflow.exceptions import (
     _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
 )
+from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
@@ -277,7 +278,6 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server.gateway_budget import maybe_refresh_budget_policies
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,

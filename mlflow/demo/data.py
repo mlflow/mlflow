@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import base64
+import functools
+import math
+import struct
+import zlib
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -844,6 +849,218 @@ SESSION_TRACES: list[DemoTrace] = [
         turn_index=2,
     ),
 ]
+
+# =============================================================================
+# Multimodal Traces (4 traces)
+# =============================================================================
+
+
+def _generate_synthetic_png() -> str:
+    """Generate an 8x8 red square PNG as base64. ~100 chars."""
+    width, height = 8, 8
+    raw = b""
+    for _y in range(height):
+        raw += b"\x00"
+        for _x in range(width):
+            raw += b"\xff\x00\x00"
+
+    def _chunk(chunk_type: bytes, data: bytes) -> bytes:
+        c = chunk_type + data
+        return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+
+    png = b"\x89PNG\r\n\x1a\n"
+    png += _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+    png += _chunk(b"IDAT", zlib.compress(raw))
+    png += _chunk(b"IEND", b"")
+    return base64.b64encode(png).decode()
+
+
+def _generate_synthetic_wav() -> str:
+    """Generate a 0.25s 440Hz beep as WAV base64. ~5.4KB."""
+    sample_rate = 8000
+    duration = 0.25
+    frequency = 440
+    num_samples = int(sample_rate * duration)
+
+    samples = b"".join(
+        struct.pack("<h", int(16000 * math.sin(2 * math.pi * frequency * i / sample_rate)))
+        for i in range(num_samples)
+    )
+
+    header = struct.pack("<4sI4s", b"RIFF", 36 + len(samples), b"WAVE")
+    header += struct.pack("<4sIHHIIHH", b"fmt ", 16, 1, 1, sample_rate, sample_rate * 2, 2, 16)
+    header += struct.pack("<4sI", b"data", len(samples))
+    return base64.b64encode(header + samples).decode()
+
+
+@dataclass
+class MultimodalDemoTrace:
+    """Demo trace definition for multimodal content.
+
+    Each trace has pre-built input/output dicts in OpenAI message format
+    so the generator can set them directly on spans.
+    """
+
+    name: str
+    description: str
+    span_type: str
+    inputs: dict[str, Any]
+    outputs: dict[str, Any]
+    v1_response_text: str
+    v2_response_text: str
+
+
+def _build_multimodal_traces() -> list[MultimodalDemoTrace]:
+    png_b64 = _generate_synthetic_png()
+    wav_b64 = _generate_synthetic_wav()
+
+    return [
+        # 1. Vision input: image + text → text response
+        MultimodalDemoTrace(
+            name="vision_analysis",
+            description="Analyze an uploaded image",
+            span_type="CHAT_MODEL",
+            inputs={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "What do you see in this image?"},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{png_b64}",
+                                },
+                            },
+                        ],
+                    }
+                ]
+            },
+            outputs={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+            v1_response_text=(
+                "The image appears to be a small red square. It could be a test image "
+                "or a placeholder graphic of some kind."
+            ),
+            v2_response_text=(
+                "The image shows a solid red 8×8 pixel square, likely a synthetic test "
+                "image used for validating image processing pipelines."
+            ),
+        ),
+        # 2. Image generation: text → image output (DALL-E style)
+        MultimodalDemoTrace(
+            name="image_generation",
+            description="Generate an image from a text prompt",
+            span_type="CHAT_MODEL",
+            inputs={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Generate a simple logo: a red square on a white background.",
+                    }
+                ]
+            },
+            outputs={
+                "data": [
+                    {
+                        "b64_json": png_b64,
+                        "revised_prompt": (
+                            "A minimalist logo featuring a solid red square "
+                            "centered on a clean white background."
+                        ),
+                    }
+                ]
+            },
+            v1_response_text="Here is the generated image.",
+            v2_response_text="Here is the generated image.",
+        ),
+        # 3. Audio input: audio + text → text response
+        MultimodalDemoTrace(
+            name="audio_transcription",
+            description="Transcribe and summarize audio input",
+            span_type="CHAT_MODEL",
+            inputs={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "Summarize what is being said in this audio."},
+                            {
+                                "type": "input_audio",
+                                "input_audio": {
+                                    "data": wav_b64,
+                                    "format": "wav",
+                                },
+                            },
+                        ],
+                    }
+                ]
+            },
+            outputs={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+            v1_response_text="The audio contains a short beep tone. It sounds like a test signal.",
+            v2_response_text=(
+                "The audio contains a brief 440Hz sine tone (concert A), commonly used "
+                "as a calibration or test signal in audio systems."
+            ),
+        ),
+        # 4. Audio output: text → audio response
+        MultimodalDemoTrace(
+            name="text_to_speech",
+            description="Convert text to spoken audio",
+            span_type="CHAT_MODEL",
+            inputs={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Read this aloud: Welcome to MLflow Tracing.",
+                    }
+                ]
+            },
+            outputs={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "audio": {
+                                "data": wav_b64,
+                                "transcript": "Welcome to MLflow Tracing.",
+                            },
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+            v1_response_text="Welcome to MLflow Tracing.",
+            v2_response_text="Welcome to MLflow Tracing.",
+        ),
+    ]
+
+
+@functools.cache
+def get_multimodal_traces() -> list[MultimodalDemoTrace]:
+    """Lazy accessor to avoid running synthetic content generation at import time."""
+    return _build_multimodal_traces()
+
 
 # =============================================================================
 # Combined Trace Data

@@ -2857,6 +2857,18 @@ def test_list_providers():
         assert "openai" in data["providers"]
 
 
+def test_list_providers_with_allowed_filter(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai,anthropic")
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "openai" in data["providers"]
+        assert "anthropic" in data["providers"]
+        assert "gemini" not in data["providers"]
+        assert "bedrock" not in data["providers"]
+
+
 def test_list_models():
     with app.test_client() as c:
         response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models?provider=openai")
@@ -2913,6 +2925,18 @@ def test_get_provider_config_missing_provider():
     with app.test_client() as c:
         response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config")
         assert response.status_code == 400
+
+
+def test_get_provider_config_with_allowed_filter(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "anthropic")
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=openai")
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "not allowed" in data["message"]
+
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=anthropic")
+        assert response.status_code == 200
 
 
 @pytest.mark.parametrize(

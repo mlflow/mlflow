@@ -94,6 +94,10 @@ export function isAttachmentUri(value: string): boolean {
   return value.startsWith('mlflow-attachment://');
 }
 
+export function containsAttachmentUri(value: string): boolean {
+  return value.includes('mlflow-attachment://');
+}
+
 /**
  * URL transform for react-markdown that preserves mlflow-attachment:// URIs.
  * Without this, the default transform strips non-standard protocols.

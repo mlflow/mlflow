@@ -3,7 +3,7 @@ import { GatewayApi } from '../api';
 import type { CreateGatewayGuardrailRequest, CreateGatewayGuardrailResponse } from '../types';
 import { GatewayQueryKeys } from './queryKeys';
 
-export const useAddGuardrail = () => {
+export const useCreateGuardrail = () => {
   const queryClient = useQueryClient();
 
   return useMutation<CreateGatewayGuardrailResponse, Error, CreateGatewayGuardrailRequest>({

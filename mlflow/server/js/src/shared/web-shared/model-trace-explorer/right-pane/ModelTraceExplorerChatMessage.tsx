@@ -13,7 +13,13 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
-import { attachmentAwareUrlTransform, isAttachmentUri, useAttachmentUrl } from '../attachment-utils';
+import {
+  attachmentAwareUrlTransform,
+  isAttachmentUri,
+  parseAttachmentUri,
+  useAttachmentUrl,
+} from '../attachment-utils';
+import { ModelTraceExplorerAttachmentRenderer } from '../field-renderers/ModelTraceExplorerAttachmentRenderer';
 
 import { ModelTraceExplorerChatMessageHeader } from './ModelTraceExplorerChatMessageHeader';
 import {
@@ -23,6 +29,7 @@ import {
 } from './ModelTraceExplorerChatRenderer.utils';
 import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
 import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
+import { MARKDOWN_RENDER_SIZE_LIMIT } from '../constants';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
 function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
@@ -38,6 +45,18 @@ function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
 
 const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }) => {
   if (src && isAttachmentUri(src)) {
+    const parsed = parseAttachmentUri(src);
+    if (parsed && !parsed.contentType.startsWith('image/')) {
+      // Non-image attachments (PDF, audio, etc.) use the full AttachmentRenderer
+      return (
+        <ModelTraceExplorerAttachmentRenderer
+          title=""
+          attachmentId={parsed.attachmentId}
+          traceId={parsed.traceId}
+          contentType={parsed.contentType}
+        />
+      );
+    }
     return <AttachmentImage src={src} alt={alt} />;
   }
   return <img src={src} alt={alt} css={{ maxWidth: '100%' }} />;
@@ -79,6 +98,23 @@ function ModelTraceExplorerChatMessageContent({
         containsActiveMatch={false}
         renderMode={CodeSnippetRenderMode.JSON}
       />
+    );
+  }
+
+  if (content.length > MARKDOWN_RENDER_SIZE_LIMIT) {
+    return (
+      <div css={{ padding: theme.spacing.sm, paddingTop: 0 }}>
+        <Typography.Text color="secondary">
+          <FormattedMessage
+            defaultMessage="Content too large to render ({size}). Displaying as plain text."
+            description="Message shown when chat content exceeds the markdown rendering size limit"
+            values={{ size: `${(content.length / 1_000_000).toFixed(1)}MB` }}
+          />
+        </Typography.Text>
+        <pre css={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 400, overflow: 'auto', fontSize: 12 }}>
+          {content.slice(0, 10_000)}
+        </pre>
+      </div>
     );
   }
 
@@ -271,13 +307,17 @@ export function ModelTraceExplorerChatMessage({
           message.tool_calls.map((toolCall) => (
             <ModelTraceExplorerToolCallMessage key={toolCall.id} toolCall={toolCall} />
           ))}
-        {message.audioParts && message.audioParts.length > 0 && (
-          <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />
-        )}
+        {/* Text content renders before audio parts. The markdown renderer and audio
+            player are separate rendering paths, so original part interleaving is not
+            preserved. Text-first matches the typical pattern where prompts precede
+            media (see https://developers.openai.com/api/docs/guides/audio). */}
         <ModelTraceExplorerChatMessageContent
           content={displayedContent}
           shouldDisplayCodeSnippet={shouldDisplayCodeSnippet}
         />
+        {message.audioParts && message.audioParts.length > 0 && (
+          <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />
+        )}
       </div>
       {isExpandable && (
         <Button

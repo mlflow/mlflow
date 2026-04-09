@@ -1739,6 +1739,10 @@ mlflow.tensorflow.load_model
 mlflow.tensorflow.log_model
 mlflow.tensorflow.save_model
 mlflow.trace
+mlflow.tracing.attachments.Attachment
+mlflow.tracing.attachments.Attachment.from_file
+mlflow.tracing.attachments.Attachment.parse_ref
+mlflow.tracing.attachments.Attachment.ref
 mlflow.tracing.configure
 mlflow.tracing.context
 mlflow.tracing.disable
