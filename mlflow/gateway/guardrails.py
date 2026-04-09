@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import abc
 import asyncio
-import inspect
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -149,19 +148,12 @@ class JudgeGuardrail(Guardrail):
         inputs: dict[str, Any] | None = None,
         outputs: dict[str, Any] | None = None,
     ) -> ScorerResult:
-        candidates: dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         if inputs is not None:
-            candidates["inputs"] = inputs
+            kwargs["inputs"] = inputs
         if outputs is not None:
-            candidates["outputs"] = outputs
-        # Only pass kwargs the scorer's __call__ accepts — builtin scorers have
-        # varying signatures (e.g. Safety only accepts outputs, not inputs).
-        try:
-            sig = inspect.signature(self.scorer.__call__)
-            accepted = set(sig.parameters)
-        except (TypeError, ValueError):
-            accepted = set(candidates)
-        return self.scorer(**{k: v for k, v in candidates.items() if k in accepted})
+            kwargs["outputs"] = outputs
+        return self.scorer(**kwargs)
 
     def _is_passing(self, result: ScorerResult) -> bool:
         """Determine whether the judge result indicates a pass.
