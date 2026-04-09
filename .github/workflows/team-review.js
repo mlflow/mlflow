@@ -108,7 +108,7 @@ function updateStats(stats, selectedReviewers) {
   }
   stats.reviewCounts = Object.fromEntries(
     Object.keys(reviewCounts)
-      .sort()
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }))
       .map((k) => [k, reviewCounts[k]])
   );
   return stats;
