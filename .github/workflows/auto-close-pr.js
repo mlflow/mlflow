@@ -53,7 +53,10 @@ function hasIssueReference(body) {
   if (!body) return false;
   // Strip fenced and inline code blocks so references mentioned inside code
   // samples don't count.
-  const stripped = body.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+  const stripped = body
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/~~~[\s\S]*?~~~/g, "")
+    .replace(/`[^`\n]*`/g, "");
   // Match `#123`, `owner/repo#123`, or a GitHub issue/PR URL.
   const shortRef = /(?:[\w.-]+\/[\w.-]+)?#\d+/;
   const urlRef = /https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+/;
