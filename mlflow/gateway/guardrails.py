@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import asyncio
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -289,7 +290,7 @@ class JudgeGuardrail(Guardrail):
         if self.stage == GuardrailStage.AFTER:
             return request
 
-        result = self._invoke_judge(inputs=request)
+        result = await asyncio.to_thread(self._invoke_judge, inputs=request)
         return await self._enforce(request, ChatCompletionRequest, result, auth_headers)
 
     async def process_response(
@@ -301,7 +302,7 @@ class JudgeGuardrail(Guardrail):
         if self.stage == GuardrailStage.BEFORE:
             return response
 
-        result = self._invoke_judge(inputs=request, outputs=response)
+        result = await asyncio.to_thread(self._invoke_judge, inputs=request, outputs=response)
         return await self._enforce(response, ChatCompletionResponse, result, auth_headers)
 
     @classmethod
