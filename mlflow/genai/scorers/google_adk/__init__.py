@@ -29,6 +29,7 @@ Example usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any, ClassVar, Literal
@@ -404,6 +405,337 @@ class ResponseMatch(GoogleADKScorer):
             )
 
 
+_DEFAULT_JUDGE_MODEL = "gemini-2.5-flash"
+
+
+def _run_async(coro):
+    """Run an async coroutine from sync context."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            return pool.submit(asyncio.run, coro).result()
+    return asyncio.run(coro)
+
+
+@experimental(version="3.12.0")
+class ResponseEvaluation(GoogleADKScorer):
+    """
+    Evaluates response quality using an LLM judge.
+
+    Wraps ADK's ``FinalResponseMatchV2Evaluator`` which uses a judge model
+    to assess whether the agent's response matches the expected response.
+    Requires expected_response in expectations.
+
+    Args:
+        model: Judge model ID (default: "gemini-2.5-flash"). Supports any
+            model registered in ADK's LLMRegistry.
+        threshold: Score threshold for pass/fail (default: 0.5).
+        num_samples: Number of judge samples for majority voting (default: 5).
+    """
+
+    metric_name: ClassVar[str] = "ResponseEvaluation"
+
+    def __init__(
+        self,
+        model: str = _DEFAULT_JUDGE_MODEL,
+        threshold: float = _DEFAULT_THRESHOLD,
+        num_samples: int = 5,
+        **kwargs: Any,
+    ):
+        _check_adk_installed()
+        super().__init__(name=self.metric_name)
+        self._threshold = threshold
+        self._model = model
+        self._evaluator = _create_response_evaluation_evaluator(
+            threshold, model, num_samples
+        )
+
+    def __call__(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        assessment_source = AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id=self._model,
+        )
+
+        try:
+            reference = None
+            if expectations:
+                reference = (
+                    expectations.get("expected_response")
+                    or expectations.get("reference")
+                    or expectations.get("expected_output")
+                )
+
+            if reference is None:
+                raise MlflowException.invalid_parameter_value(
+                    "ResponseEvaluation scorer requires 'expected_response' "
+                    "or 'reference' in expectations."
+                )
+
+            actual_inv, expected_inv = _to_invocation(
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=trace,
+            )
+
+            result = _run_async(
+                self._evaluator.evaluate_invocations(
+                    actual_invocations=[actual_inv],
+                    expected_invocations=[expected_inv],
+                )
+            )
+
+            score = result.overall_score if result.overall_score is not None else 0.0
+            passed = score >= self._threshold
+
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES if passed else CategoricalRating.NO,
+                rationale=f"Response evaluation score: {score:.2f} "
+                f"(threshold: {self._threshold})",
+                source=assessment_source,
+                metadata={
+                    "score": score,
+                    "threshold": self._threshold,
+                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
+                },
+            )
+        except Exception as e:
+            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
+            return Feedback(
+                name=self.name,
+                error=e,
+                source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+            )
+
+
+@experimental(version="3.12.0")
+class Safety(GoogleADKScorer):
+    """
+    Evaluates response safety using an LLM judge.
+
+    Wraps ADK's ``SafetyEvaluatorV1`` which uses a judge model to assess
+    whether the agent's response is safe and free of harmful content.
+
+    Args:
+        model: Judge model ID (default: "gemini-2.5-flash").
+        threshold: Score threshold for pass/fail (default: 0.5).
+        num_samples: Number of judge samples for majority voting (default: 5).
+    """
+
+    metric_name: ClassVar[str] = "Safety"
+
+    def __init__(
+        self,
+        model: str = _DEFAULT_JUDGE_MODEL,
+        threshold: float = _DEFAULT_THRESHOLD,
+        num_samples: int = 5,
+        **kwargs: Any,
+    ):
+        _check_adk_installed()
+        super().__init__(name=self.metric_name)
+        self._threshold = threshold
+        self._model = model
+        self._evaluator = _create_safety_evaluator(threshold, model, num_samples)
+
+    def __call__(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        assessment_source = AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id=self._model,
+        )
+
+        try:
+            actual_inv, expected_inv = _to_invocation(
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=trace,
+            )
+
+            result = self._evaluator.evaluate_invocations(
+                actual_invocations=[actual_inv],
+                expected_invocations=[expected_inv],
+            )
+
+            score = result.overall_score if result.overall_score is not None else 0.0
+            passed = score >= self._threshold
+
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES if passed else CategoricalRating.NO,
+                rationale=f"Safety score: {score:.2f} (threshold: {self._threshold})",
+                source=assessment_source,
+                metadata={
+                    "score": score,
+                    "threshold": self._threshold,
+                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
+                },
+            )
+        except Exception as e:
+            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
+            return Feedback(
+                name=self.name,
+                error=e,
+                source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+            )
+
+
+@experimental(version="3.12.0")
+class Hallucination(GoogleADKScorer):
+    """
+    Evaluates response factual grounding using an LLM judge.
+
+    Wraps ADK's ``HallucinationsV1Evaluator`` which uses a judge model to
+    assess whether the agent's response contains hallucinated content.
+
+    Args:
+        model: Judge model ID (default: "gemini-2.5-flash").
+        threshold: Score threshold for pass/fail (default: 0.5).
+        num_samples: Number of judge samples for majority voting (default: 5).
+    """
+
+    metric_name: ClassVar[str] = "Hallucination"
+
+    def __init__(
+        self,
+        model: str = _DEFAULT_JUDGE_MODEL,
+        threshold: float = _DEFAULT_THRESHOLD,
+        num_samples: int = 5,
+        **kwargs: Any,
+    ):
+        _check_adk_installed()
+        super().__init__(name=self.metric_name)
+        self._threshold = threshold
+        self._model = model
+        self._evaluator = _create_hallucination_evaluator(
+            threshold, model, num_samples
+        )
+
+    def __call__(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        assessment_source = AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id=self._model,
+        )
+
+        try:
+            actual_inv, expected_inv = _to_invocation(
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=trace,
+            )
+
+            result = _run_async(
+                self._evaluator.evaluate_invocations(
+                    actual_invocations=[actual_inv],
+                    expected_invocations=[expected_inv],
+                )
+            )
+
+            score = result.overall_score if result.overall_score is not None else 0.0
+            passed = score >= self._threshold
+
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES if passed else CategoricalRating.NO,
+                rationale=f"Hallucination score: {score:.2f} "
+                f"(threshold: {self._threshold})",
+                source=assessment_source,
+                metadata={
+                    "score": score,
+                    "threshold": self._threshold,
+                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
+                },
+            )
+        except Exception as e:
+            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
+            return Feedback(
+                name=self.name,
+                error=e,
+                source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+            )
+
+
+def _create_llm_judge_criterion(threshold: float, model: str, num_samples: int):
+    from google.adk.evaluation.eval_metrics import JudgeModelOptions, LlmAsAJudgeCriterion
+
+    judge_opts = JudgeModelOptions(judge_model=model, num_samples=num_samples)
+    return LlmAsAJudgeCriterion(threshold=threshold, judge_model_options=judge_opts)
+
+
+def _create_response_evaluation_evaluator(
+    threshold: float, model: str, num_samples: int
+):
+    from google.adk.evaluation.eval_metrics import EvalMetric
+    from google.adk.evaluation.final_response_match_v2 import (
+        FinalResponseMatchV2Evaluator,
+    )
+
+    criterion = _create_llm_judge_criterion(threshold, model, num_samples)
+    eval_metric = EvalMetric(
+        metric_name="final_response_match_v2",
+        threshold=threshold,
+        criterion=criterion,
+    )
+    return FinalResponseMatchV2Evaluator(eval_metric=eval_metric)
+
+
+def _create_safety_evaluator(threshold: float, model: str, num_samples: int):
+    from google.adk.evaluation.eval_metrics import EvalMetric
+    from google.adk.evaluation.safety_evaluator import SafetyEvaluatorV1
+
+    criterion = _create_llm_judge_criterion(threshold, model, num_samples)
+    eval_metric = EvalMetric(
+        metric_name="safety_evaluator_v1",
+        threshold=threshold,
+        criterion=criterion,
+    )
+    return SafetyEvaluatorV1(eval_metric=eval_metric)
+
+
+def _create_hallucination_evaluator(threshold: float, model: str, num_samples: int):
+    from google.adk.evaluation.eval_metrics import EvalMetric
+    from google.adk.evaluation.hallucinations_v1 import HallucinationsV1Evaluator
+
+    criterion = _create_llm_judge_criterion(threshold, model, num_samples)
+    eval_metric = EvalMetric(
+        metric_name="hallucinations_v1",
+        threshold=threshold,
+        criterion=criterion,
+    )
+    return HallucinationsV1Evaluator(eval_metric=eval_metric)
+
+
 def _create_trajectory_evaluator(threshold: float, match_type: str):
     from google.adk.evaluation.eval_metrics import EvalMetric, ToolTrajectoryCriterion
     from google.adk.evaluation.trajectory_evaluator import TrajectoryEvaluator
@@ -463,21 +795,30 @@ def get_scorer(
             scorer = get_scorer("ToolTrajectory", match_type="IN_ORDER", threshold=0.5)
             scorer = get_scorer("ResponseMatch", threshold=0.7)
     """
-    match metric_name:
-        case "ToolTrajectory":
-            return ToolTrajectory(**kwargs)
-        case "ResponseMatch":
-            return ResponseMatch(**kwargs)
-        case _:
-            raise MlflowException.invalid_parameter_value(
-                f"Unknown Google ADK metric '{metric_name}'. "
-                "Available metrics: ['ToolTrajectory', 'ResponseMatch']"
-            )
+    _registry = {
+        "ToolTrajectory": ToolTrajectory,
+        "ResponseMatch": ResponseMatch,
+        "ResponseEvaluation": ResponseEvaluation,
+        "Safety": Safety,
+        "Hallucination": Hallucination,
+    }
+
+    if metric_name not in _registry:
+        raise MlflowException.invalid_parameter_value(
+            f"Unknown Google ADK metric '{metric_name}'. "
+            f"Available metrics: {sorted(_registry.keys())}"
+        )
+    return _registry[metric_name](**kwargs)
 
 
 __all__ = [
     "GoogleADKScorer",
+    # Deterministic scorers
     "ResponseMatch",
     "ToolTrajectory",
+    # LLM judge scorers
+    "Hallucination",
+    "ResponseEvaluation",
+    "Safety",
     "get_scorer",
 ]
