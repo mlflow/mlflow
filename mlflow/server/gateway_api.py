@@ -160,12 +160,24 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 raise
             finally:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
+                provider_duration = int(provider_call_duration_ms.get())
                 params = {
                     "is_streaming": isinstance(result, StreamingResponse),
                     "invocation_type": invocation_type,
+                    "provider_duration_ms": provider_duration,
+                    "gateway_overhead_ms": max(0, duration_ms - provider_duration),
                 }
                 if caller:
                     params["caller"] = caller
+                if request is not None:
+                    params["has_traceparent"] = request.headers.get("traceparent") is not None
+                    params["auth_enabled"] = (
+                        getattr(request.state, "user_id", None) is not None
+                    )
+                    if endpoint_id := getattr(request.state, "endpoint_id", None):
+                        params["endpoint_id"] = endpoint_id
+                    if provider := getattr(request.state, "provider", None):
+                        params["provider"] = provider
                 _record_event(
                     GatewayInvocationEvent,
                     params=params,
@@ -563,6 +575,9 @@ async def invocations(endpoint_name: str, request: Request):
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, endpoint_type
         )
+        request.state.endpoint_id = endpoint_config.endpoint_id
+        if endpoint_config.models:
+            request.state.provider = str(endpoint_config.models[0].provider)
 
         if payload.stream:
             stream = maybe_traced_gateway_call(
@@ -599,6 +614,9 @@ async def invocations(endpoint_name: str, request: Request):
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, endpoint_type
         )
+        request.state.endpoint_id = endpoint_config.endpoint_id
+        if endpoint_config.models:
+            request.state.provider = str(endpoint_config.models[0].provider)
 
         return await maybe_traced_gateway_call(
             provider.embeddings,
@@ -655,6 +673,10 @@ async def chat_completions(request: Request):
         payload = chat.RequestPayload(**body)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
+
+    request.state.endpoint_id = endpoint_config.endpoint_id
+    if endpoint_config.models:
+        request.state.provider = str(endpoint_config.models[0].provider)
 
     if payload.stream:
         stream = maybe_traced_gateway_call(
@@ -716,6 +738,9 @@ async def openai_passthrough_chat(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    request.state.endpoint_id = endpoint_config.endpoint_id
+    if endpoint_config.models:
+        request.state.provider = str(endpoint_config.models[0].provider)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -783,6 +808,9 @@ async def openai_passthrough_embeddings(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    request.state.endpoint_id = endpoint_config.endpoint_id
+    if endpoint_config.models:
+        request.state.provider = str(endpoint_config.models[0].provider)
 
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
@@ -832,6 +860,9 @@ async def openai_passthrough_responses(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    request.state.endpoint_id = endpoint_config.endpoint_id
+    if endpoint_config.models:
+        request.state.provider = str(endpoint_config.models[0].provider)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -903,6 +934,9 @@ async def anthropic_passthrough_messages(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    request.state.endpoint_id = endpoint_config.endpoint_id
+    if endpoint_config.models:
+        request.state.provider = str(endpoint_config.models[0].provider)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -974,6 +1008,9 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    request.state.endpoint_id = endpoint_config.endpoint_id
+    if endpoint_config.models:
+        request.state.provider = str(endpoint_config.models[0].provider)
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
         endpoint_config,
@@ -1022,6 +1059,9 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    request.state.endpoint_id = endpoint_config.endpoint_id
+    if endpoint_config.models:
+        request.state.provider = str(endpoint_config.models[0].provider)
 
     stream = await provider.passthrough(
         action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload=body, headers=headers

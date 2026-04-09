@@ -568,6 +568,10 @@ class GatewayInvocationEvent(Event):
     name: str = "gateway_invocation"
 
 
+class GatewayBudgetExceededEvent(Event):
+    name: str = "gateway_budget_exceeded"
+
+
 class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
 
