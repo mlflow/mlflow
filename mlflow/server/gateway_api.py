@@ -536,12 +536,6 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
     return endpoint_name
 
 
-_load_guardrails = load_guardrails
-_extract_auth_headers = extract_auth_headers
-_run_before_guardrails = run_before_guardrails
-_run_after_guardrails = run_after_guardrails
-
-
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
 @_record_gateway_invocation(GatewayInvocationType.MLFLOW_INVOCATIONS)
@@ -565,8 +559,8 @@ async def invocations(endpoint_name: str, request: Request):
     check_budget_limit(store, endpoint_config, workspace=workspace)
     # Skip guardrails for internal sanitization calls to prevent recursive loops.
     bypass = _SANITIZE_BYPASS_HEADER in headers
-    guardrails = [] if bypass else _load_guardrails(store, endpoint_config, request)
-    auth_headers = _extract_auth_headers(headers)
+    guardrails = [] if bypass else load_guardrails(store, endpoint_config, request)
+    auth_headers = extract_auth_headers(headers)
 
     # Detect request type based on payload structure
     if "messages" in body:
@@ -578,7 +572,7 @@ async def invocations(endpoint_name: str, request: Request):
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
         try:
-            body = await _run_before_guardrails(
+            body = await run_before_guardrails(
                 guardrails, payload.model_dump(), auth_headers=auth_headers
             )
             payload = chat.RequestPayload(**body)
@@ -614,7 +608,7 @@ async def invocations(endpoint_name: str, request: Request):
                 on_complete=make_budget_on_complete(store, workspace),
             )(payload)
             try:
-                return await _run_after_guardrails(
+                return await run_after_guardrails(
                     guardrails, body, response, auth_headers=auth_headers
                 )
             except GuardrailViolation as e:
@@ -684,8 +678,8 @@ async def chat_completions(request: Request):
     check_budget_limit(store, endpoint_config, workspace=workspace)
     # Skip guardrails for internal sanitization calls to prevent recursive loops.
     bypass = _SANITIZE_BYPASS_HEADER in headers
-    guardrails = [] if bypass else _load_guardrails(store, endpoint_config, request)
-    auth_headers = _extract_auth_headers(headers)
+    guardrails = [] if bypass else load_guardrails(store, endpoint_config, request)
+    auth_headers = extract_auth_headers(headers)
 
     try:
         payload = chat.RequestPayload(**body)
@@ -693,7 +687,7 @@ async def chat_completions(request: Request):
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
     try:
-        body = await _run_before_guardrails(
+        body = await run_before_guardrails(
             guardrails, payload.model_dump(), auth_headers=auth_headers
         )
         payload = chat.RequestPayload(**body)
@@ -725,9 +719,7 @@ async def chat_completions(request: Request):
             on_complete=make_budget_on_complete(store, workspace),
         )(payload)
         try:
-            return await _run_after_guardrails(
-                guardrails, body, response, auth_headers=auth_headers
-            )
+            return await run_after_guardrails(guardrails, body, response, auth_headers=auth_headers)
         except GuardrailViolation as e:
             raise HTTPException(status_code=400, detail=str(e))
 
