@@ -443,10 +443,6 @@
     "defaultMessage": "No endpoints found",
     "description": "Empty state title when filter returns no results"
   },
-  "0sy/fq": {
-    "defaultMessage": "Create API key",
-    "description": "Gateway > API keys page > Create API key button"
-  },
   "0tU5gv": {
     "defaultMessage": "Cancel",
     "description": "Cancel text to cancel the flow to copy the model"
@@ -522,6 +518,10 @@
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
+  },
+  "1RAM3C": {
+    "defaultMessage": "Failed to delete some API keys. Please try again.",
+    "description": "Gateway > Bulk delete API keys modal > Error message"
   },
   "1RxxTj": {
     "defaultMessage": "(Version {sourceModelVersion})",
@@ -1065,6 +1065,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5LORfM": {
+    "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
+    "description": "Tooltip explaining why key name field is disabled in drawer edit"
   },
   "5Mzn2b": {
     "defaultMessage": "Creator",
@@ -1625,10 +1629,6 @@
   "8hpS0b": {
     "defaultMessage": "Pin group",
     "description": "A tooltip for the pin icon button in the runs table next to the not pinned run group"
-  },
-  "8iJrii": {
-    "defaultMessage": "Edit API Key",
-    "description": "Gateway > API key details drawer > Edit API key button"
   },
   "8ikgws": {
     "defaultMessage": "Turn {turnNumber}",
@@ -2781,6 +2781,10 @@
   "G0gYkS": {
     "defaultMessage": "End Time:",
     "description": "Row title for the end time of runs on the experiment compare runs page"
+  },
+  "G2zMpZ": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Gateway > API keys list > Delete button with count"
   },
   "G4CVdi": {
     "defaultMessage": "Persona",
@@ -4405,10 +4409,6 @@
     "defaultMessage": "Advanced settings (optional)",
     "description": "Toggle button for advanced settings in prompt creation modal"
   },
-  "R2NKiZ": {
-    "defaultMessage": "Config",
-    "description": "Auth config label"
-  },
   "R3Lb6z": {
     "defaultMessage": "The requested resource was not found.",
     "description": "Resource not found (HTTP STATUS 404) generic error message"
@@ -4712,10 +4712,6 @@
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
-  },
-  "T6s9Mi": {
-    "defaultMessage": "Delete API Key",
-    "description": "Gateway > API key details drawer > Delete API key button"
   },
   "TBX+Gs": {
     "defaultMessage": "Add/Edit tags",
@@ -5387,6 +5383,10 @@
   "XHKE0m": {
     "defaultMessage": "Latency",
     "description": "Label for the total latency metric in chat session metrics"
+  },
+  "XHnDJe": {
+    "defaultMessage": "Delete {count, plural, one {# API Key} other {# API Keys}}",
+    "description": "Gateway > Bulk delete API keys modal > Title"
   },
   "XIWwOm": {
     "defaultMessage": "Session ID",
@@ -6191,10 +6191,6 @@
     "defaultMessage": "Maximum number of language tokens returned from evaluation.",
     "description": "Experiment page > prompt lab > max tokens parameter help text"
   },
-  "cGGc0A": {
-    "defaultMessage": "Delete API key",
-    "description": "Gateway > API key details drawer > Delete API key button aria label"
-  },
   "cHV5jh": {
     "defaultMessage": "Resources using this key via endpoints",
     "description": "Gateway > Bindings using key drawer > Subtitle"
@@ -6254,6 +6250,10 @@
   "cSSMIs": {
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
+  },
+  "cTe9VI": {
+    "defaultMessage": "Delete",
+    "description": "Gateway > API keys list > Delete button"
   },
   "cXhWaG": {
     "defaultMessage": "Select Model",
@@ -6507,6 +6507,10 @@
     "defaultMessage": "No metrics to display.",
     "description": "Text shown when there are no metrics to display"
   },
+  "eCleLG": {
+    "defaultMessage": "Failed to load API keys. Please check your connection and try again.",
+    "description": "Gateway > API keys list > Error loading API keys"
+  },
   "eDoQXM": {
     "defaultMessage": "Sort: Created",
     "description": "Label for the sort button in the logged model list page"
@@ -6562,6 +6566,10 @@
   "eSy6pz": {
     "defaultMessage": "Model *",
     "description": "Label for model selection (required)"
+  },
+  "eTrBz0": {
+    "defaultMessage": "The following {count, plural, one {API key} other {API keys}} will be deleted:",
+    "description": "Gateway > Bulk delete API keys modal > Description"
   },
   "eUUNCv": {
     "defaultMessage": "Error during metric page load: invalid URL",
@@ -7203,6 +7211,10 @@
     "defaultMessage": "Select scope",
     "description": "Label for the scorer evaluation scope/level selection (either traces or sessions)"
   },
+  "iQP9Gm": {
+    "defaultMessage": "Edit API Key",
+    "description": "Title for the API key edit drawer"
+  },
   "iQzwqe": {
     "defaultMessage": "Min",
     "description": "Column title for the column displaying the minimum metric values for a metric"
@@ -7330,10 +7342,6 @@
   "j8JWDD": {
     "defaultMessage": "Enter issue description",
     "description": "Placeholder text for issue description field"
-  },
-  "jA7Y1x": {
-    "defaultMessage": "Edit API key",
-    "description": "Gateway > API keys list > Edit API key button aria label"
   },
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
@@ -7978,6 +7986,10 @@
   "n24ICT": {
     "defaultMessage": "Close",
     "description": "Button for closing modal with the logged models quickstart example code"
+  },
+  "n4on5x": {
+    "defaultMessage": "Create",
+    "description": "Gateway > API keys list > Create button"
   },
   "n6SrIn": {
     "defaultMessage": "Edit history",
@@ -8723,10 +8735,6 @@
     "defaultMessage": "Dataset",
     "description": "Header title for the dataset column in the logged model list table"
   },
-  "rq7u9r": {
-    "defaultMessage": "Delete API key",
-    "description": "Gateway > API keys list > Delete API key button aria label"
-  },
   "rs7Iic": {
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
@@ -8762,6 +8770,10 @@
   "s35HDG": {
     "defaultMessage": "Used by {runNames} {hasMore, select, true {and other runs} other {}}",
     "description": "Experiment page > artifact compare view > label indicating which runs are using particular input field"
+  },
+  "s3vONV": {
+    "defaultMessage": "{count, plural, one {# API key is} other {# API keys are}} currently in use by endpoints. Deleting will require attaching different keys to continue using those endpoints.",
+    "description": "Gateway > Bulk delete API keys modal > Endpoints warning"
   },
   "s4TBi3": {
     "defaultMessage": "Columns",
@@ -9238,6 +9250,10 @@
   "vQa9lQ": {
     "defaultMessage": "Experiment type",
     "description": "Label for the experiment type selector in the experiment view header"
+  },
+  "vSI23W": {
+    "defaultMessage": "Provider cannot be changed. Create a new key if a different provider is needed.",
+    "description": "Tooltip explaining why provider field is disabled in drawer edit"
   },
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",

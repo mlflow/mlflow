@@ -121,8 +121,6 @@ describe('useApiKeysPage', () => {
 
     expect(result.current.isCreateModalOpen).toBe(false);
     expect(result.current.isDetailsDrawerOpen).toBe(false);
-    expect(result.current.isEditModalOpen).toBe(false);
-    expect(result.current.isDeleteModalOpen).toBe(false);
     expect(result.current.isEndpointsDrawerOpen).toBe(false);
     expect(result.current.isBindingsDrawerOpen).toBe(false);
   });
@@ -187,75 +185,14 @@ describe('useApiKeysPage', () => {
     expect(result.current.selectedSecret).toBeNull();
   });
 
-  test('handleEditClick opens edit modal with secret', () => {
+  test('handleEditSuccess refetches secrets', () => {
     const { result } = renderHook(() => useApiKeysPage(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.handleEditClick(mockSecret);
+      result.current.handleEditSuccess();
     });
 
-    expect(result.current.isEditModalOpen).toBe(true);
-    expect(result.current.editingSecret).toEqual(mockSecret);
-  });
-
-  test('handleEditModalClose closes edit modal', () => {
-    const { result } = renderHook(() => useApiKeysPage(), { wrapper: createWrapper() });
-
-    act(() => {
-      result.current.handleEditClick(mockSecret);
-    });
-    expect(result.current.isEditModalOpen).toBe(true);
-
-    act(() => {
-      result.current.handleEditModalClose();
-    });
-    expect(result.current.isEditModalOpen).toBe(false);
-    expect(result.current.editingSecret).toBeNull();
-  });
-
-  test('handleDeleteClick opens delete modal with data', () => {
-    const { result } = renderHook(() => useApiKeysPage(), { wrapper: createWrapper() });
-
-    act(() => {
-      result.current.handleDeleteClick(mockSecret, mockModelDefinitions, mockEndpoints, 1);
-    });
-
-    expect(result.current.isDeleteModalOpen).toBe(true);
-    expect(result.current.deleteModalData).toEqual({
-      secret: mockSecret,
-      modelDefinitions: mockModelDefinitions,
-      endpoints: mockEndpoints,
-      bindingCount: 1,
-    });
-  });
-
-  test('handleDeleteFromDrawer computes model definitions, endpoints, and binding count', () => {
-    const { result } = renderHook(() => useApiKeysPage(), { wrapper: createWrapper() });
-
-    act(() => {
-      result.current.handleDeleteFromDrawer(mockSecret);
-    });
-
-    expect(result.current.isDeleteModalOpen).toBe(true);
-    expect(result.current.deleteModalData?.secret).toEqual(mockSecret);
-    expect(result.current.deleteModalData?.modelDefinitions).toEqual(mockModelDefinitions);
-    expect(result.current.deleteModalData?.endpoints).toEqual(mockEndpoints);
-    expect(result.current.deleteModalData?.bindingCount).toBe(1);
-  });
-
-  test('handleDeleteModalClose closes delete modal', () => {
-    const { result } = renderHook(() => useApiKeysPage(), { wrapper: createWrapper() });
-
-    act(() => {
-      result.current.handleDeleteClick(mockSecret, [], [], 0);
-    });
-    expect(result.current.isDeleteModalOpen).toBe(true);
-
-    act(() => {
-      result.current.handleDeleteModalClose();
-    });
-    expect(result.current.isDeleteModalOpen).toBe(false);
-    expect(result.current.deleteModalData).toBeNull();
+    expect(mockRefetchSecrets).toHaveBeenCalled();
   });
 
   test('handleDeleteSuccess refetches all data', async () => {

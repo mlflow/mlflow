@@ -40,11 +40,19 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       if (secret.auth_config?.['auth_mode']) {
         authMode = String(secret.auth_config['auth_mode']);
       }
+      const existingConfigFields: Record<string, string> = {};
+      if (secret.auth_config) {
+        for (const [key, value] of Object.entries(secret.auth_config)) {
+          if (key !== 'auth_mode') {
+            existingConfigFields[key] = String(value);
+          }
+        }
+      }
       setFormData({
         name: secret.secret_name,
         authMode,
         secretFields: {},
-        configFields: {},
+        configFields: existingConfigFields,
       });
       setErrors({});
       resetMutationRef.current();
