@@ -161,11 +161,15 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
   }, [secret, validateForm, formData, selectedAuthMode, updateSecret, handleClose, onSuccess]);
 
   const isFormValid = useMemo(() => {
-    const requiredSecretFields = selectedAuthMode?.secret_fields?.filter((f) => f.required) ?? [];
-    const allRequiredSecretsProvided = requiredSecretFields.every((field) =>
-      Boolean(formData.secretFields[field.name]?.trim()),
-    );
-    if (!allRequiredSecretsProvided) return false;
+    // When editing an existing secret, required secret fields are optional
+    // (empty means "keep existing value on the backend")
+    if (!secret) {
+      const requiredSecretFields = selectedAuthMode?.secret_fields?.filter((f) => f.required) ?? [];
+      const allRequiredSecretsProvided = requiredSecretFields.every((field) =>
+        Boolean(formData.secretFields[field.name]?.trim()),
+      );
+      if (!allRequiredSecretsProvided) return false;
+    }
 
     const requiredConfigFields = selectedAuthMode?.config_fields?.filter((f) => f.required) ?? [];
     const allRequiredConfigsProvided = requiredConfigFields.every((field) =>
@@ -174,7 +178,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     if (!allRequiredConfigsProvided) return false;
 
     return true;
-  }, [formData.secretFields, formData.configFields, selectedAuthMode]);
+  }, [secret, formData.secretFields, formData.configFields, selectedAuthMode]);
 
   return {
     formData,
