@@ -138,12 +138,16 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
         auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
       });
 
-      handleClose();
+      // Update initial state to match saved values so isDirty resets,
+      // but keep form populated (don't reset to empty like handleClose does)
+      setInitialFormData(formData);
+      setErrors({});
+      resetMutation();
       onSuccess?.();
     } catch {
       // Error is handled by mutation state
     }
-  }, [secret, validateForm, formData, selectedAuthMode, updateSecret, handleClose, onSuccess]);
+  }, [secret, validateForm, formData, selectedAuthMode, updateSecret, resetMutation, onSuccess]);
 
   const isDirty = useMemo(() => {
     if (JSON.stringify(formData.secretFields) !== JSON.stringify(initialFormData.secretFields)) return true;
