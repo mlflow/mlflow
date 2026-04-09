@@ -1070,6 +1070,10 @@
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
     "description": "Tooltip explaining why key name field is disabled in drawer edit"
   },
+  "5Mzdx4": {
+    "defaultMessage": "{count, plural, one {# resource} other {# resources}}",
+    "description": "Gateway > API keys list > Used by column binding count"
+  },
   "5Mzn2b": {
     "defaultMessage": "Creator",
     "description": "Label name for creator metadata in model version page"

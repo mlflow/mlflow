@@ -366,7 +366,11 @@ export const ApiKeysList = ({
                     >
                       <LinkIcon css={{ color: theme.colors.textSecondary, fontSize: 14 }} />
                       <Typography.Text css={{ color: 'inherit' }}>
-                        {bindingCount} {bindingCount === 1 ? 'resource' : 'resources'}
+                        <FormattedMessage
+                          defaultMessage="{count, plural, one {# resource} other {# resources}}"
+                          description="Gateway > API keys list > Used by column binding count"
+                          values={{ count: bindingCount }}
+                        />
                       </Typography.Text>
                     </button>
                   ) : (

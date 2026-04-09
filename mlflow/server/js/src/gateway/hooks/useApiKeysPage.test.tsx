@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-c
 import { useApiKeysPage } from './useApiKeysPage';
 import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../types';
 
-const mockRefetchSecrets = jest.fn<() => Promise<{ data: SecretInfo[] }>>();
+const mockRefetchSecrets = jest.fn<() => Promise<{ data: { secrets: SecretInfo[] } }>>();
 const mockRefetchEndpoints = jest.fn<() => Promise<{ data: Endpoint[] }>>();
 const mockRefetchModelDefinitions = jest.fn<() => Promise<{ data: ModelDefinition[] }>>();
 
@@ -107,7 +107,7 @@ const mockSecret: SecretInfo = {
 describe('useApiKeysPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRefetchSecrets.mockResolvedValue({ data: [] });
+    mockRefetchSecrets.mockResolvedValue({ data: { secrets: [] } });
     mockRefetchEndpoints.mockResolvedValue({ data: mockEndpoints });
     mockRefetchModelDefinitions.mockResolvedValue({ data: mockModelDefinitions });
   });
@@ -185,14 +185,25 @@ describe('useApiKeysPage', () => {
     expect(result.current.selectedSecret).toBeNull();
   });
 
-  test('handleEditSuccess refetches secrets', () => {
+  test('handleEditSuccess refetches and updates selectedSecret', async () => {
+    const updatedSecret = { ...mockSecret, secret_name: 'updated-key', last_updated_at: 2000 };
+    mockRefetchSecrets.mockResolvedValue({ data: { secrets: [updatedSecret] } });
+
     const { result } = renderHook(() => useApiKeysPage(), { wrapper: createWrapper() });
 
+    // Open drawer first so selectedSecret is set
     act(() => {
-      result.current.handleEditSuccess();
+      result.current.handleKeyClick(mockSecret);
+    });
+    expect(result.current.selectedSecret).toEqual(mockSecret);
+
+    // Call handleEditSuccess which refetches and updates selectedSecret
+    await act(async () => {
+      await result.current.handleEditSuccess();
     });
 
     expect(mockRefetchSecrets).toHaveBeenCalled();
+    expect(result.current.selectedSecret).toEqual(updatedSecret);
   });
 
   test('handleDeleteSuccess refetches all data', async () => {
