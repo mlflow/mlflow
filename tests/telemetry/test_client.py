@@ -891,6 +891,7 @@ def test_warning_suppression_in_shutdown(recwarn, mock_telemetry_client: Telemet
         assert len(recwarn) == 0
 
 
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
 @pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
 def test_databricks_tracking_uri_scheme_does_not_use_oss_path(mock_requests, tracking_uri_scheme):
     record = Record(
@@ -914,6 +915,7 @@ def test_databricks_tracking_uri_scheme_does_not_use_oss_path(mock_requests, tra
         assert len(mock_requests) == 0
 
 
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
 @pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
 def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
     record = Record(
@@ -969,9 +971,8 @@ def test_forward_to_databricks_successful(tracking_uri_scheme):
                 return_value=tracking_uri_scheme,
             ),
         ):
-            result = client._forward_to_databricks([record])
+            client._forward_to_databricks([record])
 
-        assert result is True
         mock_http.assert_called_once()
         payload = mock_http.call_args.kwargs["json"]
         assert len(payload["events"]) == 1
@@ -1029,9 +1030,8 @@ def test_forward_to_databricks_unrecoverable_error_non_fatal(status_code):
                 return_value="databricks",
             ),
         ):
-            result = client._forward_to_databricks([record])
+            client._forward_to_databricks([record])
 
-        assert result is False
         assert not client._is_stopped
 
 
@@ -1054,9 +1054,8 @@ def test_forward_to_databricks_credential_failure_non_fatal():
                 return_value="databricks",
             ),
         ):
-            result = client._forward_to_databricks([record])
+            client._forward_to_databricks([record])
 
-        assert result is False
         assert not client._is_stopped
 
 
@@ -1086,9 +1085,8 @@ def test_forward_to_databricks_retries_on_retryable_error(error_code):
             ),
             mock.patch("mlflow.telemetry.client.time.sleep"),
         ):
-            result = client._forward_to_databricks([record])
+            client._forward_to_databricks([record])
 
-        assert result is True
         assert mock_http.call_count == 3
 
 

@@ -160,16 +160,18 @@ class TelemetryClient:
     def _fetch_config(self):
         def _fetch():
             try:
+                if self._is_databricks_uri():
+                    self._is_config_fetched = True
+                    return
                 self._get_config()
-                if self.config is None and not self._is_databricks_uri():
+                if self.config is None:
                     self._is_stopped = True
                     _set_telemetry_client(None)
                 self._is_config_fetched = True
             except Exception:
-                if not self._is_databricks_uri():
-                    self._is_stopped = True
-                    _set_telemetry_client(None)
+                self._is_stopped = True
                 self._is_config_fetched = True
+                _set_telemetry_client(None)
 
         self._config_thread = threading.Thread(
             target=_fetch,
@@ -290,22 +292,22 @@ class TelemetryClient:
                 for record in records
             ]
 
-            def send(timeout):
-                return requests.post(
+            response = self._send_with_retries(
+                lambda timeout: requests.post(
                     self.config.ingestion_url,
                     json={"records": records},
                     headers={"Content-Type": "application/json"},
                     timeout=timeout,
-                )
-
-            response = self._send_with_retries(send, request_timeout)
+                ),
+                request_timeout,
+            )
             if response and response.status_code in UNRECOVERABLE_ERRORS:
                 self._is_stopped = True
                 self.is_active = False
         except Exception as e:
             _log_error(f"Failed to send telemetry records: {e}")
 
-    def _forward_to_databricks(self, records: list[Record], request_timeout: float = 1) -> bool:
+    def _forward_to_databricks(self, records: list[Record], request_timeout: float = 1):
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
         from mlflow.utils.databricks_utils import get_databricks_host_creds
 
@@ -313,7 +315,7 @@ class TelemetryClient:
             creds = get_databricks_host_creds(get_tracking_uri())
         except Exception as e:
             _log_error(f"Failed to get Databricks credentials for telemetry: {e}")
-            return False
+            return
 
         events = []
         for record in records:
@@ -323,8 +325,8 @@ class TelemetryClient:
                 event["params_json"] = event.pop("params")
             events.append(event)
 
-        def send(timeout):
-            return http_request(
+        self._send_with_retries(
+            lambda timeout: http_request(
                 host_creds=creds,
                 endpoint="/api/2.0/mlflow/client-telemetry/ingest",
                 method="POST",
@@ -332,15 +334,13 @@ class TelemetryClient:
                 max_retries=0,
                 raise_on_status=False,
                 json={"events": events},
-            )
-
-        response = self._send_with_retries(send, request_timeout)
-        if response and 200 <= response.status_code < 300:
-            return True
-        return False
+            ),
+            request_timeout,
+        )
 
     def _send_with_retries(self, send_fn, request_timeout: float = 1):
-        max_attempts, sleep_time = 3, 1
+        max_attempts = 3
+        sleep_time = 1
         for i in range(max_attempts):
             response = None
             should_retry = False
