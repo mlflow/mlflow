@@ -7,6 +7,7 @@ import json
 import logging
 import math
 import random
+import re
 import threading
 import time
 import uuid
@@ -81,7 +82,8 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.entities.workspace import TraceArchivalConfig
+from mlflow.exceptions import MlflowException, MlflowTraceDataException, MlflowTracingException
 from mlflow.genai.judges.instructions_judge import (
     EXPECTATIONS_FIELD,
     InstructionsJudge,
@@ -110,6 +112,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.analytics import trace_correlation
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -162,6 +165,7 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     query_metrics,
     validate_query_trace_metrics_params,
 )
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.telemetry.events import UpdateIssueEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -170,10 +174,13 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     SpansLocation,
     TokenUsageKey,
+    TraceArchivalFailureReason,
+    TraceExperimentTagKey,
     TraceMetadataKey,
     TraceSizeStatsKey,
     TraceTagKey,
 )
+from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
 from mlflow.tracing.otel.translation import (
     translate_loaded_span,
     translate_span_when_storing,
@@ -183,6 +190,9 @@ from mlflow.tracing.otel.translation import (
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     generate_request_id_v2,
+)
+from mlflow.tracing.utils.artifact_utils import (
+    get_archive_uri_for_trace,
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -227,7 +237,7 @@ from mlflow.utils.validation import (
     _validate_tag,
     _validate_trace_tag,
 )
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
 
 _T = TypeVar("_T")
 
@@ -249,6 +259,98 @@ class DatasetFilter(TypedDict, total=False):
 
     dataset_name: str
     dataset_digest: str
+
+
+_TRACE_ARCHIVAL_DURATION_MULTIPLIER_MILLIS = {
+    "m": 60 * 1000,
+    "h": 60 * 60 * 1000,
+    "d": 24 * 60 * 60 * 1000,
+}
+_TRACE_ARCHIVAL_DURATION_PATTERN = re.compile(r"([1-9][0-9]*)([mhd])$")
+# Keep grouped experiment scans well below backend parameter limits (notably MSSQL's 2100).
+_TRACE_ARCHIVAL_EXPERIMENT_ID_CHUNK_SIZE = 1000
+
+
+@dataclass(frozen=True)
+class _ArchiveNowRequest:
+    older_than_millis: int | None
+
+
+@dataclass(frozen=True)
+class _ArchiveNowCleanupRequest:
+    experiment_id: str
+    raw_value: str
+    parsed_request: _ArchiveNowRequest
+
+
+@dataclass(frozen=True)
+class _TraceArchiveCandidate:
+    trace_id: str
+    experiment_id: str
+    timestamp_ms: int
+
+
+def _parse_trace_archival_duration_millis(value: str | None) -> int | None:
+    if value is None:
+        return None
+
+    match = _TRACE_ARCHIVAL_DURATION_PATTERN.fullmatch(value.strip())
+    if match is None:
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival retention must be in the form `<int><unit>`, "
+            "where unit is one of 'm', 'h', or 'd'."
+        )
+
+    amount, unit = match.groups()
+    return int(amount) * _TRACE_ARCHIVAL_DURATION_MULTIPLIER_MILLIS[unit]
+
+
+def _parse_archive_now_request(value: str | None) -> _ArchiveNowRequest | None:
+    if value is None:
+        return None
+
+    try:
+        payload = json.loads(value)
+    except Exception:
+        _logger.warning("Ignoring malformed trace archive-now tag value: %r", value)
+        return None
+
+    if not isinstance(payload, dict):
+        _logger.warning("Ignoring non-object trace archive-now tag value: %r", value)
+        return None
+
+    older_than = payload.get("older_than")
+    if older_than is None:
+        return _ArchiveNowRequest(older_than_millis=None)
+
+    try:
+        return _ArchiveNowRequest(
+            older_than_millis=_parse_trace_archival_duration_millis(older_than)
+        )
+    except MlflowException:
+        _logger.warning("Ignoring malformed trace archive-now older_than value: %r", older_than)
+        return None
+
+
+def _parse_experiment_trace_archival_retention_millis(value: str | None) -> int | None:
+    if value is None:
+        return None
+
+    try:
+        payload = json.loads(value)
+    except Exception:
+        _logger.warning("Ignoring malformed trace archival retention tag value: %r", value)
+        return None
+
+    if not isinstance(payload, dict) or payload.get("type") != "duration":
+        _logger.warning("Ignoring unsupported trace archival retention tag value: %r", value)
+        return None
+
+    try:
+        return _parse_trace_archival_duration_millis(payload.get("value"))
+    except MlflowException:
+        _logger.warning("Ignoring malformed trace archival retention duration: %r", value)
+        return None
 
 
 class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
@@ -3355,12 +3457,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 new_tag_keys = {t.key for t in tags}
                 if db_sql_trace_info:
+                    # Duplicate start_trace() calls must keep any store-managed tags already
+                    # attached to the trace, including archival state written after log_spans().
                     for tag in db_sql_trace_info.tags:
                         if tag.key not in new_tag_keys:
                             sql_trace_info.tags.append(
                                 SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
                             )
-                            break
+                            new_tag_keys.add(tag.key)
 
                     new_metric_keys = {m.key for m in sql_trace_info.metrics}
                     for metric in db_sql_trace_info.metrics:
@@ -4626,6 +4730,27 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .all()
             }
 
+            if existing_traces:
+                archived_trace_ids = sorted(
+                    request_id
+                    for (request_id,) in session
+                    .query(SqlTraceTag.request_id)
+                    .filter(
+                        SqlTraceTag.request_id.in_(list(existing_traces)),
+                        SqlTraceTag.key == TraceTagKey.SPANS_LOCATION,
+                        SqlTraceTag.value == SpansLocation.ARCHIVE_REPO.value,
+                    )
+                    .all()
+                )
+                if archived_trace_ids:
+                    archived_trace_list = ", ".join(
+                        f"'{trace_id}'" for trace_id in archived_trace_ids
+                    )
+                    raise MlflowException(
+                        f"Cannot log spans to archived traces: {archived_trace_list}.",
+                        error_code=INVALID_STATE,
+                    )
+
             # --- Phase 2: Create missing traces ---
             # On IntegrityError (concurrent start_trace race), roll back and retry so that
             # previously flushed trace_infos (which session.rollback() would undo) are
@@ -5050,9 +5175,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 trace_info = sql_trace_info.to_mlflow_entity()
                 # batch_get_traces is depended by search_traces, so we need to return
                 # complete traces only
-                if spans := self._get_spans_with_trace_info(
-                    trace_info, sql_trace_info.spans, allow_partial=False
-                ):
+                try:
+                    spans = self._get_spans_with_trace_info(
+                        trace_info, sql_trace_info.spans, allow_partial=False
+                    )
+                except MlflowTraceDataException as e:
+                    _logger.warning(
+                        "Skipping trace %s during batch_get_traces because its span data could "
+                        "not be loaded (%s).",
+                        trace_info.trace_id,
+                        getattr(e, "ctx", "unknown"),
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
+                    continue
+                if spans:
                     traces.append(Trace(info=trace_info, data=TraceData(spans=spans)))
 
             return traces
@@ -5088,15 +5224,728 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
 
+    def archive_traces(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+        long_retention_allowlist: set[str] | list[str] | None = None,
+        max_traces: int = 100,
+    ) -> int:
+        if max_traces <= 0:
+            raise MlflowException.invalid_parameter_value(
+                f"`max_traces` must be a positive integer, received {max_traces}."
+            )
+        if not default_trace_archival_location:
+            raise MlflowException.invalid_parameter_value(
+                "`default_trace_archival_location` must be provided."
+            )
+        if not default_retention:
+            raise MlflowException.invalid_parameter_value("`default_retention` must be provided.")
+
+        now_millis = self._get_archive_traces_now_millis()
+        long_retention_allowlist = {
+            str(experiment_id) for experiment_id in long_retention_allowlist or []
+        }
+        trace_archival_config = self._resolve_trace_archival_config(
+            default_trace_archival_location=default_trace_archival_location,
+            default_retention=default_retention,
+        )
+        # The public API already required broader-scope defaults, so `None` here means config
+        # resolution dropped a caller-provided value instead of preserving or overriding it.
+        if trace_archival_config.config.location is None:
+            raise MlflowException(
+                "Trace archival config resolution returned no archival location.",
+                error_code=INTERNAL_ERROR,
+            )
+        if trace_archival_config.config.retention is None:
+            raise MlflowException(
+                "Trace archival config resolution returned no archival retention.",
+                error_code=INTERNAL_ERROR,
+            )
+        broader_retention_millis = _parse_trace_archival_duration_millis(
+            trace_archival_config.config.retention
+        )
+
+        with self.ManagedSessionMaker() as session:
+            archive_now_requests: list[_ArchiveNowCleanupRequest] = []
+            # Group archive-now experiments by cutoff so experiments requesting the same urgency
+            # can share a candidate query instead of scanning one experiment at a time.
+            archive_now_cutoff_groups: dict[int | None, list[str]] = defaultdict(list)
+            regular_cutoff_groups: dict[int, list[str]] = defaultdict(list)
+            for experiment_id, experiment_tags in self._get_active_experiment_trace_archival_tags(
+                session
+            ):
+                archive_now_raw = experiment_tags.get(TraceExperimentTagKey.ARCHIVE_NOW)
+                archive_now = _parse_archive_now_request(archive_now_raw)
+                if archive_now and archive_now_raw is not None:
+                    archive_now_requests.append(
+                        _ArchiveNowCleanupRequest(
+                            experiment_id=experiment_id,
+                            raw_value=archive_now_raw,
+                            parsed_request=archive_now,
+                        )
+                    )
+                    archive_now_cutoff_groups[
+                        now_millis - archive_now.older_than_millis
+                        if archive_now.older_than_millis is not None
+                        else None
+                    ].append(experiment_id)
+
+                retention_millis = self._resolve_effective_trace_archival_retention_millis(
+                    experiment_id=experiment_id,
+                    experiment_tags=experiment_tags,
+                    broader_retention_millis=broader_retention_millis,
+                    long_retention_allowlist=long_retention_allowlist,
+                )
+                archive_now_covers_retention = archive_now is not None and (
+                    archive_now.older_than_millis is None
+                    or archive_now.older_than_millis <= retention_millis
+                )
+                if retention_millis and not archive_now_covers_retention:
+                    regular_cutoff_groups[now_millis - retention_millis].append(experiment_id)
+
+            archive_now_candidates: list[_TraceArchiveCandidate] = []
+            for older_than_cutoff, experiment_ids in archive_now_cutoff_groups.items():
+                archive_now_candidates = self._merge_limited_trace_archive_candidates(
+                    archive_now_candidates,
+                    self._find_archivable_trace_candidates_for_experiments(
+                        session=session,
+                        experiment_ids=experiment_ids,
+                        max_timestamp_millis=older_than_cutoff,
+                        limit=max_traces,
+                    ),
+                    limit=max_traces,
+                )
+
+            regular_candidates: list[_TraceArchiveCandidate] = []
+            if len(archive_now_candidates) < max_traces:
+                for cutoff, experiment_ids in regular_cutoff_groups.items():
+                    regular_candidates = self._merge_limited_trace_archive_candidates(
+                        regular_candidates,
+                        self._find_archivable_trace_candidates_for_experiments(
+                            session=session,
+                            experiment_ids=experiment_ids,
+                            max_timestamp_millis=cutoff,
+                            limit=max_traces,
+                        ),
+                        limit=max_traces,
+                    )
+
+        candidates = self._dedupe_trace_archive_candidates(
+            archive_now_candidates, regular_candidates
+        )
+        archived_count = 0
+        try:
+            for candidate in candidates[:max_traces]:
+                try:
+                    if self._archive_trace_candidate(
+                        trace_id=candidate.trace_id,
+                        trace_archival_config=trace_archival_config,
+                    ):
+                        archived_count += 1
+                except Exception:
+                    _logger.warning(
+                        "Failed to archive trace %s; leaving it eligible for retry.",
+                        candidate.trace_id,
+                        exc_info=True,
+                    )
+        finally:
+            self._clear_completed_archive_now_requests(
+                archive_now_requests=archive_now_requests,
+                now_millis=now_millis,
+            )
+        return archived_count
+
+    def _get_archive_traces_now_millis(self) -> int:
+        return get_current_time_millis()
+
+    def _resolve_trace_archival_config(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+    ) -> ResolvedTraceArchivalConfig:
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_trace_archival_location,
+                retention=default_retention,
+            ),
+            append_workspace_prefix=False,
+        )
+
+    def _get_trace_archival_workspace_name(self) -> str | None:
+        return None
+
+    def _resolve_effective_trace_archival_retention_millis(
+        self,
+        *,
+        experiment_id: str,
+        experiment_tags: dict[str, str],
+        broader_retention_millis: int,
+        long_retention_allowlist: set[str],
+    ) -> int:
+        experiment_retention_millis = _parse_experiment_trace_archival_retention_millis(
+            experiment_tags.get(TraceExperimentTagKey.ARCHIVAL_RETENTION)
+        )
+        if experiment_retention_millis is None:
+            return broader_retention_millis
+
+        if experiment_retention_millis <= broader_retention_millis:
+            return experiment_retention_millis
+
+        if experiment_id in long_retention_allowlist:
+            return experiment_retention_millis
+
+        return broader_retention_millis
+
+    def _get_active_experiment_trace_archival_tags(
+        self, session: Session
+    ) -> list[tuple[str, dict[str, str]]]:
+        # Fetch active experiments with only the archival-related tags consulted by the scheduler.
+        # The outer join keeps experiments that inherit defaults, and the single query avoids both
+        # joined-loading unrelated tags and building a large Python-side IN list.
+        rows = (
+            self
+            ._get_query(session, SqlExperiment)
+            .outerjoin(
+                SqlExperimentTag,
+                and_(
+                    SqlExperimentTag.experiment_id == SqlExperiment.experiment_id,
+                    SqlExperimentTag.key.in_([
+                        TraceExperimentTagKey.ARCHIVE_NOW,
+                        TraceExperimentTagKey.ARCHIVAL_RETENTION,
+                    ]),
+                ),
+            )
+            .with_entities(
+                SqlExperiment.experiment_id, SqlExperimentTag.key, SqlExperimentTag.value
+            )
+            .filter(SqlExperiment.lifecycle_stage == LifecycleStage.ACTIVE)
+            .order_by(SqlExperiment.experiment_id.asc(), SqlExperimentTag.key.asc())
+            .all()
+        )
+
+        experiments: list[tuple[str, dict[str, str]]] = []
+        current_experiment_id: str | None = None
+        current_tags: dict[str, str] | None = None
+        for experiment_id, key, value in rows:
+            experiment_id = str(experiment_id)
+            if experiment_id != current_experiment_id:
+                current_experiment_id = experiment_id
+                current_tags = {}
+                experiments.append((experiment_id, current_tags))
+            if key is not None:
+                current_tags[key] = value
+
+        return experiments
+
+    @staticmethod
+    def _merge_limited_trace_archive_candidates(
+        existing_candidates: list[_TraceArchiveCandidate],
+        new_candidates: list[_TraceArchiveCandidate],
+        *,
+        limit: int,
+    ) -> list[_TraceArchiveCandidate]:
+        if limit <= 0:
+            return []
+        if not existing_candidates:
+            return new_candidates[:limit]
+        if not new_candidates:
+            return existing_candidates[:limit]
+
+        return sorted(
+            [*existing_candidates, *new_candidates],
+            key=lambda candidate: (candidate.timestamp_ms, candidate.trace_id),
+        )[:limit]
+
+    @staticmethod
+    def _dedupe_trace_archive_candidates(
+        archive_now_candidates: list[_TraceArchiveCandidate],
+        regular_candidates: list[_TraceArchiveCandidate],
+    ) -> list[_TraceArchiveCandidate]:
+        deduped: list[_TraceArchiveCandidate] = []
+        seen_trace_ids: set[str] = set()
+        for candidates in (
+            sorted(archive_now_candidates, key=lambda c: (c.timestamp_ms, c.trace_id)),
+            sorted(regular_candidates, key=lambda c: (c.timestamp_ms, c.trace_id)),
+        ):
+            for candidate in candidates:
+                if candidate.trace_id in seen_trace_ids:
+                    continue
+                deduped.append(candidate)
+                seen_trace_ids.add(candidate.trace_id)
+        return deduped
+
+    def _find_archivable_trace_candidates_for_experiments(
+        self,
+        *,
+        session: Session,
+        experiment_ids: list[str],
+        max_timestamp_millis: int | None,
+        limit: int | None = None,
+    ) -> list[_TraceArchiveCandidate]:
+        if not experiment_ids:
+            return []
+
+        spans_outside_tracking_store = exists().where(
+            and_(
+                SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                SqlTraceTag.key == TraceTagKey.SPANS_LOCATION,
+                SqlTraceTag.value != SpansLocation.TRACKING_STORE.value,
+            )
+        )
+        archival_failure_exists = exists().where(
+            and_(
+                SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                SqlTraceTag.key == TraceTagKey.ARCHIVAL_FAILURE,
+            )
+        )
+        non_empty_span_exists = exists().where(
+            and_(
+                SqlSpan.trace_id == SqlTraceInfo.request_id,
+                SqlSpan.content != "",
+            )
+        )
+
+        candidates: list[_TraceArchiveCandidate] = []
+        for chunk_start in range(0, len(experiment_ids), _TRACE_ARCHIVAL_EXPERIMENT_ID_CHUNK_SIZE):
+            # Query experiment ids in chunks to keep the SQL IN list bounded.
+            experiment_id_chunk = [
+                int(experiment_id)
+                for experiment_id in experiment_ids[
+                    chunk_start : chunk_start + _TRACE_ARCHIVAL_EXPERIMENT_ID_CHUNK_SIZE
+                ]
+            ]
+            statement = (
+                self
+                ._trace_query(session)
+                .with_entities(
+                    SqlTraceInfo.request_id, SqlTraceInfo.experiment_id, SqlTraceInfo.timestamp_ms
+                )
+                .filter(
+                    SqlTraceInfo.experiment_id.in_(experiment_id_chunk),
+                    SqlTraceInfo.status != TraceState.IN_PROGRESS.value,
+                    ~spans_outside_tracking_store,
+                    ~archival_failure_exists,
+                    non_empty_span_exists,
+                )
+                .order_by(SqlTraceInfo.timestamp_ms.asc(), SqlTraceInfo.request_id.asc())
+            )
+            if max_timestamp_millis is not None:
+                statement = statement.filter(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
+            if limit is not None:
+                statement = statement.limit(limit)
+
+            chunk_candidates = [
+                _TraceArchiveCandidate(
+                    trace_id=trace_id,
+                    experiment_id=str(experiment_id),
+                    timestamp_ms=timestamp_ms,
+                )
+                for trace_id, experiment_id, timestamp_ms in statement.all()
+            ]
+            if limit is None:
+                candidates.extend(chunk_candidates)
+            else:
+                candidates = self._merge_limited_trace_archive_candidates(
+                    candidates, chunk_candidates, limit=limit
+                )
+
+        if limit is None:
+            return sorted(
+                candidates, key=lambda candidate: (candidate.timestamp_ms, candidate.trace_id)
+            )
+        return candidates
+
+    def _archive_trace_candidate(
+        self,
+        *,
+        trace_id: str,
+        trace_archival_config: ResolvedTraceArchivalConfig,
+    ) -> bool:
+        from mlflow.exceptions import MlflowTraceArchivalMalformedTrace
+
+        snapshot = self._load_trace_archival_snapshot(trace_id)
+        if snapshot is None:
+            return False
+
+        trace_info, snapshot_rows = snapshot
+        try:
+            spans = self._deserialize_trace_archival_snapshot(snapshot_rows)
+        except MlflowTraceArchivalMalformedTrace:
+            _logger.warning("Marking trace %s as MALFORMED_TRACE during archival.", trace_id)
+            self._mark_trace_archival_failure(
+                trace_id=trace_id,
+                failure_reason=TraceArchivalFailureReason.MALFORMED_TRACE.value,
+            )
+            return False
+
+        artifact_uri = self._get_archival_repository_artifact_uri(
+            trace_info=trace_info,
+            trace_archival_config=trace_archival_config,
+        )
+        artifact_repo = get_artifact_repository(artifact_uri)
+
+        try:
+            artifact_repo.upload_archived_trace_data(TraceData(spans=spans))
+        except MlflowTraceArchivalMalformedTrace:
+            _logger.warning("Marking trace %s as MALFORMED_TRACE during archival.", trace_id)
+            self._mark_trace_archival_failure(
+                trace_id=trace_id,
+                failure_reason=TraceArchivalFailureReason.MALFORMED_TRACE.value,
+            )
+            return False
+        try:
+            finalized = self._finalize_archived_trace(
+                trace_id=trace_id,
+                snapshot_rows=snapshot_rows,
+                artifact_uri=artifact_uri,
+            )
+        except Exception:
+            self._delete_unreferenced_archived_trace_payload(
+                trace_id=trace_id,
+                artifact_uri=artifact_uri,
+                artifact_repo=artifact_repo,
+            )
+            raise
+
+        if not finalized:
+            self._delete_unreferenced_archived_trace_payload(
+                trace_id=trace_id,
+                artifact_uri=artifact_uri,
+                artifact_repo=artifact_repo,
+            )
+        return finalized
+
+    def _load_trace_archival_snapshot(
+        self, trace_id: str
+    ) -> tuple[TraceInfo, list[tuple[str, str]]] | None:
+        with self.ManagedSessionMaker() as session:
+            sql_trace_info = (
+                self
+                ._trace_query(session)
+                .options(joinedload(SqlTraceInfo.tags), joinedload(SqlTraceInfo.spans))
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .one_or_none()
+            )
+            if sql_trace_info is None:
+                return None
+
+            trace_info = sql_trace_info.to_mlflow_entity()
+            if not self._is_trace_actionable_for_archival(trace_info, sql_trace_info.spans):
+                return None
+
+            snapshot_rows = sorted((span.span_id, span.content) for span in sql_trace_info.spans)
+            return trace_info, snapshot_rows
+
+    def _deserialize_trace_archival_snapshot(
+        self, snapshot_rows: list[tuple[str, str]]
+    ) -> list[Span]:
+        from mlflow.exceptions import MlflowTraceArchivalMalformedTrace
+
+        try:
+            return [
+                Span.from_dict(translate_loaded_span(json.loads(content)))
+                for _, content in snapshot_rows
+            ]
+        except (MlflowException, TypeError, ValueError) as e:
+            raise MlflowTraceArchivalMalformedTrace(str(e)) from e
+
+    def _is_trace_actionable_for_archival(
+        self, trace_info: TraceInfo, spans: list[SqlSpan]
+    ) -> bool:
+        spans_location = trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+        if spans_location not in (None, SpansLocation.TRACKING_STORE.value):
+            return False
+        if TraceTagKey.ARCHIVAL_FAILURE in trace_info.tags:
+            return False
+        if trace_info.state == TraceState.IN_PROGRESS:
+            return False
+        return any(span.content != "" for span in spans)
+
+    def _get_archival_repository_artifact_uri(
+        self,
+        *,
+        trace_info: TraceInfo,
+        trace_archival_config: ResolvedTraceArchivalConfig,
+    ) -> str:
+        resolved_root = trace_archival_config.config.location
+        append_workspace_prefix = trace_archival_config.append_workspace_prefix
+        if resolved_root is None:
+            raise MlflowException(
+                "Trace archival config resolution returned no archival location.",
+                error_code=INTERNAL_ERROR,
+            )
+
+        if append_workspace_prefix and (
+            workspace_name := self._get_trace_archival_workspace_name()
+        ):
+            resolved_root = append_to_uri_path(resolved_root, WORKSPACES_DIR_NAME, workspace_name)
+
+        return append_to_uri_path(
+            resolved_root,
+            str(trace_info.experiment_id),
+            self.TRACE_FOLDER_NAME,
+            trace_info.trace_id,
+            self.ARTIFACTS_FOLDER_NAME,
+        )
+
+    @staticmethod
+    def _download_trace_data_from_archive_repo(trace_info: TraceInfo) -> TraceData:
+        artifact_repo = get_artifact_repository(get_archive_uri_for_trace(trace_info))
+        return artifact_repo.download_archived_trace_data()
+
+    def _delete_unreferenced_archived_trace_payload(
+        self,
+        *,
+        trace_id: str,
+        artifact_uri: str,
+        artifact_repo,
+    ) -> None:
+        with self.ManagedSessionMaker() as session:
+            sql_trace_info = (
+                self
+                ._trace_query(session)
+                .options(joinedload(SqlTraceInfo.tags))
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .one_or_none()
+            )
+            if sql_trace_info is not None:
+                trace_info = sql_trace_info.to_mlflow_entity()
+                if (
+                    trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+                    == SpansLocation.ARCHIVE_REPO.value
+                    and trace_info.tags.get(TraceTagKey.ARCHIVE_LOCATION) == artifact_uri
+                ):
+                    return
+
+        try:
+            artifact_repo.delete_artifacts(TRACE_ARCHIVAL_FILENAME)
+        except Exception:
+            _logger.warning(
+                "Failed to delete unreferenced archived payload for trace %s.",
+                trace_id,
+                exc_info=True,
+            )
+
+    def _finalize_archived_trace(
+        self,
+        *,
+        trace_id: str,
+        snapshot_rows: list[tuple[str, str]],
+        artifact_uri: str,
+    ) -> bool:
+        with self.ManagedSessionMaker() as session:
+            sql_trace_info = (
+                self
+                ._trace_query(session, for_update_or_delete=True)
+                .options(joinedload(SqlTraceInfo.tags), joinedload(SqlTraceInfo.spans))
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .one_or_none()
+            )
+            if sql_trace_info is None:
+                return False
+
+            trace_info = sql_trace_info.to_mlflow_entity()
+            if not self._is_trace_actionable_for_archival(trace_info, sql_trace_info.spans):
+                return False
+
+            # We intentionally use optimistic concurrency here instead of cross-writer row
+            # locking. Archival assumes terminal traces do not receive late spans: it only
+            # targets traces that are no longer IN_PROGRESS, and if a trace changes before
+            # this re-check we skip finalization and retry on a later pass. Fully
+            # eliminating the remaining TOCTOU gap would require all trace/span writers
+            # (for example log_spans()) to participate in the same locking protocol, which
+            # is a materially larger change.
+            current_snapshot_rows = sorted(
+                (span.span_id, span.content) for span in sql_trace_info.spans
+            )
+            if current_snapshot_rows != snapshot_rows:
+                _logger.info(
+                    (
+                        "Skipping archival finalization for trace %s because its DB-backed spans "
+                        "changed."
+                    ),
+                    trace_id,
+                )
+                return False
+
+            (
+                session
+                .query(SqlSpan)
+                .filter(SqlSpan.trace_id == trace_id)
+                .update({SqlSpan.content: ""}, synchronize_session=False)
+            )
+            session.merge(
+                SqlTraceTag(
+                    request_id=trace_id,
+                    key=TraceTagKey.SPANS_LOCATION,
+                    value=SpansLocation.ARCHIVE_REPO.value,
+                )
+            )
+            session.merge(
+                SqlTraceTag(
+                    request_id=trace_id,
+                    key=TraceTagKey.ARCHIVE_LOCATION,
+                    value=artifact_uri,
+                )
+            )
+            (
+                session
+                .query(SqlTraceTag)
+                .filter(
+                    SqlTraceTag.request_id == trace_id,
+                    SqlTraceTag.key == TraceTagKey.ARCHIVAL_FAILURE,
+                )
+                .delete(synchronize_session=False)
+            )
+            return True
+
+    def _mark_trace_archival_failure(self, *, trace_id: str, failure_reason: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            sql_trace_info = (
+                self
+                ._trace_query(session, for_update_or_delete=True)
+                .options(joinedload(SqlTraceInfo.tags), joinedload(SqlTraceInfo.spans))
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .one_or_none()
+            )
+            if sql_trace_info is None:
+                return
+
+            trace_info = sql_trace_info.to_mlflow_entity()
+            if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) not in (
+                None,
+                SpansLocation.TRACKING_STORE.value,
+            ):
+                return
+
+            session.merge(
+                SqlTraceTag(
+                    request_id=trace_id,
+                    key=TraceTagKey.ARCHIVAL_FAILURE,
+                    value=failure_reason,
+                )
+            )
+
+    def _clear_completed_archive_now_requests(
+        self,
+        *,
+        archive_now_requests: list[_ArchiveNowCleanupRequest],
+        now_millis: int,
+    ) -> None:
+        if not archive_now_requests:
+            return
+
+        with self.ManagedSessionMaker() as session:
+            for request in archive_now_requests:
+                older_than_cutoff = (
+                    now_millis - request.parsed_request.older_than_millis
+                    if request.parsed_request.older_than_millis is not None
+                    else None
+                )
+                if self._get_archive_now_remaining_state(
+                    session=session,
+                    experiment_id=request.experiment_id,
+                    max_timestamp_millis=older_than_cutoff,
+                ) in ("archivable", "transient", "blocked_unmarked"):
+                    continue
+
+                (
+                    session
+                    .query(SqlExperimentTag)
+                    .filter(
+                        SqlExperimentTag.experiment_id == int(request.experiment_id),
+                        SqlExperimentTag.key == TraceExperimentTagKey.ARCHIVE_NOW,
+                        # Only clear the request we started with; a newer archive-now value may
+                        # have been written while this archival pass was still running.
+                        SqlExperimentTag.value == request.raw_value,
+                    )
+                    .delete(synchronize_session=False)
+                )
+
+    def _get_archive_now_remaining_state(
+        self,
+        *,
+        session: Session,
+        experiment_id: str,
+        max_timestamp_millis: int | None,
+    ) -> str:
+        spans_outside_tracking_store = exists().where(
+            and_(
+                SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                SqlTraceTag.key == TraceTagKey.SPANS_LOCATION,
+                SqlTraceTag.value != SpansLocation.TRACKING_STORE.value,
+            )
+        )
+        archival_failure_exists = exists().where(
+            and_(
+                SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                SqlTraceTag.key == TraceTagKey.ARCHIVAL_FAILURE,
+            )
+        )
+        non_empty_span_exists = exists().where(
+            and_(
+                SqlSpan.trace_id == SqlTraceInfo.request_id,
+                SqlSpan.content != "",
+            )
+        )
+
+        remaining_statement = self._trace_query(session).filter(
+            SqlTraceInfo.experiment_id == int(experiment_id),
+            ~spans_outside_tracking_store,
+        )
+        if max_timestamp_millis is not None:
+            remaining_statement = remaining_statement.filter(
+                SqlTraceInfo.timestamp_ms <= max_timestamp_millis
+            )
+
+        if not remaining_statement.limit(1).all():
+            return "done"
+
+        if (
+            remaining_statement
+            .filter(
+                SqlTraceInfo.status != TraceState.IN_PROGRESS.value,
+                ~archival_failure_exists,
+                non_empty_span_exists,
+            )
+            .limit(1)
+            .all()
+        ):
+            return "archivable"
+
+        if (
+            remaining_statement
+            .filter(
+                SqlTraceInfo.status == TraceState.IN_PROGRESS.value,
+                ~archival_failure_exists,
+            )
+            .limit(1)
+            .all()
+        ):
+            return "transient"
+
+        # Only clear archive-now once the remaining traces are either fully processed
+        # or explicitly marked as terminal archival failures.
+        if remaining_statement.filter(~archival_failure_exists).limit(1).all():
+            return "blocked_unmarked"
+
+        return "terminal_failures_only"
+
     def _get_spans_with_trace_info(
         self, trace_info: TraceInfo, spans: list[SqlSpan], allow_partial: bool = True
     ) -> list[Span] | None:
-        # if the tag doesn't exist then the trace is not stored in the tracking store,
-        # we should rely on the artifact repo to get the trace data
-        if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != SpansLocation.TRACKING_STORE.value:
-            # This check is required so that the handler can capture the exception
-            # and load data from artifact repo instead
+        spans_location = trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+        if spans_location == SpansLocation.ARCHIVE_REPO.value:
+            return self._download_trace_data_from_archive_repo(trace_info).spans
+
+        # ARTIFACT_REPO traces still rely on the existing handler/client fallback path because the
+        # trace artifact URI may use a proxy-only scheme such as mlflow-artifacts://.
+        if spans_location != SpansLocation.TRACKING_STORE.value:
             raise MlflowTracingException("Trace data not stored in tracking store")
+
         sql_spans = sorted(
             spans,
             key=lambda s: (
