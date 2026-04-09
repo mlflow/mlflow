@@ -71,7 +71,7 @@ def create_deepeval_model(model_uri: str, model_kwargs: dict | None = None):
 
     from deepeval.models import LiteLLMModel
 
-    extra = model_kwargs or {}
+    extra = dict(model_kwargs) if model_kwargs else {}
     temperature = extra.pop("temperature", None)
     generation_kwargs = {"drop_params": True, **extra}
 

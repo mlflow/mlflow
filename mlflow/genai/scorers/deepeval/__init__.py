@@ -54,6 +54,8 @@ class DeepEvalScorer(Scorer):
         metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy").
             If not provided, will use the class-level metric_name attribute.
         model: {{ model }}
+        model_kwargs: Parameters for the underlying LLM (e.g., temperature, max_tokens).
+            Ignored for deterministic metrics.
         metric_kwargs: Additional metric-specific parameters
     """
 

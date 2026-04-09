@@ -106,6 +106,27 @@ def test_metric_kwargs_passed_to_deepeval_metric():
         assert call_kwargs["async_mode"] is False
 
 
+def test_model_kwargs_passed_to_create_deepeval_model():
+    with (
+        patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class,
+        patch("mlflow.genai.scorers.deepeval.create_deepeval_model") as mock_create_model,
+    ):
+        mock_metric_class = Mock()
+        mock_metric_class.return_value = Mock()
+        mock_get_metric_class.return_value = mock_metric_class
+        mock_create_model.return_value = Mock()
+
+        get_scorer(
+            "AnswerRelevancy",
+            model="openai:/gpt-4",
+            model_kwargs={"temperature": 0.0, "max_tokens": 512},
+        )
+
+        mock_create_model.assert_called_once_with(
+            "openai:/gpt-4", model_kwargs={"temperature": 0.0, "max_tokens": 512}
+        )
+
+
 def test_deepeval_scorer_returns_error_feedback_on_exception():
     with (
         patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class,

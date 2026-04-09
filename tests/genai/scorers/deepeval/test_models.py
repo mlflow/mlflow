@@ -47,10 +47,17 @@ def test_native_model_passes_model_kwargs(mock_call_chat_completions):
 
 
 def test_native_model_forwards_kwargs_to_complete_prompt():
-    with patch("mlflow.genai.scorers.llm_backend.ScorerLLMClient.complete_prompt", return_value="output") as mock_complete:
-        model = create_deepeval_model("databricks", model_kwargs={"temperature": 0.0, "max_tokens": 512})
+    with patch(
+        "mlflow.genai.scorers.llm_backend.ScorerLLMClient.complete_prompt",
+        return_value="output",
+    ) as mock_complete:
+        model = create_deepeval_model(
+            "databricks", model_kwargs={"temperature": 0.0, "max_tokens": 512}
+        )
         model.generate("test prompt")
-        mock_complete.assert_called_once_with("test prompt", temperature=0.0, max_tokens=512)
+        mock_complete.assert_called_once_with(
+            "test prompt", temperature=0.0, max_tokens=512
+        )
 
 
 def test_litellm_model_merges_model_kwargs(monkeypatch):
@@ -69,7 +76,20 @@ def test_litellm_model_merges_model_kwargs(monkeypatch):
 
 
 def test_create_deepeval_model_no_kwargs_default():
-    with patch("mlflow.genai.scorers.llm_backend.ScorerLLMClient.complete_prompt", return_value="output") as mock_complete:
+    with patch(
+        "mlflow.genai.scorers.llm_backend.ScorerLLMClient.complete_prompt",
+        return_value="output",
+    ) as mock_complete:
         model = create_deepeval_model("databricks")
         model.generate("test prompt")
         mock_complete.assert_called_once_with("test prompt")
+
+
+def test_create_deepeval_model_does_not_mutate_input_dict():
+    kwargs = {"temperature": 0.5, "max_tokens": 100}
+    with patch(
+        "mlflow.genai.scorers.llm_backend._get_provider_instance",
+        side_effect=Exception,
+    ):
+        create_deepeval_model("unsupported:/model", model_kwargs=kwargs)
+    assert "temperature" in kwargs
