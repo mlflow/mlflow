@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -32,7 +33,9 @@ def load_guardrails(
         if config.guardrail is None:
             continue
         try:
-            guardrails.append(JudgeGuardrail.from_entity(config.guardrail, server_url))
+            resolved_scorer = store._resolve_endpoint_in_scorer(config.guardrail.scorer)
+            guardrail = dataclasses.replace(config.guardrail, scorer=resolved_scorer)
+            guardrails.append(JudgeGuardrail.from_entity(guardrail, server_url))
         except Exception:
             _logger.warning(
                 "Failed to load guardrail %s, skipping", config.guardrail_id, exc_info=True

@@ -203,8 +203,10 @@ def test_load_guardrails_empty():
 
 def test_load_guardrails_converts_real_entity():
     config = _make_guardrail_config(stage="BEFORE", action="VALIDATION")
+    resolved_scorer = mock.MagicMock()
     store = mock.MagicMock()
     store.list_endpoint_guardrail_configs.return_value = [config]
+    store._resolve_endpoint_in_scorer.return_value = resolved_scorer
     endpoint_config = mock.MagicMock()
     endpoint_config.endpoint_id = "ep-1"
     request = mock.MagicMock()
@@ -216,7 +218,51 @@ def test_load_guardrails_converts_real_entity():
 
     assert len(result) == 1
     assert isinstance(result[0], JudgeGuardrail)
-    mock_from_entity.assert_called_once_with(config.guardrail, "http://localhost:5000")
+    store._resolve_endpoint_in_scorer.assert_called_once_with(config.guardrail.scorer)
+    called_guardrail, called_url = mock_from_entity.call_args[0]
+    assert called_url == "http://localhost:5000"
+    assert called_guardrail.scorer is resolved_scorer
+    assert called_guardrail.guardrail_id == config.guardrail.guardrail_id
+
+
+def test_load_guardrails_resolves_endpoint_id_to_name():
+    """Scorer's gateway:/ model URI contains an endpoint ID; load_guardrails must
+    resolve it to the endpoint name via _resolve_endpoint_in_scorer before invoking
+    from_entity, so the judge self-call uses the correct model name.
+    """
+    config = _make_guardrail_config(stage="BEFORE", action="VALIDATION")
+    original_scorer = config.guardrail.scorer
+
+    resolved_scorer = ScorerVersion(
+        experiment_id=original_scorer.experiment_id,
+        scorer_name=original_scorer.scorer_name,
+        scorer_version=original_scorer.scorer_version,
+        serialized_scorer=json.dumps({
+            "name": "safety",
+            "instructions_judge_pydantic_data": {
+                "instructions": "check safety",
+                "model": "gateway:/my-endpoint-name",
+            },
+        }),
+        creation_time=original_scorer.creation_time,
+        scorer_id=original_scorer.scorer_id,
+    )
+
+    store = mock.MagicMock()
+    store.list_endpoint_guardrail_configs.return_value = [config]
+    store._resolve_endpoint_in_scorer.return_value = resolved_scorer
+    endpoint_config = mock.MagicMock()
+    endpoint_config.endpoint_id = "ep-1"
+    request = mock.MagicMock()
+    request.base_url = "http://localhost:5000/"
+
+    with mock.patch("mlflow.gateway.guardrails.JudgeGuardrail.from_entity") as mock_from_entity:
+        mock_from_entity.return_value = _make_judge("BEFORE")
+        load_guardrails(store, endpoint_config, request)
+
+    store._resolve_endpoint_in_scorer.assert_called_once_with(original_scorer)
+    called_guardrail, _ = mock_from_entity.call_args[0]
+    assert called_guardrail.scorer is resolved_scorer
 
 
 def test_load_guardrails_skips_failed_conversion():
