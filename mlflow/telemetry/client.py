@@ -159,19 +159,22 @@ class TelemetryClient:
 
     def _fetch_config(self):
         def _fetch():
+            is_databricks = self._is_databricks_uri()
             try:
-                if self._is_databricks_uri():
-                    self._is_config_fetched = True
-                    return
-                self._get_config()
-                if self.config is None:
+                explicitly_disabled = self._get_config()
+                # Stop if telemetry was explicitly disabled by remote config
+                # (applies to both OSS and Databricks paths), or if config
+                # could not be loaded for non-Databricks paths (which need
+                # the ingestion_url from config to send records).
+                if explicitly_disabled or (self.config is None and not is_databricks):
                     self._is_stopped = True
                     _set_telemetry_client(None)
                 self._is_config_fetched = True
             except Exception:
-                self._is_stopped = True
+                if not is_databricks:
+                    self._is_stopped = True
+                    _set_telemetry_client(None)
                 self._is_config_fetched = True
-                _set_telemetry_client(None)
 
         self._config_thread = threading.Thread(
             target=_fetch,
@@ -180,33 +183,39 @@ class TelemetryClient:
         )
         self._config_thread.start()
 
-    def _get_config(self):
+    def _get_config(self) -> bool:
         """
         Get the config for the given MLflow version.
+
+        Returns True if telemetry was explicitly disabled by the remote config
+        (disable_telemetry, disable_sdks, disable_os, rollout). Returns False
+        if the config was successfully fetched or could not be reached.
         """
         mlflow_version = self.info["mlflow_version"]
         if config_url := _get_config_url(mlflow_version):
             try:
                 response = requests.get(config_url, timeout=1)
                 if response.status_code != 200:
-                    return
+                    return False
                 config = response.json()
-                if (
-                    config.get("mlflow_version") != mlflow_version
-                    or config.get("disable_telemetry") is True
-                    or config.get("ingestion_url") is None
-                ):
-                    return
+                if config.get("mlflow_version") != mlflow_version:
+                    return False
+
+                if config.get("disable_telemetry") is True:
+                    return True
 
                 if get_source_sdk().value in config.get("disable_sdks", []):
-                    return
+                    return True
 
                 if sys.platform in config.get("disable_os", []):
-                    return
+                    return True
 
                 rollout_percentage = config.get("rollout_percentage", 100)
                 if random.randint(0, 100) > rollout_percentage:
-                    return
+                    return True
+
+                if config.get("ingestion_url") is None:
+                    return False
 
                 self.config = TelemetryConfig(
                     ingestion_url=config["ingestion_url"],
@@ -214,7 +223,7 @@ class TelemetryClient:
                 )
             except Exception as e:
                 _log_error(f"Failed to get telemetry config: {e}")
-                return
+        return False
 
     def add_record(self, record: Record):
         """
