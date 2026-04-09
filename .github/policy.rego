@@ -331,6 +331,17 @@ has_explicit_persist_credentials(step) if {
 	step["with"]["persist-credentials"] == true
 }
 
+deny_upload_artifact_without_retention contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/upload-artifact@")
+	not step["with"]["retention-days"]
+	msg := sprintf(
+		"actions/upload-artifact in job '%s' must set 'retention-days' explicitly.",
+		[job_id],
+	)
+}
+
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps

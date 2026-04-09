@@ -4,7 +4,6 @@ import {
   DropdownMenu,
   NewWindowIcon,
   Tag,
-  LegacyTooltip,
   useDesignSystemTheme,
   Tooltip,
 } from '@databricks/design-system';

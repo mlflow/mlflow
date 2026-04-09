@@ -15,6 +15,7 @@ import math
 import statistics
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 import aiohttp
 from rich.console import Console  # type: ignore[import-not-found]
@@ -146,6 +147,37 @@ def run_benchmark(
                 asyncio.run(_run_once(url, n_requests, max_concurrent, progress, task_id))
             )
     return results
+
+
+def results_to_dict(results: list[RunResult]) -> dict[str, Any]:
+    runs = [
+        {
+            "n_success": r.n_success,
+            "n_failures": r.n_failures,
+            "failures": r.failures,
+            "wall_time_s": r.wall_time,
+            "mean_ms": statistics.mean(r.latencies_ms) if r.latencies_ms else 0.0,
+            "p50_ms": r.percentile(50),
+            "p95_ms": r.percentile(95),
+            "p99_ms": r.percentile(99),
+            "max_ms": max(r.latencies_ms) if r.latencies_ms else 0.0,
+            "rps": r.throughput,
+        }
+        for r in results
+    ]
+    summary: dict[str, Any] = (
+        {
+            "avg_mean_ms": statistics.mean(
+                statistics.mean(r.latencies_ms) if r.latencies_ms else 0.0 for r in results
+            ),
+            "avg_p50_ms": statistics.mean(r.percentile(50) for r in results),
+            "avg_p99_ms": statistics.mean(r.percentile(99) for r in results),
+            "avg_rps": statistics.mean(r.throughput for r in results),
+        }
+        if results
+        else {}
+    )
+    return {"runs": runs, "summary": summary}
 
 
 def print_results(results: list[RunResult]) -> None:

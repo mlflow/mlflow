@@ -586,8 +586,17 @@ def test_get_spans_table_name_for_trace_no_destination():
 @pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
+    # Mock should_compute_cost_client_side in the span module (where it's bound at import time)
+    # rather than is_databricks_uri. Mocking is_databricks_uri captures the reference in
+    # mlflow_v3.py during lazy import and causes _export_spans_incrementally to skip spans.
     with (
-        mock.patch("mlflow.utils.uri.is_databricks_uri", return_value=is_databricks),
+        mock.patch(
+            "mlflow.entities.span.should_compute_cost_client_side", return_value=is_databricks
+        ),
+        mock.patch(
+            "mlflow.tracing.processor.base_mlflow.should_compute_cost_client_side",
+            return_value=is_databricks,
+        ),
         mock.patch(
             "mlflow.entities.span.set_span_cost_attribute", wraps=lambda span: None
         ) as mock_set_cost,
@@ -608,7 +617,7 @@ def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
         else:
             mock_set_cost.assert_not_called()
 
-    trace = mlflow.get_trace(trace_id=span.trace_id)
+    trace = mlflow.get_trace(trace_id=span.trace_id, flush=True)
     # cost should be set
     assert trace.info.cost is not None
     assert CostKey.INPUT_COST in trace.info.cost
@@ -689,6 +698,14 @@ def test_builtin_cost_fallback_with_provider_case_insensitive(model_provider):
         )
     assert result is not None
     assert result["total_cost"] == pytest.approx(0.0075)
+
+
+@pytest.mark.parametrize("model_name", ["gateway:/my-endpoint", "endpoints:/my-endpoint"])
+def test_cost_skipped_for_internal_routing_uris(model_name):
+    result = calculate_cost_by_model_and_token_usage(
+        model_name, {"input_tokens": 1000, "output_tokens": 500}
+    )
+    assert result is None
 
 
 def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):

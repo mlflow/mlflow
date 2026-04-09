@@ -151,7 +151,7 @@ def test_traces_creates_on_server(client, traces_generator):
     traces = client.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     assert len(traces) == len(result.entity_ids)
-    assert len(traces) == 34
+    assert len(traces) == 42
 
 
 def test_traces_have_expected_span_types(client, traces_generator):
@@ -171,6 +171,10 @@ def test_traces_have_expected_span_types(client, traces_generator):
     assert "chat_agent" in all_span_names
     assert "prompt_chain" in all_span_names
     assert "render_prompt" in all_span_names
+    assert "vision_analysis" in all_span_names
+    assert "image_generation" in all_span_names
+    assert "audio_transcription" in all_span_names
+    assert "text_to_speech" in all_span_names
 
 
 def test_traces_session_metadata(client, traces_generator):
@@ -197,8 +201,8 @@ def test_traces_version_metadata(client, traces_generator):
     v1_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
     v2_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
 
-    assert len(v1_traces) == 17
-    assert len(v2_traces) == 17
+    assert len(v1_traces) == 21
+    assert len(v2_traces) == 21
 
 
 def test_traces_type_metadata(client, traces_generator):
@@ -216,11 +220,15 @@ def test_traces_type_metadata(client, traces_generator):
     session_traces = [
         t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"
     ]
+    multimodal_traces = [
+        t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "multimodal"
+    ]
 
     assert len(rag_traces) == 4
     assert len(agent_traces) == 4
     assert len(prompt_traces) == 12
     assert len(session_traces) == 14
+    assert len(multimodal_traces) == 8
 
 
 def test_traces_creates_time_range_tags(client, traces_generator):
@@ -240,7 +248,7 @@ def test_traces_delete_removes_all(client, traces_generator):
 
     experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     traces_before = client.search_traces(locations=[experiment.experiment_id], max_results=200)
-    assert len(traces_before) == 34
+    assert len(traces_before) == 42
 
     traces_generator.delete_demo()
 
@@ -309,9 +317,13 @@ def test_evaluation_datasets_have_records(client, evaluation_generator):
     baseline_session_df = baseline_session_datasets[0].to_df()
     improved_session_df = improved_session_datasets[0].to_df()
 
-    # Trace-level dataset merges v1 + v2 non-session traces (10 unique queries,
-    # merge_records deduplicates by inputs so v2 records overwrite v1)
-    assert len(trace_level_df) == 10
+    # Trace-level dataset deduplicates by SHA-256 hash of JSON-serialized inputs.
+    # v2 records overwrite v1 when inputs are identical. Multimodal traces with
+    # auto-extracted attachments get unique mlflow-attachment:// UUIDs per version,
+    # so vision/audio input traces don't dedup (2 rows each), while text-only
+    # input traces (image_gen, tts) do dedup (1 row each).
+    # 10 text traces + 2 multimodal deduped + 4 multimodal not deduped = 16
+    assert len(trace_level_df) == 16
     # Session datasets have 7 traces each (v1 and v2)
     assert len(baseline_session_df) == 7
     assert len(improved_session_df) == 7

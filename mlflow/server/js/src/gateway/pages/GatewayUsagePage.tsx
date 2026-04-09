@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
 import {
+  Breadcrumb,
   ChartLineIcon,
   SimpleSelect,
   SimpleSelectOption,
@@ -9,6 +10,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { GatewayLabel } from '../../common/components/GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { createTraceMetadataFilter, AUTH_USER_ID_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
@@ -225,24 +227,28 @@ export const GatewayUsagePage = () => {
           paddingBottom: 0,
         }}
       >
-        <div
-          css={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginBottom: theme.spacing.sm,
-          }}
-        >
-          <div>
-            <Typography.Title level={2} css={{ margin: 0 }}>
-              <FormattedMessage defaultMessage="Gateway Usage" description="Page title" />
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Breadcrumb includeTrailingCaret>
+            <Breadcrumb.Item>
+              <Link componentId="mlflow.gateway.usage.breadcrumb_gateway_link" to={GatewayRoutes.gatewayPageRoute}>
+                <GatewayLabel />
+              </Link>
+            </Breadcrumb.Item>
+          </Breadcrumb>
+          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+            <div
+              css={{
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+                display: 'flex',
+              }}
+            >
+              <ChartLineIcon />
+            </div>
+            <Typography.Title withoutMargins level={2}>
+              <FormattedMessage defaultMessage="Usage" description="Page title" />
             </Typography.Title>
-            <Typography.Text color="secondary">
-              <FormattedMessage
-                defaultMessage="Monitor usage and performance across all endpoints"
-                description="Page subtitle"
-              />
-            </Typography.Text>
           </div>
         </div>
 

@@ -290,10 +290,18 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
     return calculate_cost_by_model_and_token_usage(model_name, usage, model_provider)
 
 
+# Model URI prefixes that are internal routing identifiers (not real model names).
+# Cost lookup would never find them in the catalog and just wastes time.
+_SKIP_COST_PREFIXES = ("gateway:/", "endpoints:/")
+
+
 def calculate_cost_by_model_and_token_usage(
     model_name: str | None, usage: dict[str, int] | None, model_provider: str | None = None
 ) -> dict[str, float] | None:
     if not model_name or not usage:
+        return None
+
+    if model_name.startswith(_SKIP_COST_PREFIXES):
         return None
 
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
@@ -325,18 +333,10 @@ def calculate_cost_by_model_and_token_usage(
             # MLflow's logger is set to DEBUG level.
             litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
 
-        result = cost_per_token(
-            model=model_name,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            **cache_kwargs,
-        )
-    except Exception:
+        # When provider is known, try it first — this is a fast single-provider lookup
+        # and avoids the slower all-provider scan.
         result = None
         if model_provider:
-            # pass model_provider only in exception case to avoid invalid model_provider
-            # being used when model_name itself is enough to calculate cost, since model_provider
-            # field can be with any value and litellm may not support it.
             try:
                 result = cost_per_token(
                     model=model_name,
@@ -347,20 +347,22 @@ def calculate_cost_by_model_and_token_usage(
                 )
             except Exception:
                 pass
+
+        # Fallback: try without provider (for litellm this may match by model name alone,
+        # for builtin this scans bundled providers).
+        if result is None:
+            try:
+                result = cost_per_token(
+                    model=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    **cache_kwargs,
+                )
+            except Exception:
+                pass
     finally:
         if litellm is not None:
             litellm.suppress_debug_info = original_suppress
-
-    if result is None:
-        # Try with provider as a last resort (builtin path only, litellm already tried above)
-        if litellm is None and model_provider:
-            result = cost_per_token(
-                model=model_name,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                custom_llm_provider=model_provider.lower(),
-                **cache_kwargs,
-            )
 
     if result is None:
         _logger.debug(f"Failed to calculate cost for model {model_name}")

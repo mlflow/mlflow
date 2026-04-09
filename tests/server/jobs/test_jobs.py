@@ -12,6 +12,7 @@ import mlflow.store.jobs.sqlalchemy_store
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
 from mlflow.exceptions import MlflowException
+from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import (
     TransientError,
@@ -27,6 +28,7 @@ from mlflow.server.jobs.utils import (
     MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR,
     _enqueue_unfinished_jobs,
+    _exec_job,
 )
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
@@ -41,7 +43,6 @@ from tests.server.jobs.helpers import (
     wait_job_finalize,
 )
 
-# TODO: Remove `pytest.mark.xfail` after fixing flakiness
 pytestmark = [
     pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
 ]
@@ -594,6 +595,28 @@ def test_start_job_is_atomic(tmp_path: Path, workspaces_enabled):
 
     final_job = store.get_job(job.job_id)
     assert final_job.status == JobStatus.RUNNING
+
+
+def test_exec_job_fails_job_on_unexpected_error(tmp_path: Path, workspaces_enabled):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+    handlers._job_store = store
+
+    try:
+        # "no_such_job" is not in _job_name_to_fn_fullname_map, so
+        # get_job_fn_fullname() raises after start_job() transitions the job to RUNNING.
+        job = store.create_job("no_such_job", "{}")
+        workspace = job.workspace
+
+        with pytest.raises(MlflowException, match="Invalid job name"):
+            _exec_job(job.job_id, workspace, "no_such_job", {}, None)
+
+        # The job must be FAILED, not stuck in RUNNING
+        assert store.get_job(job.job_id).status == JobStatus.FAILED
+    finally:
+        handlers._job_store.engine.dispose()
+        handlers._job_store = None
 
 
 def test_cancel_job(monkeypatch, tmp_path: Path):

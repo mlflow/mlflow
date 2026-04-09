@@ -27,6 +27,7 @@ import {
   type EvaluationsOverviewTableSort,
   TracesTableColumnType,
   type AssessmentAggregates,
+  type AssessmentCountMetrics,
   type AssessmentFilter,
   type AssessmentInfo,
   type AssessmentValueType,
@@ -35,7 +36,7 @@ import {
   type TracesTableColumn,
   TracesTableColumnGroup,
 } from './types';
-import { getAssessmentAggregates } from './utils/AggregationUtils';
+import { getAssessmentAggregates, buildAggregatesFromCountMetrics } from './utils/AggregationUtils';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
 import { getExperimentIdFromTraceLocation, getRowIdFromEvaluation } from './utils/TraceUtils';
 
@@ -82,6 +83,7 @@ export const GenAiTracesTableBody = React.memo(
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    assessmentCountMetrics,
   }: {
     experimentId?: string;
     selectedColumns: TracesTableColumn[];
@@ -123,6 +125,8 @@ export const GenAiTracesTableBody = React.memo(
     fetchNextPage?: () => void;
     hasNextPage?: boolean;
     isFetchingNextPage?: boolean;
+    // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
+    assessmentCountMetrics?: AssessmentCountMetrics;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -497,13 +501,24 @@ export const GenAiTracesTableBody = React.memo(
     }, [tableHeaderGroups, rows, columnSizingInfo]);
 
     // Compute assessment aggregates.
+    // When server-side assessment count metrics are available (infinite pagination),
+    // use them for categorical assessments to get accurate counts across all traces.
     const assessmentNameToAggregates = useMemo(() => {
       const result: Record<string, AssessmentAggregates> = {};
+      const useServerCounts = assessmentCountMetrics && !assessmentCountMetrics.isLoading;
       for (const assessmentInfo of selectedAssessmentInfos) {
-        result[assessmentInfo.name] = getAssessmentAggregates(assessmentInfo, evaluations, assessmentFilters);
+        if (useServerCounts && assessmentInfo.dtype !== 'unknown') {
+          result[assessmentInfo.name] = buildAggregatesFromCountMetrics(
+            assessmentInfo,
+            assessmentCountMetrics.data,
+            assessmentFilters,
+          );
+        } else {
+          result[assessmentInfo.name] = getAssessmentAggregates(assessmentInfo, evaluations, assessmentFilters);
+        }
       }
       return result;
-    }, [selectedAssessmentInfos, evaluations, assessmentFilters]);
+    }, [selectedAssessmentInfos, evaluations, assessmentFilters, assessmentCountMetrics]);
 
     const evalEntryMatchesEvaluationId = useCallback((evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {
       if (isV4TraceId(evaluationId) && entry?.fullTraceId === evaluationId) {
