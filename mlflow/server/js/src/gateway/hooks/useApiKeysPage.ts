@@ -69,9 +69,15 @@ export function useApiKeysPage() {
   }, []);
 
   // Edit success handler (inline editing in drawer)
-  const handleEditSuccess = useCallback(() => {
-    refetchSecrets();
-  }, [refetchSecrets]);
+  const handleEditSuccess = useCallback(async () => {
+    const result = await refetchSecrets();
+    if (selectedSecret && result.data) {
+      const updated = result.data.secrets.find((s) => s.secret_id === selectedSecret.secret_id);
+      if (updated) {
+        setSelectedSecret(updated);
+      }
+    }
+  }, [refetchSecrets, selectedSecret]);
 
   // Delete success handler (shared by bulk delete)
   const handleDeleteSuccess = useCallback(async () => {

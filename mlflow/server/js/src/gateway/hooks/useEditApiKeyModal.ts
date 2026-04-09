@@ -189,6 +189,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     errorMessage,
     selectedAuthMode,
     isFormValid,
+    isDirty,
     provider,
     handleFormDataChange,
     handleSubmit,
