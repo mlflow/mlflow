@@ -490,3 +490,233 @@ async def test_invocations_no_guardrails_calls_llm(store: SqlAlchemyStore):
 
     assert response.choices[0].message.content == "Direct response"
     assert mock_provider.chat.called
+
+
+# ─── Real-DB end-to-end scenarios ─────────────────────────────────────────────
+#
+# These tests use a real SqlAlchemyStore (no _load_guardrails or
+# _create_provider_from_endpoint_name mocks).  Only the two external I/O
+# boundaries are patched:
+#   - Scorer.model_validate  → returns a _SimpleScorer so we don't need a
+#                              live judge LLM to deserialize the stored scorer.
+#   - OpenAIProvider.chat    → returns a canned response so we don't need
+#                              a real OpenAI key.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+_SERIALIZED_SCORER = json.dumps({"name": "safety", "builtin_scorer_class": "Safety"})
+
+
+def _setup_db_guardrail(
+    store: SqlAlchemyStore,
+    endpoint_name: str,
+    stage: str,
+    action: str,
+    action_endpoint_name: str | None = None,
+):
+    """Create scorer + guardrail in DB and attach it to the endpoint."""
+    experiment_id = store.create_experiment(f"exp-{endpoint_name}-{stage}")
+    scorer_ver = store.register_scorer(experiment_id, f"scorer-{endpoint_name}", _SERIALIZED_SCORER)
+
+    action_endpoint_id = None
+    if action_endpoint_name:
+        sanitizer_ep = store.get_gateway_endpoint(name=action_endpoint_name)
+        action_endpoint_id = sanitizer_ep.endpoint_id
+
+    guardrail = store.create_gateway_guardrail(
+        name=f"guardrail-{endpoint_name}-{stage}",
+        scorer_id=scorer_ver.scorer_id,
+        scorer_version=scorer_ver.scorer_version,
+        stage=GuardrailStage(stage),
+        action=GuardrailAction(action),
+        action_endpoint_id=action_endpoint_id,
+    )
+    endpoint = store.get_gateway_endpoint(name=endpoint_name)
+    store.add_guardrail_to_endpoint(endpoint.endpoint_id, guardrail.guardrail_id)
+    return guardrail, scorer_ver
+
+
+@pytest.mark.asyncio
+async def test_real_db_before_guardrail_passes(store: SqlAlchemyStore):
+    endpoint = _setup_endpoint(store, "real-ep-before-pass")
+    _setup_db_guardrail(store, "real-ep-before-pass", "BEFORE", "VALIDATION")
+
+    mock_response = _make_chat_response("Safe response")
+    mock_request = _make_mock_request({"messages": [{"role": "user", "content": "hello"}]})
+
+    passing_scorer = _SimpleScorer(passing=True)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=passing_scorer),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(return_value=mock_response),
+        ),
+    ):
+        response = await invocations(endpoint.name, mock_request)
+
+    assert response.choices[0].message.content == "Safe response"
+    assert passing_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_real_db_before_guardrail_blocks(store: SqlAlchemyStore):
+    from fastapi import HTTPException
+
+    endpoint = _setup_endpoint(store, "real-ep-before-block")
+    _setup_db_guardrail(store, "real-ep-before-block", "BEFORE", "VALIDATION")
+
+    mock_request = _make_mock_request({"messages": [{"role": "user", "content": "bad input"}]})
+
+    blocking_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=blocking_scorer),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(),
+        ) as mock_chat,
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
+
+    assert not mock_chat.called
+    assert blocking_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_real_db_after_guardrail_blocks(store: SqlAlchemyStore):
+    from fastapi import HTTPException
+
+    endpoint = _setup_endpoint(store, "real-ep-after-block")
+    _setup_db_guardrail(store, "real-ep-after-block", "AFTER", "VALIDATION")
+
+    mock_response = _make_chat_response("Unsafe output")
+    mock_request = _make_mock_request({"messages": [{"role": "user", "content": "hello"}]})
+
+    blocking_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=blocking_scorer),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(return_value=mock_response),
+        ) as mock_chat,
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
+
+    assert mock_chat.called
+    assert blocking_scorer.call_count == 1
+
+
+# ─── Sanitization end-to-end scenarios ────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_invocations_before_sanitize_rewrites_request(store: SqlAlchemyStore):
+    """BEFORE/SANITIZATION: failing scorer triggers _sanitize which rewrites the request."""
+    endpoint = _setup_endpoint(store, "ep-sanitize-before")
+    sanitizer = _setup_endpoint(store, "ep-sanitizer")
+    _setup_db_guardrail(
+        store, "ep-sanitize-before", "BEFORE", "SANITIZATION", action_endpoint_name=sanitizer.name
+    )
+
+    original_body = {"messages": [{"role": "user", "content": "bad input"}]}
+    sanitized_body = {"messages": [{"role": "user", "content": "cleaned input"}]}
+    mock_response = _make_chat_response("Response to cleaned input")
+    mock_request = _make_mock_request(original_body)
+
+    failing_scorer = _SimpleScorer(passing=False)
+    captured_chat_payloads: list = []
+
+    async def fake_chat(payload):
+        captured_chat_payloads.append(payload)
+        return mock_response
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
+        patch(
+            "mlflow.gateway.guardrails.send_request",
+            AsyncMock(
+                return_value={"choices": [{"message": {"content": json.dumps(sanitized_body)}}]}
+            ),
+        ),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", side_effect=fake_chat),
+    ):
+        response = await invocations(endpoint.name, mock_request)
+
+    assert response.choices[0].message.content == "Response to cleaned input"
+    assert failing_scorer.call_count == 1
+    # The provider received the sanitized (rewritten) payload, not the original
+    assert captured_chat_payloads[0].messages[0].content == "cleaned input"
+
+
+@pytest.mark.asyncio
+async def test_invocations_after_sanitize_rewrites_response(store: SqlAlchemyStore):
+    """AFTER/SANITIZATION: failing scorer triggers _sanitize which rewrites the response."""
+    endpoint = _setup_endpoint(store, "ep-sanitize-after")
+    sanitizer = _setup_endpoint(store, "ep-sanitizer-after")
+    _setup_db_guardrail(
+        store, "ep-sanitize-after", "AFTER", "SANITIZATION", action_endpoint_name=sanitizer.name
+    )
+
+    original_content = "rude output"
+    sanitized_response = {
+        "id": "resp-sanitized",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gpt-4",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "polite output"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10},
+    }
+    mock_response = _make_chat_response(original_content)
+    mock_request = _make_mock_request({"messages": [{"role": "user", "content": "hello"}]})
+
+    failing_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
+        patch(
+            "mlflow.gateway.guardrails.send_request",
+            AsyncMock(
+                return_value={
+                    "choices": [{"message": {"content": json.dumps(sanitized_response)}}]
+                }
+            ),
+        ),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(return_value=mock_response),
+        ),
+    ):
+        response = await invocations(endpoint.name, mock_request)
+
+    assert response.choices[0].message.content == "polite output"
+    assert failing_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_invocations_sanitize_no_action_endpoint_blocks(store: SqlAlchemyStore):
+    """SANITIZATION without action_endpoint_name raises 400."""
+    from fastapi import HTTPException
+
+    endpoint = _setup_endpoint(store, "ep-sanitize-no-ep")
+    _setup_db_guardrail(store, "ep-sanitize-no-ep", "BEFORE", "SANITIZATION")
+
+    mock_request = _make_mock_request({"messages": [{"role": "user", "content": "bad input"}]})
+
+    failing_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", AsyncMock()),
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
