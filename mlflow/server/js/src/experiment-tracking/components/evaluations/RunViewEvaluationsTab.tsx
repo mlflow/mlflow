@@ -71,6 +71,8 @@ import { useIntl } from 'react-intl';
 import { ExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import { useCountInfo } from '../experiment-page/components/traces-v3/hooks/useCountInfo';
+import { useAssessmentCountMetrics } from '../experiment-page/components/traces-v3/hooks/useAssessmentCountMetrics';
 
 const ContextProviders = ({
   children,
@@ -182,6 +184,9 @@ const RunViewEvaluationsTabInner = ({
     isFetching: traceInfosFetching,
     error: traceInfosError,
     refetchMlflowTraces,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useSearchMlflowTraces({
     locations: traceLocations,
     currentRunDisplayName: runDisplayName,
@@ -220,14 +225,22 @@ const RunViewEvaluationsTabInner = ({
     }
   }, [traceInfos]);
 
-  const countInfo = useMemo(() => {
-    return {
-      currentCount: traceInfos?.length,
-      logCountLoading: traceInfosLoading,
-      totalCount: totalCount,
-      maxAllowedCount: getEvalTabTotalTracesLimit(),
-    };
-  }, [traceInfos, traceInfosLoading, totalCount]);
+  const experimentIds = useMemo(() => [experimentId], [experimentId]);
+
+  const countInfo = useCountInfo({
+    experimentIds,
+    runUuid,
+    traceInfosCount: traceInfos?.length,
+    traceInfosLoading,
+    metadataTotalCount: totalCount,
+    disabled: isQueryDisabled,
+  });
+
+  const assessmentCountMetrics = useAssessmentCountMetrics({
+    experimentIds,
+    runUuid,
+    disabled: isQueryDisabled,
+  });
 
   // TODO: We should update this to use web-shared/unified-tagging components for the
   // tag editor and react-query mutations for the apis.
@@ -385,6 +398,10 @@ const RunViewEvaluationsTabInner = ({
                     onTraceTagsEdit={showEditTagsModalForTrace}
                     isTableLoading={isTableLoading}
                     isGroupedBySession={isGroupedBySession}
+                    fetchNextPage={fetchNextPage}
+                    hasNextPage={hasNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
+                    assessmentCountMetrics={assessmentCountMetrics}
                   />
                 </ContextProviders>
               )
