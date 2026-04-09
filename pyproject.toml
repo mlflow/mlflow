@@ -300,6 +300,7 @@ extend-exclude = [
 [tool.ruff.format]
 preview = true
 docstring-code-format = true
+exclude = ["docs/docs/genai/tracing/track-users-sessions/index.mdx"]
 
 [tool.ruff.lint]
 preview = true

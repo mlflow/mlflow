@@ -2888,7 +2888,7 @@ def test_tracing_context_session_id_and_user():
     with mlflow.tracing.context(session_id="sess-123", user="user-456"):
         my_func()
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert trace.info.request_metadata["mlflow.trace.session"] == "sess-123"
     assert trace.info.request_metadata["mlflow.trace.user"] == "user-456"
 
@@ -2900,7 +2900,7 @@ def test_tracing_context_session_id_and_user():
     ):
         my_func()
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert trace.info.request_metadata["mlflow.trace.session"] == "sess-abc"
     assert trace.info.request_metadata["mlflow.trace.user"] == "user-xyz"
     assert trace.info.request_metadata["custom_key"] == "custom_value"
@@ -2911,7 +2911,7 @@ def test_tracing_context_session_id_and_user_nesting():
         with mlflow.tracing.context(session_id="inner-sess"):
             my_func()
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     # Inner session_id overrides outer
     assert trace.info.request_metadata["mlflow.trace.session"] == "inner-sess"
     # Outer user is inherited
