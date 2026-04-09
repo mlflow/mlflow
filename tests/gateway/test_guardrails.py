@@ -443,7 +443,7 @@ def test_from_entity_rewrites_gateway_model_uri():
 
     assert isinstance(guard.scorer, InstructionsJudge)
     assert guard.scorer.model == "openai:/my-judge-ep"
-    assert guard.scorer.base_url == "http://localhost:5000/gateway/mlflow/v1/"
+    assert guard.scorer.base_url == "http://localhost:5000/gateway/mlflow/v1/chat/completions"
 
 
 def test_from_entity_does_not_rewrite_non_gateway_model_uri():

@@ -343,7 +343,7 @@ class JudgeGuardrail(Guardrail):
                     name=scorer.name,
                     instructions=scorer._instructions,
                     model=f"openai:/{endpoint_name}",
-                    base_url=f"{server_url.rstrip('/')}/gateway/mlflow/v1/",
+                    base_url=f"{server_url.rstrip('/')}/gateway/mlflow/v1/chat/completions",
                     feedback_value_type=scorer._feedback_value_type,
                     inference_params=scorer._inference_params,
                 )
