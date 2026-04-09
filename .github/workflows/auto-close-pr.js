@@ -57,7 +57,7 @@ function hasIssueReference(body) {
     .replace(/```[\s\S]*?```/g, "")
     .replace(/~~~[\s\S]*?~~~/g, "")
     .replace(/`[^`\n]*`/g, "");
-  // Match `#123`, `owner/repo#123`, or a GitHub issue/PR URL.
+  // Match `#123`, `owner/repo#123`, or an issue/PR URL.
   const shortRef = /(?:[\w.-]+\/[\w.-]+)?#\d+/;
   const urlRef = /https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+/;
   return shortRef.test(stripped) || urlRef.test(stripped);
@@ -100,7 +100,7 @@ async function getCloseReason({ github, context }) {
 
   if (issues.length === 0) {
     // closingIssuesReferences only catches closing keywords (Fixes/Closes/Resolves).
-    // Also accept `#123`, `owner/repo#123`, or a GitHub issue/PR URL in the PR body.
+    // Also accept `#123`, `owner/repo#123`, or an issue/PR URL in the PR body.
     if (hasIssueReference(prBody)) {
       console.log(`PR #${prNumber} body contains an issue reference. Skipping.`);
       return undefined;
