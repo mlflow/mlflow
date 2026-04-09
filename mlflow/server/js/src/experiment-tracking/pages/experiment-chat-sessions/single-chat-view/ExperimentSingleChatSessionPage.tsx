@@ -42,6 +42,7 @@ import {
 } from './ExperimentSingleChatConversation';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
+import { FOCUS_SPAN_QUERY_PARAM } from '@databricks/web-shared/model-trace-explorer';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
 import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
@@ -91,6 +92,11 @@ const ExperimentSingleChatSessionPageImpl = () => {
   const selectedTraceIdFromUrl = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
     return searchParams.get(SELECTED_TRACE_ID_QUERY_PARAM);
+  }, [location.search]);
+
+  const focusSpanFromUrl = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search);
+    return searchParams.get(FOCUS_SPAN_QUERY_PARAM);
   }, [location.search]);
 
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
@@ -238,10 +244,18 @@ const ExperimentSingleChatSessionPageImpl = () => {
             >
               {isEvaluatingTracesInDetailsViewEnabled() ? (
                 <JudgeContextProviderForTrace>
-                  <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />
+                  <ModelTraceExplorer
+                    modelTrace={selectedTrace}
+                    collapseAssessmentPane="force-open"
+                    selectedSpanId={focusSpanFromUrl ?? undefined}
+                  />
                 </JudgeContextProviderForTrace>
               ) : (
-                <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />
+                <ModelTraceExplorer
+                  modelTrace={selectedTrace}
+                  collapseAssessmentPane="force-open"
+                  selectedSpanId={focusSpanFromUrl ?? undefined}
+                />
               )}
             </div>
           </ModelTraceExplorerDrawer>

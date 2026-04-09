@@ -22,6 +22,9 @@ export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';
 
 // Query parameter for selected trace ID in session pages
 export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
+
+// Query parameter for focusing a specific span on trace load (deeplink navigation)
+export const FOCUS_SPAN_QUERY_PARAM = 'focusSpan';
 export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';
 
 // Span attribute key for linked gateway trace
