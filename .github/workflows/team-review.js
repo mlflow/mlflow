@@ -106,7 +106,11 @@ function updateStats(stats, selectedReviewers) {
   for (const reviewer of selectedReviewers) {
     reviewCounts[reviewer] = (reviewCounts[reviewer] || 0) + 1;
   }
-  stats.reviewCounts = reviewCounts;
+  stats.reviewCounts = Object.fromEntries(
+    Object.keys(reviewCounts)
+      .sort()
+      .map((k) => [k, reviewCounts[k]])
+  );
   return stats;
 }
 
