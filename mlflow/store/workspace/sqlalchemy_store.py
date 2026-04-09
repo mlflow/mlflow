@@ -259,25 +259,30 @@ class SqlAlchemyStore(AbstractStore):
     ) -> ResolvedTraceArchivalConfig:
         with self._trace_archival_config_cache_lock:
             cached_value = self._trace_archival_config_cache.get(workspace_name, _CACHE_MISS)
-            if cached_value is not _CACHE_MISS:
-                workspace_root, workspace_retention = cached_value
-                return ResolvedTraceArchivalConfig(
-                    config=TraceArchivalConfig(
-                        location=workspace_root or default_trace_archival_root,
-                        retention=workspace_retention or default_retention,
-                    ),
-                    append_workspace_prefix=not bool(workspace_root),
+        if cached_value is _CACHE_MISS:
+            with self.ManagedSessionMaker() as session:
+                workspace_row = (
+                    session
+                    .query(
+                        SqlWorkspace.trace_archival_location,
+                        SqlWorkspace.trace_archival_retention,
+                    )
+                    .filter(SqlWorkspace.name == workspace_name)
+                    .one_or_none()
                 )
+                if workspace_row is None:
+                    workspace_root = None
+                    workspace_retention = None
+                else:
+                    workspace_root, workspace_retention = workspace_row
+            with self._trace_archival_config_cache_lock:
+                self._trace_archival_config_cache[workspace_name] = (
+                    workspace_root,
+                    workspace_retention,
+                )
+        else:
+            workspace_root, workspace_retention = cached_value
 
-        with self.ManagedSessionMaker() as session:
-            workspace = session.get(SqlWorkspace, workspace_name)
-            workspace_root = workspace.trace_archival_location if workspace else None
-            workspace_retention = workspace.trace_archival_retention if workspace else None
-        with self._trace_archival_config_cache_lock:
-            self._trace_archival_config_cache[workspace_name] = (
-                workspace_root,
-                workspace_retention,
-            )
         return ResolvedTraceArchivalConfig(
             config=TraceArchivalConfig(
                 location=workspace_root or default_trace_archival_root,

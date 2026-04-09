@@ -396,7 +396,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             self._workspace_provider = get_workspace_store(workspace_uri=self._workspace_store_uri)
         return self._workspace_provider
 
-    def _resolve_trace_archival_config(
+    def resolve_trace_archival_config(
         self,
         *,
         default_trace_archival_location: str,
@@ -408,9 +408,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             default_retention,
             self._get_active_workspace(),
         )
-
-    def _get_trace_archival_workspace_name(self) -> str | None:
-        return self._get_active_workspace()
 
     def _ensure_default_workspace_experiment(self) -> None:
         """
