@@ -304,7 +304,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             ):
                 self._signed_url_upload_file(cred, temp_file)
 
-    def upload_archived_trace_data(self, trace_data: TraceData | str) -> None:
+    def upload_archived_trace_data(self, trace_data: TraceData) -> None:
         raise MlflowException.invalid_parameter_value(
             "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
         )

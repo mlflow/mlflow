@@ -1676,7 +1676,7 @@ def test_upload_trace_data(databricks_artifact_repo_trace, cred_type):
 
 def test_upload_archived_trace_data_rejects_archive_repo(databricks_artifact_repo_trace):
     with pytest.raises(MlflowException, match="do not yet support ARCHIVE_REPO"):
-        databricks_artifact_repo_trace.upload_archived_trace_data(json.dumps({"spans": []}))
+        databricks_artifact_repo_trace.upload_archived_trace_data(TraceData(spans=[]))
 
 
 def test_upload_archived_trace_data_bytes_rejects_archive_repo(databricks_artifact_repo_trace):
