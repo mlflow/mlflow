@@ -21,6 +21,7 @@ const INITIAL_FORM_DATA: SecretFormData = {
 export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKeyModalParams) => {
   const intl = useIntl();
   const [formData, setFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
+  const [initialFormData, setInitialFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<{
     secretFields?: Record<string, string>;
     configFields?: Record<string, string>;
@@ -48,12 +49,14 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
           }
         }
       }
-      setFormData({
+      const data = {
         name: secret.secret_name,
         authMode,
         secretFields: {},
         configFields: existingConfigFields,
-      });
+      };
+      setFormData(data);
+      setInitialFormData(data);
       setErrors({});
       resetMutationRef.current();
     }
@@ -83,31 +86,10 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
   }, [secret, formData.secretFields]);
 
   const resetForm = useCallback(() => {
-    if (secret) {
-      let authMode = '';
-      if (secret.auth_config?.['auth_mode']) {
-        authMode = String(secret.auth_config['auth_mode']);
-      }
-      const existingConfigFields: Record<string, string> = {};
-      if (secret.auth_config) {
-        for (const [key, value] of Object.entries(secret.auth_config)) {
-          if (key !== 'auth_mode') {
-            existingConfigFields[key] = String(value);
-          }
-        }
-      }
-      setFormData({
-        name: secret.secret_name,
-        authMode,
-        secretFields: {},
-        configFields: existingConfigFields,
-      });
-    } else {
-      setFormData(INITIAL_FORM_DATA);
-    }
+    setFormData(initialFormData);
     setErrors({});
     resetMutation();
-  }, [secret, resetMutation]);
+  }, [initialFormData, resetMutation]);
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
@@ -163,7 +145,17 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     }
   }, [secret, validateForm, formData, selectedAuthMode, updateSecret, handleClose, onSuccess]);
 
+  const isDirty = useMemo(() => {
+    if (JSON.stringify(formData.secretFields) !== JSON.stringify(initialFormData.secretFields)) return true;
+    if (JSON.stringify(formData.configFields) !== JSON.stringify(initialFormData.configFields)) return true;
+    if (formData.authMode !== initialFormData.authMode) return true;
+    return false;
+  }, [formData, initialFormData]);
+
   const isFormValid = useMemo(() => {
+    // Must have changes to save
+    if (secret && !isDirty) return false;
+
     // When editing an existing secret, required secret fields are optional
     // (empty means "keep existing value on the backend")
     if (!secret) {
@@ -181,7 +173,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     if (!allRequiredConfigsProvided) return false;
 
     return true;
-  }, [secret, formData.secretFields, formData.configFields, selectedAuthMode]);
+  }, [secret, isDirty, formData.secretFields, formData.configFields, selectedAuthMode]);
 
   return {
     formData,
