@@ -3440,13 +3440,18 @@ def _create_presigned_upload_url():
     )
     run_id = request_message.run_id
     path = validate_path_is_safe(request_message.path)
-    expiration = (
-        request_message.expiration
-        if request_message.HasField("expiration")
-        else 900
-    )
+    expiration = request_message.expiration if request_message.HasField("expiration") else 900
 
     run = _get_tracking_store().get_run(run_id)
+    artifact_uri = run.info.artifact_uri
+    artifact_uri_scheme = urllib.parse.urlparse(artifact_uri).scheme
+    if artifact_uri_scheme in ("http", "https", "mlflow-artifacts"):
+        raise MlflowException(
+            "Presigned upload is not supported for runs with proxied artifact storage "
+            f"(artifact URI scheme: {artifact_uri_scheme}). "
+            "This endpoint requires a run with a direct cloud storage artifact URI.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     artifact_repo = _get_artifact_repo(run)
     _validate_support_presigned_upload(artifact_repo)
 

@@ -139,6 +139,7 @@ from mlflow.server.handlers import (
     _create_experiment,
     _create_issue,
     _create_model_version,
+    _create_presigned_upload_url,
     _create_prompt_optimization_job,
     _create_registered_model,
     _delete_artifact_mlflow_artifacts,
@@ -164,7 +165,6 @@ from mlflow.server.handlers import (
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
-    _create_presigned_upload_url,
     _get_presigned_download_url,
     _get_registered_model,
     _get_request_message,
@@ -1286,6 +1286,44 @@ def test_create_presigned_upload_url_unsupported_repo():
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
     assert "presigned upload" in json_response["message"].lower()
+
+
+@pytest.mark.parametrize(
+    "artifact_uri",
+    [
+        "mlflow-artifacts:/0/abc123/artifacts",
+        "http://mlflow-server:5000/api/2.0/mlflow-artifacts/artifacts",
+        "https://mlflow-server/api/2.0/mlflow-artifacts/artifacts",
+    ],
+)
+def test_create_presigned_upload_url_rejects_proxy_artifact_uri(artifact_uri):
+    """Test that runs with proxied artifact URIs are rejected with 400."""
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = artifact_uri
+
+    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
+
+    request_proto = CreatePresignedUploadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_upload_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "proxied" in json_response["message"].lower()
 
 
 def test_create_presigned_upload_url_invalid_run_id():

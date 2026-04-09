@@ -3282,7 +3282,7 @@ message CreatePresignedUploadUrl {
   optional int64 expiration = 3;
 
   message Response {
-    // Presigned URL for direct S3 PUT upload.
+    // Presigned URL for direct artifact upload.
     optional string presigned_url = 1;
 
     // Required headers for the upload request (e.g. Content-Type).

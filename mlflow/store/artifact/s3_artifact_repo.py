@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import posixpath
 import urllib.parse
@@ -34,6 +35,8 @@ from mlflow.store.artifact.artifact_repo import (
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
+_logger = logging.getLogger(__name__)
+
 _MAX_CACHE_SECONDS = 300
 
 BOTO_TO_MLFLOW_ERROR = {
@@ -42,6 +45,35 @@ BOTO_TO_MLFLOW_ERROR = {
     "NoSuchKey": RESOURCE_DOES_NOT_EXIST,
     "InvalidAccessKeyId": UNAUTHENTICATED,
     "SignatureDoesNotMatch": UNAUTHENTICATED,
+}
+
+# Maps boto3 put_object parameter names to their HTTP header equivalents.
+# Used by create_presigned_upload_url() to build the headers dict that clients
+# must include in the presigned PUT request.
+_S3_PARAM_TO_HEADER = {
+    "ACL": "x-amz-acl",
+    "CacheControl": "Cache-Control",
+    "ContentDisposition": "Content-Disposition",
+    "ContentEncoding": "Content-Encoding",
+    "ContentLanguage": "Content-Language",
+    "Expires": "Expires",
+    "GrantFullControl": "x-amz-grant-full-control",
+    "GrantRead": "x-amz-grant-read",
+    "GrantReadACP": "x-amz-grant-read-acp",
+    "GrantWriteACP": "x-amz-grant-write-acp",
+    "ObjectLockLegalHoldStatus": "x-amz-object-lock-legal-hold",
+    "ObjectLockMode": "x-amz-object-lock-mode",
+    "ObjectLockRetainUntilDate": "x-amz-object-lock-retain-until-date",
+    "RequestPayer": "x-amz-request-payer",
+    "SSECustomerAlgorithm": "x-amz-server-side-encryption-customer-algorithm",
+    "SSECustomerKey": "x-amz-server-side-encryption-customer-key",
+    "SSECustomerKeyMD5": "x-amz-server-side-encryption-customer-key-MD5",
+    "SSEKMSEncryptionContext": "x-amz-server-side-encryption-context",
+    "SSEKMSKeyId": "x-amz-server-side-encryption-aws-kms-key-id",
+    "ServerSideEncryption": "x-amz-server-side-encryption",
+    "StorageClass": "x-amz-storage-class",
+    "Tagging": "x-amz-tagging",
+    "WebsiteRedirectLocation": "x-amz-website-redirect-location",
 }
 
 
@@ -623,22 +655,16 @@ class S3ArtifactRepository(
         # otherwise S3 rejects the request with SignatureDoesNotMatch.
         headers = {"Content-Type": content_type}
         if environ_extra_args:
-            # Map known S3 params to their HTTP header equivalents.
-            _s3_param_to_header = {
-                "ServerSideEncryption": "x-amz-server-side-encryption",
-                "SSEKMSKeyId": "x-amz-server-side-encryption-aws-kms-key-id",
-                "ACL": "x-amz-acl",
-                "ContentEncoding": "Content-Encoding",
-                "ContentDisposition": "Content-Disposition",
-                "CacheControl": "Cache-Control",
-                "ContentLanguage": "Content-Language",
-                "Expires": "Expires",
-                "WebsiteRedirectLocation": "x-amz-website-redirect-location",
-                "StorageClass": "x-amz-storage-class",
-                "Tagging": "x-amz-tagging",
-            }
             for param_key, param_value in environ_extra_args.items():
-                header_name = _s3_param_to_header.get(param_key, param_key)
+                header_name = _S3_PARAM_TO_HEADER.get(param_key)
+                if header_name is None:
+                    _logger.warning(
+                        "Skipping unmapped S3 upload extra arg '%s': no known HTTP "
+                        "header mapping. The presigned URL may fail with "
+                        "SignatureDoesNotMatch.",
+                        param_key,
+                    )
+                    continue
                 headers[header_name] = str(param_value)
 
         return CreatePresignedUploadResponse(
