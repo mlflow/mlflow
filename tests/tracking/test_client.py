@@ -345,6 +345,55 @@ def test_client_get_trace_from_artifact_repo(mock_store, mock_artifact_repo):
     assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
 
 
+def test_client_get_trace_from_archive_repo(mock_store, mock_artifact_repo):
+    mock_store.get_trace_info.return_value = TraceInfo(
+        trace_id="tr-1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
+        tags={
+            "mlflow.artifactLocation": "dbfs:/path/to/artifacts",
+            TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO,
+            TraceTagKey.ARCHIVE_LOCATION: "dbfs:/path/to/archive",
+        },
+    )
+    mock_artifact_repo.download_archived_trace_data.return_value = TraceData.from_dict({
+        "request": '{"prompt": "What is the meaning of life?"}',
+        "response": '{"answer": 42}',
+        "spans": [
+            {
+                "name": "predict",
+                "context": {
+                    "trace_id": "0x123456789",
+                    "span_id": "0x12345",
+                },
+                "parent_id": None,
+                "start_time": 123000000,
+                "end_time": 579000000,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": '"tr-1234567"',
+                    "mlflow.spanType": '"LLM"',
+                    "mlflow.spanFunctionName": '"predict"',
+                    "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
+                    "mlflow.spanOutputs": '{"answer": 42}',
+                },
+                "events": [],
+            }
+        ],
+    })
+
+    trace = MlflowClient().get_trace("1234567")
+
+    mock_store.get_trace_info.assert_called_once_with("1234567")
+    mock_artifact_repo.download_archived_trace_data.assert_called_once()
+    mock_artifact_repo.download_trace_data.assert_not_called()
+    assert trace.info.tags[TraceTagKey.ARCHIVE_LOCATION] == "dbfs:/path/to/archive"
+    assert trace.data.spans[0].name == "predict"
+
+
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="1234567",
@@ -1224,6 +1273,18 @@ def test_set_trace_tag_on_logged_trace(mock_store):
     ])
 
 
+def test_set_trace_tag_skips_immutable_archive_location(mock_store):
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        mlflow.tracking.MlflowClient().set_trace_tag(
+            "test", TraceTagKey.ARCHIVE_LOCATION, "s3://bucket/archive/test"
+        )
+
+    mock_store.set_trace_tag.assert_not_called()
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{TraceTagKey.ARCHIVE_LOCATION}' is immutable and cannot be set on a trace."
+    )
+
+
 def test_delete_trace_tag_on_active_trace(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
@@ -1242,6 +1303,16 @@ def test_delete_trace_tag_on_active_trace(monkeypatch):
 def test_delete_trace_tag_on_logged_trace(mock_store):
     mlflow.tracking.MlflowClient().delete_trace_tag("test", "foo")
     mock_store.delete_trace_tag.assert_called_once_with("test", "foo")
+
+
+def test_delete_trace_tag_skips_immutable_archive_location(mock_store):
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        mlflow.tracking.MlflowClient().delete_trace_tag("test", TraceTagKey.ARCHIVE_LOCATION)
+
+    mock_store.delete_trace_tag.assert_not_called()
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{TraceTagKey.ARCHIVE_LOCATION}' is immutable and cannot be deleted on a trace."
+    )
 
 
 def test_client_create_experiment(mock_store):
