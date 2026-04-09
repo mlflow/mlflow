@@ -100,7 +100,7 @@ async function getCloseReason({ github, context }) {
 
   if (issues.length === 0) {
     // closingIssuesReferences only catches closing keywords (Fixes/Closes/Resolves).
-    // Also accept any plain `#123` / `owner/repo#123` reference in the PR body.
+    // Also accept `#123`, `owner/repo#123`, or a GitHub issue/PR URL in the PR body.
     if (hasIssueReference(prBody)) {
       console.log(`PR #${prNumber} body contains an issue reference. Skipping.`);
       return undefined;
