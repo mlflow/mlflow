@@ -58,6 +58,11 @@ def mlflow_server(tmp_path: Path, db_uri: str) -> Iterator[str]:
     # Start the FastAPI app in a background thread and yield its URL.
     with ServerThread(mlflow_app, get_safe_port()) as url:
         yield url
+        # Drain any pending async trace exports while the server is still up.
+        # The autouse `enable_async_trace_logging` fixture in tests/tracing/conftest.py
+        # also calls flush on teardown, but by that time this ServerThread has
+        # already exited, causing the worker to retry against a dead server.
+        mlflow.flush_trace_async_logging()
 
 
 def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypatch):
