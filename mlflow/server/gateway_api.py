@@ -16,7 +16,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
-from mlflow.entities.gateway_guardrail import GuardrailStage
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.budget import check_budget_limit, make_budget_on_complete
 from mlflow.gateway.config import (
@@ -36,10 +35,15 @@ from mlflow.gateway.config import (
     _OpenAICompatibleConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.gateway.guardrail_utils import (
+    extract_auth_headers,
+    load_guardrails,
+    run_after_guardrails,
+    run_before_guardrails,
+)
 from mlflow.gateway.guardrails import (
     _SANITIZE_BYPASS_HEADER,
     GuardrailViolation,
-    JudgeGuardrail,
 )
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
@@ -532,69 +536,10 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
     return endpoint_name
 
 
-def _load_guardrails(
-    store: SqlAlchemyStore,
-    endpoint_config: GatewayEndpointConfig,
-    request: Request,
-) -> list[JudgeGuardrail]:
-    """Load guardrails for an endpoint and convert to callable JudgeGuardrail instances."""
-    configs = store.list_endpoint_guardrail_configs(endpoint_config.endpoint_id)
-    if not configs:
-        return []
-
-    server_url = str(request.base_url).rstrip("/")
-    guardrails = []
-    for config in configs:
-        if config.guardrail is None:
-            continue
-        try:
-            guardrails.append(JudgeGuardrail.from_entity(config.guardrail, server_url))
-        except Exception:
-            _logger.warning(
-                "Failed to load guardrail %s, skipping", config.guardrail_id, exc_info=True
-            )
-    return guardrails
-
-
-def _extract_auth_headers(headers: dict[str, str]) -> dict[str, str]:
-    """Return only the Authorization header for internal guardrail calls."""
-    auth = headers.get("authorization") or headers.get("Authorization")
-    return {"authorization": auth} if auth else {}
-
-
-async def _run_before_guardrails(
-    guardrails: list[JudgeGuardrail],
-    payload_dict: dict[str, Any],
-    auth_headers: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    """Run BEFORE-stage guardrails on the request payload. Returns the (possibly modified) dict."""
-    for guardrail in guardrails:
-        if guardrail.stage == GuardrailStage.BEFORE:
-            payload_dict = await guardrail.process_request(payload_dict, auth_headers=auth_headers)
-    return payload_dict
-
-
-async def _run_after_guardrails(
-    guardrails: list[JudgeGuardrail],
-    request_payload: dict[str, Any],
-    response: chat.ResponsePayload,
-    auth_headers: dict[str, str] | None = None,
-) -> chat.ResponsePayload:
-    """Run AFTER-stage guardrails on the response. Returns the (possibly modified) response.
-
-    Note: AFTER-stage guardrails are skipped for streaming responses. Configure guardrails
-    that must run on all responses to use the BEFORE stage, or disable streaming on the endpoint.
-    """
-    after_guardrails = [g for g in guardrails if g.stage == GuardrailStage.AFTER]
-    if not after_guardrails:
-        return response
-
-    response_dict = response.model_dump()
-    for guardrail in after_guardrails:
-        response_dict = await guardrail.process_response(
-            request_payload, response_dict, auth_headers=auth_headers
-        )
-    return chat.ResponsePayload(**response_dict)
+_load_guardrails = load_guardrails
+_extract_auth_headers = extract_auth_headers
+_run_before_guardrails = run_before_guardrails
+_run_after_guardrails = run_after_guardrails
 
 
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
