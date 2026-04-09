@@ -5,9 +5,10 @@ import { ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemTheme } f
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { createListFromObject } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { DeeplinkText } from '../DeeplinkText';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 import { spanMatchesSelector, applyJsonPathToObject } from '../hooks/useTraceViewFiltering';
-import type { SpanRange, SpanSelector, TraceView } from '../hooks/useTraceViews';
+import type { PathSelection, SpanRange, SpanSelector, TraceView } from '../hooks/useTraceViews';
 
 /**
  * If the value is a JSON string, parse it so it gets rendered as structured data.
@@ -85,7 +86,7 @@ export const ModelTraceExplorerRangesView = ({ activeTraceView }: { activeTraceV
             border: `1px solid ${theme.colors.border}`,
           }}
         >
-          <Typography.Text>{summaryRange.description}</Typography.Text>
+          <DeeplinkText text={summaryRange.description} />
         </div>
       )}
 
@@ -107,6 +108,31 @@ export const ModelTraceExplorerRangesView = ({ activeTraceView }: { activeTraceV
   );
 };
 
+/**
+ * Resolve PathSelections into display items by finding the matching span
+ * and applying the JSONPath for each selection.
+ */
+function resolveSelectionsFromMap(
+  selections: PathSelection[],
+  nodeMap: Record<string, ModelTraceSpanNode>,
+  dataKey: 'inputs' | 'outputs',
+): { key: string; value: string }[] {
+  const items: { key: string; value: string }[] = [];
+  for (const sel of selections) {
+    const span = findMatchingSpan(nodeMap, sel.span_selector);
+    if (!span) continue;
+    const raw = dataKey === 'inputs' ? span.inputs : span.outputs;
+    const filtered = applyJsonPathToObject(raw, sel.path);
+    if (filtered != null) {
+      const spanName = String(span.title);
+      for (const item of createListFromObject(tryParseJson(filtered) as any)) {
+        items.push({ key: item.key ? `${spanName} / ${item.key}` : spanName, value: item.value });
+      }
+    }
+  }
+  return items;
+}
+
 const RangeStepCard = ({
   range,
   nodeMap,
@@ -119,34 +145,36 @@ const RangeStepCard = ({
   isLast: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [inputExpanded, setInputExpanded] = useState(!!range.input_path);
-  const [outputExpanded, setOutputExpanded] = useState(!!range.output_path);
 
-  // Resolve spans: input from from_selector span, output from to_selector span (or from_selector if no to)
-  const fromSpan = useMemo(() => findMatchingSpan(nodeMap, range.from_selector), [nodeMap, range.from_selector]);
-  const toSpan = useMemo(
-    () => (range.to_selector ? findMatchingSpan(nodeMap, range.to_selector) : fromSpan),
-    [nodeMap, range.to_selector, fromSpan],
-  );
+  const hasInputSelections = (range.input_selections?.length ?? 0) > 0;
+  const hasOutputSelections = (range.output_selections?.length ?? 0) > 0;
 
-  // Extract content via JSONPath (applyJsonPathToObject returns raw data when path is null)
-  const extractedInput = useMemo(
-    () => (fromSpan ? applyJsonPathToObject(fromSpan.inputs, range.input_path) : null),
-    [fromSpan, range.input_path],
-  );
-  const extractedOutput = useMemo(
-    () => (toSpan ? applyJsonPathToObject(toSpan.outputs, range.output_path) : null),
-    [toSpan, range.output_path],
-  );
+  const [inputExpanded, setInputExpanded] = useState(!!range.input_path || hasInputSelections);
+  const [outputExpanded, setOutputExpanded] = useState(!!range.output_path || hasOutputSelections);
 
-  const inputList = useMemo(
-    () => (extractedInput != null ? createListFromObject(tryParseJson(extractedInput) as any) : []),
-    [extractedInput],
-  );
-  const outputList = useMemo(
-    () => (extractedOutput != null ? createListFromObject(tryParseJson(extractedOutput) as any) : []),
-    [extractedOutput],
-  );
+  const { inputList, outputList } = useMemo(() => {
+    let inputItems: { key: string; value: string }[];
+    let outputItems: { key: string; value: string }[];
+
+    if (hasInputSelections) {
+      inputItems = resolveSelectionsFromMap(range.input_selections!, nodeMap, 'inputs');
+    } else {
+      const fromSpan = findMatchingSpan(nodeMap, range.from_selector);
+      const extractedInput = fromSpan ? applyJsonPathToObject(fromSpan.inputs, range.input_path) : null;
+      inputItems = extractedInput != null ? createListFromObject(tryParseJson(extractedInput) as any) : [];
+    }
+
+    if (hasOutputSelections) {
+      outputItems = resolveSelectionsFromMap(range.output_selections!, nodeMap, 'outputs');
+    } else {
+      const fromSpan = findMatchingSpan(nodeMap, range.from_selector);
+      const toSpan = range.to_selector ? findMatchingSpan(nodeMap, range.to_selector) : fromSpan;
+      const extractedOutput = toSpan ? applyJsonPathToObject(toSpan.outputs, range.output_path) : null;
+      outputItems = extractedOutput != null ? createListFromObject(tryParseJson(extractedOutput) as any) : [];
+    }
+
+    return { inputList: inputItems, outputList: outputItems };
+  }, [range, nodeMap, hasInputSelections, hasOutputSelections]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'row' }}>
@@ -215,7 +243,7 @@ const RangeStepCard = ({
             backgroundColor: theme.colors.backgroundSecondary,
           }}
         >
-          {range.description && <Typography.Text size="sm">{range.description}</Typography.Text>}
+          {range.description && <DeeplinkText text={range.description} size="sm" />}
           {inputList.length > 0 && (
             <CollapsibleIOSection label="Input" expanded={inputExpanded} onToggle={() => setInputExpanded(!inputExpanded)}>
               {inputList.map(({ key, value }, index) => (

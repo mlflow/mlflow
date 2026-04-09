@@ -4319,6 +4319,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             to_selector=r.to_selector.to_json() if r.to_selector else None,
                             input_path=r.input_path,
                             output_path=r.output_path,
+                            input_selections=(
+                                json.dumps([s.to_dict() for s in r.input_selections])
+                                if r.input_selections
+                                else None
+                            ),
+                            output_selections=(
+                                json.dumps([s.to_dict() for s in r.output_selections])
+                                if r.output_selections
+                                else None
+                            ),
                         )
                     )
 

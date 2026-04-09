@@ -1155,12 +1155,22 @@ class SqlTraceView(Base):
     )
 
     def to_mlflow_entity(self):
-        from mlflow.entities.trace_view import SpanRange, SpanSelector, TraceView
+        from mlflow.entities.trace_view import PathSelection, SpanRange, SpanSelector, TraceView
 
         mlflow_ranges = []
         for sql_range in self.ranges:
             from_sel = SpanSelector.from_json(sql_range.from_selector)
             to_sel = SpanSelector.from_json(sql_range.to_selector) if sql_range.to_selector else None
+            input_sels = (
+                [PathSelection.from_dict(s) for s in json.loads(sql_range.input_selections)]
+                if sql_range.input_selections
+                else []
+            )
+            output_sels = (
+                [PathSelection.from_dict(s) for s in json.loads(sql_range.output_selections)]
+                if sql_range.output_selections
+                else []
+            )
             mlflow_ranges.append(
                 SpanRange(
                     from_selector=from_sel,
@@ -1169,6 +1179,8 @@ class SqlTraceView(Base):
                     description=sql_range.description,
                     input_path=sql_range.input_path,
                     output_path=sql_range.output_path,
+                    input_selections=input_sels,
+                    output_selections=output_sels,
                     position=sql_range.position,
                     range_id=sql_range.range_id,
                 )
@@ -1213,6 +1225,16 @@ class SqlTraceView(Base):
                     to_selector=r.to_selector.to_json() if r.to_selector else None,
                     input_path=r.input_path,
                     output_path=r.output_path,
+                    input_selections=(
+                        json.dumps([s.to_dict() for s in r.input_selections])
+                        if r.input_selections
+                        else None
+                    ),
+                    output_selections=(
+                        json.dumps([s.to_dict() for s in r.output_selections])
+                        if r.output_selections
+                        else None
+                    ),
                 )
             )
 
@@ -1236,6 +1258,8 @@ class SqlTraceViewRange(Base):
     to_selector = Column(Text, nullable=True)
     input_path = Column(Text, nullable=True)
     output_path = Column(Text, nullable=True)
+    input_selections = Column(Text, nullable=True)
+    output_selections = Column(Text, nullable=True)
 
     __table_args__ = (
         PrimaryKeyConstraint("range_id", name="trace_view_ranges_pk"),

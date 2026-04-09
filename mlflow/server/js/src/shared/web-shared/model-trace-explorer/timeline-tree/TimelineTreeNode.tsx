@@ -7,7 +7,6 @@ import {
   ChevronRightIcon,
   Tag,
   GavelIcon,
-  GearIcon,
   LinkIcon,
   Tooltip,
 } from '@databricks/design-system';
@@ -26,7 +25,6 @@ import type { SpanRange } from '../hooks/useTraceViews';
 import type { SpanViewRangeInfo } from '../hooks/useTraceViewFiltering';
 import { getRangeColor } from '../edit-mode/rangeColors';
 import { RangeBadge } from '../edit-mode/RangeBadge';
-import { JsonFieldSelector } from '../edit-mode/JsonFieldSelector';
 
 export interface TimelineTreeEditModeProps {
   selection: SpanRangeSelectionResult;
@@ -283,65 +281,10 @@ export const TimelineTreeNode = ({
                   <Typography.Text css={{ marginLeft: theme.spacing.xs }}>{node.assessments.length}</Typography.Text>
                 </Tag>
               )}
-              {editModeProps && editState?.inRange && (
-                <Button
-                  componentId={`timeline-tree-node.gear-${node.key}`}
-                  type="tertiary"
-                  size="small"
-                  icon={<GearIcon />}
-                  onClick={(e: React.MouseEvent) => {
-                    e.stopPropagation();
-                    editModeProps.selection.toggleExpandedSpan(String(node.key));
-                  }}
-                  aria-label="Configure JSON fields"
-                  css={{ flexShrink: 0, marginLeft: theme.spacing.xs }}
-                />
-              )}
             </div>
           </div>
         </div>
       </TimelineTreeSpanTooltip>
-      {editModeProps && editModeProps.selection.expandedSpanId === String(node.key) && editState?.inRange && editState.rangeIdx !== undefined && (
-        <div
-          css={{
-            marginLeft: theme.spacing.lg + theme.spacing.md,
-            marginRight: theme.spacing.sm,
-            padding: theme.spacing.sm,
-            backgroundColor: theme.colors.backgroundPrimary,
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: theme.borders.borderRadiusMd,
-            marginBottom: theme.spacing.xs,
-          }}
-        >
-          <div
-            css={{
-              color: theme.colors.textSecondary,
-              fontSize: theme.typography.fontSizeSm,
-              marginBottom: theme.spacing.sm,
-            }}
-          >
-            These paths apply to all spans in this range
-          </div>
-          <div css={{ display: 'flex', gap: theme.spacing.md }}>
-            <div css={{ flex: 1 }}>
-              <JsonFieldSelector
-                data={node.inputs}
-                selectedPath={editModeProps.ranges[editState.rangeIdx].input_path ?? null}
-                onPathChange={(path) => editModeProps.onUpdateRange(editState.rangeIdx as number, { input_path: path })}
-                label="Input Fields"
-              />
-            </div>
-            <div css={{ flex: 1 }}>
-              <JsonFieldSelector
-                data={node.outputs}
-                selectedPath={editModeProps.ranges[editState.rangeIdx].output_path ?? null}
-                onPathChange={(path) => editModeProps.onUpdateRange(editState.rangeIdx as number, { output_path: path })}
-                label="Output Fields"
-              />
-            </div>
-          </div>
-        </div>
-      )}
       {expanded &&
         node.children?.map((child, idx) => (
           <TimelineTreeNode

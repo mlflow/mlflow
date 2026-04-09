@@ -43,6 +43,25 @@ class SpanSelector:
 
 
 @dataclass
+class PathSelection:
+    span_selector: SpanSelector
+    path: str
+
+    def to_dict(self) -> dict:
+        return {
+            "span_selector": self.span_selector.to_dict(),
+            "path": self.path,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> PathSelection:
+        return cls(
+            span_selector=SpanSelector.from_dict(d["span_selector"]),
+            path=d["path"],
+        )
+
+
+@dataclass
 class SpanRange:
     from_selector: SpanSelector
     to_selector: SpanSelector | None = None
@@ -50,11 +69,13 @@ class SpanRange:
     description: str = ""
     input_path: str | None = None
     output_path: str | None = None
+    input_selections: list[PathSelection] = field(default_factory=list)
+    output_selections: list[PathSelection] = field(default_factory=list)
     position: int = 0
     range_id: str | None = None
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "from_selector": self.from_selector.to_dict(),
             "to_selector": self.to_selector.to_dict() if self.to_selector else None,
             "label": self.label,
@@ -64,6 +85,11 @@ class SpanRange:
             "position": self.position,
             "range_id": self.range_id,
         }
+        if self.input_selections:
+            d["input_selections"] = [s.to_dict() for s in self.input_selections]
+        if self.output_selections:
+            d["output_selections"] = [s.to_dict() for s in self.output_selections]
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> SpanRange:
@@ -75,6 +101,12 @@ class SpanRange:
             description=d.get("description", ""),
             input_path=d.get("input_path"),
             output_path=d.get("output_path"),
+            input_selections=[
+                PathSelection.from_dict(s) for s in d.get("input_selections", [])
+            ],
+            output_selections=[
+                PathSelection.from_dict(s) for s in d.get("output_selections", [])
+            ],
             position=d.get("position", 0),
             range_id=d.get("range_id"),
         )

@@ -4185,7 +4185,7 @@ def _search_issues():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_trace_view(trace_id=None, experiment_id=None):
-    from mlflow.entities.trace_view import SpanRange, SpanSelector, TraceView
+    from mlflow.entities.trace_view import PathSelection, SpanRange, SpanSelector, TraceView
 
     body = request.get_json(force=True)
     ranges = []
@@ -4201,6 +4201,12 @@ def _create_trace_view(trace_id=None, experiment_id=None):
                 description=rd.get("description", ""),
                 input_path=rd.get("input_path"),
                 output_path=rd.get("output_path"),
+                input_selections=[
+                    PathSelection.from_dict(s) for s in rd.get("input_selections", [])
+                ],
+                output_selections=[
+                    PathSelection.from_dict(s) for s in rd.get("output_selections", [])
+                ],
                 position=i,
             )
         )
@@ -4234,7 +4240,7 @@ def _list_trace_views(trace_id=None, experiment_id=None):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_trace_view(trace_id=None, experiment_id=None, view_id=None):
-    from mlflow.entities.trace_view import SpanRange, SpanSelector
+    from mlflow.entities.trace_view import PathSelection, SpanRange, SpanSelector
 
     body = request.get_json(force=True)
     kwargs = {}
@@ -4254,6 +4260,12 @@ def _update_trace_view(trace_id=None, experiment_id=None, view_id=None):
                     description=rd.get("description", ""),
                     input_path=rd.get("input_path"),
                     output_path=rd.get("output_path"),
+                    input_selections=[
+                        PathSelection.from_dict(s) for s in rd.get("input_selections", [])
+                    ],
+                    output_selections=[
+                        PathSelection.from_dict(s) for s in rd.get("output_selections", [])
+                    ],
                     position=i,
                 )
             )

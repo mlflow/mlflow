@@ -2,11 +2,30 @@ import { useQuery, useQueryClient } from '../../query-client/queryClient';
 
 import { fetchAPI, getAjaxUrl } from '../ModelTraceExplorer.request.utils';
 
-export interface SpanFilter {
+export interface SpanSelector {
   span_name?: string | null;
   span_type?: string | null;
+  span_id?: string | null;
   attribute_key?: string | null;
   attribute_value?: string | null;
+}
+
+export interface PathSelection {
+  span_selector: SpanSelector;
+  path: string;
+}
+
+export interface SpanRange {
+  from_selector: SpanSelector;
+  to_selector?: SpanSelector | null;
+  label: string;
+  description: string;
+  input_path?: string | null;
+  output_path?: string | null;
+  input_selections?: PathSelection[];
+  output_selections?: PathSelection[];
+  position: number;
+  range_id?: string | null;
 }
 
 export interface TraceView {
@@ -14,11 +33,8 @@ export interface TraceView {
   name: string;
   trace_id?: string | null;
   experiment_id?: string | null;
-  span_filter?: SpanFilter | null;
-  input_path?: string | null;
-  output_path?: string | null;
+  ranges: SpanRange[];
   created_by?: string | null;
-  description?: string | null;
   create_time_ms?: number | null;
   last_update_time_ms?: number | null;
 }
