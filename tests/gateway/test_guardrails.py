@@ -7,6 +7,7 @@ import pytest
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
+from mlflow.types.chat import ChatCompletionRequest
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -235,7 +236,7 @@ async def test_sanitization_uses_json_object_response_format():
         "json_schema": {
             "name": "sanitized_payload",
             "strict": False,
-            "schema": {"type": "object", "additionalProperties": True},
+            "schema": ChatCompletionRequest.model_json_schema(),
         },
     }
 

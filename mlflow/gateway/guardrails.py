@@ -16,6 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.providers.utils import send_request
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.types.chat import ChatCompletionRequest, ChatCompletionResponse
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers import Scorer
@@ -182,6 +183,7 @@ class JudgeGuardrail(Guardrail):
         self,
         payload: dict[str, Any],
         rationale: str,
+        payload_model: type[ChatCompletionRequest] | type[ChatCompletionResponse],
         auth_headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Send the full payload to the action endpoint LLM for rewriting.
@@ -211,7 +213,7 @@ class JudgeGuardrail(Guardrail):
                 "json_schema": {
                     "name": "sanitized_payload",
                     "strict": False,
-                    "schema": {"type": "object", "additionalProperties": True},
+                    "schema": payload_model.model_json_schema(),
                 },
             },
         }
@@ -263,7 +265,9 @@ class JudgeGuardrail(Guardrail):
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return await self._sanitize(request, rationale, auth_headers=auth_headers)
+        return await self._sanitize(
+            request, rationale, ChatCompletionRequest, auth_headers=auth_headers
+        )
 
     async def process_response(
         self,
@@ -284,7 +288,9 @@ class JudgeGuardrail(Guardrail):
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return await self._sanitize(response, rationale, auth_headers=auth_headers)
+        return await self._sanitize(
+            response, rationale, ChatCompletionResponse, auth_headers=auth_headers
+        )
 
     @classmethod
     def from_entity(cls, entity: GatewayGuardrail, server_url: str | None = None) -> JudgeGuardrail:
