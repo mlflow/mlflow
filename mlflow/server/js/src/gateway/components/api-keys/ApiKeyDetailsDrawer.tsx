@@ -30,7 +30,7 @@ export const ApiKeyDetailsDrawer = ({ open, secret, onClose, onEditSuccess }: Ap
   const intl = useIntl();
   const [isEditing, setIsEditing] = useState(false);
 
-  const handleCancelEdit = useCallback(() => {
+  const handleCloseEdit = useCallback(() => {
     setIsEditing(false);
   }, []);
 
@@ -48,7 +48,8 @@ export const ApiKeyDetailsDrawer = ({ open, secret, onClose, onEditSuccess }: Ap
     provider,
     handleFormDataChange,
     handleSubmit,
-  } = useEditApiKeyModal({ secret, onClose: handleCancelEdit, onSuccess: handleSaveSuccess });
+    resetForm,
+  } = useEditApiKeyModal({ secret, onClose: handleCloseEdit, onSuccess: handleSaveSuccess });
 
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
@@ -197,7 +198,7 @@ export const ApiKeyDetailsDrawer = ({ open, secret, onClose, onEditSuccess }: Ap
               </Button>
               <Button
                 componentId="mlflow.gateway.api-key-details.drawer.cancel-button"
-                onClick={handleCancelEdit}
+                onClick={resetForm}
                 disabled={isSaving}
               >
                 <FormattedMessage defaultMessage="Cancel" description="Cancel button text" />

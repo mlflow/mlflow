@@ -79,6 +79,33 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     return Object.keys(newErrors).length === 0;
   }, [formData.secretFields]);
 
+  const resetForm = useCallback(() => {
+    if (secret) {
+      let authMode = '';
+      if (secret.auth_config?.['auth_mode']) {
+        authMode = String(secret.auth_config['auth_mode']);
+      }
+      const existingConfigFields: Record<string, string> = {};
+      if (secret.auth_config) {
+        for (const [key, value] of Object.entries(secret.auth_config)) {
+          if (key !== 'auth_mode') {
+            existingConfigFields[key] = String(value);
+          }
+        }
+      }
+      setFormData({
+        name: secret.secret_name,
+        authMode,
+        secretFields: {},
+        configFields: existingConfigFields,
+      });
+    } else {
+      setFormData(INITIAL_FORM_DATA);
+    }
+    setErrors({});
+    resetMutation();
+  }, [secret, resetMutation]);
+
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
     setErrors({});
@@ -160,5 +187,6 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     handleFormDataChange,
     handleSubmit,
     handleClose,
+    resetForm,
   };
 };
