@@ -328,6 +328,24 @@ class JudgeGuardrail(Guardrail):
             )
 
         scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
+
+        # If the scorer is an InstructionsJudge whose model is a gateway:/ URI,
+        # rewrite it to use the server's own HTTP URL so the call doesn't go
+        # through MLFLOW_TRACKING_URI (which is a SQLite path inside the server).
+        if server_url:
+            from mlflow.genai.judges.instructions_judge import InstructionsJudge
+
+            if isinstance(scorer, InstructionsJudge) and scorer.model.startswith("gateway:/"):
+                endpoint_name = scorer.model[len("gateway:/") :]
+                scorer = InstructionsJudge(
+                    name=scorer.name,
+                    instructions=scorer._instructions,
+                    model=f"openai:/{endpoint_name}",
+                    base_url=f"{server_url.rstrip('/')}/gateway/mlflow/v1/",
+                    feedback_value_type=scorer._feedback_value_type,
+                    inference_params=scorer._inference_params,
+                )
+
         return cls(
             scorer=scorer,
             stage=entity.stage,
