@@ -40,8 +40,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    # TODO(#22014): Remove `false &&`
-    if: false && (github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')))
+    if: (github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')))
     defaults:
       run:
         working-directory: mlflow/R/mlflow
