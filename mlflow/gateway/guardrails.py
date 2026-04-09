@@ -27,14 +27,6 @@ ScorerResult = bool | str | Feedback | list[Feedback]
 
 # Header added to internal sanitization requests so the gateway can skip guardrails
 # on the call, preventing recursive guardrail execution loops.
-#
-# Value: a truthy string such as "1".
-#
-# This header is INTERNAL ONLY — it is injected by the gateway itself when making
-# sanitization sub-requests, and is never read from (or honoured for) externally
-# originated client requests.  External clients cannot use this to bypass guardrails
-# on their own requests because the gateway only checks the header on the sub-requests
-# it originates, not on the initial inbound call.
 _SANITIZE_BYPASS_HEADER = "X-MLflow-Guardrail-Bypass"
 _MAX_RATIONALE_LEN = 500
 
