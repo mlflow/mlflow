@@ -334,7 +334,7 @@ class TelemetryClient:
                 event["params_json"] = event.pop("params")
             events.append(event)
 
-        self._send_with_retries(
+        response = self._send_with_retries(
             lambda timeout: http_request(
                 host_creds=creds,
                 endpoint="/api/2.0/mlflow/client-telemetry/ingest",
@@ -346,6 +346,9 @@ class TelemetryClient:
             ),
             request_timeout,
         )
+        if response and response.status_code in UNRECOVERABLE_ERRORS:
+            self._is_stopped = True
+            self.is_active = False
 
     def _send_with_retries(self, send_fn, request_timeout: float = 1):
         max_attempts = 3

@@ -1010,7 +1010,7 @@ def test_forward_to_databricks_params_json_serialization():
 
 
 @pytest.mark.parametrize("status_code", list(UNRECOVERABLE_ERRORS))
-def test_forward_to_databricks_unrecoverable_error_non_fatal(status_code):
+def test_forward_to_databricks_stops_on_unrecoverable_error(status_code):
     with TelemetryClient() as client:
         client.info["tracking_uri_scheme"] = "databricks"
         record = Record(
@@ -1032,7 +1032,8 @@ def test_forward_to_databricks_unrecoverable_error_non_fatal(status_code):
         ):
             client._forward_to_databricks([record])
 
-        assert not client._is_stopped
+        assert client._is_stopped
+        assert not client.is_active
 
 
 def test_forward_to_databricks_credential_failure_non_fatal():
