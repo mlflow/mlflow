@@ -427,7 +427,7 @@ def test_from_entity_rewrites_gateway_model_uri():
     mock_instructions_judge = mock.MagicMock(spec=InstructionsJudge)
     mock_instructions_judge.model = "gateway:/my-judge-ep"
     mock_instructions_judge.name = "my-judge"
-    mock_instructions_judge._instructions = "Is this safe?"
+    mock_instructions_judge._instructions = "Is this safe? {{ inputs }}"
     mock_instructions_judge._feedback_value_type = None
     mock_instructions_judge._inference_params = None
 
@@ -443,7 +443,7 @@ def test_from_entity_rewrites_gateway_model_uri():
 
     assert isinstance(guard.scorer, InstructionsJudge)
     assert guard.scorer.model == "openai:/my-judge-ep"
-    assert guard.scorer.base_url == "http://localhost:5000/gateway/mlflow/v1/chat/completions"
+    assert guard.scorer._base_url == "http://localhost:5000/gateway/mlflow/v1/chat/completions"
 
 
 def test_from_entity_does_not_rewrite_non_gateway_model_uri():
@@ -453,7 +453,7 @@ def test_from_entity_does_not_rewrite_non_gateway_model_uri():
     mock_instructions_judge = mock.MagicMock(spec=InstructionsJudge)
     mock_instructions_judge.model = "openai:/gpt-4o"
     mock_instructions_judge.name = "my-judge"
-    mock_instructions_judge._instructions = "Is this safe?"
+    mock_instructions_judge._instructions = "Is this safe? {{ inputs }}"
     mock_instructions_judge._feedback_value_type = None
     mock_instructions_judge._inference_params = None
 
