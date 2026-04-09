@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.providers import (
     _fetch_remote_provider,
     _flatten_catalog_entry,
@@ -185,6 +186,39 @@ def test_get_models_dedupes_models_after_normalization():
         model_names = [m["model"] for m in models]
         assert model_names.count("gemini-3-flash-preview") == 1
         assert len(models) == 1
+
+
+def test_get_all_providers_with_allowed_filter(monkeypatch):
+    data = {
+        "openai": {"gpt-4o": {"mode": "chat"}},
+        "anthropic": {"claude-3-5-sonnet": {"mode": "chat"}},
+        "gemini": {"gemini-1.5-pro": {"mode": "chat"}},
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
+        monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai,anthropic")
+        providers = get_all_providers()
+        assert "openai" in providers
+        assert "anthropic" in providers
+        assert "gemini" not in providers
+
+
+def test_get_models_filters_with_allowed_providers(monkeypatch):
+    data = {
+        "openai": {"gpt-4o": {"mode": "chat", "supports_function_calling": True}},
+        "anthropic": {"claude-3-5-sonnet": {"mode": "chat", "supports_function_calling": True}},
+        "gemini": {"gemini-1.5-pro": {"mode": "chat", "supports_function_calling": True}},
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
+        monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai")
+        models = get_models()
+        providers_in_result = {m["provider"] for m in models}
+        assert providers_in_result == {"openai"}
+
+
+def test_get_provider_config_rejects_provider_not_in_allowed_list(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "anthropic")
+    with pytest.raises(MlflowException, match="not allowed"):
+        get_provider_config_response("openai")
 
 
 def test_get_provider_config_bedrock_has_default_chain():
