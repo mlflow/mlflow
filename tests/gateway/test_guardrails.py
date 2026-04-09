@@ -127,7 +127,8 @@ async def test_before_sanitization_rewrites_request():
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
         "test",
-        action_llm_url="http://localhost:5000/gateway/ep-sanitizer/mlflow/invocations",
+        action_llm_url="http://localhost:5000",
+        action_endpoint_name="ep-sanitizer",
     )
     sanitized = _make_request("my SSN is [REDACTED]")
     with mock.patch("mlflow.gateway.guardrails.send_request", _send_request_returning(sanitized)):
@@ -143,7 +144,8 @@ async def test_after_sanitization_rewrites_response():
         GuardrailStage.AFTER,
         GuardrailAction.SANITIZATION,
         "test",
-        action_llm_url="http://localhost:5000/gateway/ep-sanitizer/mlflow/invocations",
+        action_llm_url="http://localhost:5000",
+        action_endpoint_name="ep-sanitizer",
     )
     sanitized = _make_response("Polite version")
     with mock.patch("mlflow.gateway.guardrails.send_request", _send_request_returning(sanitized)):
@@ -167,7 +169,8 @@ async def test_sanitization_invalid_json_raises():
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
         "test",
-        action_llm_url="http://localhost:5000/gateway/ep-sanitizer/mlflow/invocations",
+        action_llm_url="http://localhost:5000",
+        action_endpoint_name="ep-sanitizer",
     )
     with (
         mock.patch(
@@ -189,7 +192,8 @@ async def test_sanitization_network_error_raises():
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
         "test",
-        action_llm_url="http://localhost:5000/gateway/ep-sanitizer/mlflow/invocations",
+        action_llm_url="http://localhost:5000",
+        action_endpoint_name="ep-sanitizer",
     )
     with (
         mock.patch(
@@ -217,7 +221,8 @@ async def test_sanitization_uses_json_object_response_format():
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
         "test",
-        action_llm_url="http://localhost:5000/gateway/ep-sanitizer/mlflow/invocations",
+        action_llm_url="http://localhost:5000",
+        action_endpoint_name="ep-sanitizer",
     )
     sanitized = _make_request("cleaned")
     captured: list[dict[str, Any]] = []
@@ -415,13 +420,15 @@ def test_from_entity_with_action_endpoint():
     ):
         guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
 
-    assert guard.action_llm_url == "http://localhost:5000/gateway/my-ep/mlflow/invocations"
+    assert guard.action_llm_url == "http://localhost:5000"
+    assert guard.action_endpoint_name == "my-ep"
 
 
 def test_from_entity_rewrites_gateway_model_uri():
     """gateway:/ model URIs must be rewritten to openai:/ with an explicit base_url so
     the judge doesn't hit _resolve_gateway_uri(), which fails when MLFLOW_TRACKING_URI
-    is the backend store URI (e.g. sqlite://) inside the server process."""
+    is the backend store URI (e.g. sqlite://) inside the server process.
+    """
     from mlflow.genai.judges.instructions_judge import InstructionsJudge
 
     mock_instructions_judge = mock.MagicMock(spec=InstructionsJudge)
@@ -438,7 +445,9 @@ def test_from_entity_rewrites_gateway_model_uri():
     entity.action = GuardrailAction.VALIDATION
     entity.action_endpoint_name = None
 
-    with mock.patch("mlflow.genai.scorers.Scorer.model_validate", return_value=mock_instructions_judge):
+    with mock.patch(
+        "mlflow.genai.scorers.Scorer.model_validate", return_value=mock_instructions_judge
+    ):
         guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
 
     assert isinstance(guard.scorer, InstructionsJudge)
@@ -447,7 +456,6 @@ def test_from_entity_rewrites_gateway_model_uri():
 
 
 def test_from_entity_does_not_rewrite_non_gateway_model_uri():
-    """Non-gateway:/ model URIs (e.g. openai:/) must not be rewritten."""
     from mlflow.genai.judges.instructions_judge import InstructionsJudge
 
     mock_instructions_judge = mock.MagicMock(spec=InstructionsJudge)
@@ -464,7 +472,9 @@ def test_from_entity_does_not_rewrite_non_gateway_model_uri():
     entity.action = GuardrailAction.VALIDATION
     entity.action_endpoint_name = None
 
-    with mock.patch("mlflow.genai.scorers.Scorer.model_validate", return_value=mock_instructions_judge):
+    with mock.patch(
+        "mlflow.genai.scorers.Scorer.model_validate", return_value=mock_instructions_judge
+    ):
         guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
 
     assert guard.scorer is mock_instructions_judge

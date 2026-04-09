@@ -133,12 +133,14 @@ class JudgeGuardrail(Guardrail):
         action: GuardrailAction,
         name: str,
         action_llm_url: str | None = None,
+        action_endpoint_name: str | None = None,
     ) -> None:
         self.scorer = scorer
         self.stage = stage
         self.action = action
         self.name = name
         self.action_llm_url = action_llm_url
+        self.action_endpoint_name = action_endpoint_name
 
     def _invoke_judge(
         self,
@@ -203,13 +205,14 @@ class JudgeGuardrail(Guardrail):
         Posts a chat request to ``action_llm_url`` which is the fully
         resolved gateway invocations URL.
         """
-        if not self.action_llm_url:
+        if not self.action_llm_url or not self.action_endpoint_name:
             raise GuardrailViolation(
                 self.name,
                 "Sanitization requires an action_llm_url but none was configured.",
             )
 
         url = self.action_llm_url
+        path = f"gateway/{self.action_endpoint_name}/mlflow/invocations"
         body = {
             "messages": [
                 {
@@ -239,7 +242,7 @@ class JudgeGuardrail(Guardrail):
         headers[_SANITIZE_BYPASS_HEADER] = "1"
 
         try:
-            resp_json = await send_request(headers=headers, base_url=url, path="", payload=body)
+            resp_json = await send_request(headers=headers, base_url=url, path=path, payload=body)
         except HTTPException as e:
             raise GuardrailViolation(self.name, f"Sanitization request failed: {e.detail}") from e
 
@@ -321,14 +324,14 @@ class JudgeGuardrail(Guardrail):
         Returns:
             A ``JudgeGuardrail`` ready to process requests/responses.
         """
-        from mlflow.genai.judges.instructions_judge import InstructionsJudge  # lazy: heavy transitive deps
+        from mlflow.genai.judges.instructions_judge import (
+            InstructionsJudge,  # lazy: heavy transitive deps
+        )
         from mlflow.genai.scorers import Scorer  # lazy: heavy transitive deps
 
-        action_llm_url = None
-        if entity.action_endpoint_name and server_url:
-            action_llm_url = (
-                f"{server_url.rstrip('/')}/gateway/{entity.action_endpoint_name}/mlflow/invocations"
-            )
+        action_llm_url = (
+            server_url.rstrip("/") if entity.action_endpoint_name and server_url else None
+        )
 
         scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
 
@@ -354,4 +357,5 @@ class JudgeGuardrail(Guardrail):
             action=entity.action,
             name=entity.name,
             action_llm_url=action_llm_url,
+            action_endpoint_name=entity.action_endpoint_name,
         )
