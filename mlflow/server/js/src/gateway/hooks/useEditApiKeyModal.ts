@@ -70,14 +70,17 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
   const validateForm = useCallback((): boolean => {
     const newErrors: typeof errors = {};
 
-    const hasSecretValues = Object.values(formData.secretFields).some((v) => Boolean(v));
-    if (!hasSecretValues) {
-      newErrors.secretFields = {};
+    // When editing an existing key, secret fields are optional (backend keeps existing values)
+    if (!secret) {
+      const hasSecretValues = Object.values(formData.secretFields).some((v) => Boolean(v));
+      if (!hasSecretValues) {
+        newErrors.secretFields = {};
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData.secretFields]);
+  }, [secret, formData.secretFields]);
 
   const resetForm = useCallback(() => {
     if (secret) {
