@@ -40,6 +40,7 @@ class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
     EVAL_REQUEST_ID = "mlflow.eval.requestId"
     SPANS_LOCATION = "mlflow.trace.spansLocation"
+    ARCHIVING = "mlflow.trace.archiving"
     ARCHIVE_LOCATION = "mlflow.trace.archiveLocation"
     ARCHIVAL_FAILURE = "mlflow.trace.archivalFailure"
     # Store the source scorer name that generated the trace. This tag is used to determine if a

@@ -15555,9 +15555,9 @@ def test_archive_traces_noops_when_candidate_becomes_stale(store: SqlAlchemyStor
         assert not archive_payload_path.exists()
 
     assert archived == 0
-    assert store.get_trace_info(trace_id).tags[TraceTagKey.SPANS_LOCATION] == (
-        SpansLocation.TRACKING_STORE.value
-    )
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+    assert TraceTagKey.ARCHIVING not in trace_info.tags
     with store.ManagedSessionMaker() as session:
         contents = (
             session
@@ -15567,6 +15567,92 @@ def test_archive_traces_noops_when_candidate_becomes_stale(store: SqlAlchemyStor
             .all()
         )
         assert all(content for (content,) in contents)
+
+
+def test_archive_traces_resumes_trace_with_stale_archiving_marker(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("archive-stale-archiving-marker")
+    trace_id = "tr-stale-archiving-marker"
+    now_millis = 41 * 24 * 60 * 60 * 1000
+    request_time = now_millis - 2 * 24 * 60 * 60 * 1000
+
+    _create_trace(store, trace_id, exp_id, request_time=request_time)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id,
+                span_id=420,
+                start_ns=request_time * 1_000_000,
+                end_ns=(request_time + 1_000) * 1_000_000,
+            )
+        ],
+    )
+    store.set_trace_tag(
+        trace_id,
+        TraceTagKey.ARCHIVING,
+        sqlalchemy_store_module._TRACE_ARCHIVING_TAG_VALUE,
+    )
+
+    with TempDir() as tmp:
+        archive_root = Path(tmp.path("archive"))
+        archive_root.mkdir()
+        archived = _archive_traces(
+            store,
+            default_trace_archival_location=archive_root.as_uri(),
+            default_retention="1d",
+            now_millis=now_millis,
+        )
+
+    assert archived == 1
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.ARCHIVE_REPO.value
+    assert TraceTagKey.ARCHIVING not in trace_info.tags
+
+
+def test_log_spans_rejects_trace_being_archived(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("archive-reject-log-spans-while-archiving")
+    trace_id = "tr-archive-reject-log-spans-while-archiving"
+    request_time = 43 * 24 * 60 * 60 * 1000
+
+    _create_trace(store, trace_id, exp_id, request_time=request_time)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id,
+                span_id=430,
+                start_ns=request_time * 1_000_000,
+                end_ns=(request_time + 1_000) * 1_000_000,
+            )
+        ],
+    )
+    store.set_trace_tag(
+        trace_id,
+        TraceTagKey.ARCHIVING,
+        sqlalchemy_store_module._TRACE_ARCHIVING_TAG_VALUE,
+    )
+
+    with pytest.raises(
+        MlflowException, match=f"Cannot log spans to traces being archived: '{trace_id}'"
+    ) as exc_info:
+        store.log_spans(
+            exp_id,
+            [
+                create_test_span(
+                    trace_id,
+                    span_id=431,
+                    start_ns=(request_time + 2_000) * 1_000_000,
+                    end_ns=(request_time + 3_000) * 1_000_000,
+                )
+            ],
+        )
+
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_STATE)
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+    assert trace_info.tags[TraceTagKey.ARCHIVING] == (
+        sqlalchemy_store_module._TRACE_ARCHIVING_TAG_VALUE
+    )
 
 
 def test_log_spans_rejects_archived_trace(store: SqlAlchemyStore):
@@ -15811,6 +15897,7 @@ def test_archive_traces_marks_malformed_traces_and_excludes_retries(store: SqlAl
     assert archived_again == 0
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+    assert TraceTagKey.ARCHIVING not in trace_info.tags
     assert trace_info.tags[TraceTagKey.ARCHIVAL_FAILURE] == (
         TraceArchivalFailureReason.MALFORMED_TRACE.value
     )
@@ -15854,6 +15941,7 @@ def test_archive_traces_marks_serializer_failures_as_malformed_and_excludes_retr
     assert archived_again == 0
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+    assert TraceTagKey.ARCHIVING not in trace_info.tags
     assert trace_info.tags[TraceTagKey.ARCHIVAL_FAILURE] == (
         TraceArchivalFailureReason.MALFORMED_TRACE.value
     )
