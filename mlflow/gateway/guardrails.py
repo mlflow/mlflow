@@ -36,6 +36,7 @@ ScorerResult = bool | str | Feedback | list[Feedback]
 # on their own requests because the gateway only checks the header on the sub-requests
 # it originates, not on the initial inbound call.
 _SANITIZE_BYPASS_HEADER = "X-MLflow-Guardrail-Bypass"
+_MAX_RATIONALE_LEN = 500
 
 # Only forward these headers to internal sanitization calls — forwarding all
 # incoming headers (e.g. Host, Content-Length) can cause failures.
@@ -186,9 +187,6 @@ class JudgeGuardrail(Guardrail):
             "expected bool or str."
         )
 
-    # Maximum characters included in a rationale string to keep error messages concise.
-    _MAX_RATIONALE_LEN = 500
-
     def _get_rationale(self, result: ScorerResult) -> str:
         if isinstance(result, Feedback):
             raw = result.rationale or str(result.value)
@@ -197,7 +195,7 @@ class JudgeGuardrail(Guardrail):
             raw = "; ".join(failing) if failing else ""
         else:
             raw = str(result)
-        return raw[: self._MAX_RATIONALE_LEN]
+        return raw[:_MAX_RATIONALE_LEN]
 
     async def _sanitize(
         self,
