@@ -30,6 +30,7 @@ Example usage:
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import json
 import logging
 from typing import Any, ClassVar, Literal
@@ -170,6 +171,7 @@ class GoogleADKScorer(Scorer):
 
     _evaluator: Any = PrivateAttr()
     _threshold: float = PrivateAttr()
+    _model: str | None = PrivateAttr(default=None)
 
     @property
     def kind(self) -> ScorerKind:
@@ -199,6 +201,73 @@ class GoogleADKScorer(Scorer):
             "'align()' is not supported for third-party scorers like Google ADK. "
             "Alignment is only available for MLflow's built-in judges."
         )
+
+    def _evaluate_judge(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+        is_async: bool = False,
+        require_reference: bool = False,
+    ) -> Feedback:
+        is_llm = self._model is not None
+        assessment_source = AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE if is_llm else AssessmentSourceType.CODE,
+            source_id=self._model if is_llm else f"google_adk/{self.name}",
+        )
+
+        try:
+            if require_reference:
+                reference = None
+                if expectations:
+                    reference = (
+                        expectations.get("expected_response")
+                        or expectations.get("reference")
+                        or expectations.get("expected_output")
+                    )
+                if reference is None:
+                    raise MlflowException.invalid_parameter_value(
+                        f"{self.name} scorer requires 'expected_response' "
+                        "or 'reference' in expectations."
+                    )
+
+            actual_inv, expected_inv = _to_invocation(
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=trace,
+            )
+
+            call = self._evaluator.evaluate_invocations(
+                actual_invocations=[actual_inv],
+                expected_invocations=[expected_inv],
+            )
+            result = _run_async(call) if is_async else call
+
+            score = result.overall_score if result.overall_score is not None else 0.0
+            passed = score >= self._threshold
+
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES if passed else CategoricalRating.NO,
+                rationale=f"{self.name} score: {score:.2f} (threshold: {self._threshold})",
+                source=assessment_source,
+                metadata={
+                    "score": score,
+                    "threshold": self._threshold,
+                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
+                },
+            )
+        except Exception as e:
+            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
+            return Feedback(
+                name=self.name,
+                error=e,
+                source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+            )
 
 
 @experimental(version="3.11.0")
@@ -258,51 +327,25 @@ class ToolTrajectory(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        assessment_source = AssessmentSource(
-            source_type=AssessmentSourceType.CODE,
-            source_id=f"google_adk/{self.metric_name}",
-        )
-
-        try:
-            if not expectations or "expected_tool_calls" not in expectations:
-                raise MlflowException.invalid_parameter_value(
+        if not expectations or "expected_tool_calls" not in expectations:
+            return Feedback(
+                name=self.name,
+                error=MlflowException.invalid_parameter_value(
                     "ToolTrajectory scorer requires 'expected_tool_calls' in expectations."
-                )
-
-            actual_inv, expected_inv = _to_invocation(
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=trace,
-            )
-
-            result = self._evaluator.evaluate_invocations(
-                actual_invocations=[actual_inv],
-                expected_invocations=[expected_inv],
-            )
-
-            score = result.overall_score if result.overall_score is not None else 0.0
-            passed = score >= self._threshold
-
-            return Feedback(
-                name=self.name,
-                value=CategoricalRating.YES if passed else CategoricalRating.NO,
-                rationale=f"Tool trajectory score: {score:.2f} (threshold: {self._threshold})",
-                source=assessment_source,
-                metadata={
-                    "score": score,
-                    "threshold": self._threshold,
-                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
-                },
-            )
-        except Exception as e:
-            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
-            return Feedback(
-                name=self.name,
-                error=e,
-                source=assessment_source,
+                ),
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.CODE,
+                    source_id=f"google_adk/{self.metric_name}",
+                ),
                 metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
             )
+
+        return self._evaluate_judge(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
+        )
 
 
 @experimental(version="3.11.0")
@@ -349,60 +392,13 @@ class ResponseMatch(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        assessment_source = AssessmentSource(
-            source_type=AssessmentSourceType.CODE,
-            source_id=f"google_adk/{self.metric_name}",
+        return self._evaluate_judge(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
+            require_reference=True,
         )
-
-        try:
-            reference = None
-            if expectations:
-                reference = (
-                    expectations.get("expected_response")
-                    or expectations.get("reference")
-                    or expectations.get("expected_output")
-                )
-
-            if reference is None:
-                raise MlflowException.invalid_parameter_value(
-                    "ResponseMatch scorer requires 'expected_response' or 'reference' "
-                    "in expectations."
-                )
-
-            actual_inv, expected_inv = _to_invocation(
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=trace,
-            )
-
-            result = self._evaluator.evaluate_invocations(
-                actual_invocations=[actual_inv],
-                expected_invocations=[expected_inv],
-            )
-
-            score = result.overall_score if result.overall_score is not None else 0.0
-            passed = score >= self._threshold
-
-            return Feedback(
-                name=self.name,
-                value=CategoricalRating.YES if passed else CategoricalRating.NO,
-                rationale=f"ROUGE-1 F-measure: {score:.4f} (threshold: {self._threshold})",
-                source=assessment_source,
-                metadata={
-                    "score": score,
-                    "threshold": self._threshold,
-                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
-                },
-            )
-        except Exception as e:
-            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
-            return Feedback(
-                name=self.name,
-                error=e,
-                source=assessment_source,
-                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
-            )
 
 
 _DEFAULT_JUDGE_MODEL = "gemini-2.5-flash"
@@ -416,8 +412,6 @@ def _run_async(coro):
         loop = None
 
     if loop and loop.is_running():
-        import concurrent.futures
-
         with concurrent.futures.ThreadPoolExecutor() as pool:
             return pool.submit(asyncio.run, coro).result()
     return asyncio.run(coro)
@@ -464,63 +458,14 @@ class ResponseEvaluation(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        assessment_source = AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE,
-            source_id=self._model,
+        return self._evaluate_judge(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
+            is_async=True,
+            require_reference=True,
         )
-
-        try:
-            reference = None
-            if expectations:
-                reference = (
-                    expectations.get("expected_response")
-                    or expectations.get("reference")
-                    or expectations.get("expected_output")
-                )
-
-            if reference is None:
-                raise MlflowException.invalid_parameter_value(
-                    "ResponseEvaluation scorer requires 'expected_response' "
-                    "or 'reference' in expectations."
-                )
-
-            actual_inv, expected_inv = _to_invocation(
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=trace,
-            )
-
-            result = _run_async(
-                self._evaluator.evaluate_invocations(
-                    actual_invocations=[actual_inv],
-                    expected_invocations=[expected_inv],
-                )
-            )
-
-            score = result.overall_score if result.overall_score is not None else 0.0
-            passed = score >= self._threshold
-
-            return Feedback(
-                name=self.name,
-                value=CategoricalRating.YES if passed else CategoricalRating.NO,
-                rationale=f"Response evaluation score: {score:.2f} "
-                f"(threshold: {self._threshold})",
-                source=assessment_source,
-                metadata={
-                    "score": score,
-                    "threshold": self._threshold,
-                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
-                },
-            )
-        except Exception as e:
-            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
-            return Feedback(
-                name=self.name,
-                error=e,
-                source=assessment_source,
-                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
-            )
 
 
 @experimental(version="3.12.0")
@@ -560,46 +505,12 @@ class Safety(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        assessment_source = AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE,
-            source_id=self._model,
+        return self._evaluate_judge(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
         )
-
-        try:
-            actual_inv, expected_inv = _to_invocation(
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=trace,
-            )
-
-            result = self._evaluator.evaluate_invocations(
-                actual_invocations=[actual_inv],
-                expected_invocations=[expected_inv],
-            )
-
-            score = result.overall_score if result.overall_score is not None else 0.0
-            passed = score >= self._threshold
-
-            return Feedback(
-                name=self.name,
-                value=CategoricalRating.YES if passed else CategoricalRating.NO,
-                rationale=f"Safety score: {score:.2f} (threshold: {self._threshold})",
-                source=assessment_source,
-                metadata={
-                    "score": score,
-                    "threshold": self._threshold,
-                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
-                },
-            )
-        except Exception as e:
-            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
-            return Feedback(
-                name=self.name,
-                error=e,
-                source=assessment_source,
-                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
-            )
 
 
 @experimental(version="3.12.0")
@@ -641,49 +552,13 @@ class Hallucination(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        assessment_source = AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE,
-            source_id=self._model,
+        return self._evaluate_judge(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
+            is_async=True,
         )
-
-        try:
-            actual_inv, expected_inv = _to_invocation(
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=trace,
-            )
-
-            result = _run_async(
-                self._evaluator.evaluate_invocations(
-                    actual_invocations=[actual_inv],
-                    expected_invocations=[expected_inv],
-                )
-            )
-
-            score = result.overall_score if result.overall_score is not None else 0.0
-            passed = score >= self._threshold
-
-            return Feedback(
-                name=self.name,
-                value=CategoricalRating.YES if passed else CategoricalRating.NO,
-                rationale=f"Hallucination score: {score:.2f} "
-                f"(threshold: {self._threshold})",
-                source=assessment_source,
-                metadata={
-                    "score": score,
-                    "threshold": self._threshold,
-                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
-                },
-            )
-        except Exception as e:
-            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
-            return Feedback(
-                name=self.name,
-                error=e,
-                source=assessment_source,
-                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
-            )
 
 
 def _create_llm_judge_criterion(threshold: float, model: str, num_samples: int):
@@ -782,9 +657,10 @@ def get_scorer(
     Get a Google ADK evaluator as an MLflow scorer.
 
     Args:
-        metric_name: Name of the ADK metric ("ToolTrajectory" or "ResponseMatch")
+        metric_name: Name of the ADK metric. Available: "ToolTrajectory",
+            "ResponseMatch", "ResponseEvaluation", "Safety", "Hallucination".
         kwargs: Additional keyword arguments passed to the scorer constructor
-            (e.g., threshold, match_type).
+            (e.g., threshold, match_type, model, num_samples).
 
     Returns:
         GoogleADKScorer instance that can be called with MLflow's scorer interface
