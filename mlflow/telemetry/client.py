@@ -359,7 +359,7 @@ class TelemetryClient:
             try:
                 response = send_fn(request_timeout)
                 should_retry = response.status_code in RETRYABLE_ERRORS
-            except (ConnectionError, TimeoutError):
+            except (ConnectionError, TimeoutError, requests.ConnectionError, requests.Timeout):
                 should_retry = True
             # NB: DO NOT retry when terminating
             # otherwise this increases shutdown overhead significantly
