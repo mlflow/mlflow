@@ -585,13 +585,16 @@ export const GenAiTracesTableBody = React.memo(
     // Auto-fetch next page when client-side filtering reduces rows below the scroll threshold
     // (e.g. filtering by error assessments may leave only a few visible rows, making the
     // container non-scrollable so the scroll handler never fires).
+    // We depend on evaluations.length (pre-filter count) rather than rows.length because
+    // a new page may contain zero rows that pass the filter, so rows.length wouldn't change
+    // and the effect wouldn't re-fire.
     useEffect(() => {
       const container = tableContainerRef.current;
       if (!container || !fetchNextPage || !hasNextPage || isFetchingNextPage) return;
       if (container.scrollHeight <= container.clientHeight) {
         fetchNextPage();
       }
-    }, [fetchNextPage, hasNextPage, isFetchingNextPage, rows.length]);
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage, evaluations.length]);
 
     return (
       <>
