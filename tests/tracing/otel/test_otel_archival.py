@@ -76,6 +76,17 @@ def test_round_trip_multiple_spans_same_trace():
     assert [span.to_dict() for span in restored] == [span.to_dict() for span in originals]
 
 
+def test_deserialize_normalizes_spans_to_root_first_order():
+    restored = traces_data_pb_to_spans(
+        spans_to_traces_data_pb([
+            _make_span(trace_id=1, span_id=20, name="child_span", parent_span_id=30),
+            _make_span(trace_id=1, span_id=30, name="root_span"),
+        ])
+    )
+
+    assert [span.name for span in restored] == ["root_span", "child_span"]
+
+
 def test_serialized_traces_data_preserves_resource_attributes():
     resource = OTelResource.create({
         "service.name": "test-service",
