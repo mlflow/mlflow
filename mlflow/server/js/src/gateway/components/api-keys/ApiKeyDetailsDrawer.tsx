@@ -187,26 +187,24 @@ export const ApiKeyDetailsDrawer = ({ open, secret, onClose, onEditSuccess }: Ap
               secretPlaceholders={secret.masked_values}
             />
 
-            {isDirty && (
-              <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-                <Button
-                  componentId="mlflow.gateway.api-key-details.drawer.save-button"
-                  type="primary"
-                  onClick={handleSubmit}
-                  disabled={!isFormValid || isSaving}
-                  loading={isSaving}
-                >
-                  <FormattedMessage defaultMessage="Save Changes" description="Save changes button text" />
-                </Button>
-                <Button
-                  componentId="mlflow.gateway.api-key-details.drawer.cancel-button"
-                  onClick={resetForm}
-                  disabled={isSaving}
-                >
-                  <FormattedMessage defaultMessage="Cancel" description="Cancel button text" />
-                </Button>
-              </div>
-            )}
+            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+              <Button
+                componentId="mlflow.gateway.api-key-details.drawer.save-button"
+                type="primary"
+                onClick={handleSubmit}
+                disabled={!isFormValid || isSaving}
+                loading={isSaving}
+              >
+                <FormattedMessage defaultMessage="Save Changes" description="Save changes button text" />
+              </Button>
+              <Button
+                componentId="mlflow.gateway.api-key-details.drawer.cancel-button"
+                onClick={resetForm}
+                disabled={isSaving || !isDirty}
+              >
+                <FormattedMessage defaultMessage="Cancel" description="Cancel button text" />
+              </Button>
+            </div>
           </div>
         )}
       </Drawer.Content>
