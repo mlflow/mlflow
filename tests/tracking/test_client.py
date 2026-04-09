@@ -346,6 +346,55 @@ def test_client_get_trace_from_artifact_repo(mock_store, mock_artifact_repo):
     assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
 
 
+def test_client_get_trace_from_archive_repo(mock_store, mock_artifact_repo):
+    mock_store.get_trace_info.return_value = TraceInfo(
+        trace_id="tr-1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
+        tags={
+            "mlflow.artifactLocation": "dbfs:/path/to/artifacts",
+            TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO,
+            TraceTagKey.ARCHIVE_LOCATION: "dbfs:/path/to/archive",
+        },
+    )
+    mock_artifact_repo.download_archived_trace_data.return_value = TraceData.from_dict({
+        "request": '{"prompt": "What is the meaning of life?"}',
+        "response": '{"answer": 42}',
+        "spans": [
+            {
+                "name": "predict",
+                "context": {
+                    "trace_id": "0x123456789",
+                    "span_id": "0x12345",
+                },
+                "parent_id": None,
+                "start_time": 123000000,
+                "end_time": 579000000,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": '"tr-1234567"',
+                    "mlflow.spanType": '"LLM"',
+                    "mlflow.spanFunctionName": '"predict"',
+                    "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
+                    "mlflow.spanOutputs": '{"answer": 42}',
+                },
+                "events": [],
+            }
+        ],
+    })
+
+    trace = MlflowClient().get_trace("1234567")
+
+    mock_store.get_trace_info.assert_called_once_with("1234567")
+    mock_artifact_repo.download_archived_trace_data.assert_called_once()
+    mock_artifact_repo.download_trace_data.assert_not_called()
+    assert trace.info.tags[TraceTagKey.ARCHIVE_LOCATION] == "dbfs:/path/to/archive"
+    assert trace.data.spans[0].name == "predict"
+
+
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="1234567",

@@ -76,6 +76,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
+    MlflowTraceDataException,
     MlflowTracingException,
     _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
@@ -306,8 +307,10 @@ from mlflow.telemetry.utils import (
     fetch_ui_telemetry_config,
     is_telemetry_disabled,
 )
+from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
+    get_archive_uri_for_trace,
     get_artifact_uri_for_trace,
 )
 from mlflow.tracking._model_registry import utils as registry_utils
@@ -478,8 +481,17 @@ def _get_trace_artifact_repo(trace_info: TraceInfo):
     Args:
         trace_info: The trace info object containing metadata about the trace.
     """
-    artifact_uri = get_artifact_uri_for_trace(trace_info)
+    return _get_trace_repo_from_uri(get_artifact_uri_for_trace(trace_info))
 
+
+def _get_trace_archive_repo(trace_info: TraceInfo):
+    """
+    Resolve the artifact repository that stores archived trace payloads.
+    """
+    return _get_trace_repo_from_uri(get_archive_uri_for_trace(trace_info))
+
+
+def _get_trace_repo_from_uri(artifact_uri: str):
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         # If the artifact location is a proxied run artifact root (e.g. mlflow-artifacts://...),
         # we need to resolve it to the actual artifact location.
@@ -3995,6 +4007,8 @@ def _fetch_trace_data_from_store(
         # allow partial so the frontend can render in-progress traces
         trace = store.get_trace(request_id, allow_partial=True)
         return trace.data.to_dict()
+    except MlflowTraceDataException:
+        raise
     except MlflowTracingException:
         return None
     except MlflowNotImplementedException:
@@ -4011,6 +4025,8 @@ def _fetch_trace_data_from_store(
                     f"Trace with id={request_id} not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
+    except MlflowTraceDataException:
+        raise
     # For stores that don't support batch get traces, or if trace data is not in the store,
     # return None to signal fallback to artifact repository
     except (MlflowTracingException, MlflowNotImplementedException):
@@ -4067,7 +4083,12 @@ def get_trace_artifact_handler() -> Response:
     trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
         trace_info = store.get_trace_info(request_id)
-        trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
+        if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.ARCHIVE_REPO.value:
+            trace_data = (
+                _get_trace_archive_repo(trace_info).download_archived_trace_data().to_dict()
+            )
+        else:
+            trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
     buf = io.BytesIO()
