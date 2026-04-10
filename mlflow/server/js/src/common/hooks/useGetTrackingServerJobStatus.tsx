@@ -11,7 +11,7 @@ export enum TrackingJobStatus {
   PENDING = 'PENDING',
   SUCCEEDED = 'SUCCEEDED',
   FAILED = 'FAILED',
-  CANCELLED = 'CANCELLED',
+  CANCELED = 'CANCELED',
   TIMEOUT = 'TIMEOUT',
   NEEDS_RECOVERY = 'NEEDS_RECOVERY',
 }
@@ -25,7 +25,7 @@ export const isTrackingJobTerminal = (status: TrackingJobStatus | undefined): bo
   status === TrackingJobStatus.SUCCEEDED ||
   status === TrackingJobStatus.FAILED ||
   status === TrackingJobStatus.TIMEOUT ||
-  status === TrackingJobStatus.CANCELLED;
+  status === TrackingJobStatus.CANCELED;
 
 export type TrackingJobQueryResult<ResultType> = (
   | {
@@ -33,7 +33,7 @@ export type TrackingJobQueryResult<ResultType> = (
         | TrackingJobStatus.RUNNING
         | TrackingJobStatus.PENDING
         | TrackingJobStatus.NEEDS_RECOVERY
-        | TrackingJobStatus.CANCELLED
+        | TrackingJobStatus.CANCELED
         | TrackingJobStatus.TIMEOUT;
     }
   | {
