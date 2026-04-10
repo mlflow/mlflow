@@ -59,7 +59,7 @@ import mlflow.diffusers
 with mlflow.start_run():
     model_info = mlflow.diffusers.log_model(
         adapter_path="./my_lora_weights",
-        base_model_id="black-forest-labs/FLUX.1-dev",
+        base_model="black-forest-labs/FLUX.1-dev",
         name="lora_adapter",
         metadata={
             "lora_rank": 16,

@@ -48,7 +48,7 @@ def test_save_model_from_directory(adapter_dir, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     mlmodel_path = model_path / MLMODEL_FILE_NAME
@@ -61,7 +61,7 @@ def test_save_model_from_directory(adapter_dir, model_path):
     assert "python_function" in mlmodel["flavors"]
 
     flavor_conf = mlmodel["flavors"][FLAVOR_NAME]
-    assert flavor_conf["base_model_id"] == BASE_MODEL_ID
+    assert flavor_conf["base_model"] == BASE_MODEL_ID
     assert flavor_conf["adapter_type"] == "lora"
     assert flavor_conf["adapter_weights"] == "adapter_weights"
 
@@ -70,7 +70,7 @@ def test_save_model_normalizes_single_file_input(adapter_file, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_file),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     weights_dir = model_path / "adapter_weights"
@@ -82,7 +82,7 @@ def test_save_model_normalizes_single_file_directory(adapter_dir, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     weights_dir = model_path / "adapter_weights"
@@ -94,7 +94,7 @@ def test_save_model_writes_environment_files(adapter_dir, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     assert (model_path / "conda.yaml").exists()
@@ -106,7 +106,7 @@ def test_save_model_default_signature(adapter_dir, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     with open(model_path / MLMODEL_FILE_NAME) as f:
@@ -131,7 +131,7 @@ def test_save_model_custom_signature(adapter_dir, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
         signature=custom_sig,
     )
 
@@ -147,7 +147,7 @@ def test_save_model_invalid_adapter_type(adapter_dir, model_path):
         mlflow.diffusers.save_model(
             adapter_path=str(adapter_dir),
             path=str(model_path),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
             adapter_type="invalid",
         )
 
@@ -157,7 +157,7 @@ def test_save_model_nonexistent_path(model_path):
         mlflow.diffusers.save_model(
             adapter_path="/nonexistent/path",
             path=str(model_path),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
         )
 
 
@@ -167,7 +167,7 @@ def test_save_model_with_metadata(adapter_dir, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
         metadata=test_metadata,
     )
 
@@ -181,7 +181,7 @@ def test_log_model(adapter_dir):
     with mlflow.start_run() as run:
         model_info = mlflow.diffusers.log_model(
             adapter_path=str(adapter_dir),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
             name="test_adapter",
         )
 
@@ -197,13 +197,13 @@ def test_save_load_model_direct_roundtrip(adapter_dir, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     loaded = mlflow.diffusers.load_model(str(model_path))
 
     assert isinstance(loaded, DiffusersAdapterModel)
-    assert loaded.base_model_id == BASE_MODEL_ID
+    assert loaded.base_model == BASE_MODEL_ID
     assert loaded.adapter_type == "lora"
     assert Path(loaded.adapter_path).exists()
 
@@ -218,7 +218,7 @@ def test_base_model_revision_roundtrip(adapter_dir, model_path):
         mlflow.diffusers.save_model(
             adapter_path=str(adapter_dir),
             path=str(model_path),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
         )
 
     # Verify revision stored in flavor config
@@ -236,7 +236,7 @@ def test_load_model_via_tracking_roundtrip(adapter_dir):
     with mlflow.start_run() as run:
         mlflow.diffusers.log_model(
             adapter_path=str(adapter_dir),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
             name="test_adapter",
         )
 
@@ -244,7 +244,7 @@ def test_load_model_via_tracking_roundtrip(adapter_dir):
     loaded = mlflow.diffusers.load_model(model_uri)
 
     assert isinstance(loaded, DiffusersAdapterModel)
-    assert loaded.base_model_id == BASE_MODEL_ID
+    assert loaded.base_model == BASE_MODEL_ID
     assert loaded.adapter_type == "lora"
     assert Path(loaded.adapter_path).exists()
     assert (Path(loaded.adapter_path) / "pytorch_lora_weights.safetensors").exists()
@@ -256,7 +256,7 @@ def test_load_pyfunc_returns_wrapper(adapter_dir):
     with mlflow.start_run() as run:
         mlflow.diffusers.log_model(
             adapter_path=str(adapter_dir),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
             name="test_adapter",
         )
 
@@ -266,7 +266,7 @@ def test_load_pyfunc_returns_wrapper(adapter_dir):
     assert hasattr(loaded_pyfunc, "predict")
     wrapper = loaded_pyfunc._model_impl
     assert isinstance(wrapper, _DiffusersAdapterWrapper)
-    assert wrapper._flavor_conf["base_model_id"] == BASE_MODEL_ID
+    assert wrapper._flavor_conf["base_model"] == BASE_MODEL_ID
 
 
 @pytest.mark.parametrize("package", ["diffusers", "transformers", "torch", "peft", "safetensors"])
@@ -310,7 +310,7 @@ def wrapper():
 
     w = _DiffusersAdapterWrapper(
         adapter_path="/fake",
-        flavor_conf={"base_model_id": "test/model", "adapter_type": "lora"},
+        flavor_conf={"base_model": "test/model", "adapter_type": "lora"},
     )
     # Inject a mock pipeline so _load_pipeline is never called
     w._pipeline = lambda prompt, **kwargs: _FakePipelineOutput(len(prompt))
@@ -503,7 +503,7 @@ def test_save_model_multi_file_directory_preserved(tmp_path, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     weights_dir = model_path / "adapter_weights"
@@ -521,7 +521,7 @@ def test_save_model_records_weight_name_for_nonstandard_files(tmp_path, model_pa
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     mlmodel = yaml.safe_load((model_path / MLMODEL_FILE_NAME).read_text())
@@ -542,7 +542,7 @@ def test_save_model_records_weight_name_for_peft_adapter(tmp_path, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     mlmodel = yaml.safe_load((model_path / MLMODEL_FILE_NAME).read_text())
@@ -561,7 +561,7 @@ def test_save_model_rejects_non_safetensors_file(tmp_path, model_path):
         mlflow.diffusers.save_model(
             adapter_path=str(bad_file),
             path=str(model_path),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
         )
 
 
@@ -573,12 +573,12 @@ def test_save_model_rejects_invalid_safetensors_content(tmp_path, model_path):
         mlflow.diffusers.save_model(
             adapter_path=str(fake_file),
             path=str(model_path),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
         )
 
 
 @pytest.mark.parametrize(
-    ("base_model_id", "match"),
+    ("base_model", "match"),
     [
         ("", "non-empty"),
         ("   ", "non-empty"),
@@ -586,12 +586,12 @@ def test_save_model_rejects_invalid_safetensors_content(tmp_path, model_path):
         (123, "must be a"),
     ],
 )
-def test_save_model_rejects_invalid_base_model_id(adapter_dir, model_path, base_model_id, match):
+def test_save_model_rejects_invalid_base_model(adapter_dir, model_path, base_model, match):
     with pytest.raises(MlflowException, match=match):
         mlflow.diffusers.save_model(
             adapter_path=str(adapter_dir),
             path=str(model_path),
-            base_model_id=base_model_id,
+            base_model=base_model,
         )
 
 
@@ -601,7 +601,7 @@ def test_save_model_rejects_non_string_adapter_type(adapter_dir, model_path, ada
         mlflow.diffusers.save_model(
             adapter_path=str(adapter_dir),
             path=str(model_path),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
             adapter_type=adapter_type,
         )
 
@@ -639,7 +639,7 @@ def test_save_model_rejects_empty_directory(tmp_path, model_path):
         mlflow.diffusers.save_model(
             adapter_path=str(empty_dir),
             path=str(model_path),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
         )
 
 
@@ -653,7 +653,7 @@ def test_save_model_ignores_hidden_files(tmp_path, model_path):
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
         path=str(model_path),
-        base_model_id=BASE_MODEL_ID,
+        base_model=BASE_MODEL_ID,
     )
 
     weights_dir = model_path / "adapter_weights"
@@ -671,5 +671,5 @@ def test_save_model_validates_all_safetensors_in_multi_file_dir(tmp_path, model_
         mlflow.diffusers.save_model(
             adapter_path=str(adapter_dir),
             path=str(model_path),
-            base_model_id=BASE_MODEL_ID,
+            base_model=BASE_MODEL_ID,
         )

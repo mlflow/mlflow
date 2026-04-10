@@ -51,7 +51,7 @@ def demo_log_and_load():
         with mlflow.start_run(run_name="lora-adapter-demo") as run:
             model_info = mlflow.diffusers.log_model(
                 adapter_path=str(adapter_dir),
-                base_model_id="black-forest-labs/FLUX.1-dev",
+                base_model="black-forest-labs/FLUX.1-dev",
                 adapter_type="lora",
                 name="lora_model",
                 metadata={
@@ -80,7 +80,7 @@ def demo_log_and_load():
         loaded = mlflow.diffusers.load_model(model_uri)
 
         print(f"  Type: {type(loaded).__name__}")
-        print(f"  Base model: {loaded.base_model_id}")
+        print(f"  Base model: {loaded.base_model}")
         print(f"  Adapter type: {loaded.adapter_type}")
         print(f"  Adapter path: {loaded.adapter_path}")
         print(f"  Adapter files: {list(Path(loaded.adapter_path).iterdir())}")
@@ -88,7 +88,7 @@ def demo_log_and_load():
         # 5. Verify flavor config from MLmodel
         print("\n--- Flavor config ---")
         flavor_conf = mlmodel["flavors"]["diffusers"]
-        print(f"  base_model_id: {flavor_conf['base_model_id']}")
+        print(f"  base_model: {flavor_conf['base_model']}")
         print(f"  adapter_type: {flavor_conf['adapter_type']}")
         print(f"  adapter_weights: {flavor_conf['adapter_weights']}")
 

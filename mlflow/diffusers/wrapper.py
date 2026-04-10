@@ -28,7 +28,7 @@ class _DiffusersAdapterWrapper:
     def _load_pipeline(self):
         from diffusers import DiffusionPipeline
 
-        base_model_id = self._flavor_conf["base_model_id"]
+        base_model = self._flavor_conf["base_model"]
         base_model_revision = self._flavor_conf.get("base_model_revision")
         device = _detect_device(self._model_config.get("device"))
         torch_dtype = self._model_config.get("torch_dtype", "auto")
@@ -42,8 +42,8 @@ class _DiffusersAdapterWrapper:
         if weight_name:
             lora_kwargs["weight_name"] = weight_name
 
-        _logger.info("Loading base pipeline: %s", base_model_id)
-        pipe = DiffusionPipeline.from_pretrained(base_model_id, **load_kwargs)
+        _logger.info("Loading base pipeline: %s", base_model)
+        pipe = DiffusionPipeline.from_pretrained(base_model, **load_kwargs)
 
         _logger.info("Loading LoRA adapter from: %s", self._adapter_path)
         pipe.load_lora_weights(self._adapter_path, **lora_kwargs)

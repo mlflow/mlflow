@@ -69,7 +69,7 @@ SUPPORTED_ADAPTER_TYPES = ("lora",)
 _BASE_MODEL_REVISION_KEY = "base_model_revision"
 
 
-def _resolve_base_model_revision(base_model_id):
+def _resolve_base_model_revision(base_model):
     """Resolve the HuggingFace Hub commit hash for a base model ID.
 
     Returns None if the ID looks like a local path or if resolution fails.
@@ -77,14 +77,14 @@ def _resolve_base_model_revision(base_model_id):
     # Only treat as a local path if it's absolute or explicitly relative (./  ../).
     # Bare "org/model" strings should always be resolved as HF Hub IDs, even if
     # a matching directory happens to exist in the current working directory.
-    p = Path(base_model_id)
-    if p.is_absolute() or base_model_id.startswith(("./", "../")):
+    p = Path(base_model)
+    if p.is_absolute() or base_model.startswith(("./", "../")):
         return None
 
     try:
         from mlflow.utils.huggingface_utils import get_latest_commit_for_repo
 
-        return get_latest_commit_for_repo(base_model_id)
+        return get_latest_commit_for_repo(base_model)
     except Exception as e:
         # Broad catch is intentional: huggingface_hub types (HfHubHTTPError,
         # RepositoryNotFoundError) can't be imported unconditionally.
@@ -92,7 +92,7 @@ def _resolve_base_model_revision(base_model_id):
         _logger.warning(
             "Could not resolve HuggingFace commit hash for '%s' (%s). "
             "The base model revision will not be pinned.",
-            base_model_id,
+            base_model,
             type(e).__name__,
         )
         return None
@@ -167,7 +167,7 @@ class DiffusersAdapterModel:
     """
 
     adapter_path: str
-    base_model_id: str
+    base_model: str
     adapter_type: Literal["lora"]
     base_model_revision: str | None = None
     weight_name: str | None = None
@@ -190,7 +190,7 @@ class DiffusersAdapterModel:
         if self.base_model_revision and "revision" not in kwargs:
             kwargs["revision"] = self.base_model_revision
 
-        pipe = DiffusionPipeline.from_pretrained(self.base_model_id, **kwargs)
+        pipe = DiffusionPipeline.from_pretrained(self.base_model, **kwargs)
 
         lora_kwargs = {}
         if self.weight_name:
@@ -204,7 +204,7 @@ class DiffusersAdapterModel:
 def save_model(
     adapter_path: str,
     path: str,
-    base_model_id: str,
+    base_model: str,
     adapter_type: Literal["lora"] = "lora",
     conda_env=None,
     code_paths: list[str] | None = None,
@@ -225,7 +225,7 @@ def save_model(
             by ``load_lora_weights()``. Directories with multiple weight files
             are copied as-is.
         path: Local path where the model is to be saved.
-        base_model_id: HuggingFace model ID or local path of the base diffusion model
+        base_model: HuggingFace model ID or local path of the base diffusion model
             that this adapter was trained on (e.g., "black-forest-labs/FLUX.1-dev").
         adapter_type: Type of adapter. Currently only "lora" is supported.
         conda_env: {{ conda_env }}
@@ -257,9 +257,9 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    if not isinstance(base_model_id, str) or not base_model_id.strip():
+    if not isinstance(base_model, str) or not base_model.strip():
         raise MlflowException.invalid_parameter_value(
-            "base_model_id must be a non-empty string (HuggingFace model ID or local path)."
+            "base_model must be a non-empty string (HuggingFace model ID or local path)."
         )
 
     if not isinstance(adapter_type, str):
@@ -349,13 +349,13 @@ def save_model(
         )
 
     flavor_kwargs = {
-        "base_model_id": base_model_id,
+        "base_model": base_model,
         "adapter_type": adapter_type,
         "adapter_weights": _ADAPTER_WEIGHTS_DIR,
         "diffusers_version": diffusers_version,
         "code": code_path_subdir,
     }
-    revision = _resolve_base_model_revision(base_model_id)
+    revision = _resolve_base_model_revision(base_model)
     if revision:
         flavor_kwargs[_BASE_MODEL_REVISION_KEY] = revision
     if weight_name:
@@ -398,7 +398,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="diffusers"))
 def log_model(
     adapter_path,
-    base_model_id,
+    base_model,
     adapter_type: Literal["lora"] = "lora",
     artifact_path: str | None = None,
     conda_env=None,
@@ -423,7 +423,7 @@ def log_model(
     Args:
         adapter_path: Path to the adapter weights. Can be a single .safetensors file
             or a directory containing adapter files.
-        base_model_id: HuggingFace model ID or local path of the base diffusion model.
+        base_model: HuggingFace model ID or local path of the base diffusion model.
         adapter_type: Type of adapter. Currently only "lora" is supported.
         artifact_path: Deprecated. Use ``name`` instead.
         conda_env: {{ conda_env }}
@@ -451,7 +451,7 @@ def log_model(
         name=name,
         flavor=mlflow.diffusers,
         adapter_path=adapter_path,
-        base_model_id=base_model_id,
+        base_model=base_model,
         adapter_type=adapter_type,
         conda_env=conda_env,
         code_paths=code_paths,
@@ -485,7 +485,7 @@ def load_model(model_uri, dst_path=None):
         dst_path: The local filesystem path to download the model artifact to.
 
     Returns:
-        A :py:class:`DiffusersAdapterModel` with adapter_path, base_model_id,
+        A :py:class:`DiffusersAdapterModel` with adapter_path, base_model,
         and adapter_type. Call ``.load_pipeline()`` to get a ready-to-use
         diffusers pipeline with the adapter applied.
     """
@@ -501,7 +501,7 @@ def load_model(model_uri, dst_path=None):
 
     return DiffusersAdapterModel(
         adapter_path=str(adapter_weights_path),
-        base_model_id=flavor_conf["base_model_id"],
+        base_model=flavor_conf["base_model"],
         adapter_type=flavor_conf["adapter_type"],
         base_model_revision=flavor_conf.get(_BASE_MODEL_REVISION_KEY),
         weight_name=flavor_conf.get("weight_name"),
