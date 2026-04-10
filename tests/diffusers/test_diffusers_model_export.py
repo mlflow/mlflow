@@ -389,6 +389,11 @@ def test_predict_empty_prompts(wrapper):
         wrapper.predict([])
 
 
+def test_predict_dict_invalid_prompt_type(wrapper):
+    with pytest.raises(MlflowException, match="must be a string or list of strings"):
+        wrapper.predict({"prompt": 42})
+
+
 def test_predict_unsupported_type(wrapper):
     with pytest.raises(MlflowException, match="Unsupported input type"):
         wrapper.predict(12345)

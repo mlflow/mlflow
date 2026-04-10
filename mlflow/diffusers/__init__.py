@@ -23,6 +23,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -117,8 +118,6 @@ def _validate_safetensors_format(file_path):
 
 def _detect_device(device=None):
     import torch
-
-    from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
 
     if device is not None:
         return device
@@ -405,8 +404,8 @@ def log_model(
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,

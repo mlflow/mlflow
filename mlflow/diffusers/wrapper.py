@@ -97,6 +97,11 @@ class _DiffusersAdapterWrapper:
                 prompts = [prompts]
             elif isinstance(prompts, list):
                 prompts = self._flatten_prompts(prompts)
+            else:
+                raise MlflowException(
+                    "'prompt' value must be a string or list of strings, "
+                    f"got {type(prompts).__name__}."
+                )
         elif isinstance(data, list):
             prompts = self._flatten_prompts(data)
         else:
