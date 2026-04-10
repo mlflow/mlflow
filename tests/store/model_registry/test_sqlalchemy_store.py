@@ -1135,7 +1135,6 @@ def _assert_workspace_in_main_queries(captured_sql, table_name, context_label):
 
 
 def test_search_model_versions_includes_workspace_predicate(store):
-    """search_model_versions queries must filter on workspace to use the PK index."""
     from sqlalchemy import event
 
     name = "test_ws_predicate_mv"
@@ -1164,7 +1163,6 @@ def test_search_model_versions_includes_workspace_predicate(store):
 
 
 def test_search_registered_models_includes_workspace_predicate(store):
-    """search_registered_models queries must filter on workspace to use the PK index."""
     from sqlalchemy import event
 
     name = "test_ws_predicate_rm"
