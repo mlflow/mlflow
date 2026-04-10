@@ -92,10 +92,12 @@ const columns: ColumnDef<EvaluationDataset, any>[] = [
     enableSorting: true,
   },
   {
-    id: 'actions',
+    id: COLUMN_IDS.ACTIONS,
     header: '',
     enableSorting: false,
+    enableResizing: false,
     size: 36,
+    minSize: 36,
     maxSize: 36,
     cell: ActionsCell,
   },
@@ -118,29 +120,36 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
 
     return (
       <TableRow key={row.id} className="eval-datasets-table-row" onClick={() => onSelectDataset(row.original)}>
-        {row.getVisibleCells().map((cell) => (
-          <TableCell
-            key={cell.id}
-            style={{
-              flexGrow: cell.column.getCanResize() ? 0 : 1,
-              flexBasis: cell.column.getCanResize() ? cell.column.getSize() : undefined,
-            }}
-            css={{
-              backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent',
-              maxWidth: cell.column.columnDef.maxSize ? `${cell.column.columnDef.maxSize}px` : 'auto',
-              minWidth: cell.column.columnDef.minSize ? `${cell.column.columnDef.minSize}px` : 'auto',
-              ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
-            }}
-          >
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </TableCell>
-        ))}
+        {row.getVisibleCells().map((cell) => {
+          const isFixedWidthColumn = typeof cell.column.columnDef.size === 'number';
+
+          return (
+            <TableCell
+              key={cell.id}
+              style={{
+                flexGrow: cell.column.getCanResize() || isFixedWidthColumn ? 0 : 1,
+                flexBasis: cell.column.getCanResize() || isFixedWidthColumn ? cell.column.getSize() : undefined,
+                flexShrink: !cell.column.getCanResize() && isFixedWidthColumn ? 0 : undefined,
+              }}
+              css={{
+                backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent',
+                maxWidth: cell.column.columnDef.maxSize ? `${cell.column.columnDef.maxSize}px` : 'auto',
+                minWidth: cell.column.columnDef.minSize ? `${cell.column.columnDef.minSize}px` : 'auto',
+                ...(cell.column.id === COLUMN_IDS.ACTIONS && { paddingLeft: 0, paddingRight: 0 }),
+              }}
+            >
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          );
+        })}
       </TableRow>
     );
   },
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (prev, next) => {
     return (
+      prev.row.id === next.row.id &&
+      prev.row.original === next.row.original &&
       prev.isActive === next.isActive &&
       prev.columnSizing === next.columnSizing &&
       isEqual(prev.columnVisibility, next.columnVisibility)
@@ -330,30 +339,36 @@ export const ExperimentEvaluationDatasetsListTable = ({
           scrollable
         >
           <TableRow isHeader>
-            {table.getLeafHeaders().map((header) => (
-              <TableHeader
-                key={header.id}
-                sortable={header.column.getCanSort()}
-                sortDirection={header.column.getIsSorted() as SortDirection}
-                onToggleSort={header.column.getToggleSortingHandler()}
-                componentId="mlflow.eval-datasets.column-header"
-                header={header}
-                column={header.column}
-                setColumnSizing={table.setColumnSizing}
-                isResizing={header.column.getIsResizing()}
-                css={{
-                  flexGrow: header.column.getCanResize() ? 0 : 1,
-                  maxWidth: header.column.columnDef.maxSize ? `${header.column.columnDef.maxSize}px` : 'auto',
-                  minWidth: header.column.columnDef.minSize ? `${header.column.columnDef.minSize}px` : 'auto',
-                  cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                }}
-                style={{
-                  flexBasis: header.column.getCanResize() ? header.column.getSize() : undefined,
-                }}
-              >
-                {flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHeader>
-            ))}
+            {table.getLeafHeaders().map((header) => {
+              const isFixedWidthColumn = typeof header.column.columnDef.size === 'number';
+
+              return (
+                <TableHeader
+                  key={header.id}
+                  sortable={header.column.getCanSort()}
+                  sortDirection={header.column.getIsSorted() as SortDirection}
+                  onToggleSort={header.column.getToggleSortingHandler()}
+                  componentId="mlflow.eval-datasets.column-header"
+                  header={header}
+                  column={header.column}
+                  setColumnSizing={table.setColumnSizing}
+                  isResizing={header.column.getIsResizing()}
+                  css={{
+                    flexGrow: header.column.getCanResize() || isFixedWidthColumn ? 0 : 1,
+                    maxWidth: header.column.columnDef.maxSize ? `${header.column.columnDef.maxSize}px` : 'auto',
+                    minWidth: header.column.columnDef.minSize ? `${header.column.columnDef.minSize}px` : 'auto',
+                    cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                  }}
+                  style={{
+                    flexBasis:
+                      header.column.getCanResize() || isFixedWidthColumn ? header.column.getSize() : undefined,
+                    flexShrink: !header.column.getCanResize() && isFixedWidthColumn ? 0 : undefined,
+                  }}
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </TableHeader>
+              );
+            })}
           </TableRow>
 
           {!isLoading &&
