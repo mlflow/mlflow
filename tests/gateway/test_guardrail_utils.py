@@ -280,7 +280,7 @@ def test_load_guardrails_skips_failed_conversion():
     good_judge = _make_judge("BEFORE")
 
     def from_entity_side_effect(entity, server_url):
-        if entity is bad_config.guardrail:
+        if entity.stage == GuardrailStage.AFTER:
             raise ValueError("bad scorer")
         return good_judge
 

@@ -970,9 +970,12 @@ async def test_chat_completions_endpoint(store: SqlAlchemyStore):
     )
 
     # Patch the provider creation to return a mocked provider
-    with patch(
-        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
-    ) as mock_create_provider:
+    with (
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
+    ):
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
         mock_endpoint_config = GatewayEndpointConfig(
@@ -1021,6 +1024,7 @@ def test_response_timing_headers(store: SqlAlchemyStore):
         patch("mlflow.server.gateway_api._get_store", return_value=store),
         patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
         patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
@@ -1070,6 +1074,7 @@ def test_response_timing_headers_streaming(store: SqlAlchemyStore):
         patch("mlflow.server.gateway_api._get_store", return_value=store),
         patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
         patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
@@ -1112,6 +1117,7 @@ def test_response_timing_headers_error(store: SqlAlchemyStore):
         patch("mlflow.server.gateway_api._get_store", return_value=store),
         patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
         patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
@@ -1185,9 +1191,12 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
             ],
         )
 
-    with patch(
-        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
-    ) as mock_create_provider:
+    with (
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
+    ):
         mock_provider = MagicMock()
         mock_provider.chat_stream = MagicMock(return_value=mock_stream())
         mock_endpoint_config = GatewayEndpointConfig(
@@ -3129,7 +3138,7 @@ async def test_invocations_bypass_header_skips_guardrails(store: SqlAlchemyStore
 
     with (
         patch("mlflow.server.gateway_api._create_provider_from_endpoint_name") as mock_create,
-        patch("mlflow.server.gateway_api._load_guardrails") as mock_load,
+        patch("mlflow.server.gateway_api.load_guardrails") as mock_load,
     ):
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
