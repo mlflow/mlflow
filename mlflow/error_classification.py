@@ -36,12 +36,14 @@ class SqlState(str, Enum):
     CP_RESOURCE_NOT_FOUND = "KAMC2"
 
     @classmethod
-    def from_client_error_code(cls, error_code: str) -> SqlState | None:
-        return _CLIENT_ERROR_CODE_TO_SQLSTATE.get(error_code)
+    def from_client_error_code(cls, error_code: str) -> str | None:
+        result = _CLIENT_ERROR_CODE_TO_SQLSTATE.get(error_code)
+        return result.value if result is not None else None
 
     @classmethod
-    def from_cp_error_code(cls, error_code: str) -> SqlState | None:
-        return _CP_ERROR_CODE_TO_SQLSTATE.get(error_code)
+    def from_cp_error_code(cls, error_code: str) -> str | None:
+        result = _CP_ERROR_CODE_TO_SQLSTATE.get(error_code)
+        return result.value if result is not None else None
 
 
 class ErrorClass(str, Enum):
@@ -70,12 +72,14 @@ class ErrorClass(str, Enum):
     CP_TEMPORARILY_UNAVAILABLE = "CP_TEMPORARILY_UNAVAILABLE"
 
     @classmethod
-    def from_client_error_code(cls, error_code: str) -> ErrorClass | None:
-        return _CLIENT_ERROR_CODE_TO_ERROR_CLASS.get(error_code)
+    def from_client_error_code(cls, error_code: str) -> str | None:
+        result = _CLIENT_ERROR_CODE_TO_ERROR_CLASS.get(error_code)
+        return result.value if result is not None else None
 
     @classmethod
-    def from_cp_error_code(cls, error_code: str) -> ErrorClass | None:
-        return _CP_ERROR_CODE_TO_ERROR_CLASS.get(error_code)
+    def from_cp_error_code(cls, error_code: str) -> str | None:
+        result = _CP_ERROR_CODE_TO_ERROR_CLASS.get(error_code)
+        return result.value if result is not None else None
 
 
 # Client-side mappings: error_code -> sqlstate or error_class
