@@ -76,7 +76,7 @@ def infer_signature_from_llm_inference_task(
     if signature is not None and signature != inferred_signature:
         raise MlflowException(
             f"When `task` is specified as `{inference_task}`, the signature would "
-            "be set by MLflow. Please do not set the signature.",
+            "be set by MLflow. Please do not set the signature."
         )
     return inferred_signature
 
@@ -100,9 +100,7 @@ def convert_messages_to_prompt(messages: list[dict[str, Any]], tokenizer) -> str
     try:
         return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     except Exception as e:
-        raise MlflowException(
-            f"Failed to apply chat template: {e}",
-        )
+        raise MlflowException(f"Failed to apply chat template: {e}")
 
 
 def preprocess_llm_inference_input(

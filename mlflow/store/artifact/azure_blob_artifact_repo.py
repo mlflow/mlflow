@@ -96,9 +96,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "wasbs":
-            raise MlflowException.invalid_parameter_value(
-                f"Not a WASBS URI: {uri}",
-            )
+            raise MlflowException.invalid_parameter_value(f"Not a WASBS URI: {uri}")
 
         match = re.fullmatch(
             r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
@@ -110,7 +108,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 "WASBS URI must be of the form "
                 "<container>@<account>.blob.core.windows.net"
                 " or <container>@<account>.blob.core.chinacloudapi.cn"
-                " or <container>@<account>.blob.core.usgovcloudapi.net",
+                " or <container>@<account>.blob.core.usgovcloudapi.net"
             )
         container = match.group(1)
         storage_account = match.group(2)
@@ -180,7 +178,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             if not result.name.startswith(artifact_path):
                 raise MlflowException(
                     "The name of the listed Azure blob does not begin with the specified"
-                    f" artifact path. Artifact path: {artifact_path}. Blob name: {result.name}",
+                    f" artifact path. Artifact path: {artifact_path}. Blob name: {result.name}"
                 )
 
             if is_dir(result):
@@ -218,16 +216,12 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blobs = container_client.list_blobs(name_starts_with=dest_path)
             blob_list = list(blobs)
             if not blob_list:
-                raise MlflowException(
-                    f"No such file or directory: '{dest_path}'",
-                )
+                raise MlflowException(f"No such file or directory: '{dest_path}'")
 
             for blob in blob_list:
                 container_client.delete_blob(blob.name)
         except ResourceNotFoundError:
-            raise MlflowException(
-                f"No such file or directory: '{dest_path}'",
-            )
+            raise MlflowException(f"No such file or directory: '{dest_path}'")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         from azure.storage.blob import BlobSasPermissions, generate_blob_sas

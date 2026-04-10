@@ -375,7 +375,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             remote_file_paths = [remote_file_paths]
         if type(remote_file_paths) != list:
             raise MlflowException(
-                f"Expected `paths` to be a list of strings. Got {type(remote_file_paths)}",
+                f"Expected `paths` to be a list of strings. Got {type(remote_file_paths)}"
             )
         relative_remote_paths = [
             posixpath.join(self.resource.relative_path, p) for p in remote_file_paths
@@ -486,7 +486,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 results, errors = _complete_futures(futures, local_file)
                 if errors:
                     raise MlflowException(
-                        f"Failed to upload at least one part of {local_file}. Errors: {errors}",
+                        f"Failed to upload at least one part of {local_file}. Errors: {errors}"
                     )
                 # Sort results by the chunk index
                 uploading_block_list = [results[index] for index in sorted(results)]
@@ -506,9 +506,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 else:
                     raise e
         except Exception as err:
-            raise MlflowException(
-                err,
-            )
+            raise MlflowException(err)
 
     def _retryable_adls_function(self, func, artifact_file_path, get_credentials, **kwargs):
         """
@@ -599,7 +597,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 if errors:
                     raise MlflowException(
                         f"Failed to upload at least one part of {artifact_file_path}. "
-                        f"Errors: {errors}",
+                        f"Errors: {errors}"
                     )
 
             # finally try to flush the file
@@ -613,9 +611,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     headers=headers,
                 )
         except Exception as err:
-            raise MlflowException(
-                err,
-            )
+            raise MlflowException(err)
 
     def _signed_url_upload_file(self, credentials, local_file):
         try:
@@ -634,9 +630,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     ) as response:
                         augmented_raise_for_status(response)
         except Exception as err:
-            raise MlflowException(
-                err,
-            )
+            raise MlflowException(err)
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         """
@@ -674,8 +668,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             self._signed_url_upload_file(cloud_credential_info, src_file_path)
         else:
             raise MlflowException(
-                message="Cloud provider not supported.",
-                error_code=INTERNAL_ERROR,
+                message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
 
     def _download_from_cloud(self, remote_file_path, local_path):
@@ -701,8 +694,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             ArtifactCredentialType.GCP_SIGNED_URL,
         ]:
             raise MlflowException(
-                message="Cloud provider not supported.",
-                error_code=INTERNAL_ERROR,
+                message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
         try:
             download_file_using_http_uri(
@@ -712,9 +704,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
         except Exception as err:
-            raise MlflowException(
-                err,
-            )
+            raise MlflowException(err)
 
     def _create_multipart_upload(self, run_id, path, num_parts):
         return self._call_endpoint(
@@ -780,7 +770,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         results, errors = _complete_futures(futures, local_file)
         if errors:
             raise MlflowException(
-                f"Failed to upload at least one part of {local_file}. Errors: {errors}",
+                f"Failed to upload at least one part of {local_file}. Errors: {errors}"
             )
 
         return [
@@ -847,6 +837,4 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return self.resource.list_artifacts(path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException(
-            "Not implemented yet",
-        )
+        raise MlflowException("Not implemented yet")

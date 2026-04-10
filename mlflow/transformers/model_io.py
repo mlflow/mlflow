@@ -230,7 +230,7 @@ def _load_component(flavor_conf, name, local_path=None, repo_id=None):
                 f"A custom component `{component_name}` was specified, "
                 "but no local config file was found to retrieve the "
                 "definition. Make sure your model was saved with "
-                "save_pretrained=True.",
+                "save_pretrained=True."
             )
         cls = _COMPONENT_TO_AUTOCLASS_MAP[name]
         trust_remote = True
@@ -286,9 +286,7 @@ def _load_class_from_transformers_config(model_name_or_path, revision=None):
         ]
 
         if len(auto_classes) == 0:
-            raise MlflowException(
-                f"Couldn't find a loader class for {class_name}",
-            )
+            raise MlflowException(f"Couldn't find a loader class for {class_name}")
 
         auto_class = auto_classes[0]
         cls = getattr(transformers, auto_class)
@@ -359,7 +357,7 @@ def _try_load_model_with_device(model_class, model_name_or_path, load_kwargs):
         if f"{revision} is not a valid git identifier" in str(e):
             raise MlflowException(
                 f"The model was saved with a HuggingFace Hub repository name '{model_name_or_path}'"
-                f"and a commit hash '{revision}', but the commit is not found in the repository. ",
+                f"and a commit hash '{revision}', but the commit is not found in the repository. "
             )
         else:
             raise e

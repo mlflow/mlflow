@@ -591,7 +591,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 trace_locations.append(proto_location)
             except Exception as e:
                 raise MlflowException(
-                    f"Invalid experiment ID format: {exp_id}. Error: {e!s}",
+                    f"Invalid experiment ID format: {exp_id}. Error: {e!s}"
                 ) from e
 
         # Create V3 request message using protobuf
@@ -784,7 +784,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         """
         if expectation is not None and feedback is not None:
             raise MlflowException.invalid_parameter_value(
-                "Exactly one of `expectation` or `feedback` should be specified.",
+                "Exactly one of `expectation` or `feedback` should be specified."
             )
 
         update = UpdateAssessment()

@@ -189,10 +189,7 @@ def load_text(artifact_uri: str) -> str:
             try:
                 return str(local_artifact_fd.read())
             except Exception:
-                raise MlflowException(
-                    "Unable to form a str object from file content",
-                    BAD_REQUEST,
-                )
+                raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
 
 
 def load_dict(artifact_uri: str) -> dict[str, Any]:
@@ -226,10 +223,7 @@ def load_dict(artifact_uri: str) -> dict[str, Any]:
             try:
                 return json.load(local_artifact_fd)
             except json.JSONDecodeError:
-                raise MlflowException(
-                    "Unable to form a JSON object from file content",
-                    BAD_REQUEST,
-                )
+                raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
 
 
 def load_image(artifact_uri: str):
@@ -274,6 +268,5 @@ def load_image(artifact_uri: str):
             return image_obj
         except Exception:
             raise MlflowException(
-                "Unable to form a PIL Image object from file content",
-                BAD_REQUEST,
+                "Unable to form a PIL Image object from file content", BAD_REQUEST
             )

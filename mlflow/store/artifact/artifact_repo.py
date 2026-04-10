@@ -341,7 +341,7 @@ class ArtifactRepository:
                 message=(
                     "The following failures occurred while downloading one or more"
                     f" artifacts from {self.artifact_uri}:\n{_truncate_error(failures)}"
-                ),
+                )
             )
 
         return os.path.join(dst_path, artifact_path)
@@ -520,7 +520,7 @@ class MultipartDownloadMixin(ABC):
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(
-            f"Invalid artifact path: '{artifact_path}'. {bad_path_message(artifact_path)}",
+            f"Invalid artifact path: '{artifact_path}'. {bad_path_message(artifact_path)}"
         )
 
 

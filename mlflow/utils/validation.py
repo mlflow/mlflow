@@ -394,18 +394,14 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
 def _validate_run_id(run_id, path="run_id"):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
     if _RUN_ID_REGEX.match(run_id) is None:
-        raise MlflowException(
-            invalid_value(path, run_id),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
     if exp_id is not None and _EXPERIMENT_ID_REGEX.match(exp_id) is None:
         raise MlflowException(
-            f"Invalid experiment ID: '{exp_id}'",
-            error_code=INVALID_PARAMETER_VALUE,
+            f"Invalid experiment ID: '{exp_id}'", error_code=INVALID_PARAMETER_VALUE
         )
 
 
@@ -416,10 +412,7 @@ def _validate_batch_limit(entity_name, limit, length):
             f"Got {length} {entity_name}. Please split up {entity_name} across multiple"
             " requests and try again."
         )
-        raise MlflowException(
-            error_msg,
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_batch_log_limits(metrics, params, tags):
@@ -452,10 +445,7 @@ def _validate_batch_log_api_req(json_req):
             "Batched logging API requests must be at most {limit} bytes, got a "
             "request of size {size}."
         ).format(limit=MAX_BATCH_LOG_REQUEST_SIZE, size=len(json_req))
-        raise MlflowException(
-            error_msg,
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_name(experiment_name):
@@ -474,7 +464,7 @@ def _validate_experiment_name(experiment_name):
 
     if len(experiment_name) > MAX_EXPERIMENT_NAME_LENGTH:
         raise MlflowException.invalid_parameter_value(
-            exceeds_maximum_length("name", MAX_EXPERIMENT_NAME_LENGTH),
+            exceeds_maximum_length("name", MAX_EXPERIMENT_NAME_LENGTH)
         )
 
 
@@ -509,16 +499,13 @@ def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = F
     if not isinstance(param_value, list):
         raise MlflowException.invalid_parameter_value(
             f"{param_name} must be a list, got {type(param_value).__name__}. "
-            f"Did you mean to use {param_name}=[{param_value!r}]?",
+            f"Did you mean to use {param_name}=[{param_value!r}]?"
         )
 
 
 def _validate_model_name(model_name: str) -> None:
     if model_name is None or model_name.strip() == "":
-        raise MlflowException(
-            missing_value("name"),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
     invalid_chars = ("/", ":")
     if any(c in model_name for c in invalid_chars):
         raise MlflowException(
@@ -534,10 +521,7 @@ def _validate_model_name(model_name: str) -> None:
 
 def _validate_model_renaming(model_new_name: str) -> None:
     if model_new_name is None or str(model_new_name).strip() == "":
-        raise MlflowException(
-            missing_value("new_name"),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE)
     _validate_model_name(model_new_name)
 
 
@@ -546,16 +530,14 @@ def _validate_model_version(model_version):
         model_version = int(model_version)
     except ValueError:
         raise MlflowException(
-            not_integer_value("version", model_version),
-            error_code=INVALID_PARAMETER_VALUE,
+            not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
         )
 
 
 def _validate_model_alias_name(model_alias_name):
     if model_alias_name is None or model_alias_name == "":
         raise MlflowException(
-            "Registered model alias name cannot be empty.",
-            INVALID_PARAMETER_VALUE,
+            "Registered model alias name cannot be empty.", INVALID_PARAMETER_VALUE
         )
     if not _REGISTERED_MODEL_ALIAS_REGEX.match(model_alias_name):
         raise MlflowException(
@@ -599,32 +581,20 @@ def _validate_db_type_string(db_type):
             f"Invalid database engine: '{db_type}'. "
             f"Supported database engines are {', '.join(DATABASE_ENGINES)}"
         )
-        raise MlflowException(
-            error_msg,
-            INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
 
 def _validate_model_version_or_stage_exists(version, stage):
     if version and stage:
-        raise MlflowException(
-            "version and stage cannot be set together",
-            INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException("version and stage cannot be set together", INVALID_PARAMETER_VALUE)
 
     if not (version or stage):
-        raise MlflowException(
-            "version or stage must be set",
-            INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException("version or stage must be set", INVALID_PARAMETER_VALUE)
 
 
 def _validate_tag_value(value):
     if value is None:
-        raise MlflowException(
-            "Tag value cannot be None",
-            INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException("Tag value cannot be None", INVALID_PARAMETER_VALUE)
 
 
 def _validate_dataset_inputs(dataset_inputs: list[DatasetInput]):
@@ -697,16 +667,13 @@ def _validate_input_tag(input_tag: InputTag):
 
 def _validate_username(username):
     if username is None or username == "":
-        raise MlflowException(
-            "Username cannot be empty.",
-            INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException("Username cannot be empty.", INVALID_PARAMETER_VALUE)
 
 
 def _validate_password(password) -> None:
     if password is None or len(password) < 12:
         raise MlflowException.invalid_parameter_value(
-            "Password must be a string longer than 12 characters.",
+            "Password must be a string longer than 12 characters."
         )
 
 
@@ -759,7 +726,7 @@ def _validate_webhook_name(name: str) -> None:
         raise MlflowException.invalid_parameter_value(
             f"Webhook name {name!r} is invalid. It must start and end with a letter or digit, "
             "be less than 63 characters long, and contain only letters, digits, dots (.), "
-            "underscores (_), and hyphens (-).",
+            "underscores (_), and hyphens (-)."
         )
 
 
@@ -782,7 +749,7 @@ def _validate_webhook_url(url: str) -> None:
     if parsed_url.scheme not in schemes:
         raise MlflowException.invalid_parameter_value(
             f"Invalid webhook URL scheme: {parsed_url.scheme!r}. "
-            f"Allowed schemes are: {', '.join(schemes)}.",
+            f"Allowed schemes are: {', '.join(schemes)}."
         )
 
     hostname = parsed_url.hostname
@@ -804,12 +771,12 @@ def _validate_webhook_url(url: str) -> None:
                 ip = ipaddress.ip_address(addr_info[4][0])
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(
-                    f"Webhook URL hostname {hostname!r} resolved to an invalid IP address: {e}",
+                    f"Webhook URL hostname {hostname!r} resolved to an invalid IP address: {e}"
                 ) from e
             if not ip.is_global:
                 raise MlflowException.invalid_parameter_value(
                     f"Webhook URL must not resolve to a non-public IP address. "
-                    f"{hostname!r} resolves to {ip}.",
+                    f"{hostname!r} resolves to {ip}."
                 )
 
 
@@ -820,7 +787,7 @@ def _validate_webhook_events(events: list[WebhookEvent]) -> None:
         or not all(isinstance(e, WebhookEvent) for e in events)
     ):
         raise MlflowException.invalid_parameter_value(
-            f"Webhook events must be a non-empty list of WebhookEvent objects: {events}.",
+            f"Webhook events must be a non-empty list of WebhookEvent objects: {events}."
         )
 
 
@@ -830,7 +797,7 @@ def _resolve_experiment_ids_and_locations(
     if experiment_ids:
         if locations:
             raise MlflowException.invalid_parameter_value(
-                "`experiment_ids` is deprecated, use `locations` instead.",
+                "`experiment_ids` is deprecated, use `locations` instead."
             )
         else:
             locations = experiment_ids
@@ -843,7 +810,7 @@ def _resolve_experiment_ids_and_locations(
             invalid_exp_ids_str = invalid_exp_ids_str[:20] + "..."
         raise MlflowException.invalid_parameter_value(
             "Locations must be a list of experiment IDs. "
-            f"Found invalid experiment IDs: {invalid_exp_ids_str}.",
+            f"Found invalid experiment IDs: {invalid_exp_ids_str}."
         )
 
     return locations

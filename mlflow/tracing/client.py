@@ -764,15 +764,13 @@ class TracingClient:
                 sql_warehouse_id=sql_warehouse_id,
             )
         raise MlflowException(
-            "Setting storage location is not supported on non-Databricks backends.",
+            "Setting storage location is not supported on non-Databricks backends."
         )
 
     def _get_trace_location(self, telemetry_profile_id: str) -> UnityCatalog:
         if is_databricks_uri(self.tracking_uri) and hasattr(self.store, "get_trace_location"):
             return self.store.get_trace_location(telemetry_profile_id)
-        raise MlflowException(
-            "Getting trace location by ID is not supported on this backend.",
-        )
+        raise MlflowException("Getting trace location by ID is not supported on this backend.")
 
     def _create_or_get_trace_location(
         self, location: UnityCatalog, sql_warehouse_id: str | None = None
@@ -781,17 +779,13 @@ class TracingClient:
             self.store, "create_or_get_trace_location"
         ):
             return self.store.create_or_get_trace_location(location, sql_warehouse_id)
-        raise MlflowException(
-            "Creating trace location is not supported on this backend.",
-        )
+        raise MlflowException("Creating trace location is not supported on this backend.")
 
     def _link_trace_location(self, experiment_id: str, location: UnityCatalog) -> None:
         if is_databricks_uri(self.tracking_uri) and hasattr(self.store, "link_trace_location"):
             self.store.link_trace_location(experiment_id, location)
             return
-        raise MlflowException(
-            "Linking trace location is not supported on this backend.",
-        )
+        raise MlflowException("Linking trace location is not supported on this backend.")
 
     def _unset_experiment_trace_location(
         self, experiment_id: str, location: UCSchemaLocation | UnityCatalog
@@ -800,7 +794,7 @@ class TracingClient:
             self.store.unset_experiment_trace_location(str(experiment_id), location)
         else:
             raise MlflowException(
-                "Clearing storage location is not supported on non-Databricks backends.",
+                "Clearing storage location is not supported on non-Databricks backends."
             )
 
     def _create_issue(

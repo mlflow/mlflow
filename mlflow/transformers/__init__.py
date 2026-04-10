@@ -581,7 +581,7 @@ def save_model(
             "with an incompatible configuration. If you are using the accelerate "
             "library to load your model, please ensure that it is saved only after "
             "loading with the default device mapping. Do not specify `device_map` "
-            "and please try again.",
+            "and please try again."
         )
 
     if mlflow_model is None:
@@ -638,7 +638,7 @@ def save_model(
         if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
             raise MlflowException(
                 f"Prompt templating is not supported for the `{built_pipeline.task}` task type. "
-                f"Supported task types are: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}.",
+                f"Supported task types are: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}."
             )
 
         _validate_prompt_template(prompt_template)
@@ -1319,7 +1319,7 @@ def persist_pretrained_model(model_uri: str) -> None:
                 # NB: log_artifacts method doesn't support rollback for partial uploads,
                 raise MlflowException(
                     f"Failed to upload {local_dir} to the existing model_uri due to {e}."
-                    "Some other files may have been uploaded.",
+                    "Some other files may have been uploaded."
                 ) from e
 
         # Upload MLModel file
@@ -1398,7 +1398,7 @@ def _load_model(
                 f"the `device` argument is provided with value {device}. The device_map and "
                 "`device` argument cannot be used together. Set MLFLOW_HUGGINGFACE_USE_DEVICE_MAP "
                 "to False to specify a particular device ID, or pass None for the `device` "
-                "argument to use device_map.",
+                "argument to use device_map."
             )
         device = None
     elif device is None:
@@ -1661,7 +1661,7 @@ def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
                 f"Cannot construct transformers pipeline because the task '{model_task}' "
                 "inferred from the model is not supported by the transformers pipeline. "
                 "Please construct the pipeline instance manually and pass it to the "
-                "`log_model` or `save_model` function.",
+                "`log_model` or `save_model` function."
             )
 
     except RuntimeError as e:
@@ -2352,7 +2352,7 @@ class _TransformersWrapper:
             ):
                 raise MlflowException(
                     "Text Classification pipelines may only define dictionary inputs with keys "
-                    f"defined as {allowable_str_keys}",
+                    f"defined as {allowable_str_keys}"
                 )
 
         if isinstance(data, str):
@@ -2382,12 +2382,12 @@ class _TransformersWrapper:
             else:
                 raise MlflowException(
                     "An unsupported data type has been passed for Text Classification inference. "
-                    "Only str, list of str, dict, and list of dict are supported.",
+                    "Only str, list of str, dict, and list of dict are supported."
                 )
         else:
             raise MlflowException(
                 "An unsupported data type has been passed for Text Classification inference. "
-                "Only str, list of str, dict, and list of dict are supported.",
+                "Only str, list of str, dict, and list of dict are supported."
             )
 
     def _parse_conversation_input(self, data) -> str:
@@ -2537,7 +2537,7 @@ class _TransformersWrapper:
             else:
                 raise MlflowException(
                     "Unable to parse the pipeline output. Expected List[Dict[str,str]] or "
-                    f"List[List[Dict[str,str]]] but got {type(data_out)} instead.",
+                    f"List[List[Dict[str,str]]] but got {type(data_out)} instead."
                 )
 
         output = extract_response_data(output)
@@ -2577,7 +2577,7 @@ class _TransformersWrapper:
         else:
             raise MlflowException(
                 "Unknown data structure after parsing output. Expected str or List[str]. "
-                f"Got {type(output)} instead.",
+                f"Got {type(output)} instead."
             )
 
     def _sanitize_output(self, output, input_data):
@@ -2742,7 +2742,7 @@ class _TransformersWrapper:
             expected_keys = {"question", "context"}
             if not expected_keys.intersection(set(data.keys())) == expected_keys:
                 raise MlflowException(
-                    f"Invalid keys were submitted. Keys must be exclusively {expected_keys}",
+                    f"Invalid keys were submitted. Keys must be exclusively {expected_keys}"
                 )
             return data
         else:
@@ -3090,7 +3090,7 @@ class _TransformersWrapper:
             raise MlflowException(
                 f"_format_prompt_template called on an unexpected pipeline type. "
                 f"Expected one of: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}. "
-                f"Received: {self.pipeline.task}",
+                f"Received: {self.pipeline.task}"
             )
 
         if isinstance(input_data, str):
@@ -3103,7 +3103,7 @@ class _TransformersWrapper:
         # throw for unsupported types
         raise MlflowException.invalid_parameter_value(
             "Prompt templating is only supported for data of type str or List[str]. "
-            f"Got {type(input_data)} instead.",
+            f"Got {type(input_data)} instead."
         )
 
 
@@ -3207,5 +3207,5 @@ def _validate_prompt_template(prompt_template):
         raise MlflowException.invalid_parameter_value(
             "Argument `prompt_template` must be a string with a single format arg, 'prompt'. "
             "For example: 'Answer the following question in a friendly tone. Q: {prompt}. A:'\n"
-            f"Received {prompt_template}. ",
+            f"Received {prompt_template}. "
         )

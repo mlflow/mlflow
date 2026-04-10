@@ -294,14 +294,12 @@ def http_request(
         raise MlflowException(
             f"API request to {url} failed with timeout exception {to}."
             " To increase the timeout, set the environment variable "
-            f"{MLFLOW_HTTP_REQUEST_TIMEOUT!s} to a larger value.",
+            f"{MLFLOW_HTTP_REQUEST_TIMEOUT!s} to a larger value."
         ) from to
     except requests.exceptions.InvalidURL as iu:
         raise InvalidUrlException(f"Invalid url: {url}") from iu
     except Exception as e:
-        raise MlflowException(
-            f"API request to {url} failed with exception {e}",
-        )
+        raise MlflowException(f"API request to {url} failed with exception {e}")
 
 
 @lru_cache(maxsize=5)
@@ -387,9 +385,7 @@ def verify_rest_response(
             "API request to endpoint was successful but the response body was not "
             "in a valid JSON format"
         )
-        raise MlflowException(
-            f"{base_msg}. Response body: '{response.text}'",
-        )
+        raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
 
     return response
 

@@ -105,9 +105,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         try:
             return json_response["is_dir"]
         except KeyError:
-            raise MlflowException(
-                f"DBFS path {dbfs_path} does not exist",
-            )
+            raise MlflowException(f"DBFS path {dbfs_path} does not exist")
 
     def _get_dbfs_path(self, artifact_path):
         return "/{}/{}".format(
@@ -158,7 +156,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         except ValueError:
             raise MlflowException(
                 f"API request to list files under DBFS path {dbfs_path} failed with "
-                f"status code {response.status_code}. Response body: {response.text}",
+                f"status code {response.status_code}. Response body: {response.text}"
             )
         # /api/2.0/dbfs/list will not have the 'files' key in the response for empty directories.
         infos = []
@@ -184,9 +182,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         )
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException(
-            "Not implemented yet",
-        )
+        raise MlflowException("Not implemented yet")
 
 
 def _get_host_creds_from_default_store():
@@ -195,7 +191,7 @@ def _get_host_creds_from_default_store():
         raise MlflowException(
             "Failed to get credentials for DBFS; they are read from the "
             + "Databricks CLI credentials or MLFLOW_TRACKING* environment "
-            + "variables.",
+            + "variables."
         )
     return store.get_host_creds
 
@@ -226,7 +222,7 @@ def dbfs_artifact_repo_factory(
         raise MlflowException(
             "DBFS URI must be of the form dbfs:/<path> or "
             + "dbfs://profile@databricks/<path>, but received "
-            + artifact_uri,
+            + artifact_uri
         )
 
     cleaned_artifact_uri = artifact_uri.rstrip("/")

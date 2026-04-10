@@ -71,7 +71,7 @@ def is_valid_hf_repo_id(maybe_repo_id: str | None) -> bool:
         raise MlflowException(
             "Unable to validate the repository identifier for the HuggingFace model hub "
             "because the `huggingface-hub` package is not installed. Please install the "
-            "package with `pip install huggingface-hub` command and retry.",
+            "package with `pip install huggingface-hub` command and retry."
         )
 
     try:

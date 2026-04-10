@@ -598,8 +598,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if experiment is None:
             raise MlflowException(
-                f"No Experiment with id={experiment_id_int} exists",
-                RESOURCE_DOES_NOT_EXIST,
+                f"No Experiment with id={experiment_id_int} exists", RESOURCE_DOES_NOT_EXIST
             )
 
         return experiment
@@ -768,10 +767,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ALL)
             if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-                raise MlflowException(
-                    "Cannot rename a non-active experiment.",
-                    INVALID_STATE,
-                )
+                raise MlflowException("Cannot rename a non-active experiment.", INVALID_STATE)
 
             experiment.name = new_name
             experiment.last_update_time = get_current_time_millis()
@@ -846,10 +842,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
 
         if len(runs) == 0:
-            raise MlflowException(
-                f"Run with id={run_uuid} not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
+            raise MlflowException(f"Run with id={run_uuid} not found", RESOURCE_DOES_NOT_EXIST)
         if len(runs) > 1:
             raise MlflowException(
                 f"Expected only 1 run with id={run_uuid}. Found {len(runs)}.",
@@ -1809,7 +1802,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         raise MlflowException(
                             "Failed to set tags with given within {} retries. Keys: {}".format(
                                 max_retries, [t.key for t in tags]
-                            ),
+                            )
                         )
                     sleep_duration = (2**attempt_number) - 1
                     sleep_duration += random.uniform(0, 1)
@@ -1953,10 +1946,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             except MlflowException as e:
                 raise e
             except Exception as e:
-                raise MlflowException(
-                    e,
-                    INTERNAL_ERROR,
-                )
+                raise MlflowException(e, INTERNAL_ERROR)
 
     def record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
@@ -2010,10 +2000,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             except MlflowException as e:
                 raise e
             except Exception as e:
-                raise MlflowException(
-                    e,
-                    INTERNAL_ERROR,
-                )
+                raise MlflowException(e, INTERNAL_ERROR)
 
     def _log_inputs_impl(
         self,
@@ -2857,16 +2844,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         if not isinstance(sample_rate, (int, float)):
             raise MlflowException.invalid_parameter_value(
-                f"sample_rate must be a number, got {type(sample_rate).__name__}",
+                f"sample_rate must be a number, got {type(sample_rate).__name__}"
             )
         if not 0.0 <= sample_rate <= 1.0:
             raise MlflowException.invalid_parameter_value(
-                f"sample_rate must be between 0.0 and 1.0, got {sample_rate}",
+                f"sample_rate must be between 0.0 and 1.0, got {sample_rate}"
             )
         if filter_string:
             if not isinstance(filter_string, str):
                 raise MlflowException.invalid_parameter_value(
-                    f"filter_string must be a string, got {type(filter_string).__name__}",
+                    f"filter_string must be a string, got {type(filter_string).__name__}"
                 )
             # Validate the filter string syntax before storing
             SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
@@ -3072,7 +3059,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # TODO: Support filtering by other entities such as params if needed
             if entity != "metrics":
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid order by field name: {field_name}. Only metrics are supported.",
+                    f"Invalid order by field name: {field_name}. Only metrics are supported."
                 )
 
             # Sub query to get the latest metrics value for each (model_id, metric_name) pair
@@ -3896,7 +3883,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if time_interval_seconds and (start_time_ms is None or end_time_ms is None):
             raise MlflowException.invalid_parameter_value(
-                "start_time_ms and end_time_ms are required if time_interval_seconds is set",
+                "start_time_ms and end_time_ms are required if time_interval_seconds is set"
             )
 
         with self.ManagedSessionMaker() as session:
@@ -4098,17 +4085,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             if expectation is not None and feedback is not None:
                 raise MlflowException.invalid_parameter_value(
-                    "Cannot specify both `expectation` and `feedback` parameters.",
+                    "Cannot specify both `expectation` and `feedback` parameters."
                 )
 
             if expectation is not None and not isinstance(existing, Expectation):
                 raise MlflowException.invalid_parameter_value(
-                    "Cannot update expectation value on a Feedback assessment.",
+                    "Cannot update expectation value on a Feedback assessment."
                 )
 
             if feedback is not None and not isinstance(existing, Feedback):
                 raise MlflowException.invalid_parameter_value(
-                    "Cannot update feedback value on an Expectation assessment.",
+                    "Cannot update feedback value on an Expectation assessment."
                 )
 
             merged_metadata = None
@@ -6656,9 +6643,7 @@ def _get_orderby_clauses(order_by_list, session):
             select_clauses.append(order_value)
 
             if (key_type, key) in observed_order_by_clauses:
-                raise MlflowException(
-                    f"`order_by` contains duplicate fields: {order_by_list}",
-                )
+                raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
             observed_order_by_clauses.add((key_type, key))
 
             if ascending:
@@ -6688,13 +6673,13 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                 type_, key, comparator
             ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for string attribute: {comparator}",
+                    f"Invalid comparator for string attribute: {comparator}"
                 )
             if SearchExperimentsUtils.is_numeric_attribute(
                 type_, key, comparator
             ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for numeric attribute: {comparator}",
+                    f"Invalid comparator for numeric attribute: {comparator}"
                 )
             attr = getattr(SqlExperiment, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
@@ -6711,7 +6696,7 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                     attribute_filters.append(tag_exists_subquery.exists())
             elif comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for tag: {comparator}",
+                    f"Invalid comparator for tag: {comparator}"
                 )
             else:
                 val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
@@ -6724,9 +6709,7 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                     select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
                 )
         else:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid token type: {type_}",
-            )
+            raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
 
     return attribute_filters, non_attribute_filters
 
@@ -6740,9 +6723,7 @@ def _get_search_experiments_order_by_clauses(order_by):
         if type_ == "attribute":
             order_by_clauses.append((getattr(SqlExperiment, key), ascending))
         else:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid order_by entity: {type_}",
-            )
+            raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
     # Add a tie-breaker
     if not any(col == SqlExperiment.experiment_id for col, _ in order_by_clauses):
@@ -6788,9 +6769,7 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
         select_clauses.append(order_value)
 
         if (key_type, key) in observed_order_by_clauses:
-            raise MlflowException(
-                f"`order_by` contains duplicate fields: {order_by_list}",
-            )
+            raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
         observed_order_by_clauses.add((key_type, key))
         clauses.append(order_value if ascending else order_value.desc())
 
@@ -7106,13 +7085,13 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
                 type_, key, comparator
             ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for string attribute: {comparator}",
+                    f"Invalid comparator for string attribute: {comparator}"
                 )
             if SearchEvaluationDatasetsUtils.is_numeric_attribute(
                 type_, key, comparator
             ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for numeric attribute: {comparator}",
+                    f"Invalid comparator for numeric attribute: {comparator}"
                 )
             attr = getattr(SqlEvaluationDataset, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
@@ -7120,7 +7099,7 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
         elif type_ == "tag":
             if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for tag: {comparator}",
+                    f"Invalid comparator for tag: {comparator}"
                 )
             val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
                 SqlEvaluationDatasetTag.value, value
@@ -7132,9 +7111,7 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
                 select(SqlEvaluationDatasetTag).filter(key_filter, val_filter).subquery()
             )
         else:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid token type: {type_}",
-            )
+            raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
 
     return attribute_filters, non_attribute_filters
 
@@ -7183,9 +7160,7 @@ def _get_search_datasets_order_by_clauses(order_by):
         if type_ == "attribute":
             field = key
         else:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid order_by entity: {type_}",
-            )
+            raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
         order_by_clauses.append((getattr(SqlEvaluationDataset, field), ascending))
 

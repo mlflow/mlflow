@@ -180,7 +180,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     if num_retries <= 0:
                         raise MlflowException(
                             f"Failed to download {len(failed_downloads)} chunk(s) for "
-                            f"{remote_file_path} after all retries exhausted.",
+                            f"{remote_file_path} after all retries exhausted."
                         )
                     _logger.info(
                         f"Retrying {len(failed_downloads)} failed chunk(s) for {remote_file_path}. "
@@ -366,7 +366,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             parts, errors = _complete_futures(futures, local_file)
             if errors:
                 raise MlflowException(
-                    f"Failed to upload at least one part of {local_file}. Errors: {errors}",
+                    f"Failed to upload at least one part of {local_file}. Errors: {errors}"
                 )
 
             parts = sorted(parts.values(), key=lambda part: part.part_number)

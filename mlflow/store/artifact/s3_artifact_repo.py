@@ -407,7 +407,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartDo
             raise MlflowException(
                 "The path of the listed S3 object does not begin with the specified"
                 f" artifact path. Artifact path: {artifact_path}. Object path:"
-                f" {listed_object_path}.",
+                f" {listed_object_path}."
             )
 
     def _download_file(self, remote_file_path, local_path):
