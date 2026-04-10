@@ -451,6 +451,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel text to cancel the flow to copy the model"
   },
+  "0uYJoi": {
+    "defaultMessage": "Alerts",
+    "description": "Tab label for budget alerts"
+  },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
@@ -2294,6 +2298,10 @@
     "defaultMessage": "Unsafe",
     "description": "Evaluation results > safety assessment > negative value label. Displayed if evaluation result is considered as unsafe."
   },
+  "CX5ia9": {
+    "defaultMessage": "Policies",
+    "description": "Tab label for budget policies"
+  },
   "CX8ytv": {
     "defaultMessage": "Expected output",
     "description": "Evaluation review > Response section > expected output > title"
@@ -2377,10 +2385,6 @@
   "CvNffK": {
     "defaultMessage": "Provider",
     "description": "Provider column header"
-  },
-  "CwJcIQ": {
-    "defaultMessage": "Receive HTTP notifications when a budget policy is exceeded.",
-    "description": "Budget webhooks section description on budgets page"
   },
   "CyTYL6": {
     "defaultMessage": "Line chart",
@@ -3117,6 +3121,10 @@
   "INrdWe": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected"
+  },
+  "IRZcTi": {
+    "defaultMessage": "Add Guardrail",
+    "description": "Add guardrail button"
   },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
@@ -3998,6 +4006,10 @@
     "defaultMessage": "Predict on a Spark DataFrame.",
     "description": "Code comment which states on how we can predict using spark DataFrame"
   },
+  "OExV7v": {
+    "defaultMessage": "Name",
+    "description": "Guardrail name column header"
+  },
   "OH7hV5": {
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
@@ -4408,6 +4420,10 @@
   "R1FeSE": {
     "defaultMessage": "Advanced settings (optional)",
     "description": "Toggle button for advanced settings in prompt creation modal"
+  },
+  "R28jzs": {
+    "defaultMessage": "Action",
+    "description": "Guardrail action column header"
   },
   "R2NKiZ": {
     "defaultMessage": "Config",
@@ -5064,6 +5080,10 @@
     "defaultMessage": "General",
     "description": "Accordion section header for general settings"
   },
+  "VOP7Y5": {
+    "defaultMessage": "No guardrails match your search.",
+    "description": "Empty state when search has no results"
+  },
   "VP+qFF": {
     "defaultMessage": "Show diff only",
     "description": "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
@@ -5655,6 +5675,10 @@
     "defaultMessage": "Versions",
     "description": "Title text for the versions section under details tab on the\n                       model view page"
   },
+  "Z6E4o7": {
+    "defaultMessage": "Get notified when a budget policy is exceeded. Create a webhook to get started, or <link>learn more</link>.",
+    "description": "Budget webhooks empty state description on budgets page"
+  },
   "Z6kodo": {
     "defaultMessage": "Move down",
     "description": "Experiment page > compare runs tab > chart header > move down option"
@@ -5910,10 +5934,6 @@
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
-  },
-  "aZ9uZO": {
-    "defaultMessage": "Budget alert webhooks",
-    "description": "Budget webhooks section title on budgets page"
   },
   "aZV8M7": {
     "defaultMessage": "Delete",
@@ -6430,10 +6450,6 @@
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
-  },
-  "ddUxQJ": {
-    "defaultMessage": "Use \"Create budget policy\" button to set up cost limits for the AI Gateway",
-    "description": "Empty state message for budgets list"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
@@ -7566,6 +7582,10 @@
   "ka9hO4": {
     "defaultMessage": "Try it",
     "description": "Try it - interactive request/response"
+  },
+  "kaFKCz": {
+    "defaultMessage": "No guardrails configured. Add a guardrail to protect your LLM endpoint.",
+    "description": "Empty state for guardrails"
   },
   "kbWXwv": {
     "defaultMessage": "Refresh traces",
@@ -9231,6 +9251,10 @@
     "defaultMessage": "using Notebook",
     "description": "String for creating a new run from a notebook"
   },
+  "vNmXQ2": {
+    "defaultMessage": "Loading guardrails...",
+    "description": "Loading guardrails"
+  },
   "vPnoNk": {
     "defaultMessage": "Save changes",
     "description": "Confirm button label within a modal when editing a runs comparison chart"
@@ -9515,6 +9539,10 @@
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
   },
+  "x9kyZm": {
+    "defaultMessage": "Placement",
+    "description": "Guardrail placement column header"
+  },
   "xBVMQz": {
     "defaultMessage": "LLM",
     "description": "Example text snippet for LLM"
@@ -9522,6 +9550,10 @@
   "xBoybr": {
     "defaultMessage": "Tag key already exists on one or more of the selected runs. Please choose a different key.",
     "description": "Add new key-value tag modal > Duplicate tag key error"
+  },
+  "xEr8Gl": {
+    "defaultMessage": "Set spending limits and control costs across your endpoints.",
+    "description": "Empty state message for budgets list"
   },
   "xIP8WW": {
     "defaultMessage": "Are you sure you want to delete these runs?",
