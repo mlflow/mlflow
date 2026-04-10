@@ -9,7 +9,7 @@ import warnings
 from dataclasses import asdict
 from functools import lru_cache
 from queue import Empty, Full, Queue
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import requests
 
@@ -34,7 +34,7 @@ from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.utils.rest_utils import http_request
 
-_DATABRICKS_SCHEMES = ("databricks", "databricks-uc", "uc")
+_DATABRICKS_SCHEMES = frozenset(("databricks", "databricks-uc", "uc"))
 
 
 # Cache per tracking URI; 16 is more than enough for any realistic number of
@@ -303,8 +303,9 @@ class TelemetryClient:
         for record in records:
             event = dict(self.info)
             event.update(record.to_dict())
-            if "params" in event:
-                event["params_json"] = event.pop("params")
+            params_value = event.pop("params", None)
+            if params_value is not None:
+                event["params_json"] = params_value
             events.append(event)
 
         response = self._send_with_retries(
@@ -323,7 +324,9 @@ class TelemetryClient:
             self._is_stopped = True
             self.is_active = False
 
-    def _send_with_retries(self, send_fn, request_timeout: float = 1):
+    def _send_with_retries(
+        self, send_fn: Callable[[float], requests.Response], request_timeout: float = 1
+    ) -> requests.Response | None:
         max_attempts = 3
         sleep_time = 1
         for i in range(max_attempts):

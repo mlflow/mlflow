@@ -948,38 +948,6 @@ def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
         assert "params" not in event
 
 
-@pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
-def test_forward_to_databricks_successful(tracking_uri_scheme):
-    with TelemetryClient() as client:
-        client.info["tracking_uri_scheme"] = tracking_uri_scheme
-        record = Record(
-            event_name="genai_evaluate",
-            timestamp_ns=1700000000000000000,
-            status=Status.SUCCESS,
-            duration_ms=1234,
-            params={"predict_fn_provided": True},
-        )
-
-        with (
-            mock.patch(
-                "mlflow.telemetry.client.http_request",
-                return_value=mock.Mock(status_code=200),
-            ) as mock_http,
-            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
-            mock.patch(
-                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
-                return_value=tracking_uri_scheme,
-            ),
-        ):
-            client._forward_to_databricks([record])
-
-        mock_http.assert_called_once()
-        payload = mock_http.call_args.kwargs["json"]
-        assert len(payload["events"]) == 1
-        assert payload["events"][0]["event_name"] == "genai_evaluate"
-        assert payload["events"][0]["tracking_uri_scheme"] == tracking_uri_scheme
-
-
 def test_forward_to_databricks_params_json_serialization():
     with TelemetryClient() as client:
         client.info["tracking_uri_scheme"] = "databricks"
@@ -1007,6 +975,33 @@ def test_forward_to_databricks_params_json_serialization():
         assert "params" not in event
         assert "params_json" in event
         assert json.loads(event["params_json"]) == {"predict_fn_provided": True}
+
+
+def test_forward_to_databricks_no_params_json_when_params_none():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        event = mock_http.call_args.kwargs["json"]["events"][0]
+        assert "params" not in event
+        assert "params_json" not in event
 
 
 @pytest.mark.parametrize("status_code", list(UNRECOVERABLE_ERRORS))
