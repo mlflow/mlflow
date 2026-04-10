@@ -269,6 +269,64 @@ def test_load_pyfunc_returns_wrapper(adapter_dir):
     assert wrapper._flavor_conf["base_model"] == BASE_MODEL_ID
 
 
+def test_load_pipeline_base_model_override(adapter_dir, model_path):
+    from unittest.mock import MagicMock, patch
+
+    mlflow.diffusers.save_model(
+        adapter_path=str(adapter_dir),
+        path=str(model_path),
+        base_model=BASE_MODEL_ID,
+    )
+
+    loaded = mlflow.diffusers.load_model(str(model_path))
+    override = "other-org/other-model"
+
+    with patch("diffusers.DiffusionPipeline.from_pretrained") as mock_fp:
+        mock_pipe = MagicMock()
+        mock_fp.return_value = mock_pipe
+        loaded.load_pipeline(base_model=override)
+        mock_fp.assert_called_once()
+        assert mock_fp.call_args[0][0] == override
+
+
+def test_load_pipeline_wraps_oserror(adapter_dir, model_path):
+    from unittest.mock import patch
+
+    mlflow.diffusers.save_model(
+        adapter_path=str(adapter_dir),
+        path=str(model_path),
+        base_model=BASE_MODEL_ID,
+    )
+
+    loaded = mlflow.diffusers.load_model(str(model_path))
+
+    with patch(
+        "diffusers.DiffusionPipeline.from_pretrained",
+        side_effect=OSError("is not a local folder"),
+    ):
+        with pytest.raises(MlflowException, match="Failed to load base model"):
+            loaded.load_pipeline()
+
+
+def test_wrapper_model_config_base_model_override():
+    from mlflow.diffusers.wrapper import _DiffusersAdapterWrapper
+
+    w = _DiffusersAdapterWrapper(
+        adapter_path="/fake",
+        flavor_conf={"base_model": "original/model", "adapter_type": "lora"},
+        model_config={"base_model": "override/model"},
+    )
+
+    from unittest.mock import MagicMock, patch
+
+    with patch("diffusers.DiffusionPipeline.from_pretrained") as mock_fp:
+        mock_pipe = MagicMock()
+        mock_fp.return_value = mock_pipe
+        w._load_pipeline()
+        mock_fp.assert_called_once()
+        assert mock_fp.call_args[0][0] == "override/model"
+
+
 @pytest.mark.parametrize("package", ["diffusers", "transformers", "torch", "peft", "safetensors"])
 def test_default_pip_requirements_contains_core(package):
     reqs = mlflow.diffusers.get_default_pip_requirements()

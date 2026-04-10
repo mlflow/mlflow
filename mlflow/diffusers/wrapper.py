@@ -28,7 +28,7 @@ class _DiffusersAdapterWrapper:
     def _load_pipeline(self):
         from diffusers import DiffusionPipeline
 
-        base_model = self._flavor_conf["base_model"]
+        base_model = self._model_config.get("base_model") or self._flavor_conf["base_model"]
         base_model_revision = self._flavor_conf.get("base_model_revision")
         device = _detect_device(self._model_config.get("device"))
         torch_dtype = self._model_config.get("torch_dtype", "auto")
@@ -43,7 +43,15 @@ class _DiffusersAdapterWrapper:
             lora_kwargs["weight_name"] = weight_name
 
         _logger.info("Loading base pipeline: %s", base_model)
-        pipe = DiffusionPipeline.from_pretrained(base_model, **load_kwargs)
+        try:
+            pipe = DiffusionPipeline.from_pretrained(base_model, **load_kwargs)
+        except OSError as e:
+            raise MlflowException(
+                f"Failed to load base model '{base_model}'. If the model has moved, "
+                "pass the correct location via "
+                "model_config={{'base_model': '<new_path_or_hub_id>'}} "
+                "when loading with mlflow.pyfunc.load_model()."
+            ) from e
 
         _logger.info("Loading LoRA adapter from: %s", self._adapter_path)
         pipe.load_lora_weights(self._adapter_path, **lora_kwargs)

@@ -172,10 +172,13 @@ class DiffusersAdapterModel:
     base_model_revision: str | None = None
     weight_name: str | None = None
 
-    def load_pipeline(self, **kwargs):
+    def load_pipeline(self, *, base_model: str | None = None, **kwargs):
         """Download the base model and apply the LoRA adapter.
 
         Args:
+            base_model: Override the base model reference stored at save time.
+                Useful when the original local path is no longer available.
+                Accepts a HuggingFace model ID or a local directory path.
             device: Device to load onto (auto-detected if omitted).
             torch_dtype: Model precision (default ``"auto"``).
             **kwargs: Forwarded to ``DiffusionPipeline.from_pretrained()``.
@@ -185,12 +188,20 @@ class DiffusersAdapterModel:
         """
         from diffusers import DiffusionPipeline
 
+        effective_base_model = base_model or self.base_model
         device = _detect_device(kwargs.pop("device", None))
         kwargs.setdefault("torch_dtype", "auto")
         if self.base_model_revision and "revision" not in kwargs:
             kwargs["revision"] = self.base_model_revision
 
-        pipe = DiffusionPipeline.from_pretrained(self.base_model, **kwargs)
+        try:
+            pipe = DiffusionPipeline.from_pretrained(effective_base_model, **kwargs)
+        except OSError as e:
+            raise MlflowException(
+                f"Failed to load base model '{effective_base_model}'. If the model "
+                "has moved, pass the correct location via "
+                "load_pipeline(base_model=...)."
+            ) from e
 
         lora_kwargs = {}
         if self.weight_name:
