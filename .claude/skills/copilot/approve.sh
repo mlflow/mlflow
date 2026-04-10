@@ -23,9 +23,7 @@ if [[ -z "$run_ids" ]]; then
 fi
 
 echo "Rerunning action_required workflows..."
-tmpdir=$(mktemp -d)
 pids=()
-i=0
 while IFS= read -r run_id; do
   (
     if gh api --method POST "repos/${repo}/actions/runs/${run_id}/rerun" >/dev/null 2>&1; then
@@ -33,10 +31,7 @@ while IFS= read -r run_id; do
     else
       echo "  Failed to rerun run $run_id"
     fi
-  ) > "$tmpdir/$i" &
+  ) &
   pids+=($!)
-  ((i++))
 done <<< "$run_ids"
 wait "${pids[@]}"
-cat "$tmpdir"/*
-rm -rf "$tmpdir"
