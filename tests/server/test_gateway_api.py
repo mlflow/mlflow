@@ -3079,11 +3079,14 @@ def _setup_db_guardrail(
     stage: str,
     action: str,
     action_endpoint_name: str | None = None,
+    execution_order: int | None = None,
+    name: str | None = None,
 ):
     """Create scorer + guardrail in DB and attach it to the endpoint."""
-    experiment_id = store.create_experiment(f"exp-{endpoint_name}-{stage}")
+    guardrail_name = name or f"guardrail-{endpoint_name}-{stage}"
+    experiment_id = store.create_experiment(f"exp-{guardrail_name}")
     scorer_ver = store.register_scorer(
-        experiment_id, f"scorer-{endpoint_name}", _GUARDRAIL_SERIALIZED_SCORER
+        experiment_id, f"scorer-{guardrail_name}", _GUARDRAIL_SERIALIZED_SCORER
     )
 
     action_endpoint_id = None
@@ -3091,7 +3094,7 @@ def _setup_db_guardrail(
         action_endpoint_id = store.get_gateway_endpoint(name=action_endpoint_name).endpoint_id
 
     guardrail = store.create_gateway_guardrail(
-        name=f"guardrail-{endpoint_name}-{stage}",
+        name=guardrail_name,
         scorer_id=scorer_ver.scorer_id,
         scorer_version=scorer_ver.scorer_version,
         stage=GuardrailStage(stage),
@@ -3099,7 +3102,9 @@ def _setup_db_guardrail(
         action_endpoint_id=action_endpoint_id,
     )
     endpoint = store.get_gateway_endpoint(name=endpoint_name)
-    store.add_guardrail_to_endpoint(endpoint.endpoint_id, guardrail.guardrail_id)
+    store.add_guardrail_to_endpoint(
+        endpoint.endpoint_id, guardrail.guardrail_id, execution_order=execution_order
+    )
     return guardrail, scorer_ver
 
 
@@ -3399,3 +3404,50 @@ async def test_chat_completions_before_sanitize_rewrites_request(store: SqlAlche
     assert response.choices[0].message.content == "Response to cleaned input"
     assert failing_scorer.call_count == 1
     assert captured_payloads[0].messages[0].content == "cleaned input"
+
+
+@pytest.mark.asyncio
+async def test_guardrails_run_in_execution_order(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-order-test")
+
+    # Register order=2 first to ensure DB insertion order != execution order.
+    _setup_db_guardrail(
+        store, "ep-order-test", "BEFORE", "VALIDATION", execution_order=2, name="g-order-2"
+    )
+    _setup_db_guardrail(
+        store, "ep-order-test", "BEFORE", "VALIDATION", execution_order=1, name="g-order-1"
+    )
+
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+
+    call_order: list[str] = []
+
+    def make_scorer(label: str, passing: bool):
+        def scorer(**kwargs):
+            call_order.append(label)
+            return "yes" if passing else "no"
+
+        return scorer
+
+    scorers = [make_scorer("order-1", passing=True), make_scorer("order-2", passing=False)]
+    call_count = {"n": 0}
+
+    def model_validate_side_effect(serialized):
+        scorer = scorers[call_count["n"]]
+        call_count["n"] += 1
+        return scorer
+
+    with (
+        patch(
+            "mlflow.genai.scorers.base.Scorer.model_validate",
+            side_effect=model_validate_side_effect,
+        ),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", AsyncMock()),
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
+
+    # order-1 (passing) must run before order-2 (blocking)
+    assert call_order == ["order-1", "order-2"]
