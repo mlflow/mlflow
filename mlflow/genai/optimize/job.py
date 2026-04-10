@@ -227,6 +227,7 @@ def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
         provider = model_config["provider"]
         model_name = model_config["model_name"]
     except (KeyError, TypeError, AttributeError) as e:
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException(
             f"Prompt {prompt_uri} doesn't have a model configuration that sets provider and "
             "model_name, which are required for optimization.",

@@ -181,8 +181,6 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                         raise MlflowException(
                             f"Failed to download {len(failed_downloads)} chunk(s) for "
                             f"{remote_file_path} after all retries exhausted.",
-                            sqlstate="XXM00",
-                            error_class="CLIENT_INTERNAL_ERROR",
                         )
                     _logger.info(
                         f"Retrying {len(failed_downloads)} failed chunk(s) for {remote_file_path}. "
@@ -369,8 +367,6 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
             parts = sorted(parts.values(), key=lambda part: part.part_number)

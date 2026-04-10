@@ -70,15 +70,11 @@ def download_artifacts(
         raise MlflowException(
             message="Exactly one of `run_id` or `artifact_uri` must be specified",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     elif artifact_uri is not None and artifact_path is not None:
         raise MlflowException(
             message="`artifact_path` cannot be specified if `artifact_uri` is specified",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if dst_path is not None:
@@ -135,14 +131,10 @@ def list_artifacts(
     if (run_id, artifact_uri).count(None) != 1:
         raise MlflowException.invalid_parameter_value(
             message="Exactly one of `run_id` or `artifact_uri` must be specified",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     elif artifact_uri is not None and artifact_path is not None:
         raise MlflowException.invalid_parameter_value(
             message="`artifact_path` cannot be specified if `artifact_uri` is specified",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if artifact_uri is not None:
@@ -200,8 +192,6 @@ def load_text(artifact_uri: str) -> str:
                 raise MlflowException(
                     "Unable to form a str object from file content",
                     BAD_REQUEST,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
 
@@ -239,8 +229,6 @@ def load_dict(artifact_uri: str) -> dict[str, Any]:
                 raise MlflowException(
                     "Unable to form a JSON object from file content",
                     BAD_REQUEST,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
 
@@ -288,6 +276,4 @@ def load_image(artifact_uri: str):
             raise MlflowException(
                 "Unable to form a PIL Image object from file content",
                 BAD_REQUEST,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )

@@ -229,8 +229,6 @@ def trace(
     if sampling_ratio_override is not None and not (0.0 <= sampling_ratio_override <= 1.0):
         raise MlflowException.invalid_parameter_value(
             f"sampling_ratio_override must be between 0.0 and 1.0, got {sampling_ratio_override}",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     def decorator(fn):
@@ -256,8 +254,6 @@ def trace(
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions.",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             wrapped = _wrap_function(
                 original_fn, name, span_type, attributes, trace_destination, sampling_ratio_override
@@ -790,8 +786,6 @@ def _get_search_locations(locations: list[str] | None) -> list[str]:
     raise MlflowException(
         "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
         "or specify the list of experiment IDs in the `locations` parameter.",
-        sqlstate="XXM00",
-        error_class="CLIENT_INTERNAL_ERROR",
     )
 
 
@@ -965,14 +959,10 @@ def search_traces(
     if return_type not in ["pandas", "list"]:
         raise MlflowException.invalid_parameter_value(
             f"Invalid return type: {return_type}. Return type must be either 'pandas' or 'list'.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     elif return_type == "list" and extract_fields:
         raise MlflowException.invalid_parameter_value(
             "The `extract_fields` parameter is only supported when return type is set to 'pandas'.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     elif return_type == "pandas":
         # Check if pandas is installed early to avoid unnecessary computation
@@ -982,8 +972,6 @@ def search_traces(
                     "The `pandas` library is not installed. Please install `pandas` to use"
                     " the `return_type='pandas'` option, or set `return_type='list'`."
                 ),
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
     _validate_list_param("locations", locations, allow_none=True)
@@ -1418,14 +1406,10 @@ def update_current_trace(
     if request_preview is not None and not isinstance(request_preview, str):
         raise MlflowException.invalid_parameter_value(
             "The `request_preview` parameter must be a string.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if response_preview is not None and not isinstance(response_preview, str):
         raise MlflowException.invalid_parameter_value(
             "The `response_preview` parameter must be a string.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     # Update trace info for the trace stored in-memory rather than directly updating the
@@ -1576,24 +1560,18 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
             raise MlflowException.invalid_parameter_value(
                 "Failed to load a trace object from the given dictionary. Please ensure the "
                 f"dictionary is in the correct MLflow Trace format. Error: {e}",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
     elif not isinstance(trace, Trace):
         raise MlflowException.invalid_parameter_value(
             f"Invalid trace object: {type(trace)}. Please provide a valid MLflow Trace object "
             "to use it as a remote trace. You can create a Trace object from its json format by "
             "using the Trace.from_dict() method.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if trace.info.status not in TraceStatus.end_statuses():
         raise MlflowException.invalid_parameter_value(
             "The trace must be ended before adding it to another trace. "
             f"Current status: {trace.info.status}.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if target_span := target or get_current_active_span():
@@ -1746,8 +1724,6 @@ def _merge_trace(
                 f"Span with ID {parent_span_id} not found. Please make sure the "
                 "spans in the trace are ordered correctly i.e. the parent span comes before "
                 "its children.",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         cloned_span = LiveSpan.from_immutable_span(

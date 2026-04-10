@@ -169,8 +169,6 @@ class TracingClient:
             raise MlflowException(
                 message=f"Trace with ID {trace_id} is not found.",
                 error_code=NOT_FOUND,
-                sqlstate="KAM00",
-                error_class="RESOURCE_NOT_FOUND",
             )
         else:
             try:
@@ -188,8 +186,6 @@ class TracingClient:
                         raise MlflowException(
                             f"Trace with ID {trace_id} is not found.",
                             error_code=NOT_FOUND,
-                            sqlstate="KAM00",
-                            error_class="RESOURCE_NOT_FOUND",
                         )
                 else:
                     trace_data = self._download_trace_data(trace_info)
@@ -200,8 +196,6 @@ class TracingClient:
                         "data. Please try creating or loading another trace."
                     ),
                     error_code=BAD_REQUEST,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 ) from None  # Ensure the original spammy exception is not included in the traceback
             except MlflowTraceDataCorrupted:
                 raise MlflowException(
@@ -210,8 +204,6 @@ class TracingClient:
                         " is corrupted. Please try creating or loading another trace."
                     ),
                     error_code=BAD_REQUEST,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 ) from None  # Ensure the original spammy exception is not included in the traceback
             return Trace(trace_info, trace_data)
 
@@ -298,8 +290,6 @@ class TracingClient:
                         "call."
                     ),
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             # if sql_warehouse_id is not set then we convert model_id to filter_string,
@@ -317,8 +307,6 @@ class TracingClient:
                     f"experiment {run.info.experiment_id} in the `locations` parameter to "
                     "search for traces from this run.",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             additional_filter = f"attribute.run_id = '{run_id}'"
@@ -329,8 +317,6 @@ class TracingClient:
                         f"Please remove the {TraceMetadataKey.SOURCE_RUN} filter from the filter "
                         "string and try again.",
                         error_code=INVALID_PARAMETER_VALUE,
-                        sqlstate="KAM00",
-                        error_class="INVALID_PARAMETER_VALUE",
                     )
                 filter_string += f" AND {additional_filter}"
             else:
@@ -625,8 +611,6 @@ class TracingClient:
                     raise MlflowException(
                         f"Tag with key {key} not found in trace with ID {trace_id}.",
                         error_code=RESOURCE_DOES_NOT_EXIST,
-                        sqlstate="KAM00",
-                        error_class="RESOURCE_NOT_FOUND",
                     )
 
         if key in IMMUTABLE_TAGS:
@@ -781,8 +765,6 @@ class TracingClient:
             )
         raise MlflowException(
             "Setting storage location is not supported on non-Databricks backends.",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     def _get_trace_location(self, telemetry_profile_id: str) -> UnityCatalog:
@@ -790,8 +772,6 @@ class TracingClient:
             return self.store.get_trace_location(telemetry_profile_id)
         raise MlflowException(
             "Getting trace location by ID is not supported on this backend.",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     def _create_or_get_trace_location(
@@ -803,8 +783,6 @@ class TracingClient:
             return self.store.create_or_get_trace_location(location, sql_warehouse_id)
         raise MlflowException(
             "Creating trace location is not supported on this backend.",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     def _link_trace_location(self, experiment_id: str, location: UnityCatalog) -> None:
@@ -813,8 +791,6 @@ class TracingClient:
             return
         raise MlflowException(
             "Linking trace location is not supported on this backend.",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     def _unset_experiment_trace_location(
@@ -825,8 +801,6 @@ class TracingClient:
         else:
             raise MlflowException(
                 "Clearing storage location is not supported on non-Databricks backends.",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
     def _create_issue(

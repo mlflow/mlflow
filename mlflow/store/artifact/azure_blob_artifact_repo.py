@@ -98,8 +98,6 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if parsed.scheme != "wasbs":
             raise MlflowException.invalid_parameter_value(
                 f"Not a WASBS URI: {uri}",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         match = re.fullmatch(
@@ -113,8 +111,6 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 "<container>@<account>.blob.core.windows.net"
                 " or <container>@<account>.blob.core.chinacloudapi.cn"
                 " or <container>@<account>.blob.core.usgovcloudapi.net",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         container = match.group(1)
         storage_account = match.group(2)
@@ -185,8 +181,6 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 raise MlflowException(
                     "The name of the listed Azure blob does not begin with the specified"
                     f" artifact path. Artifact path: {artifact_path}. Blob name: {result.name}",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
             if is_dir(result):
@@ -226,8 +220,6 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             if not blob_list:
                 raise MlflowException(
                     f"No such file or directory: '{dest_path}'",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
             for blob in blob_list:
@@ -235,8 +227,6 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         except ResourceNotFoundError:
             raise MlflowException(
                 f"No such file or directory: '{dest_path}'",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):

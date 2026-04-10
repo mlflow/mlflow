@@ -1101,6 +1101,7 @@ def _save_model_with_class_artifacts_params(
                 python_model, os.path.join(path, saved_python_model_subpath), compression
             )
         except Exception as e:
+            # error_code is INVALID_PARAMETER_VALUE but this is a model serialization failure
             raise MlflowException(
                 "Failed to serialize Python model. Please save the model into a python file "
                 "and use code-based logging method instead. See"

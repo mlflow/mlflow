@@ -1,6 +1,12 @@
 import json
 import logging
 
+from mlflow.error_classification import (
+    get_client_error_class,
+    get_client_sqlstate,
+    get_cp_error_class,
+    get_cp_sqlstate,
+)
 from mlflow.protos.databricks_pb2 import (
     ABORTED,
     ALREADY_EXISTS,
@@ -73,7 +79,12 @@ class MlflowException(Exception):
     """
 
     def __init__(
-        self, message, error_code=INTERNAL_ERROR, sqlstate=None, error_class=None, **kwargs
+        self,
+        message: str,
+        error_code: int = INTERNAL_ERROR,
+        sqlstate: str | None = None,
+        error_class: str | None = None,
+        **kwargs,
     ):
         """
         Args:
@@ -82,9 +93,10 @@ class MlflowException(Exception):
             error_code: An appropriate error code for the error that occurred; it will be
                 included in the exception's serialized JSON representation. This should
                 be one of the codes listed in the `mlflow.protos.databricks_pb2` proto.
-            sqlstate: A 5-character SQLSTATE code for error classification. Used by
-                Databricks reliability dashboards to categorize errors.
+            sqlstate: A 5-character SQLSTATE code for error classification. If not provided,
+                auto-derived from error_code.
             error_class: A descriptive error class name (e.g., "SCHEMA_ENFORCEMENT_FAILED").
+                If not provided, auto-derived from error_code.
             kwargs: Additional key-value pairs to include in the serialized JSON representation
                 of the MlflowException.
         """
@@ -94,8 +106,10 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
         message = str(message)
         self.message = message
-        self.sqlstate = sqlstate
-        self.error_class = error_class
+        self.sqlstate = sqlstate if sqlstate is not None else get_client_sqlstate(self.error_code)
+        self.error_class = (
+            error_class if error_class is not None else get_client_error_class(self.error_code)
+        )
         self.json_kwargs = kwargs
         super().__init__(message)
 
@@ -112,7 +126,9 @@ class MlflowException(Exception):
         return ERROR_CODE_TO_HTTP_STATUS.get(self.error_code, 500)
 
     @classmethod
-    def invalid_parameter_value(cls, message, sqlstate=None, error_class=None, **kwargs):
+    def invalid_parameter_value(
+        cls, message: str, sqlstate: str | None = None, error_class: str | None = None, **kwargs
+    ):
         """Constructs an `MlflowException` object with the `INVALID_PARAMETER_VALUE` error code.
 
         Args:
@@ -130,51 +146,6 @@ class MlflowException(Exception):
             error_class=error_class,
             **kwargs,
         )
-
-
-_CP_ERROR_CODE_TO_SQLSTATE = {
-    "PERMISSION_DENIED": "KAMC1",
-    "CUSTOMER_UNAUTHORIZED": "KAMC1",
-    "UNAUTHENTICATED": "KAMC1",
-    "RESOURCE_DOES_NOT_EXIST": "KAMC2",
-    "ENDPOINT_NOT_FOUND": "KAMC2",
-    "NOT_FOUND": "KAMC2",
-    "REQUEST_LIMIT_EXCEEDED": "KAMC3",
-    "RESOURCE_EXHAUSTED": "KAMC3",
-    "INVALID_PARAMETER_VALUE": "KAMC4",
-    "BAD_REQUEST": "KAMC4",
-    "RESOURCE_ALREADY_EXISTS": "KAMC5",
-    "RESOURCE_CONFLICT": "KAMC5",
-    "INTERNAL_ERROR": "XXMC0",
-    "TEMPORARILY_UNAVAILABLE": "XXMC1",
-    "INVALID_STATE": "XXMC2",
-}
-
-_CP_ERROR_CODE_TO_ERROR_CLASS = {
-    "PERMISSION_DENIED": "CP_PERMISSION_DENIED",
-    "CUSTOMER_UNAUTHORIZED": "CP_PERMISSION_DENIED",
-    "UNAUTHENTICATED": "CP_PERMISSION_DENIED",
-    "RESOURCE_DOES_NOT_EXIST": "CP_RESOURCE_NOT_FOUND",
-    "ENDPOINT_NOT_FOUND": "CP_RESOURCE_NOT_FOUND",
-    "NOT_FOUND": "CP_RESOURCE_NOT_FOUND",
-    "REQUEST_LIMIT_EXCEEDED": "CP_REQUEST_RATE_LIMITED",
-    "RESOURCE_EXHAUSTED": "CP_REQUEST_RATE_LIMITED",
-    "INVALID_PARAMETER_VALUE": "CP_INVALID_PARAMETER_VALUE",
-    "BAD_REQUEST": "CP_INVALID_PARAMETER_VALUE",
-    "RESOURCE_ALREADY_EXISTS": "CP_RESOURCE_CONFLICT",
-    "RESOURCE_CONFLICT": "CP_RESOURCE_CONFLICT",
-    "INTERNAL_ERROR": "CP_INTERNAL_ERROR",
-    "TEMPORARILY_UNAVAILABLE": "CP_TEMPORARILY_UNAVAILABLE",
-    "INVALID_STATE": "CP_INVALID_STATE",
-}
-
-
-def _get_cp_sqlstate(error_code):
-    return _CP_ERROR_CODE_TO_SQLSTATE.get(error_code)
-
-
-def _get_cp_error_class(error_code):
-    return _CP_ERROR_CODE_TO_ERROR_CLASS.get(error_code)
 
 
 class RestException(MlflowException):
@@ -205,16 +176,19 @@ class RestException(MlflowException):
                 )
                 super().__init__(message)
 
-        # Preserve sqlstate/error_class from CP response if present, otherwise
-        # map from error_code to provide default classification for CP errors.
-        if "sqlstate" in json:
-            self.sqlstate = json["sqlstate"]
-        elif self.sqlstate is None:
-            self.sqlstate = _get_cp_sqlstate(self.error_code)
-        if "error_class" in json:
-            self.error_class = json["error_class"]
-        elif self.error_class is None:
-            self.error_class = _get_cp_error_class(self.error_code)
+        # Preserve sqlstate/error_class from the REST API error payload if present;
+        # otherwise override with CP/server classification (replacing the client
+        # codes that super().__init__() auto-derived).
+        sqlstate = json.get("sqlstate")
+        if sqlstate not in (None, ""):
+            self.sqlstate = sqlstate
+        else:
+            self.sqlstate = get_cp_sqlstate(self.error_code)
+        error_class = json.get("error_class")
+        if error_class not in (None, ""):
+            self.error_class = error_class
+        else:
+            self.error_class = get_cp_error_class(self.error_code)
 
     def __reduce__(self):
         """

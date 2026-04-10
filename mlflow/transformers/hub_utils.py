@@ -27,8 +27,6 @@ def get_latest_commit_for_repo(repo: str) -> str:
             "weights, while ensuring the version consistency of the model. "
             "Please install the `huggingface-hub` package and retry.",
             error_code=RESOURCE_DOES_NOT_EXIST,
-            sqlstate="KAM00",
-            error_class="RESOURCE_NOT_FOUND",
         )
 
     from huggingface_hub.errors import HfHubHTTPError
@@ -56,8 +54,6 @@ def get_latest_commit_for_repo(repo: str) -> str:
         "This is required for saving Transformer model without base model "
         "weights, while ensuring the version consistency of the model. ",
         error_code=RESOURCE_DOES_NOT_EXIST,
-        sqlstate="KAM00",
-        error_class="RESOURCE_NOT_FOUND",
     )
 
 
@@ -76,8 +72,6 @@ def is_valid_hf_repo_id(maybe_repo_id: str | None) -> bool:
             "Unable to validate the repository identifier for the HuggingFace model hub "
             "because the `huggingface-hub` package is not installed. Please install the "
             "package with `pip install huggingface-hub` command and retry.",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     try:

@@ -60,8 +60,6 @@ def _format_args_string(grading_context_columns: list[str] | None, eval_values, 
             raise MlflowException(
                 f"{arg} does not exist in the eval function {list(eval_values.keys())}.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     return (
@@ -592,8 +590,6 @@ def make_genai_metric(
                 "(openai:/gpt-4o-mini) or an MLflow Deployments endpoint "
                 f"(endpoints:/my-endpoint), passed {eval_model} instead",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         # generate grading payloads
@@ -614,8 +610,6 @@ def make_genai_metric(
                     "parameter\n"
                     "- input and output data are formatted correctly.",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             grading_payloads.append(
                 evaluation_context["eval_prompt"].format(

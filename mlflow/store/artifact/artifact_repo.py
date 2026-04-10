@@ -267,8 +267,6 @@ class ArtifactRepository:
                         f" exist! Destination path: {dst_path}"
                     ),
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
             elif not os.path.isdir(dst_path):
                 raise MlflowException(
@@ -277,8 +275,6 @@ class ArtifactRepository:
                         f" Destination path: {dst_path}"
                     ),
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
         else:
             dst_path = create_tmp_dir()
@@ -346,8 +342,6 @@ class ArtifactRepository:
                     "The following failures occurred while downloading one or more"
                     f" artifacts from {self.artifact_uri}:\n{_truncate_error(failures)}"
                 ),
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
         return os.path.join(dst_path, artifact_path)
@@ -527,8 +521,6 @@ def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(
             f"Invalid artifact path: '{artifact_path}'. {bad_path_message(artifact_path)}",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
 
@@ -540,6 +532,7 @@ def _validate_attachment_path(path: str) -> None:
         if str(parsed) != path:
             raise ValueError("Non-canonical UUID format")
     except (ValueError, AttributeError, TypeError):
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute/type validation failure
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,

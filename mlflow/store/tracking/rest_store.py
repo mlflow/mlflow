@@ -564,8 +564,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         if model_id is not None:
             raise MlflowException.invalid_parameter_value(
                 "Searching traces by model_id is not supported on the current tracking server.",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         return self._search_traces(
@@ -594,8 +592,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             except Exception as e:
                 raise MlflowException(
                     f"Invalid experiment ID format: {exp_id}. Error: {e!s}",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 ) from e
 
         # Create V3 request message using protobuf
@@ -789,8 +785,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         if expectation is not None and feedback is not None:
             raise MlflowException.invalid_parameter_value(
                 "Exactly one of `expectation` or `feedback` should be specified.",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         update = UpdateAssessment()
@@ -1623,8 +1617,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             raise MlflowException(
                 f"Unexpected malformed response from {endpoint}: {e}",
                 error_code=INTERNAL_ERROR,
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             ) from e
 
     def _parse_online_scoring_config_from_response(self, response, endpoint: str):
@@ -1657,8 +1649,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             raise MlflowException(
                 f"Unexpected malformed response from {endpoint}: {e}",
                 error_code=INTERNAL_ERROR,
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             ) from e
 
     ############################################################################################

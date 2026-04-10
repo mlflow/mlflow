@@ -487,8 +487,6 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     raise MlflowException(
         f"Provider '{provider}' is not supported for evaluation.",
         error_code=INVALID_PARAMETER_VALUE,
-        sqlstate="KAM00",
-        error_class="INVALID_PARAMETER_VALUE",
     )
 
 

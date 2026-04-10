@@ -181,22 +181,16 @@ def _validate_metric_name(name, path="name"):
         raise MlflowException(
             invalid_value(path, name, f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}"),
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
             invalid_value(path, name, bad_character_message()),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if path_not_unique(name):
         raise MlflowException(
             invalid_value(path, name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -221,8 +215,6 @@ def _validate_metric(key, value, timestamp, step, path=""):
         raise MlflowException(
             missing_value(append_to_json_path(path, "value")),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     # value must be a Number
@@ -236,8 +228,6 @@ def _validate_metric(key, value, timestamp, step, path=""):
                 f"Please specify value as a valid double (64-bit floating point)",
             ),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if not isinstance(timestamp, numbers.Number) or timestamp < 0:
@@ -249,8 +239,6 @@ def _validate_metric(key, value, timestamp, step, path=""):
                 f"Timestamp must be a nonnegative long (64-bit integer) ",
             ),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if not isinstance(step, numbers.Number):
@@ -261,8 +249,6 @@ def _validate_metric(key, value, timestamp, step, path=""):
                 f"metric '{key}' (value={value}). Step must be a valid long (64-bit integer).",
             ),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, key)
@@ -323,8 +309,6 @@ def _validate_model_version_tag(key, value):
     if key == PROMPT_TEXT_TAG_KEY and len(value) > MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH:
         raise MlflowException.invalid_parameter_value(
             f"Prompt text exceeds max length of {MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH} characters.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
@@ -345,8 +329,6 @@ def _validate_param_keys_unique(params):
             f"Duplicate parameter keys have been submitted: {dupe_keys}. Please ensure "
             "the request contains only one param value per param key.",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -356,22 +338,16 @@ def _validate_param_name(name, path="key"):
         raise MlflowException(
             invalid_value(path, "", _MISSING_KEY_NAME_MESSAGE),
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
             invalid_value(path, name, bad_character_message()),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if path_not_unique(name):
         raise MlflowException(
             invalid_value(path, name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -382,22 +358,16 @@ def _validate_tag_name(name, path="key"):
         raise MlflowException(
             missing_value(path),
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if not validate_param_and_metric_name(name):
         raise MlflowException(
             invalid_value(path, name, bad_character_message()),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if path_not_unique(name):
         raise MlflowException(
             invalid_value(path, name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -418,8 +388,6 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
     raise MlflowException(
         exceeds_maximum_length(entity_name, limit),
         error_code=INVALID_PARAMETER_VALUE,
-        sqlstate="KAM00",
-        error_class="INVALID_PARAMETER_VALUE",
     )
 
 
@@ -429,8 +397,6 @@ def _validate_run_id(run_id, path="run_id"):
         raise MlflowException(
             invalid_value(path, run_id),
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -440,8 +406,6 @@ def _validate_experiment_id(exp_id):
         raise MlflowException(
             f"Invalid experiment ID: '{exp_id}'",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -455,8 +419,6 @@ def _validate_batch_limit(entity_name, limit, length):
         raise MlflowException(
             error_msg,
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -493,8 +455,6 @@ def _validate_batch_log_api_req(json_req):
         raise MlflowException(
             error_msg,
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -504,23 +464,17 @@ def _validate_experiment_name(experiment_name):
         raise MlflowException(
             f"Invalid experiment name: '{experiment_name}'",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if not is_string_type(experiment_name):
         raise MlflowException(
             f"Invalid experiment name: {experiment_name}. Expects a string.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if len(experiment_name) > MAX_EXPERIMENT_NAME_LENGTH:
         raise MlflowException.invalid_parameter_value(
             exceeds_maximum_length("name", MAX_EXPERIMENT_NAME_LENGTH),
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -534,8 +488,6 @@ def _validate_experiment_id_type(experiment_id):
             f"Invalid experiment id: {experiment_id} of type {type(experiment_id)}. "
             "Must be one of str, int, or None.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -558,8 +510,6 @@ def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = F
         raise MlflowException.invalid_parameter_value(
             f"{param_name} must be a list, got {type(param_value).__name__}. "
             f"Did you mean to use {param_name}=[{param_value!r}]?",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -568,23 +518,17 @@ def _validate_model_name(model_name: str) -> None:
         raise MlflowException(
             missing_value("name"),
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     invalid_chars = ("/", ":")
     if any(c in model_name for c in invalid_chars):
         raise MlflowException(
             f"Invalid model name '{model_name}'. Names cannot contain '/' or ':'.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if path_not_unique(model_name):
         raise MlflowException(
             invalid_value("name", model_name, bad_path_message(model_name)),
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -593,8 +537,6 @@ def _validate_model_renaming(model_new_name: str) -> None:
         raise MlflowException(
             missing_value("new_name"),
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     _validate_model_name(model_new_name)
 
@@ -606,8 +548,6 @@ def _validate_model_version(model_version):
         raise MlflowException(
             not_integer_value("version", model_version),
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -616,15 +556,11 @@ def _validate_model_alias_name(model_alias_name):
         raise MlflowException(
             "Registered model alias name cannot be empty.",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if not _REGISTERED_MODEL_ALIAS_REGEX.match(model_alias_name):
         raise MlflowException(
             f"Invalid alias name: '{model_alias_name}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     _validate_length_limit(
         "Registered model alias name",
@@ -638,15 +574,11 @@ def _validate_model_alias_name_reserved(model_alias_name):
         raise MlflowException(
             "'latest' alias name (case insensitive) is reserved.",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(model_alias_name):
         raise MlflowException(
             f"Version alias name '{model_alias_name}' is reserved.",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -655,8 +587,6 @@ def _validate_experiment_artifact_location(artifact_location):
         raise MlflowException(
             f"Artifact location cannot be a runs:/ URI. Given: '{artifact_location}'",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -672,8 +602,6 @@ def _validate_db_type_string(db_type):
         raise MlflowException(
             error_msg,
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -682,16 +610,12 @@ def _validate_model_version_or_stage_exists(version, stage):
         raise MlflowException(
             "version and stage cannot be set together",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if not (version or stage):
         raise MlflowException(
             "version or stage must be set",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -700,8 +624,6 @@ def _validate_tag_value(value):
         raise MlflowException(
             "Tag value cannot be None",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -712,46 +634,40 @@ def _validate_dataset_inputs(dataset_inputs: list[DatasetInput]):
 
 
 def _validate_dataset(dataset: Dataset):
-    _sq = {"sqlstate": "KAM00", "error_class": "INVALID_PARAMETER_VALUE"}
     if dataset is None:
-        raise MlflowException("Dataset cannot be None", INVALID_PARAMETER_VALUE, **_sq)
+        raise MlflowException("Dataset cannot be None", INVALID_PARAMETER_VALUE)
     if dataset.name is None:
-        raise MlflowException("Dataset name cannot be None", INVALID_PARAMETER_VALUE, **_sq)
+        raise MlflowException("Dataset name cannot be None", INVALID_PARAMETER_VALUE)
     if dataset.digest is None:
-        raise MlflowException("Dataset digest cannot be None", INVALID_PARAMETER_VALUE, **_sq)
+        raise MlflowException("Dataset digest cannot be None", INVALID_PARAMETER_VALUE)
     if dataset.source_type is None:
-        raise MlflowException("Dataset source_type cannot be None", INVALID_PARAMETER_VALUE, **_sq)
+        raise MlflowException("Dataset source_type cannot be None", INVALID_PARAMETER_VALUE)
     if dataset.source is None:
-        raise MlflowException("Dataset source cannot be None", INVALID_PARAMETER_VALUE, **_sq)
+        raise MlflowException("Dataset source cannot be None", INVALID_PARAMETER_VALUE)
     if len(dataset.name) > MAX_DATASET_NAME_SIZE:
         raise MlflowException(
             exceeds_maximum_length("name", MAX_DATASET_NAME_SIZE),
             INVALID_PARAMETER_VALUE,
-            **_sq,
         )
     if len(dataset.digest) > MAX_DATASET_DIGEST_SIZE:
         raise MlflowException(
             exceeds_maximum_length("digest", MAX_DATASET_DIGEST_SIZE),
             INVALID_PARAMETER_VALUE,
-            **_sq,
         )
     if len(dataset.source) > MAX_DATASET_SOURCE_SIZE:
         raise MlflowException(
             exceeds_maximum_length("source", MAX_DATASET_SOURCE_SIZE),
             INVALID_PARAMETER_VALUE,
-            **_sq,
         )
     if dataset.schema is not None and len(dataset.schema) > MAX_DATASET_SCHEMA_SIZE:
         raise MlflowException(
             exceeds_maximum_length("schema", MAX_DATASET_SCHEMA_SIZE),
             INVALID_PARAMETER_VALUE,
-            **_sq,
         )
     if dataset.profile is not None and len(dataset.profile) > MAX_DATASET_PROFILE_SIZE:
         raise MlflowException(
             exceeds_maximum_length("profile", MAX_DATASET_PROFILE_SIZE),
             INVALID_PARAMETER_VALUE,
-            **_sq,
         )
 
 
@@ -761,24 +677,21 @@ def _validate_input_tags(input_tags: list[InputTag]):
 
 
 def _validate_input_tag(input_tag: InputTag):
-    _sq = {"sqlstate": "KAM00", "error_class": "INVALID_PARAMETER_VALUE"}
     if input_tag is None:
-        raise MlflowException("InputTag cannot be None", INVALID_PARAMETER_VALUE, **_sq)
+        raise MlflowException("InputTag cannot be None", INVALID_PARAMETER_VALUE)
     if input_tag.key is None:
-        raise MlflowException("InputTag key cannot be None", INVALID_PARAMETER_VALUE, **_sq)
+        raise MlflowException("InputTag key cannot be None", INVALID_PARAMETER_VALUE)
     if input_tag.value is None:
-        raise MlflowException("InputTag value cannot be None", INVALID_PARAMETER_VALUE, **_sq)
+        raise MlflowException("InputTag value cannot be None", INVALID_PARAMETER_VALUE)
     if len(input_tag.key) > MAX_INPUT_TAG_KEY_SIZE:
         raise MlflowException(
             exceeds_maximum_length("key", MAX_INPUT_TAG_KEY_SIZE),
             INVALID_PARAMETER_VALUE,
-            **_sq,
         )
     if len(input_tag.value) > MAX_INPUT_TAG_VALUE_SIZE:
         raise MlflowException(
             exceeds_maximum_length("value", MAX_INPUT_TAG_VALUE_SIZE),
             INVALID_PARAMETER_VALUE,
-            **_sq,
         )
 
 
@@ -787,8 +700,6 @@ def _validate_username(username):
         raise MlflowException(
             "Username cannot be empty.",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -796,8 +707,6 @@ def _validate_password(password) -> None:
     if password is None or len(password) < 12:
         raise MlflowException.invalid_parameter_value(
             "Password must be a string longer than 12 characters.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -816,8 +725,6 @@ def _validate_experiment_artifact_location_length(artifact_location: str):
             f"greater than {max_length} characters. To configure this limit, please set the "
             "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH environment variable.",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -831,8 +738,6 @@ def _validate_logged_model_name(name: str | None) -> None:
             f"Invalid model name ({name!r}) provided. Model name must be a non-empty string "
             f"and cannot contain the following characters: {bad_chars}",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -845,10 +750,9 @@ _WEBHOOK_NAME_REGEX = re.compile(
 
 
 def _validate_webhook_name(name: str) -> None:
-    _sq = {"sqlstate": "KAM00", "error_class": "INVALID_PARAMETER_VALUE"}
     if not isinstance(name, str):
         raise MlflowException.invalid_parameter_value(
-            f"Webhook name must be a string, got {type(name).__name__!r}", **_sq
+            f"Webhook name must be a string, got {type(name).__name__!r}"
         )
 
     if not _WEBHOOK_NAME_REGEX.fullmatch(name):
@@ -856,40 +760,35 @@ def _validate_webhook_name(name: str) -> None:
             f"Webhook name {name!r} is invalid. It must start and end with a letter or digit, "
             "be less than 63 characters long, and contain only letters, digits, dots (.), "
             "underscores (_), and hyphens (-).",
-            **_sq,
         )
 
 
 def _validate_webhook_url(url: str) -> None:
-    _sq = {"sqlstate": "KAM00", "error_class": "INVALID_PARAMETER_VALUE"}
     if not isinstance(url, str):
         raise MlflowException.invalid_parameter_value(
-            f"Webhook URL must be a string, got {type(url).__name__!r}", **_sq
+            f"Webhook URL must be a string, got {type(url).__name__!r}"
         )
 
     if not url.strip():
         raise MlflowException.invalid_parameter_value(
-            f"Webhook URL cannot be empty or just whitespace: {url!r}", **_sq
+            f"Webhook URL cannot be empty or just whitespace: {url!r}"
         )
 
     try:
         parsed_url = urllib.parse.urlparse(url)
     except ValueError as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid webhook URL {url!r}: {e!r}", **_sq
-        ) from e
+        raise MlflowException.invalid_parameter_value(f"Invalid webhook URL {url!r}: {e!r}") from e
     schemes = _MLFLOW_WEBHOOK_ALLOWED_SCHEMES.get()
     if parsed_url.scheme not in schemes:
         raise MlflowException.invalid_parameter_value(
             f"Invalid webhook URL scheme: {parsed_url.scheme!r}. "
             f"Allowed schemes are: {', '.join(schemes)}.",
-            **_sq,
         )
 
     hostname = parsed_url.hostname
     if not hostname:
         raise MlflowException.invalid_parameter_value(
-            f"Webhook URL must include a hostname: {url!r}", **_sq
+            f"Webhook URL must include a hostname: {url!r}"
         )
 
     if not _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS.get():
@@ -897,7 +796,7 @@ def _validate_webhook_url(url: str) -> None:
             addr_infos = socket.getaddrinfo(hostname, None)
         except socket.gaierror as e:
             raise MlflowException.invalid_parameter_value(
-                f"Cannot resolve webhook URL hostname {hostname!r}: {e}", **_sq
+                f"Cannot resolve webhook URL hostname {hostname!r}: {e}"
             ) from e
 
         for addr_info in addr_infos:
@@ -906,13 +805,11 @@ def _validate_webhook_url(url: str) -> None:
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Webhook URL hostname {hostname!r} resolved to an invalid IP address: {e}",
-                    **_sq,
                 ) from e
             if not ip.is_global:
                 raise MlflowException.invalid_parameter_value(
                     f"Webhook URL must not resolve to a non-public IP address. "
                     f"{hostname!r} resolves to {ip}.",
-                    **_sq,
                 )
 
 
@@ -924,8 +821,6 @@ def _validate_webhook_events(events: list[WebhookEvent]) -> None:
     ):
         raise MlflowException.invalid_parameter_value(
             f"Webhook events must be a non-empty list of WebhookEvent objects: {events}.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -936,8 +831,6 @@ def _resolve_experiment_ids_and_locations(
         if locations:
             raise MlflowException.invalid_parameter_value(
                 "`experiment_ids` is deprecated, use `locations` instead.",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         else:
             locations = experiment_ids
@@ -951,8 +844,6 @@ def _resolve_experiment_ids_and_locations(
         raise MlflowException.invalid_parameter_value(
             "Locations must be a list of experiment IDs. "
             f"Found invalid experiment IDs: {invalid_exp_ids_str}.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     return locations

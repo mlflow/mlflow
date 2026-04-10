@@ -81,8 +81,6 @@ class ArtifactRepositoryRegistry:
             raise MlflowException(
                 f"Could not find a registered artifact repository for: {artifact_uri}. "
                 f"Currently registered schemes are: {list(self._registry.keys())}",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
         repository_instance = repository(
             artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri

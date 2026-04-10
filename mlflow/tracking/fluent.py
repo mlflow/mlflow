@@ -196,8 +196,6 @@ def set_experiment(
         raise MlflowException(
             message="Must specify exactly one of: `experiment_id` or `experiment_name`.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     client = TrackingServiceClient(_resolve_tracking_uri())
@@ -230,8 +228,6 @@ def set_experiment(
                 raise MlflowException(
                     message=f"Experiment with ID '{experiment_id}' does not exist.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
@@ -243,8 +239,6 @@ def set_experiment(
                     "experiment to create a new one."
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     if trace_location is not None and trace_location.table_prefix is None:
@@ -265,8 +259,6 @@ def set_experiment(
                 f"Experiment '{experiment.name}' (ID: {experiment.experiment_id}) was created "
                 f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
                 f"{e.message} Please fix the issue and call set_experiment again to retry.",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             ) from e
         raise
 
@@ -315,15 +307,11 @@ def _resolve_experiment_to_trace_location(
         raise MlflowException.invalid_parameter_value(
             "`trace_location` must be an instance of "
             "`mlflow.entities.trace_location.UnityCatalog`.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if not is_databricks_uri(_resolve_tracking_uri()):
         raise MlflowException.invalid_parameter_value(
             "`trace_location` is only supported with a Databricks tracking URI.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     # Check if experiment is already linked via the destination path tag (no backend call).
@@ -333,8 +321,6 @@ def _resolve_experiment_to_trace_location(
         raise MlflowException.invalid_parameter_value(
             f"Experiment '{experiment.name}' is already linked to a different "
             f"trace location '{destination_path}'.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     # No existing link — register and link via backend.
@@ -589,15 +575,11 @@ def start_run(
                 "does not match environment run ID. Make sure --experiment-name "
                 "or --experiment-id matches experiment set with "
                 "set_experiment(), or just use command-line arguments",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
         # Check if the current run has been deleted.
         if active_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
             raise MlflowException(
                 f"Cannot start run with ID {existing_run_id} because it is in the deleted state.",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
         # Use previous `end_time` because a value is required for `update_run_info`.
         end_time = active_run_obj.info.end_time
@@ -611,8 +593,6 @@ def start_run(
                     f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
                     f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description.",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             tags[MLFLOW_RUN_NOTE] = description
 
@@ -633,8 +613,6 @@ def start_run(
                     f"parent_run_id {parent_run_id}. To start a new nested run under "
                     f"the parent run with UUID {current_run_id}, first end the current run "
                     "with mlflow.end_run().",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
             parent_run_obj = client.get_run(parent_run_id)
             # Check if the specified parent_run has been deleted.
@@ -642,8 +620,6 @@ def start_run(
                 raise MlflowException(
                     f"Cannot start run under parent run with ID {parent_run_id} "
                     f"because it is in the deleted state.",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
         else:
             parent_run_id = active_run_stack[-1].info.run_id if len(active_run_stack) > 0 else None
@@ -657,8 +633,6 @@ def start_run(
                     f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
                     f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description.",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             user_specified_tags[MLFLOW_RUN_NOTE] = description
         if parent_run_id is not None:
@@ -701,8 +675,6 @@ def start_run(
                 "Please run `pip install psutil` to resolve the issue, otherwise you can disable "
                 "system metrics logging by passing `log_system_metrics=False` to "
                 "`mlflow.start_run()` or calling `mlflow.disable_system_metrics_logging`.",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
         try:
             from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
@@ -1448,8 +1420,6 @@ def _create_dataset_input(
     if (context or tags) and dataset is None:
         raise MlflowException.invalid_parameter_value(
             "`dataset` must be specified if `context` or `tags` is specified.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
     tags_to_log = []
     if tags:
@@ -1555,15 +1525,11 @@ def log_inputs(
         raise MlflowException(
             "`mlflow.log_inputs` requires `datasets`, `contexts`, `tags_list` to be "
             "non-empty list and have the same length.",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     if models and not is_databricks_uri(mlflow.get_tracking_uri()):
         raise MlflowException(
             "'models' argument is only supported by Databricks managed MLflow.",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     dataset_inputs = [
@@ -2402,8 +2368,6 @@ def create_experiment(
                 f"Experiment '{name}' (ID: {experiment_id}) was created "
                 f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
                 f"{e.message} Please delete the experiment and retry.",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             ) from e
 
     return experiment_id
@@ -2731,8 +2695,6 @@ def import_checkpoints(
             "Parameter 'checkpoint_path' must be a non-empty string pointing to a Unity Catalog "
             "Volume path that contains checkpoints, e.g. '/Volumes/...'",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     # Resolve source_run_id from the active run if not provided
@@ -2743,8 +2705,6 @@ def import_checkpoints(
             raise MlflowException.invalid_parameter_value(
                 "Please set 'source_run_id' or start an active run before calling "
                 "'import_checkpoints'.",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     # Resolve experiment ID to operate against
@@ -3062,8 +3022,6 @@ def search_logged_models(
             f"Unsupported output format: {output_format!r}. Supported string values are "
             "'pandas' or 'list'",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -3339,8 +3297,6 @@ def search_runs(
         raise MlflowException(
             message="Only experiment_ids or experiment_names can be used, but not both",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if search_all_experiments and no_ids_or_names:
@@ -3478,8 +3434,6 @@ def _get_experiment_id_from_env():
                     f"value `{experiment_id}` does not match the experiment id "
                     f"`{exp.experiment_id}` for experiment name `{experiment_name}`",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             else:
                 return exp.experiment_id
@@ -3495,8 +3449,6 @@ def _get_experiment_id_from_env():
                 f"value `{experiment_id}` does not exist in the tracking server. Provide a valid "
                 f"experiment_id.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             ) from exc
 
 
@@ -3945,8 +3897,6 @@ def _set_active_model(
     if name is None and model_id is None:
         raise MlflowException.invalid_parameter_value(
             message="Either name or model_id must be provided",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if model_id is not None:
@@ -3955,8 +3905,6 @@ def _set_active_model(
             raise MlflowException.invalid_parameter_value(
                 f"LoggedModel with model_id {model_id!r} has name {logged_model.name!r}, which does"
                 f" not match the provided name {name!r}.",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
     elif name is not None:
         logged_models = mlflow.search_logged_models(

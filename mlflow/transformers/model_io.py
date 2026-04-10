@@ -194,8 +194,6 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
             "found in the saved metadata. Loading the model with the different version may cause "
             "inconsistency issue and security risk.",
             error_code=INVALID_STATE,
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     loaded[FlavorKey.MODEL] = _load_model(
@@ -233,8 +231,6 @@ def _load_component(flavor_conf, name, local_path=None, repo_id=None):
                 "but no local config file was found to retrieve the "
                 "definition. Make sure your model was saved with "
                 "save_pretrained=True.",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
         cls = _COMPONENT_TO_AUTOCLASS_MAP[name]
         trust_remote = True
@@ -292,8 +288,6 @@ def _load_class_from_transformers_config(model_name_or_path, revision=None):
         if len(auto_classes) == 0:
             raise MlflowException(
                 f"Couldn't find a loader class for {class_name}",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
         auto_class = auto_classes[0]
@@ -366,8 +360,6 @@ def _try_load_model_with_device(model_class, model_name_or_path, load_kwargs):
             raise MlflowException(
                 f"The model was saved with a HuggingFace Hub repository name '{model_name_or_path}'"
                 f"and a commit hash '{revision}', but the commit is not found in the repository. ",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
         else:
             raise e

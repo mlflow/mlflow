@@ -58,8 +58,6 @@ class DbfsRestArtifactRepository(ArtifactRepository):
                 message="DBFS URI must be of the form dbfs:/<path> or "
                 + "dbfs://profile@databricks/<path>",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         # The dbfs:/ path ultimately used for artifact operations should not contain the
@@ -109,8 +107,6 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         except KeyError:
             raise MlflowException(
                 f"DBFS path {dbfs_path} does not exist",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
     def _get_dbfs_path(self, artifact_path):
@@ -163,8 +159,6 @@ class DbfsRestArtifactRepository(ArtifactRepository):
             raise MlflowException(
                 f"API request to list files under DBFS path {dbfs_path} failed with "
                 f"status code {response.status_code}. Response body: {response.text}",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
         # /api/2.0/dbfs/list will not have the 'files' key in the response for empty directories.
         infos = []
@@ -192,8 +186,6 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException(
             "Not implemented yet",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
 
@@ -204,8 +196,6 @@ def _get_host_creds_from_default_store():
             "Failed to get credentials for DBFS; they are read from the "
             + "Databricks CLI credentials or MLFLOW_TRACKING* environment "
             + "variables.",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
     return store.get_host_creds
 
@@ -237,8 +227,6 @@ def dbfs_artifact_repo_factory(
             "DBFS URI must be of the form dbfs:/<path> or "
             + "dbfs://profile@databricks/<path>, but received "
             + artifact_uri,
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     cleaned_artifact_uri = artifact_uri.rstrip("/")

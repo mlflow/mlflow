@@ -381,8 +381,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     "support (MLFLOW_ENABLE_WORKSPACES=true) or move those experiments back to the "
                     "default workspace before starting the tracking store in single-tenant mode.",
                     error_code=INVALID_STATE,
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
         try:
@@ -505,8 +503,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Experiment(name={name}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_ALREADY_EXISTS",
                 )
 
             return str(experiment.experiment_id)
@@ -587,8 +583,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             raise MlflowException(
                 f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
                 INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         experiment = (
@@ -606,8 +600,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             raise MlflowException(
                 f"No Experiment with id={experiment_id_int} exists",
                 RESOURCE_DOES_NOT_EXIST,
-                sqlstate="KAM00",
-                error_class="RESOURCE_NOT_FOUND",
             )
 
         return experiment
@@ -779,8 +771,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     "Cannot rename a non-active experiment.",
                     INVALID_STATE,
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
             experiment.name = new_name
@@ -809,8 +799,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     "Both 'run_name' argument and 'mlflow.runName' tag are specified, but with "
                     f"different values (run_name='{run_name}', mlflow.runName='{run_name_tag}').",
                     INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             run_name = run_name or run_name_tag or _generate_random_name()
             if not run_name_tag:
@@ -861,15 +849,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             raise MlflowException(
                 f"Run with id={run_uuid} not found",
                 RESOURCE_DOES_NOT_EXIST,
-                sqlstate="KAM00",
-                error_class="RESOURCE_NOT_FOUND",
             )
         if len(runs) > 1:
             raise MlflowException(
                 f"Expected only 1 run with id={run_uuid}. Found {len(runs)}.",
                 INVALID_STATE,
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
         return runs[0]
@@ -933,8 +917,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     f"Current state is {run.lifecycle_stage}."
                 ),
                 INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     def _check_experiment_is_active(self, experiment):
@@ -945,8 +927,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     f"Current state is {experiment.lifecycle_stage}."
                 ),
                 INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     def update_run_info(self, run_id, run_status, end_time, run_name):
@@ -1650,8 +1630,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             " logged with value='{}' for run ID='{}'. Attempted logging new value"
                             " '{}'.".format(param.key, old_value, run_id, param.value),
                             INVALID_PARAMETER_VALUE,
-                            sqlstate="KAM00",
-                            error_class="INVALID_PARAMETER_VALUE",
                         )
                 else:
                     raise
@@ -1682,8 +1660,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     "Changing param values is not allowed. Params were already"
                     f" logged='{non_matching_params}' for run ID='{run_id}'.",
                     INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             if not new_params:
@@ -1733,8 +1709,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"No tag with name: {key} in experiment with id {experiment_id}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
             elif len(filtered_tags) > 1:
                 raise MlflowException(
@@ -1742,8 +1716,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     "a single unique value. "
                     "See https://mlflow.org/docs/latest/ml/getting-started/logging-first-model/step3-create-experiment/#notes-on-tags-vs-experiments",
                     error_code=INVALID_STATE,
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
             session.delete(filtered_tags[0])
 
@@ -1838,8 +1810,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             "Failed to set tags with given within {} retries. Keys: {}".format(
                                 max_retries, [t.key for t in tags]
                             ),
-                            sqlstate="XXM00",
-                            error_class="CLIENT_INTERNAL_ERROR",
                         )
                     sleep_duration = (2**attempt_number) - 1
                     sleep_duration += random.uniform(0, 1)
@@ -1864,8 +1834,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"No tag with name: {key} in run with id {run_id}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
             elif len(filtered_tags) > 1:
                 raise MlflowException(
@@ -1873,8 +1841,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     "a single unique value. "
                     "See https://mlflow.org/docs/latest/tracking.html#adding-tags-to-runs",
                     error_code=INVALID_STATE,
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
             session.delete(filtered_tags[0])
 
@@ -1990,8 +1956,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     e,
                     INTERNAL_ERROR,
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
     def record_logged_model(self, run_id, mlflow_model):
@@ -2049,8 +2013,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     e,
                     INTERNAL_ERROR,
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
     def _log_inputs_impl(
@@ -2066,8 +2028,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     "Dataset input must have a dataset associated with it.",
                     INTERNAL_ERROR,
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
         # dedup dataset_inputs list if two dataset inputs have the same name and digest
@@ -2361,8 +2321,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         raise MlflowException(
             f"Logged model with ID '{model_id}' not found.",
             RESOURCE_DOES_NOT_EXIST,
-            sqlstate="KAM00",
-            error_class="RESOURCE_NOT_FOUND",
         )
 
     def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
@@ -2445,8 +2403,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"No tag with key {key!r} found for model with ID {model_id!r}.",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
     def register_scorer(
@@ -2675,8 +2631,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             # Build query for scorer versions
@@ -2694,8 +2648,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         f"Scorer with name '{name}' and version {version} not found for "
                         f"experiment {experiment_id}.",
                         RESOURCE_DOES_NOT_EXIST,
-                        sqlstate="KAM00",
-                        error_class="RESOURCE_NOT_FOUND",
                     )
             else:
                 # Get maximum version
@@ -2704,8 +2656,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     raise MlflowException(
                         f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                         RESOURCE_DOES_NOT_EXIST,
-                        sqlstate="KAM00",
-                        error_class="RESOURCE_NOT_FOUND",
                     )
 
             entity = sql_scorer_version.to_mlflow_entity()
@@ -2744,8 +2694,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             # Build the query for scorer versions
@@ -2765,15 +2713,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         f"Scorer with name '{name}' and version {version} not found for"
                         f" experiment {experiment_id}.",
                         RESOURCE_DOES_NOT_EXIST,
-                        sqlstate="KAM00",
-                        error_class="RESOURCE_NOT_FOUND",
                     )
                 else:
                     raise MlflowException(
                         f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                         RESOURCE_DOES_NOT_EXIST,
-                        sqlstate="KAM00",
-                        error_class="RESOURCE_NOT_FOUND",
                     )
 
             # Delete the scorer versions
@@ -2826,8 +2770,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             # Query for all versions of the scorer
@@ -2843,8 +2785,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             # Batch resolve gateway endpoint IDs to names
@@ -2918,21 +2858,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not isinstance(sample_rate, (int, float)):
             raise MlflowException.invalid_parameter_value(
                 f"sample_rate must be a number, got {type(sample_rate).__name__}",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         if not 0.0 <= sample_rate <= 1.0:
             raise MlflowException.invalid_parameter_value(
                 f"sample_rate must be between 0.0 and 1.0, got {sample_rate}",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         if filter_string:
             if not isinstance(filter_string, str):
                 raise MlflowException.invalid_parameter_value(
                     f"filter_string must be a string, got {type(filter_string).__name__}",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             # Validate the filter string syntax before storing
             SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
@@ -2954,8 +2888,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Scorer with name '{scorer_name}' not found for experiment {experiment_id}.",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             # Get the latest scorer version to validate online scoring compatibility
@@ -2976,8 +2908,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         "Automatic evaluation is only supported for scorers that use "
                         "gateway models.",
                         INVALID_PARAMETER_VALUE,
-                        sqlstate="KAM00",
-                        error_class="INVALID_PARAMETER_VALUE",
                     )
 
                 # Check if scorer requires expectations (ground truth data)
@@ -2997,8 +2927,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         f"Scorer '{scorer_name}' requires expectations, but scorers with "
                         "expectations are not currently supported for automatic evaluation.",
                         INVALID_PARAMETER_VALUE,
-                        sqlstate="KAM00",
-                        error_class="INVALID_PARAMETER_VALUE",
                     )
 
             # Delete existing online configs for this scorer
@@ -3126,6 +3054,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 try:
                     col = getattr(SqlLoggedModel, name)
                 except AttributeError:
+                    # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid order by field name: {field_name}",
                         sqlstate="KAM04",
@@ -3144,8 +3073,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if entity != "metrics":
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid order by field name: {field_name}. Only metrics are supported.",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             # Sub query to get the latest metrics value for each (model_id, metric_name) pair
@@ -3292,8 +3219,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             raise MlflowException(
                 "`dataset_name` in the `datasets` clause must be specified.",
                 INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         if page_token:
             token = SearchLoggedModelsPaginationToken.decode(page_token)
@@ -3502,8 +3427,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             raise MlflowException(
                 f"Trace with ID '{trace_id}' not found.",
                 RESOURCE_DOES_NOT_EXIST,
-                sqlstate="KAM00",
-                error_class="RESOURCE_NOT_FOUND",
             )
         return sql_trace_info
 
@@ -3700,8 +3623,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid "
                     "integer.",
                     INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             experiment_ids = self._filter_experiment_ids(session, [experiment_id_int])
@@ -3948,8 +3869,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 f"Invalid value {max_results} for parameter 'max_results' supplied. It must be "
                 f"a positive integer",
                 INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         if max_results is not None and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
@@ -3957,8 +3876,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 f"Invalid value {max_results} for parameter 'max_results' supplied. It must be at "
                 f"most {SEARCH_MAX_RESULTS_THRESHOLD}",
                 INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     def query_trace_metrics(
@@ -3980,8 +3897,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if time_interval_seconds and (start_time_ms is None or end_time_ms is None):
             raise MlflowException.invalid_parameter_value(
                 "start_time_ms and end_time_ms are required if time_interval_seconds is set",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         with self.ManagedSessionMaker() as session:
@@ -4042,8 +3957,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"No trace tag with key '{key}' for trace with ID '{trace_id}'",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
             tags.delete()
 
@@ -4126,8 +4039,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         f"Assessment with ID '{sql_assessment.overrides}' not found "
                         "for trace '{trace_id}'",
                         RESOURCE_DOES_NOT_EXIST,
-                        sqlstate="KAM00",
-                        error_class="RESOURCE_NOT_FOUND",
                     )
 
             session.add(sql_assessment)
@@ -4188,22 +4099,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if expectation is not None and feedback is not None:
                 raise MlflowException.invalid_parameter_value(
                     "Cannot specify both `expectation` and `feedback` parameters.",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             if expectation is not None and not isinstance(existing, Expectation):
                 raise MlflowException.invalid_parameter_value(
                     "Cannot update expectation value on a Feedback assessment.",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             if feedback is not None and not isinstance(existing, Feedback):
                 raise MlflowException.invalid_parameter_value(
                     "Cannot update feedback value on an Expectation assessment.",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             merged_metadata = None
@@ -4336,15 +4241,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Trace with request_id '{trace_id}' not found",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
             else:
                 raise MlflowException(
                     f"Assessment with ID '{assessment_id}' not found for trace '{trace_id}'",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
         return sql_assessment
 
@@ -4367,8 +4268,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 f"Cannot link more than {MAX_TRACE_LINKS_PER_REQUEST} traces to a run in "
                 f"a single request. Provided {len(trace_ids)} traces.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         with self.ManagedSessionMaker() as session:
@@ -5063,8 +4962,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 message=f"Trace with ID {trace_id} is not fully exported yet, "
                 "please try again later.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
-                sqlstate="KAM00",
-                error_class="RESOURCE_NOT_FOUND",
             )
         return self._get_trace(trace_id, allow_partial)
 
@@ -5094,8 +4991,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     message=f"Trace with ID {trace_id} is not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
@@ -5454,8 +5349,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Evaluation dataset with id '{dataset_id}' not found",
                     RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             return sql_dataset.to_mlflow_entity()
@@ -5962,8 +5855,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Could not find evaluation dataset with ID {dataset_id}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             for key, value in tags.items():
@@ -6084,8 +5975,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Dataset '{dataset_id}' not found",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             experiment_ids_str = [str(exp_id) for exp_id in experiment_ids]
@@ -6108,8 +5997,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     raise MlflowException(
                         f"No Experiment with id={exp_id}",
                         error_code=RESOURCE_DOES_NOT_EXIST,
-                        sqlstate="KAM00",
-                        error_class="RESOURCE_NOT_FOUND",
                     )
 
             existing_associations = (
@@ -6160,8 +6047,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Dataset '{dataset_id}' not found",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             existing_associations = (
@@ -6286,8 +6171,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Issue with ID '{issue_id}' not found",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             return sql_issue.to_mlflow_entity()
@@ -6323,8 +6206,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise MlflowException(
                     f"Issue with ID '{issue_id}' not found",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                    sqlstate="KAM00",
-                    error_class="RESOURCE_NOT_FOUND",
                 )
 
             # Update fields if provided
@@ -6474,8 +6355,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             raise MlflowException(
                 f"{entity_name} not found ({filter_str})",
                 error_code=RESOURCE_DOES_NOT_EXIST,
-                sqlstate="KAM00",
-                error_class="RESOURCE_NOT_FOUND",
             )
         return obj
 
@@ -6660,8 +6539,6 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             if comparator in ("IS NULL", "IS NOT NULL"):
@@ -6746,8 +6623,6 @@ def _get_orderby_clauses(order_by_list, session):
                     raise MlflowException(
                         f"Invalid identifier type '{key_type}'",
                         error_code=INVALID_PARAMETER_VALUE,
-                        sqlstate="KAM00",
-                        error_class="INVALID_PARAMETER_VALUE",
                     )
 
                 # build a subquery first because we will join it in the main request so that the
@@ -6783,8 +6658,6 @@ def _get_orderby_clauses(order_by_list, session):
             if (key_type, key) in observed_order_by_clauses:
                 raise MlflowException(
                     f"`order_by` contains duplicate fields: {order_by_list}",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
             observed_order_by_clauses.add((key_type, key))
 
@@ -6816,16 +6689,12 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
             ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for string attribute: {comparator}",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             if SearchExperimentsUtils.is_numeric_attribute(
                 type_, key, comparator
             ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for numeric attribute: {comparator}",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             attr = getattr(SqlExperiment, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
@@ -6843,8 +6712,6 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
             elif comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             else:
                 val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
@@ -6859,8 +6726,6 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid token type: {type_}",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     return attribute_filters, non_attribute_filters
@@ -6877,8 +6742,6 @@ def _get_search_experiments_order_by_clauses(order_by):
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid order_by entity: {type_}",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     # Add a tie-breaker
@@ -6913,8 +6776,6 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
                 raise MlflowException(
                     f"Invalid identifier type '{key_type}'",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             # Tags and request metadata requires a join to the main table (trace_info)
             subquery = session.query(entity).filter(entity.key == key).subquery()
@@ -6929,8 +6790,6 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
         if (key_type, key) in observed_order_by_clauses:
             raise MlflowException(
                 f"`order_by` contains duplicate fields: {order_by_list}",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
         observed_order_by_clauses.add((key_type, key))
         clauses.append(order_value if ascending else order_value.desc())
@@ -7050,8 +6909,6 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                             f"Invalid comparator '{comparator}' for prompts filter. "
                             "Only '=' is supported with format: prompt = \"name/version\"",
                             error_code=INVALID_PARAMETER_VALUE,
-                            sqlstate="KAM00",
-                            error_class="INVALID_PARAMETER_VALUE",
                         )
                     # Parse the filter value to extract name/version
                     # Expected format: "name/version"
@@ -7060,8 +6917,6 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                             f"Invalid prompts filter value '{value}'. "
                             'Expected format: prompt = "name/version"',
                             error_code=INVALID_PARAMETER_VALUE,
-                            sqlstate="KAM00",
-                            error_class="INVALID_PARAMETER_VALUE",
                         )
                     # Query EntityAssociation table for trace<>prompt linkage
                     # The prompt version ID is stored as "name/version"
@@ -7201,8 +7056,6 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
 
             key_filter = SearchTraceUtils.get_sql_comparison_func("=", dialect)(
@@ -7254,16 +7107,12 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
             ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for string attribute: {comparator}",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             if SearchEvaluationDatasetsUtils.is_numeric_attribute(
                 type_, key, comparator
             ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for numeric attribute: {comparator}",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             attr = getattr(SqlEvaluationDataset, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
@@ -7272,8 +7121,6 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
             if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
                 SqlEvaluationDatasetTag.value, value
@@ -7287,8 +7134,6 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid token type: {type_}",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     return attribute_filters, non_attribute_filters
@@ -7340,8 +7185,6 @@ def _get_search_datasets_order_by_clauses(order_by):
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid order_by entity: {type_}",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         order_by_clauses.append((getattr(SqlEvaluationDataset, field), ascending))

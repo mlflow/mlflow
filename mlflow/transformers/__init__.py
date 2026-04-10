@@ -240,15 +240,11 @@ def _validate_transformers_model_dict(transformers_model):
                 f"key(s) {invalid_keys} are not permitted. Must be one of: "
                 f"{_SUPPORTED_SAVE_KEYS}",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         if FlavorKey.MODEL not in transformers_model:
             raise MlflowException(
                 f"The 'transformers_model' dictionary must have an entry for {FlavorKey.MODEL}",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         model = transformers_model[FlavorKey.MODEL]
     else:
@@ -260,8 +256,6 @@ def _validate_transformers_model_dict(transformers_model):
             "'name_or_path'. Please verify that the model is a supported "
             "transformers model.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -551,8 +545,6 @@ def save_model(
                 "The `task` argument must be specified when logging a model from a local "
                 "checkpoint. Please provide the task type of the pipeline.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         if not save_pretrained:
@@ -560,8 +552,6 @@ def save_model(
                 "The `save_pretrained` argument must be set to True when logging a model from a "
                 "local checkpoint. Please set `save_pretrained=True`.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         # Create a dummy pipeline object to be used for saving the model
@@ -576,8 +566,6 @@ def save_model(
             " (3) a path to a local/DBFS directory containing a transformers model checkpoint.\n"
             f"received: {type(transformers_model)}",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     # Verify that the model has not been loaded to distributed memory
@@ -594,8 +582,6 @@ def save_model(
             "library to load your model, please ensure that it is saved only after "
             "loading with the default device mapping. Do not specify `device_map` "
             "and please try again.",
-            sqlstate="XXM00",
-            error_class="CLIENT_INTERNAL_ERROR",
         )
 
     if mlflow_model is None:
@@ -645,8 +631,6 @@ def save_model(
             "Please provide the correct LLM v1 task type in the `task` argument. E.g. "
             f'`mlflow.transformers.save_model(task="{metadata_task}", ...)`',
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if prompt_template is not None:
@@ -655,8 +639,6 @@ def save_model(
             raise MlflowException(
                 f"Prompt templating is not supported for the `{built_pipeline.task}` task type. "
                 f"Supported task types are: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}.",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
         _validate_prompt_template(prompt_template)
@@ -670,8 +652,6 @@ def save_model(
             "The `base_model_path` parameter is only supported for PEFT models. "
             "The provided model is not a PEFT model.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if base_model_path is not None:
@@ -681,8 +661,6 @@ def save_model(
                 f"The specified base_model_path '{base_model_path}' does not exist or is "
                 "not a directory. Please provide a valid path to the base model.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         config_json_path = os.path.join(base_model_path, "config.json")
         if not os.path.isfile(config_json_path):
@@ -691,8 +669,6 @@ def save_model(
                 f"'{base_model_path}' is not a valid Transformers checkpoint directory. "
                 "Expected to find a 'config.json' file in the directory.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     if is_peft_model(built_pipeline.model):
@@ -1210,8 +1186,6 @@ def load_model(
             f"The specified return_type mode '{return_type}' is unsupported. "
             "Please select one of: 'pipeline' or 'components'.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     model_uri = str(model_uri)
@@ -1226,8 +1200,6 @@ def load_model(
             "not compatible with Pipelines. Please load this model by specifying "
             "the 'return_type'='components'.",
             error_code=BAD_REQUEST,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
@@ -1239,8 +1211,6 @@ def load_model(
                 "with `base_model_path`. The specified model was not saved with a local base "
                 "model path.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         base_model_path = os.path.abspath(base_model_path)
         if not os.path.isdir(base_model_path):
@@ -1248,8 +1218,6 @@ def load_model(
                 f"The specified base_model_path '{base_model_path}' does not exist or is "
                 "not a directory. Please provide a valid path to the base model.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         config_file_path = os.path.join(base_model_path, "config.json")
         if not os.path.isfile(config_file_path):
@@ -1257,8 +1225,6 @@ def load_model(
                 f"The specified base_model_path '{base_model_path}' is not a valid Transformers "
                 "checkpoint directory. Expected to find a 'config.json' file in this directory.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     return _load_model(
@@ -1354,8 +1320,6 @@ def persist_pretrained_model(model_uri: str) -> None:
                 raise MlflowException(
                     f"Failed to upload {local_dir} to the existing model_uri due to {e}."
                     "Some other files may have been uploaded.",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 ) from e
 
         # Upload MLModel file
@@ -1435,8 +1399,6 @@ def _load_model(
                 "`device` argument cannot be used together. Set MLFLOW_HUGGINGFACE_USE_DEVICE_MAP "
                 "to False to specify a particular device ID, or pass None for the `device` "
                 "argument to use device_map.",
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         device = None
     elif device is None:
@@ -1655,8 +1617,6 @@ def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: str | Non
             "The supplied model type is unsupported. The model must be one of: "
             "PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel, or PeftModel",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     if task is None or task.startswith(_LLM_INFERENCE_TASK_PREFIX):
@@ -1672,8 +1632,6 @@ def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: str | Non
             "Please verify that all required and compatible components are "
             "specified with the correct keys.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         ) from e
 
 
@@ -1704,8 +1662,6 @@ def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
                 "inferred from the model is not supported by the transformers pipeline. "
                 "Please construct the pipeline instance manually and pass it to the "
                 "`log_model` or `save_model` function.",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
     except RuntimeError as e:
@@ -1716,8 +1672,6 @@ def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
             "local model that is not available in the Hugging Face hub, please provide "
             "the `task` argument to the `log_model` or `save_model` function.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         ) from e
 
 
@@ -1734,8 +1688,6 @@ def _validate_llm_inference_task_type(llm_inference_task: str, pipeline_task: st
             f"The task provided is invalid. '{llm_inference_task}' is not a supported task for "
             f"the {pipeline_task} pipeline. Must be one of {supported_llm_inference_tasks}",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -1947,8 +1899,6 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
             f"The pipeline type submitted is not a valid transformers Pipeline. "
             f"The type {type(pipeline).__name__} is not supported.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     return signature.generate_signature_output(
@@ -2059,8 +2009,6 @@ class _TransformersWrapper:
                 raise MlflowException.invalid_parameter_value(
                     "The params provided to the `predict` method are not valid "
                     f"for pipeline {type(self.pipeline).__name__}.",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 ) from e
             if isinstance(
                 self.pipeline,
@@ -2079,8 +2027,6 @@ class _TransformersWrapper:
                     "corrupted or a uri was passed in without overriding the default model "
                     "signature. If submitting a string uri, please ensure that the model has "
                     "been saved with a signature that defines a string input type.",
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 ) from e
             raise
 
@@ -2118,8 +2064,6 @@ class _TransformersWrapper:
                     "or dictionaries. If dictionaries are supplied, all keys in the "
                     "dictionaries must be strings and values must be either str or List[str].",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             input_data = data
         else:
@@ -2128,8 +2072,6 @@ class _TransformersWrapper:
                 "List[Dict[str, str]], List[Dict[str, Union[str, List[str]]]], "
                 "or Dict[str, Union[str, List[str]]].",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         input_data = self._parse_raw_pipeline_input(input_data)
         # Validate resolved or input dict types
@@ -2212,8 +2154,6 @@ class _TransformersWrapper:
                 f"The loaded pipeline type {type(self.pipeline).__name__} is "
                 "not enabled for pyfunc predict functionality.",
                 error_code=BAD_REQUEST,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
         # Optional input preservation for specific pipeline types. This is True (include raw
@@ -2413,8 +2353,6 @@ class _TransformersWrapper:
                 raise MlflowException(
                     "Text Classification pipelines may only define dictionary inputs with keys "
                     f"defined as {allowable_str_keys}",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
         if isinstance(data, str):
@@ -2445,15 +2383,11 @@ class _TransformersWrapper:
                 raise MlflowException(
                     "An unsupported data type has been passed for Text Classification inference. "
                     "Only str, list of str, dict, and list of dict are supported.",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
         else:
             raise MlflowException(
                 "An unsupported data type has been passed for Text Classification inference. "
                 "Only str, list of str, dict, and list of dict are supported.",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
     def _parse_conversation_input(self, data) -> str:
@@ -2470,8 +2404,6 @@ class _TransformersWrapper:
             raise MlflowException(
                 "The input dictionary must have the 'table' key.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         elif isinstance(data["table"], dict):
             data["table"] = json.dumps(data["table"])
@@ -2514,8 +2446,6 @@ class _TransformersWrapper:
                             "dictionary of the parsed input are not consistent"
                             "among the dictionaries.",
                             error_code=INVALID_PARAMETER_VALUE,
-                            sqlstate="KAM00",
-                            error_class="INVALID_PARAMETER_VALUE",
                         )
                     if value != parsed[key]:
                         value_type = type(parsed[key])
@@ -2571,8 +2501,6 @@ class _TransformersWrapper:
                 "Encountered an unknown return type from the pipeline type "
                 f"{type(self.pipeline).__name__}. Expecting a List[Dict]",
                 error_code=BAD_REQUEST,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         if isinstance(data, dict):
             data = [data]
@@ -2610,8 +2538,6 @@ class _TransformersWrapper:
                 raise MlflowException(
                     "Unable to parse the pipeline output. Expected List[Dict[str,str]] or "
                     f"List[List[Dict[str,str]]] but got {type(data_out)} instead.",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
 
         output = extract_response_data(output)
@@ -2652,8 +2578,6 @@ class _TransformersWrapper:
             raise MlflowException(
                 "Unknown data structure after parsing output. Expected str or List[str]. "
                 f"Got {type(output)} instead.",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
     def _sanitize_output(self, output, input_data):
@@ -2819,8 +2743,6 @@ class _TransformersWrapper:
             if not expected_keys.intersection(set(data.keys())) == expected_keys:
                 raise MlflowException(
                     f"Invalid keys were submitted. Keys must be exclusively {expected_keys}",
-                    sqlstate="XXM00",
-                    error_class="CLIENT_INTERNAL_ERROR",
                 )
             return data
         else:
@@ -2828,8 +2750,6 @@ class _TransformersWrapper:
                 "An invalid type has been supplied. Must be either List[Dict[str, str]] or "
                 f"Dict[str, str]. {type(data)} is not supported.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     def _parse_text2text_input(self, data):
@@ -2877,8 +2797,6 @@ class _TransformersWrapper:
                 f"(type: {type(data).__name__}). Please supply a Dict[str, str], str, List[str], "
                 "or a List[Dict[str, str]] for a Text2Text Pipeline.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     def _parse_json_encoded_list(self, data, key_to_unpack):
@@ -2896,8 +2814,6 @@ class _TransformersWrapper:
                     "Invalid key in inference payload. The expected inference data key "
                     f"is: {key_to_unpack}",
                     error_code=INVALID_PARAMETER_VALUE,
-                    sqlstate="KAM00",
-                    error_class="INVALID_PARAMETER_VALUE",
                 )
             if isinstance(data[key_to_unpack], str):
                 try:
@@ -2978,15 +2894,11 @@ class _TransformersWrapper:
                 f"The input data is of an incorrect type. {type(data)} is invalid. "
                 "Must be either string or List[str]",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         elif isinstance(data, list) and not all(isinstance(entry, str) for entry in data):
             raise MlflowException(
                 "If supplying a list, all values must be of string type.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     @staticmethod
@@ -3124,8 +3036,6 @@ class _TransformersWrapper:
             raise MlflowException(
                 "Invalid audio data. Must be either bytes, str, or np.ndarray.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     @staticmethod
@@ -3165,8 +3075,6 @@ class _TransformersWrapper:
                 "audio or image files must be either a file location or a uri."
                 f"audio files must be either a file location or a uri. {data_str}",
                 error_code=BAD_REQUEST,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
 
     def _format_prompt_template(self, input_data):
@@ -3183,8 +3091,6 @@ class _TransformersWrapper:
                 f"_format_prompt_template called on an unexpected pipeline type. "
                 f"Expected one of: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}. "
                 f"Received: {self.pipeline.task}",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
         if isinstance(input_data, str):
@@ -3198,8 +3104,6 @@ class _TransformersWrapper:
         raise MlflowException.invalid_parameter_value(
             "Prompt templating is only supported for data of type str or List[str]. "
             f"Got {type(input_data)} instead.",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
 
@@ -3275,8 +3179,6 @@ def _get_prompt_template(model_path):
         raise MlflowException(
             f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{model_path}"',
             RESOURCE_DOES_NOT_EXIST,
-            sqlstate="KAM00",
-            error_class="RESOURCE_NOT_FOUND",
         )
 
     model_conf = Model.load(model_path)
@@ -3294,8 +3196,6 @@ def _validate_prompt_template(prompt_template):
         raise MlflowException(
             f"Argument `prompt_template` must be a string, received {type(prompt_template)}",
             INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )
 
     format_args = [
@@ -3308,6 +3208,4 @@ def _validate_prompt_template(prompt_template):
             "Argument `prompt_template` must be a string with a single format arg, 'prompt'. "
             "For example: 'Answer the following question in a friendly tone. Q: {prompt}. A:'\n"
             f"Received {prompt_template}. ",
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         )

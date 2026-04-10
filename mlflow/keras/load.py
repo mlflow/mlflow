@@ -43,8 +43,6 @@ class KerasModelWrapper:
                 f"`data` must be one of: {[x.__name__ for x in supported_input_types]}, but "
                 f"received type: {type(data)}.",
                 INVALID_PARAMETER_VALUE,
-                sqlstate="KAM00",
-                error_class="INVALID_PARAMETER_VALUE",
             )
         # Return numpy array for serving purposes.
         return keras.ops.convert_to_numpy(model_call(data))

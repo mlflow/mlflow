@@ -40,8 +40,6 @@ def _deserialize_torch_dtype(dtype_str: str) -> torch.dtype:
             "Unable to determine if the value supplied by the argument "
             "torch_dtype is valid since torch is not installed.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM00",
-            error_class="INVALID_PARAMETER_VALUE",
         ) from e
 
     dtype_str = dtype_str.removeprefix("torch.")
@@ -53,6 +51,4 @@ def _deserialize_torch_dtype(dtype_str: str) -> torch.dtype:
     raise MlflowException(
         f"The value '{dtype_str}' is not a valid torch.dtype",
         error_code=INVALID_PARAMETER_VALUE,
-        sqlstate="KAM00",
-        error_class="INVALID_PARAMETER_VALUE",
     )

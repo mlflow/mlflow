@@ -67,8 +67,6 @@ class RunsArtifactRepository(ArtifactRepository):
             raise MlflowException(
                 f"Not a proper runs:/ URI: {run_uri}. "
                 + "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
         path = parsed.path
@@ -76,8 +74,6 @@ class RunsArtifactRepository(ArtifactRepository):
             raise MlflowException(
                 f"Not a proper runs:/ URI: {run_uri}. "
                 + "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
         path = path[1:]
 
@@ -87,8 +83,6 @@ class RunsArtifactRepository(ArtifactRepository):
             raise MlflowException(
                 f"Not a proper runs:/ URI: {run_uri}. "
                 + "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'",
-                sqlstate="XXM00",
-                error_class="CLIENT_INTERNAL_ERROR",
             )
 
         artifact_path = "/".join(path_parts[1:]) if len(path_parts) > 1 else None
@@ -237,8 +231,6 @@ class RunsArtifactRepository(ArtifactRepository):
                 f"Failed to download artifacts from path {artifact_path!r}, "
                 "please ensure that the path is correct.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
-                sqlstate="KAM00",
-                error_class="RESOURCE_NOT_FOUND",
             )
         return path
 
