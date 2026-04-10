@@ -79,10 +79,11 @@ async function isDatabricksAuthor({ github, context }) {
   if ([user.company, user.email].some((v) => /databricks/i.test(v || ""))) return true;
 
   // Check commit author emails for @databricks.com
-  const { data: commits } = await github.rest.pulls.listCommits({
+  const commits = await github.paginate(github.rest.pulls.listCommits, {
     owner,
     repo,
     pull_number: prNumber,
+    per_page: 100,
   });
   return commits.some((c) => /@databricks\.com$/i.test(c.commit.author.email || ""));
 }
