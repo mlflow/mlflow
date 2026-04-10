@@ -145,7 +145,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
 
-            if JobStatus.is_finalized(job.status):
+            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
                 raise MlflowException.invalid_parameter_value(
                     "The Job "
                     f"{job_id} is already finalized with status: {JobStatus.from_int(job.status)}, "
@@ -256,7 +256,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
 
-            if JobStatus.is_finalized(job.status):
+            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
                 raise MlflowException.invalid_parameter_value(
                     "The Job "
                     f"{job_id} is already finalized with status: {JobStatus.from_int(job.status)}, "
@@ -464,7 +464,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
 
-            if JobStatus.is_finalized(job.status):
+            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
                 raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))
 
             # Merge new status details with existing

@@ -16,8 +16,8 @@ down_revision = "ae8bbe7743c9"
 branch_labels = None
 depends_on = None
 
-_LEGACY_PENDING = 0
-_LEGACY_RUNNING = 1
+_PENDING = 0
+_RUNNING = 1
 _CANCELED = 5
 
 
@@ -28,12 +28,12 @@ def _get_json_type():
     return sa.JSON
 
 
-def _cancel_non_terminal_legacy_jobs():
+def _cancel_non_terminal_jobs():
     jobs = sa.table("jobs", sa.column("status"), sa.column("last_update_time"))
     op.execute(
         jobs
         .update()
-        .where(jobs.c.status.in_([_LEGACY_PENDING, _LEGACY_RUNNING]))
+        .where(jobs.c.status.in_([_PENDING, _RUNNING]))
         .values(status=_CANCELED, last_update_time=int(time.time() * 1000))
     )
 
@@ -80,7 +80,7 @@ def upgrade():
             unique=False,
         )
 
-    _cancel_non_terminal_legacy_jobs()
+    _cancel_non_terminal_jobs()
 
 
 def downgrade():
