@@ -84,6 +84,7 @@ export const GenAiTracesTableBody = React.memo(
     hasNextPage,
     isFetchingNextPage,
     assessmentCountMetrics,
+    compareAssessmentCountMetrics,
   }: {
     experimentId?: string;
     selectedColumns: TracesTableColumn[];
@@ -127,6 +128,7 @@ export const GenAiTracesTableBody = React.memo(
     isFetchingNextPage?: boolean;
     // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
     assessmentCountMetrics?: AssessmentCountMetrics;
+    compareAssessmentCountMetrics?: AssessmentCountMetrics;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -505,20 +507,28 @@ export const GenAiTracesTableBody = React.memo(
     // use them for categorical assessments to get accurate counts across all traces.
     const assessmentNameToAggregates = useMemo(() => {
       const result: Record<string, AssessmentAggregates> = {};
-      const useServerCounts = assessmentCountMetrics && !assessmentCountMetrics.isLoading;
+      const currentData = !assessmentCountMetrics?.isLoading ? assessmentCountMetrics?.data : undefined;
+      const otherData = !compareAssessmentCountMetrics?.isLoading ? compareAssessmentCountMetrics?.data : undefined;
       for (const assessmentInfo of selectedAssessmentInfos) {
-        if (useServerCounts && assessmentInfo.dtype !== 'unknown') {
+        if (currentData && assessmentInfo.dtype !== 'unknown') {
           result[assessmentInfo.name] = buildAggregatesFromCountMetrics(
             assessmentInfo,
-            assessmentCountMetrics.data,
+            currentData,
             assessmentFilters,
+            otherData,
           );
         } else {
           result[assessmentInfo.name] = getAssessmentAggregates(assessmentInfo, evaluations, assessmentFilters);
         }
       }
       return result;
-    }, [selectedAssessmentInfos, evaluations, assessmentFilters, assessmentCountMetrics]);
+    }, [
+      selectedAssessmentInfos,
+      evaluations,
+      assessmentFilters,
+      assessmentCountMetrics,
+      compareAssessmentCountMetrics,
+    ]);
 
     const evalEntryMatchesEvaluationId = useCallback((evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {
       if (isV4TraceId(evaluationId) && entry?.fullTraceId === evaluationId) {
@@ -571,6 +581,20 @@ export const GenAiTracesTableBody = React.memo(
       },
       [fetchNextPage, hasNextPage, isFetchingNextPage],
     );
+
+    // Auto-fetch next page when client-side filtering reduces rows below the scroll threshold
+    // (e.g. filtering by error assessments may leave only a few visible rows, making the
+    // container non-scrollable so the scroll handler never fires).
+    // We depend on evaluations.length (pre-filter count) rather than rows.length because
+    // a new page may contain zero rows that pass the filter, so rows.length wouldn't change
+    // and the effect wouldn't re-fire.
+    useEffect(() => {
+      const container = tableContainerRef.current;
+      if (!container || !fetchNextPage || !hasNextPage || isFetchingNextPage) return;
+      if (container.scrollHeight <= container.clientHeight) {
+        fetchNextPage();
+      }
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage, evaluations.length]);
 
     return (
       <>

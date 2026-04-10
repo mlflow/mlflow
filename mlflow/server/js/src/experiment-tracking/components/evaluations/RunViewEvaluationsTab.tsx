@@ -196,6 +196,8 @@ const RunViewEvaluationsTabInner = ({
     tableSort,
     disabled: isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    // Disable pagination in comparison mode — both runs need complete data to join on inputs
+    enablePagination: isNil(compareToRunUuid),
   });
 
   const {
@@ -240,6 +242,12 @@ const RunViewEvaluationsTabInner = ({
     experimentIds,
     runUuid,
     disabled: isQueryDisabled,
+  });
+
+  const compareAssessmentCountMetrics = useAssessmentCountMetrics({
+    experimentIds,
+    runUuid: compareToRunUuid,
+    disabled: isQueryDisabled || isNil(compareToRunUuid),
   });
 
   // TODO: We should update this to use web-shared/unified-tagging components for the
@@ -402,6 +410,7 @@ const RunViewEvaluationsTabInner = ({
                     hasNextPage={hasNextPage}
                     isFetchingNextPage={isFetchingNextPage}
                     assessmentCountMetrics={assessmentCountMetrics}
+                    compareAssessmentCountMetrics={compareAssessmentCountMetrics}
                   />
                 </ContextProviders>
               )
@@ -506,6 +515,7 @@ const useGetCompareToData = (params: {
     runUuid: compareToRunUuid,
     disabled: isNil(compareToRunUuid) || isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    enablePagination: false,
   });
 
   const { data: runData, loading: runDetailsLoading } = useSearchRunsQuery({
