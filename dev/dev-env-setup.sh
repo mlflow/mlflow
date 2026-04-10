@@ -4,7 +4,7 @@ MLFLOW_HOME="$(pwd)"
 directory="$MLFLOW_HOME/.venvs/mlflow-dev"
 REPO_ROOT=$(git rev-parse --show-toplevel)
 rd="$REPO_ROOT/requirements"
-VENV_DIR="$directory/bin/activate"
+VENV_DIR="bin/activate"
 # Progress file to resume the script from where it exited previously
 PROGRESS_FILE="$MLFLOW_HOME/dev-env-setup-progress"
 
@@ -16,7 +16,7 @@ Note: this script will not work on Windows or MacOS M1 arm64 chipsets.
 
 This script will:
 
-  - Install pyenv if not installed
+  - Install or verify uv or pyenv for Python version management (prefers pyenv if available)
   - Retrieve the appropriate Python version (minimum required) for compatibility support
   - Check if the virtual environment already exists
     - If it does, prompt for replacement
@@ -97,6 +97,15 @@ if [[ -n "$verbose" ]]; then
   set -exv
 fi
 
+# Detect the Python version manager: prefer pyenv, fall back to uv
+if command -v pyenv &>/dev/null; then
+  PYTHON_MANAGER="pyenv"
+elif command -v uv &>/dev/null; then
+  PYTHON_MANAGER="uv"
+else
+  PYTHON_MANAGER=""
+fi
+
 # Acquire the OS for this environment
 case "$(uname -s)" in
   Darwin*)                       machine=mac;;
@@ -168,46 +177,50 @@ version_gt() {
     return $(( ${#VER1[@]} <= ${#VER2[@]} ))
 }
 
-# Check if pyenv is installed and offer to install it if not present
-check_and_install_pyenv() {
-  # command -v returns exit code 1 if pyenv does not exist, which directly terminates our test script.
-  # Appending `|| true` to ignore the exit code.
-  pyenv_exist=$(command -v pyenv || true)
-  if [ -z "$pyenv_exist" ]; then
-    if [ -z "$GITHUB_ACTIONS" ]; then
-      read -p "pyenv is required to be installed to manage python versions. Would you like to install it? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
-      echo
-    fi
-    if [[ $REPLY =~ ^[Yy]$ || -n "$GITHUB_ACTIONS" ]]; then
-      if [[ "$machine" == mac ]]; then
-        check_and_install_brew "pyenv"
-        echo "Installing pyenv..."
-        echo "Note: this will probably take a considerable amount of time."
-        brew install pyenv
-        brew install openssl readline sqlite3 xz zlib libomp
-      elif [[ "$machine" == linux ]]; then
-        sudo apt-get update -y
-        sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
-          libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
-          libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-        # Install pyenv from source
-        git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
-        PYENV_ROOT="$HOME/.pyenv"
-        PYENV_BIN="$PYENV_ROOT/bin"
-        PATH="$PYENV_BIN:$PATH"
-        if [ -n "$GITHUB_ACTIONS" ]; then
-          echo "$PYENV_BIN" >>"$GITHUB_PATH"
-          echo "PYENV_ROOT=$PYENV_ROOT" >>"$GITHUB_ENV"
-        fi
-      else
-        echo "Unsupported operating system environment: $machine. This setup script only supports MacOS and Linux. For other operating systems, please follow the manual setup instruction here: https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#manual-python-development-environment-configuration "
-        exit 1
+# Ensure a Python version manager is available.
+# Prefers pyenv (already detected above). Falls back to uv. If neither is
+# present, offers to install pyenv (preserving original behavior).
+ensure_python_manager() {
+  if [[ "$PYTHON_MANAGER" == "uv" || "$PYTHON_MANAGER" == "pyenv" ]]; then
+    return 0
+  fi
+
+  # Neither uv nor pyenv found — offer to install pyenv
+  if [ -z "$GITHUB_ACTIONS" ]; then
+    read -p "Neither uv nor pyenv was found. A Python version manager is required to manage Python versions. Would you like this script to install pyenv? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
+    echo
+  fi
+  if [[ $REPLY =~ ^[Yy]$ || -n "$GITHUB_ACTIONS" ]]; then
+    if [[ "$machine" == mac ]]; then
+      check_and_install_brew "pyenv"
+      echo "Installing pyenv..."
+      echo "Note: this will probably take a considerable amount of time."
+      brew install pyenv
+      brew install openssl readline sqlite3 xz zlib libomp
+    elif [[ "$machine" == linux ]]; then
+      sudo apt-get update -y
+      sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
+        libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+        libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+      # Install pyenv from source
+      git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+      PYENV_ROOT="$HOME/.pyenv"
+      PYENV_BIN="$PYENV_ROOT/bin"
+      PATH="$PYENV_BIN:$PATH"
+      if [ -n "$GITHUB_ACTIONS" ]; then
+        echo "$PYENV_BIN" >>"$GITHUB_PATH"
+        echo "PYENV_ROOT=$PYENV_ROOT" >>"$GITHUB_ENV"
       fi
     else
-      PYENV_README=https://github.com/pyenv/pyenv/blob/master/README.md
-      echo "pyenv is required to use this environment setup script. Please install by following instructions here: $PYENV_README"
+      echo "Unsupported operating system environment: $machine. This setup script only supports MacOS and Linux. For other operating systems, please follow the manual setup instruction here: https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#manual-python-development-environment-configuration "
       exit 1
     fi
+    PYTHON_MANAGER="pyenv"
+  else
+    echo "A Python version manager (uv or pyenv) is required to use this environment setup script."
+    echo "  uv:    https://docs.astral.sh/uv/getting-started/installation/"
+    echo "  pyenv: https://github.com/pyenv/pyenv/blob/master/README.md"
+    exit 1
   fi
 }
 
@@ -220,27 +233,44 @@ check_and_install_min_py_version() {
     tput setaf 3
   )$min_py_version$(tput sgr0)"
 
-  if [[ -n "$override_py_ver" ]]; then
-    version_levels=$(grep -o '\.' <<<"$override_py_ver" | wc -l)
-    if [[ $version_levels -eq 1 ]]; then
-      PY_INSTALL_VERSION=$(minor_to_micro $override_py_ver)
-    elif [[ $version_levels -eq 2 ]]; then
-      PY_INSTALL_VERSION=$override_py_ver
+  if [[ "$PYTHON_MANAGER" == "uv" ]]; then
+    # uv accepts minor versions directly (resolves to latest micro automatically)
+    if [[ -n "$override_py_ver" ]]; then
+      version_levels=$(grep -o '\.' <<<"$override_py_ver" | wc -l)
+      if [[ $version_levels -eq 1 || $version_levels -eq 2 ]]; then
+        PY_INSTALL_VERSION=$override_py_ver
+      else
+        echo "You must supply a python override version with either minor (e.g., '3.10') or micro (e.g., '3.10.13'). '$override_py_ver' is invalid."
+        exit 1
+      fi
     else
-      echo "You must supply a python override version with either minor (e.g., '3.10') or micro (e.g., '3.10.13'). '$override_py_ver' is invalid."
-      exit 1
+      PY_INSTALL_VERSION=$min_py_version
     fi
+
+    echo "$(tput setaf 2) Installing Python version $(tput bold)$PY_INSTALL_VERSION$(tput sgr0)"
+    uv python install "$PY_INSTALL_VERSION"
   else
-    PY_INSTALL_VERSION=$(minor_to_micro $min_py_version)
+    # pyenv requires an exact micro version
+    if [[ -n "$override_py_ver" ]]; then
+      version_levels=$(grep -o '\.' <<<"$override_py_ver" | wc -l)
+      if [[ $version_levels -eq 1 ]]; then
+        PY_INSTALL_VERSION=$(minor_to_micro $override_py_ver)
+      elif [[ $version_levels -eq 2 ]]; then
+        PY_INSTALL_VERSION=$override_py_ver
+      else
+        echo "You must supply a python override version with either minor (e.g., '3.10') or micro (e.g., '3.10.13'). '$override_py_ver' is invalid."
+        exit 1
+      fi
+    else
+      PY_INSTALL_VERSION=$(minor_to_micro $min_py_version)
+    fi
+
+    echo "$(tput setaf 2) Installing Python version $(tput bold)$PY_INSTALL_VERSION$(tput sgr0)"
+    pyenv install -s "$PY_INSTALL_VERSION"
+    pyenv local "$PY_INSTALL_VERSION"
+    uv pip install --system $(quiet_command) --upgrade pip
+    uv pip install --system $(quiet_command) virtualenv
   fi
-
-  echo "$(tput setaf 2) Installing Python version $(tput bold)$PY_INSTALL_VERSION$(tput sgr0)"
-
-  # Install the Python version if it cannot be found
-  pyenv install -s "$PY_INSTALL_VERSION"
-  pyenv local "$PY_INSTALL_VERSION"
-  uv pip install --system $(quiet_command) --upgrade pip
-  uv pip install --system $(quiet_command) virtualenv
 }
 
 # Check if the virtualenv already exists at the specified path
@@ -255,36 +285,52 @@ create_virtualenv() {
     fi
     if [[ $REPLY =~ ^[Yy]$ || -n "$GITHUB_ACTIONS" ]]; then
       echo "Replacing Virtual environment in '$directory'. Installing new instance."
-      pyenv exec virtualenv --clear "$directory"
+      if [[ "$PYTHON_MANAGER" == "uv" ]]; then
+        uv venv --python "$PY_INSTALL_VERSION" --clear "$directory"
+      else
+        pyenv exec virtualenv --clear "$directory"
+      fi
     fi
   else
     # Create a virtual environment with the specified Python version
-    pyenv exec virtualenv --python "$PY_INSTALL_VERSION" "$directory"
+    if [[ "$PYTHON_MANAGER" == "uv" ]]; then
+      uv venv --python "$PY_INSTALL_VERSION" "$directory"
+    else
+      pyenv exec virtualenv --python "$PY_INSTALL_VERSION" "$directory"
+    fi
   fi
 
   # Activate the virtual environment
   # shellcheck disable=SC1090
-  source "$VENV_DIR"
+  source "$directory/$VENV_DIR"
 
   echo "$(tput setaf 2)Current Python version: $(tput bold)$(python --version)$(tput sgr0)"
-  echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/bin/activate$(tput sgr0)"
+  echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/$VENV_DIR$(tput sgr0)"
 }
 
 # Install mlflow dev version and required dependencies
 install_mlflow_and_dependencies() {
+  # When using uv, the venv is already activated — drop --system so uv
+  # installs into the active venv rather than the real system Python.
+  if [[ "$PYTHON_MANAGER" == "uv" ]]; then
+    pip_install="uv pip install"
+  else
+    pip_install="uv pip install --system"
+  fi
+
   # Install current checked out version of mlflow (local)
-  uv pip install --system -e .[extras]
+  $pip_install -e .[extras]
 
   echo "Installing pip dependencies for development environment."
   if [[ -n "$full" ]]; then
     # Install dev requirements
-    uv pip install --system -r "$rd/dev-requirements.txt"
+    $pip_install -r "$rd/dev-requirements.txt"
     # Install test plugin
-    uv pip install --system -e "$MLFLOW_HOME/tests/resources/mlflow-test-plugin"
+    $pip_install -e "$MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   else
     files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
     for r in "${files[@]}"; do
-      uv pip install --system -r "$r"
+      $pip_install -r "$r"
     done
   fi
   echo "Finished installing pip dependencies."
@@ -363,7 +409,7 @@ set_pre_commit_and_git_signoff() {
 set +xv && set -e
 # Mandatory setups
 if [[ "$PROGRESS" -eq "0" ]]; then
-  check_and_install_pyenv
+  ensure_python_manager
   save_progress 1
 fi
 if [[ "$PROGRESS" -eq "1" ]]; then
@@ -393,4 +439,4 @@ set +exv
 check_and_install_pandoc
 check_docker
 
-echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)source $VENV_DIR$(tput sgr0)"
+echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)source $directory/$VENV_DIR$(tput sgr0)"
