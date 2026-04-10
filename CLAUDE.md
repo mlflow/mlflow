@@ -78,6 +78,14 @@ tail -f /tmp/mlflow-dev-server.log
 
 ## Development Commands
 
+### Offline / No-Network Usage
+
+If PyPI is unreachable, add `--frozen` to any `uv run` command to skip dependency resolution and use the existing lockfile:
+
+```bash
+uv run --frozen pytest tests/
+```
+
 ### Testing
 
 ```bash
