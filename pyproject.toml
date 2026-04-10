@@ -238,8 +238,6 @@ docs = [
 ]
 
 [tool.uv]
-# TODO: Remove once the incident is fully remediated
-# Mitigation for https://github.com/aquasecurity/trivy/discussions/10425
 exclude-newer = "P14D"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.10.12"
