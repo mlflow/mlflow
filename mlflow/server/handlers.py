@@ -4276,7 +4276,13 @@ def _get_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "error_message": job.error_message,
         "status_details": job.status_details,
+        "status_message": job.status_message,
+        "progress_payload": (
+            job.progress_payload.to_dict() if job.progress_payload is not None else None
+        ),
+        "progress_updated_at": job.progress_updated_at,
     })
 
 
@@ -4289,6 +4295,13 @@ def _cancel_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "error_message": job.error_message,
+        "status_details": job.status_details,
+        "status_message": job.status_message,
+        "progress_payload": (
+            job.progress_payload.to_dict() if job.progress_payload is not None else None
+        ),
+        "progress_updated_at": job.progress_updated_at,
     })
 
 
@@ -6620,6 +6633,12 @@ def _build_prompt_optimization_job_from_entity(job_entity):
     optimization_job = PromptOptimizationJobProto()
     optimization_job.job_id = job_entity.job_id
     optimization_job.state.status = job_entity.status.to_proto()
+    if job_entity.status_message:
+        optimization_job.state.status_message = job_entity.status_message
+    if job_entity.progress_payload:
+        optimization_job.state.progress_payload.CopyFrom(job_entity.progress_payload.to_proto())
+    if job_entity.progress_updated_at is not None:
+        optimization_job.state.progress_updated_at = job_entity.progress_updated_at
     optimization_job.creation_timestamp_ms = job_entity.creation_time
 
     params = json.loads(job_entity.params)
@@ -6663,9 +6682,13 @@ def _build_prompt_optimization_job_from_entity(job_entity):
         if isinstance(result, dict) and result.get("optimized_prompt_uri"):
             optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
 
-    # If job failed, add error message to state
-    if job_entity.status.name == "FAILED" and job_entity.parsed_result:
-        optimization_job.state.error_message = str(job_entity.parsed_result)
+    # If job failed, prefer the dedicated error_message field and fall back to the
+    # legacy parsed result behavior used by existing jobs.
+    if job_entity.status.name in {"FAILED", "TIMEOUT"}:
+        if job_entity.error_message:
+            optimization_job.state.error_message = job_entity.error_message
+        elif job_entity.parsed_result:
+            optimization_job.state.error_message = str(job_entity.parsed_result)
 
     return optimization_job
 

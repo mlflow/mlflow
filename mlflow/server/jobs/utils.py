@@ -645,13 +645,13 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
     for workspace_ctx in _workspace_contexts_for_recovery():
         with workspace_ctx as workspace:
             unfinished_jobs = job_store.list_jobs(
-                statuses=[JobStatus.PENDING, JobStatus.RUNNING],
+                statuses=[JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY],
                 # filter out jobs created after the server is launched.
                 end_timestamp=server_launching_timestamp,
             )
 
             for job in unfinished_jobs:
-                if job.status == JobStatus.RUNNING:
+                if job.status in {JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY}:
                     job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
                 params = json.loads(job.params)

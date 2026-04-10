@@ -1,5 +1,8 @@
 from unittest import mock
 
+import pytest
+
+from mlflow.exceptions import MlflowException
 from mlflow.server.jobs.progress import (
     JobTracker,
     NoOpTracker,
@@ -7,6 +10,7 @@ from mlflow.server.jobs.progress import (
     _set_job_tracker,
     update_status_details,
 )
+from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException
 
 
 def test_job_tracker_writes_to_database():
@@ -153,3 +157,36 @@ def test_update_status_details_with_additional_fields():
         )
 
     _set_job_tracker(None)
+
+
+def test_job_tracker_ignores_already_finalized_error():
+    job_id = "test-job-finalized"
+    tracker = JobTracker(job_id)
+
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_store.update_status_details.side_effect = JobTerminalStateUpdateException(
+            job_id, "SUCCEEDED"
+        )
+        mock_get_store.return_value = mock_store
+
+        tracker.update({"stage": "late-heartbeat"})
+
+        mock_store.update_status_details.assert_called_once_with(
+            job_id, {"stage": "late-heartbeat"}
+        )
+
+
+def test_job_tracker_reraises_other_mlflow_errors():
+    job_id = "test-job-error"
+    tracker = JobTracker(job_id)
+
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_store.update_status_details.side_effect = MlflowException.invalid_parameter_value(
+            "bad status details"
+        )
+        mock_get_store.return_value = mock_store
+
+        with pytest.raises(MlflowException, match="bad status details"):
+            tracker.update({"stage": "late-heartbeat"})

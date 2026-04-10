@@ -27,6 +27,17 @@ enum JobStatus {
 
   // Job was canceled by user.
   JOB_STATUS_CANCELED = 5;
+
+  // Job backend work may still exist, but the current watcher is unresponsive.
+  JOB_STATUS_NEEDS_RECOVERY = 6;
+}
+
+// Structured best-effort progress payload for a running job.
+message JobProgress {
+  optional string phase = 1;
+  optional int64 completed = 2;
+  optional int64 total = 3;
+  optional string unit = 4;
 }
 
 // Generic job state message combining status with metadata.
@@ -42,4 +53,13 @@ message JobState {
   // Additional metadata as key-value pairs.
   // Can be used to store job-specific state information.
   map<string, string> metadata = 3;
+
+  // Latest best-effort in-flight status message.
+  optional string status_message = 4;
+
+  // Latest best-effort structured progress payload.
+  optional JobProgress progress_payload = 5;
+
+  // Timestamp of the latest progress update in milliseconds since epoch.
+  optional int64 progress_updated_at = 6;
 }

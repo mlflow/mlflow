@@ -2404,17 +2404,32 @@ class SqlJob(Base):
         from mlflow.entities._job import Job
         from mlflow.entities._job_status import JobStatus
 
+        status = JobStatus.from_int(self.status)
+        error_message = (
+            self.result
+            if status in {JobStatus.FAILED, JobStatus.TIMEOUT} and isinstance(self.result, str)
+            else None
+        )
+
         return Job(
             job_id=self.id,
             creation_time=self.creation_time,
             job_name=self.job_name,
             params=self.params,
             timeout=self.timeout,
-            status=JobStatus.from_int(self.status),
+            status=status,
             result=self.result,
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            error_message=error_message,
+            executor_backend=self.executor_backend,
+            lease_expires_at=self.lease_expires_at,
+            status_message=self.status_message,
+            progress_payload=self.progress_payload,
+            progress_updated_at=self.progress_updated_at,
+            token_hash=self.token_hash,
+            scoped_permissions=self.scoped_permissions,
             status_details=self.status_details,
         )
 
