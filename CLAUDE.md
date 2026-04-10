@@ -80,7 +80,7 @@ tail -f /tmp/mlflow-dev-server.log
 
 ### Offline / No-Network Usage
 
-If PyPI is unreachable, add `--frozen` to any `uv run` command to skip dependency resolution and use the existing lockfile:
+If PyPI is unreachable, add `--frozen` to `uv run` commands that should use the existing `uv.lock` as-is without modifying the environment. This works when the required dependencies are already installed or available in the local cache:
 
 ```bash
 uv run --frozen pytest tests/
