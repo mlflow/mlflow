@@ -114,7 +114,7 @@ const sidebarsGenAI: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'tracing/observe-with-traces/multimodal',
-                  label: 'Multimodal Content',
+                  label: 'Multimodal Content & Attachments',
                 },
               ],
             },
@@ -1024,6 +1024,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/budget-alerts-limits',
           label: 'Budget Alerts & Limits',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/benchmarks',
+          label: 'Performance & Benchmarks',
         },
         {
           type: 'category',

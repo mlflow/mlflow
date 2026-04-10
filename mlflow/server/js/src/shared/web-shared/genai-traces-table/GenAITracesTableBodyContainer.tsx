@@ -12,6 +12,7 @@ import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSel
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import type {
   AssessmentFilter,
+  AssessmentCountMetrics,
   AssessmentInfo,
   TracesTableColumn,
   EvaluationsOverviewTableSort,
@@ -71,6 +72,9 @@ interface GenAITracesTableBodyContainerProps {
   fetchNextPage?: () => void;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
+
+  // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
+  assessmentCountMetrics?: AssessmentCountMetrics;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -100,6 +104,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       fetchNextPage,
       hasNextPage,
       isFetchingNextPage,
+      assessmentCountMetrics,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -271,6 +276,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 fetchNextPage={fetchNextPage}
                 hasNextPage={hasNextPage}
                 isFetchingNextPage={isFetchingNextPage}
+                assessmentCountMetrics={assessmentCountMetrics}
               />
             </AssessmentSchemaContextProvider>
           </div>

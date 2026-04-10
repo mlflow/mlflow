@@ -22,8 +22,10 @@ from mlflow.exceptions import (
     MlflowTraceDataNotFound,
 )
 from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
@@ -337,11 +339,20 @@ class ArtifactRepository:
                 template.format(path=path, error=error, traceback=tracebacks[path])
                 for path, error in failed_downloads.items()
             )
+            error_codes = {
+                e.error_code
+                for e in failed_downloads.values()
+                if isinstance(e, MlflowException) and e.error_code != "INTERNAL_ERROR"
+            }
+            error_code = (
+                ErrorCode.Value(error_codes.pop()) if len(error_codes) == 1 else INTERNAL_ERROR
+            )
             raise MlflowException(
                 message=(
                     "The following failures occurred while downloading one or more"
                     f" artifacts from {self.artifact_uri}:\n{_truncate_error(failures)}"
-                )
+                ),
+                error_code=error_code,
             )
 
         return os.path.join(dst_path, artifact_path)

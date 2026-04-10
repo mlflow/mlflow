@@ -1901,6 +1901,9 @@ def test_rename_experiment(store: SqlAlchemyStore):
     assert renamed_experiment.name == new_name
     assert renamed_experiment.last_update_time > experiment.last_update_time
 
+    with pytest.raises(MlflowException, match=r"'name' exceeds the maximum length"):
+        store.rename_experiment(experiment_id, "x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
+
 
 def test_update_run_info(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_update_run_info")
@@ -5011,7 +5014,8 @@ def test_start_trace(store: SqlAlchemyStore):
     assert trace_info.request_time == 1234
     assert trace_info.execution_duration == 100
     assert trace_info.state == TraceState.OK
-    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar"}
+    assert {"rq1": "foo", "rq2": "bar"}.items() <= trace_info.trace_metadata.items()
+    assert trace_info.trace_metadata.get(TraceMetadataKey.TRACE_INFO_FINALIZED) == "true"
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{trace_id}/artifacts")
     assert trace_info.tags == {
@@ -13007,6 +13011,76 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["input_cost"] == 0.015
     assert trace.info.cost["output_cost"] == 0.03
     assert trace.info.cost["total_cost"] == 0.045
+
+
+def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
+    """start_trace() sets TRACE_INFO_FINALIZED; subsequent log_spans() must not overwrite
+    request_time, execution_duration, session_id, token_usage, or cost.
+    """
+    experiment_id = store.create_experiment("test_trace_info_finalized")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # start_trace() writes authoritative trace-level values and sets TRACE_INFO_FINALIZED.
+    authoritative_request_time = 1_000
+    authoritative_duration = 500
+    authoritative_session = "session-from-start-trace"
+    authoritative_token_usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    authoritative_cost = {"input_cost": 0.001, "output_cost": 0.0005, "total_cost": 0.0015}
+
+    _create_trace(
+        store,
+        trace_id,
+        experiment_id,
+        request_time=authoritative_request_time,
+        execution_duration=authoritative_duration,
+        trace_metadata={
+            TraceMetadataKey.TRACE_SESSION: authoritative_session,
+            TraceMetadataKey.TOKEN_USAGE: json.dumps(authoritative_token_usage),
+            TraceMetadataKey.COST: json.dumps(authoritative_cost),
+        },
+    )
+
+    # log_spans() arrives with different values that should all be ignored.
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000,  # earlier start (ms=1) — should NOT update request_time
+        end_time=9_000_000_000,  # later end — should NOT update execution_duration
+        trace_id_num=99999,
+        span_id_num=1,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        "session.id": "session-from-log-spans",
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 999,
+            "output_tokens": 999,
+            "total_tokens": 1998,
+        }),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 9.99,
+            "output_cost": 9.99,
+            "total_cost": 19.98,
+        }),
+    }
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+
+    # Timestamp and duration unchanged
+    assert trace_info.request_time == authoritative_request_time
+    assert trace_info.execution_duration == authoritative_duration
+
+    # Session ID unchanged
+    assert trace_info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == authoritative_session
+
+    # Token usage unchanged
+    assert trace_info.token_usage == authoritative_token_usage
+
+    # Cost unchanged
+    stored_cost = json.loads(trace_info.trace_metadata[TraceMetadataKey.COST])
+    assert stored_cost == authoritative_cost
 
 
 def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:

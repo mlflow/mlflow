@@ -659,6 +659,15 @@ MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
 #: (default: ``None`` — uses in-memory tracker)
 MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_REDIS_URL", str, None)
 
+#: Comma-separated list of provider names that are allowed in the AI Gateway.
+#: When set, only these providers will be available for endpoint creation and discovery.
+#: All other providers are rejected.
+#: Example: ``openai,anthropic,gemini``
+#: (default: ``None`` — all providers are allowed)
+MLFLOW_GATEWAY_ALLOWED_PROVIDERS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_ALLOWED_PROVIDERS", str, None
+)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
@@ -1098,7 +1107,6 @@ _MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_
 #######################################################################################
 
 #: Specifies whether to enable async trace logging to Databricks Tracing Server.
-#: TODO: Update OSS MLflow Server to logging async by default
 #: Default: ``True``.
 MLFLOW_ENABLE_ASYNC_TRACE_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", True
@@ -1159,8 +1167,9 @@ MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", 
 
 #: When set to ``True``, use OTel BatchSpanProcessor to export spans in a background thread
 #: instead of inline during on_end. This decouples trace export from request handling under
-#: concurrent load. Only takes effect when ``MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`` is also
-#: explicitly enabled. This will always be enabled in a future release.
+#: concurrent load. Takes effect whenever async trace logging is active (i.e. when
+#: ``MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`` is ``True``, which is the default for OSS MLflow
+#: and Databricks non-notebook workloads).
 #: (default: ``True``)
 MLFLOW_USE_BATCH_SPAN_PROCESSOR = _BooleanEnvironmentVariable(
     "MLFLOW_USE_BATCH_SPAN_PROCESSOR", True
