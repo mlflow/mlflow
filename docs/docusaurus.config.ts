@@ -14,6 +14,8 @@ const config: Config = {
 
   // Docusaurus sets the canonical URL to the preferred one, so the pages are consolidated and double search results are prevented.
   trailingSlash: true,
+  // Versioned builds (e.g. /docs/2.x.x/) are noindexed so only /docs/latest/ appears in search results.
+  noIndex: process.env.DOCS_NO_INDEX === 'true',
 
   // Set the production url of your site here
   url: 'https://mlflow.org',
