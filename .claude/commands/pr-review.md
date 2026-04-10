@@ -63,9 +63,18 @@ Carefully examine **only the changed lines** (added, modified, or deleted) in th
 
 ### 4. Decision Point
 
-- If **no issues found** → Output "No issues found" and exit successfully
-- If **issues found** → Continue to step 5
+- If **no issues found** → Skip to step 6 (approve)
+- If **only minor issues found** (e.g., style nits, suggestions) → Continue to step 5 (add review comments), then step 6 (approve)
+- If **significant issues found** (e.g., bugs, logic errors, security) → Continue to step 5 (add review comments), do NOT approve
 
 ### 5. Add Review Comments
 
 For each issue found, use the `add-review-comment` skill to post review comments.
+
+### 6. Approve the PR
+
+Approve the PR when there are no issues or only minor issues.
+
+```bash
+gh pr review <pr_number> --repo <owner>/<repo> --approve
+```
