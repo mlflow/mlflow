@@ -9,6 +9,8 @@ import yaml
 pytest.importorskip("diffusers")
 pytest.importorskip("safetensors")
 
+from unittest.mock import MagicMock, Mock, patch
+
 from safetensors.numpy import save_file
 
 import mlflow
@@ -209,12 +211,9 @@ def test_save_load_model_direct_roundtrip(adapter_dir, model_path):
 
 
 def test_base_model_revision_roundtrip(adapter_dir, model_path):
-    from unittest.mock import patch
 
     fake_revision = "abc123def456"
-    with patch(
-        "mlflow.diffusers._resolve_base_model_revision", return_value=fake_revision
-    ):
+    with patch("mlflow.diffusers._resolve_base_model_revision", return_value=fake_revision):
         mlflow.diffusers.save_model(
             adapter_path=str(adapter_dir),
             path=str(model_path),
@@ -270,7 +269,6 @@ def test_load_pyfunc_returns_wrapper(adapter_dir):
 
 
 def test_load_pipeline_base_model_override(adapter_dir, model_path):
-    from unittest.mock import MagicMock, patch
 
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
@@ -290,7 +288,6 @@ def test_load_pipeline_base_model_override(adapter_dir, model_path):
 
 
 def test_load_pipeline_wraps_oserror(adapter_dir, model_path):
-    from unittest.mock import patch
 
     mlflow.diffusers.save_model(
         adapter_path=str(adapter_dir),
@@ -316,8 +313,6 @@ def test_wrapper_model_config_base_model_override():
         flavor_conf={"base_model": "original/model", "adapter_type": "lora"},
         model_config={"base_model": "override/model"},
     )
-
-    from unittest.mock import MagicMock, patch
 
     with patch("diffusers.DiffusionPipeline.from_pretrained") as mock_fp:
         mock_pipe = MagicMock()
@@ -411,7 +406,6 @@ def test_predict_list(wrapper):
 
 
 def test_predict_with_params(wrapper):
-    from unittest.mock import Mock
 
     mock_pipeline = Mock(return_value=_FakePipelineOutput(1))
     wrapper._pipeline = mock_pipeline
@@ -506,7 +500,6 @@ def test_resolve_revision_dot_relative_path_returns_none():
 
 
 def test_resolve_revision_hf_hub_success():
-    from unittest.mock import patch
 
     from mlflow.diffusers import _resolve_base_model_revision
 
@@ -520,7 +513,6 @@ def test_resolve_revision_hf_hub_success():
 
 
 def test_resolve_revision_hf_hub_failure_returns_none():
-    from unittest.mock import patch
 
     from mlflow.diffusers import _resolve_base_model_revision
 
@@ -533,8 +525,6 @@ def test_resolve_revision_hf_hub_failure_returns_none():
 
 
 def test_resolve_revision_cwd_collision_still_resolves(tmp_path, monkeypatch):
-    """A bare 'org/model' that matches a CWD directory should still be resolved as HF."""
-    from unittest.mock import patch
 
     from mlflow.diffusers import _resolve_base_model_revision
 

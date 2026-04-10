@@ -179,9 +179,8 @@ class DiffusersAdapterModel:
             base_model: Override the base model reference stored at save time.
                 Useful when the original local path is no longer available.
                 Accepts a HuggingFace model ID or a local directory path.
-            device: Device to load onto (auto-detected if omitted).
-            torch_dtype: Model precision (default ``"auto"``).
-            **kwargs: Forwarded to ``DiffusionPipeline.from_pretrained()``.
+            kwargs: Forwarded to ``DiffusionPipeline.from_pretrained()``.
+                Common options include ``device``, ``torch_dtype``, and ``revision``.
 
         Returns:
             A ``DiffusionPipeline`` with LoRA weights applied.
@@ -366,8 +365,7 @@ def save_model(
         "diffusers_version": diffusers_version,
         "code": code_path_subdir,
     }
-    revision = _resolve_base_model_revision(base_model)
-    if revision:
+    if revision := _resolve_base_model_revision(base_model):
         flavor_kwargs[_BASE_MODEL_REVISION_KEY] = revision
     if weight_name:
         flavor_kwargs["weight_name"] = weight_name
