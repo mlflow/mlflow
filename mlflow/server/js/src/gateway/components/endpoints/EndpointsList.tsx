@@ -23,7 +23,7 @@ import { EndpointsColumnsButton, EndpointsColumn, DEFAULT_VISIBLE_COLUMNS } from
 import { EndpointBindingsDrawer } from './EndpointBindingsDrawer';
 import { BulkDeleteEndpointModal } from './BulkDeleteEndpointModal';
 import { EndpointRow } from './EndpointRow';
-import { QuickStartTemplates } from './QuickStartTemplates';
+import { QuickStartTemplates, QuickStartTemplatesCompact } from './QuickStartTemplates';
 import type { Endpoint, EndpointBinding } from '../../types';
 
 interface EndpointsListProps {
@@ -146,6 +146,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {endpoints.length > 0 && <QuickStartTemplatesCompact />}
       {duplicateError && (
         <Alert
           componentId="mlflow.gateway.endpoints-list.duplicate-error"
