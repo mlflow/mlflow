@@ -471,5 +471,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
             current_details = job.status_details or {}
             current_details.update(status_details)
             job.status_details = current_details
-
-            job.last_update_time = get_current_time_millis()
+            progress_updated_at = get_current_time_millis()
+            if isinstance(current_details.get("stage"), str):
+                job.status_message = current_details["stage"]
+                job.progress_payload = {"phase": current_details["stage"]}
+            job.progress_updated_at = progress_updated_at
+            job.last_update_time = progress_updated_at

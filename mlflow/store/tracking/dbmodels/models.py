@@ -2415,6 +2415,13 @@ class SqlJob(Base):
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            executor_backend=self.executor_backend,
+            lease_expires_at=self.lease_expires_at,
+            status_message=self.status_message,
+            progress_payload=self.progress_payload,
+            progress_updated_at=self.progress_updated_at,
+            token_hash=self.token_hash,
+            scoped_permissions=self.scoped_permissions,
             status_details=self.status_details,
         )
 

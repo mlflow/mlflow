@@ -9,6 +9,7 @@ class JobStatus(str, Enum):
 
     PENDING = "PENDING"
     RUNNING = "RUNNING"
+    NEEDS_RECOVERY = "NEEDS_RECOVERY"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
     TIMEOUT = "TIMEOUT"
@@ -17,12 +18,20 @@ class JobStatus(str, Enum):
     @classmethod
     def from_int(cls, status_int: int) -> "JobStatus":
         """Convert integer status to JobStatus enum."""
-        try:
-            return next(e for i, e in enumerate(JobStatus) if i == status_int)
-        except StopIteration:
-            raise MlflowException.invalid_parameter_value(
-                f"The value {status_int} can't be converted to JobStatus enum value."
-            )
+        mapping = {
+            0: JobStatus.PENDING,
+            1: JobStatus.RUNNING,
+            2: JobStatus.SUCCEEDED,
+            3: JobStatus.FAILED,
+            4: JobStatus.TIMEOUT,
+            5: JobStatus.CANCELED,
+            6: JobStatus.NEEDS_RECOVERY,
+        }
+        if status := mapping.get(status_int):
+            return status
+        raise MlflowException.invalid_parameter_value(
+            f"The value {status_int} can't be converted to JobStatus enum value."
+        )
 
     @classmethod
     def from_str(cls, status_str: str) -> "JobStatus":
@@ -36,13 +45,22 @@ class JobStatus(str, Enum):
 
     def to_int(self) -> int:
         """Convert JobStatus enum to integer."""
-        return next(i for i, e in enumerate(JobStatus) if e == self)
+        return {
+            JobStatus.PENDING: 0,
+            JobStatus.RUNNING: 1,
+            JobStatus.SUCCEEDED: 2,
+            JobStatus.FAILED: 3,
+            JobStatus.TIMEOUT: 4,
+            JobStatus.CANCELED: 5,
+            JobStatus.NEEDS_RECOVERY: 6,
+        }[self]
 
     def to_proto(self) -> int:
         """Convert JobStatus enum to proto JobStatus enum value."""
         mapping = {
             JobStatus.PENDING: ProtoJobStatus.JOB_STATUS_PENDING,
             JobStatus.RUNNING: ProtoJobStatus.JOB_STATUS_IN_PROGRESS,
+            JobStatus.NEEDS_RECOVERY: ProtoJobStatus.JOB_STATUS_NEEDS_RECOVERY,
             JobStatus.SUCCEEDED: ProtoJobStatus.JOB_STATUS_COMPLETED,
             JobStatus.FAILED: ProtoJobStatus.JOB_STATUS_FAILED,
             JobStatus.TIMEOUT: ProtoJobStatus.JOB_STATUS_FAILED,  # No TIMEOUT in proto
