@@ -34,7 +34,7 @@ from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.utils.rest_utils import http_request
 
-_DATABRICKS_SCHEMES = frozenset(("databricks", "databricks-uc", "uc"))
+_DATABRICKS_SCHEMES = ("databricks", "databricks-uc", "uc")
 
 
 # Cache per tracking URI; 16 is more than enough for any realistic number of
