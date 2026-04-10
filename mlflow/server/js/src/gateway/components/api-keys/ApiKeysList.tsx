@@ -111,7 +111,7 @@ export const ApiKeysList = ({
   if (error && !secrets.length) {
     return (
       <Alert
-        componentId="mlflow.gateway.api-keys-list.error"
+        componentId="mlflow.gateway.api-keys.error"
         type="error"
         message={
           <FormattedMessage
@@ -184,7 +184,7 @@ export const ApiKeysList = ({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Input
-          componentId="mlflow.gateway.api-keys-list.search"
+          componentId="mlflow.gateway.api-keys.search"
           prefix={<SearchIcon />}
           placeholder={formatMessage({
             defaultMessage: 'Search API Keys',
@@ -202,7 +202,7 @@ export const ApiKeysList = ({
             <FormattedMessage defaultMessage="Create" description="Gateway > API keys list > Create button" />
           </Button>
           <Button
-            componentId="mlflow.gateway.api-keys-list.bulk-delete-button"
+            componentId="mlflow.gateway.api-keys.bulk-delete-button"
             disabled={selectedCount === 0}
             danger
             onClick={handleDeleteClick}
@@ -236,36 +236,36 @@ export const ApiKeysList = ({
         <TableRow isHeader>
           <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
             <Checkbox
-              componentId="mlflow.gateway.api-keys-list.select-all-checkbox"
+              componentId="mlflow.gateway.api-keys.select-all-checkbox"
               isChecked={someSelected ? null : allSelected}
               onChange={handleSelectAll}
             />
           </TableCell>
-          <TableHeader componentId="mlflow.gateway.api-keys-list.name-header" css={{ flex: 2 }}>
+          <TableHeader componentId="mlflow.gateway.api-keys.name-header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Key name" description="API key name column header" />
           </TableHeader>
           {visibleColumns.includes(ApiKeysColumn.PROVIDER) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.provider-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.provider-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Provider" description="Provider column header" />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.ENDPOINTS) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.endpoints-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.endpoints-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Endpoints" description="Endpoints using this key column header" />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.USED_BY) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.used-by-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.used-by-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Used by" description="Used by column header" />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.LAST_UPDATED) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.updated-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.updated-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Last updated" description="Last updated column header" />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.CREATED) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.created-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.created-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Created" description="Created column header" />
             </TableHeader>
           )}
@@ -278,7 +278,7 @@ export const ApiKeysList = ({
             <TableRow key={secret.secret_id}>
               <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
                 <Checkbox
-                  componentId="mlflow.gateway.api-keys-list.row-checkbox"
+                  componentId="mlflow.gateway.api-keys.row-checkbox"
                   isChecked={!!rowSelection[secret.secret_id]}
                   onChange={() => handleSelectRow(secret.secret_id)}
                 />
