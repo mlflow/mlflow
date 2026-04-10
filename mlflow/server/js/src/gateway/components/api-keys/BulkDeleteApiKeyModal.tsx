@@ -32,16 +32,21 @@ export const BulkDeleteApiKeyModal = ({
     setIsDeleting(true);
     setError(null);
     try {
-      await Promise.all(secrets.map((secret) => deleteSecret(secret.secret_id)));
+      const results = await Promise.allSettled(secrets.map((secret) => deleteSecret(secret.secret_id)));
+      const failures = results.filter((r) => r.status === 'rejected');
+      if (failures.length > 0) {
+        setError(
+          intl.formatMessage({
+            defaultMessage: 'Failed to delete some API keys. Please try again.',
+            description: 'Gateway > Bulk delete API keys modal > Error message',
+          }),
+        );
+      }
+      // Always notify parent so the list refreshes (some keys may have been deleted)
       onSuccess();
-      onClose();
-    } catch {
-      setError(
-        intl.formatMessage({
-          defaultMessage: 'Failed to delete some API keys. Please try again.',
-          description: 'Gateway > Bulk delete API keys modal > Error message',
-        }),
-      );
+      if (failures.length === 0) {
+        onClose();
+      }
     } finally {
       setIsDeleting(false);
     }

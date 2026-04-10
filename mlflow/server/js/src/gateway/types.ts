@@ -82,7 +82,7 @@ export interface GetSecretInfoResponse {
 
 export interface UpdateSecretRequest {
   secret_id: string;
-  secret_value: Record<string, string>;
+  secret_value?: Record<string, string>;
   auth_config?: Record<string, string>;
   updated_by?: string;
 }

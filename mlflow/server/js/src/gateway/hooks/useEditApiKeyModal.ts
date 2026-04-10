@@ -139,7 +139,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
         secret_id: secret.secret_id,
         secret_value: hasSecretValues ? formData.secretFields : undefined,
         auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
-      } as Parameters<typeof updateSecret>[0]);
+      });
 
       // Update initial state to match saved values so isDirty resets,
       // but keep form populated (don't reset to empty like handleClose does)

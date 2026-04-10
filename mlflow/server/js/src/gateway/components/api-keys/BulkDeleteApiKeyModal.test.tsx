@@ -1,4 +1,5 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { BulkDeleteApiKeyModal } from './BulkDeleteApiKeyModal';
 import { useDeleteSecret } from '../../hooks/useDeleteSecret';
@@ -74,8 +75,6 @@ describe('BulkDeleteApiKeyModal', () => {
   });
 
   test('calls deleteSecret for each secret on confirm', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(
       <BulkDeleteApiKeyModal
         open
@@ -97,7 +96,6 @@ describe('BulkDeleteApiKeyModal', () => {
   });
 
   test('shows error when deletion fails', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     mockDeleteSecret.mockRejectedValue(new Error('Network error'));
 
     renderWithDesignSystem(
@@ -115,12 +113,13 @@ describe('BulkDeleteApiKeyModal', () => {
     await waitFor(() => {
       expect(screen.getByText('Failed to delete some API keys. Please try again.')).toBeInTheDocument();
     });
-    expect(mockOnSuccess).not.toHaveBeenCalled();
+    // onSuccess is still called so the list refreshes (some keys may have been deleted)
+    expect(mockOnSuccess).toHaveBeenCalled();
+    // Modal stays open to show the error
+    expect(mockOnClose).not.toHaveBeenCalled();
   });
 
   test('calls onClose when cancel is clicked', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(
       <BulkDeleteApiKeyModal
         open

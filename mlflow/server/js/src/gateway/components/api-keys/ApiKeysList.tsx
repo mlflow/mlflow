@@ -198,7 +198,7 @@ export const ApiKeysList = ({
         <ApiKeysFilterButton availableProviders={availableProviders} filter={filter} onFilterChange={setFilter} />
         <ApiKeysColumnsButton visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
         <div css={{ marginLeft: 'auto', display: 'flex', gap: theme.spacing.sm }}>
-          <Button componentId="mlflow.gateway.api-keys-list.create-button" type="primary" onClick={onCreateClick}>
+          <Button componentId="mlflow.gateway.api-keys.create-button" type="primary" onClick={onCreateClick}>
             <FormattedMessage defaultMessage="Create" description="Gateway > API keys list > Create button" />
           </Button>
           <Button

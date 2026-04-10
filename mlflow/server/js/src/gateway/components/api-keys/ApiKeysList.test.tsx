@@ -1,4 +1,5 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { ApiKeysList } from './ApiKeysList';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
@@ -188,8 +189,6 @@ describe('ApiKeysList', () => {
   });
 
   test('filters secrets by search', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     jest.mocked(useSecretsQuery).mockReturnValue({
       data: [
         ...mockSecrets,
@@ -256,7 +255,6 @@ describe('ApiKeysList', () => {
   });
 
   test('calls onKeyClick when secret name is clicked', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onKeyClick = jest.fn();
 
     jest.mocked(useSecretsQuery).mockReturnValue({
@@ -308,8 +306,6 @@ describe('ApiKeysList', () => {
   });
 
   test('enables delete button after selecting a row', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     jest.mocked(useSecretsQuery).mockReturnValue({
       data: mockSecrets,
       isLoading: false,
