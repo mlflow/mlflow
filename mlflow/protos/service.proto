@@ -515,6 +515,9 @@ service MlflowService {
   // Generate a presigned URL for uploading an artifact directly to cloud storage.
   // The server uses its own credentials to sign the URL, enabling clients to upload
   // artifacts without needing direct cloud storage write permissions.
+  //
+  // Consumed by external artifact repository plugins
+  // (e.g. https://github.com/aws/sagemaker-mlflow).
   rpc createPresignedUploadUrl(CreatePresignedUploadUrl)
       returns (CreatePresignedUploadUrl.Response) {
     option (rpc) = {

@@ -3430,6 +3430,8 @@ def _create_presigned_upload_url():
     """
     Handler for POST /api/2.0/mlflow/artifacts/presigned-upload-url.
     Generates a presigned URL for uploading an artifact directly to cloud storage.
+
+    Client reference: https://github.com/aws/sagemaker-mlflow
     """
     request_message = _get_request_message(
         CreatePresignedUploadUrl(),
