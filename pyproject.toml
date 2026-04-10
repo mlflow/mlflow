@@ -189,7 +189,6 @@ lint = [
   "types-PyYAML",
   "packaging>=25.0",
   "aiohttp",
-  "rich",
   "tiktoken",
   "claude-agent-sdk",
   "pytest",

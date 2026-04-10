@@ -18,8 +18,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import aiohttp
-from rich.console import Console
-from rich.progress import (
+from rich.console import Console  # type: ignore[import-not-found]
+from rich.progress import (  # type: ignore[import-not-found]
     BarColumn,
     MofNCompleteColumn,
     Progress,
@@ -28,7 +28,7 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-from rich.table import Table
+from rich.table import Table  # type: ignore[import-not-found]
 
 console = Console()
 
