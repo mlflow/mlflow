@@ -51,6 +51,10 @@ describe('useFetchJobStatus', () => {
       expect(isJobComplete(JobStatus.RUNNING)).toBe(false);
     });
 
+    test('returns false for NEEDS_RECOVERY status', () => {
+      expect(isJobComplete(JobStatus.NEEDS_RECOVERY)).toBe(false);
+    });
+
     test('returns false for undefined status', () => {
       expect(isJobComplete(undefined)).toBe(false);
     });
@@ -168,6 +172,22 @@ describe('useFetchJobStatus', () => {
       });
 
       expect(fetchAPI).toHaveBeenCalledTimes(2);
+    });
+
+    test('fetches needs recovery job status', async () => {
+      const mockResponse = {
+        status: JobStatus.NEEDS_RECOVERY,
+        result: null,
+      };
+      jest.mocked(fetchAPI).mockResolvedValue(mockResponse);
+
+      const { result } = renderHook(() => useFetchJobStatus({ jobId: 'job-recovery' }), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe(JobStatus.NEEDS_RECOVERY);
+        expect(result.current.result).toBeNull();
+        expect(result.current.isLoading).toBe(false);
+      });
     });
   });
 });

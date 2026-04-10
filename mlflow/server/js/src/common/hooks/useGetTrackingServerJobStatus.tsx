@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { JobProgressMetadata } from '../types';
 import { fetchAPI, getAjaxUrl } from '../utils/FetchUtils';
 import type { QueryFunctionContext, UseQueryOptions } from '../utils/reactQueryHooks';
 import { useQuery } from '../utils/reactQueryHooks';
@@ -12,13 +13,26 @@ export enum TrackingJobStatus {
   FAILED = 'FAILED',
   CANCELLED = 'CANCELLED',
   TIMEOUT = 'TIMEOUT',
+  NEEDS_RECOVERY = 'NEEDS_RECOVERY',
 }
+
+export const isTrackingJobInFlight = (status: TrackingJobStatus | undefined): boolean =>
+  status === TrackingJobStatus.PENDING ||
+  status === TrackingJobStatus.RUNNING ||
+  status === TrackingJobStatus.NEEDS_RECOVERY;
+
+export const isTrackingJobTerminal = (status: TrackingJobStatus | undefined): boolean =>
+  status === TrackingJobStatus.SUCCEEDED ||
+  status === TrackingJobStatus.FAILED ||
+  status === TrackingJobStatus.TIMEOUT ||
+  status === TrackingJobStatus.CANCELLED;
 
 export type TrackingJobQueryResult<ResultType> = (
   | {
       status:
         | TrackingJobStatus.RUNNING
         | TrackingJobStatus.PENDING
+        | TrackingJobStatus.NEEDS_RECOVERY
         | TrackingJobStatus.CANCELLED
         | TrackingJobStatus.TIMEOUT;
     }
@@ -32,9 +46,10 @@ export type TrackingJobQueryResult<ResultType> = (
       // In case of failure, the result is the error message
       result: string;
     }
-) & {
-  jobId: string;
-};
+) &
+  JobProgressMetadata & {
+    jobId: string;
+  };
 
 type QueryKey = [typeof GET_JOB_DATA_QUERY_KEY, string[] | undefined];
 
@@ -42,8 +57,8 @@ const queryFn = async ({ queryKey: [, jobIds] }: QueryFunctionContext<QueryKey>)
   const responsesData = await Promise.all(
     (jobIds ?? []).map(async (jobId) => {
       const responseData = await fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/${jobId}`));
-      const { status, result } = responseData;
-      return { jobId, status, result };
+      const { status, result, error_message, status_message, progress_payload, progress_updated_at } = responseData;
+      return { jobId, status, result, error_message, status_message, progress_payload, progress_updated_at };
     }),
   );
   return responsesData;
@@ -66,10 +81,7 @@ export const useGetTrackingServerJobStatus = <T = any,>(
   // Determine if any of the jobs are still running
   const areJobsRunning =
     isEnabled &&
-    (queryResult.isLoading ||
-      queryResult.data?.some(
-        (response) => response.status === TrackingJobStatus.PENDING || response.status === TrackingJobStatus.RUNNING,
-      ));
+    (queryResult.isLoading || queryResult.data?.some((response) => isTrackingJobInFlight(response.status)));
 
   const jobResults = useMemo(
     () =>
