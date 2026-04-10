@@ -32,6 +32,94 @@ interface ProviderTemplate {
   models: ModelOption[];
 }
 
+interface ProviderCardProps {
+  template: ProviderTemplate;
+  compact?: boolean;
+}
+
+const ProviderCard = ({ template, compact }: ProviderCardProps) => {
+  const { theme } = useDesignSystemTheme();
+
+  const logoSize = compact ? 16 : 20;
+  const headerPadding = compact ? `${theme.spacing.xs}px ${theme.spacing.sm}px` : `${theme.spacing.md}px`;
+  const headerGap = compact ? theme.spacing.xs : theme.spacing.sm;
+  const headerFontSize = compact ? theme.typography.fontSizeSm : undefined;
+  const rowPadding = compact ? `3px ${theme.spacing.sm}px` : `${theme.spacing.xs}px ${theme.spacing.md}px`;
+  const chevronSize = compact ? 12 : 14;
+
+  return (
+    <div
+      css={{
+        ...(compact ? { flex: 1, minWidth: 0 } : {}),
+        display: 'flex',
+        flexDirection: 'column',
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: headerGap,
+          padding: headerPadding,
+          borderBottom: `1px solid ${theme.colors.border}`,
+        }}
+      >
+        <img
+          src={theme.isDarkMode && template.logoDark ? template.logoDark : template.logo}
+          alt={formatProviderName(template.provider)}
+          css={{ width: logoSize, height: logoSize, flexShrink: 0 }}
+        />
+        <Typography.Text bold css={headerFontSize ? { fontSize: headerFontSize } : undefined}>
+          {formatProviderName(template.provider)}
+        </Typography.Text>
+      </div>
+      <div css={{ display: 'flex', flexDirection: 'column' }}>
+        {template.models.map((modelOption) => (
+          <Link
+            key={modelOption.model}
+            componentId={modelOption.componentId}
+            to={GatewayRoutes.createEndpointPageRoute}
+            state={{
+              provider: template.provider,
+              model: modelOption.model,
+              endpointName: modelOption.endpointName,
+              secretName: template.secretName,
+            }}
+            css={{
+              textDecoration: 'none',
+              color: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: compact ? theme.spacing.xs : undefined,
+              padding: rowPadding,
+              cursor: 'pointer',
+              transition: 'background-color 0.15s',
+              '&:hover': {
+                backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+              },
+            }}
+          >
+            <Typography.Text
+              color="secondary"
+              css={{
+                fontSize: theme.typography.fontSizeSm,
+                ...(compact ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } : {}),
+              }}
+            >
+              {modelOption.model}
+            </Typography.Text>
+            <ChevronRightIcon css={{ color: theme.colors.textSecondary, fontSize: chevronSize, flexShrink: 0 }} />
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 /**
  * Quick-start templates for the gateway empty state.
  *
@@ -196,66 +284,7 @@ export const QuickStartTemplates = () => {
         }}
       >
         {PROVIDER_TEMPLATES.map((template) => (
-          <div
-            key={template.provider}
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: theme.borders.borderRadiusMd,
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              css={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.sm,
-                padding: theme.spacing.md,
-                borderBottom: `1px solid ${theme.colors.border}`,
-              }}
-            >
-              <img
-                src={theme.isDarkMode && template.logoDark ? template.logoDark : template.logo}
-                alt={formatProviderName(template.provider)}
-                css={{ width: 20, height: 20 }}
-              />
-              <Typography.Text bold>{formatProviderName(template.provider)}</Typography.Text>
-            </div>
-            <div css={{ display: 'flex', flexDirection: 'column' }}>
-              {template.models.map((modelOption) => (
-                <Link
-                  key={modelOption.model}
-                  componentId={modelOption.componentId}
-                  to={GatewayRoutes.createEndpointPageRoute}
-                  state={{
-                    provider: template.provider,
-                    model: modelOption.model,
-                    endpointName: modelOption.endpointName,
-                    secretName: template.secretName,
-                  }}
-                  css={{
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s',
-                    '&:hover': {
-                      backgroundColor: theme.colors.actionTertiaryBackgroundHover,
-                    },
-                  }}
-                >
-                  <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                    {modelOption.model}
-                  </Typography.Text>
-                  <ChevronRightIcon css={{ color: theme.colors.textSecondary, fontSize: 14 }} />
-                </Link>
-              ))}
-            </div>
-          </div>
+          <ProviderCard key={template.provider} template={template} />
         ))}
       </div>
 
@@ -291,7 +320,7 @@ export const QuickStartTemplatesCompact = () => {
           </Typography.Text>
         </div>
         <Link
-          componentId="mlflow.gateway.quick_start_compact.browse_all"
+          componentId="mlflow.gateway.quick_start.compact.browse_all"
           to={GatewayRoutes.createEndpointPageRoute}
           css={{ textDecoration: 'none', fontSize: theme.typography.fontSizeSm }}
         >
@@ -311,79 +340,7 @@ export const QuickStartTemplatesCompact = () => {
         }}
       >
         {PROVIDER_TEMPLATES.map((template) => (
-          <div
-            key={template.provider}
-            css={{
-              flex: 1,
-              minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: theme.borders.borderRadiusMd,
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              css={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.xs,
-                padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-                borderBottom: `1px solid ${theme.colors.border}`,
-              }}
-            >
-              <img
-                src={theme.isDarkMode && template.logoDark ? template.logoDark : template.logo}
-                alt={formatProviderName(template.provider)}
-                css={{ width: 16, height: 16, flexShrink: 0 }}
-              />
-              <Typography.Text bold css={{ fontSize: theme.typography.fontSizeSm }}>
-                {formatProviderName(template.provider)}
-              </Typography.Text>
-            </div>
-            <div css={{ display: 'flex', flexDirection: 'column' }}>
-              {template.models.map((modelOption) => (
-                <Link
-                  key={modelOption.model}
-                  componentId={modelOption.componentId}
-                  to={GatewayRoutes.createEndpointPageRoute}
-                  state={{
-                    provider: template.provider,
-                    model: modelOption.model,
-                    endpointName: modelOption.endpointName,
-                    secretName: template.secretName,
-                  }}
-                  css={{
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: theme.spacing.xs,
-                    padding: `3px ${theme.spacing.sm}px`,
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s',
-                    '&:hover': {
-                      backgroundColor: theme.colors.actionTertiaryBackgroundHover,
-                    },
-                  }}
-                >
-                  <Typography.Text
-                    color="secondary"
-                    css={{
-                      fontSize: theme.typography.fontSizeSm,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {modelOption.model}
-                  </Typography.Text>
-                  <ChevronRightIcon css={{ color: theme.colors.textSecondary, fontSize: 12, flexShrink: 0 }} />
-                </Link>
-              ))}
-            </div>
-          </div>
+          <ProviderCard key={template.provider} template={template} compact />
         ))}
       </div>
     </div>
