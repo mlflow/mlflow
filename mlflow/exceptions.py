@@ -1,12 +1,7 @@
 import json
 import logging
 
-from mlflow.error_classification import (
-    get_client_error_class,
-    get_client_sqlstate,
-    get_cp_error_class,
-    get_cp_sqlstate,
-)
+from mlflow.error_classification import ErrorClass, SqlState
 from mlflow.protos.databricks_pb2 import (
     ABORTED,
     ALREADY_EXISTS,
@@ -106,9 +101,13 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
         message = str(message)
         self.message = message
-        self.sqlstate = sqlstate if sqlstate is not None else get_client_sqlstate(self.error_code)
+        self.sqlstate = (
+            sqlstate if sqlstate is not None else SqlState.from_client_error_code(self.error_code)
+        )
         self.error_class = (
-            error_class if error_class is not None else get_client_error_class(self.error_code)
+            error_class
+            if error_class is not None
+            else ErrorClass.from_client_error_code(self.error_code)
         )
         self.json_kwargs = kwargs
         super().__init__(message)
@@ -183,12 +182,12 @@ class RestException(MlflowException):
         if sqlstate not in (None, ""):
             self.sqlstate = sqlstate
         else:
-            self.sqlstate = get_cp_sqlstate(self.error_code)
+            self.sqlstate = SqlState.from_cp_error_code(self.error_code)
         error_class = json.get("error_class")
         if error_class not in (None, ""):
             self.error_class = error_class
         else:
-            self.error_class = get_cp_error_class(self.error_code)
+            self.error_class = ErrorClass.from_cp_error_code(self.error_code)
 
     def __reduce__(self):
         """

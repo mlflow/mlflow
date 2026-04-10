@@ -23,7 +23,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
 )
-from mlflow.error_classification import get_cp_error_class, get_cp_sqlstate
+from mlflow.error_classification import ErrorClass, SqlState
 from mlflow.exceptions import (
     CUSTOMER_UNAUTHORIZED,
     ERROR_CODE_TO_HTTP_STATUS,
@@ -371,8 +371,8 @@ def verify_rest_response(
             raise MlflowException(
                 f"{base_msg}. Response body: '{response.text}'",
                 error_code=error_code,
-                sqlstate=get_cp_sqlstate(error_code_name),
-                error_class=get_cp_error_class(error_code_name),
+                sqlstate=SqlState.from_cp_error_code(error_code_name),
+                error_class=ErrorClass.from_cp_error_code(error_code_name),
             )
 
     if response.status_code == 204:
