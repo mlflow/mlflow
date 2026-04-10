@@ -18,16 +18,17 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import aiohttp
-from rich.console import Console  # type: ignore[import-not-found]
-from rich.progress import (  # type: ignore[import-not-found]
+from rich.console import Console
+from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
     Progress,
     SpinnerColumn,
+    TaskID,
     TextColumn,
     TimeElapsedColumn,
 )
-from rich.table import Table  # type: ignore[import-not-found]
+from rich.table import Table
 
 console = Console()
 
@@ -81,7 +82,7 @@ async def _send(
 
 
 async def _run_once(
-    url: str, n: int, max_concurrent: int, progress: Progress, task_id: int
+    url: str, n: int, max_concurrent: int, progress: Progress, task_id: TaskID
 ) -> RunResult:
     sem = asyncio.Semaphore(max_concurrent)
     connector = aiohttp.TCPConnector(

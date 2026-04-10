@@ -32,9 +32,9 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
 import benchmark as bm  # local module; path inserted above
-from rich.console import Console  # type: ignore[import-not-found]
-from rich.panel import Panel  # type: ignore[import-not-found]
-from rich.progress import (  # type: ignore[import-not-found]
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import (
     Progress,
     SpinnerColumn,
     TextColumn,

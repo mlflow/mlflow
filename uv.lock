@@ -10,7 +10,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-03-26T01:40:45.379305608Z"
+exclude-newer = "2026-03-27T05:49:07.79802783Z"
 exclude-newer-span = "P14D"
 
 [options.exclude-newer-package]
@@ -4345,6 +4345,7 @@ dev = [
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
     { name = "pyyaml" },
+    { name = "rich" },
     { name = "ruff" },
     { name = "setuptools" },
     { name = "skills" },
@@ -4396,6 +4397,7 @@ lint = [
     { name = "pydantic" },
     { name = "pytest" },
     { name = "pyyaml" },
+    { name = "rich" },
     { name = "ruff" },
     { name = "tiktoken" },
     { name = "toml" },
@@ -4535,6 +4537,7 @@ dev = [
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich" },
     { name = "ruff", specifier = "==0.15.5" },
     { name = "setuptools" },
     { name = "skills", editable = ".claude/skills" },
@@ -4583,6 +4586,7 @@ lint = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich" },
     { name = "ruff", specifier = "==0.15.5" },
     { name = "tiktoken" },
     { name = "toml", specifier = "==0.10.2" },
