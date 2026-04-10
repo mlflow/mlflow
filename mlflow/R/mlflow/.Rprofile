@@ -3,6 +3,6 @@ repos <- getOption("repos")
 # that can be installed significantly faster than uncompiled package sources.
 if (Sys.which("lsb_release") != "") {
     ubuntu_codename <- tolower(system("lsb_release -cs", intern = TRUE))
-    repo_name <- sprintf("https://packagemanager.rstudio.com/cran/__linux__/%s/2026-03-10", ubuntu_codename)
+    repo_name <- sprintf("https://packagemanager.rstudio.com/cran/__linux__/%s/latest", ubuntu_codename)
     options(repos = c(repos, REPO_NAME = repo_name))
 }

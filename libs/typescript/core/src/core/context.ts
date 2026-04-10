@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
+import { TraceMetadataKey } from './constants';
+
 /**
  * Options for the tracingContext function.
  */
@@ -20,6 +22,18 @@ export interface TracingContextOptions {
    * the outer scope.
    */
   enabled?: boolean;
+
+  /**
+   * Session ID to associate with traces created in this scope.
+   * Stored as metadata under the `mlflow.trace.session` key.
+   */
+  sessionId?: string;
+
+  /**
+   * User identifier to associate with traces created in this scope.
+   * Stored as metadata under the `mlflow.trace.user` key.
+   */
+  user?: string;
 }
 
 interface UserTraceContext {
@@ -83,9 +97,9 @@ export function isTracingEnabledInContext(): boolean | undefined {
  * ```typescript
  * import * as mlflow from "@mlflow/core";
  *
- * // Inject metadata and tags into all traces created within the scope
+ * // Inject session ID, user, and tags into all traces created within the scope
  * mlflow.tracingContext(
- *   { metadata: { "mlflow.trace.session": "session-123" }, tags: { project: "my-project" } },
+ *   { sessionId: "session-123", user: "user-456", tags: { project: "my-project" } },
  *   () => {
  *     // Any trace created here will carry the metadata and tags
  *     agent.invoke("What is the capital of France?");
@@ -102,8 +116,17 @@ export function isTracingEnabledInContext(): boolean | undefined {
 export function tracingContext<T>(options: TracingContextOptions, fn: () => T): T {
   const current = storage.getStore();
 
+  // Inject sessionId and user into metadata
+  const metadata = { ...(options.metadata ?? {}) };
+  if (options.sessionId !== undefined) {
+    metadata[TraceMetadataKey.TRACE_SESSION] = options.sessionId;
+  }
+  if (options.user !== undefined) {
+    metadata[TraceMetadataKey.TRACE_USER] = options.user;
+  }
+
   // Merge with any outer context scope (inner wins on conflict)
-  const mergedMetadata = { ...(current?.metadata ?? {}), ...(options.metadata ?? {}) };
+  const mergedMetadata = { ...(current?.metadata ?? {}), ...metadata };
   const mergedTags = { ...(current?.tags ?? {}), ...(options.tags ?? {}) };
   const resolvedEnabled =
     options.enabled !== undefined ? options.enabled : (current?.enabled ?? undefined);

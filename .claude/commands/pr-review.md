@@ -1,12 +1,12 @@
 ---
 allowed-tools: Read, Skill, Bash, Grep, Glob
 argument-hint: [extra_context]
-description: Review a GitHub pull request and add review comments for issues found
+description: Review a GitHub pull request, add review comments for issues found, and approve if no significant issues exist
 ---
 
 # Review Pull Request
 
-Automatically review a GitHub pull request and provide feedback on code quality, style guide violations, and potential bugs.
+Automatically review a GitHub pull request and provide feedback on code quality, style guide violations, and potential bugs. Approves the PR if no significant issues are found.
 
 ## Usage
 
@@ -63,9 +63,18 @@ Carefully examine **only the changed lines** (added, modified, or deleted) in th
 
 ### 4. Decision Point
 
-- If **no issues found** → Output "No issues found" and exit successfully
-- If **issues found** → Continue to step 5
+- If **no issues found** → Skip to step 6 (approve)
+- If **only minor issues found** (e.g., style nits, suggestions) → Continue to step 5 (add review comments), then step 6 (approve)
+- If **significant issues found** (e.g., bugs, logic errors, security) → Continue to step 5 (add review comments), do NOT approve
 
 ### 5. Add Review Comments
 
 For each issue found, use the `add-review-comment` skill to post review comments.
+
+### 6. Approve the PR
+
+Approve the PR when there are no issues or only minor issues.
+
+```bash
+gh pr review <PR_NUMBER> --repo <owner/repo> --approve
+```

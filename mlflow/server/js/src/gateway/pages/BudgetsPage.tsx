@@ -1,13 +1,6 @@
-import {
-  Breadcrumb,
-  Button,
-  CreditCardIcon,
-  PlusIcon,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Breadcrumb, Button, CreditCardIcon, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { Link } from '../../common/utils/RoutingUtils';
+import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
 import { GatewayLabel } from '../../common/components/GatewayNewTag';
 import GatewayRoutes from '../routes';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
@@ -19,8 +12,14 @@ import { DeleteBudgetPolicyModal } from '../components/budgets/DeleteBudgetPolic
 import { useBudgetsPage } from '../hooks/useBudgetsPage';
 import WebhooksSettings from '../../settings/WebhooksSettings';
 
+const VALID_TABS = ['policies', 'alerts'] as const;
+
 const BudgetsPage = () => {
   const { theme } = useDesignSystemTheme();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tabParam = searchParams.get('tab');
+  const activeTab = VALID_TABS.includes(tabParam as (typeof VALID_TABS)[number]) ? (tabParam as string) : 'policies';
 
   const {
     isCreateModalOpen,
@@ -42,14 +41,11 @@ const BudgetsPage = () => {
       {/* Header */}
       <div
         css={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
           padding: theme.spacing.md,
-          borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+          paddingBottom: 0,
         }}
       >
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, marginBottom: theme.spacing.md }}>
           <Breadcrumb includeTrailingCaret>
             <Breadcrumb.Item>
               <Link componentId="mlflow.gateway.budgets.breadcrumb_gateway_link" to={GatewayRoutes.gatewayPageRoute}>
@@ -73,47 +69,87 @@ const BudgetsPage = () => {
             </Typography.Title>
           </div>
         </div>
-        <Button
-          componentId="mlflow.gateway.budgets.create-button"
-          type="primary"
-          icon={<PlusIcon />}
-          onClick={handleCreateClick}
-        >
-          <FormattedMessage
-            defaultMessage="Create budget policy"
-            description="Gateway > Budgets page > Create budget policy button"
-          />
-        </Button>
       </div>
 
-      {/* Content */}
-      <div
-        css={{
-          flex: 1,
-          overflow: 'auto',
-          padding: theme.spacing.md,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: theme.spacing.lg,
+      {/* Tabs */}
+      <Tabs.Root
+        componentId="mlflow.gateway.budgets.tabs"
+        valueHasNoPii
+        value={activeTab}
+        onValueChange={(value) => {
+          setSearchParams(
+            (params) => {
+              params.set('tab', value);
+              return params;
+            },
+            { replace: true },
+          );
         }}
+        css={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
-        <BudgetsList onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} />
-        <WebhooksSettings
-          eventFilter="BUDGET_POLICY"
-          title={
-            <FormattedMessage
-              defaultMessage="Budget alert webhooks"
-              description="Budget webhooks section title on budgets page"
-            />
-          }
-          description={
-            <FormattedMessage
-              defaultMessage="Receive HTTP notifications when a budget policy is exceeded."
-              description="Budget webhooks section description on budgets page"
-            />
-          }
-        />
-      </div>
+        <div css={{ paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }}>
+          <Tabs.List>
+            <Tabs.Trigger value="policies">
+              <FormattedMessage defaultMessage="Policies" description="Tab label for budget policies" />
+            </Tabs.Trigger>
+            <Tabs.Trigger value="alerts">
+              <FormattedMessage defaultMessage="Alerts" description="Tab label for budget alerts" />
+            </Tabs.Trigger>
+          </Tabs.List>
+        </div>
+
+        <Tabs.Content
+          value="policies"
+          css={{
+            flex: 1,
+            overflow: 'auto',
+            padding: theme.spacing.md,
+            paddingTop: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.md,
+          }}
+        >
+          <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button componentId="mlflow.gateway.budgets.create-button" type="primary" onClick={handleCreateClick}>
+              <FormattedMessage
+                defaultMessage="Create budget policy"
+                description="Gateway > Budgets page > Create budget policy button"
+              />
+            </Button>
+          </div>
+          <BudgetsList onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} />
+        </Tabs.Content>
+
+        <Tabs.Content
+          value="alerts"
+          css={{
+            flex: 1,
+            overflow: 'auto',
+            padding: theme.spacing.md,
+            paddingTop: 0,
+          }}
+        >
+          <WebhooksSettings
+            eventFilter="BUDGET_POLICY"
+            showTitle={false}
+            showDescription={false}
+            emptyDescription={
+              <FormattedMessage
+                defaultMessage="Get notified when a budget policy is exceeded. Create a webhook to get started, or <link>learn more</link>."
+                description="Budget webhooks empty state description on budgets page"
+                values={{
+                  link: (chunks: any) => (
+                    <a href="https://mlflow.org/docs/latest/ml/webhooks/" target="_blank" rel="noopener noreferrer">
+                      {chunks}
+                    </a>
+                  ),
+                }}
+              />
+            }
+          />
+        </Tabs.Content>
+      </Tabs.Root>
 
       {/* Modals */}
       <CreateBudgetPolicyModal
