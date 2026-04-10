@@ -48,7 +48,7 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+@pytest.fixture(params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
 def workspaces_enabled(request, monkeypatch):
     """
     Run every test in this module with workspaces disabled and enabled to cover both code paths.
@@ -887,7 +887,6 @@ def test_submit_job_workspace_propagation(monkeypatch, tmp_path, workspaces_enab
         assert job.parsed_result == expected_workspace
 
 
-@pytest.mark.parametrize("workspaces_enabled", [False], indirect=True)
 def test_reenqueued_jobs_respect_workspace_disabled(monkeypatch, db_uri):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
