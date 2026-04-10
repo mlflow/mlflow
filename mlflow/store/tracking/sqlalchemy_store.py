@@ -2511,7 +2511,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
-            return self._resolve_endpoint_in_scorer(entity)
+            return self.resolve_endpoint_in_scorer(entity)
 
     def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
@@ -2648,7 +2648,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
-            return self._resolve_endpoint_in_scorer(entity)
+            return self.resolve_endpoint_in_scorer(entity)
 
     def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
@@ -6381,7 +6381,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
         return obj
 
-    def _resolve_endpoint_in_scorer(self, scorer_version: ScorerVersion) -> ScorerVersion:
+    def resolve_endpoint_in_scorer(self, scorer_version: ScorerVersion) -> ScorerVersion:
         """
         Resolve gateway endpoint ID to name in a scorer version.
 

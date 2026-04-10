@@ -206,7 +206,7 @@ def test_load_guardrails_converts_real_entity():
     resolved_scorer = mock.MagicMock()
     store = mock.MagicMock()
     store.list_endpoint_guardrail_configs.return_value = [config]
-    store._resolve_endpoint_in_scorer.return_value = resolved_scorer
+    store.resolve_endpoint_in_scorer.return_value = resolved_scorer
     endpoint_config = mock.MagicMock()
     endpoint_config.endpoint_id = "ep-1"
     request = mock.MagicMock()
@@ -218,7 +218,7 @@ def test_load_guardrails_converts_real_entity():
 
     assert len(result) == 1
     assert isinstance(result[0], JudgeGuardrail)
-    store._resolve_endpoint_in_scorer.assert_called_once_with(config.guardrail.scorer)
+    store.resolve_endpoint_in_scorer.assert_called_once_with(config.guardrail.scorer)
     called_guardrail, called_url = mock_from_entity.call_args[0]
     assert called_url == "http://localhost:5000"
     assert called_guardrail.scorer is resolved_scorer
@@ -227,7 +227,7 @@ def test_load_guardrails_converts_real_entity():
 
 def test_load_guardrails_resolves_endpoint_id_to_name():
     """Scorer's gateway:/ model URI contains an endpoint ID; load_guardrails must
-    resolve it to the endpoint name via _resolve_endpoint_in_scorer before invoking
+    resolve it to the endpoint name via resolve_endpoint_in_scorer before invoking
     from_entity, so the judge self-call uses the correct model name.
     """
     config = _make_guardrail_config(stage="BEFORE", action="VALIDATION")
@@ -250,7 +250,7 @@ def test_load_guardrails_resolves_endpoint_id_to_name():
 
     store = mock.MagicMock()
     store.list_endpoint_guardrail_configs.return_value = [config]
-    store._resolve_endpoint_in_scorer.return_value = resolved_scorer
+    store.resolve_endpoint_in_scorer.return_value = resolved_scorer
     endpoint_config = mock.MagicMock()
     endpoint_config.endpoint_id = "ep-1"
     request = mock.MagicMock()
@@ -260,7 +260,7 @@ def test_load_guardrails_resolves_endpoint_id_to_name():
         mock_from_entity.return_value = _make_judge("BEFORE")
         load_guardrails(store, endpoint_config, request)
 
-    store._resolve_endpoint_in_scorer.assert_called_once_with(original_scorer)
+    store.resolve_endpoint_in_scorer.assert_called_once_with(original_scorer)
     called_guardrail, _ = mock_from_entity.call_args[0]
     assert called_guardrail.scorer is resolved_scorer
 

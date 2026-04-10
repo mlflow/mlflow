@@ -3155,6 +3155,28 @@ async def test_invocations_bypass_header_skips_guardrails(store: SqlAlchemyStore
 
 
 @pytest.mark.asyncio
+async def test_invocations_bypass_header_wrong_value_runs_guardrails(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-bypass-wrong-val")
+    _setup_db_guardrail(store, "ep-bypass-wrong-val", "BEFORE", "VALIDATION")
+
+    mock_request = _make_guardrail_mock_request(
+        {"messages": [{"role": "user", "content": "hello"}]},
+        headers={_SANITIZE_BYPASS_HEADER: "true"},  # wrong value — must not bypass
+    )
+
+    blocking_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=blocking_scorer),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", AsyncMock()),
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
+
+    assert blocking_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
 async def test_real_db_before_guardrail_passes(store: SqlAlchemyStore):
     endpoint = _setup_guardrail_endpoint(store, "real-ep-before-pass")
     _setup_db_guardrail(store, "real-ep-before-pass", "BEFORE", "VALIDATION")
@@ -3332,3 +3354,48 @@ async def test_invocations_sanitize_no_action_endpoint_blocks(store: SqlAlchemyS
     ):
         with pytest.raises(HTTPException, match="400"):
             await invocations(endpoint.name, mock_request)
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_before_sanitize_rewrites_request(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-cc-sanitize-before")
+    sanitizer = _setup_guardrail_endpoint(store, "ep-cc-sanitizer")
+    _setup_db_guardrail(
+        store,
+        "ep-cc-sanitize-before",
+        "BEFORE",
+        "SANITIZATION",
+        action_endpoint_name=sanitizer.name,
+    )
+
+    sanitized_body = {"messages": [{"role": "user", "content": "cleaned input"}]}
+    mock_response = _make_guardrail_chat_response("Response to cleaned input")
+    mock_request = _make_guardrail_mock_request({
+        "model": endpoint.name,
+        "messages": [{"role": "user", "content": "bad input"}],
+    })
+
+    failing_scorer = _SimpleScorer(passing=False)
+    captured_payloads: list[Any] = []
+
+    async def fake_chat(payload):
+        captured_payloads.append(payload)
+        return mock_response
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
+        patch(
+            "mlflow.gateway.guardrails.send_request",
+            AsyncMock(
+                return_value={"choices": [{"message": {"content": json.dumps(sanitized_body)}}]}
+            ),
+        ),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", side_effect=fake_chat),
+    ):
+        from mlflow.server.gateway_api import chat_completions
+
+        response = await chat_completions(mock_request)
+
+    assert response.choices[0].message.content == "Response to cleaned input"
+    assert failing_scorer.call_count == 1
+    assert captured_payloads[0].messages[0].content == "cleaned input"

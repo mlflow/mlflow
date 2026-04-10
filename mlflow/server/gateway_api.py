@@ -44,6 +44,7 @@ from mlflow.gateway.guardrail_utils import (
 from mlflow.gateway.guardrails import (
     _SANITIZE_BYPASS_HEADER,
     GuardrailViolation,
+    JudgeGuardrail,
 )
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
@@ -536,6 +537,16 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
     return endpoint_name
 
 
+def _get_guardrails_and_auth(
+    store, endpoint_config, request: Request
+) -> tuple[list[JudgeGuardrail], dict[str, str]]:
+    """Load guardrails and extract auth headers, skipping guardrails for internal bypass calls."""
+    headers = dict(request.headers)
+    bypass = headers.get(_SANITIZE_BYPASS_HEADER) == "1"
+    guardrails = [] if bypass else load_guardrails(store, endpoint_config, request)
+    return guardrails, extract_auth_headers(headers)
+
+
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
 @_record_gateway_invocation(GatewayInvocationType.MLFLOW_INVOCATIONS)
@@ -557,10 +568,7 @@ async def invocations(endpoint_name: str, request: Request):
     _validate_store(store)
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
-    # Skip guardrails for internal sanitization calls to prevent recursive loops.
-    bypass = _SANITIZE_BYPASS_HEADER in headers
-    guardrails = [] if bypass else load_guardrails(store, endpoint_config, request)
-    auth_headers = extract_auth_headers(headers)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     # Detect request type based on payload structure
     if "messages" in body:
@@ -676,10 +684,7 @@ async def chat_completions(request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     check_budget_limit(store, endpoint_config, workspace=workspace)
-    # Skip guardrails for internal sanitization calls to prevent recursive loops.
-    bypass = _SANITIZE_BYPASS_HEADER in headers
-    guardrails = [] if bypass else load_guardrails(store, endpoint_config, request)
-    auth_headers = extract_auth_headers(headers)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     try:
         payload = chat.RequestPayload(**body)

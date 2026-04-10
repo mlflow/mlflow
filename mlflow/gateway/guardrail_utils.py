@@ -23,6 +23,7 @@ def load_guardrails(
     request: Request,
 ) -> list[JudgeGuardrail]:
     """Load guardrails for an endpoint and convert to callable JudgeGuardrail instances."""
+    # Configs are returned ordered by execution_order ASC (nulls last), then guardrail_id.
     configs = store.list_endpoint_guardrail_configs(endpoint_config.endpoint_id)
     if not configs:
         return []
@@ -33,7 +34,7 @@ def load_guardrails(
         if config.guardrail is None:
             continue
         try:
-            resolved_scorer = store._resolve_endpoint_in_scorer(config.guardrail.scorer)
+            resolved_scorer = store.resolve_endpoint_in_scorer(config.guardrail.scorer)
             guardrail = dataclasses.replace(config.guardrail, scorer=resolved_scorer)
             guardrails.append(JudgeGuardrail.from_entity(guardrail, server_url))
         except Exception:
@@ -45,7 +46,7 @@ def load_guardrails(
 
 def extract_auth_headers(headers: dict[str, str]) -> dict[str, str]:
     """Return only the Authorization header for internal guardrail calls."""
-    auth = headers.get("authorization") or headers.get("Authorization")
+    auth = next((v for k, v in headers.items() if k.lower() == "authorization"), None)
     return {"authorization": auth} if auth else {}
 
 
