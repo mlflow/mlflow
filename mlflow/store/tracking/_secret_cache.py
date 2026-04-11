@@ -37,7 +37,7 @@ import json
 import os
 import time
 from collections import OrderedDict
-from threading import RLock, Thread
+from threading import Event, RLock, Thread
 from typing import Any
 
 from mlflow.utils.crypto import _encrypt_with_aes_gcm, decrypt_with_aes_gcm
@@ -79,7 +79,7 @@ class EphemeralCacheEncryption:
         self._previous_bucket: int | None = None
         self._previous_key: bytes | None = None
         self._lock = RLock()
-        self._shutdown = False
+        self._stop_event = Event()
 
         # Start background cleanup thread
         self._cleanup_thread = Thread(
@@ -91,9 +91,19 @@ class EphemeralCacheEncryption:
 
     def _cleanup_loop(self) -> None:
         """Background thread that proactively purges expired bucket keys."""
-        while not self._shutdown:
-            time.sleep(self._key_rotation_seconds)
+        while not self._stop_event.wait(timeout=self._key_rotation_seconds):
             self._purge_expired_keys()
+
+    def shutdown(self) -> None:
+        """Signal the cleanup thread to stop and wait for it to finish."""
+        self._stop_event.set()
+        self._cleanup_thread.join(timeout=5.0)
+
+    def __enter__(self) -> "EphemeralCacheEncryption":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.shutdown()
 
     def _purge_expired_keys(self) -> None:
         """Purge any bucket keys that are more than 1 bucket old."""
@@ -265,3 +275,13 @@ class SecretCache:
     def size(self) -> int:
         with self._lock:
             return len(self._cache)
+
+    def close(self) -> None:
+        """Shut down the underlying encryption cleanup thread."""
+        self._crypto.shutdown()
+
+    def __enter__(self) -> "SecretCache":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()

@@ -19,12 +19,16 @@ from mlflow.store.tracking._secret_cache import (
 
 @pytest.fixture
 def crypto():
-    return EphemeralCacheEncryption(ttl_seconds=60)
+    c = EphemeralCacheEncryption(ttl_seconds=60)
+    yield c
+    c.shutdown()
 
 
 @pytest.fixture
 def cache():
-    return SecretCache(ttl_seconds=60, max_size=100)
+    c = SecretCache(ttl_seconds=60, max_size=100)
+    yield c
+    c.close()
 
 
 @pytest.mark.parametrize(
@@ -55,39 +59,39 @@ def test_same_plaintext_produces_different_ciphertexts_due_to_nonce(crypto):
 
 
 def test_decryption_fails_after_key_rotation():
-    crypto = EphemeralCacheEncryption(ttl_seconds=1)
-    plaintext = "secret"
-    blob, time_bucket = crypto.encrypt(plaintext)
-    time.sleep(2.5)
-    decrypted = crypto.decrypt(blob, time_bucket)
+    with EphemeralCacheEncryption(ttl_seconds=1) as crypto:
+        plaintext = "secret"
+        blob, time_bucket = crypto.encrypt(plaintext)
+        time.sleep(2.5)
+        decrypted = crypto.decrypt(blob, time_bucket)
     assert decrypted is None
 
 
 def test_bucket_key_purged_after_expiration():
-    crypto = EphemeralCacheEncryption(ttl_seconds=1)
-    plaintext = "secret-that-should-be-unrecoverable"
-    blob, time_bucket = crypto.encrypt(plaintext)
+    with EphemeralCacheEncryption(ttl_seconds=1) as crypto:
+        plaintext = "secret-that-should-be-unrecoverable"
+        blob, time_bucket = crypto.encrypt(plaintext)
 
-    assert crypto._active_bucket == time_bucket
-    assert crypto._active_key is not None
-    assert len(crypto._active_key) == 32
+        assert crypto._active_bucket == time_bucket
+        assert crypto._active_key is not None
+        assert len(crypto._active_key) == 32
 
-    time.sleep(2.5)
-    crypto._get_bucket_key(crypto._get_time_bucket())
+        time.sleep(2.5)
+        crypto._get_bucket_key(crypto._get_time_bucket())
 
-    # After 2.5 seconds with 1s TTL, the original bucket key should be purged
-    # (it's more than 1 bucket old)
-    assert crypto._active_bucket != time_bucket
-    assert crypto._previous_bucket != time_bucket or crypto._previous_bucket is None
-    assert crypto.decrypt(blob, time_bucket) is None
+        # After 2.5 seconds with 1s TTL, the original bucket key should be purged
+        # (it's more than 1 bucket old)
+        assert crypto._active_bucket != time_bucket
+        assert crypto._previous_bucket != time_bucket or crypto._previous_bucket is None
+        assert crypto.decrypt(blob, time_bucket) is None
 
 
 def test_decryption_succeeds_within_rotation_tolerance():
-    crypto = EphemeralCacheEncryption(ttl_seconds=1)
-    plaintext = "secret"
-    blob, time_bucket = crypto.encrypt(plaintext)
-    time.sleep(0.5)
-    decrypted = crypto.decrypt(blob, time_bucket)
+    with EphemeralCacheEncryption(ttl_seconds=1) as crypto:
+        plaintext = "secret"
+        blob, time_bucket = crypto.encrypt(plaintext)
+        time.sleep(0.5)
+        decrypted = crypto.decrypt(blob, time_bucket)
     assert decrypted == plaintext
 
 
@@ -100,12 +104,14 @@ def test_decryption_fails_with_corrupted_blob(crypto):
 
 
 def test_process_ephemeral_keys_unique_per_instance():
-    crypto1 = EphemeralCacheEncryption(ttl_seconds=60)
-    crypto2 = EphemeralCacheEncryption(ttl_seconds=60)
-    # Each instance generates independent random bucket keys
-    # so one instance cannot decrypt what another encrypted
-    blob, bucket = crypto1.encrypt("secret")
-    decrypted_by_crypto2 = crypto2.decrypt(blob, bucket)
+    with (
+        EphemeralCacheEncryption(ttl_seconds=60) as crypto1,
+        EphemeralCacheEncryption(ttl_seconds=60) as crypto2,
+    ):
+        # Each instance generates independent random bucket keys
+        # so one instance cannot decrypt what another encrypted
+        blob, bucket = crypto1.encrypt("secret")
+        decrypted_by_crypto2 = crypto2.decrypt(blob, bucket)
     assert decrypted_by_crypto2 is None
 
 
@@ -132,26 +138,26 @@ def test_cache_stores_multiple_entries(cache):
 
 
 def test_lru_eviction_when_max_size_exceeded():
-    cache = SecretCache(ttl_seconds=60, max_size=3)
-    cache.set("key_1", {"value": "1"})
-    cache.set("key_2", {"value": "2"})
-    cache.set("key_3", {"value": "3"})
-    assert cache.size() == 3
-    cache.set("key_4", {"value": "4"})
-    assert cache.size() == 3
-    assert cache.get("key_1") is None
-    assert cache.get("key_4") == {"value": "4"}
+    with SecretCache(ttl_seconds=60, max_size=3) as cache:
+        cache.set("key_1", {"value": "1"})
+        cache.set("key_2", {"value": "2"})
+        cache.set("key_3", {"value": "3"})
+        assert cache.size() == 3
+        cache.set("key_4", {"value": "4"})
+        assert cache.size() == 3
+        assert cache.get("key_1") is None
+        assert cache.get("key_4") == {"value": "4"}
 
 
 def test_lru_promotion_on_access():
-    cache = SecretCache(ttl_seconds=60, max_size=3)
-    cache.set("key_1", {"value": "1"})
-    cache.set("key_2", {"value": "2"})
-    cache.set("key_3", {"value": "3"})
-    _ = cache.get("key_1")
-    cache.set("key_4", {"value": "4"})
-    assert cache.get("key_1") == {"value": "1"}
-    assert cache.get("key_2") is None
+    with SecretCache(ttl_seconds=60, max_size=3) as cache:
+        cache.set("key_1", {"value": "1"})
+        cache.set("key_2", {"value": "2"})
+        cache.set("key_3", {"value": "3"})
+        _ = cache.get("key_1")
+        cache.set("key_4", {"value": "4"})
+        assert cache.get("key_1") == {"value": "1"}
+        assert cache.get("key_2") is None
 
 
 def test_clear_removes_all_entries(cache):
@@ -182,8 +188,8 @@ def test_ttl_validation(ttl, should_raise):
         with pytest.raises(ValueError, match=match):
             SecretCache(ttl_seconds=ttl)
     else:
-        cache = SecretCache(ttl_seconds=ttl)
-        assert cache._ttl == ttl
+        with SecretCache(ttl_seconds=ttl) as cache:
+            assert cache._ttl == ttl
 
 
 def test_thread_safety_concurrent_reads(cache):
@@ -201,37 +207,37 @@ def test_thread_safety_concurrent_reads(cache):
 
 
 def test_thread_safety_concurrent_writes():
-    cache = SecretCache(ttl_seconds=60, max_size=1000)
+    with SecretCache(ttl_seconds=60, max_size=1000) as cache:
 
-    def write_cache(thread_id):
-        for i in range(50):
-            cache.set(f"key_{thread_id}_{i}", {"value": f"{thread_id}_{i}"})
+        def write_cache(thread_id):
+            for i in range(50):
+                cache.set(f"key_{thread_id}_{i}", {"value": f"{thread_id}_{i}"})
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(write_cache, i) for i in range(10)]
-        for future in futures:
-            future.result()
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(write_cache, i) for i in range(10)]
+            for future in futures:
+                future.result()
 
-    assert cache.size() <= 1000
+        assert cache.size() <= 1000
 
 
 def test_thread_safety_concurrent_clear():
-    cache = SecretCache(ttl_seconds=60, max_size=1000)
-    for i in range(100):
-        cache.set(f"key_{i}", {"value": str(i)})
+    with SecretCache(ttl_seconds=60, max_size=1000) as cache:
+        for i in range(100):
+            cache.set(f"key_{i}", {"value": str(i)})
 
-    def clear_cache():
-        cache.clear()
+        def clear_cache():
+            cache.clear()
 
-    def read_cache():
-        for _ in range(50):
-            _ = cache.get("key_0")
+        def read_cache():
+            for _ in range(50):
+                _ = cache.get("key_0")
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(clear_cache) for _ in range(3)]
-        futures += [executor.submit(read_cache) for _ in range(7)]
-        for future in futures:
-            future.result()
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(clear_cache) for _ in range(3)]
+            futures += [executor.submit(read_cache) for _ in range(7)]
+            for future in futures:
+                future.result()
 
 
 def test_cache_handles_unicode_secrets(cache):
