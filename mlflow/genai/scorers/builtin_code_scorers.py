@@ -27,6 +27,21 @@ _PII_PATTERNS: dict[str, re.Pattern] = {
 }
 
 
+def _passes_luhn(number_str: str) -> bool:
+    """Validate a number string using the Luhn algorithm."""
+    digits = [int(d) for d in number_str if d.isdigit()]
+    if len(digits) < 13:
+        return False
+    checksum = 0
+    for i, d in enumerate(reversed(digits)):
+        if i % 2 == 1:
+            d *= 2
+            if d > 9:
+                d -= 9
+        checksum += d
+    return checksum % 10 == 0
+
+
 def _to_str(value: Any) -> str:
     if value is None:
         return ""
@@ -45,6 +60,13 @@ class BuiltInCodeScorer(Scorer):
 
     name: str
     required_columns: set[str] = set()
+
+    def validate_columns(self, columns: set[str]) -> None:
+        missing = self.required_columns - columns
+        if missing:
+            raise MlflowException.invalid_parameter_value(
+                f"Scorer '{self.name}' requires columns {missing} not present in dataset."
+            )
 
     @property
     def kind(self) -> ScorerKind:
@@ -207,6 +229,10 @@ class JsonValidity(BuiltInCodeScorer):
 
 class RegexMatch(BuiltInCodeScorer):
     """Check whether the output matches a regex pattern.
+
+    Note:
+        Ensure regex patterns are efficient. Patterns with nested quantifiers
+        (e.g., ``(a+)+b``) may cause slow execution on large outputs.
 
     Args:
         name: The name of the scorer. Defaults to ``"regex_match"``.
@@ -519,6 +545,8 @@ class PII(BuiltInCodeScorer):
         detected = {}
         for pii_type, pattern in patterns.items():
             matches = pattern.findall(text)
+            if pii_type == "credit_card":
+                matches = [m for m in matches if _passes_luhn(m)]
             if matches:
                 detected[pii_type] = len(matches)
 

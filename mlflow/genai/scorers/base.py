@@ -333,7 +333,9 @@ class Scorer(BaseModel):
 
             try:
                 return BuiltInScorer.model_validate(obj)
-            except MlflowException:
+            except MlflowException as e:
+                if "Unknown builtin scorer class" not in str(e):
+                    raise
                 # Fall back to code scorers if not found in LLM-based scorers
                 from mlflow.genai.scorers.builtin_code_scorers import BuiltInCodeScorer
 

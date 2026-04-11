@@ -1,6 +1,9 @@
 from unittest.mock import MagicMock
 
+import pytest
+
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import (
     PII,
     ContainsKeywords,
@@ -357,6 +360,17 @@ class TestPII:
         assert "email" in fb.rationale
         assert "phone" in fb.rationale
 
+    def test_credit_card_detected(self):
+        # Visa test number (passes Luhn)
+        fb = PII()(outputs="My card is 4111111111111111")
+        assert fb.value is False
+        assert "credit_card" in fb.rationale
+
+    def test_credit_card_luhn_rejects_random_digits(self):
+        # 16 random digits that fail Luhn should not be flagged as credit card
+        fb = PII(pii_types=["credit_card"])(outputs="Ref: 1234567890123456")
+        assert fb.value is True
+
 
 # ── Serialization ───────────────────────────────────────────────────────────
 
@@ -394,3 +408,17 @@ class TestBuiltInCodeScorerSerialization:
         assert isinstance(restored, RegexMatch)
         assert restored.pattern == r"\d+"
         assert restored.full_match is True
+
+
+# ── validate_columns ────────────────────────────────────────────────────────
+
+
+class TestValidateColumns:
+    def test_validate_columns_passes(self):
+        scorer = ExactMatch()
+        scorer.validate_columns({"outputs", "expectations"})
+
+    def test_validate_columns_missing(self):
+        scorer = ExactMatch()
+        with pytest.raises(MlflowException, match="requires columns"):
+            scorer.validate_columns({"outputs"})
