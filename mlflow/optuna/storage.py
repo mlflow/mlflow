@@ -66,7 +66,8 @@ def _periodic_flush_worker(
                 obj.flush_all_batches()
                 obj._last_flush_time = current_time
         except Exception:
-            pass
+            # Sleep longer on error to avoid tight retry loop
+            stop_event.wait(timeout=1.0)
         finally:
             del obj
 
