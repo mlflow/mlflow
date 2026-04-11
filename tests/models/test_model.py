@@ -266,6 +266,38 @@ def test_model_metadata():
         assert loaded_model.metadata["metadata_key"] == "metadata_value"
 
 
+def test_model_custom_fields_round_trip():
+    m = Model(
+        artifact_path="model",
+        run_id="123",
+        flavors={"flavor1": {"a": 1}},
+        custom_string="hello",
+        custom_int=42,
+        custom_dict={"nested_key": "nested_value"},
+        custom_list=[1, 2, 3],
+    )
+    assert m.custom_string == "hello"
+    assert m.custom_int == 42
+    assert m.custom_dict == {"nested_key": "nested_value"}
+    assert m.custom_list == [1, 2, 3]
+
+    d = m.to_dict()
+    assert d["custom_string"] == "hello"
+    assert d["custom_int"] == 42
+    assert d["custom_dict"] == {"nested_key": "nested_value"}
+    assert d["custom_list"] == [1, 2, 3]
+
+    with TempDir() as tmp:
+        path = tmp.path("MLmodel")
+        m.save(path)
+        loaded = Model.load(path)
+    assert loaded.custom_string == "hello"
+    assert loaded.custom_int == 42
+    assert loaded.custom_dict == {"nested_key": "nested_value"}
+    assert loaded.custom_list == [1, 2, 3]
+    assert m == loaded
+
+
 def test_load_model_without_mlflow_version():
     with TempDir(chdr=True) as tmp:
         model = Model(artifact_path="model", run_id="1234", mlflow_version=None)
