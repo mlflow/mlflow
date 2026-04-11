@@ -193,6 +193,7 @@ def test_export_with_batch_span_processor(monkeypatch):
 
 def test_async_logging_disabled_in_databricks_notebook(monkeypatch):
     with mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True):
+        monkeypatch.delenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", raising=False)
         exporter = MlflowV3SpanExporter()
         assert not exporter._is_async_enabled
 
@@ -590,7 +591,8 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
     assert any("Prompt linking failed" in msg for msg in warning_calls)
 
 
-def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
+def test_no_log_spans_to_artifacts_if_stored_in_tracking_store(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
     # Create a mock OTEL span and trace
     otel_span = create_mock_otel_span(
         name="root",
@@ -608,6 +610,8 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
     trace_manager.register_trace(otel_span.context.trace_id, trace_info)
     trace_manager.register_span(span)
 
+    mlflow.flush_trace_async_logging()
+
     with (
         mock.patch(
             "mlflow.tracing.client.TracingClient.start_trace",
@@ -623,7 +627,8 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
         mock_start_trace.assert_called_once()
 
 
-def test_batch_write_skipped_when_store_unsupported():
+def test_batch_write_skipped_when_store_unsupported(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
     otel_span = create_mock_otel_span(name="root", trace_id=66666, span_id=1, parent_id=None)
     trace_id = generate_trace_id_v3(otel_span)
     span = LiveSpan(otel_span, trace_id)

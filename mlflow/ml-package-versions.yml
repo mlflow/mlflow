@@ -246,6 +246,9 @@ semantic_kernel:
           # https://github.com/openai/openai-python/issues/2525
           "openai>=1.99.9",
         ]
+      # semantic-kernel>=1.36.1 depends on azure-ai-agents>=1.2.0b3 (pre-release).
+      # Explicitly specifying the prerelease requirement allows uv to resolve it without --prerelease=allow.
+      ">= 1.36.1": ["azure-ai-agents>=1.2.0b3"]
     run: |
       pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
 

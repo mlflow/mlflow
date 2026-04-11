@@ -346,6 +346,26 @@ def test_trace_disabled_decorator(enabled_initially):
         assert enable_mock.call_count == (1 if enabled_initially else 0)
 
 
+@pytest.mark.parametrize("enabled_initially", [True, False])
+def test_trace_disabled_with_mlflow_trace_raising(enabled_initially):
+    if not enabled_initially:
+        mlflow.tracing.disable()
+
+    @mlflow.trace
+    def predict_fn(query):
+        raise ValueError("Uhoh!")
+
+    @trace_disabled
+    def validate():
+        predict_fn(query="What is MLflow?")
+
+    with pytest.raises(ValueError, match="Uhoh!"):
+        validate()
+
+    assert is_tracing_enabled() == enabled_initially
+    assert len(get_traces()) == 0
+
+
 def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
 

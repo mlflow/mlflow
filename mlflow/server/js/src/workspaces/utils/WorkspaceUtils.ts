@@ -85,7 +85,7 @@ export const extractWorkspaceFromSearchParams = (search: string | URLSearchParam
   const params = typeof search === 'string' ? new URLSearchParams(search) : search;
   const workspaceName = params.get(WORKSPACE_QUERY_PARAM);
 
-  if (!workspaceName || !WORKSPACE_NAME_PATTERN.test(workspaceName)) {
+  if (!workspaceName || !validateWorkspaceName(workspaceName).valid) {
     return null;
   }
 
@@ -170,7 +170,13 @@ export const prefixRouteWithWorkspace = (to: string): string => {
     return to;
   }
 
-  if (!getWorkspacesEnabledSync() || isAbsoluteUrl(to)) {
+  if (isAbsoluteUrl(to)) {
+    return to;
+  }
+  // Keep workspace prefixing when an active workspace is already known, even if
+  // the async server feature flags have not resolved yet. This avoids dropping
+  // workspace context during early navigation on initial load.
+  if (!getWorkspacesEnabledSync() && !getActiveWorkspace()) {
     return to;
   }
 
@@ -218,7 +224,10 @@ export const appendWorkspaceSearchParams = (pathname: string | undefined): strin
   if (!pathname) {
     return pathname;
   }
-  if (!getWorkspacesEnabledSync() || isAbsoluteUrl(pathname)) {
+  if (isAbsoluteUrl(pathname)) {
+    return pathname;
+  }
+  if (!getWorkspacesEnabledSync() && !getActiveWorkspace()) {
     return pathname;
   }
 

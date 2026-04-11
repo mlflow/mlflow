@@ -4,6 +4,8 @@ import type { ThemeType } from '@databricks/design-system';
 import { I18nUtils } from '@databricks/i18n';
 
 import {
+  buildAggregatesFromCountMetrics,
+  ERROR_KEY,
   getAssessmentAggregateOverallFraction,
   getAssessmentInfos,
   getBarChartData,
@@ -1180,5 +1182,96 @@ describe('getUniqueValueCountsBySourceId', () => {
       { value: 'true', count: 2, latestAssessment: assessments[0] },
       { value: 'false', count: 2, latestAssessment: assessments[1] },
     ]);
+  });
+});
+
+describe('buildAggregatesFromCountMetrics', () => {
+  function makeAssessmentInfo(overrides: Partial<AssessmentInfo> = {}): AssessmentInfo {
+    return {
+      name: 'test-assessment',
+      displayName: 'Test',
+      isKnown: false,
+      isOverall: false,
+      metricName: 'test',
+      isCustomMetric: false,
+      isEditable: false,
+      isRetrievalAssessment: false,
+      dtype: 'pass-fail',
+      uniqueValues: new Set(),
+      docsLink: '',
+      missingTooltip: '',
+      description: '',
+      ...overrides,
+    };
+  }
+
+  it('builds counts for pass-fail assessments with JSON-encoded string values', () => {
+    const info = makeAssessmentInfo({ name: 'quality', dtype: 'pass-fail' });
+    const metricsData = [
+      { assessmentName: 'quality', assessmentValue: '"yes"', count: 50 },
+      { assessmentName: 'quality', assessmentValue: '"no"', count: 10 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentCounts?.get('yes')).toBe(50);
+    expect(result.currentCounts?.get('no')).toBe(10);
+  });
+
+  it('builds counts for boolean assessments', () => {
+    const info = makeAssessmentInfo({ name: 'correct', dtype: 'boolean' });
+    const metricsData = [
+      { assessmentName: 'correct', assessmentValue: 'true', count: 80 },
+      { assessmentName: 'correct', assessmentValue: 'false', count: 20 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentCounts?.get(true)).toBe(80);
+    expect(result.currentCounts?.get(false)).toBe(20);
+  });
+
+  it('maps null values to ERROR_KEY', () => {
+    const info = makeAssessmentInfo({ name: 'quality', dtype: 'pass-fail' });
+    const metricsData = [
+      { assessmentName: 'quality', assessmentValue: '"yes"', count: 40 },
+      { assessmentName: 'quality', assessmentValue: 'null', count: 5 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentCounts?.get('yes')).toBe(40);
+    expect(result.currentCounts?.get(ERROR_KEY)).toBe(5);
+  });
+
+  it('builds numeric aggregates with histogram', () => {
+    const info = makeAssessmentInfo({ name: 'score', dtype: 'numeric' });
+    const metricsData = [
+      { assessmentName: 'score', assessmentValue: '1.0', count: 10 },
+      { assessmentName: 'score', assessmentValue: '5.0', count: 20 },
+      { assessmentName: 'score', assessmentValue: '10.0', count: 15 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentNumericValues).toHaveLength(45);
+    expect(result.currentNumericAggregate).toBeDefined();
+    expect(result.currentNumericAggregate?.min).toBe(1);
+    expect(result.currentNumericAggregate?.max).toBe(10);
+    expect(result.currentCounts).toBeUndefined();
+  });
+
+  it('filters metrics by assessment name', () => {
+    const info = makeAssessmentInfo({ name: 'quality', dtype: 'pass-fail' });
+    const metricsData = [
+      { assessmentName: 'quality', assessmentValue: '"yes"', count: 50 },
+      { assessmentName: 'other', assessmentValue: '"yes"', count: 100 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentCounts?.get('yes')).toBe(50);
+    expect(result.currentCounts?.size).toBe(1);
+  });
+
+  it('filters assessment filters by name', () => {
+    const info = makeAssessmentInfo({ name: 'quality', dtype: 'pass-fail' });
+    const filters = [
+      { assessmentName: 'quality', filterValue: 'yes', run: 'run1' },
+      { assessmentName: 'other', filterValue: 'no', run: 'run1' },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, [], filters);
+    expect(result.assessmentFilters).toHaveLength(1);
+    expect(result.assessmentFilters[0].assessmentName).toBe('quality');
   });
 });

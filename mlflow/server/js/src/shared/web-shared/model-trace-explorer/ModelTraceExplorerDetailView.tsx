@@ -2,17 +2,8 @@ import { Global } from '@emotion/react';
 import { clamp, values, isString } from 'lodash';
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  Button,
-  FullscreenExitIcon,
-  FullscreenIcon,
-  InfoFillIcon,
-  Tooltip,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { useResizeObserver } from '@databricks/web-shared/hooks';
-import { FormattedMessage } from '@databricks/i18n';
 import { ResizableBox } from 'react-resizable';
 
 import type { ModelTrace, ModelTraceSpanNode } from './ModelTrace.types';
@@ -287,66 +278,6 @@ export const ModelTraceExplorerDetailView = ({
         overflow: 'hidden',
       }}
     >
-      <div
-        css={{
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
-          borderBottom: `1px solid ${theme.colors.border}`,
-          backgroundColor: theme.colors.backgroundSecondary,
-          flexShrink: 0,
-          minWidth: 200,
-          flexWrap: 'wrap',
-          gap: theme.spacing.xs,
-        }}
-      >
-        <Typography.Text size="sm" color="secondary">
-          <FormattedMessage
-            defaultMessage="{count} {count, plural, one {node} other {nodes}}"
-            description="Count of workflow nodes displayed in graph view"
-            values={{ count: workflowLayout.nodes.length }}
-          />
-        </Typography.Text>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <Tooltip
-            componentId="shared.model-trace-explorer.graph-navigation-hint"
-            content={
-              <FormattedMessage
-                defaultMessage="Scroll to zoom, drag background to pan, drag nodes to reposition"
-                description="Navigation hint for graph view"
-              />
-            }
-          >
-            <InfoFillIcon css={{ width: 14, height: 14, color: theme.colors.textSecondary, cursor: 'help' }} />
-          </Tooltip>
-          <Tooltip
-            componentId="shared.model-trace-explorer.graph-expand-toggle"
-            content={
-              isGraphExpanded ? (
-                <FormattedMessage
-                  defaultMessage="Collapse graph"
-                  description="Tooltip for the button that collapses the graph view to its default size"
-                />
-              ) : (
-                <FormattedMessage
-                  defaultMessage="Expand graph"
-                  description="Tooltip for the button that expands the graph view to a larger size"
-                />
-              )
-            }
-          >
-            <Button
-              componentId="shared.model-trace-explorer.graph-expand-button"
-              icon={isGraphExpanded ? <FullscreenExitIcon /> : <FullscreenIcon />}
-              size="small"
-              onClick={handleToggleGraphExpand}
-            />
-          </Tooltip>
-        </div>
-      </div>
-
       <React.Suspense fallback={null}>
         <GraphViewWorkflowCanvas
           layout={workflowLayout}
@@ -355,6 +286,8 @@ export const ModelTraceExplorerDetailView = ({
           highlightedPathEdgeIds={highlightedWorkflowEdgeIds}
           onSelectNode={handleSelectWorkflowNode}
           onViewSpanDetails={handleViewSpanDetails}
+          isGraphExpanded={isGraphExpanded}
+          onToggleGraphExpand={handleToggleGraphExpand}
         />
       </React.Suspense>
     </div>

@@ -44,7 +44,7 @@ def test_invoke_model_without_tracing_with_provider(model_uri):
     messages = [ChatMessage(role="user", content="Hello")]
 
     with mock.patch(
-        "mlflow.genai.simulators.utils._invoke_llm", return_value="Hi there!"
+        "mlflow.genai.scorers.llm_backend.ScorerLLMClient.complete", return_value="Hi there!"
     ) as mock_invoke:
         result = invoke_model_without_tracing(model_uri=model_uri, messages=messages)
 
@@ -58,7 +58,7 @@ def test_invoke_model_without_tracing_with_inference_params():
     messages = [ChatMessage(role="user", content="Hello")]
 
     with mock.patch(
-        "mlflow.genai.simulators.utils._invoke_llm", return_value="Response"
+        "mlflow.genai.scorers.llm_backend.ScorerLLMClient.complete", return_value="Response"
     ) as mock_invoke:
         invoke_model_without_tracing(
             model_uri="openai:/gpt-4o-mini",
@@ -67,12 +67,10 @@ def test_invoke_model_without_tracing_with_inference_params():
         )
 
         mock_invoke.assert_called_once_with(
-            "openai",
-            "gpt-4o-mini",
             [{"role": "user", "content": "Hello"}],
-            {"temperature": 0.5},
-            None,
-            3,
+            response_format=None,
+            num_retries=3,
+            temperature=0.5,
         )
 
 

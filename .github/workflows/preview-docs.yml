@@ -57,19 +57,15 @@ jobs:
           name: docs-build-${{ github.event.workflow_run.id }}
           path: ${{ env.DOCS_BUILD_DIR }}
       - uses: ./.github/actions/setup-node
-      - name: Install Netlify CLI
-        working-directory: .github/netlify
-        run: npm ci
       - name: Deploy to Netlify
         id: netlify_deploy
-        working-directory: .github/netlify
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           ALIAS: ${{ steps.alias.outputs.value }}
           RUN_ID: ${{ github.run_id }}
         run: |-
-          OUTPUT=$(npm run --silent deploy -- \
+          OUTPUT=$(npx --min-release-age=14 --yes netlify-cli deploy \
             --dir="$DOCS_BUILD_DIR" \
             --no-build \
             --message="Preview ${ALIAS} - GitHub Run ID: $RUN_ID" \

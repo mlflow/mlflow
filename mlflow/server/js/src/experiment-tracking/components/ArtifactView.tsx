@@ -31,7 +31,6 @@ import {
   Empty,
   InfoTooltip,
   LayerIcon,
-  LegacyTooltip,
   Tooltip,
   Typography,
   WithDesignSystemThemeHoc,

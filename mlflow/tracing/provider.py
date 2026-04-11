@@ -35,6 +35,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
     MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR,
+    MLFLOW_USE_BATCH_SPAN_PROCESSOR,
     MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
@@ -766,14 +767,13 @@ def _get_mlflow_span_processor(tracking_uri: str):
     # Inline imports to avoid circular dependency:
     # provider -> base_mlflow -> fluent -> entities
     from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-    from mlflow.tracing.processor.base_mlflow import should_use_batch_span_processor
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
     return MlflowV3SpanProcessor(
         span_exporter=exporter,
         export_metrics=should_export_otlp_metrics(),
-        use_batch_processor=should_use_batch_span_processor(),
+        use_batch_processor=MLFLOW_USE_BATCH_SPAN_PROCESSOR.get() and exporter._is_async_enabled,
     )
 
 
@@ -803,12 +803,12 @@ def disable():
 
         # Tracing is enabled by default
         f()
-        assert len(mlflow.search_traces()) == 1
+        assert len(mlflow.search_traces(flush=True)) == 1
 
         # Disable tracing
         mlflow.tracing.disable()
         f()
-        assert len(mlflow.search_traces()) == 1
+        assert len(mlflow.search_traces(flush=True)) == 1
 
     """
     if not is_tracing_enabled():
@@ -838,17 +838,17 @@ def enable():
 
         # Tracing is enabled by default
         f()
-        assert len(mlflow.search_traces()) == 1
+        assert len(mlflow.search_traces(flush=True)) == 1
 
         # Disable tracing
         mlflow.tracing.disable()
         f()
-        assert len(mlflow.search_traces()) == 1
+        assert len(mlflow.search_traces(flush=True)) == 1
 
         # Re-enable tracing
         mlflow.tracing.enable()
         f()
-        assert len(mlflow.search_traces()) == 2
+        assert len(mlflow.search_traces(flush=True)) == 2
 
     """
     if is_tracing_enabled() and provider.once._done:

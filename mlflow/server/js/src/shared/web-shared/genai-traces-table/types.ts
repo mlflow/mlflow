@@ -132,6 +132,15 @@ export interface AssessmentAggregates {
   assessmentFilters: AssessmentFilter[];
 }
 
+/**
+ * Server-side assessment count data from the trace metrics API.
+ * Each entry represents one (assessmentName, value) → count tuple.
+ */
+export interface AssessmentCountMetrics {
+  data: { assessmentName: string; assessmentValue: string; count: number }[];
+  isLoading: boolean;
+}
+
 export interface EvaluationsOverviewTableSort {
   key: string;
   type: TracesTableColumnType;

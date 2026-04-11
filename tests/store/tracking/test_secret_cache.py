@@ -1,4 +1,6 @@
+import gc
 import json
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -97,6 +99,30 @@ def test_decryption_fails_with_corrupted_blob(crypto):
     corrupted_blob = b"corrupted" + blob[9:]
     decrypted = crypto.decrypt(corrupted_blob, time_bucket)
     assert decrypted is None
+
+
+def test_cleanup_threads_exit_after_gc():
+    def _cleanup_threads() -> list[threading.Thread]:
+        return [t for t in threading.enumerate() if t.name == "EphemeralCacheEncryption-cleanup"]
+
+    threads_before = set(_cleanup_threads())
+
+    def _create_instances():
+        for _ in range(5):
+            c = EphemeralCacheEncryption(ttl_seconds=60)
+            c.encrypt("test")
+
+    _create_instances()
+    gc.collect()
+
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        new_threads = [t for t in _cleanup_threads() if t not in threads_before]
+        if not new_threads:
+            break
+        time.sleep(0.1)
+    else:
+        raise TimeoutError(f"Cleanup threads still alive after 3s: {new_threads}")
 
 
 def test_process_ephemeral_keys_unique_per_instance():

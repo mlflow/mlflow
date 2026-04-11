@@ -34,7 +34,7 @@ import shutil
 import sys
 import warnings
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, TypeVar
 
@@ -186,11 +186,12 @@ def read_yaml(location, if_error=None):
         raise
 
 
-RELEASE_CUTOFF = datetime(2026, 3, 10, tzinfo=timezone.utc)
+RELEASE_CUTOFF_DAYS = 14
 
 
 def get_released_versions(package_name: str) -> list[Version]:
     data = pypi_json(package_name)
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=RELEASE_CUTOFF_DAYS)
     versions: list[Version] = []
     for version_str, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
@@ -206,7 +207,7 @@ def get_released_versions(package_name: str) -> list[Version]:
         release_date = min(upload_times) if upload_times else None
 
         # Exclude versions with unknown release dates or released on/after the cutoff date
-        if not release_date or release_date >= RELEASE_CUTOFF:
+        if not release_date or release_date >= cutoff:
             continue
 
         try:

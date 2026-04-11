@@ -37,7 +37,7 @@ export const GraphViewSpanNavigator = ({
         padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
         borderTop: `1px solid ${theme.colors.border}`,
         borderBottom: `1px solid ${theme.colors.border}`,
-        backgroundColor: theme.colors.backgroundSecondary,
+        backgroundColor: theme.colors.backgroundPrimary,
         flexShrink: 0,
         minHeight: 36,
       }}

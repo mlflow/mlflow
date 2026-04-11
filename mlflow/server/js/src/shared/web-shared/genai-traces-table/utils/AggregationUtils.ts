@@ -24,6 +24,7 @@ import {
 } from '../components/GenAiEvaluationTracesReview.utils';
 import type {
   AssessmentAggregates,
+  AssessmentCountMetrics,
   AssessmentRunCounts,
   AssessmentInfo,
   EvalTraceComparisonEntry,
@@ -785,4 +786,83 @@ export function getUniqueValueCountsBySourceId(
   }
 
   return valueCounts;
+}
+
+function buildCountsFromMetrics(
+  assessmentInfo: AssessmentInfo,
+  metricsData: AssessmentCountMetrics['data'],
+): { counts: AssessmentRunCounts; numericValues: number[] } {
+  const relevant = metricsData.filter((m) => m.assessmentName === assessmentInfo.name);
+  const counts: AssessmentRunCounts = new Map();
+  const numericValues: number[] = [];
+
+  for (const metric of relevant) {
+    const typedValue = parseMetricAssessmentValue(metric.assessmentValue);
+    if (assessmentInfo.dtype === 'numeric' && typeof typedValue === 'number') {
+      counts.set(typedValue, metric.count);
+      for (let i = 0; i < metric.count; i++) {
+        numericValues.push(typedValue);
+      }
+    } else {
+      counts.set(typedValue, metric.count);
+    }
+  }
+
+  return { counts, numericValues };
+}
+
+/**
+ * Converts a raw string value from the metrics API into a typed AssessmentValueType.
+ * The API JSON-encodes assessment values, so "\"yes\"" → "yes",
+ * "true" → true, "1.0" → 1.0, etc.
+ *
+ * "null" maps to ERROR_KEY because the metrics API only returns null for assessments
+ * that exist but have a null value (i.e. errored assessments). Truly missing assessments
+ * (no row at all) are excluded by the inner join and don't appear in the response.
+ */
+function parseMetricAssessmentValue(rawValue: string): AssessmentValueType {
+  try {
+    const parsed = JSON.parse(rawValue);
+    return parsed ?? ERROR_KEY;
+  } catch {
+    return rawValue;
+  }
+}
+
+/**
+ * Builds AssessmentAggregates from server-side count metrics.
+ * Used when infinite pagination is enabled to get accurate counts across all traces.
+ * Handles both categorical (pass-fail, boolean, string) and numeric assessments.
+ * Optionally accepts comparison run metrics data for `otherCounts`.
+ */
+export function buildAggregatesFromCountMetrics(
+  assessmentInfo: AssessmentInfo,
+  metricsData: AssessmentCountMetrics['data'],
+  allAssessmentFilters: AssessmentFilter[],
+  otherMetricsData?: AssessmentCountMetrics['data'],
+): AssessmentAggregates {
+  const current = buildCountsFromMetrics(assessmentInfo, metricsData);
+  const other = otherMetricsData ? buildCountsFromMetrics(assessmentInfo, otherMetricsData) : undefined;
+  const assessmentFilters = allAssessmentFilters.filter((f) => f.assessmentName === assessmentInfo.name);
+
+  if (assessmentInfo.dtype === 'numeric') {
+    return {
+      assessmentInfo,
+      currentNumericValues: current.numericValues,
+      otherNumericValues: other?.numericValues,
+      currentNumericAggregate: getNumericAggregate(current.numericValues),
+      currentNumRootCause: 0,
+      otherNumRootCause: 0,
+      assessmentFilters,
+    };
+  }
+
+  return {
+    assessmentInfo,
+    currentCounts: current.counts,
+    otherCounts: other?.counts,
+    currentNumRootCause: 0,
+    otherNumRootCause: 0,
+    assessmentFilters,
+  };
 }

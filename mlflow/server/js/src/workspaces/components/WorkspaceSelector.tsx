@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
   DialogCombobox,
   DialogComboboxContent,
@@ -12,7 +12,12 @@ import {
 import { uniqBy } from 'lodash';
 
 import { shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
-import { extractWorkspaceFromSearchParams, setLastUsedWorkspace, WORKSPACE_QUERY_PARAM } from '../utils/WorkspaceUtils';
+import {
+  extractWorkspaceFromSearchParams,
+  setLastUsedWorkspace,
+  validateWorkspaceName,
+  WORKSPACE_QUERY_PARAM,
+} from '../utils/WorkspaceUtils';
 import { useLocation, useNavigate, useSearchParams } from '../../common/utils/RoutingUtils';
 import Routes from '../../experiment-tracking/routes';
 import { useWorkspaces } from '../hooks/useWorkspaces';
@@ -74,14 +79,48 @@ export const WorkspaceSelector = () => {
     return uniqBy(allWorkspaces, 'name');
   }, [workspaces, currentWorkspace]);
 
-  // Client-side filtering
+  const typedWorkspace = useMemo(() => searchValue.trim(), [searchValue]);
+  // Client-side filtering uses the normalized value so leading/trailing spaces
+  // don't hide an existing matching workspace.
   const filteredOptions = useMemo(() => {
-    if (!searchValue) {
+    if (!typedWorkspace) {
       return options;
     }
-    const lowerSearch = searchValue.toLowerCase();
+    const lowerSearch = typedWorkspace.toLowerCase();
     return options.filter((workspace) => workspace.name.toLowerCase().includes(lowerSearch));
-  }, [options, searchValue]);
+  }, [options, typedWorkspace]);
+  const canSubmitTypedWorkspace = useMemo(
+    () =>
+      typedWorkspace.length > 0 && validateWorkspaceName(typedWorkspace).valid && typedWorkspace !== currentWorkspace,
+    [typedWorkspace, currentWorkspace],
+  );
+  const showTypedWorkspaceOption = useMemo(
+    () => canSubmitTypedWorkspace && !options.some((workspace) => workspace.name === typedWorkspace),
+    [canSubmitTypedWorkspace, options, typedWorkspace],
+  );
+  const allowEnterToSubmitTypedWorkspace = showTypedWorkspaceOption && filteredOptions.length === 0;
+  const showEmptyState = filteredOptions.length === 0 && typedWorkspace.length > 0 && !showTypedWorkspaceOption;
+
+  const handleTypedWorkspaceSubmit = useCallback(() => {
+    if (!canSubmitTypedWorkspace) {
+      return;
+    }
+
+    handleWorkspaceChange(typedWorkspace);
+  }, [canSubmitTypedWorkspace, handleWorkspaceChange, typedWorkspace]);
+
+  const handleSearchKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== 'Enter' || !allowEnterToSubmitTypedWorkspace || !(event.target instanceof HTMLInputElement)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      handleTypedWorkspaceSubmit();
+    },
+    [allowEnterToSubmitTypedWorkspace, handleTypedWorkspaceSubmit],
+  );
 
   if (!workspacesEnabled) {
     return null;
@@ -108,10 +147,19 @@ export const WorkspaceSelector = () => {
           </div>
         )}
 
-        {!isError && (
-          <DialogComboboxOptionList>
-            <DialogComboboxOptionListSearch onSearch={(value) => setSearchValue(value)}>
-              {filteredOptions.length === 0 && searchValue ? (
+        <DialogComboboxOptionList>
+          <div onKeyDownCapture={handleSearchKeyDown}>
+            <DialogComboboxOptionListSearch controlledValue={searchValue} setControlledValue={setSearchValue}>
+              {showTypedWorkspaceOption && (
+                <DialogComboboxOptionListSelectItem
+                  value={typedWorkspace}
+                  onChange={() => handleTypedWorkspaceSubmit()}
+                  checked={false}
+                >
+                  Go to workspace "{typedWorkspace}"
+                </DialogComboboxOptionListSelectItem>
+              )}
+              {showEmptyState ? (
                 // Provide a dummy item when no results to prevent crash
                 <DialogComboboxOptionListSelectItem value="" onChange={() => {}} checked={false} disabled>
                   No workspaces found
@@ -147,8 +195,8 @@ export const WorkspaceSelector = () => {
                 })
               )}
             </DialogComboboxOptionListSearch>
-          </DialogComboboxOptionList>
-        )}
+          </div>
+        </DialogComboboxOptionList>
       </DialogComboboxContent>
     </DialogCombobox>
   );

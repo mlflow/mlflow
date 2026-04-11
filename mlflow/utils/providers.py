@@ -2,15 +2,39 @@ import functools
 import importlib.resources
 import json
 import logging
+import urllib.parse
+import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TypedDict
 
+import cachetools
 from typing_extensions import NotRequired
+
+from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URI
+from mlflow.exceptions import MlflowException
+from mlflow.utils.provider_filter import (
+    filter_providers,
+    is_provider_allowed,
+    normalize_provider_name,
+)
+from mlflow.utils.request_utils import cloud_storage_http_request
 
 _logger = logging.getLogger(__name__)
 
 _SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
+
+_REMOTE_FETCH_MAX_RETRIES = 3
+_REMOTE_FETCH_TIMEOUT = 5
+
+# Retry codes for catalog fetches. Extends the standard transient codes with 404
+# because GitHub Releases assets can briefly return 404 during the --clobber
+# re-upload window or CDN propagation delay.
+_CATALOG_RETRY_CODES = frozenset([404, 408, 429, 500, 502, 503, 504])
+
+# Per-provider TTL cache for remote catalog fetches.
+# Initialized lazily in _get_remote_cache() so the TTL reads the env var at first use.
+_remote_cache: cachetools.TTLCache | None = None
 
 
 class FieldDict(TypedDict):
@@ -189,34 +213,111 @@ def _list_provider_names() -> list[str]:
         return []
 
 
-@functools.lru_cache(maxsize=128)
-def _load_provider(provider: str) -> dict[str, ModelInfo]:
-    """Load a single provider's catalog file, returning ``{model_name: ModelInfo}``."""
-    resource = _catalog_pkg().joinpath(f"{provider}.json")
-    try:
-        with importlib.resources.as_file(resource) as path, path.open(encoding="utf-8") as f:
-            catalog: CatalogFile = json.load(f)
-    except (FileNotFoundError, TypeError):
-        return {}
+def _parse_catalog_models(catalog: CatalogFile) -> dict[str, ModelInfo]:
     return {
         name: _flatten_catalog_entry(entry) for name, entry in catalog.get("models", {}).items()
     }
 
 
+def _get_remote_cache() -> cachetools.TTLCache:
+    global _remote_cache
+    if _remote_cache is None:
+        _remote_cache = cachetools.TTLCache(maxsize=256, ttl=MLFLOW_MODEL_CATALOG_CACHE_TTL.get())
+    return _remote_cache
+
+
+def _fetch_remote_provider(provider: str) -> dict[str, ModelInfo] | None:
+    """Try to fetch a single provider's catalog from the configured URL with TTL caching.
+
+    Supports ``http(s)://`` URLs (GitHub Releases, CDNs) and ``file://`` paths
+    (for air-gapped / mirrored environments). Set ``MLFLOW_MODEL_CATALOG_URI``
+    to an empty string to disable remote fetch entirely.
+    """
+    base_url = MLFLOW_MODEL_CATALOG_URI.get()
+    if not base_url:
+        return None
+
+    cache = _get_remote_cache()
+    if provider in cache:
+        return cache[provider] or None
+
+    url = f"{base_url.rstrip('/')}/{provider}.json"
+    parsed = urllib.parse.urlparse(url)
+
+    match parsed.scheme:
+        case "file":
+            result = _fetch_local_provider(provider, Path(urllib.request.url2pathname(parsed.path)))
+        case "http" | "https":
+            result = _fetch_http_provider(provider, url)
+        case _:
+            raise ValueError(
+                f"Unsupported MLFLOW_MODEL_CATALOG_URI scheme: {parsed.scheme!r}. "
+                f"Expected 'http', 'https', or 'file'. Got URI: {base_url}"
+            )
+
+    # Cache failures as empty dict so we don't retry on every call within the TTL
+    cache[provider] = result or {}
+    return result
+
+
+def _fetch_local_provider(provider: str, path: Path) -> dict[str, ModelInfo] | None:
+    try:
+        catalog: CatalogFile = json.loads(path.read_text("utf-8"))
+        return _parse_catalog_models(catalog)
+    except Exception:
+        _logger.debug("Failed to read local catalog for %s", provider, exc_info=True)
+        return None
+
+
+def _fetch_http_provider(provider: str, url: str) -> dict[str, ModelInfo] | None:
+    try:
+        resp = cloud_storage_http_request(
+            "GET",
+            url,
+            max_retries=_REMOTE_FETCH_MAX_RETRIES,
+            backoff_factor=1,
+            retry_codes=_CATALOG_RETRY_CODES,
+            timeout=_REMOTE_FETCH_TIMEOUT,
+        )
+        resp.raise_for_status()
+        catalog: CatalogFile = resp.json()
+        return _parse_catalog_models(catalog)
+    except Exception:
+        _logger.debug("Failed to fetch remote catalog for %s", provider, exc_info=True)
+        return None
+
+
+@functools.lru_cache(maxsize=128)
+def _load_bundled_provider(provider: str) -> dict[str, ModelInfo]:
+    """Load a single provider's catalog from the bundled package resources."""
+    resource = _catalog_pkg().joinpath(f"{provider}.json")
+    try:
+        with importlib.resources.as_file(resource) as path, path.open(encoding="utf-8") as f:
+            catalog: CatalogFile = json.load(f)
+            return _parse_catalog_models(catalog)
+    except (FileNotFoundError, TypeError):
+        return {}
+
+
+def _load_provider(provider: str) -> dict[str, ModelInfo]:
+    """Load a provider's model catalog, trying remote first then bundled fallback."""
+    if remote := _fetch_remote_provider(provider):
+        return remote
+    return _load_bundled_provider(provider)
+
+
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
-    """Look up model cost info, loading only the relevant provider file when possible."""
+    """Look up model cost info, loading only the relevant provider file."""
     bare_model = model.split("/", 1)[-1]
 
     if custom_llm_provider:
-        # Fast path: load only the one provider file we need
-        if info := _load_provider(custom_llm_provider).get(bare_model):
-            return info
+        return _load_provider(custom_llm_provider).get(bare_model)
 
-    # Fallback: scan all providers for bare model name.
-    # Prefer entries that have pricing data over empty/stub entries.
+    # No provider given — scan bundled providers only (no remote fetch)
+    # to avoid O(N) network requests across all providers.
     fallback = None
     for provider in _list_provider_names():
-        if info := _load_provider(provider).get(bare_model):
+        if info := _load_bundled_provider(provider).get(bare_model):
             if info.get("input_cost_per_token"):
                 return info
             if fallback is None:
@@ -680,6 +781,16 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
     if not provider:
         raise ValueError("Provider parameter is required")
 
+    if not is_provider_allowed(provider):
+        _logger.debug(
+            "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",
+            provider,
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"Provider '{provider}' is not allowed by the current gateway provider policy."
+        )
+
+    provider = normalize_provider_name(provider.lower())
     config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider
 
     if config_provider in _PROVIDER_AUTH_MODES:
@@ -725,10 +836,7 @@ def _normalize_provider(provider: str) -> str:
 
 def get_all_providers() -> list[str]:
     """
-    Get a list of all providers that have chat, completion, or embedding capabilities.
-
-    Only returns providers that have at least one chat, completion, or embedding model,
-    excluding providers that only offer image generation, audio, or other non-text services.
+    Get a list of all providers.
 
     Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
     variants are returned as just vertex_ai).
@@ -737,12 +845,8 @@ def get_all_providers() -> list[str]:
     for provider in _list_provider_names():
         if provider in _EXCLUDED_PROVIDERS:
             continue
-        # Check that the provider has at least one model with a supported mode
-        for info in _load_provider(provider).values():
-            if info.get("mode") in _SUPPORTED_MODEL_MODES:
-                providers.add(_normalize_provider(provider))
-                break
-    return list(providers)
+        providers.add(_normalize_provider(provider))
+    return filter_providers(list(providers))
 
 
 def get_models(provider: str | None = None) -> list[ModelDict]:
@@ -802,6 +906,9 @@ def _extract_models(
 
         # Filter by provider (matching against the normalized provider name)
         if provider_filter and normalized_provider != provider_filter:
+            continue
+
+        if normalized_provider and not is_provider_allowed(normalized_provider):
             continue
 
         mode = info.get("mode")
