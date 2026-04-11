@@ -220,7 +220,9 @@ def test_thread_safety_concurrent_reads(cache):
             result = cache.get("key_1")
             assert result == {"value": "secret"}
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(
+        max_workers=10, thread_name_prefix="test-secret-cache-reads"
+    ) as executor:
         futures = [executor.submit(read_cache) for _ in range(10)]
         for future in futures:
             future.result()
@@ -233,7 +235,9 @@ def test_thread_safety_concurrent_writes():
         for i in range(50):
             cache.set(f"key_{thread_id}_{i}", {"value": f"{thread_id}_{i}"})
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(
+        max_workers=10, thread_name_prefix="test-secret-cache-writes"
+    ) as executor:
         futures = [executor.submit(write_cache, i) for i in range(10)]
         for future in futures:
             future.result()
@@ -253,7 +257,9 @@ def test_thread_safety_concurrent_clear():
         for _ in range(50):
             _ = cache.get("key_0")
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(
+        max_workers=10, thread_name_prefix="test-secret-cache-clear"
+    ) as executor:
         futures = [executor.submit(clear_cache) for _ in range(3)]
         futures += [executor.submit(read_cache) for _ in range(7)]
         for future in futures:
