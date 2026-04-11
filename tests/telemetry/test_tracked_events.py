@@ -2071,7 +2071,6 @@ def test_gateway_guardrail_crud_telemetry(
         {
             "stage": "BEFORE",
             "action": "VALIDATION",
-            "has_action_endpoint_id": False,
         },
     )
 

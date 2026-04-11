@@ -547,15 +547,15 @@ def test_gateway_create_budget_policy_parse_params(arguments, expected_params):
     [
         (
             {"stage": "BEFORE", "action": "VALIDATION"},
-            {"stage": "BEFORE", "action": "VALIDATION", "has_action_endpoint_id": False},
+            {"stage": "BEFORE", "action": "VALIDATION"},
         ),
         (
             {"stage": "AFTER", "action": "SANITIZATION", "action_endpoint_id": "e-123"},
-            {"stage": "AFTER", "action": "SANITIZATION", "has_action_endpoint_id": True},
+            {"stage": "AFTER", "action": "SANITIZATION"},
         ),
         (
             {},
-            {"stage": None, "action": None, "has_action_endpoint_id": False},
+            {"stage": None, "action": None},
         ),
     ],
 )

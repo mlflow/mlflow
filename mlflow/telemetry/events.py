@@ -503,7 +503,6 @@ class GatewayCreateGuardrailEvent(Event):
         return {
             "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
             "action": str(arguments.get("action")) if arguments.get("action") else None,
-            "has_action_endpoint_id": arguments.get("action_endpoint_id") is not None,
         }
 
 
