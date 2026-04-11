@@ -299,6 +299,21 @@ class TestNumericBound:
         fb = NumericBound()(outputs=999999)
         assert fb.value is True
 
+    def test_nan_rejected(self):
+        fb = NumericBound(min_value=0, max_value=1)(outputs=float("nan"))
+        assert fb.value is False
+        assert "not a finite number" in fb.rationale
+
+    def test_inf_rejected(self):
+        fb = NumericBound()(outputs=float("inf"))
+        assert fb.value is False
+        assert "not a finite number" in fb.rationale
+
+    def test_negative_inf_rejected(self):
+        fb = NumericBound()(outputs=float("-inf"))
+        assert fb.value is False
+        assert "not a finite number" in fb.rationale
+
 
 # ── PII ─────────────────────────────────────────────────────────────────────
 

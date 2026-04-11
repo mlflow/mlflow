@@ -1,4 +1,5 @@
 import json
+import math
 import re
 from dataclasses import asdict
 from typing import Any, Literal
@@ -453,6 +454,12 @@ class NumericBound(BuiltInCodeScorer):
             return self._make_feedback(
                 value=False,
                 rationale=f"Output {outputs!r} cannot be converted to a number.",
+            )
+
+        if not math.isfinite(numeric_value):
+            return self._make_feedback(
+                value=False,
+                rationale=f"Output {outputs!r} is not a finite number.",
             )
 
         violations = []
