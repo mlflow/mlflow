@@ -19,16 +19,14 @@ from mlflow.store.tracking._secret_cache import (
 
 @pytest.fixture
 def crypto():
-    c = EphemeralCacheEncryption(ttl_seconds=60)
-    yield c
-    c.shutdown()
+    with EphemeralCacheEncryption(ttl_seconds=60) as c:
+        yield c
 
 
 @pytest.fixture
 def cache():
-    c = SecretCache(ttl_seconds=60, max_size=100)
-    yield c
-    c.close()
+    with SecretCache(ttl_seconds=60, max_size=100) as c:
+        yield c
 
 
 @pytest.mark.parametrize(
