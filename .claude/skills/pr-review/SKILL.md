@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 allowed-tools: Read, Skill, Bash, Grep, Glob
 argument-hint: [extra_context]
 description: Review a GitHub pull request, add review comments for issues found, and approve if no significant issues exist
