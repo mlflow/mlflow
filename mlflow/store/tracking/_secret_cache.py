@@ -36,6 +36,7 @@ size (default 1000 entries).
 import json
 import os
 import time
+import weakref
 from collections import OrderedDict
 from threading import Event, RLock, Thread
 from typing import Any
@@ -50,6 +51,25 @@ _DEFAULT_CACHE_MAX_SIZE = 1000
 
 SECRETS_CACHE_TTL_ENV_VAR = "MLFLOW_SERVER_SECRETS_CACHE_TTL"
 SECRETS_CACHE_MAX_SIZE_ENV_VAR = "MLFLOW_SERVER_SECRETS_CACHE_MAX_SIZE"
+
+
+def _cleanup_loop(
+    ref: "weakref.ref[EphemeralCacheEncryption]",
+    stop_event: Event,
+    interval: int,
+) -> None:
+    """Background thread that proactively purges expired bucket keys.
+
+    Uses a weak reference so the thread does not prevent garbage collection
+    of the owning EphemeralCacheEncryption instance.  When the instance is
+    collected the weak reference returns None and the loop exits.
+    """
+    while not stop_event.wait(timeout=interval):
+        obj = ref()
+        if obj is None:
+            break
+        obj._purge_expired_keys()
+        del obj  # drop strong ref before sleeping again
 
 
 class EphemeralCacheEncryption:
@@ -81,29 +101,22 @@ class EphemeralCacheEncryption:
         self._lock = RLock()
         self._stop_event = Event()
 
-        # Start background cleanup thread
+        # Register a weak-ref callback that fires the stop event when this
+        # instance is garbage-collected, so the cleanup thread exits promptly.
+        # Pass the Event object directly (not a bound method on self) to avoid
+        # preventing GC via a reference cycle.
+        stop = self._stop_event
+        weakref.finalize(self, stop.set)
+
+        # Start background cleanup thread using a weak reference so the thread
+        # does not prevent garbage collection of this instance.
         self._cleanup_thread = Thread(
-            target=self._cleanup_loop,
+            target=_cleanup_loop,
+            args=(weakref.ref(self), self._stop_event, self._key_rotation_seconds),
             daemon=True,
             name="EphemeralCacheEncryption-cleanup",
         )
         self._cleanup_thread.start()
-
-    def _cleanup_loop(self) -> None:
-        """Background thread that proactively purges expired bucket keys."""
-        while not self._stop_event.wait(timeout=self._key_rotation_seconds):
-            self._purge_expired_keys()
-
-    def shutdown(self) -> None:
-        """Signal the cleanup thread to stop and wait for it to finish."""
-        self._stop_event.set()
-        self._cleanup_thread.join(timeout=5.0)
-
-    def __enter__(self) -> "EphemeralCacheEncryption":
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        self.shutdown()
 
     def _purge_expired_keys(self) -> None:
         """Purge any bucket keys that are more than 1 bucket old."""
@@ -275,13 +288,3 @@ class SecretCache:
     def size(self) -> int:
         with self._lock:
             return len(self._cache)
-
-    def close(self) -> None:
-        """Shut down the underlying encryption cleanup thread."""
-        self._crypto.shutdown()
-
-    def __enter__(self) -> "SecretCache":
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        self.close()
