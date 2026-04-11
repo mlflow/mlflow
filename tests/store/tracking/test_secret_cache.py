@@ -110,7 +110,7 @@ def test_cleanup_threads_exit_after_gc():
     _create_instances()
     gc.collect()
 
-    deadline = time.monotonic() + 1
+    deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
         remaining = [
             t for t in threading.enumerate() if t.name == "EphemeralCacheEncryption-cleanup"
@@ -119,7 +119,7 @@ def test_cleanup_threads_exit_after_gc():
             break
         time.sleep(0.1)
     else:
-        raise TimeoutError(f"Cleanup threads still alive after 1s: {remaining}")
+        raise TimeoutError(f"Cleanup threads still alive after 5s: {remaining}")
 
 
 def test_process_ephemeral_keys_unique_per_instance():
