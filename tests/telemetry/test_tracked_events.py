@@ -2085,7 +2085,7 @@ def test_gateway_guardrail_crud_telemetry(
         mock_telemetry_client,
         mock_requests,
         GatewayUpdateGuardrailEvent.name,
-        {"execution_order": 2},
+        {"stage": None, "action": None},
     )
 
     store.delete_gateway_guardrail(guardrail.guardrail_id)

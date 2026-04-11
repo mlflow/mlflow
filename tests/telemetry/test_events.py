@@ -566,9 +566,15 @@ def test_gateway_create_guardrail_parse_params(arguments, expected_params):
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [
-        ({"execution_order": 5}, {"execution_order": 5}),
-        ({"execution_order": None}, {"execution_order": None}),
-        ({}, {"execution_order": None}),
+        (
+            {"stage": "BEFORE", "action": "VALIDATION"},
+            {"stage": "BEFORE", "action": "VALIDATION"},
+        ),
+        (
+            {"stage": "AFTER", "action": "SANITIZATION", "execution_order": 2},
+            {"stage": "AFTER", "action": "SANITIZATION"},
+        ),
+        ({}, {"stage": None, "action": None}),
     ],
 )
 def test_gateway_update_guardrail_parse_params(arguments, expected_params):

@@ -512,7 +512,8 @@ class GatewayUpdateGuardrailEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         return {
-            "execution_order": arguments.get("execution_order"),
+            "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
+            "action": str(arguments.get("action")) if arguments.get("action") else None,
         }
 
 
