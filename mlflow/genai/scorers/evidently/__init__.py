@@ -145,7 +145,7 @@ class EvidentlyScorer(Scorer):
                 metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
             )
 
-    def _extract_value(self, result_dict: dict) -> float | bool:
+    def _extract_value(self, result_dict: dict[str, Any]) -> float | bool:
         """Extract the primary metric value from Evidently result dict."""
         metrics = result_dict.get("metrics", [])
         if not metrics:
@@ -170,7 +170,7 @@ class EvidentlyScorer(Scorer):
 
         return 0.0
 
-    def _extract_rationale(self, result_dict: dict) -> str | None:
+    def _extract_rationale(self, result_dict: dict[str, Any]) -> str | None:
         """Extract a human-readable explanation from Evidently result dict."""
         metrics = result_dict.get("metrics", [])
         if not metrics:
@@ -202,7 +202,7 @@ def get_scorer(
 
     Args:
         metric_name: Name of the Evidently metric (e.g., "ValueDrift", "MissingValueCount")
-        **metric_kwargs: Additional keyword arguments to pass to the metric.
+        metric_kwargs: Additional keyword arguments to pass to the metric.
 
     Returns:
         EvidentlyScorer instance that can be called with MLflow's scorer interface
