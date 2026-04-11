@@ -102,6 +102,10 @@ def test_decryption_fails_with_corrupted_blob(crypto):
 
 
 def test_cleanup_threads_exit_after_gc():
+    threads_before = {
+        t for t in threading.enumerate() if t.name == "EphemeralCacheEncryption-cleanup"
+    }
+
     def _create_instances():
         for _ in range(5):
             c = EphemeralCacheEncryption(ttl_seconds=60)
@@ -112,14 +116,16 @@ def test_cleanup_threads_exit_after_gc():
 
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        remaining = [
-            t for t in threading.enumerate() if t.name == "EphemeralCacheEncryption-cleanup"
+        new_threads = [
+            t
+            for t in threading.enumerate()
+            if t.name == "EphemeralCacheEncryption-cleanup" and t not in threads_before
         ]
-        if not remaining:
+        if not new_threads:
             break
         time.sleep(0.1)
     else:
-        raise TimeoutError(f"Cleanup threads still alive after 5s: {remaining}")
+        raise TimeoutError(f"Cleanup threads still alive after 5s: {new_threads}")
 
 
 def test_process_ephemeral_keys_unique_per_instance():
