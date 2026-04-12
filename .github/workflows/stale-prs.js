@@ -78,14 +78,12 @@ const isStale = (lastActivityDate) => {
   return (Date.now() - lastActivityDate) / MS_PER_DAY > STALE_DAYS;
 };
 
-const COPILOT_BOT = "copilot-swe-agent";
-
 const shouldProcessPR = (pr) => {
-  // Skip PRs not authored by members or Copilot
+  // Skip PRs not authored by members or bots
   const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
   const isMember = memberAssociations.includes(pr.authorAssociation);
-  const isCopilot = pr.author?.__typename === "Bot" && pr.author?.login === COPILOT_BOT;
-  if (!isMember && !isCopilot) {
+  const isBot = pr.author?.__typename === "Bot";
+  if (!isMember && !isBot) {
     return false;
   }
 
