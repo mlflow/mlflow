@@ -1630,9 +1630,9 @@ def test_set_experiment_thread_safety(tmp_path):
             exp = mlflow.set_experiment("test_experiment")
             created_exp_ids.append(exp.experiment_id)
 
-        t1 = threading.Thread(target=thread_target)
+        t1 = threading.Thread(name="test-fluent-set-experiment-1", target=thread_target)
         t1.start()
-        t2 = threading.Thread(target=thread_target)
+        t2 = threading.Thread(name="test-fluent-set-experiment-2", target=thread_target)
         t2.start()
 
         t1.join()
@@ -1696,7 +1696,7 @@ def test_mlflow_active_run_thread_local(tmp_path):
             nonlocal thread_active_run
             thread_active_run = mlflow.active_run()
 
-        thread1 = threading.Thread(target=thread_target)
+        thread1 = threading.Thread(name="test-fluent-active-run", target=thread_target)
         thread1.start()
         thread1.join()
         # assert in another thread, active run is None.
@@ -1730,7 +1730,7 @@ def test_mlflow_last_active_run_thread_local(tmp_path):
         nonlocal thread_last_active_run
         thread_last_active_run = mlflow.last_active_run()
 
-    thread1 = threading.Thread(target=thread_target)
+    thread1 = threading.Thread(name="test-fluent-last-active-run", target=thread_target)
     thread1.start()
     thread1.join()
     # assert in another thread, active run is None.
@@ -1929,7 +1929,11 @@ def test_last_logged_model():
     assert mlflow.last_logged_model().model_id == another_model.model_id
 
     # model created by another thread should be ignored
-    t = threading.Thread(daemon=True, target=lambda: mlflow.initialize_logged_model())
+    t = threading.Thread(
+        name="test-fluent-last-logged-model",
+        daemon=True,
+        target=lambda: mlflow.initialize_logged_model(),
+    )
     t.start()
     t.join()
     assert mlflow.last_logged_model().model_id == another_model.model_id
@@ -2249,7 +2253,9 @@ def test_set_active_model_in_databricks_serving():
 def test_get_active_model_id_global():
     model = mlflow.create_external_model()
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(
+        max_workers=4, thread_name_prefix="test-fluent-active-model-id"
+    ) as executor:
         futures = [executor.submit(set_active_model, model_id=model.model_id) for i in range(4)]
         for f in futures:
             f.result()
@@ -2257,7 +2263,9 @@ def test_get_active_model_id_global():
     assert mlflow.get_active_model_id() is None
     assert _get_active_model_id_global() == model.model_id
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(
+        max_workers=4, thread_name_prefix="test-fluent-active-model-name"
+    ) as executor:
         futures = [executor.submit(set_active_model, name=f"test_model_{i}") for i in range(4)]
         for f in futures:
             f.result()
@@ -2289,7 +2297,7 @@ def test_active_model_set_in_threads_can_be_fetched_from_main_process(monkeypatc
         _update_active_model_id_based_on_mlflow_model(pyfunc_model._model_meta)
         return pyfunc_model
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=4, thread_name_prefix="test-fluent-load-model") as executor:
         futures = [executor.submit(_load_model, model_info.model_uri) for i in range(4)]
         for f in futures:
             f.result()

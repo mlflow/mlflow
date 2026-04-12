@@ -1,0 +1,2616 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "ada": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8191,
+        "max_tokens": 8191
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "command-r-plus": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "computer-use-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 1024,
+        "max_tokens": 1024
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 12.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "container": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "eu/gpt-4o-2024-08-06": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.75e-6,
+        "output_per_token": 1.1e-5,
+        "cache_read_per_token": 1.375e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-02-27"
+    },
+    "eu/gpt-4o-2024-11-20": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.75e-6,
+        "output_per_token": 1.1e-5,
+        "cache_write_per_token": 1.38e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-03-01"
+    },
+    "eu/gpt-4o-mini-2024-07-18": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.165,
+        "output_per_million_tokens": 0.66,
+        "cache_read_per_million_tokens": 0.083
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "eu/gpt-4o-mini-realtime-preview-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.66,
+        "output_per_million_tokens": 2.64,
+        "cache_read_per_million_tokens": 0.33
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "eu/gpt-4o-realtime-preview-2024-10-01": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.5,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "eu/gpt-4o-realtime-preview-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.5,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "eu/gpt-5-2025-08-07": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.375,
+        "output_per_million_tokens": 11.0,
+        "cache_read_per_million_tokens": 0.1375
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "eu/gpt-5-mini-2025-08-07": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.275,
+        "output_per_million_tokens": 2.2,
+        "cache_read_per_million_tokens": 0.0275
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "eu/gpt-5-nano-2025-08-07": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.055,
+        "output_per_million_tokens": 0.44,
+        "cache_read_per_million_tokens": 0.0055
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "eu/gpt-5.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.38,
+        "output_per_million_tokens": 11.0,
+        "cache_read_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "eu/gpt-5.1-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.38,
+        "output_per_million_tokens": 11.0,
+        "cache_read_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "eu/o1-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 16.5,
+        "output_per_million_tokens": 66.0,
+        "cache_read_per_million_tokens": 8.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "eu/o1-mini-2024-09-12": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.21,
+        "output_per_million_tokens": 4.84,
+        "cache_read_per_million_tokens": 0.605,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.605,
+            "output_per_million_tokens": 2.42
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "eu/o1-preview-2024-09-12": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 16.5,
+        "output_per_million_tokens": 66.0,
+        "cache_read_per_million_tokens": 8.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "eu/o3-mini-2025-01-31": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.21,
+        "output_per_million_tokens": 4.84,
+        "cache_read_per_million_tokens": 0.605,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.605,
+            "output_per_million_tokens": 2.42
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "global-standard/gpt-4o-2024-08-06": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.5e-6,
+        "output_per_token": 1e-5,
+        "cache_read_per_token": 1.25e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-02-27"
+    },
+    "global-standard/gpt-4o-2024-11-20": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.5e-6,
+        "output_per_token": 1e-5,
+        "cache_read_per_token": 1.25e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-03-01"
+    },
+    "global-standard/gpt-4o-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "global/gpt-4o-2024-08-06": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.5e-6,
+        "output_per_token": 1e-5,
+        "cache_read_per_token": 1.25e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-02-27"
+    },
+    "global/gpt-4o-2024-11-20": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.5e-6,
+        "output_per_token": 1e-5,
+        "cache_read_per_token": 1.25e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-03-01"
+    },
+    "global/gpt-5.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "global/gpt-5.1-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-3.5-turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4097,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 1.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-3.5-turbo-0125": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16384,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_token": 5e-7,
+        "output_per_token": 1.5e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2025-03-31"
+    },
+    "gpt-35-turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4097,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 1.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-35-turbo-0125": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16384,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_token": 5e-7,
+        "output_per_token": 1.5e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2025-05-31"
+    },
+    "gpt-35-turbo-1106": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16384,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_token": 1e-6,
+        "output_per_token": 2e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2025-03-31"
+    },
+    "gpt-35-turbo-16k": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16385,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 4.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-35-turbo-16k-0613": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 16385,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 4.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 30.0,
+        "output_per_million_tokens": 60.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4-0125-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 30.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4-0613": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 30.0,
+        "output_per_million_tokens": 60.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4-1106-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 30.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4-32k": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 60.0,
+        "output_per_million_tokens": 120.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4-32k-0613": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 60.0,
+        "output_per_million_tokens": 120.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4-turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 30.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4-turbo-2024-04-09": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 30.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4-turbo-vision-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 30.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1047576,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 8.0,
+        "cache_read_per_million_tokens": 0.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 4.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-4.1-2025-04-14": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1047576,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 8.0,
+        "cache_read_per_million_tokens": 0.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 4.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-11-04"
+    },
+    "gpt-4.1-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1047576,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.4,
+        "output_per_million_tokens": 1.6,
+        "cache_read_per_million_tokens": 0.1,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.2,
+            "output_per_million_tokens": 0.8
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-4.1-mini-2025-04-14": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1047576,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.4,
+        "output_per_million_tokens": 1.6,
+        "cache_read_per_million_tokens": 0.1,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.2,
+            "output_per_million_tokens": 0.8
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-11-04"
+    },
+    "gpt-4.1-nano": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1047576,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.025,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.05,
+            "output_per_million_tokens": 0.2
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-4.1-nano-2025-04-14": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1047576,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.025,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.05,
+            "output_per_million_tokens": 0.2
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-11-04"
+    },
+    "gpt-4.5-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 75.0,
+        "output_per_million_tokens": 150.0,
+        "cache_read_per_million_tokens": 37.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 37.5,
+            "output_per_million_tokens": 75.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-4o": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 1.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-4o-2024-05-13": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "gpt-4o-2024-08-06": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.5e-6,
+        "output_per_token": 1e-5,
+        "cache_read_per_token": 1.25e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-02-27"
+    },
+    "gpt-4o-2024-11-20": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.75e-6,
+        "output_per_token": 1.1e-5,
+        "cache_read_per_token": 1.25e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-03-01"
+    },
+    "gpt-4o-audio-preview-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4o-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.165,
+        "output_per_million_tokens": 0.66,
+        "cache_read_per_million_tokens": 0.075
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-4o-mini-2024-07-18": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.165,
+        "output_per_million_tokens": 0.66,
+        "cache_read_per_million_tokens": 0.075
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-4o-mini-audio-preview-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4o-mini-realtime-preview-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 2.4,
+        "cache_read_per_million_tokens": 0.3
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4o-realtime-preview-2024-10-01": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 20.0,
+        "cache_read_per_million_tokens": 2.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-4o-realtime-preview-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 20.0,
+        "cache_read_per_million_tokens": 2.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5-2025-08-07": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5-chat-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.025
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5-mini-2025-08-07": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.025
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5-nano": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.005
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5-nano-2025-08-07": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.005
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.1-2025-11-13": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 20.0,
+            "cache_read_per_million_tokens": 0.25
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.1-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.1-chat-2025-11-13": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 20.0,
+            "cache_read_per_million_tokens": 0.25
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_read_per_million_tokens": 0.175
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.2-2025-12-11": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_read_per_million_tokens": 0.175,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.5,
+            "output_per_million_tokens": 28.0,
+            "cache_read_per_million_tokens": 0.35
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.2-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_read_per_million_tokens": 0.175,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.5,
+            "output_per_million_tokens": 28.0,
+            "cache_read_per_million_tokens": 0.35
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.2-chat-2025-12-11": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_read_per_million_tokens": 0.175,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.5,
+            "output_per_million_tokens": 28.0,
+            "cache_read_per_million_tokens": 0.35
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.3-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_read_per_million_tokens": 0.175,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.5,
+            "output_per_million_tokens": 28.0,
+            "cache_read_per_million_tokens": 0.35
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1050000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.25,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 5.0,
+            "output_per_million_tokens": 30.0,
+            "cache_read_per_million_tokens": 0.5
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_read_per_million_tokens": 0.5,
+            "input_per_million_tokens": 5.0,
+            "output_per_million_tokens": 22.5
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.4-2026-03-05": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1050000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.25,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 5.0,
+            "output_per_million_tokens": 30.0,
+            "cache_read_per_million_tokens": 0.5
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_read_per_million_tokens": 0.5,
+            "input_per_million_tokens": 5.0,
+            "output_per_million_tokens": 22.5
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.4-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1050000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.75,
+        "output_per_million_tokens": 4.5,
+        "cache_read_per_million_tokens": 0.075
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-5.4-nano": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1050000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 1.25,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gpt-audio-1.5-2026-02-23": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-audio-2025-08-28": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-audio-mini-2025-10-06": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 2.4
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-realtime-1.5-2026-02-23": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 16.0,
+        "cache_read_per_million_tokens": 4.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-realtime-2025-08-28": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 16.0,
+        "cache_read_per_million_tokens": 4.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gpt-realtime-mini-2025-10-06": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 2.4,
+        "cache_read_per_million_tokens": 0.06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-large-2402": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.0,
+        "output_per_million_tokens": 24.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "mistral-large-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.0,
+        "output_per_million_tokens": 24.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "o1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 15.0,
+        "output_per_million_tokens": 60.0,
+        "cache_read_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "o1-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 15.0,
+        "output_per_million_tokens": 60.0,
+        "cache_read_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "o1-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.21,
+        "output_per_million_tokens": 4.84,
+        "cache_read_per_million_tokens": 0.605
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "o1-mini-2024-09-12": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.1,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.55
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "o1-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 15.0,
+        "output_per_million_tokens": 60.0,
+        "cache_read_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "o1-preview-2024-09-12": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 15.0,
+        "output_per_million_tokens": 60.0,
+        "cache_read_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "o3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 8.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "o3-2025-04-16": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 8.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-04-16"
+    },
+    "o3-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.1,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.55
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "o3-mini-2025-01-31": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.1,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.55
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "o4-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.1,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.275
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "o4-mini-2025-04-16": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.1,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.275
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "text-embedding-3-large": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8191,
+        "max_tokens": 8191
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.13,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "text-embedding-3-small": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8191,
+        "max_tokens": 8191
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.02,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-04-30"
+    },
+    "text-embedding-ada-002": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8191,
+        "max_tokens": 8191
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "us/gpt-4.1-2025-04-14": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1047576,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.2,
+        "output_per_million_tokens": 8.8,
+        "cache_read_per_million_tokens": 0.55,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.1,
+            "output_per_million_tokens": 4.4
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-11-04"
+    },
+    "us/gpt-4.1-mini-2025-04-14": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1047576,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.44,
+        "output_per_million_tokens": 1.76,
+        "cache_read_per_million_tokens": 0.11,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.22,
+            "output_per_million_tokens": 0.88
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-11-04"
+    },
+    "us/gpt-4.1-nano-2025-04-14": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1047576,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.11,
+        "output_per_million_tokens": 0.44,
+        "cache_read_per_million_tokens": 0.025,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.06,
+            "output_per_million_tokens": 0.22
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-11-04"
+    },
+    "us/gpt-4o-2024-08-06": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.75e-6,
+        "output_per_token": 1.1e-5,
+        "cache_read_per_token": 1.375e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-02-27"
+    },
+    "us/gpt-4o-2024-11-20": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_token": 2.75e-6,
+        "output_per_token": 1.1e-5,
+        "cache_write_per_token": 1.38e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-03-01"
+    },
+    "us/gpt-4o-mini-2024-07-18": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.165,
+        "output_per_million_tokens": 0.66,
+        "cache_read_per_million_tokens": 0.083
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "us/gpt-4o-mini-realtime-preview-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.66,
+        "output_per_million_tokens": 2.64,
+        "cache_read_per_million_tokens": 0.33
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "us/gpt-4o-realtime-preview-2024-10-01": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.5,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "us/gpt-4o-realtime-preview-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.5,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "us/gpt-5-2025-08-07": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.375,
+        "output_per_million_tokens": 11.0,
+        "cache_read_per_million_tokens": 0.1375
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "us/gpt-5-mini-2025-08-07": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.275,
+        "output_per_million_tokens": 2.2,
+        "cache_read_per_million_tokens": 0.0275
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "us/gpt-5-nano-2025-08-07": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.055,
+        "output_per_million_tokens": 0.44,
+        "cache_read_per_million_tokens": 0.0055
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "us/gpt-5.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.38,
+        "output_per_million_tokens": 11.0,
+        "cache_read_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "us/gpt-5.1-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.38,
+        "output_per_million_tokens": 11.0,
+        "cache_read_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "us/o1-2024-12-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 16.5,
+        "output_per_million_tokens": 66.0,
+        "cache_read_per_million_tokens": 8.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "us/o1-mini-2024-09-12": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.21,
+        "output_per_million_tokens": 4.84,
+        "cache_read_per_million_tokens": 0.605,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.605,
+            "output_per_million_tokens": 2.42
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "us/o1-preview-2024-09-12": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 16.5,
+        "output_per_million_tokens": 66.0,
+        "cache_read_per_million_tokens": 8.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "us/o3-2025-04-16": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.2,
+        "output_per_million_tokens": 8.8,
+        "cache_read_per_million_tokens": 0.55
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-04-16"
+    },
+    "us/o3-mini-2025-01-31": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.21,
+        "output_per_million_tokens": 4.84,
+        "cache_read_per_million_tokens": 0.605,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.605,
+            "output_per_million_tokens": 2.42
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      }
+    },
+    "us/o4-mini-2025-04-16": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.21,
+        "output_per_million_tokens": 4.84,
+        "cache_read_per_million_tokens": 0.31
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    }
+  }
+}

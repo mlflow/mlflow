@@ -3,6 +3,7 @@ import type { ModelTraceInfoV3, ModelTraceSpan } from '../model-trace-explorer/M
 
 export type AssessmentDType = 'string' | 'numeric' | 'boolean' | 'pass-fail' | 'unknown';
 export type AssessmentType = 'AI_JUDGE' | 'HUMAN' | 'CODE';
+export type TraceTablePageSource = 'experiment-traces' | 'chat-sessions' | 'run-view-traces';
 
 // Reflects structure logged by mlflow.log_table()
 export interface RawGenaiEvaluationArtifactResponse {
@@ -129,6 +130,15 @@ export interface AssessmentAggregates {
   currentNumericAggregate?: NumericAggregate;
 
   assessmentFilters: AssessmentFilter[];
+}
+
+/**
+ * Server-side assessment count data from the trace metrics API.
+ * Each entry represents one (assessmentName, value) → count tuple.
+ */
+export interface AssessmentCountMetrics {
+  data: { assessmentName: string; assessmentValue: string; count: number }[];
+  isLoading: boolean;
 }
 
 export interface EvaluationsOverviewTableSort {

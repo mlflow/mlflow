@@ -75,7 +75,7 @@ def test_default_api_key():
 
 def test_name():
     provider = _make_provider()
-    assert provider.NAME == "Ollama"
+    assert provider.DISPLAY_NAME == "Ollama"
 
 
 @pytest.mark.asyncio

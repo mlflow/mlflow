@@ -7,6 +7,8 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
+import pydantic
+
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue import IssueSeverity
@@ -22,6 +24,7 @@ from mlflow.genai.discovery.clustering import (
 )
 from mlflow.genai.discovery.constants import (
     CATEGORY_LATENCY,
+    DEDUP_ISSUES_PROMPT_TEMPLATE,
     DEFAULT_CATEGORIES,
     DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
@@ -43,8 +46,6 @@ from mlflow.genai.discovery.extraction import (
 )
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.genai.discovery.utils import (
-    _call_llm,
-    _TokenCounter,
     build_summary,
     collect_affected_trace_ids,
     compute_latency_percentiles,
@@ -57,6 +58,7 @@ from mlflow.genai.discovery.utils import (
 )
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
 from mlflow.telemetry.events import DiscoverIssuesEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
@@ -321,19 +323,109 @@ def _resplit_incoherent_clusters(
     ]
 
 
-def _dedup_issues_by_name(issues: list[_IdentifiedIssue]) -> list[_IdentifiedIssue]:
-    seen_names: dict[str, int] = {}
-    deduped: list[_IdentifiedIssue] = []
-    for issue in issues:
-        key = issue.name.strip().lower()
-        if key in seen_names:
-            existing = deduped[seen_names[key]]
-            existing.example_indices = list(set(existing.example_indices + issue.example_indices))
-            existing.severity = max(existing.severity, issue.severity)
+class _DedupGroup(pydantic.BaseModel):
+    indices: list[int] = pydantic.Field(
+        description=(
+            "List of issue indices (0-based) that represent the same underlying problem "
+            "and should be merged. Must contain 2 or more indices."
+        )
+    )
+    name: str = pydantic.Field(
+        description=(
+            "Consolidated title for this group. "
+            "Use the format 'Issue: <short description>' (3-8 words), "
+            "e.g. 'Issue: Incomplete response details'."
+        )
+    )
+    description: str = pydantic.Field(
+        description="A unified description of the shared symptom across all issues in the group."
+    )
+    root_cause: str = pydantic.Field(
+        description="The common root cause across all issues in the group."
+    )
+
+
+class _DedupGroups(pydantic.BaseModel):
+    groups: list[_DedupGroup] = pydantic.Field(
+        description=(
+            "List of duplicate groups. Each group contains the indices of issues "
+            "that represent the same underlying problem and should be merged, "
+            "along with a consolidated name, description, and root cause for the group. "
+            "Only include groups with 2 or more indices. "
+            "Issues that have no duplicates should NOT appear in any group."
+        )
+    )
+
+
+def _dedup_issues(
+    issues: list[_IdentifiedIssue],
+    model: str = DEFAULT_MODEL,
+    token_counter: _TokenCounter | None = None,
+) -> list[_IdentifiedIssue]:
+    """Deduplicate issues by asking the LLM to identify groups of equivalent issues."""
+    if len(issues) < 2:
+        return issues
+
+    issue_list = "\n".join(
+        f"[{i}] {issue.name}: {issue.description} (root cause: {issue.root_cause})"
+        for i, issue in enumerate(issues)
+    )
+    prompt = DEDUP_ISSUES_PROMPT_TEMPLATE.format(issue_list=issue_list)
+
+    try:
+        response = _call_llm(
+            model,
+            [{"role": "user", "content": prompt}],
+            response_format=_DedupGroups,
+            token_counter=token_counter,
+        )
+        result = _DedupGroups.model_validate_json(response.choices[0].message.content)
+    except Exception:
+        _logger.debug("Failed to deduplicate issues via LLM; skipping dedup", exc_info=True)
+        return issues
+
+    parent = list(range(len(issues)))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    group_by_root: dict[int, _DedupGroup] = {}
+    for group in result.groups:
+        if len(group.indices) < 2:
+            continue
+        root = min(group.indices)
+        group_by_root[root] = group
+        for idx in group.indices:
+            ra = find(group.indices[0])
+            rb = find(idx)
+            if ra != rb:
+                parent[max(ra, rb)] = min(ra, rb)
+
+    # Map each index to the minimum index in its component (canonical representative)
+    canonical = {i: find(i) for i in range(len(issues)) if find(i) != i}
+
+    merged: dict[int, _IdentifiedIssue] = {}
+    for i, issue in enumerate(issues):
+        head = canonical.get(i, i)
+        if head not in merged:
+            merged[head] = issue
         else:
-            seen_names[key] = len(deduped)
-            deduped.append(issue)
-    return deduped
+            target = merged[head]
+            target.example_indices = list(set(target.example_indices + issue.example_indices))
+            target.severity = max(target.severity, issue.severity)
+            target.categories = list(dict.fromkeys(target.categories + issue.categories))
+
+    for root, group in group_by_root.items():
+        if root in merged:
+            merged[root].name = group.name
+            merged[root].description = group.description
+            merged[root].root_cause = group.root_cause
+
+    # Return issues in their original order
+    return [merged[i] for i in sorted(merged)]
 
 
 def _merge_singleton_issues(
@@ -412,7 +504,7 @@ def _cluster_and_identify(
             summaries[future_to_idx[future]] = future.result()
 
     identified = _resplit_incoherent_clusters(cluster_groups, summaries, summarize_fn)
-    identified = _dedup_issues_by_name(identified)
+    identified = _dedup_issues(identified, model=model, token_counter=token_counter)
 
     analysis_labels: dict[int, str] = {}
     for label, analysis_idx in zip(labels, label_to_analysis):

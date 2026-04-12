@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.35,
+        "output_per_million_tokens": 0.75
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "llama-3.3-70b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.85,
+        "output_per_million_tokens": 1.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3.1-70b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 0.6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "llama3.1-8b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.1
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "qwen-3-32b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.4,
+        "output_per_million_tokens": 0.8
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "zai-glm-4.6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_token": 2.25e-6,
+        "output_per_token": 2.75e-6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-01-20"
+    },
+    "zai-glm-4.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.25,
+        "output_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

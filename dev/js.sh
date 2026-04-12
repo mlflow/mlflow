@@ -18,6 +18,12 @@ fi
 
 cd mlflow/server/js
 
+npx_version=$(npx --version)
+if [ "$(printf '%s\n' "11.10.0" "$npx_version" | sort -V | head -n1)" != "11.10.0" ]; then
+  echo "Error: npx >= 11.10.0 is required (found $npx_version)" >&2
+  exit 1
+fi
+
 # Convert paths from repo root to relative paths
 files=()
 for f in "$@"; do
@@ -27,7 +33,7 @@ done
 case "$cmd" in
   fmt)
     # Use npx to avoid slow `yarn install --immutable`
-    [ ${#files[@]} -gt 0 ] && npx "prettier@$(jq -r '.devDependencies.prettier' package.json)" --write --ignore-unknown "${files[@]}"
+    [ ${#files[@]} -gt 0 ] && npx --min-release-age=14 "prettier@$(jq -r '.devDependencies.prettier' package.json)" --write --ignore-unknown "${files[@]}"
     ;;
   # TODO: Add eslint, i18n, type-check commands if needed
   *)

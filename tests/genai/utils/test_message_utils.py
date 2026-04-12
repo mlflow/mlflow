@@ -1,6 +1,10 @@
+import pydantic
 import pytest
 
-from mlflow.genai.utils.message_utils import serialize_messages_to_prompts
+from mlflow.genai.utils.message_utils import (
+    pydantic_to_response_format,
+    serialize_messages_to_prompts,
+)
 from mlflow.types.llm import ChatMessage, FunctionToolCallArguments, ToolCall
 
 
@@ -193,3 +197,17 @@ def test_full_conversation_dict():
     user_prompt, system_prompt = serialize_messages_to_prompts(messages)
     assert user_prompt == "Query\n\nAssistant: Response\n\nFollow-up"
     assert system_prompt == "Be helpful"
+
+
+def test_pydantic_to_response_format():
+    class MySchema(pydantic.BaseModel):
+        name: str
+        score: int
+
+    result = pydantic_to_response_format(MySchema)
+
+    assert result["type"] == "json_schema"
+    assert result["json_schema"]["name"] == "MySchema"
+    schema = result["json_schema"]["schema"]
+    assert "name" in schema["properties"]
+    assert "score" in schema["properties"]

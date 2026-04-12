@@ -55,7 +55,9 @@ class _SimpleHTTPServer(HTTPServer):
         return f"http://{self.server_address[0]}:{self.server_address[1]}"
 
     def __enter__(self) -> "_SimpleHTTPServer":
-        self._thread = threading.Thread(target=self.serve_forever, daemon=True)
+        self._thread = threading.Thread(
+            name="simple-http-server", target=self.serve_forever, daemon=True
+        )
         self._thread.start()
         return self
 

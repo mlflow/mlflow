@@ -147,6 +147,38 @@ def test_create_index_on_run_uuid(tmp_path, db_url):
         assert run_uuid_index_names.issubset(all_index_names)
 
 
+def test_create_index_on_metrics_run_uuid_key_step_via_migration(tmp_path, db_url):
+    # Test that the index is created when upgrading from initial schema via migrations
+    engine = sqlalchemy.create_engine(db_url)
+    InitialBase.metadata.create_all(engine)
+    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = [r[0] for r in cursor.fetchall()]
+        assert "index_metrics_run_uuid_key_step" in all_index_names
+
+        cursor.execute("PRAGMA index_info('index_metrics_run_uuid_key_step')")
+        columns = [row[2] for row in cursor.fetchall()]
+        assert columns == ["run_uuid", "key", "step"]
+
+
+def test_create_index_on_metrics_run_uuid_key_step(tmp_path, db_url):
+    # Test for
+    # mlflow/store/db_migrations/versions/a5b4c3d2e1f0_add_metrics_run_key_step_index.py
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = [r[0] for r in cursor.fetchall()]
+        assert "index_metrics_run_uuid_key_step" in all_index_names
+
+        # Verify the index columns and order
+        cursor.execute("PRAGMA index_info('index_metrics_run_uuid_key_step')")
+        columns = [row[2] for row in cursor.fetchall()]
+        assert columns == ["run_uuid", "key", "step"]
+
+
 def test_index_for_dataset_tables(tmp_path, db_url):
     # Test for
     # mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py
@@ -176,6 +208,8 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
             "endpoint_model_mappings",
             "endpoint_bindings",
             "workspaces",
+            "guardrails",
+            "guardrail_configs",
         }
         assert expected_tables.issubset(all_table_names)
 
@@ -192,6 +226,10 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
             "idx_secrets_workspace",
             "idx_endpoints_workspace",
             "idx_model_definitions_workspace",
+            "idx_guardrails_workspace",
+            "idx_guardrails_scorer",
+            "idx_guardrail_configs_endpoint_id",
+            "idx_guardrail_configs_guardrail_id",
         }
         assert expected_named_indexes.issubset(all_index_names)
 
@@ -316,6 +354,24 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "budget_action": "ALERT",
             "created_at": seed,
             "last_updated_at": seed,
+            "workspace": workspace,
+        },
+        "guardrails": {
+            "guardrail_id": f"gr_{seed}",
+            "name": f"guardrail_{seed}",
+            "scorer_id": f"scorer_{seed}",
+            "scorer_version": seed,
+            "stage": "BEFORE",
+            "action": "VALIDATION",
+            "created_at": seed,
+            "last_updated_at": seed,
+            "workspace": workspace,
+        },
+        "guardrail_configs": {
+            "endpoint_id": f"endpoint_{seed}",
+            "guardrail_id": f"gr_{seed}",
+            "execution_order": seed,
+            "created_at": seed,
             "workspace": workspace,
         },
         "jobs": {

@@ -59,13 +59,16 @@ jobs:
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
         run: |
-          echo "::add-matcher::.github/workflows/matchers/clint.json"
-          echo "::add-matcher::.github/workflows/matchers/format.json"
-          echo "::add-matcher::.github/workflows/matchers/ruff.json"
-          echo "::add-matcher::.github/workflows/matchers/typos.json"
+          for f in .github/workflows/matchers/*.json; do
+            echo "::add-matcher::$f"
+          done
       - name: Install Python dependencies
         run: |
           uv sync --locked --only-group lint --only-group pytest
+      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: .cache/action-pins.json
+          key: action-pins-${{ hashFiles('dev/check_action_pins.py') }}
       - name: Install pre-commit hooks
         run: |
           uv run --no-sync pre-commit install --install-hooks

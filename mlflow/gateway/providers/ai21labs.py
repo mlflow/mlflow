@@ -8,8 +8,11 @@ from mlflow.gateway.schemas import completions
 
 
 class AI21LabsProvider(BaseProvider):
-    NAME = "AI21Labs"
+    DISPLAY_NAME = "AI21Labs"
     CONFIG_TYPE = AI21LabsConfig
+
+    def get_provider_name(self) -> str:
+        return "ai21"
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         super().__init__(config, enable_tracing=enable_tracing)

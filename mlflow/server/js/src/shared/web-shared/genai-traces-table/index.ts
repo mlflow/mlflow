@@ -109,7 +109,11 @@ export {
   createTestColumns,
 } from './test-fixtures/EvaluatedTraceTestUtils';
 
-export { shouldUseTracesV4API, shouldUseLongRunningTracesAPI } from './utils/FeatureUtils';
+export {
+  shouldUseTracesV4API,
+  shouldUseLongRunningTracesAPI,
+  shouldUseInfinitePaginatedTraces,
+} from './utils/FeatureUtils';
 export { createTraceLocationForExperiment, createTraceLocationForUCSchema } from './utils/TraceLocationUtils';
 export type { GetTraceFunction } from './hooks/useGetTrace';
 export { useFetchTraceV4LazyQuery, useFetchTraceV4Query, getTraceV4QueryKey } from './hooks/useFetchTraceV4';

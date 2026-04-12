@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
+import { type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 
 export interface OutputTypeSectionProps {
@@ -90,7 +90,7 @@ const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) 
             render={({ field }) => (
               <div css={{ flex: showPrimitiveSelector ? undefined : 1 }} onClick={stopPropagationClick}>
                 <DialogCombobox
-                  componentId={`${COMPONENT_ID_PREFIX}.output-type-select`}
+                  componentId="mlflow.experiment-scorers.output-type-select"
                   id="mlflow-experiment-scorers-output-type"
                   value={[field.value ?? 'default']}
                 >
@@ -139,7 +139,7 @@ const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) 
                 render={({ field }) => (
                   <div onClick={stopPropagationClick}>
                     <DialogCombobox
-                      componentId={`${COMPONENT_ID_PREFIX}.dict-value-type-select`}
+                      componentId="mlflow.experiment-scorers.dict-value-type-select"
                       id="mlflow-experiment-scorers-dict-value-type"
                       value={field.value ? [field.value] : ['int']}
                     >
@@ -187,7 +187,7 @@ const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) 
                 render={({ field }) => (
                   <div onClick={stopPropagationClick}>
                     <DialogCombobox
-                      componentId={`${COMPONENT_ID_PREFIX}.list-element-type-select`}
+                      componentId="mlflow.experiment-scorers.list-element-type-select"
                       id="mlflow-experiment-scorers-list-element-type"
                       value={field.value ? [field.value] : ['str']}
                     >
@@ -246,7 +246,7 @@ const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) 
               <>
                 <Input.TextArea
                   {...field}
-                  componentId={`${COMPONENT_ID_PREFIX}.categorical-options-input`}
+                  componentId="mlflow.experiment-scorers.categorical-options-input"
                   id="mlflow-experiment-scorers-categorical-options"
                   readOnly={isReadOnly}
                   rows={3}

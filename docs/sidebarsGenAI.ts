@@ -114,7 +114,7 @@ const sidebarsGenAI: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'tracing/observe-with-traces/multimodal',
-                  label: 'Multimodal Content',
+                  label: 'Multimodal Content & Attachments',
                 },
               ],
             },
@@ -546,6 +546,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'tracing/opentelemetry/genai-semconv',
+              label: 'GenAI Semantic Conventions',
+            },
+            {
+              type: 'doc',
               id: 'tracing/opentelemetry/attribute-mapping',
               label: 'Attribute Mapping',
             },
@@ -571,6 +576,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'eval-monitor/quickstart',
           label: 'Quickstart',
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/ai-insights/detect-issues',
+          label: 'Automatic Issue Detection',
         },
         {
           type: 'category',
@@ -862,11 +872,6 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'eval-monitor/ai-insights/detect-issues',
-              label: 'Automatic Issue Detection',
-            },
-            {
-              type: 'doc',
               id: 'eval-monitor/ai-insights/ai-issue-discovery',
               label: 'AI Issue Discovery (MCP)',
             },
@@ -1019,6 +1024,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/budget-alerts-limits',
           label: 'Budget Alerts & Limits',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/benchmarks',
+          label: 'Performance & Benchmarks',
         },
         {
           type: 'category',

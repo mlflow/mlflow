@@ -99,6 +99,8 @@ from mlflow.protos.service_pb2 import (
     DeleteScorer,
     DeleteTraceTag,
     DeleteTraceTagV3,
+    GatewayEndpoint,
+    GetGatewayEndpoint,
     GetScorer,
     GetTrace,
     LinkPromptsToTrace,
@@ -124,6 +126,7 @@ from mlflow.server import (
 )
 from mlflow.server.handlers import (
     ARTIFACT_STREAM_CHUNK_SIZE,
+    STATIC_PREFIX_ENV_VAR,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
     _batch_get_trace_infos,
@@ -150,9 +153,11 @@ from mlflow.server.handlers import (
     _delete_trace_tag_v3,
     _deprecated_search_traces_v2,
     _download_artifact,
+    _get_ajax_path,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
     _get_dataset_records_handler,
+    _get_gateway_endpoint,
     _get_issue,
     _get_latest_versions,
     _get_model_version,
@@ -161,6 +166,7 @@ from mlflow.server.handlers import (
     _get_presigned_download_url,
     _get_registered_model,
     _get_request_message,
+    _get_rest_path,
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
@@ -1635,7 +1641,7 @@ def test_get_dataset_records_pagination(mock_tracking_store):
 def test_register_scorer(mock_get_request_message, mock_tracking_store):
     experiment_id = "123"
     name = "accuracy_scorer"
-    serialized_scorer = "serialized_scorer_data"
+    serialized_scorer = '{"name": "accuracy_scorer"}'
 
     mock_get_request_message.return_value = RegisterScorer(
         experiment_id=experiment_id, name=name, serialized_scorer=serialized_scorer
@@ -1666,6 +1672,19 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
         "serialized_scorer": serialized_scorer,
         "creation_time": 1234567890,
     }
+
+
+def test_register_scorer_rejects_decorator_scorer(mock_get_request_message, mock_tracking_store):
+    from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+
+    serialized_scorer = json.dumps({"name": "my_scorer", "call_source": "    return 1.0\n"})
+    mock_get_request_message.return_value = RegisterScorer(
+        experiment_id="123", name="my_scorer", serialized_scorer=serialized_scorer
+    )
+    resp = _register_scorer()
+    assert resp.status_code == 400
+    assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in resp.get_json()["message"]
+    mock_tracking_store.register_scorer.assert_not_called()
 
 
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
@@ -2838,6 +2857,18 @@ def test_list_providers():
         assert "openai" in data["providers"]
 
 
+def test_list_providers_with_allowed_filter(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai,anthropic")
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "openai" in data["providers"]
+        assert "anthropic" in data["providers"]
+        assert "gemini" not in data["providers"]
+        assert "bedrock" not in data["providers"]
+
+
 def test_list_models():
     with app.test_client() as c:
         response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models?provider=openai")
@@ -2896,6 +2927,18 @@ def test_get_provider_config_missing_provider():
         assert response.status_code == 400
 
 
+def test_get_provider_config_with_allowed_filter(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "anthropic")
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=openai")
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "not allowed" in data["message"]
+
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=anthropic")
+        assert response.status_code == 200
+
+
 @pytest.mark.parametrize(
     "invalid_name",
     [
@@ -2950,6 +2993,41 @@ def test_update_gateway_endpoint_rejects_invalid_name(mock_get_request_message, 
     response_data = json.loads(response.get_data())
     assert "Invalid endpoint name" in response_data["message"]
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+def test_get_gateway_endpoint_by_endpoint_id(mock_get_request_message, mock_tracking_store):
+    request_msg = GetGatewayEndpoint()
+    request_msg.endpoint_id = "ep-123"
+    mock_get_request_message.return_value = request_msg
+
+    mock_endpoint = mock.MagicMock()
+    mock_endpoint.to_proto.return_value = GatewayEndpoint(endpoint_id="ep-123")
+    mock_tracking_store.get_gateway_endpoint.return_value = mock_endpoint
+
+    response = _get_gateway_endpoint()
+
+    mock_tracking_store.get_gateway_endpoint.assert_called_once_with(
+        endpoint_id="ep-123", name=None
+    )
+    assert response.status_code == 200
+
+
+def test_get_gateway_endpoint_by_name(mock_get_request_message, mock_tracking_store):
+
+    request_msg = GetGatewayEndpoint()
+    request_msg.name = "my-endpoint"
+    mock_get_request_message.return_value = request_msg
+
+    mock_endpoint = mock.MagicMock()
+    mock_endpoint.to_proto.return_value = GatewayEndpoint(endpoint_id="ep-456", name="my-endpoint")
+    mock_tracking_store.get_gateway_endpoint.return_value = mock_endpoint
+
+    response = _get_gateway_endpoint()
+
+    mock_tracking_store.get_gateway_endpoint.assert_called_once_with(
+        endpoint_id=None, name="my-endpoint"
+    )
+    assert response.status_code == 200
 
 
 def test_query_trace_metrics_handler(mock_get_request_message, mock_tracking_store):
@@ -5009,3 +5087,19 @@ def test_cancel_job_success(mock_job_store):
 
         assert json_response["status"] == "CANCELED"
         mock_cancel.assert_called_once_with("job-123")
+
+
+def test_get_rest_path_respects_static_prefix(monkeypatch):
+    # Without prefix, both return bare paths
+    assert _get_rest_path("/mlflow/experiments/search") == "/api/2.0/mlflow/experiments/search"
+    assert _get_ajax_path("/mlflow/experiments/search") == "/ajax-api/2.0/mlflow/experiments/search"
+
+    # With prefix, both should include the prefix
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myapp")
+    assert (
+        _get_rest_path("/mlflow/experiments/search") == "/myapp/api/2.0/mlflow/experiments/search"
+    )
+    assert (
+        _get_ajax_path("/mlflow/experiments/search")
+        == "/myapp/ajax-api/2.0/mlflow/experiments/search"
+    )

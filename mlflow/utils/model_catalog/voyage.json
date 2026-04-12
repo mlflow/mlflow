@@ -1,0 +1,275 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "voyage-2": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 4000,
+        "max_tokens": 4000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-3": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-3-large": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-3-lite": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.02,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-3.5": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-3.5-lite": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.02,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-code-2": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 16000,
+        "max_tokens": 16000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-code-3": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-context-3": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 120000,
+        "max_tokens": 120000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-finance-2": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-large-2": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 16000,
+        "max_tokens": 16000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-law-2": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 16000,
+        "max_tokens": 16000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-lite-01": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-lite-02-instruct": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 4000,
+        "max_tokens": 4000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "voyage-multimodal-3": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

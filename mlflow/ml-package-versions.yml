@@ -246,6 +246,9 @@ semantic_kernel:
           # https://github.com/openai/openai-python/issues/2525
           "openai>=1.99.9",
         ]
+      # semantic-kernel>=1.36.1 depends on azure-ai-agents>=1.2.0b3 (pre-release).
+      # Explicitly specifying the prerelease requirement allows uv to resolve it without --prerelease=allow.
+      ">= 1.36.1": ["azure-ai-agents>=1.2.0b3"]
     run: |
       pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
 
@@ -480,8 +483,8 @@ transformers:
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
-      sudo apt-get update --snapshot=20260310T000000Z
-      sudo apt-get install --snapshot=20260310T000000Z -y ffmpeg
+      sudo apt-get update
+      sudo apt-get install -y ffmpeg
       export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |

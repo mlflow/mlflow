@@ -269,11 +269,13 @@ def test_generate_content_image_autolog(mock_litellm_cost):
     assert span.span_type == SpanType.LLM
     assert span.inputs["model"] == "gemini-1.5-flash"
     extra = {"display_name": None} if google_gemini_version >= Version("1.15.0") else {}
-    assert span.inputs["contents"][0]["inline_data"] == {
-        "data": "b'image'",
-        "mime_type": "image/jpeg",
-        **extra,
-    }
+    inline_data = span.inputs["contents"][0]["inline_data"]
+    assert inline_data["mime_type"] == "image/jpeg"
+    # Auto-extraction replaces bytes repr with mlflow-attachment:// URI
+    assert inline_data["data"].startswith("mlflow-attachment://")
+    assert "content_type=image%2Fjpeg" in inline_data["data"]
+    if extra:
+        assert inline_data["display_name"] is None
     assert span.inputs["contents"][1] == "Caption this image"
     assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
     assert span.model_name == "gemini-1.5-flash"
@@ -283,11 +285,12 @@ def test_generate_content_image_autolog(mock_litellm_cost):
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == span.span_id
     assert span1.inputs["model"] == "gemini-1.5-flash"
-    assert span1.inputs["contents"][0]["inline_data"] == {
-        "data": "b'image'",
-        "mime_type": "image/jpeg",
-        **extra,
-    }
+    inline_data1 = span1.inputs["contents"][0]["inline_data"]
+    assert inline_data1["mime_type"] == "image/jpeg"
+    assert inline_data1["data"].startswith("mlflow-attachment://")
+    assert "content_type=image%2Fjpeg" in inline_data1["data"]
+    if extra:
+        assert inline_data1["display_name"] is None
     assert span1.inputs["contents"][1] == "Caption this image"
     assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
 

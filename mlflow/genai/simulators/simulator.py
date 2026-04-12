@@ -838,7 +838,8 @@ class ConversationSimulator:
                 model_uri=self.user_model,
                 messages=messages,
                 num_retries=3,
-                inference_params={"temperature": 0.0, "response_format": GoalCheckResult},
+                inference_params={"temperature": 0.0},
+                response_format=GoalCheckResult,
             )
             result = GoalCheckResult.model_validate_json(text_result)
             return result.result.strip().lower() == "yes"
