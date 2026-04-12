@@ -876,7 +876,7 @@ describe('translateSpansForMlflow', () => {
         translateSpansForMlflow([badSpan]);
         expect(debugSpy).toHaveBeenCalledTimes(1);
         expect(debugSpy).toHaveBeenCalledWith(
-          'MLflowSpanExporter: failed to translate span, passing through unchanged',
+          'MLflowSpanProcessor: failed to translate span, passing through unchanged',
           expect.any(Error)
         );
       } finally {

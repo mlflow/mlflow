@@ -1,2 +1,2 @@
-export { MLflowSpanExporter } from './exporter';
-export { translateSpansForMlflow } from './translate';
+export { MLflowSpanProcessor } from './processor';
+export { translateSpanForMlflow, translateSpansForMlflow } from './translate';

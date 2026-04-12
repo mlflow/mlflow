@@ -1,6 +1,6 @@
 # @mlflow/vercel
 
-Vercel AI SDK integration for [MLflow Tracing](https://mlflow.org/). Provides a `SpanExporter` that translates Vercel AI SDK span attributes into MLflow's expected format.
+Vercel AI SDK integration for [MLflow Tracing](https://mlflow.org/). Provides a `SpanProcessor` that translates Vercel AI SDK span attributes into MLflow's expected format.
 
 ## Installation
 
@@ -15,9 +15,9 @@ npm install @mlflow/vercel
 ## Quick Start
 
 ```typescript
-import { MLflowSpanExporter } from '@mlflow/vercel';
+import { MLflowSpanProcessor } from '@mlflow/vercel';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
-import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { generateText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
@@ -30,15 +30,12 @@ const otlpExporter = new OTLPTraceExporter({
   },
 });
 
-// 2. Wrap it with MLflowSpanExporter to translate attributes
-const exporter = new MLflowSpanExporter(otlpExporter);
-
-// 3. Register with OpenTelemetry
+// 2. Register the MLflow processor (handles translation + batching)
 const provider = new NodeTracerProvider();
-provider.addSpanProcessor(new BatchSpanProcessor(exporter));
+provider.addSpanProcessor(new MLflowSpanProcessor(otlpExporter));
 provider.register();
 
-// 4. Use Vercel AI SDK with telemetry enabled
+// 3. Use Vercel AI SDK with telemetry enabled
 const result = await generateText({
   model: openai('gpt-4'),
   prompt: 'Hello!',
@@ -50,7 +47,7 @@ const result = await generateText({
 
 The Vercel AI SDK emits spans with `ai.*` attributes (e.g., `ai.operationId`, `ai.prompt.messages`, `ai.model.id`). MLflow expects `mlflow.*` attributes for full feature support.
 
-`MLflowSpanExporter` wraps any OTel `SpanExporter` and translates these attributes before export:
+`MLflowSpanProcessor` translates these attributes before export:
 
 | Vercel AI SDK | MLflow | Description |
 |---|---|---|
@@ -63,19 +60,29 @@ The Vercel AI SDK emits spans with `ai.*` attributes (e.g., `ai.operationId`, `a
 
 Spans without `ai.operationId` (e.g., HTTP spans) pass through unchanged. Existing `mlflow.*` attributes are never overwritten.
 
-> **Note:** "Call LLM" spans (doGenerate/doStream) also carry native `gen_ai.*` attributes set by the AI SDK. The MLflow server's read path handles those. This exporter adds `mlflow.*` attributes for features not covered by `gen_ai.*` (span type, structured I/O, message format) and for all non-LLM span types (tools, embeddings) which lack `gen_ai.*` attributes entirely.
+> **Note:** "Call LLM" spans (doGenerate/doStream) also carry native `gen_ai.*` attributes set by the AI SDK. The MLflow server's read path handles those. This processor adds `mlflow.*` attributes for features not covered by `gen_ai.*` (span type, structured I/O, message format) and for all non-LLM span types (tools, embeddings) which lack `gen_ai.*` attributes entirely.
 
 ## API
 
-### `MLflowSpanExporter`
+### `MLflowSpanProcessor`
 
 ```typescript
-import { MLflowSpanExporter } from '@mlflow/vercel';
+import { MLflowSpanProcessor } from '@mlflow/vercel';
 
-const exporter = new MLflowSpanExporter(innerExporter);
+const processor = new MLflowSpanProcessor(exporter);
 ```
 
-Implements the OTel `SpanExporter` interface. Translates Vercel AI SDK attributes, then delegates `export()`, `shutdown()`, and `forceFlush()` to the inner exporter.
+Implements the OTel `SpanProcessor` interface. Translates Vercel AI SDK attributes in `onEnd()`, then delegates to an internal `BatchSpanProcessor` for batched export. Provides `forceFlush()` and `shutdown()` for lifecycle management.
+
+### `translateSpanForMlflow`
+
+```typescript
+import { translateSpanForMlflow } from '@mlflow/vercel';
+
+translateSpanForMlflow(span);
+```
+
+The raw single-span translation function, exported for advanced use cases. Mutates span attributes in-place. Translation is best-effort — if it fails, the span is left unchanged.
 
 ### `translateSpansForMlflow`
 
@@ -85,7 +92,7 @@ import { translateSpansForMlflow } from '@mlflow/vercel';
 translateSpansForMlflow(spans);
 ```
 
-The raw translation function, exported for advanced use cases. Mutates span attributes in-place. No span is ever dropped — translation is best-effort per span.
+Batch version that calls `translateSpanForMlflow` on each span. No span is ever dropped.
 
 ## Documentation
 

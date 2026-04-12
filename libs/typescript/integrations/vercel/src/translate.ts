@@ -53,11 +53,21 @@ const CHAT_DO_OPERATIONS = new Set([
  */
 export function translateSpansForMlflow(spans: ReadableSpan[]): void {
   for (const span of spans) {
-    try {
-      translateSpan(span);
-    } catch (e) {
-      console.debug('MLflowSpanExporter: failed to translate span, passing through unchanged', e);
-    }
+    translateSpanForMlflow(span);
+  }
+}
+
+/**
+ * Translates a single Vercel AI SDK span's attributes into MLflow's expected format.
+ * Mutates span attributes in-place. Spans without `ai.operationId` are left untouched.
+ *
+ * If translation fails, the span is left as-is (possibly with partial mlflow.* attrs).
+ */
+export function translateSpanForMlflow(span: ReadableSpan): void {
+  try {
+    translateSpan(span);
+  } catch (e) {
+    console.debug('MLflowSpanProcessor: failed to translate span, passing through unchanged', e);
   }
 }
 
@@ -283,3 +293,4 @@ function safeStringify(value: unknown): string {
     return String(value);
   }
 }
+
