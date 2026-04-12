@@ -20,7 +20,7 @@ Start MLflow Tracking Server. If you have a local Python environment, you can ru
 
 ```bash
 pip install mlflow
-mlflow server --backend-store-uri sqlite:///mlruns.db --port 5000
+mlflow server --port 5000
 ```
 
 If you don't have Python environment locally, MLflow also supports Docker deployment or managed services. See [Self-Hosting Guide](https://mlflow.org/docs/latest/self-hosting/index.html) for getting started.
@@ -39,6 +39,9 @@ const provider = new NodeTracerProvider({
     new MLflowSpanProcessor(
       new OTLPTraceExporter({
         url: 'http://localhost:5000/api/2.0/otel/v1/traces',
+        headers: {
+          'x-mlflow-experiment-id': '<your-experiment-id>',
+        },
       }),
     ),
   ],
@@ -46,11 +49,20 @@ const provider = new NodeTracerProvider({
 provider.register();
 
 const result = await generateText({
-  model: openai('gpt-4o'),
+  model: openai('gpt-5'),
   prompt: "What's the weather like in Seattle?",
   experimental_telemetry: { isEnabled: true },
 });
 ```
+
+## Databricks
+
+To send traces to a Databricks Unity Catalog table, set the OTLP exporter URL to `<DATABRICKS_HOST>/api/2.0/otel/v1/traces` and include the following headers:
+
+- `Authorization`: `Bearer <your-databricks-token>`
+- `X-Databricks-UC-Table-Name`: `<catalog>.<schema>.<table_prefix>_otel_spans`
+
+Note: Do not set the `x-mlflow-experiment-id` header when using Databricks.
 
 ## Attribute Translation
 
