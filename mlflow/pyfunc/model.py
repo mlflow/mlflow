@@ -13,7 +13,7 @@ import shutil
 from abc import ABCMeta, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Generator, Iterator
+from typing import Any, ClassVar, Generator, Iterator
 
 import cloudpickle
 import pandas as pd
@@ -53,6 +53,7 @@ from mlflow.types.agent import (
     ChatAgentResponse,
     ChatContext,
 )
+from mlflow.types.agent_attribute import AgentAttribute
 from mlflow.types.llm import (
     ChatCompletionChunk,
     ChatCompletionResponse,
@@ -850,6 +851,8 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     See https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro for more details.
     """
 
+    attribute: ClassVar[AgentAttribute | None] = None
+
     _skip_type_hint_validation = True
 
     @staticmethod
@@ -860,6 +863,16 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
+
+        # Detect or create default AgentAttribute
+        if not hasattr(cls, "attribute") or cls.attribute is None:
+            cls.attribute = AgentAttribute(name=cls.__name__)
+        elif getattr(cls.attribute, "name", None) is None:
+            cls.attribute.name = cls.__name__
+
+        # Extract lightweight span attributes from agent attribute
+        span_attributes = cls.attribute.get_span_attributes()
+
         for attr_name in ("predict", "predict_stream"):
             attr = cls.__dict__.get(attr_name)
             if callable(attr):
@@ -877,9 +890,13 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
                         traced_attr = mlflow.trace(
                             span_type=SpanType.AGENT,
                             output_reducer=cls.responses_agent_output_reducer,
+                            attributes=span_attributes or None,
                         )(attr)
                     else:
-                        traced_attr = mlflow.trace(span_type=SpanType.AGENT)(attr)
+                        traced_attr = mlflow.trace(
+                            span_type=SpanType.AGENT,
+                            attributes=span_attributes or None,
+                        )(attr)
 
                 # Then wrap with pydantic wrapper
                 wrapped_attr = wrap_non_list_predict_pydantic(

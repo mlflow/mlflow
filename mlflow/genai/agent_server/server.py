@@ -17,6 +17,7 @@ from mlflow.genai.agent_server.utils import get_request_headers, set_request_hea
 from mlflow.genai.agent_server.validator import BaseAgentValidator, ResponsesAgentValidator
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.types.agent_attribute import AgentAttribute
 
 logger = logging.getLogger(__name__)
 STREAM_KEY = "stream"
@@ -29,6 +30,7 @@ _R = TypeVar("_R")
 
 _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
+_agent_attribute: AgentAttribute | None = None
 
 
 def get_invoke_function():
@@ -37,6 +39,43 @@ def get_invoke_function():
 
 def get_stream_function():
     return _stream_function
+
+
+def get_agent_attribute() -> AgentAttribute | None:
+    return _agent_attribute
+
+
+def set_agent_attribute(attribute: AgentAttribute) -> None:
+    global _agent_attribute
+    _agent_attribute = attribute
+
+
+def attribute() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator to register a function that returns the agent's attribute.
+
+    The decorated function is called once at registration time and its return
+    value is stored as the agent attribute. Can only be used once.
+
+    Example::
+
+        @attribute()
+        def get_attribute():
+            return agent.attribute
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        global _agent_attribute
+        if _agent_attribute is not None:
+            raise ValueError("attribute decorator can only be used once")
+        _agent_attribute = func()
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def invoke() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
@@ -241,6 +280,12 @@ class AgentServer:
                 https://platform.openai.com/docs/api-reference/responses/create
                 """
                 return await self._handle_invocations_request(request)
+
+        @self.app.get("/agent/attribute")
+        async def agent_attributes_endpoint() -> dict[str, Any]:
+            if _agent_attribute is None:
+                return {}
+            return _agent_attribute.to_dict()
 
         @self.app.get("/agent/info")
         async def agent_info_endpoint() -> dict[str, Any]:

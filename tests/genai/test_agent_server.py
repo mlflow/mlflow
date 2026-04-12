@@ -8,10 +8,13 @@ from fastapi.testclient import TestClient
 
 from mlflow.genai.agent_server import (
     AgentServer,
+    attribute,
+    get_agent_attribute,
     get_invoke_function,
     get_request_headers,
     get_stream_function,
     invoke,
+    set_agent_attribute,
     set_request_headers,
     stream,
 )
@@ -30,6 +33,7 @@ def reset_global_state():
 
     mlflow.genai.agent_server.server._invoke_function = None
     mlflow.genai.agent_server.server._stream_function = None
+    mlflow.genai.agent_server.server._agent_attribute = None
 
 
 async def responses_invoke(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
@@ -1322,3 +1326,183 @@ def test_return_trace_header_case_insensitive(header_value):
         assert "output" in response_json
         assert response_json["metadata"] == {"trace_id": "test-trace-id-123"}
         mock_span.assert_called_once()
+
+
+# --- AgentAttribute endpoint tests ---
+
+
+def test_agent_attributes_endpoint():
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    set_agent_attribute(
+        AgentAttribute(
+            name="test-agent",
+            description="A test agent",
+            version="1.0",
+            tags={"team": "ml"},
+        )
+    )
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/attribute")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "test-agent"
+    assert data["description"] == "A test agent"
+    assert data["version"] == "1.0"
+    assert data["tags"] == {"team": "ml"}
+    assert "custom_inputs_schema" not in data
+    assert "custom_outputs_schema" not in data
+
+
+def test_agent_attributes_endpoint_available_without_responses_agent():
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    set_agent_attribute(AgentAttribute(name="generic-agent"))
+    server = AgentServer()
+    client = TestClient(server.app)
+
+    response = client.get("/agent/attribute")
+    assert response.status_code == 200
+    assert response.json()["name"] == "generic-agent"
+
+
+def test_agent_attributes_endpoint_with_pydantic_schema():
+    from pydantic import BaseModel
+
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    class MyInputs(BaseModel):
+        query: str
+        temperature: float = 0.7
+
+    set_agent_attribute(
+        AgentAttribute(
+            name="schema-agent",
+            custom_inputs_schema=MyInputs,
+        )
+    )
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/attribute")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "schema-agent"
+    schema = data["custom_inputs_schema"]
+    assert "properties" in schema
+    assert "query" in schema["properties"]
+    assert "temperature" in schema["properties"]
+
+
+def test_agent_attributes_endpoint_empty_when_no_attribute():
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/attribute")
+    assert response.status_code == 200
+    assert response.json() == {}
+
+
+def test_set_and_get_agent_attribute():
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    assert get_agent_attribute() is None
+    attr = AgentAttribute(name="my-agent")
+    set_agent_attribute(attr)
+    assert get_agent_attribute() is attr
+
+
+def test_attribute_decorator_registers():
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    @attribute()
+    def get_attr():
+        return AgentAttribute(name="decorated-agent", version="2.0")
+
+    result = get_agent_attribute()
+    assert result.name == "decorated-agent"
+    assert result.version == "2.0"
+
+
+def test_attribute_decorator_called_once_at_registration():
+    call_count = 0
+
+    @attribute()
+    def get_attr():
+        nonlocal call_count
+        call_count += 1
+        return {"name": "counter-agent"}
+
+    # Function called exactly once at decoration time
+    assert call_count == 1
+    # Calling the wrapper again doesn't re-register
+    get_attr()
+    assert call_count == 2
+    # But _agent_attribute is still the first result
+    assert get_agent_attribute() == {"name": "counter-agent"}
+
+
+def test_attribute_decorator_duplicate_raises():
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    @attribute()
+    def get_attr():
+        return AgentAttribute(name="first")
+
+    with pytest.raises(ValueError, match="attribute decorator can only be used once"):
+
+        @attribute()
+        def get_attr_again():
+            return AgentAttribute(name="second")
+
+
+def test_attribute_decorator_with_responses_agent():
+    from mlflow.pyfunc.model import ResponsesAgent
+    from mlflow.types.agent_attribute import AgentAttribute
+    from mlflow.types.responses import (
+        ResponsesAgentRequest,
+        ResponsesAgentResponse,
+    )
+
+    class MyAgent(ResponsesAgent):
+        attribute = AgentAttribute(
+            name="my-test-agent",
+            description="A test agent",
+        )
+
+        def predict(
+            self, request: ResponsesAgentRequest
+        ) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(output=[])
+
+    agent = MyAgent()
+
+    @attribute()
+    def get_attr():
+        return agent.attribute
+
+    result = get_agent_attribute()
+    assert result.name == "my-test-agent"
+    assert result.description == "A test agent"
+
+
+def test_attribute_decorator_endpoint_integration():
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    @attribute()
+    def get_attr():
+        return AgentAttribute(
+            name="endpoint-agent",
+            description="Registered via decorator",
+        )
+
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/attribute")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "endpoint-agent"
+    assert data["description"] == "Registered via decorator"

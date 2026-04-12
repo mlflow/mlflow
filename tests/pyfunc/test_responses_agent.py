@@ -1488,3 +1488,101 @@ def test_cc_stream_to_responses_stream_handles_multiple_invalid_chunks():
     assert events[1].type == "response.output_text.delta"
     assert events[1].delta == " content"
     assert events[2].type == "response.output_item.done"
+
+
+# --- AgentAttribute integration tests ---
+
+
+def test_responses_agent_default_attribute():
+    """Subclass with no attribute gets a default AgentAttribute with name = class name."""
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    class NoAttributeAgent(ResponsesAgent):
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**get_mock_response(request))
+
+    assert isinstance(NoAttributeAgent.attribute, AgentAttribute)
+    assert NoAttributeAgent.attribute.name == "NoAttributeAgent"
+
+
+def test_responses_agent_custom_attribute():
+    """Subclass with explicit AgentAttribute preserves all fields."""
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    class CustomAgent(ResponsesAgent):
+        attribute = AgentAttribute(
+            name="custom-agent",
+            description="A custom test agent",
+            version="1.0",
+            tags={"team": "ml"},
+        )
+
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**get_mock_response(request))
+
+    assert CustomAgent.attribute.name == "custom-agent"
+    assert CustomAgent.attribute.description == "A custom test agent"
+    assert CustomAgent.attribute.version == "1.0"
+    assert CustomAgent.attribute.tags == {"team": "ml"}
+
+
+def test_responses_agent_attribute_name_defaults_to_class_name():
+    """AgentAttribute with no name gets name defaulted to the class name."""
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    class NamelessAgent(ResponsesAgent):
+        attribute = AgentAttribute(description="An agent without a name")
+
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**get_mock_response(request))
+
+    assert NamelessAgent.attribute.name == "NamelessAgent"
+    assert NamelessAgent.attribute.description == "An agent without a name"
+
+
+def test_responses_agent_span_has_agent_attributes():
+    """Agent attributes flow into trace span attributes."""
+    from mlflow.tracing.constant import SpanAttributeKey
+    from mlflow.types.agent_attribute import AgentAttribute
+
+    purge_traces()
+
+    class SpanTestAgent(ResponsesAgent):
+        attribute = AgentAttribute(
+            name="span-test",
+            description="Testing span attributes",
+            version="2.0",
+        )
+
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**get_mock_response(request))
+
+    agent = SpanTestAgent()
+    agent.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.attributes.get(SpanAttributeKey.AGENT_NAME) == "span-test"
+    assert span.attributes.get(SpanAttributeKey.AGENT_DESCRIPTION) == "Testing span attributes"
+    assert span.attributes.get(SpanAttributeKey.AGENT_VERSION) == "2.0"
+
+
+def test_responses_agent_manually_traced_keeps_user_attributes():
+    purge_traces()
+
+    class ManualTraceAgent(ResponsesAgent):
+        @mlflow.trace(
+            name="manual_predict", span_type=SpanType.AGENT, attributes={"custom": "value"}
+        )
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**get_mock_response(request))
+
+    agent = ManualTraceAgent()
+    agent.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "manual_predict"
+    assert span.attributes.get("custom") == "value"
