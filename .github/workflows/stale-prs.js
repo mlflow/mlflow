@@ -82,8 +82,8 @@ const shouldProcessPR = (pr) => {
   // Skip PRs not authored by members or bots
   const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
   const isMember = memberAssociations.includes(pr.authorAssociation);
-  const isBot = pr.author?.__typename === "Bot";
-  if (!isMember && !isBot) {
+  const isBotAuthor = pr.author?.__typename === "Bot";
+  if (!isMember && !isBotAuthor) {
     return false;
   }
 
