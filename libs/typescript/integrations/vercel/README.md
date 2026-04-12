@@ -1,6 +1,10 @@
-# @mlflow/vercel
+# MLflow Typescript SDK - Vercel AI
 
-Vercel AI SDK integration for [MLflow Tracing](https://mlflow.org/). Provides a `SpanProcessor` that translates Vercel AI SDK span attributes into MLflow's expected format.
+Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with [Vercel AI SDK](https://ai-sdk.dev/) to automatically trace your AI API calls.
+
+| Package              | NPM                                                                                                                               | Description                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| [@mlflow/vercel](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fvercel?style=flat-square)](https://www.npmjs.com/package/@mlflow/vercel) | Auto-instrumentation integration for Vercel AI SDK.    |
 
 ## Installation
 
@@ -8,11 +12,20 @@ Vercel AI SDK integration for [MLflow Tracing](https://mlflow.org/). Provides a 
 npm install @mlflow/vercel
 ```
 
-### Peer Dependencies
+The package includes `@opentelemetry/sdk-trace-base` as a peer dependency. Depending on your package manager, you may need to install it separately.
 
-- `@opentelemetry/sdk-trace-base` (or `@opentelemetry/sdk-trace-node`, which re-exports it)
+## Quickstart
 
-## Quick Start
+Start MLflow Tracking Server. If you have a local Python environment, you can run the following command:
+
+```bash
+pip install mlflow
+mlflow server --backend-store-uri sqlite:///mlruns.db --port 5000
+```
+
+If you don't have Python environment locally, MLflow also supports Docker deployment or managed services. See [Self-Hosting Guide](https://mlflow.org/docs/latest/self-hosting/index.html) for getting started.
+
+Set up the MLflow span processor and use the Vercel AI SDK with telemetry enabled:
 
 ```typescript
 import { MLflowSpanProcessor } from '@mlflow/vercel';
@@ -21,78 +34,36 @@ import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { generateText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
-// 1. Create an OTLP exporter pointed at the Databricks OTEL collector
-const otlpExporter = new OTLPTraceExporter({
-  url: `${process.env.DATABRICKS_HOST}/api/2.0/otel/v1/traces`,
-  headers: {
-    Authorization: `Bearer ${process.env.DATABRICKS_TOKEN}`,
-    'X-Databricks-UC-Table-Name': 'catalog.schema.spans',
-  },
+const provider = new NodeTracerProvider({
+  spanProcessors: [
+    new MLflowSpanProcessor(
+      new OTLPTraceExporter({
+        url: 'http://localhost:5000/api/2.0/otel/v1/traces',
+      })
+    ),
+  ],
 });
-
-// 2. Register the MLflow processor (handles translation + batching)
-const provider = new NodeTracerProvider();
-provider.addSpanProcessor(new MLflowSpanProcessor(otlpExporter));
 provider.register();
 
-// 3. Use Vercel AI SDK with telemetry enabled
 const result = await generateText({
-  model: openai('gpt-4'),
-  prompt: 'Hello!',
+  model: openai('gpt-4o'),
+  prompt: "What's the weather like in Seattle?",
   experimental_telemetry: { isEnabled: true },
 });
 ```
 
-## What It Does
+## Attribute Translation
 
-The Vercel AI SDK emits spans with `ai.*` attributes (e.g., `ai.operationId`, `ai.prompt.messages`, `ai.model.id`). MLflow expects `mlflow.*` attributes for full feature support.
+The Vercel AI SDK emits spans with `ai.*` attributes. `MLflowSpanProcessor` translates these into MLflow's format:
 
-`MLflowSpanProcessor` translates these attributes before export:
-
-| Vercel AI SDK                                | MLflow                                     | Description                      |
-| -------------------------------------------- | ------------------------------------------ | -------------------------------- |
-| `ai.operationId`                             | `mlflow.spanType`                          | Span type (LLM, TOOL, EMBEDDING) |
-| `ai.prompt.*` / `ai.response.*`              | `mlflow.spanInputs` / `mlflow.spanOutputs` | Structured request/response data |
-| `ai.model.id`                                | `mlflow.llm.model`                         | Model name                       |
-| `ai.model.provider`                          | `mlflow.llm.provider`                      | Provider name                    |
-| `ai.usage.promptTokens` / `completionTokens` | `mlflow.chat.tokenUsage`                   | Token usage for cost tracking    |
-| (chat spans)                                 | `mlflow.message.format` = `"vercel_ai"`    | Enables chat UI rendering        |
-
-Spans without `ai.operationId` (e.g., HTTP spans) pass through unchanged. Existing `mlflow.*` attributes are never overwritten.
-
-> **Note:** "Call LLM" spans (doGenerate/doStream) also carry native `gen_ai.*` attributes set by the AI SDK. The MLflow server's read path handles those. This processor adds `mlflow.*` attributes for features not covered by `gen_ai.*` (span type, structured I/O, message format) and for all non-LLM span types (tools, embeddings) which lack `gen_ai.*` attributes entirely.
-
-## API
-
-### `MLflowSpanProcessor`
-
-```typescript
-import { MLflowSpanProcessor } from '@mlflow/vercel';
-
-const processor = new MLflowSpanProcessor(exporter);
-```
-
-Implements the OTel `SpanProcessor` interface. Translates Vercel AI SDK attributes in `onEnd()`, then delegates to an internal `BatchSpanProcessor` for batched export. Provides `forceFlush()` and `shutdown()` for lifecycle management.
-
-### `translateSpanForMlflow`
-
-```typescript
-import { translateSpanForMlflow } from '@mlflow/vercel';
-
-translateSpanForMlflow(span);
-```
-
-The raw single-span translation function, exported for advanced use cases. Mutates span attributes in-place. Translation is best-effort — if it fails, the span is left unchanged.
-
-### `translateSpansForMlflow`
-
-```typescript
-import { translateSpansForMlflow } from '@mlflow/vercel';
-
-translateSpansForMlflow(spans);
-```
-
-Batch version that calls `translateSpanForMlflow` on each span. No span is ever dropped.
+| Vercel AI SDK | MLflow | Description |
+|---|---|---|
+| `ai.operationId` | `mlflow.spanType` | Span type (LLM, TOOL, EMBEDDING) |
+| `ai.prompt.*` / `ai.response.*` | `mlflow.spanInputs` / `mlflow.spanOutputs` | Structured request/response data |
+| `ai.model.id` | `mlflow.llm.model` | Model name |
+| `ai.model.provider` | `mlflow.llm.provider` | Provider name |
+| `ai.usage.promptTokens` / `completionTokens` | `mlflow.chat.tokenUsage` | Token usage for cost tracking |
+| (chat spans) | `mlflow.message.format` = `"vercel_ai"` | Enables chat UI rendering |
 
 ## Documentation
 
@@ -102,4 +73,4 @@ Batch version that calls `translateSpanForMlflow` on each span. No span is ever 
 
 ## License
 
-Apache-2.0
+This project is licensed under the [Apache License 2.0](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt).
