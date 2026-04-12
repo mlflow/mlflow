@@ -22,6 +22,7 @@ import type { DatasetWithRunType } from './ExperimentViewDatasetDrawer';
 import { ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
+import { ImagesCompareView } from '../../../images-compare';
 import { shouldUseGetLoggedModelsBatchAPI } from '../../../../../common/utils/FeatureUtils';
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
@@ -334,6 +335,13 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               viewState={viewState}
               updateViewState={updateViewState}
               onDatasetSelected={datasetSelected}
+              disabled={Boolean(uiState.groupBy)}
+            />
+          )}
+          {compareRunsMode === 'IMAGES' && (
+            <ImagesCompareView
+              comparedRuns={visibleRuns}
+              autoRefreshEnabled={autoRefreshEnabled}
               disabled={Boolean(uiState.groupBy)}
             />
           )}

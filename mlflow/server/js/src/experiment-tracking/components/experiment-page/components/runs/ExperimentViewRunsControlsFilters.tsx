@@ -27,6 +27,7 @@ import {
   ListIcon,
   ChartLineIcon,
   TableIcon,
+  ImageIcon,
   XCircleFillIcon,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
@@ -228,6 +229,28 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                   }
                 >
                   <TableIcon />
+                </Tooltip>
+              }
+            />
+            <SegmentedControlButton
+              value="IMAGES"
+              disabled={areRunsGrouped}
+              icon={
+                <Tooltip
+                  componentId="mlflow.experiment_page.mode.images"
+                  content={
+                    areRunsGrouped
+                      ? intl.formatMessage({
+                          defaultMessage: 'Unavailable when runs are grouped',
+                          description: 'Experiment page > view mode switch > images mode disabled tooltip',
+                        })
+                      : intl.formatMessage({
+                          defaultMessage: 'Image comparison',
+                          description: 'Experiment page > view mode switch > images comparison tooltip',
+                        })
+                  }
+                >
+                  <ImageIcon />
                 </Tooltip>
               }
             />

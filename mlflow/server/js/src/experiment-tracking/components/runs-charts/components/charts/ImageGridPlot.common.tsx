@@ -96,15 +96,15 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
   }, [compressedImageUrl]);
 
   return (
-    <div css={{ width: imageSize || '100%', height: imageSize || '100%' }}>
+    <div css={{ width: imageSize || '100%', height: imageSize || 'auto' }}>
       <div css={{ display: 'contents' }}>
         {compressedImageUrl === undefined || imageLoading ? (
           <div
             css={{
-              width: '100%',
+              width: imageSize || '100%',
               backgroundColor: theme.colors.backgroundSecondary,
               display: 'flex',
-              aspectRatio: '1',
+              ...(imageSize && { aspectRatio: '1' }),
               justifyContent: 'center',
               alignItems: 'center',
             }}
@@ -118,7 +118,7 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
               alignItems: 'center',
               justifyContent: 'center',
               width: imageSize || '100%',
-              aspectRatio: '1',
+              ...(imageSize && { aspectRatio: '1' }),
               maxWidth: maxImageSize,
               maxHeight: maxImageSize,
               backgroundColor: theme.colors.backgroundSecondary,

@@ -387,6 +387,7 @@ export type ExperimentViewRunsCompareMode =
   | 'TABLE'
   | 'ARTIFACT'
   | 'CHART'
+  | 'IMAGES'
   | 'TRACES'
   | 'MODELS'
   | 'EVAL_RESULTS'

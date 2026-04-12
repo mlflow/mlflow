@@ -1,0 +1,1 @@
+export { ImagesCompareView } from './ImagesCompareView';
