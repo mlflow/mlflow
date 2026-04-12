@@ -38,6 +38,7 @@
     "format:check": "prettier --check ."
   },
   "peerDependencies": {
+    "@opentelemetry/api": ">=1.0.0",
     "@opentelemetry/sdk-trace-base": ">=1.0.0"
   },
   "devDependencies": {

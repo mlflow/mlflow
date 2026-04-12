@@ -2,9 +2,9 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with [Vercel AI SDK](https://ai-sdk.dev/) to automatically trace your AI API calls.
 
-| Package              | NPM                                                                                                                               | Description                                            |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| [@mlflow/vercel](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fvercel?style=flat-square)](https://www.npmjs.com/package/@mlflow/vercel) | Auto-instrumentation integration for Vercel AI SDK.    |
+| Package              | NPM                                                                                                                               | Description                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| [@mlflow/vercel](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fvercel?style=flat-square)](https://www.npmjs.com/package/@mlflow/vercel) | Auto-instrumentation integration for Vercel AI SDK. |
 
 ## Installation
 
@@ -12,7 +12,7 @@ Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main
 npm install @mlflow/vercel
 ```
 
-The package includes `@opentelemetry/sdk-trace-base` as a peer dependency. Depending on your package manager, you may need to install it separately.
+The package includes `@opentelemetry/api` and `@opentelemetry/sdk-trace-base` as peer dependencies. Depending on your package manager, you may need to install them separately.
 
 ## Quickstart
 
@@ -39,7 +39,7 @@ const provider = new NodeTracerProvider({
     new MLflowSpanProcessor(
       new OTLPTraceExporter({
         url: 'http://localhost:5000/api/2.0/otel/v1/traces',
-      })
+      }),
     ),
   ],
 });
@@ -56,14 +56,14 @@ const result = await generateText({
 
 The Vercel AI SDK emits spans with `ai.*` attributes. `MLflowSpanProcessor` translates these into MLflow's format:
 
-| Vercel AI SDK | MLflow | Description |
-|---|---|---|
-| `ai.operationId` | `mlflow.spanType` | Span type (LLM, TOOL, EMBEDDING) |
-| `ai.prompt.*` / `ai.response.*` | `mlflow.spanInputs` / `mlflow.spanOutputs` | Structured request/response data |
-| `ai.model.id` | `mlflow.llm.model` | Model name |
-| `ai.model.provider` | `mlflow.llm.provider` | Provider name |
-| `ai.usage.promptTokens` / `completionTokens` | `mlflow.chat.tokenUsage` | Token usage for cost tracking |
-| (chat spans) | `mlflow.message.format` = `"vercel_ai"` | Enables chat UI rendering |
+| Vercel AI SDK                                | MLflow                                     | Description                      |
+| -------------------------------------------- | ------------------------------------------ | -------------------------------- |
+| `ai.operationId`                             | `mlflow.spanType`                          | Span type (LLM, TOOL, EMBEDDING) |
+| `ai.prompt.*` / `ai.response.*`              | `mlflow.spanInputs` / `mlflow.spanOutputs` | Structured request/response data |
+| `ai.model.id`                                | `mlflow.llm.model`                         | Model name                       |
+| `ai.model.provider`                          | `mlflow.llm.provider`                      | Provider name                    |
+| `ai.usage.promptTokens` / `completionTokens` | `mlflow.chat.tokenUsage`                   | Token usage for cost tracking    |
+| (chat spans)                                 | `mlflow.message.format` = `"vercel_ai"`    | Enables chat UI rendering        |
 
 ## Documentation
 
