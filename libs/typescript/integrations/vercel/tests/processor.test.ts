@@ -32,11 +32,9 @@ function createMockExporter(): SpanExporter & {
   exportMock: jest.Mock;
   shutdownMock: jest.Mock;
 } {
-  const exportMock = jest.fn(
-    (_spans: ReadableSpan[], cb: (result: { code: number }) => void) => {
-      cb({ code: 0 });
-    }
-  );
+  const exportMock = jest.fn((_spans: ReadableSpan[], cb: (result: { code: number }) => void) => {
+    cb({ code: 0 });
+  });
   const shutdownMock = jest.fn(() => Promise.resolve());
 
   return {

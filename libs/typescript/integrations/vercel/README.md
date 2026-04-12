@@ -49,14 +49,14 @@ The Vercel AI SDK emits spans with `ai.*` attributes (e.g., `ai.operationId`, `a
 
 `MLflowSpanProcessor` translates these attributes before export:
 
-| Vercel AI SDK | MLflow | Description |
-|---|---|---|
-| `ai.operationId` | `mlflow.spanType` | Span type (LLM, TOOL, EMBEDDING) |
-| `ai.prompt.*` / `ai.response.*` | `mlflow.spanInputs` / `mlflow.spanOutputs` | Structured request/response data |
-| `ai.model.id` | `mlflow.llm.model` | Model name |
-| `ai.model.provider` | `mlflow.llm.provider` | Provider name |
-| `ai.usage.promptTokens` / `completionTokens` | `mlflow.chat.tokenUsage` | Token usage for cost tracking |
-| (chat spans) | `mlflow.message.format` = `"vercel_ai"` | Enables chat UI rendering |
+| Vercel AI SDK                                | MLflow                                     | Description                      |
+| -------------------------------------------- | ------------------------------------------ | -------------------------------- |
+| `ai.operationId`                             | `mlflow.spanType`                          | Span type (LLM, TOOL, EMBEDDING) |
+| `ai.prompt.*` / `ai.response.*`              | `mlflow.spanInputs` / `mlflow.spanOutputs` | Structured request/response data |
+| `ai.model.id`                                | `mlflow.llm.model`                         | Model name                       |
+| `ai.model.provider`                          | `mlflow.llm.provider`                      | Provider name                    |
+| `ai.usage.promptTokens` / `completionTokens` | `mlflow.chat.tokenUsage`                   | Token usage for cost tracking    |
+| (chat spans)                                 | `mlflow.message.format` = `"vercel_ai"`    | Enables chat UI rendering        |
 
 Spans without `ai.operationId` (e.g., HTTP spans) pass through unchanged. Existing `mlflow.*` attributes are never overwritten.
 

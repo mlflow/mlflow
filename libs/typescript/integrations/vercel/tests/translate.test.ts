@@ -502,7 +502,7 @@ describe('translateSpansForMlflow', () => {
           'ai.toolCall.name': 'get_weather',
           'ai.toolCall.args': '{"city":"SF"}',
         },
-        'ai.toolCall'
+        'ai.toolCall',
       );
       translateSpansForMlflow([span]);
       expect(span.name).toBe('get_weather');
@@ -514,7 +514,7 @@ describe('translateSpansForMlflow', () => {
           'ai.operationId': 'ai.toolCall',
           'ai.toolCall.args': '{"city":"SF"}',
         },
-        'ai.toolCall'
+        'ai.toolCall',
       );
       translateSpansForMlflow([span]);
       expect(span.name).toBe('ai.toolCall');
@@ -526,7 +526,7 @@ describe('translateSpansForMlflow', () => {
           'ai.operationId': 'ai.generateText',
           'ai.toolCall.name': 'get_weather',
         },
-        'ai.generateText'
+        'ai.generateText',
       );
       translateSpansForMlflow([span]);
       expect(span.name).toBe('ai.generateText');
@@ -699,7 +699,10 @@ describe('translateSpansForMlflow', () => {
     it('decodes arrays of JSON strings element-by-element', () => {
       const span = makeSpan({
         'ai.operationId': 'ai.generateText.doGenerate',
-        'ai.prompt.messages': ['{"role":"user","content":"hi"}', '{"role":"assistant","content":"hello"}'],
+        'ai.prompt.messages': [
+          '{"role":"user","content":"hi"}',
+          '{"role":"assistant","content":"hello"}',
+        ],
       });
       translateSpansForMlflow([span]);
       expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
@@ -877,7 +880,7 @@ describe('translateSpansForMlflow', () => {
         expect(debugSpy).toHaveBeenCalledTimes(1);
         expect(debugSpy).toHaveBeenCalledWith(
           'MLflowSpanProcessor: failed to translate span, passing through unchanged',
-          expect.any(Error)
+          expect.any(Error),
         );
       } finally {
         debugSpy.mockRestore();

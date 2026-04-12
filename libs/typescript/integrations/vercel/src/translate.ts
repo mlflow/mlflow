@@ -196,7 +196,9 @@ function extractOutputs(attrs: Record<string, unknown>, operationId: string): un
 function firstNumber(attrs: Record<string, unknown>, keys: string[]): number | undefined {
   for (const key of keys) {
     const v = toNumber(attrs[key]);
-    if (v !== undefined) return v;
+    if (v !== undefined) {
+      return v;
+    }
   }
   return undefined;
 }
@@ -293,4 +295,3 @@ function safeStringify(value: unknown): string {
     return String(value);
   }
 }
-
