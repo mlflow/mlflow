@@ -85,9 +85,10 @@ export function getAssessmentInfos(
 ): AssessmentInfo[] {
   const assessmentInfos: Record<string, AssessmentInfo> = {};
   // Compute dtypes in the first pass.
-  const assessmentDtypes = {
+  // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
+  const assessmentDtypes: Record<string, AssessmentDType | undefined> = {
     [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: 'pass-fail',
-  } satisfies Record<string, AssessmentDType | undefined>;
+  };
   // Set of all assessment names. Will be filled after the first pass when computing dtypes.
   const assessmentNames = new Set<string>();
 

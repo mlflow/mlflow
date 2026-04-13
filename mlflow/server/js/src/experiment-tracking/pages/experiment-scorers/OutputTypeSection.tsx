@@ -40,7 +40,8 @@ const PRIMITIVE_TYPE_OPTIONS = [
   { value: 'str', label: 'String' },
 ] as const;
 
-const OUTPUT_TYPE_KIND_DISPLAY_MAP = {
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
+const OUTPUT_TYPE_KIND_DISPLAY_MAP: Record<string, string> = {
   default: 'Default',
   bool: 'Boolean',
   int: 'Integer',
@@ -49,14 +50,15 @@ const OUTPUT_TYPE_KIND_DISPLAY_MAP = {
   categorical: 'Categorical',
   dict: 'Dictionary',
   list: 'List',
-} satisfies Record<string, string>;
+};
 
-const PRIMITIVE_TYPE_DISPLAY_MAP = {
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
+const PRIMITIVE_TYPE_DISPLAY_MAP: Record<string, string> = {
   bool: 'Boolean',
   int: 'Integer',
   float: 'Float',
   str: 'String',
-} satisfies Record<string, string>;
+};
 
 const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) => {
   const { theme } = useDesignSystemTheme();

@@ -25,11 +25,12 @@ describe('useLoggedModelsForExperimentRunsTableV2', () => {
         // Extract model IDs from the query parameters
         const modelIds = req.url.searchParams.getAll('model_ids');
 
-        const sourceRunIdByModelIdMap = {
+        // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
+        const sourceRunIdByModelIdMap: Record<string, string> = {
           'model-id-1': 'run-1',
           'model-id-2': 'run-1',
           'model-id-3': 'run-2',
-        } satisfies Record<string, string>;
+        };
 
         // Create mock models based on the requested IDs
         const models = modelIds.map((modelId) => ({

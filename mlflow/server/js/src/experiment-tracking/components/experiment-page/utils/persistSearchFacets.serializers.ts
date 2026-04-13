@@ -18,7 +18,8 @@ const flattenString = (input: string | string[]) => (isArray(input) ? input.join
 /**
  * All known field serialization and deserialization mechanisms used in search facets state persisting mechanism.
  */
-const persistSearchStateFieldSerializers = {
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
+const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeFunctions> = {
   /**
    * In rare cases, search filter might contain commas that interfere with `querystring` library
    * parsing causing it to return array instead of string. Since it's difficult to selectively
@@ -87,7 +88,7 @@ const persistSearchStateFieldSerializers = {
       return undefined;
     },
   },
-} satisfies Record<string, PersistSearchSerializeFunctions>;
+};
 
 type StateKey = keyof Partial<ExperimentPageSearchFacetsState>;
 
