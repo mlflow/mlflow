@@ -41,7 +41,7 @@ const ProviderCard = ({ template, compact }: ProviderCardProps) => {
   const { theme } = useDesignSystemTheme();
 
   const logoSize = compact ? 16 : 20;
-  const headerPadding = compact ? `${theme.spacing.xs}px ${theme.spacing.sm}px` : `${theme.spacing.md}px`;
+  const headerPadding = compact ? `${theme.spacing.xs}px ${theme.spacing.sm}px` : `${theme.spacing.sm}px ${theme.spacing.md}px`;
   const headerGap = compact ? theme.spacing.xs : theme.spacing.sm;
   const headerFontSize = compact ? theme.typography.fontSizeSm : undefined;
   const rowPadding = compact ? `3px ${theme.spacing.sm}px` : `${theme.spacing.xs}px ${theme.spacing.md}px`;
@@ -172,9 +172,9 @@ const PROVIDER_TEMPLATES: ProviderTemplate[] = [
         componentId: 'mlflow.gateway.quick_start.anthropic.claude-sonnet-4-6',
       },
       {
-        model: 'claude-sonnet-4-20250514',
-        endpointName: 'anthropic-claude-sonnet-4-endpoint',
-        componentId: 'mlflow.gateway.quick_start.anthropic.claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
+        endpointName: 'anthropic-claude-sonnet-4-5-endpoint',
+        componentId: 'mlflow.gateway.quick_start.anthropic.claude-sonnet-4-5',
       },
       {
         model: 'claude-haiku-4-5',

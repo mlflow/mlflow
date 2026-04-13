@@ -50,7 +50,7 @@ describe('QuickStartTemplates', () => {
     // Anthropic models
     expect(screen.getByText('claude-opus-4-6')).toBeInTheDocument();
     expect(screen.getByText('claude-sonnet-4-6')).toBeInTheDocument();
-    expect(screen.getByText('claude-sonnet-4-20250514')).toBeInTheDocument();
+    expect(screen.getByText('claude-sonnet-4-5')).toBeInTheDocument();
     expect(screen.getByText('claude-haiku-4-5')).toBeInTheDocument();
 
     // Gemini models
