@@ -43,6 +43,8 @@ from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
 
+_FRAMEWORK_NAME = "deepeval"
+
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
@@ -196,7 +198,7 @@ class DeepEvalScorer(Scorer):
                 metadata={
                     "score": score,
                     "threshold": self._metric.threshold,
-                    FRAMEWORK_METADATA_KEY: "deepeval",
+                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
                 },
             )
         except Exception as e:
@@ -204,6 +206,7 @@ class DeepEvalScorer(Scorer):
                 name=self.name,
                 error=e,
                 source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
             )
 
     def _validate_kwargs(self, **metric_kwargs):

@@ -150,6 +150,7 @@ def test_deepeval_scorer_returns_error_feedback_on_exception():
         assert result.error.error_message == "Test error"
         assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
         assert result.source.source_id == "openai:/gpt-4o"
+        assert result.metadata == {FRAMEWORK_METADATA_KEY: "deepeval"}
 
 
 def test_multi_turn_metric_is_session_level_scorer(mock_deepeval_model):
