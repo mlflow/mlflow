@@ -24,8 +24,7 @@ def get_metric_class(metric_name: str):
     available = ", ".join(sorted(_SUPPORTED_METRICS))
     if metric_name not in _SUPPORTED_METRICS:
         raise MlflowException.invalid_parameter_value(
-            f"Unknown Evidently metric: '{metric_name}'. "
-            f"Available metrics: {available}"
+            f"Unknown Evidently metric: '{metric_name}'. Available metrics: {available}"
         )
 
     from evidently import metrics as evidently_metrics

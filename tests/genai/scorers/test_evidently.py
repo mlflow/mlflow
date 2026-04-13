@@ -79,6 +79,9 @@ def test_evidently_scorer_returns_feedback():
     feedback = scorer(outputs={"feature_1": None})
     assert feedback.name == "MissingValueCount"
     assert feedback.source.source_id == "evidently/MissingValueCount"
+    assert feedback.value == 1.0
+    assert feedback.rationale is not None
+    assert "count" in feedback.rationale
 
 
 def test_evidently_scorer_error_returns_feedback_with_error():
