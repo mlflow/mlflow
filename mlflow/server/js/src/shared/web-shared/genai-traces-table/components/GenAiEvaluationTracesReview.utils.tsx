@@ -101,7 +101,7 @@ export interface AssessmentLearnMoreLink {
  * https://learn.microsoft.com/en-us/azure/databricks/generative-ai/agent-evaluation/${hash}`
  * https://docs.databricks.com/en/generative-ai/agent-evaluation/${page}.html#${hash}
  */
-export const ASSESSMENTS_DOC_LINKS: Record<string, AssessmentLearnMoreLink> = {
+export const ASSESSMENTS_DOC_LINKS = {
   [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: {
     // TODO(nsthorat): Update this link to the overall deep link once it's available.
     basePath: '/generative-ai/agent-evaluation/llm-judge-metrics',
@@ -155,7 +155,7 @@ export const ASSESSMENTS_DOC_LINKS: Record<string, AssessmentLearnMoreLink> = {
     basePath: '/generative-ai/agent-evaluation/llm-judge-reference',
     hash: 'conversational-guidelines',
   },
-};
+} satisfies Record<string, AssessmentLearnMoreLink>;
 
 export enum KnownEvaluationResultAssessmentStringValue {
   YES = 'yes',
@@ -302,16 +302,16 @@ export enum KnownEvaluationResultAssessmentMetadataFields {
   IS_COPIED_FROM_AI = 'is_copied_from_ai',
 }
 
-export const KnownEvaluationResultAssessmentOutputLabel: Record<string, MessageDescriptor> = {
+export const KnownEvaluationResultAssessmentOutputLabel = {
   response: defineMessage({
     defaultMessage: 'Model output',
     description: 'Evaluation review > Response section > model output > title',
   }),
-};
+} satisfies Record<string, MessageDescriptor>;
 
 export const EXPECTED_FACTS_FIELD_NAME = 'expected_facts';
 
-export const KnownEvaluationResultAssessmentTargetLabel: Record<string, MessageDescriptor> = {
+export const KnownEvaluationResultAssessmentTargetLabel = {
   expected_response: defineMessage({
     defaultMessage: 'Expected output',
     description: 'Evaluation review > Response section > expected output > title',
@@ -320,9 +320,9 @@ export const KnownEvaluationResultAssessmentTargetLabel: Record<string, MessageD
     defaultMessage: 'Expected facts',
     description: 'Evaluation review > Response section > expected facts > title',
   }),
-};
+} satisfies Record<string, MessageDescriptor>;
 
-export const KnownEvaluationResultAssessmentValueLabel: Record<string, MessageDescriptor> = {
+export const KnownEvaluationResultAssessmentValueLabel = {
   [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: defineMessage({
     defaultMessage: 'Overall',
     description: 'Evaluation results > known type of evaluation result assessment > overall assessment.',
@@ -392,9 +392,9 @@ export const KnownEvaluationResultAssessmentValueLabel: Record<string, MessageDe
     description:
       'Evaluation results > known type of evaluation result assessment > conversational guidelines assessment. Used to indicate if the assistant adheres to the guidelines throughout a conversation.',
   }),
-};
+} satisfies Record<string, MessageDescriptor>;
 
-export const KnownEvaluationResultAssessmentValueMissingTooltip: Record<string, MessageDescriptor> = {
+export const KnownEvaluationResultAssessmentValueMissingTooltip = {
   [KnownEvaluationResultAssessmentName.CORRECTNESS]: defineMessage({
     defaultMessage:
       'Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.',
@@ -425,9 +425,9 @@ export const KnownEvaluationResultAssessmentValueMissingTooltip: Record<string, 
     description:
       'Evaluation results > known type of evaluation result assessment > retrieval sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. "Retrieval sufficiency: mostly sufficient"',
   }),
-};
+} satisfies Record<string, MessageDescriptor>;
 
-export const KnownEvaluationResultAssessmentValueDescription: Record<string, MessageDescriptor> = {
+export const KnownEvaluationResultAssessmentValueDescription = {
   [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: defineMessage({
     defaultMessage: 'The overall assessment passes when all of the judges pass.',
     description:
@@ -500,9 +500,9 @@ export const KnownEvaluationResultAssessmentValueDescription: Record<string, Mes
       "The conversational guidelines LLM judge evaluates whether the assistant's responses throughout a conversation comply with the provided guidelines.",
     description: 'Evaluation results > known type of evaluation result assessment > conversational guidelines judge.',
   }),
-};
+} satisfies Record<string, MessageDescriptor>;
 
-export const KnownEvaluationResultAssessmentValueMapping: Record<string, Record<string, MessageDescriptor>> = {
+export const KnownEvaluationResultAssessmentValueMapping = {
   [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: {
     [KnownEvaluationResultAssessmentStringValue.YES]: defineMessage({
       defaultMessage: 'Pass',
@@ -671,7 +671,7 @@ export const KnownEvaluationResultAssessmentValueMapping: Record<string, Record<
         'Evaluation results > conversational guidelines assessment > negative value label. Displayed if the assistant violates guidelines at any point in the conversation.',
     }),
   },
-};
+} satisfies Record<string, Record<string, MessageDescriptor>>;
 
 const isAssessmentAiGenerated = (assessment: RunEvaluationResultAssessment) => {
   return assessment?.source?.sourceType === 'AI_JUDGE';

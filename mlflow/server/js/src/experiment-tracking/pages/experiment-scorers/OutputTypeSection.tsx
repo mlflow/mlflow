@@ -40,7 +40,7 @@ const PRIMITIVE_TYPE_OPTIONS = [
   { value: 'str', label: 'String' },
 ] as const;
 
-const OUTPUT_TYPE_KIND_DISPLAY_MAP: Record<string, string> = {
+const OUTPUT_TYPE_KIND_DISPLAY_MAP = {
   default: 'Default',
   bool: 'Boolean',
   int: 'Integer',
@@ -49,14 +49,14 @@ const OUTPUT_TYPE_KIND_DISPLAY_MAP: Record<string, string> = {
   categorical: 'Categorical',
   dict: 'Dictionary',
   list: 'List',
-};
+} satisfies Record<string, string>;
 
-const PRIMITIVE_TYPE_DISPLAY_MAP: Record<string, string> = {
+const PRIMITIVE_TYPE_DISPLAY_MAP = {
   bool: 'Boolean',
   int: 'Integer',
   float: 'Float',
   str: 'String',
-};
+} satisfies Record<string, string>;
 
 const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) => {
   const { theme } = useDesignSystemTheme();

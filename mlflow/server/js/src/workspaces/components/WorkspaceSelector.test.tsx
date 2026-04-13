@@ -36,6 +36,9 @@ const fetchAPIMock = jest.mocked(fetchAPI);
 
 const mockWindowLocation = () => {
   const originalLocation = window.location;
+  // This test needs to assert on window.location.hash and window.location.reload,
+  // which requires replacing the location object in jsdom.
+  // eslint-disable-next-line @databricks/no-mock-location
   Object.defineProperty(window, 'location', {
     writable: true,
     value: { ...originalLocation, hash: '', reload: jest.fn() },
@@ -44,6 +47,7 @@ const mockWindowLocation = () => {
 };
 
 const restoreWindowLocation = (originalLocation: Location) => {
+  // eslint-disable-next-line @databricks/no-mock-location
   Object.defineProperty(window, 'location', { writable: true, value: originalLocation });
 };
 
@@ -54,7 +58,7 @@ const getWorkspaceSearchInput = () => {
 };
 
 describe('WorkspaceSelector', () => {
-  const mockNavigate = jest.fn();
+  const mockNavigate = jest.fn() as ReturnType<typeof useNavigate>;
 
   beforeEach(() => {
     jest.clearAllMocks();

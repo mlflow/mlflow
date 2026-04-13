@@ -30,11 +30,11 @@ interface GuardrailsTabContentProps {
 // ─── Pipeline stage tooltip ──────────────────────────────────────────────────
 
 const PIPELINE_STEPS = ['Request', 'BEFORE', 'LLM', 'AFTER', 'Response'] as const;
-const STAGE_LABELS: Record<string, string> = { BEFORE: 'Input Guardrails', AFTER: 'Output Guardrails' };
-const STAGE_DESCRIPTIONS: Record<string, string> = {
+const STAGE_LABELS = { BEFORE: 'Input Guardrails', AFTER: 'Output Guardrails' } satisfies Record<string, string>;
+const STAGE_DESCRIPTIONS = {
   BEFORE: 'This guardrail runs before the request reaches the LLM',
   AFTER: 'This guardrail runs after the LLM response is generated',
-};
+} satisfies Record<string, string>;
 
 const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
   const { theme } = useDesignSystemTheme();
@@ -359,7 +359,7 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
       />
 
       <DeleteConfirmationModal
-        open={!!pendingDelete}
+        open={Boolean(pendingDelete)}
         onClose={() => setPendingDelete(null)}
         onConfirm={handleConfirmDelete}
         title="Remove Guardrail"

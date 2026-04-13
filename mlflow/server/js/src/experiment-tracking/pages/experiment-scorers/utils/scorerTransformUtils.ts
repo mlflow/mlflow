@@ -24,12 +24,12 @@ const PRIMITIVE_TO_JSON_SCHEMA: Record<JudgePrimitiveOutputType, string> = {
   str: 'string',
 };
 
-const JSON_SCHEMA_TO_PRIMITIVE: Record<string, JudgePrimitiveOutputType> = {
+const JSON_SCHEMA_TO_PRIMITIVE = {
   boolean: 'bool',
   integer: 'int',
   number: 'float',
   string: 'str',
-};
+} satisfies Record<string, JudgePrimitiveOutputType>;
 
 /**
  * Convert JudgeOutputTypeSpec to JSON Schema format for API serialization.

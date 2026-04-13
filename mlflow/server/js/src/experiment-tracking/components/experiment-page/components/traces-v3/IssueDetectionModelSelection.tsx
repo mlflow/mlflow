@@ -41,12 +41,12 @@ const DEFAULT_PROVIDER = 'openai';
 const ALLOWED_PROVIDERS = ['openai', 'anthropic', 'gemini', 'azure'] as const;
 
 // Display names for providers
-const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+const PROVIDER_DISPLAY_NAMES = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   gemini: 'Google Gemini',
   azure: 'Azure OpenAI',
-};
+} satisfies Record<string, string>;
 
 const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
   mode: 'new',
@@ -60,11 +60,11 @@ const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
 };
 
 // Default to recommended models for each provider
-const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
+const DEFAULT_MODEL_BY_PROVIDER = {
   openai: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-6',
   gemini: 'gemini-2.5-pro',
-};
+} satisfies Record<string, string>;
 
 export interface ModelSelectionValues {
   mode: ModelConfigMode;
@@ -211,11 +211,11 @@ export const IssueDetectionModelSelection = forwardRef<
 
   const isApiKeyValid =
     apiKeyConfig.mode === 'existing'
-      ? !!apiKeyConfig.existingSecretId
+      ? Boolean(apiKeyConfig.existingSecretId)
       : Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
-        (!saveKey || !!apiKeyConfig.newSecret.name);
+        (!saveKey || Boolean(apiKeyConfig.newSecret.name));
 
-  const isEndpointModeValid = mode === 'endpoint' && !!selectedEndpointName;
+  const isEndpointModeValid = mode === 'endpoint' && Boolean(selectedEndpointName);
   const isDirectModeValid = mode === 'direct' && Boolean(provider && model && isApiKeyValid);
   const isValid = (isEndpointModeValid || isDirectModeValid) && selectedTraceIds.length > 0;
 
@@ -232,7 +232,7 @@ export const IssueDetectionModelSelection = forwardRef<
   const hasEnteredNewApiKey =
     apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v);
   const shouldShowAdvancedSettings =
-    !!DEFAULT_MODEL_BY_PROVIDER[provider] || (hasEnteredNewApiKey && hasOptionalFields);
+    Boolean(DEFAULT_MODEL_BY_PROVIDER[provider]) || (hasEnteredNewApiKey && hasOptionalFields);
 
   useEffect(() => {
     onValidityChange(isValid);
@@ -535,7 +535,7 @@ export const IssueDetectionModelSelection = forwardRef<
               onApiKeyConfigChange={setApiKeyConfig}
               authModes={authModes}
               defaultAuthMode={defaultAuthMode}
-              showModelSelector={!!DEFAULT_MODEL_BY_PROVIDER[provider]}
+              showModelSelector={Boolean(DEFAULT_MODEL_BY_PROVIDER[provider])}
             />
           </Accordion.Panel>
         </Accordion>

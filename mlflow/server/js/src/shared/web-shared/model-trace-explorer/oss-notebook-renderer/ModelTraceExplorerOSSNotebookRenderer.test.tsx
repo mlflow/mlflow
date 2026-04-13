@@ -21,6 +21,7 @@ jest.mock('../hooks/useGetModelTraceInfo', () => ({
 
 describe('ModelTraceExplorerOSSNotebookRenderer', () => {
   beforeEach(() => {
+    // eslint-disable-next-line @databricks/no-mock-location -- TODO(FEINF-4390)
     Object.defineProperty(window, 'location', {
       configurable: true,
       writable: true,

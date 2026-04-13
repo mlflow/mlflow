@@ -140,7 +140,7 @@ export const PromptVersionMetadata = ({
       {/* Model Config Section */}
       {(() => {
         const modelConfig = getModelConfigFromTags(registeredPromptVersion?.tags);
-        const hasModelConfig = !!modelConfig;
+        const hasModelConfig = Boolean(modelConfig);
 
         // Only show section if there's config or ability to edit
         if (!hasModelConfig && !showEditModelConfigModal) return null;

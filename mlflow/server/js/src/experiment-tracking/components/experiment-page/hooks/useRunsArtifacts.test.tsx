@@ -4,7 +4,7 @@ import { useRunsArtifacts } from './useRunsArtifacts';
 import type { ArtifactListFilesResponse } from '../../../types';
 import { renderHook, cleanup, waitFor } from '@testing-library/react';
 
-const mockArtifactsData: Record<string, ArtifactListFilesResponse> = {
+const mockArtifactsData = {
   'run-1': {
     root_uri: 'run-1',
     files: [
@@ -25,7 +25,7 @@ const mockArtifactsData: Record<string, ArtifactListFilesResponse> = {
       },
     ],
   },
-};
+} satisfies Record<string, ArtifactListFilesResponse>;
 
 jest.mock('../../../actions', () => ({
   ...jest.requireActual<typeof import('../../../actions')>('../../../actions'),

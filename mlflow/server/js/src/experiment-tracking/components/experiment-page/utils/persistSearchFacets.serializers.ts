@@ -18,7 +18,7 @@ const flattenString = (input: string | string[]) => (isArray(input) ? input.join
 /**
  * All known field serialization and deserialization mechanisms used in search facets state persisting mechanism.
  */
-const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeFunctions> = {
+const persistSearchStateFieldSerializers = {
   /**
    * In rare cases, search filter might contain commas that interfere with `querystring` library
    * parsing causing it to return array instead of string. Since it's difficult to selectively
@@ -87,7 +87,7 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
       return undefined;
     },
   },
-};
+} satisfies Record<string, PersistSearchSerializeFunctions>;
 
 type StateKey = keyof Partial<ExperimentPageSearchFacetsState>;
 

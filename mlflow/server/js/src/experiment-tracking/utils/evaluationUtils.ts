@@ -101,11 +101,11 @@ export function buildUserPrompt(
   const parts: string[] = [];
 
   // Build a map of variable name to data
-  const dataMap: Record<string, any> = {
+  const dataMap = {
     inputs,
     outputs,
     expectations,
-  };
+  } satisfies Record<string, any>;
 
   // Only include variables that are in the template AND have non-null/non-empty data
   for (const varName of templateVariables) {

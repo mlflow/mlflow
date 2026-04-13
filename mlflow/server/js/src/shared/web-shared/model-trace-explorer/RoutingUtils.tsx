@@ -42,6 +42,7 @@ const getActiveWorkspace = (): string | null => {
     return null;
   }
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
   } catch {
     return null;

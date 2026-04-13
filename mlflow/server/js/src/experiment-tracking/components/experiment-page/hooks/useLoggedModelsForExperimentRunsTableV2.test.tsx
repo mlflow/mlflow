@@ -25,11 +25,11 @@ describe('useLoggedModelsForExperimentRunsTableV2', () => {
         // Extract model IDs from the query parameters
         const modelIds = req.url.searchParams.getAll('model_ids');
 
-        const sourceRunIdByModelIdMap: Record<string, string> = {
+        const sourceRunIdByModelIdMap = {
           'model-id-1': 'run-1',
           'model-id-2': 'run-1',
           'model-id-3': 'run-2',
-        };
+        } satisfies Record<string, string>;
 
         // Create mock models based on the requested IDs
         const models = modelIds.map((modelId) => ({

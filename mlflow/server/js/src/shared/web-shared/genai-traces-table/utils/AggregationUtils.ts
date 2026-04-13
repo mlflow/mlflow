@@ -85,9 +85,9 @@ export function getAssessmentInfos(
 ): AssessmentInfo[] {
   const assessmentInfos: Record<string, AssessmentInfo> = {};
   // Compute dtypes in the first pass.
-  const assessmentDtypes: Record<string, AssessmentDType | undefined> = {
+  const assessmentDtypes = {
     [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: 'pass-fail',
-  };
+  } satisfies Record<string, AssessmentDType | undefined>;
   // Set of all assessment names. Will be filled after the first pass when computing dtypes.
   const assessmentNames = new Set<string>();
 
