@@ -7,8 +7,6 @@ import pandas as pd
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.trace_utils import (
-    parse_inputs_to_str,
-    parse_outputs_to_str,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
@@ -45,13 +43,19 @@ def map_scorer_inputs_to_dataframe(
         if isinstance(inputs, dict):
             current_dict.update(inputs)
         else:
-            current_dict["input"] = parse_inputs_to_str(inputs)
+            raise MlflowException.invalid_parameter_value(
+                "Evidently scorers require 'inputs' to be a dict mapping column names to values. "
+                f"Got: {type(inputs).__name__}"
+            )
 
     if outputs is not None:
         if isinstance(outputs, dict):
             current_dict.update(outputs)
         else:
-            current_dict["output"] = parse_outputs_to_str(outputs)
+            raise MlflowException.invalid_parameter_value(
+                "Evidently scorers require 'outputs' to be a dict mapping column names to values. "
+                f"Got: {type(outputs).__name__}"
+            )
 
     if not current_dict:
         raise MlflowException.invalid_parameter_value(

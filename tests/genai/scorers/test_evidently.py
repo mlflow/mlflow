@@ -82,15 +82,14 @@ def test_evidently_scorer_returns_feedback():
 
 
 def test_evidently_scorer_error_returns_feedback_with_error():
-    pytest.importorskip("evidently")
+    evidently = pytest.importorskip("evidently")
     from mlflow.genai.scorers.evidently import EvidentlyScorer
 
     scorer = EvidentlyScorer(metric_name="MissingValueCount", column="feature_1")
 
-    # Pass invalid data that will cause Evidently to fail
-    with mock.patch(
-        "mlflow.genai.scorers.evidently.map_scorer_inputs_to_dataframe",
-        side_effect=ValueError("test error"),
+    # Simulate Evidently's Report.run failing (inside the try block)
+    with mock.patch.object(
+        evidently.Report, "run", side_effect=RuntimeError("evidently internal error")
     ):
         feedback = scorer(outputs={"feature_1": 0.5})
 
@@ -130,3 +129,45 @@ def test_concrete_scorer_metric_names(scorer_class_name: str, expected_metric: s
 
     scorer_class = getattr(evidently_module, scorer_class_name)
     assert scorer_class.metric_name == expected_metric
+
+
+def test_evidently_scorer_kind_is_third_party():
+    pytest.importorskip("evidently")
+    from mlflow.genai.scorers.base import ScorerKind
+    from mlflow.genai.scorers.evidently import EvidentlyScorer
+
+    scorer = EvidentlyScorer(metric_name="MissingValueCount", column="col")
+    assert scorer.kind == ScorerKind.THIRD_PARTY
+
+
+@pytest.mark.parametrize("method_name", ["register", "start", "update", "stop"])
+def test_evidently_scorer_registration_methods_raise(method_name: str):
+    pytest.importorskip("evidently")
+    from mlflow.genai.scorers.evidently import EvidentlyScorer
+
+    scorer = EvidentlyScorer(metric_name="MissingValueCount", column="col")
+    with pytest.raises(MlflowException, match="not supported"):
+        getattr(scorer, method_name)()
+
+
+def test_evidently_scorer_align_raises():
+    pytest.importorskip("evidently")
+    from mlflow.genai.scorers.evidently import EvidentlyScorer
+
+    scorer = EvidentlyScorer(metric_name="MissingValueCount", column="col")
+    with pytest.raises(MlflowException, match="not supported"):
+        scorer.align()
+
+
+def test_map_scorer_inputs_raises_for_non_dict_inputs():
+    from mlflow.genai.scorers.evidently.utils import map_scorer_inputs_to_dataframe
+
+    with pytest.raises(MlflowException, match="dict"):
+        map_scorer_inputs_to_dataframe(inputs="plain string")
+
+
+def test_map_scorer_inputs_raises_for_non_dict_outputs():
+    from mlflow.genai.scorers.evidently.utils import map_scorer_inputs_to_dataframe
+
+    with pytest.raises(MlflowException, match="dict"):
+        map_scorer_inputs_to_dataframe(outputs=["list", "of", "values"])

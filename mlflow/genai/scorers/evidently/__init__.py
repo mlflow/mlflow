@@ -36,8 +36,9 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.evidently.registry import get_metric_class
 from mlflow.genai.scorers.evidently.utils import (
     check_evidently_installed,
@@ -82,6 +83,35 @@ class EvidentlyScorer(Scorer):
         metric_class = get_metric_class(metric_name)
         self._metric = metric_class(**metric_kwargs)
 
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
+
+    def _raise_registration_not_supported(self, method_name: str):
+        raise MlflowException.invalid_parameter_value(
+            f"'{method_name}()' is not supported for third-party scorers like Evidently. "
+            f"Third-party scorers cannot be registered, started, updated, or stopped. "
+            f"Use them directly in mlflow.genai.evaluate() instead."
+        )
+
+    def register(self, **kwargs):
+        self._raise_registration_not_supported("register")
+
+    def start(self, **kwargs):
+        self._raise_registration_not_supported("start")
+
+    def update(self, **kwargs):
+        self._raise_registration_not_supported("update")
+
+    def stop(self, **kwargs):
+        self._raise_registration_not_supported("stop")
+
+    def align(self, **kwargs):
+        raise MlflowException.invalid_parameter_value(
+            "'align()' is not supported for third-party scorers like Evidently. "
+            "Alignment is only available for MLflow's built-in judges."
+        )
+
     def __call__(
         self,
         *,
@@ -89,6 +119,7 @@ class EvidentlyScorer(Scorer):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
+        session: list[Trace] | None = None,
     ) -> Feedback:
         """Evaluate data using an Evidently metric.
 
@@ -97,6 +128,7 @@ class EvidentlyScorer(Scorer):
             outputs: The output data to evaluate
             expectations: Optional dict with "reference_data" key for drift detection
             trace: MLflow trace for evaluation
+            session: List of MLflow traces for multi-turn/agentic evaluation
 
         Returns:
             Feedback object with metric result
@@ -106,15 +138,15 @@ class EvidentlyScorer(Scorer):
             source_id=f"evidently/{self.name}",
         )
 
+        current_df, reference_df = map_scorer_inputs_to_dataframe(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
+        )
+
         try:
             from evidently import Dataset, Report
-
-            current_df, reference_df = map_scorer_inputs_to_dataframe(
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=trace,
-            )
 
             report = Report([self._metric])
             run_kwargs: dict[str, Any] = {
@@ -145,15 +177,15 @@ class EvidentlyScorer(Scorer):
                 metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
             )
 
-    def _extract_value(self, result_dict: dict[str, Any]) -> float | bool:
+    def _extract_value(self, result_dict: dict[str, Any]) -> float | None:
         """Extract the primary metric value from Evidently result dict."""
         metrics = result_dict.get("metrics", [])
         if not metrics:
-            return 0.0
+            return None
 
         value = metrics[0].get("value")
         if value is None:
-            return 0.0
+            return None
 
         # Scalar value (e.g., ValueDrift returns a p-value float)
         if isinstance(value, (int, float)):
@@ -168,7 +200,7 @@ class EvidentlyScorer(Scorer):
                 if isinstance(v, (int, float)):
                     return float(v)
 
-        return 0.0
+        return None
 
     def _extract_rationale(self, result_dict: dict[str, Any]) -> str | None:
         """Extract a human-readable explanation from Evidently result dict."""
@@ -231,6 +263,13 @@ class ValueDrift(EvidentlyScorer):
 
     Compares the distribution of values in current data against reference data
     to detect significant changes (drift).
+
+    .. note::
+        ``ValueDrift`` is a **distribution-level** metric: it compares the aggregate
+        distribution of the current dataset against a reference dataset. It cannot be
+        used to evaluate a single row in isolation. Always supply ``reference_data``
+        (a list of dicts or a DataFrame) via the ``expectations`` argument; omitting it
+        will cause the underlying Evidently metric to raise an error.
 
     Args:
         column: Name of the column to check for drift

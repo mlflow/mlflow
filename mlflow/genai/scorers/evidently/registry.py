@@ -19,16 +19,15 @@ def get_metric_class(metric_name: str):
         The Evidently metric class
 
     Raises:
-        MlflowException: If the metric is not found
+        MlflowException: If the metric is not in the supported list
     """
+    available = ", ".join(sorted(_SUPPORTED_METRICS))
+    if metric_name not in _SUPPORTED_METRICS:
+        raise MlflowException.invalid_parameter_value(
+            f"Unknown Evidently metric: '{metric_name}'. "
+            f"Available metrics: {available}"
+        )
+
     from evidently import metrics as evidently_metrics
 
-    try:
-        return getattr(evidently_metrics, metric_name)
-    except AttributeError:
-        available = ", ".join(sorted(_SUPPORTED_METRICS))
-        raise MlflowException.invalid_parameter_value(
-            f"Unknown Evidently metric: '{metric_name}'. Could not find "
-            f"'{metric_name}' in 'evidently.metrics'. "
-            f"Available pre-configured metrics: {available}"
-        )
+    return getattr(evidently_metrics, metric_name)
