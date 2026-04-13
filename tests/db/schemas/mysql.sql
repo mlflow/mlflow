@@ -18,7 +18,6 @@ CREATE TABLE budget_policies (
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
-	target_value VARCHAR(255),
 	PRIMARY KEY (budget_policy_id)
 )
 
@@ -94,7 +93,13 @@ CREATE TABLE jobs (
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	status_details JSON,
-	creator VARCHAR(255),
+	executor_backend VARCHAR(255),
+	lease_expires_at BIGINT,
+	status_message TEXT,
+	progress_payload JSON,
+	progress_updated_at BIGINT,
+	token_hash VARCHAR(64),
+	scoped_permissions JSON,
 	PRIMARY KEY (id)
 )
 
@@ -120,6 +125,14 @@ CREATE TABLE registered_models (
 	description VARCHAR(5000),
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	PRIMARY KEY (workspace, name)
+)
+
+
+CREATE TABLE scheduler_leases (
+	lease_key VARCHAR(255) NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	ttl_seconds INTEGER NOT NULL,
+	CONSTRAINT scheduler_leases_pk PRIMARY KEY (lease_key)
 )
 
 
@@ -231,10 +244,19 @@ CREATE TABLE evaluation_dataset_tags (
 
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
-	value MEDIUMTEXT,
+	value VARCHAR(5000),
 	experiment_id INTEGER NOT NULL,
 	PRIMARY KEY (key, experiment_id),
 	CONSTRAINT experiment_tags_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE job_locks (
+	lock_key VARCHAR(255) NOT NULL,
+	job_id VARCHAR(36) NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	PRIMARY KEY (lock_key),
+	CONSTRAINT fk_job_locks_job_id FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE
 )
 
 
@@ -320,6 +342,7 @@ CREATE TABLE mcp_server_versions (
 	version_patch INTEGER NOT NULL,
 	version_prerelease_sort_key VARCHAR(512) NOT NULL,
 	server_json JSON NOT NULL,
+	display_name VARCHAR(256),
 	status VARCHAR(20) DEFAULT 'draft' NOT NULL,
 	tools JSON,
 	source VARCHAR(512),
@@ -447,7 +470,7 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000),
 	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
 	PRIMARY KEY (request_id),
-	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
