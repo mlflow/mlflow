@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from deepeval.models.base_model import DeepEvalBaseLLM
 from pydantic import ValidationError
@@ -38,7 +39,7 @@ class MlflowDeepEvalLLM(DeepEvalBaseLLM):
     Handles structured output via JSON prompt injection and response parsing.
     """
 
-    def __init__(self, backend: ScorerLLMClient, model_kwargs: dict | None = None):
+    def __init__(self, backend: ScorerLLMClient, model_kwargs: dict[str, Any] | None = None):
         super().__init__(model_name=backend.model_name)
         self._backend = backend
         self._model_kwargs = model_kwargs or {}
@@ -63,7 +64,7 @@ class MlflowDeepEvalLLM(DeepEvalBaseLLM):
         return self._backend.model_name
 
 
-def create_deepeval_model(model_uri: str, model_kwargs: dict | None = None):
+def create_deepeval_model(model_uri: str, model_kwargs: dict[str, Any] | None = None):
     backend = ScorerLLMClient(model_uri)
 
     if backend.is_native:
@@ -71,11 +72,18 @@ def create_deepeval_model(model_uri: str, model_kwargs: dict | None = None):
 
     from deepeval.models import LiteLLMModel
 
+    # DeepEval's LiteLLMModel.__init__ strips `temperature` from `generation_kwargs`
+    # and reads it only from the top-level `temperature` constructor arg. If a user
+    # passes temperature in model_kwargs we have to lift it out here, otherwise the
+    # value is silently dropped and the model falls back to its default (0.0).
     extra = dict(model_kwargs) if model_kwargs else {}
     temperature = extra.pop("temperature", None)
     generation_kwargs = {"drop_params": True, **extra}
 
-    kwargs = {"model": backend.model_name, "generation_kwargs": generation_kwargs}
+    kwargs: dict[str, Any] = {
+        "model": backend.model_name,
+        "generation_kwargs": generation_kwargs,
+    }
     if temperature is not None:
         kwargs["temperature"] = temperature
 
