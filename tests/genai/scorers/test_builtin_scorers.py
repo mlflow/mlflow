@@ -26,7 +26,10 @@ from mlflow.genai.scorers import (
     Fluency,
     Guidelines,
     KnowledgeRetention,
+    PIIDetection,
+    RegexMatch,
     RelevanceToQuery,
+    ResponseLength,
     RetrievalGroundedness,
     RetrievalRelevance,
     RetrievalSufficiency,
@@ -633,6 +636,8 @@ def test_get_all_scorers():
         "KnowledgeRetention",
         "ToolCallEfficiency",
         "ToolCallCorrectness",
+        "PIIDetection",
+        "ResponseLength",
     }
 
     assert scorer_class_names == expected_scorers
@@ -2470,3 +2475,204 @@ def test_builtin_scorer_serialization_roundtrip_with_inference_params():
 
     restored = BuiltInScorer.model_validate(serialized)
     assert restored.inference_params == inference_params
+
+
+# ---------------------------------------------------------------------------
+# Rule-based scorers: RegexMatch, PIIDetection, ResponseLength
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("pattern", "outputs", "expected"),
+    [
+        (r"^Answer:", "Answer: 42", CategoricalRating.YES),
+        (r"^Answer:", "The answer is 42", CategoricalRating.NO),
+        (r"\d+", "There are 5 items", CategoricalRating.YES),
+        (r"^\s*$", "non-empty", CategoricalRating.NO),
+    ],
+)
+def test_regex_match_search(pattern, outputs, expected):
+    scorer = RegexMatch(pattern=pattern)
+    feedback = scorer(outputs=outputs)
+    assert feedback.name == "regex_match"
+    assert feedback.value == expected
+    assert feedback.source.source_type == AssessmentSourceType.CODE
+
+
+def test_regex_match_fullmatch_mode():
+    scorer = RegexMatch(pattern=r"Answer: \d+", match_type="fullmatch")
+
+    feedback = scorer(outputs="Answer: 42")
+    assert feedback.value == CategoricalRating.YES
+
+    feedback = scorer(outputs="Answer: 42 and more")
+    assert feedback.value == CategoricalRating.NO
+
+
+def test_regex_match_case_insensitive():
+    scorer = RegexMatch(pattern=r"^answer:", case_insensitive=True)
+    feedback = scorer(outputs="Answer: 42")
+    assert feedback.value == CategoricalRating.YES
+
+
+def test_regex_match_invalid_pattern_returns_error():
+    scorer = RegexMatch(pattern=r"[unclosed")
+    feedback = scorer(outputs="anything")
+    assert feedback.error is not None
+    assert feedback.value is None
+
+
+def test_regex_match_requires_outputs():
+    scorer = RegexMatch(pattern=r".*")
+    feedback = scorer(outputs=None, trace=None)
+    assert feedback.error is not None
+
+
+def test_regex_match_is_code_source():
+    scorer = RegexMatch(pattern=r"^Answer")
+    feedback = scorer(outputs="Answer: 42")
+    assert feedback.source.source_type == AssessmentSourceType.CODE
+
+
+def test_regex_match_get_input_fields():
+    scorer = RegexMatch(pattern=r".*")
+    field_names = [f.name for f in scorer.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+@pytest.mark.parametrize(
+    ("outputs", "expected_pii"),
+    [
+        ("Contact alice@example.com", ["email"]),
+        ("Call me at 555-123-4567", ["phone"]),
+        ("SSN: 123-45-6789", ["ssn"]),
+        ("Card: 4532-1234-5678-9010", ["credit_card"]),
+        ("Server at 192.168.1.1", ["ip_address"]),
+        (
+            "Email alice@example.com or call 555-123-4567",
+            ["email", "phone"],
+        ),
+    ],
+)
+def test_pii_detection_flags_pii(outputs, expected_pii):
+    scorer = PIIDetection()
+    feedback = scorer(outputs=outputs)
+    assert feedback.value == CategoricalRating.NO
+    for pii_type in expected_pii:
+        assert pii_type in feedback.rationale
+
+
+def test_pii_detection_clean_output():
+    scorer = PIIDetection()
+    feedback = scorer(outputs="This response contains no personal information.")
+    assert feedback.value == CategoricalRating.YES
+    assert "No PII detected" in feedback.rationale
+
+
+def test_pii_detection_filters_to_specific_types():
+    scorer = PIIDetection(pii_types=["email"])
+    feedback = scorer(outputs="Call 555-123-4567 (not an email)")
+    assert feedback.value == CategoricalRating.YES
+
+
+def test_pii_detection_unsupported_type_returns_error():
+    scorer = PIIDetection(pii_types=["nonsense"])
+    feedback = scorer(outputs="anything")
+    assert feedback.error is not None
+
+
+def test_pii_detection_is_code_source():
+    scorer = PIIDetection()
+    feedback = scorer(outputs="clean text")
+    assert feedback.source.source_type == AssessmentSourceType.CODE
+
+
+def test_pii_detection_get_input_fields():
+    scorer = PIIDetection()
+    field_names = [f.name for f in scorer.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+@pytest.mark.parametrize(
+    ("min_length", "max_length", "outputs", "expected"),
+    [
+        (10, 100, "A valid short response.", CategoricalRating.YES),
+        (10, 100, "hi", CategoricalRating.NO),
+        (10, 100, "x" * 200, CategoricalRating.NO),
+        (None, 5, "hi", CategoricalRating.YES),
+        (None, 5, "hello!", CategoricalRating.NO),
+        (5, None, "long enough", CategoricalRating.YES),
+        (5, None, "hi", CategoricalRating.NO),
+    ],
+)
+def test_response_length_chars(min_length, max_length, outputs, expected):
+    scorer = ResponseLength(min_length=min_length, max_length=max_length)
+    feedback = scorer(outputs=outputs)
+    assert feedback.value == expected
+    assert feedback.source.source_type == AssessmentSourceType.CODE
+
+
+def test_response_length_words():
+    scorer = ResponseLength(max_length=5, unit="words")
+
+    feedback = scorer(outputs="one two three four")
+    assert feedback.value == CategoricalRating.YES
+
+    feedback = scorer(outputs="one two three four five six seven")
+    assert feedback.value == CategoricalRating.NO
+
+
+def test_response_length_requires_at_least_one_bound():
+    scorer = ResponseLength()
+    feedback = scorer(outputs="anything")
+    assert feedback.error is not None
+
+
+def test_response_length_rejects_inverted_bounds():
+    scorer = ResponseLength(min_length=100, max_length=10)
+    feedback = scorer(outputs="anything")
+    assert feedback.error is not None
+
+
+def test_response_length_get_input_fields():
+    scorer = ResponseLength(max_length=100)
+    field_names = [f.name for f in scorer.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+def test_rule_based_scorers_dont_call_llm():
+    """Rule-based scorers must not call invoke_judge_model.
+
+    This guards against accidental LLM calls being added to scorers that
+    are supposed to be free and deterministic.
+    """
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_judge:
+        RegexMatch(pattern=r".*")(outputs="test")
+        PIIDetection()(outputs="test")
+        ResponseLength(max_length=100)(outputs="test")
+        assert mock_judge.call_count == 0
+
+
+def test_rule_based_scorer_serialization_roundtrip():
+    """BuiltInScorer.model_dump / model_validate should preserve rule config."""
+    scorer = RegexMatch(pattern=r"^Answer:", match_type="fullmatch", case_insensitive=True)
+    serialized = scorer.model_dump()
+    restored = BuiltInScorer.model_validate(serialized)
+    assert isinstance(restored, RegexMatch)
+    assert restored.pattern == r"^Answer:"
+    assert restored.match_type == "fullmatch"
+    assert restored.case_insensitive is True
+
+    scorer = PIIDetection(pii_types=["email", "phone"])
+    serialized = scorer.model_dump()
+    restored = BuiltInScorer.model_validate(serialized)
+    assert isinstance(restored, PIIDetection)
+    assert restored.pii_types == ["email", "phone"]
+
+    scorer = ResponseLength(min_length=10, max_length=100, unit="words")
+    serialized = scorer.model_dump()
+    restored = BuiltInScorer.model_validate(serialized)
+    assert isinstance(restored, ResponseLength)
+    assert restored.min_length == 10
+    assert restored.max_length == 100
+    assert restored.unit == "words"
