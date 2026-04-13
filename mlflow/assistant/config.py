@@ -135,6 +135,12 @@ class AssistantConfig(BaseModel):
         base_url: str | None = None,
     ) -> None:
         if provider_name not in self.providers:
+            self.providers[provider_name] = ProviderConfig(
+                model=model or "default",
+                selected=False,
+                base_url=base_url,
+                permissions=permissions or PermissionsConfig(),
+            )
             return
         if model is not None:
             self.providers[provider_name].model = model

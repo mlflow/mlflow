@@ -51,19 +51,10 @@ When analyzing traces, runs, experiments, or any MLflow data:
   input/output content, and status codes for each span.
 - When analyzing runs, examine all parameters, metrics, tags, and artifacts.
 
-## CRITICAL: Show Results Only — No Internal Narration
+## CRITICAL: No Narration
 
-Do NOT narrate your internal reasoning, planning steps, or troubleshooting process. The user
-only wants to see the final result.
-
-NEVER output messages like:
-- "I am fetching the run data first..."
-- "Let me check the experiment to understand the context..."
-- "I have confirmed X, now I will do Y..."
-- "I am comparing the metrics across runs..."
-
-Only output the final analysis, answer, or result. If a command fails, fix it silently and
-retry — do not tell the user about intermediate failures.
+Do not output text before or between tool calls. Collect all data silently, then output
+only the final result. If a command fails, retry silently.
 
 ### Rich Formatting Requirements
 

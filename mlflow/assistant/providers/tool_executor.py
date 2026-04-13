@@ -19,6 +19,13 @@ def _is_path_within(path: Path, root: Path) -> bool:
         return False
 
 
+def _resolve_file_path(raw_path: str, cwd: Path | None) -> Path:
+    p = Path(raw_path).expanduser()
+    if not p.is_absolute() and cwd:
+        p = cwd / p
+    return p.resolve()
+
+
 async def execute_tool(
     tool_name: str,
     tool_input: dict[str, Any],
@@ -37,7 +44,7 @@ async def execute_tool(
 
         if tool_name in _FILE_TOOLS and cwd:
             if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
-                target = Path(raw_path).expanduser().resolve()
+                target = _resolve_file_path(raw_path, cwd)
                 if not _is_path_within(target, cwd):
                     return (
                         f"Permission denied: path {raw_path} is outside the workspace {cwd}"
@@ -48,11 +55,11 @@ async def execute_tool(
             case "Bash":
                 return await _execute_bash(tool_input, cwd=cwd, tracking_uri=tracking_uri)
             case "Read":
-                return _execute_read(tool_input)
+                return _execute_read(tool_input, cwd=cwd)
             case "Write":
-                return _execute_write(tool_input)
+                return _execute_write(tool_input, cwd=cwd)
             case "Edit":
-                return _execute_edit(tool_input)
+                return _execute_edit(tool_input, cwd=cwd)
             case _:
                 return f"Unknown tool: {tool_name}", True
     except Exception as e:
@@ -97,24 +104,24 @@ async def _execute_bash(
         return "Command timed out after 120 seconds", True
 
 
-def _execute_read(tool_input: dict[str, Any]) -> tuple[str, bool]:
+def _execute_read(tool_input: dict[str, Any], cwd: Path | None = None) -> tuple[str, bool]:
     file_path = tool_input.get("file_path") or tool_input.get("path", "")
     if not file_path:
         return "No file_path provided", True
     try:
-        content = Path(file_path).expanduser().read_text(encoding="utf-8")
+        content = _resolve_file_path(file_path, cwd).read_text(encoding="utf-8")
         return content, False
     except Exception as e:
         return str(e), True
 
 
-def _execute_write(tool_input: dict[str, Any]) -> tuple[str, bool]:
+def _execute_write(tool_input: dict[str, Any], cwd: Path | None = None) -> tuple[str, bool]:
     file_path = tool_input.get("file_path") or tool_input.get("path", "")
     content = tool_input.get("content", "")
     if not file_path:
         return "No file_path provided", True
     try:
-        p = Path(file_path).expanduser()
+        p = _resolve_file_path(file_path, cwd)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} bytes to {file_path}", False
@@ -122,14 +129,14 @@ def _execute_write(tool_input: dict[str, Any]) -> tuple[str, bool]:
         return str(e), True
 
 
-def _execute_edit(tool_input: dict[str, Any]) -> tuple[str, bool]:
+def _execute_edit(tool_input: dict[str, Any], cwd: Path | None = None) -> tuple[str, bool]:
     file_path = tool_input.get("file_path") or tool_input.get("path", "")
     old_string = tool_input.get("old_string", "")
     new_string = tool_input.get("new_string", "")
     if not file_path:
         return "No file_path provided", True
     try:
-        p = Path(file_path).expanduser()
+        p = _resolve_file_path(file_path, cwd)
         content = p.read_text(encoding="utf-8")
         if old_string not in content:
             return f"old_string not found in {file_path}", True

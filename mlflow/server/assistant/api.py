@@ -36,7 +36,7 @@ def _get_selected_provider():
 
 
 _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
-    "Assistant API is only accessible from the same host where the mLflow server is running."
+    "Assistant API is only accessible from the same host where the MLflow server is running."
 )
 
 
