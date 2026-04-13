@@ -61,7 +61,9 @@ repos:
             dev/update_ml_package_versions\.py|
             dev/proto_to_graphql/.*\.py|
             dev/tests/.*\.py|
-            dev/benchmarks/gateway/fake_server\.py
+            dev/benchmarks/gateway/fake_server\.py|
+            dev/benchmarks/gateway/benchmark\.py|
+            dev/benchmarks/gateway/run\.py
           )$
         entry: uv run --only-group lint mypy
         require_serial: true

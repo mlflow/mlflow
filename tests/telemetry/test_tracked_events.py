@@ -31,6 +31,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
 )
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.cli import start
@@ -76,9 +77,11 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
+    GatewayCreateGuardrailEvent,
     GatewayCreateSecretEvent,
     GatewayDeleteBudgetPolicyEvent,
     GatewayDeleteEndpointEvent,
+    GatewayDeleteGuardrailEvent,
     GatewayDeleteSecretEvent,
     GatewayGetEndpointEvent,
     GatewayInvocationEvent,
@@ -88,6 +91,7 @@ from mlflow.telemetry.events import (
     GatewayStartEvent,
     GatewayUpdateBudgetPolicyEvent,
     GatewayUpdateEndpointEvent,
+    GatewayUpdateGuardrailEvent,
     GatewayUpdateSecretEvent,
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
@@ -2006,6 +2010,89 @@ def test_gateway_budget_policy_crud_telemetry(
         mock_telemetry_client,
         mock_requests,
         GatewayDeleteBudgetPolicyEvent.name,
+    )
+
+
+def test_gateway_guardrail_crud_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+
+    secret = store.create_gateway_secret(
+        secret_name="test-secret",
+        secret_value={"api_key": "test-api-key"},
+        provider="openai",
+        created_by="test-user",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="test-model",
+        provider="openai",
+        model_name="gpt-4",
+        secret_id=secret.secret_id,
+        created_by="test-user",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=100,
+            )
+        ],
+        created_by="test-user",
+        usage_tracking=False,
+    )
+    scorer_experiment_id = store.create_experiment("guardrail-scorer-exp")
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/test-endpoint",
+            "instructions": "Is this input safe?",
+        }
+    })
+    scorer = store.register_scorer(
+        experiment_id=scorer_experiment_id,
+        name="safety-judge",
+        serialized_scorer=serialized_scorer,
+    )
+    guardrail = store.create_gateway_guardrail(
+        name="guardrail-1",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+        created_by="test-user",
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayCreateGuardrailEvent.name,
+        {
+            "stage": "BEFORE",
+            "action": "VALIDATION",
+        },
+    )
+
+    # Guardrail update telemetry is emitted by endpoint guardrail config updates.
+    store.add_guardrail_to_endpoint(endpoint.endpoint_id, guardrail.guardrail_id, execution_order=1)
+    store.update_endpoint_guardrail_config(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=2,
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayUpdateGuardrailEvent.name,
+        {"stage": None, "action": None},
+    )
+
+    store.delete_gateway_guardrail(guardrail.guardrail_id)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayDeleteGuardrailEvent.name,
     )
 
 

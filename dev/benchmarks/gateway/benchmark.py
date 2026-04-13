@@ -24,6 +24,7 @@ from rich.progress import (  # type: ignore[import-not-found]
     MofNCompleteColumn,
     Progress,
     SpinnerColumn,
+    TaskID,
     TextColumn,
     TimeElapsedColumn,
 )
@@ -81,7 +82,7 @@ async def _send(
 
 
 async def _run_once(
-    url: str, n: int, max_concurrent: int, progress: Progress, task_id: int
+    url: str, n: int, max_concurrent: int, progress: Progress, task_id: TaskID
 ) -> RunResult:
     sem = asyncio.Semaphore(max_concurrent)
     connector = aiohttp.TCPConnector(

@@ -71,7 +71,7 @@ def test_tracer_provider_initialized_once(mock_setup_tracer_provider):
     assert mock_setup_tracer_provider.call_count == 1
 
     # Thread safety
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-tracing-provider") as executor:
         executor.map(start_span_in_context, ["test_4", "test_5"])
     assert mock_setup_tracer_provider.call_count == 1
 
@@ -344,6 +344,26 @@ def test_trace_disabled_decorator(enabled_initially):
         assert test_fn() == 0
         assert call_count == 4
         assert enable_mock.call_count == (1 if enabled_initially else 0)
+
+
+@pytest.mark.parametrize("enabled_initially", [True, False])
+def test_trace_disabled_with_mlflow_trace_raising(enabled_initially):
+    if not enabled_initially:
+        mlflow.tracing.disable()
+
+    @mlflow.trace
+    def predict_fn(query):
+        raise ValueError("Uhoh!")
+
+    @trace_disabled
+    def validate():
+        predict_fn(query="What is MLflow?")
+
+    with pytest.raises(ValueError, match="Uhoh!"):
+        validate()
+
+    assert is_tracing_enabled() == enabled_initially
+    assert len(get_traces()) == 0
 
 
 def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):

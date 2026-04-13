@@ -1325,7 +1325,9 @@ def test_get_last_active_trace_thread_local():
 
         return mlflow.get_last_active_trace_id(thread_local=True)
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(
+        max_workers=4, thread_name_prefix="test-tracing-fluent-last-active"
+    ) as executor:
         futures = [executor.submit(run, i) for i in range(10)]
         trace_ids = [future.result() for future in futures]
 
@@ -2286,7 +2288,9 @@ def test_set_destination_in_threads(async_logging_enabled, use_batch_processor, 
                     time.sleep(0.5)
                     child_span.end()
 
-                thread = threading.Thread(target=child_span_thread, args=(x + 1,))
+                thread = threading.Thread(
+                    name="test-fluent-child-span", target=child_span_thread, args=(x + 1,)
+                )
                 thread.start()
                 thread.join()
             return x
@@ -2307,14 +2311,18 @@ def test_set_destination_in_threads(async_logging_enabled, use_batch_processor, 
 
     # Thread 1: context-local config
     experiment_id2 = mlflow.create_experiment(uuid.uuid4().hex)
-    thread1 = threading.Thread(target=func, args=(experiment_id2, 3))
+    thread1 = threading.Thread(
+        name="test-fluent-destination-thread1", target=func, args=(experiment_id2, 3)
+    )
 
     # Thread 2: context-local config
     experiment_id3 = mlflow.create_experiment(uuid.uuid4().hex)
-    thread2 = threading.Thread(target=func, args=(experiment_id3, 40))
+    thread2 = threading.Thread(
+        name="test-fluent-destination-thread2", target=func, args=(experiment_id3, 40)
+    )
 
     # Thread 3: no config -> fallback to global config
-    thread3 = threading.Thread(target=func, args=(None, 40))
+    thread3 = threading.Thread(name="test-fluent-destination-thread3", target=func, args=(None, 40))
 
     thread1.start()
     thread2.start()
@@ -2989,7 +2997,9 @@ def test_tracing_context_enabled_is_thread_safe():
             my_func()
             return mlflow.get_last_active_trace_id(thread_local=True)
 
-    with ThreadPoolExecutor(max_workers=10) as pool:
+    with ThreadPoolExecutor(
+        max_workers=10, thread_name_prefix="test-fluent-tracing-context"
+    ) as pool:
         futures = {
             pool.submit(run_with_context, enabled=(i % 2 == 0)): (i % 2 == 0) for i in range(10)
         }
