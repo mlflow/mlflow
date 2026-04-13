@@ -907,6 +907,7 @@ def test_databricks_tracking_uri_scheme_does_not_use_oss_path(mock_requests, tra
             return_value=mock.Mock(status_code=200),
         ),
         mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
         TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
@@ -933,6 +934,7 @@ def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
             return_value=mock.Mock(status_code=200),
         ) as mock_http,
         mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
         TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
@@ -946,6 +948,28 @@ def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
         assert event["tracking_uri_scheme"] == tracking_uri_scheme
         assert "params_json" in event
         assert "params" not in event
+
+
+def test_databricks_forwarding_disabled_for_dev_versions():
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", True),
+        ):
+            client._process_records([record])
+
+        mock_http.assert_not_called()
 
 
 def test_forward_to_databricks_params_json_serialization():

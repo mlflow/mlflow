@@ -25,6 +25,7 @@ from mlflow.telemetry.constant import (
 from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import (
+    _IS_MLFLOW_DEV_VERSION,
     _detect_environment,
     _get_config_url,
     _log_error,
@@ -261,7 +262,8 @@ class TelemetryClient:
             self._update_backend_store()
 
             if self.info.get("tracking_uri_scheme") in _DATABRICKS_SCHEMES:
-                self._forward_to_databricks(records, request_timeout)
+                if not _IS_MLFLOW_DEV_VERSION:
+                    self._forward_to_databricks(records, request_timeout)
                 return
 
             records = [
