@@ -23,6 +23,10 @@
     "defaultMessage": "Store it securely and restrict access to server administrators only.",
     "description": "AI Gateway setup guide > Passphrase warning security note"
   },
+  "+6406R": {
+    "defaultMessage": "Name",
+    "description": "Guardrail name label"
+  },
   "+6tmRn": {
     "defaultMessage": "Name",
     "description": "Field label for assessment name in a creation form"
@@ -711,6 +715,10 @@
     "defaultMessage": "Prompt created",
     "description": "Webhook event label"
   },
+  "2XH9oW": {
+    "defaultMessage": "Back",
+    "description": "Back button"
+  },
   "2YEXRM": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the experiment view page"
@@ -1074,6 +1082,10 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
+  "5DWDg/": {
+    "defaultMessage": "Placement",
+    "description": "Guardrail placement label"
+  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -1338,6 +1350,10 @@
     "defaultMessage": "Cancel",
     "description": "A cancel label for the modal used for deleting logged models"
   },
+  "6x1oqv": {
+    "defaultMessage": "Safety",
+    "description": "Safety guardrail type name"
+  },
   "6xPc4W": {
     "defaultMessage": "Predict on a Spark DataFrame:",
     "description": "Section heading to display the code block on how we can use registered model to predict using spark DataFrame"
@@ -1373,6 +1389,10 @@
   "72uGpl": {
     "defaultMessage": "Evaluate",
     "description": "Experiment page > new run modal > \"evaluate\" button label"
+  },
+  "73n+mN": {
+    "defaultMessage": "Create Guardrail",
+    "description": "Create guardrail button"
   },
   "73ydH0": {
     "defaultMessage": "Off",
@@ -2210,6 +2230,10 @@
     "defaultMessage": "Created by",
     "description": "Label for the creator of a logged model on the logged model details page"
   },
+  "BsbMZW": {
+    "defaultMessage": "Guardrail Model",
+    "description": "Guardrail model label"
+  },
   "Bsuyal": {
     "defaultMessage": "Description",
     "description": "Workspaces table description column header"
@@ -2629,6 +2653,10 @@
   "EcjcgN": {
     "defaultMessage": "Metrics",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
+  },
+  "EiFPFP": {
+    "defaultMessage": "Custom Guardrail",
+    "description": "Custom guardrail type name"
   },
   "EkUD0b": {
     "defaultMessage": "No results",
@@ -3066,6 +3094,10 @@
     "defaultMessage": "Assistant",
     "description": "Display text for the 'assistant' role in a GenAI chat message."
   },
+  "Hx3CSc": {
+    "defaultMessage": "Output Guardrails",
+    "description": "Pipeline AFTER stage label"
+  },
   "HyBP+D": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section under details tab on the model view\n                   page"
@@ -3197,6 +3229,10 @@
   "J/srtP": {
     "defaultMessage": "{count} {count, plural, one {value} other {values}}",
     "description": "Tag showing the number of unique string values in session assessment"
+  },
+  "J2IXIT": {
+    "defaultMessage": "Create Guardrail",
+    "description": "Title for create guardrail modal"
   },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
@@ -3561,6 +3597,10 @@
   "LOJumx": {
     "defaultMessage": "Prompt",
     "description": "Column label for linked prompts"
+  },
+  "LQVkoY": {
+    "defaultMessage": "Select the type of guardrail you want to create.",
+    "description": "Step 1 subtitle"
   },
   "LTbwXS": {
     "defaultMessage": "Artifact evaluation",
@@ -5112,6 +5152,10 @@
     "defaultMessage": "Structured output (JSON schema)",
     "description": "Label for the structured output JSON schema field in the prompt creation modal"
   },
+  "VWngGA": {
+    "defaultMessage": "e.g., PII Detection & Redaction",
+    "description": "Guardrail name placeholder"
+  },
   "VXPp00": {
     "defaultMessage": "Got it",
     "description": "Detect issues guidance dismiss button"
@@ -5563,6 +5607,10 @@
     "defaultMessage": "Reasoning",
     "description": "Filter option for reasoning support"
   },
+  "YOG1vG": {
+    "defaultMessage": "Reject the request or response entirely and return an error.",
+    "description": "Block action description"
+  },
   "YOp3/x": {
     "defaultMessage": "Unavailable when runs are grouped",
     "description": "Experiment page > view mode switch > evaluation mode disabled tooltip"
@@ -5990,6 +6038,10 @@
   "au61Yy": {
     "defaultMessage": "Maximum",
     "description": "Experiment page > group by runs control > maximum aggregate function"
+  },
+  "aw59+I": {
+    "defaultMessage": "Sanitize",
+    "description": "Sanitize action title"
   },
   "awekbG": {
     "defaultMessage": "Cancel",
@@ -6986,6 +7038,10 @@
   "gt4t2m": {
     "defaultMessage": "Issue detection completed",
     "description": "Issue detection progress > Step label when completed"
+  },
+  "gtvp+Q": {
+    "defaultMessage": "Instructions",
+    "description": "Guardrail instructions label"
   },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
@@ -8003,6 +8059,10 @@
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
   },
+  "mzmlq2": {
+    "defaultMessage": "Detects personally identifiable information such as names, emails, and phone numbers.",
+    "description": "PII guardrail type description"
+  },
   "n/MCHF": {
     "defaultMessage": "Window Start",
     "description": "Budget window start date column header"
@@ -8295,6 +8355,10 @@
     "defaultMessage": "Select at least one session to enable actions",
     "description": "Tooltip for disabled actions button when no sessions are selected"
   },
+  "ogHYBU": {
+    "defaultMessage": "PII Detection",
+    "description": "PII guardrail type name"
+  },
   "ojLGIx": {
     "defaultMessage": "Enter a feedback name",
     "description": "Placeholder for the feedback name typeahead"
@@ -8334,6 +8398,10 @@
   "oy2LTl": {
     "defaultMessage": "Filter",
     "description": "Label for the span filters popover in the trace explorer."
+  },
+  "oyQRYx": {
+    "defaultMessage": "Describe what this guardrail should check for...",
+    "description": "Guardrail instructions placeholder"
   },
   "p/wUKB": {
     "defaultMessage": "MLflow Assistant",
@@ -8567,9 +8635,17 @@
     "defaultMessage": "Cancel",
     "description": "Cancel webhook form button"
   },
+  "qbtNJS": {
+    "defaultMessage": "Block",
+    "description": "Block action title"
+  },
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
     "description": "Tooltip message when no sessions are selected"
+  },
+  "qfxutt": {
+    "defaultMessage": "Input Guardrails",
+    "description": "Pipeline BEFORE stage label"
   },
   "qhOwHa": {
     "defaultMessage": "Endpoints",
@@ -8671,6 +8747,10 @@
     "defaultMessage": "Sufficient",
     "description": "Evaluation results > retrieval sufficiency assessment > positive value label. Displayed if retrieved context is sufficient to generate the expected response."
   },
+  "rBPhzU": {
+    "defaultMessage": "Detects harmful, offensive, or toxic content in requests and responses.",
+    "description": "Safety guardrail type description"
+  },
   "rBydei": {
     "defaultMessage": "The retrieval-relevance LLM judge determines whether the chunks returned by the retriever are relevant to the input request. Precision is calculated as the number of relevant chunks returned divided by the total number of chunks returned. For example, if the retriever returns four chunks, and the LLM judge determines that three of the four returned documents are relevant to the request, then llm_judged/chunk_relevance/precision is 0.75.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval relevance judge."
@@ -8710,6 +8790,10 @@
   "rNkAcB": {
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
+  },
+  "rOj9V6": {
+    "defaultMessage": "Define your own guardrail with a custom name and instructions.",
+    "description": "Custom guardrail type description"
   },
   "rPEyUh": {
     "defaultMessage": "Add custom feedback to this trace.",
@@ -8983,6 +9067,10 @@
     "defaultMessage": "Conversational role adherence",
     "description": "LLM template option"
   },
+  "tBHYWH": {
+    "defaultMessage": "Action",
+    "description": "Guardrail action label"
+  },
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
     "description": "Tooltip suggestion to create new key for different provider"
@@ -9070,6 +9158,10 @@
   "tkc+sv": {
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
+  },
+  "tnykaX": {
+    "defaultMessage": "Click on a pipeline stage to choose where this guardrail runs.",
+    "description": "Placement help text"
   },
   "tqw27y": {
     "defaultMessage": "Evaluation criteria",
@@ -9494,6 +9586,10 @@
   "wq+WyH": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the prompt content in the prompt creation modal"
+  },
+  "wqv2gd": {
+    "defaultMessage": "Redact or mask flagged content, then allow the request to continue.",
+    "description": "Sanitize action description"
   },
   "wrNl6F": {
     "defaultMessage": "Preview",
