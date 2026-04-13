@@ -274,6 +274,7 @@ class MlflowFailedTypeConversion(MlflowInvalidInputException):
 
 def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
+    import pandas as pd
 
     from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
     from mlflow.types.schema import AnyType, Array, DataType, Map, Object
@@ -325,7 +326,11 @@ def cast_df_types_according_to_schema(pdf, schema):
                 elif isinstance(col_type_spec, AnyType):
                     pass
                 else:
-                    pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
+                    # In pandas 3.0+, string columns with NaN are inferred as StringDtype
+                    # instead of object. Skip casting StringDtype to object as they are compatible.
+                    if col_type == object and isinstance(pdf[col_name].dtype, pd.StringDtype):
+                        continue
+                    pdf[col_name] = pdf[col_name].astype(col_type)
             except Exception as ex:
                 raise MlflowFailedTypeConversion(col_name, col_type, ex)
     return pdf

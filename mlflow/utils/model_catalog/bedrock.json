@@ -692,6 +692,25 @@
         "response_schema": false
       }
     },
+    "ap-northeast-1/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.36,
+        "output_per_million_tokens": 1.44
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
     "ap-northeast-1/moonshotai.kimi-k2-thinking": {
       "mode": "chat",
       "context_window": {
@@ -825,6 +844,25 @@
         "response_schema": false
       }
     },
+    "ap-south-1/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.36,
+        "output_per_million_tokens": 1.44
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
     "ap-south-1/moonshotai.kimi-k2-thinking": {
       "mode": "chat",
       "context_window": {
@@ -882,6 +920,25 @@
         "response_schema": false
       }
     },
+    "ap-southeast-2/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.309,
+        "output_per_million_tokens": 1.236
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
     "ap-southeast-3/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
@@ -916,6 +973,25 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "ap-southeast-3/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.36,
+        "output_per_million_tokens": 1.44
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       }
@@ -1406,6 +1482,25 @@
         "response_schema": false
       }
     },
+    "eu-central-1/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.36,
+        "output_per_million_tokens": 1.44
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
     "eu-central-1/qwen.qwen3-coder-next": {
       "mode": "chat",
       "context_window": {
@@ -1463,6 +1558,25 @@
         "response_schema": false
       }
     },
+    "eu-north-1/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.36,
+        "output_per_million_tokens": 1.44
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
     "eu-north-1/moonshotai.kimi-k2.5": {
       "mode": "chat",
       "context_window": {
@@ -1497,6 +1611,25 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "eu-south-1/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.36,
+        "output_per_million_tokens": 1.44
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       }
@@ -1577,6 +1710,25 @@
         "response_schema": false
       }
     },
+    "eu-west-1/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.36,
+        "output_per_million_tokens": 1.44
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
     "eu-west-1/qwen.qwen3-coder-next": {
       "mode": "chat",
       "context_window": {
@@ -1649,6 +1801,25 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "eu-west-2/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.47,
+        "output_per_million_tokens": 1.86
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       }
@@ -2384,6 +2555,25 @@
         "response_schema": false
       }
     },
+    "sa-east-1/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.36,
+        "output_per_million_tokens": 1.44
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
     "sa-east-1/moonshotai.kimi-k2-thinking": {
       "mode": "chat",
       "context_window": {
@@ -2695,6 +2885,25 @@
         "response_schema": false
       }
     },
+    "us-east-1/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
     "us-east-1/mistral.mistral-7b-instruct-v0:2": {
       "mode": "chat",
       "context_window": {
@@ -2843,6 +3052,25 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "us-east-2/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       }
@@ -3058,12 +3286,54 @@
         "response_schema": true
       }
     },
+    "us-gov-east-1/anthropic.claude-haiku-4-5-20251001-v1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.2,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.12,
+        "cache_write_per_million_tokens": 1.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "us-gov-east-1/anthropic.claude-sonnet-4-5-20250929-v1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.3,
+        "output_per_million_tokens": 16.5,
+        "cache_read_per_million_tokens": 0.33,
+        "cache_write_per_million_tokens": 4.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
     "us-gov-east-1/claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 8192,
+        "max_tokens": 8192
       },
       "pricing": {
         "input_per_million_tokens": 3.3,
@@ -3292,12 +3562,54 @@
         "response_schema": true
       }
     },
+    "us-gov-west-1/anthropic.claude-haiku-4-5-20251001-v1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.2,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.12,
+        "cache_write_per_million_tokens": 1.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "us-gov-west-1/anthropic.claude-sonnet-4-5-20250929-v1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.3,
+        "output_per_million_tokens": 16.5,
+        "cache_read_per_million_tokens": 0.33,
+        "cache_write_per_million_tokens": 4.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
     "us-gov-west-1/claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 8192,
+        "max_tokens": 8192
       },
       "pricing": {
         "input_per_million_tokens": 3.3,
@@ -3570,6 +3882,25 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "us-west-2/minimax.minimax-m2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       }

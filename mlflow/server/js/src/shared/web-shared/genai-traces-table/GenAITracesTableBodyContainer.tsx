@@ -75,6 +75,7 @@ interface GenAITracesTableBodyContainerProps {
 
   // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
   assessmentCountMetrics?: AssessmentCountMetrics;
+  compareAssessmentCountMetrics?: AssessmentCountMetrics;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -105,6 +106,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       hasNextPage,
       isFetchingNextPage,
       assessmentCountMetrics,
+      compareAssessmentCountMetrics,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -277,6 +279,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 hasNextPage={hasNextPage}
                 isFetchingNextPage={isFetchingNextPage}
                 assessmentCountMetrics={assessmentCountMetrics}
+                compareAssessmentCountMetrics={compareAssessmentCountMetrics}
               />
             </AssessmentSchemaContextProvider>
           </div>

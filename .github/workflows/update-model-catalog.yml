@@ -71,7 +71,7 @@ jobs:
           gh pr create \
             --title "Update model catalog from upstream sources" \
             --body "Weekly refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-            --label "automation"
+            --label "team-review"
 
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'

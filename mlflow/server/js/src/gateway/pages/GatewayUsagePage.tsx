@@ -61,6 +61,40 @@ const GatewayLogsContent = ({
   );
 };
 
+const UsageEmptyState = ({
+  title,
+  description,
+  componentId,
+}: {
+  title: React.ReactNode;
+  description: React.ReactNode;
+  componentId: string;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 300,
+        textAlign: 'center',
+        padding: theme.spacing.lg,
+      }}
+    >
+      <ChartLineIcon css={{ fontSize: 48, color: theme.colors.textSecondary, marginBottom: theme.spacing.md }} />
+      <Typography.Title level={3}>{title}</Typography.Title>
+      <Typography.Text color="secondary" css={{ marginBottom: theme.spacing.md }}>
+        {description}
+      </Typography.Text>
+      <Link componentId={componentId} to={GatewayRoutes.gatewayPageRoute}>
+        <FormattedMessage defaultMessage="Go to Endpoints" description="Link to endpoints page" />
+      </Link>
+    </div>
+  );
+};
+
 export const GatewayUsagePage = () => {
   const { theme } = useDesignSystemTheme();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -120,43 +154,7 @@ export const GatewayUsagePage = () => {
     return [{ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId }];
   }, [selectedUserId]);
 
-  if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {
-    return (
-      <div
-        css={{
-          flex: 1,
-          overflow: 'auto',
-          padding: theme.spacing.md,
-        }}
-      >
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 300,
-            textAlign: 'center',
-            padding: theme.spacing.lg,
-          }}
-        >
-          <ChartLineIcon css={{ fontSize: 48, color: theme.colors.textSecondary, marginBottom: theme.spacing.md }} />
-          <Typography.Title level={3}>
-            <FormattedMessage defaultMessage="No usage data available" description="Empty state title" />
-          </Typography.Title>
-          <Typography.Text color="secondary" css={{ marginBottom: theme.spacing.md }}>
-            <FormattedMessage
-              defaultMessage="Enable usage tracking on your endpoints to see usage metrics here."
-              description="Empty state description"
-            />
-          </Typography.Text>
-          <Link componentId="mlflow.gateway.usage.go_to_endpoints_link" to={GatewayRoutes.gatewayPageRoute}>
-            <FormattedMessage defaultMessage="Go to Endpoints" description="Link to endpoints page" />
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const hasEndpoints = endpointsWithExperiments.length > 0;
 
   const endpointAndUserControls = (
     <>
@@ -227,7 +225,7 @@ export const GatewayUsagePage = () => {
           paddingBottom: 0,
         }}
       >
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, marginBottom: theme.spacing.md }}>
           <Breadcrumb includeTrailingCaret>
             <Breadcrumb.Item>
               <Link componentId="mlflow.gateway.usage.breadcrumb_gateway_link" to={GatewayRoutes.gatewayPageRoute}>
@@ -252,17 +250,19 @@ export const GatewayUsagePage = () => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.spacing.md,
-            marginBottom: theme.spacing.sm,
-          }}
-        >
-          {endpointAndUserControls}
-        </div>
+        {/* Filters - only shown when endpoints with usage tracking exist */}
+        {hasEndpoints && (
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.md,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            {endpointAndUserControls}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -300,7 +300,18 @@ export const GatewayUsagePage = () => {
             padding: theme.spacing.md,
           }}
         >
-          {isLoadingEndpoints || experimentIds.length > 0 ? (
+          {!isLoadingEndpoints && !hasEndpoints ? (
+            <UsageEmptyState
+              title={<FormattedMessage defaultMessage="No usage data available" description="Empty state title" />}
+              description={
+                <FormattedMessage
+                  defaultMessage="Once you have endpoints with usage tracking enabled, usage metrics will appear here."
+                  description="Empty state description for usage tab"
+                />
+              }
+              componentId="mlflow.gateway.usage.go_to_endpoints_link"
+            />
+          ) : isLoadingEndpoints || experimentIds.length > 0 ? (
             <GatewayChartsPanel
               experimentIds={experimentIds}
               showTokenStats
@@ -343,7 +354,20 @@ export const GatewayUsagePage = () => {
             padding: theme.spacing.md,
           }}
         >
-          {experimentIds.length > 0 ? (
+          {!isLoadingEndpoints && !hasEndpoints ? (
+            <UsageEmptyState
+              title={
+                <FormattedMessage defaultMessage="No logs available" description="Empty state title for logs tab" />
+              }
+              description={
+                <FormattedMessage
+                  defaultMessage="Once you have endpoints with usage tracking enabled, logs will appear here."
+                  description="Empty state description for logs tab"
+                />
+              }
+              componentId="mlflow.gateway.usage.go_to_endpoints_link_logs"
+            />
+          ) : experimentIds.length > 0 ? (
             <MonitoringConfigProvider>
               <GatewayLogsContent experimentIds={experimentIds} additionalFilters={tableFilters} />
             </MonitoringConfigProvider>

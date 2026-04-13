@@ -1595,7 +1595,7 @@ def test_pipelining_scores_while_predicts_pending(monkeypatch):
             )
             result_holder.append(result)
 
-        eval_thread = threading.Thread(target=run_eval)
+        eval_thread = threading.Thread(name="test-evaluation-eval", target=run_eval)
         eval_thread.start()
 
         # Wait for scoring to signal it started while predicts are pending
@@ -1645,9 +1645,10 @@ def test_backpressure_limits_in_flight_items(monkeypatch):
     data = [{"inputs": {"q": f"Q{i}"}} for i in range(num_items)]
 
     eval_thread = threading.Thread(
+        name="test-evaluation-blocking",
         target=lambda: mlflow.genai.evaluate(
             data=data, predict_fn=tracking_predict, scorers=[blocking_scorer]
-        )
+        ),
     )
 
     try:
