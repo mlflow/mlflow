@@ -826,7 +826,15 @@ def get_databricks_host_creds(server_uri=None):
             _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
             use_databricks_sdk = False
             databricks_auth_profile = None
-            workspace_id = None
+            # Config resolves workspace_id from env vars, .databrickscfg, or host
+            # discovery without requiring valid credentials, so try reading it even
+            # when WorkspaceClient auth fails (needed for SPOG header propagation).
+            try:
+                from databricks.sdk.config import Config as DatabricksConfig
+
+                workspace_id = DatabricksConfig(profile=profile).workspace_id
+            except Exception:
+                workspace_id = None
     else:
         use_databricks_sdk = False
         databricks_auth_profile = None
