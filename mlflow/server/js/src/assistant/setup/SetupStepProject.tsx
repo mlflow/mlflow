@@ -32,20 +32,28 @@ interface SetupStepProjectProps {
   backLabel?: string;
 }
 
-const GLOBAL_SKILLS_PATH = '~/.claude/skills';
+const PROVIDER_SKILLS_DIR: Record<string, string> = {
+  claude_code: '.claude/skills',
+  ollama: '.ollama/skills',
+  codex: '.codex/skills',
+};
+
+const getSkillsDir = (provider: string): string => PROVIDER_SKILLS_DIR[provider] ?? `.${provider}/skills`;
 
 const deriveSkillsLocation = (
   skillsLocation: string | undefined,
   projectPath: string,
+  provider: string,
 ): { location: SkillsLocation; customPath: string } => {
   if (!skillsLocation) {
     return { location: 'global', customPath: '' };
   }
-  const globalPath = GLOBAL_SKILLS_PATH.replace('~', '');
+  const skillsDir = getSkillsDir(provider);
+  const globalPath = `~/${skillsDir}`.replace('~', '');
   if (skillsLocation.endsWith(globalPath)) {
     return { location: 'global', customPath: '' };
   }
-  if (projectPath && skillsLocation.endsWith(`${projectPath}/.claude/skills`)) {
+  if (projectPath && skillsLocation.endsWith(`${projectPath}/${skillsDir}`)) {
     return { location: 'project', customPath: '' };
   }
   return { location: 'custom', customPath: skillsLocation };
@@ -92,7 +100,7 @@ export const SetupStepProject = ({
     }
 
     // Initialize skills location from config
-    const { location, customPath } = deriveSkillsLocation(config.skills_location, currentProjectPath);
+    const { location, customPath } = deriveSkillsLocation(config.skills_location, currentProjectPath, provider);
     setSkillsLocation(location);
     setCustomSkillsPath(customPath);
   }, [config, experimentId, provider]);
@@ -325,7 +333,7 @@ export const SetupStepProject = ({
                 <Radio componentId="mlflow.assistant.setup.project.skills_global" value="global">
                   <Typography.Text>Global</Typography.Text>
                   <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
-                    (~/.claude/skills/)
+                    (~/{getSkillsDir(provider)}/)
                   </Typography.Text>
                 </Radio>
 
@@ -336,7 +344,9 @@ export const SetupStepProject = ({
                 >
                   <Typography.Text color={!projectPath.trim() ? 'secondary' : undefined}>Project</Typography.Text>
                   <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
-                    {projectPath.trim() ? `(${projectPath.trim()}/.claude/skills/)` : '(requires project path)'}
+                    {projectPath.trim()
+                      ? `(${projectPath.trim()}/${getSkillsDir(provider)}/)`
+                      : '(requires project path)'}
                   </Typography.Text>
                 </Radio>
 

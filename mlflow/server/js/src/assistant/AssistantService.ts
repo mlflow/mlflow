@@ -264,7 +264,8 @@ export const listProviderModels = async (provider: string, baseUrl: string): Pro
     headers: { ...getDefaultHeaders(document.cookie) },
   });
   if (!response.ok) {
-    throw new Error(`Failed to list models for provider '${provider}': ${response.statusText}`);
+    const data = await response.json();
+    throw new Error(data.detail || `Failed to list models for provider '${provider}': ${response.statusText}`);
   }
   const data = await response.json();
   return data.models as string[];
