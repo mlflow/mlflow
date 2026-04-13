@@ -70,7 +70,7 @@ const ProviderCard = ({ template, compact }: ProviderCardProps) => {
         <img
           src={theme.isDarkMode && template.logoDark ? template.logoDark : template.logo}
           alt={formatProviderName(template.provider)}
-          css={{ width: logoSize, height: logoSize, flexShrink: 0 }}
+          css={{ width: logoSize, height: logoSize, objectFit: 'contain', flexShrink: 0 }}
         />
         <Typography.Text bold css={headerFontSize ? { fontSize: headerFontSize } : undefined}>
           {formatProviderName(template.provider)}
@@ -137,16 +137,16 @@ const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     logo: OpenAiLogo,
     logoDark: OpenAiLogoDark,
     models: [
+      {
+        model: 'gpt-5.4',
+        endpointName: 'openai-gpt-5.4-endpoint',
+        componentId: 'mlflow.gateway.quick_start.openai.gpt-5.4',
+      },
       { model: 'gpt-5', endpointName: 'openai-gpt-5-endpoint', componentId: 'mlflow.gateway.quick_start.openai.gpt-5' },
       {
         model: 'gpt-5-mini',
         endpointName: 'openai-gpt-5-mini-endpoint',
         componentId: 'mlflow.gateway.quick_start.openai.gpt-5-mini',
-      },
-      {
-        model: 'gpt-5.4',
-        endpointName: 'openai-gpt-5.4-endpoint',
-        componentId: 'mlflow.gateway.quick_start.openai.gpt-5.4',
       },
       {
         model: 'o4-mini',
@@ -177,9 +177,9 @@ const PROVIDER_TEMPLATES: ProviderTemplate[] = [
         componentId: 'mlflow.gateway.quick_start.anthropic.claude-sonnet-4-20250514',
       },
       {
-        model: 'claude-haiku-3-5-20241022',
+        model: 'claude-haiku-4-5',
         endpointName: 'anthropic-claude-haiku-endpoint',
-        componentId: 'mlflow.gateway.quick_start.anthropic.claude-haiku-3-5-20241022',
+        componentId: 'mlflow.gateway.quick_start.anthropic.claude-haiku-4-5',
       },
     ],
   },
