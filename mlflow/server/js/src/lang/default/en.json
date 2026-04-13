@@ -359,6 +359,10 @@
     "defaultMessage": "Staging",
     "description": "Column title for staging phase version in the registered model page"
   },
+  "0A6Y2t": {
+    "defaultMessage": "Track users and sessions",
+    "description": "Title for the sessions empty state"
+  },
   "0BIVHk": {
     "defaultMessage": "Response follows instructions, constraints, policies, and formatting",
     "description": "Issue category description for adherence"
@@ -2926,6 +2930,10 @@
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
   },
+  "GpjL0f": {
+    "defaultMessage": "Track users and sessions in your traces",
+    "description": "Step 1 title for sessions onboarding"
+  },
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
@@ -3294,6 +3302,10 @@
     "defaultMessage": "Key must be unique",
     "description": "Error message for unique key in trace tag assignment modal"
   },
+  "JPeZjO": {
+    "defaultMessage": "Run your application and sessions will appear here automatically, grouped by session ID.",
+    "description": "Step 2 description for sessions onboarding"
+  },
   "JUTcIz": {
     "defaultMessage": "Time created",
     "description": "Header for the time created column in the experiments table"
@@ -3485,6 +3497,10 @@
   "Kkuttk": {
     "defaultMessage": "Assessment",
     "description": "Evaluation review > evaluations list > assessment sort option label prefix"
+  },
+  "KpyK9D": {
+    "defaultMessage": "Use {sessionId} to group multi-turn conversations and {userId} to attribute traces to specific users. For more details, visit the <a>sessions documentation</a>.",
+    "description": "Step 1 description for sessions onboarding"
   },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
@@ -5104,6 +5120,10 @@
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
   },
+  "VGlxyX": {
+    "defaultMessage": "View your sessions",
+    "description": "Step 2 title for sessions onboarding"
+  },
   "VHuRTt": {
     "defaultMessage": "Doc",
     "description": "Label for the document preview in a chunk relevance assessment"
@@ -5546,6 +5566,10 @@
   "Y+bHa1": {
     "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
     "description": "Issue detection progress > Progress summary while running"
+  },
+  "Y+nCpQ": {
+    "defaultMessage": "Pending",
+    "description": "Label indicating this onboarding step is not yet completed"
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -9227,6 +9251,10 @@
     "defaultMessage": "Learn More",
     "description": "Link to MLflow documentation for more information on MLflow tracing"
   },
+  "uK0kHX": {
+    "defaultMessage": "Group related traces into sessions to track multi-turn conversations, user journeys, and agent workflows over time.",
+    "description": "Subtitle for the sessions empty state"
+  },
   "uSVfB9": {
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > retrieval grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
@@ -9650,6 +9678,10 @@
   "x2+7hZ": {
     "defaultMessage": "Are you sure you want to delete the prompt version?",
     "description": "A content for the delete prompt version confirmation modal"
+  },
+  "x57RWM": {
+    "defaultMessage": "Select your development language",
+    "description": "Language selector heading for sessions onboarding"
   },
   "x5ukxr": {
     "defaultMessage": "Runs",

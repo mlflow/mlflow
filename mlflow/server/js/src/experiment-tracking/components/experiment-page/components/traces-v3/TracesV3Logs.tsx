@@ -56,6 +56,7 @@ import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperim
 import { useIntl } from '@databricks/i18n';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { TracesV3EmptyState } from './TracesV3EmptyState';
+import { SessionsEmptyState } from './SessionsEmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
@@ -391,14 +392,17 @@ const TracesV3LogsImpl = React.memo(
     const renderMainContent = () => {
       if (!enableTraceInsights && isTableEmpty) {
         return (
-          <>
-            <Spacer />
-            <TracesV3EmptyState
-              experimentIds={experimentIds}
-              loggedModelId={loggedModelId}
-              traceSearchLocations={traceSearchLocations}
-              isCallDisabled={isQueryDisabled}
-            />
+          <div css={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            {pageSource === 'chat-sessions' ? (
+              <SessionsEmptyState />
+            ) : (
+              <TracesV3EmptyState
+                experimentIds={experimentIds}
+                loggedModelId={loggedModelId}
+                traceSearchLocations={traceSearchLocations}
+                isCallDisabled={isQueryDisabled}
+              />
+            )}
             {/* still render the table body container so the trace drawer can open even when
              table is empty (e.g., when navigating directly to a trace via URL parameter) */}
             <div css={{ display: 'none' }}>
@@ -423,7 +427,7 @@ const TracesV3LogsImpl = React.memo(
                 assessmentCountMetrics={assessmentCountMetrics}
               />
             </div>
-          </>
+          </div>
         );
       }
       // Default traces view with optional navigation
