@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.11.1.dev0"
+version = "3.11.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -182,6 +182,7 @@ lint = [
   "toml==0.10.2",
   "types-toml",
   "mypy==1.17.1",
+  "ty==0.0.24",
   "pydantic>=2.0",
   "clint",
   "pyyaml>=6.0.2",
@@ -237,8 +238,6 @@ docs = [
 ]
 
 [tool.uv]
-# TODO: Remove once the incident is fully remediated
-# Mitigation for https://github.com/aquasecurity/trivy/discussions/10425
 exclude-newer = "P14D"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.10.12"
@@ -457,18 +456,10 @@ example-rules = [
 ]
 
 [tool.clint.per-file-ignores]
-# Rules that should only be enabled for files in the root mlflow directory
-"^(?!mlflow/).*$" = [
-  "forbidden-set-active-model-usage",
-  "unnamed-thread",
-  "unnamed-thread-pool",
-]
+"^(?!mlflow/).*$" = ["forbidden-set-active-model-usage"]
+"^(?!mlflow/|tests/).*$" = ["unnamed-thread", "unnamed-thread-pool"]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
-# New experimental TruLens agent scorers - not yet in clint's static allowlist.
-"mlflow/genai/scorers/trulens/scorers/agent_trace.py" = [
-  "unknown-mlflow-function",
-]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]

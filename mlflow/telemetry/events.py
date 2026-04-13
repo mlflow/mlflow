@@ -141,7 +141,7 @@ class GenAIEvaluateEvent(Event):
             {
                 "class": _get_scorer_class_name_for_tracking(scorer),
                 "kind": scorer.kind.value,
-                "scope": "session" if scorer.is_session_level_scorer else "response",
+                "scope": "session" if scorer.is_session_level_scorer else "trace",
             }
             for scorer in scorers
             if isinstance(scorer, Scorer)
@@ -494,6 +494,33 @@ class GatewayListBudgetPoliciesEvent(Event):
     name: str = "gateway_list_budget_policies"
 
 
+# Gateway Guardrail CRUD Events
+class GatewayCreateGuardrailEvent(Event):
+    name: str = "gateway_create_guardrail"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
+            "action": str(arguments.get("action")) if arguments.get("action") else None,
+        }
+
+
+class GatewayUpdateGuardrailEvent(Event):
+    name: str = "gateway_update_guardrail"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
+            "action": str(arguments.get("action")) if arguments.get("action") else None,
+        }
+
+
+class GatewayDeleteGuardrailEvent(Event):
+    name: str = "gateway_delete_guardrail"
+
+
 # Gateway Secret CRUD Events
 class GatewayCreateSecretEvent(Event):
     name: str = "gateway_create_secret"
@@ -701,7 +728,7 @@ class ScorerCallEvent(Event):
         return {
             "scorer_class": _get_scorer_class_name_for_tracking(scorer_instance),
             "scorer_kind": scorer_instance.kind.value,
-            "is_session_level_scorer": scorer_instance.is_session_level_scorer,
+            "scope": "session" if scorer_instance.is_session_level_scorer else "trace",
             "callsite": callsite,
         }
 

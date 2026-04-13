@@ -130,11 +130,11 @@ const MlflowRootRoute = () => {
   );
 };
 
-const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean }) => {
+export const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean }) => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate({ bypassWorkspacePrefix: true });
-  const { workspaces, isLoading } = useWorkspaces(workspacesEnabled);
+  useWorkspaces(workspacesEnabled);
 
   useEffect(() => {
     if (!workspacesEnabled) {
@@ -151,27 +151,11 @@ const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean
     const activeWorkspace = getActiveWorkspace();
     const isRootPath = location.pathname === '/' || location.pathname === '';
 
-    // If workspace is in query param, validate it once workspaces are loaded
+    // If workspace is in query param, keep it active. The workspace list is not
+    // authoritative because users may still have access to individual resources
+    // inside a workspace even when the workspace itself is filtered out from
+    // listWorkspaces.
     if (workspaceFromQuery) {
-      if (isLoading) {
-        // Still loading workspaces, optimistically set the workspace
-        // (will validate once loaded)
-        if (activeWorkspace !== workspaceFromQuery) {
-          setActiveWorkspace(workspaceFromQuery);
-        }
-        return;
-      }
-
-      // Workspaces loaded - validate
-      const workspaceExists = workspaces.some((ws) => ws.name === workspaceFromQuery);
-      if (!workspaceExists) {
-        // Invalid workspace - clear it and redirect to workspace selector
-        setActiveWorkspace(null);
-        navigate('/', { replace: true });
-        return;
-      }
-
-      // Valid workspace - sync to active state
       if (activeWorkspace !== workspaceFromQuery) {
         setActiveWorkspace(workspaceFromQuery);
       }
@@ -198,7 +182,7 @@ const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean
     } else {
       navigate(location.pathname + '?workspace=' + lastUsedWorkspace, { replace: true });
     }
-  }, [location, navigate, workspacesEnabled, searchParams, workspaces, isLoading]);
+  }, [location, navigate, workspacesEnabled, searchParams]);
 
   return null;
 };

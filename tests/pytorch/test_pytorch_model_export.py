@@ -279,7 +279,7 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
-        with pytest.raises(IOError, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             mlflow.pytorch.load_model(path)
 
         with pytest.raises(TypeError, match="Argument 'pytorch_model' should be a torch.nn.Module"):
@@ -979,7 +979,7 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
 def test_log_model_invalid_extra_file_path(sequential_model):
     with (
         mlflow.start_run(),
-        pytest.raises(MlflowException, match="No such file or directory: 'non_existing_file.txt'"),
+        pytest.raises(MlflowException, match="No such artifact: 'non_existing_file.txt'"),
     ):
         mlflow.pytorch.log_model(
             sequential_model,

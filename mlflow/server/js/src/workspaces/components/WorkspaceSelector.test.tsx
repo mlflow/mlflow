@@ -1,5 +1,5 @@
 import { describe, jest, beforeEach, it, expect } from '@jest/globals';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
@@ -33,6 +33,25 @@ const useNavigateMock = jest.mocked(useNavigate);
 const useLocationMock = jest.mocked(useLocation);
 const useSearchParamsMock = jest.mocked(useSearchParams);
 const fetchAPIMock = jest.mocked(fetchAPI);
+
+const mockWindowLocation = () => {
+  const originalLocation = window.location;
+  Object.defineProperty(window, 'location', {
+    writable: true,
+    value: { ...originalLocation, hash: '', reload: jest.fn() },
+  });
+  return originalLocation;
+};
+
+const restoreWindowLocation = (originalLocation: Location) => {
+  Object.defineProperty(window, 'location', { writable: true, value: originalLocation });
+};
+
+const getWorkspaceSearchInput = () => {
+  const searchInput = document.querySelector('input');
+  expect(searchInput).not.toBeNull();
+  return searchInput as HTMLInputElement;
+};
 
 describe('WorkspaceSelector', () => {
   const mockNavigate = jest.fn();
@@ -257,6 +276,197 @@ describe('WorkspaceSelector', () => {
     expect(trigger).toBeInTheDocument();
   });
 
-  // Note: Workspace validation tests moved to MlflowRouter tests
-  // WorkspaceSelector is now a pure UI component without validation logic
+  it('submits a typed valid workspace when Enter is pressed in search', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+    const originalLocation = mockWindowLocation();
+
+    try {
+      renderWithProviders(<WorkspaceSelector />);
+
+      await waitFor(() => {
+        expect(screen.getByText('default')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByRole('combobox'));
+      const searchInput = getWorkspaceSearchInput();
+      fireEvent.change(searchInput, { target: { value: 'team-b' } });
+
+      expect(screen.getByText('Go to workspace "team-b"')).toBeInTheDocument();
+
+      fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+      expect(window.location.hash).toBe('#/experiments?workspace=team-b');
+      expect(window.location.reload).toHaveBeenCalled();
+    } finally {
+      restoreWindowLocation(originalLocation);
+    }
+  });
+
+  it('clicks the typed workspace action to use the same navigation flow', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+    const originalLocation = mockWindowLocation();
+
+    try {
+      renderWithProviders(<WorkspaceSelector />);
+
+      await waitFor(() => {
+        expect(screen.getByText('default')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByRole('combobox'));
+      const searchInput = getWorkspaceSearchInput();
+      fireEvent.change(searchInput, { target: { value: 'team-b' } });
+
+      await userEvent.click(screen.getByText('Go to workspace "team-b"'));
+
+      expect(window.location.hash).toBe('#/experiments?workspace=team-b');
+      expect(window.location.reload).toHaveBeenCalled();
+    } finally {
+      restoreWindowLocation(originalLocation);
+    }
+  });
+
+  it('trims surrounding spaces before showing the typed workspace action', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+    const originalLocation = mockWindowLocation();
+
+    try {
+      renderWithProviders(<WorkspaceSelector />);
+
+      await waitFor(() => {
+        expect(screen.getByText('default')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByRole('combobox'));
+      const searchInput = getWorkspaceSearchInput();
+      fireEvent.change(searchInput, { target: { value: '  team-b  ' } });
+
+      expect(screen.getByText('Go to workspace "team-b"')).toBeInTheDocument();
+
+      fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+      expect(window.location.hash).toBe('#/experiments?workspace=team-b');
+      expect(window.location.reload).toHaveBeenCalled();
+    } finally {
+      restoreWindowLocation(originalLocation);
+    }
+  });
+
+  it('does not show the typed workspace action when there is an exact workspace match', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }, { name: 'team-b' }] });
+    const originalLocation = mockWindowLocation();
+
+    try {
+      renderWithProviders(<WorkspaceSelector />);
+
+      await waitFor(() => {
+        expect(screen.getByText('default')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByRole('combobox'));
+      const searchInput = getWorkspaceSearchInput();
+      fireEvent.change(searchInput, { target: { value: 'team-a' } });
+
+      expect(screen.queryByText('Go to workspace "team-a"')).not.toBeInTheDocument();
+    } finally {
+      restoreWindowLocation(originalLocation);
+    }
+  });
+
+  it('shows the typed workspace action alongside partial matches', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'workspace-aaa' }] });
+    const originalLocation = mockWindowLocation();
+
+    try {
+      renderWithProviders(<WorkspaceSelector />);
+
+      await waitFor(() => {
+        expect(screen.getByText('default')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByRole('combobox'));
+      const searchInput = getWorkspaceSearchInput();
+      fireEvent.change(searchInput, { target: { value: 'workspace-a' } });
+
+      expect(screen.getByText('workspace-aaa')).toBeInTheDocument();
+      expect(screen.getByText('Go to workspace "workspace-a"')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByText('Go to workspace "workspace-a"'));
+      expect(window.location.hash).toBe('#/experiments?workspace=workspace-a');
+      expect(window.location.reload).toHaveBeenCalled();
+    } finally {
+      restoreWindowLocation(originalLocation);
+    }
+  });
+
+  it('keeps matching listed workspaces visible when the search has surrounding spaces', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }, { name: 'team-b' }] });
+    const originalLocation = mockWindowLocation();
+
+    try {
+      renderWithProviders(<WorkspaceSelector />);
+
+      await waitFor(() => {
+        expect(screen.getByText('default')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByRole('combobox'));
+      const searchInput = getWorkspaceSearchInput();
+      fireEvent.change(searchInput, { target: { value: '  team-a  ' } });
+
+      expect(screen.getByText('team-a')).toBeInTheDocument();
+      expect(screen.queryByText('Go to workspace "team-a"')).not.toBeInTheDocument();
+    } finally {
+      restoreWindowLocation(originalLocation);
+    }
+  });
+
+  it('does not submit invalid typed workspace names', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+    const originalLocation = mockWindowLocation();
+
+    try {
+      renderWithProviders(<WorkspaceSelector />);
+
+      await waitFor(() => {
+        expect(screen.getByText('default')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByRole('combobox'));
+      const searchInput = getWorkspaceSearchInput();
+      fireEvent.change(searchInput, { target: { value: 'invalid workspace' } });
+      fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+      expect(screen.queryByText('Go to workspace "invalid workspace"')).not.toBeInTheDocument();
+      expect(window.location.hash).toBe('');
+      expect(window.location.reload).not.toHaveBeenCalled();
+    } finally {
+      restoreWindowLocation(originalLocation);
+    }
+  });
+
+  it('keeps manual entry available when loading workspaces fails', async () => {
+    fetchAPIMock.mockRejectedValue(new Error('Server error'));
+    const originalLocation = mockWindowLocation();
+
+    try {
+      renderWithProviders(<WorkspaceSelector />);
+
+      await userEvent.click(screen.getByRole('combobox'));
+      const searchInput = getWorkspaceSearchInput();
+      fireEvent.change(searchInput, { target: { value: 'team-b' } });
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load workspaces')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Go to workspace "team-b"')).toBeInTheDocument();
+
+      fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+      expect(window.location.hash).toBe('#/experiments?workspace=team-b');
+      expect(window.location.reload).toHaveBeenCalled();
+    } finally {
+      restoreWindowLocation(originalLocation);
+    }
+  });
 });

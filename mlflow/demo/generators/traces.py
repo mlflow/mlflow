@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import logging
 import random
@@ -22,6 +23,8 @@ from mlflow.demo.data import (
     RAG_TRACES,
     SESSION_TRACES,
     DemoTrace,
+    MultimodalDemoTrace,
+    get_multimodal_traces,
 )
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
@@ -34,7 +37,7 @@ DEMO_TRACE_TYPE_TAG = "mlflow.demo.trace_type"
 DEMO_START_TIME_TAG = "mlflow.demo.start_time_ms"
 DEMO_END_TIME_TAG = "mlflow.demo.end_time_ms"
 
-_TOTAL_TRACES_PER_VERSION = 17
+_TOTAL_TRACES_PER_VERSION = 21
 
 
 @dataclass(frozen=True)
@@ -203,6 +206,14 @@ class TracesDemoGenerator(BaseDemoGenerator):
             if trace_id := self._create_prompt_trace(
                 trace_def, version, start_ns, end_ns, prompt_version_num
             ):
+                trace_ids.append(trace_id)
+            trace_index += 1
+
+        for trace_def in get_multimodal_traces():
+            start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
+            if trace_id := self._create_multimodal_trace(trace_def, version, start_ns, end_ns):
                 trace_ids.append(trace_id)
             trace_index += 1
 
@@ -523,6 +534,55 @@ class TracesDemoGenerator(BaseDemoGenerator):
         self._link_prompt_to_trace(trace_def.prompt_template.prompt_name, trace_id, prompt_version)
 
         return trace_id
+
+    def _create_multimodal_trace(
+        self,
+        trace_def: MultimodalDemoTrace,
+        version: Literal["v1", "v2"],
+        start_ns: int,
+        end_ns: int,
+    ) -> str | None:
+        """Create a multimodal trace with pre-built inputs/outputs."""
+        response_text = (
+            trace_def.v1_response_text if version == "v1" else trace_def.v2_response_text
+        )
+        prompt_tokens = 200
+        completion_tokens = _estimate_tokens(response_text)
+
+        model = GPT_5_2
+
+        # Deep copy to avoid mutating shared trace definition data
+        outputs = copy.deepcopy(trace_def.outputs)
+        # Inject version-specific response text into outputs
+        match outputs:
+            case {"choices": [*choices]}:
+                for choice in choices:
+                    match choice:
+                        case {"message": {"content": None, **rest}} if "audio" not in rest:
+                            choice["message"]["content"] = response_text
+
+        root = mlflow.start_span_no_context(
+            name=trace_def.name,
+            span_type=trace_def.span_type,
+            inputs=trace_def.inputs,
+            attributes={
+                SpanAttributeKey.MESSAGE_FORMAT: "openai",
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": prompt_tokens,
+                    "output_tokens": completion_tokens,
+                    "total_tokens": prompt_tokens + completion_tokens,
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
+            },
+            metadata={DEMO_VERSION_TAG: version, DEMO_TRACE_TYPE_TAG: "multimodal"},
+            start_time_ns=start_ns,
+        )
+        root.set_outputs(outputs)
+        root.end(end_time_ns=end_ns)
+
+        return root.trace_id
 
     def _link_prompt_to_trace(
         self, short_prompt_name: str, trace_id: str, prompt_version: str = "1"

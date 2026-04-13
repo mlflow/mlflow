@@ -1,4 +1,4 @@
-name: Update Model Prices
+name: Update Model Catalog
 
 on:
   schedule:
@@ -11,7 +11,7 @@ defaults:
     shell: bash
 
 jobs:
-  update-model-prices:
+  update-model-catalog:
     if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -32,27 +32,25 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
+
       - uses: ./.github/actions/setup-node
 
-      - name: Download latest model prices
-        run: |
-          curl -fsSL \
-            https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json \
-            -o mlflow/utils/model_prices_and_context_window.json
+      - name: Fetch and transform model catalog
+        run: uv run python dev/update_model_catalog.py
 
-      - name: Run pre-commit
+      - name: Run pre-commit on generated files
         run: |
           uv sync --locked --only-group lint
           uv run --no-sync pre-commit install --install-hooks
           uv run --no-sync pre-commit run install-bin -a -v
           # pre-commit exits 1 when it auto-fixes files (e.g. prettier reformats JSON).
-          # That's expected here — the fixes are picked up by the subsequent git diff.
-          uv run --no-sync pre-commit run --files mlflow/utils/model_prices_and_context_window.json || true
+          # That's expected — the fixes are picked up by the subsequent git diff.
+          uv run --no-sync pre-commit run --files mlflow/utils/model_catalog/*.json || true
 
       - name: Check for changes
         id: diff
         run: |
-          if git diff --quiet mlflow/utils/model_prices_and_context_window.json; then
+          if git diff --quiet mlflow/utils/model_catalog/; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -65,12 +63,18 @@ jobs:
         run: |
           git config user.name 'mlflow-app[bot]'
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-          branch="update-model-prices-$(date +%Y%m%d)"
+          branch="update-model-catalog-$(date +%Y%m%d)"
           git checkout -b "$branch"
-          git add mlflow/utils/model_prices_and_context_window.json
-          git commit -m "Update model prices and context window metadata"
+          git add mlflow/utils/model_catalog/
+          git commit -m "Update model catalog from upstream sources"
           git push -u origin "$branch"
           gh pr create \
-            --title "Update model prices and context window metadata" \
-            --body "Weekly refresh of model pricing and context window data." \
-            --label "automation"
+            --title "Update model catalog from upstream sources" \
+            --body "Weekly refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
+            --label "team-review"
+
+      - name: Publish to GitHub Releases
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: bash dev/publish_model_catalog.sh

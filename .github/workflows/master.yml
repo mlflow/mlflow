@@ -438,4 +438,6 @@ jobs:
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
             --ignore=tests/data/test_spark_dataset.py \
-            --ignore=tests/docker
+            --ignore=tests/data/test_spark_dataset_source.py \
+            --ignore=tests/docker \
+            --ignore=tests/demo

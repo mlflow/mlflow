@@ -1,14 +1,5 @@
 import { isNil } from 'lodash';
-import {
-  Button,
-  CloseIcon,
-  PinIcon,
-  PinFillIcon,
-  LegacyTooltip,
-  VisibleIcon,
-  Typography,
-  Tooltip,
-} from '@databricks/design-system';
+import { Button, CloseIcon, PinIcon, PinFillIcon, VisibleIcon, Typography, Tooltip } from '@databricks/design-system';
 import type { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';

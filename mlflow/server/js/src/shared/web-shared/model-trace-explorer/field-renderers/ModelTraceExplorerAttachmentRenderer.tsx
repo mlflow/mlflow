@@ -58,9 +58,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
           </Typography.Text>
         )}
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <audio controls>
-          <source src={objectUrl} type={contentType} />
-        </audio>
+        <audio controls css={{ width: '100%', maxWidth: 500 }} src={objectUrl} />
       </div>
     );
   }

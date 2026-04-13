@@ -856,7 +856,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
         model_uri=model_path
     )
 
-    job_thread = threading.Thread(target=run_job)
+    job_thread = threading.Thread(name="pyfunc-spark-job", target=run_job)
     job_thread.start()
 
     client = ScoringServerClient("127.0.0.1", server_port)

@@ -147,6 +147,7 @@ jobs:
           name: app-deploy
           path: /tmp/app-deploy/
           retention-days: 1
+          if-no-files-found: error
 
   deploy:
     needs: build
