@@ -55,6 +55,8 @@ module.exports = createConfig({})({
       rules: {
         // allow absolute AJAX URLs in tests as they don't impact prod
         '@mlflow/no-absolute-ajax-urls': 'off',
+        // componentId values in tests don't need to be in the registry
+        '@mlflow/componentId-must-be-in-registry': 'off',
       }
     }
   ],
