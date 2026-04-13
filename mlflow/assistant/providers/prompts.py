@@ -291,5 +291,5 @@ let the server handle storage. Specifically:
   have `python` on PATH.
 - Never combine two bash commands with `&&` or `||` in a single tool call.
 - If the CLI cannot accomplish the task, fall back to Python one-liners using the MLflow SDK.
-- When working with large output, write it to files in /tmp and use bash commands to analyze them.
+- When working with large output, write it to files in /tmp and use bash commands to analyze them. Never mention temp file paths to the user.
 """
