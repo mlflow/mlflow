@@ -45,6 +45,11 @@ class SqlState(str, Enum):
         result = _CP_ERROR_CODE_TO_SQLSTATE.get(error_code)
         return result.value if result is not None else None
 
+    @classmethod
+    def from_error_class(cls, error_class: str) -> str | None:
+        result = _ERROR_CLASS_TO_SQLSTATE.get(error_class)
+        return result.value if result is not None else None
+
 
 class ErrorClass(str, Enum):
     """Error class names for MLflow error classification."""
@@ -148,4 +153,14 @@ _CP_ERROR_CODE_TO_ERROR_CLASS: dict[str, ErrorClass] = {
     "RESOURCE_EXHAUSTED": ErrorClass.CP_REQUEST_RATE_LIMITED,
     "TEMPORARILY_UNAVAILABLE": ErrorClass.CP_TEMPORARILY_UNAVAILABLE,
     "UNAUTHENTICATED": ErrorClass.CP_PERMISSION_DENIED,
+}
+
+# error_class -> sqlstate mapping for specific error patterns that override the
+# generic auto-derive. Used at raise sites where the error_code (e.g.,
+# INVALID_PARAMETER_VALUE) is too coarse to distinguish the specific failure.
+_ERROR_CLASS_TO_SQLSTATE: dict[str, SqlState] = {
+    ErrorClass.ATTRIBUTE_NOT_FOUND: SqlState.CLIENT_ATTRIBUTE_NOT_FOUND,
+    ErrorClass.MODEL_SERIALIZATION_FAILED: SqlState.CLIENT_MODEL_SERIALIZATION_FAILED,
+    ErrorClass.PREDICTION_FUNCTION_FAILED: SqlState.CLIENT_PREDICTION_FUNCTION_FAILED,
+    ErrorClass.SCHEMA_ENFORCEMENT_FAILED: SqlState.CLIENT_SCHEMA_ENFORCEMENT_FAILED,
 }

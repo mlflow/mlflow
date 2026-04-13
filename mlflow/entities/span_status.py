@@ -95,7 +95,6 @@ class SpanStatus:
             raise MlflowException(
                 f"Invalid status code: {self.status_code}",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM04",
                 error_class="ATTRIBUTE_NOT_FOUND",
             )
         return trace_api.Status(status_code, self.description)

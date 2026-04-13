@@ -232,7 +232,6 @@ def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
             f"Prompt {prompt_uri} doesn't have a model configuration that sets provider and "
             "model_name, which are required for optimization.",
             error_code=INVALID_PARAMETER_VALUE,
-            sqlstate="KAM04",
             error_class="ATTRIBUTE_NOT_FOUND",
         ) from e
 

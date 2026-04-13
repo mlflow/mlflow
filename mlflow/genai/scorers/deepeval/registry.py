@@ -79,7 +79,6 @@ def get_metric_class(metric_name: str):
         raise MlflowException.invalid_parameter_value(
             f"Unknown metric: '{metric_name}'. Could not import '{class_name}' from "
             f"'{module_path}'. Available pre-configured metrics: {available_metrics}",
-            sqlstate="KAM04",
             error_class="ATTRIBUTE_NOT_FOUND",
         )
 

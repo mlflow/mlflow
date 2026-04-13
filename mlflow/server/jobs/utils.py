@@ -594,7 +594,6 @@ def _load_function(fullname: str) -> Callable[..., Any]:
         # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException.invalid_parameter_value(
             f"Function not found in module for '{fullname}'",
-            sqlstate="KAM04",
             error_class="ATTRIBUTE_NOT_FOUND",
         )
 

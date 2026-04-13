@@ -1107,7 +1107,6 @@ def _save_model_with_class_artifacts_params(
                 "and use code-based logging method instead. See"
                 "https://mlflow.org/docs/latest/models.html#models-from-code for more information.",
                 error_code=INVALID_PARAMETER_VALUE,
-                sqlstate="KAM03",
                 error_class="MODEL_SERIALIZATION_FAILED",
             ) from e
 

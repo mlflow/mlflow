@@ -59,7 +59,6 @@ def _validate_function_and_input_compatibility(
     raise MlflowException.invalid_parameter_value(
         "Failed to run the prediction function specified in the `predict_fn` "
         f"parameter. Input: {sample_input}. Error: {e}\n\n",
-        sqlstate="KAM02",
         error_class="PREDICTION_FUNCTION_FAILED",
     ) from e
 

@@ -741,7 +741,7 @@ def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_s
                 )
             # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
             raise MlflowException.invalid_parameter_value(
-                message, sqlstate="KAM01", error_class="SCHEMA_ENFORCEMENT_FAILED"
+                message, error_class="SCHEMA_ENFORCEMENT_FAILED"
             )
     params = _enforce_params_schema(params, params_schema)
     if HAS_PYSPARK and isinstance(data, SparkDataFrame):

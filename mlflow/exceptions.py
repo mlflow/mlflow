@@ -101,14 +101,19 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
         message = str(message)
         self.message = message
-        self.sqlstate = (
-            sqlstate if sqlstate is not None else SqlState.from_client_error_code(self.error_code)
-        )
         self.error_class = (
             error_class
             if error_class is not None
             else ErrorClass.from_client_error_code(self.error_code)
         )
+        if sqlstate is not None:
+            self.sqlstate = sqlstate
+        elif self.error_class is not None:
+            self.sqlstate = SqlState.from_error_class(
+                self.error_class
+            ) or SqlState.from_client_error_code(self.error_code)
+        else:
+            self.sqlstate = SqlState.from_client_error_code(self.error_code)
         self.json_kwargs = kwargs
         super().__init__(message)
 

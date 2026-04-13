@@ -372,7 +372,6 @@ class BuiltInScorer(Judge):
             # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
             raise MlflowException.invalid_parameter_value(
                 f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
-                sqlstate="KAM04",
                 error_class="ATTRIBUTE_NOT_FOUND",
             )
 
