@@ -1494,6 +1494,5 @@ describe('parseTraceV4SerializedLocation', () => {
       type: 'UC_TABLE_PREFIX',
       uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
     });
-
   });
 });

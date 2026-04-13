@@ -1,7 +1,7 @@
-import { isValidTagKey } from './tagKeyValidation';import { describe } from '@jest/globals';import { it } from '@jest/globals';import { expect } from '@jest/globals';
-
-
-
+import { isValidTagKey } from './tagKeyValidation';
+import { describe } from '@jest/globals';
+import { it } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 describe('isValidTagKey', () => {
   it('allows empty string', () => {

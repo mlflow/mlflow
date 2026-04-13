@@ -43,25 +43,30 @@ const EXPANDED_GRAPH_HEIGHT_RATIO = 0.75;
 // Ratio of the container width the left pane occupies when graph is fully expanded.
 const EXPANDED_PANE_WIDTH_RATIO = 0.65;
 
-const ResizeHandle = React.forwardRef<HTMLDivElement, { handleAxis?: string }>(function ResizeHandle({ handleAxis: _handleAxis, ...props }, ref) { return (
-  <div
-    ref={ref}
-    css={{
-      height: 8,
-      cursor: 'ns-resize',
-      backgroundColor: 'transparent',
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 1,
-      ':hover': {
-        backgroundColor: 'rgba(0,0,0,0.1)',
-      },
-    }}
-    {...props}
-  />
-); });
+const ResizeHandle = React.forwardRef<HTMLDivElement, { handleAxis?: string }>(function ResizeHandle(
+  { handleAxis: _handleAxis, ...props },
+  ref,
+) {
+  return (
+    <div
+      ref={ref}
+      css={{
+        height: 8,
+        cursor: 'ns-resize',
+        backgroundColor: 'transparent',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1,
+        ':hover': {
+          backgroundColor: 'rgba(0,0,0,0.1)',
+        },
+      }}
+      {...props}
+    />
+  );
+});
 
 export const ModelTraceExplorerDetailView = ({
   modelTraceInfo,

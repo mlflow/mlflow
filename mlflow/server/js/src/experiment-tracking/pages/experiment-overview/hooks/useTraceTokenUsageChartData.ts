@@ -139,7 +139,10 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     isLoadingCacheCreation ||
     (isBatchingEnabled ? isLoadingBatched : isLoadingInput || isLoadingOutput);
   const error =
-    totalError || cacheReadError || cacheCreationError || (isBatchingEnabled ? batchedError : inputError || outputError);
+    totalError ||
+    cacheReadError ||
+    cacheCreationError ||
+    (isBatchingEnabled ? batchedError : inputError || outputError);
   const totalTokens = totalData?.data_points?.[0]?.values?.[AggregationType.SUM] || 0;
 
   const totalInputTokens = useMemo(
