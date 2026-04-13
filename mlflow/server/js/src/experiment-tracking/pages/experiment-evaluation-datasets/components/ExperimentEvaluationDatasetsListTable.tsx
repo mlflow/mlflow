@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Empty,
   Table,
@@ -20,16 +20,15 @@ import type { ColumnDef, Row, SortDirection, SortingState } from '@tanstack/reac
 import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import type { EvaluationDataset } from '../types';
+import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
 import { NameCell } from './ExperimentEvaluationDatasetsNameCell';
 import { LastUpdatedCell } from './ExperimentEvaluationDatasetsLastUpdatedCell';
 import { ActionsCell } from './ExperimentEvaluationDatasetsActionsCell';
-import { DatasetIdCell } from './ExperimentEvaluationDatasetsIdCell';
 import { isEqual } from 'lodash';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 
 const COLUMN_IDS = {
-  DATASET_ID: 'dataset_id',
   NAME: 'name',
   LAST_UPDATE_TIME: 'last_update_time',
   CREATED_TIME: 'created_time',
@@ -38,22 +37,10 @@ const COLUMN_IDS = {
   ACTIONS: 'actions',
 };
 
-const DEFAULT_ENABLED_COLUMN_IDS = [
-  COLUMN_IDS.DATASET_ID,
-  COLUMN_IDS.NAME,
-  COLUMN_IDS.LAST_UPDATE_TIME,
-  COLUMN_IDS.ACTIONS,
-];
+const DEFAULT_ENABLED_COLUMN_IDS = [COLUMN_IDS.NAME, COLUMN_IDS.LAST_UPDATE_TIME, COLUMN_IDS.ACTIONS];
 const UNSELECTABLE_COLUMN_IDS = [COLUMN_IDS.ACTIONS];
 
 const columns: ColumnDef<EvaluationDataset, any>[] = [
-  {
-    id: COLUMN_IDS.DATASET_ID,
-    accessorKey: 'dataset_id',
-    header: 'Dataset ID',
-    enableSorting: false,
-    cell: DatasetIdCell,
-  },
   {
     id: COLUMN_IDS.NAME,
     accessorKey: 'name',
@@ -67,8 +54,8 @@ const columns: ColumnDef<EvaluationDataset, any>[] = [
     accessorFn: (row: EvaluationDataset) => (row.last_update_time ? new Date(row.last_update_time).getTime() : 0),
     header: 'Updated At',
     enableSorting: true,
-    size: 150,
-    maxSize: 150,
+    size: 100,
+    maxSize: 100,
     cell: LastUpdatedCell,
   },
   {
@@ -105,18 +92,24 @@ interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<EvaluationDataset>;
   columnVisibility: { [key: string]: boolean };
   isActive: boolean;
-  onSelectDataset: (dataset: EvaluationDataset) => void;
+  setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
 }
 
 const ExperimentEvaluationDatasetsTableRow: React.FC<
   React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>
 > = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-  ({ row, isActive, onSelectDataset }) => {
+  ({ row, isActive, setSelectedDataset }) => {
     const { theme } = useDesignSystemTheme();
 
     return (
-      <TableRow key={row.id} className="eval-datasets-table-row" onClick={() => onSelectDataset(row.original)}>
+      <TableRow
+        key={row.id}
+        className="eval-datasets-table-row"
+        onClick={() => {
+          setSelectedDataset(row.original);
+        }}
+      >
         {row.getVisibleCells().map((cell) => (
           <TableCell
             key={cell.id}
@@ -142,30 +135,14 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
 
 export const ExperimentEvaluationDatasetsListTable = ({
   experimentId,
-  datasets,
-  isLoading,
-  isFetching,
-  error,
-  refetch,
-  fetchNextPage,
-  hasNextPage,
-  selectedDatasetId,
-  setSelectedDatasetId,
-  searchFilter,
-  setSearchFilter,
+  selectedDataset,
+  setSelectedDataset,
+  setIsLoading,
 }: {
   experimentId: string;
-  datasets: EvaluationDataset[];
-  isLoading: boolean;
-  isFetching: boolean;
-  error: Error | null;
-  refetch: () => void;
-  fetchNextPage: () => void;
-  hasNextPage: boolean | undefined;
-  selectedDatasetId?: string;
-  setSelectedDatasetId: (datasetId: string | undefined) => void;
-  searchFilter: string;
-  setSearchFilter: (filter: string) => void;
+  selectedDataset?: EvaluationDataset;
+  setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
+  setIsLoading: (isLoading: boolean) => void;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -185,8 +162,20 @@ export const ExperimentEvaluationDatasetsListTable = ({
       {} as { [key: string]: boolean },
     ),
   );
-  // Control field that gets updated immediately
+  // searchFilter only gets updated after the user presses enter
+  const [searchFilter, setSearchFilter] = useState('');
+  // control field that gets updated immediately
   const [internalSearchFilter, setInternalSearchFilter] = useState(searchFilter);
+
+  const {
+    data: datasets,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+  } = useSearchEvaluationDatasets({ experimentId, nameFilter: searchFilter });
 
   const table = useReactTable(
     'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExperimentEvaluationDatasetsListTable.tsx',
@@ -211,6 +200,25 @@ export const ExperimentEvaluationDatasetsListTable = ({
     hasNextPage: hasNextPage ?? false,
     fetchNextPage,
   });
+
+  // update loading state in parent
+  useEffect(() => {
+    setIsLoading(isLoading);
+  }, [isLoading, setIsLoading]);
+
+  if (!datasets?.length) {
+    setSelectedDataset(undefined);
+  }
+
+  // set the selected dataset to the first one if the is no selected dataset,
+  // or if the selected dataset went out of scope (e.g. was deleted / not in search)
+  if (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id)) {
+    // Use the sorted data from the table to respect the current sort order
+    const sortedRows = table.getRowModel().rows;
+    if (sortedRows.length > 0) {
+      setSelectedDataset(sortedRows[0].original);
+    }
+  }
 
   if (error) {
     return <div>Error loading datasets</div>;
@@ -320,8 +328,8 @@ export const ExperimentEvaluationDatasetsListTable = ({
                   key={row.id}
                   row={row}
                   columnVisibility={columnVisibility}
-                  isActive={row.original.dataset_id === selectedDatasetId}
-                  onSelectDataset={(dataset) => setSelectedDatasetId(dataset.dataset_id)}
+                  isActive={row.original.dataset_id === selectedDataset?.dataset_id}
+                  setSelectedDataset={setSelectedDataset}
                 />
               ))}
 

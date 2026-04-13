@@ -215,9 +215,9 @@ export const EndpointFormRenderer = ({
                 name="usageTracking"
                 render={({ field }) => (
                   <UsageTrackingConfigurator
+                    componentId="mlflow.gateway.create-endpoint.usage-tracking.toggle"
                     value={field.value}
                     onChange={field.onChange}
-                    componentId="mlflow.gateway.create-endpoint.usage-tracking"
                   />
                 )}
               />

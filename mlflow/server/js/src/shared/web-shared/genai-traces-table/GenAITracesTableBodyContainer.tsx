@@ -238,13 +238,13 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
             gap: theme.spacing.md,
             width: '100%',
             flex: 1,
-            overflowY: 'hidden',
+            overflow: 'hidden',
           }}
         >
           <div
             css={{
               flex: 1,
-              overflowY: 'hidden',
+              overflow: 'hidden',
               position: 'relative',
             }}
           >

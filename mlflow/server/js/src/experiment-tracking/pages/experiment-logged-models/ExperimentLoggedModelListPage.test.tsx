@@ -9,6 +9,7 @@ import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
+
 import { LoggedModelStatusProtoEnum } from '../../types';
 import { first, orderBy } from 'lodash';
 import type { RunsChartsBarCardConfig } from '../../components/runs-charts/runs-charts.types';

@@ -1,4 +1,4 @@
-import { Button, SidebarCollapseIcon } from '@databricks/design-system';
+import { SidebarExpandIcon, Button, SidebarCollapseIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';

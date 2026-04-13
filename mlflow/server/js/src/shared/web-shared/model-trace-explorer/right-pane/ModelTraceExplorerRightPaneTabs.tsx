@@ -2,7 +2,13 @@ import type { Interpolation, Theme } from '@emotion/react';
 import { isNil } from 'lodash';
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { Empty, Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Empty,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  Tabs,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerAttributesTab } from './ModelTraceExplorerAttributesTab';
@@ -10,16 +16,21 @@ import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
+import type {
+  ModelTraceExplorerRenderMode,
+  ModelTraceExplorerTab,
+  ModelTraceSpanNode,
+  SearchMatch,
+} from '../ModelTrace.types';
 import { SpanModelCostBadge } from './SpanModelCostBadge';
-import type { ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerBadge } from '../ModelTraceExplorerBadge';
 import ModelTraceExplorerResizablePane from '../ModelTraceExplorerResizablePane';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import { AddToDatasetButton } from '../assessments-pane/AddToDatasetButton';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { AssessmentsPane } from '../assessments-pane/AssessmentsPane';
 import { ASSESSMENT_PANE_MIN_WIDTH } from '../assessments-pane/AssessmentsPane.utils';
+import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
 
 export const CONTENT_PANE_MIN_WIDTH = 250;
 // used by the parent component to set min-width on the resizable box
@@ -48,6 +59,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
     getPaneSizeRatios,
     readOnly: displayReadOnlyAssessments,
   } = useModelTraceExplorerViewState();
+  const { renderMode, setRenderMode } = useModelTraceExplorerPreferences();
   const [paneWidth, setPaneWidth] = useState(500);
   const contentStyle: Interpolation<Theme> = { flex: 1, marginTop: -theme.spacing.md, overflowY: 'auto' };
 
@@ -62,6 +74,13 @@ function ModelTraceExplorerRightPaneTabsImpl({
       updatePaneSizeRatios({ detailsSidebar: ratio });
     },
     [updatePaneSizeRatios],
+  );
+
+  const handleSetRenderMode = useCallback(
+    (event) => {
+      setRenderMode(event.target.value as ModelTraceExplorerRenderMode);
+    },
+    [setRenderMode],
   );
 
   if (isNil(activeSpan)) {
@@ -96,11 +115,36 @@ function ModelTraceExplorerRightPaneTabsImpl({
             zIndex: 1,
             backgroundColor: theme.colors.backgroundPrimary,
             display: 'flex',
-            gap: theme.spacing.sm,
-            alignItems: 'center',
+            flexWrap: 'nowrap',
           }}
         >
-          <AddToDatasetButton />
+          <SegmentedControlGroup
+            name="content-tab-render-mode"
+            componentId="shared.model-trace-explorer.content-tab.render-mode"
+            value={renderMode}
+            size="small"
+            onChange={handleSetRenderMode}
+            css={{ marginRight: theme.spacing.sm }}
+          >
+            <SegmentedControlButton value="default">
+              <FormattedMessage
+                defaultMessage="Default"
+                description="Label for the default render mode in the model trace explorer inputs/outputs tab"
+              />
+            </SegmentedControlButton>
+            <SegmentedControlButton value="json">
+              <FormattedMessage
+                defaultMessage="JSON"
+                description="Label for the JSON render mode in the model trace explorer inputs/outputs tab"
+              />
+            </SegmentedControlButton>
+            <SegmentedControlButton value="table">
+              <FormattedMessage
+                defaultMessage="Table"
+                description="Label for the Table render mode in the model trace explorer inputs/outputs tab"
+              />
+            </SegmentedControlButton>
+          </SegmentedControlGroup>
           <AssessmentPaneToggle />
         </div>
       )}

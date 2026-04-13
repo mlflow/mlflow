@@ -8,6 +8,8 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
 import { setupTestRouter, testRoute, TestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+import { generatePath } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { RoutePaths } from '../../routes';
 
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 
@@ -15,33 +17,6 @@ import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 jest.mock('../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
   getAjaxUrl: (url: string) => url,
-}));
-
-// Mock FeatureUtils
-jest.mock('../../../common/utils/FeatureUtils', () => ({
-  shouldEnableIssueDetection: jest.fn(),
-}));
-
-// Mock IssueDetectionModal
-jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionModal', () => ({
-  IssueDetectionModal: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="issue-detection-modal">
-      <button data-testid="close-modal" onClick={onClose}>
-        Close
-      </button>
-    </div>
-  ),
-}));
-
-// Mock useLocalStorage to prevent guidance popovers from showing in tests
-jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
-  useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
-}));
-
-// Mock useGetExperimentQuery
-const mockUseGetExperimentQuery = jest.fn();
-jest.mock('../../hooks/useExperimentQuery', () => ({
-  useGetExperimentQuery: (params: any) => mockUseGetExperimentQuery(params),
 }));
 
 const mockFetchOrFail = jest.mocked(fetchOrFail);
@@ -60,14 +35,19 @@ describe('ExperimentGenAIOverviewPage', () => {
       },
     });
 
-  const renderComponent = (initialUrl = `/experiments/${testExperimentId}/overview/usage`) => {
+  const defaultUrl = generatePath(RoutePaths.experimentPageTabOverview, {
+    experimentId: testExperimentId,
+    overviewTab: 'usage',
+  });
+
+  const renderComponent = (initialUrl = defaultUrl) => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
           <TestRouter
             history={history}
-            routes={[testRoute(<ExperimentGenAIOverviewPage />, `/experiments/:experimentId/overview/:overviewTab?`)]}
+            routes={[testRoute(<ExperimentGenAIOverviewPage />, RoutePaths.experimentPageTabOverview)]}
             initialEntries={[initialUrl]}
           />
         </DesignSystemProvider>
@@ -230,7 +210,7 @@ describe('ExperimentGenAIOverviewPage', () => {
     it('should handle custom time range from URL parameters', async () => {
       const customStartTime = '2025-01-01T00:00:00.000Z';
       const customEndTime = '2025-01-07T23:59:59.999Z';
-      const urlWithParams = `/experiments/${testExperimentId}/overview/usage?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
+      const urlWithParams = `${defaultUrl}?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
         customStartTime,
       )}&endTime=${encodeURIComponent(customEndTime)}`;
 

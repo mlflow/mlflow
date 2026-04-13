@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import type { QueryClient } from '../../common/utils/reactQueryHooks';
 import { useQuery, useQueryClient } from '../../common/utils/reactQueryHooks';
-import { getAjaxUrl, getDefaultHeaders } from '../../common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '../../common/utils/FetchUtils';
 
-export const SERVER_INFO_QUERY_KEY = 'serverInfo';
+const SERVER_INFO_QUERY_KEY = 'serverInfo';
 
 interface ServerInfoResponse {
   store_type: string | null;
@@ -24,23 +24,8 @@ let queryClientRef: QueryClient | null = null;
  */
 async function fetchServerInfo(): Promise<ServerInfoResponse> {
   try {
-    let cookieString = '';
-    if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
-      cookieString = document.cookie || '';
-    }
-
-    const response = await fetch(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), {
-      method: 'GET',
-      headers: {
-        ...getDefaultHeaders(cookieString),
-      },
-    });
-    if (!response.ok) {
-      // If the endpoint doesn't exist or returns an error, return default
-      return DEFAULT_RESPONSE;
-    }
-    return response.json();
-  } catch {
+    return await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/server-info'));
+  } catch (error) {
     // Network error or other failure - return default
     return DEFAULT_RESPONSE;
   }

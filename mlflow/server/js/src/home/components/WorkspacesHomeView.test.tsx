@@ -1,5 +1,5 @@
-import { describe, jest, beforeEach, test, expect } from '@jest/globals';
-import { waitFor } from '@testing-library/react';
+/* eslint-disable @databricks/no-mock-location*/
+import { describe, jest, beforeEach, test, expect, afterEach } from '@jest/globals';
 import '@testing-library/jest-dom';
 import userEvent from '@testing-library/user-event';
 import { WorkspacesHomeView } from './WorkspacesHomeView';
@@ -11,6 +11,8 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 
 jest.mock('../../workspaces/hooks/useWorkspaces');
 jest.mock('../../workspaces/utils/WorkspaceUtils');
+
+const reloadMock = jest.fn();
 
 const mockNavigate = jest.fn();
 jest.mock('../../common/utils/RoutingUtils', () => ({
@@ -25,6 +27,15 @@ describe('WorkspacesHomeView', () => {
     jest.clearAllMocks();
     // Mock last used workspace for "Last used" badge
     jest.mocked(getLastUsedWorkspace).mockReturnValue('ml-research');
+
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload: reloadMock },
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    reloadMock.mockClear();
   });
 
   const renderComponent = () => {
@@ -116,13 +127,6 @@ describe('WorkspacesHomeView', () => {
       refetch: jest.fn() as any,
     });
 
-    // Mock window.location for hard reload workspace switching
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      writable: true,
-      value: { ...originalLocation, hash: '', reload: jest.fn() },
-    });
-
     renderComponent();
 
     const workspaceLink = screen.getByText('ml-research');
@@ -131,8 +135,6 @@ describe('WorkspacesHomeView', () => {
     // Hard reload with workspace query param
     expect(window.location.hash).toBe('#/?workspace=ml-research');
     expect(window.location.reload).toHaveBeenCalled();
-
-    Object.defineProperty(window, 'location', { writable: true, value: originalLocation });
   });
 
   test('encodes workspace name in URL', async () => {
@@ -143,13 +145,6 @@ describe('WorkspacesHomeView', () => {
       refetch: jest.fn() as any,
     });
 
-    // Mock window.location for hard reload workspace switching
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      writable: true,
-      value: { ...originalLocation, hash: '', reload: jest.fn() },
-    });
-
     renderComponent();
 
     const workspaceLink = screen.getByText('team-a/special');
@@ -158,8 +153,6 @@ describe('WorkspacesHomeView', () => {
     // Hard reload with encoded workspace query param
     expect(window.location.hash).toBe('#/?workspace=team-a%2Fspecial');
     expect(window.location.reload).toHaveBeenCalled();
-
-    Object.defineProperty(window, 'location', { writable: true, value: originalLocation });
   });
 
   test('shows create new workspace button when workspaces exist', () => {

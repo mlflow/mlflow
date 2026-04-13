@@ -183,8 +183,7 @@ export const ModelTraceExplorerViewStateProvider = ({
     listeners.add(callback);
 
     if (pendingHighlightRef.current === assessmentId) {
-      // eslint-disable-next-line
-      callback(); // eslint-disable-line callback-return
+      callback();
       pendingHighlightRef.current = null;
     }
 

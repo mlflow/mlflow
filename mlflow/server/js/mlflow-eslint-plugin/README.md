@@ -4,8 +4,8 @@ This directory contains custom ESLint rules specific to the MLflow OSS UI codeba
 
 ## How It Works
 
-This package is a yarn workspace referenced by `mlflow/server/js/package.json` as `@mlflow/eslint-plugin`.
-In `mlflow/server/js/.eslintrc.js`, we automatically load the recommended rules in `index.js`.
+This package is locally referenced by `mlflow/server/js/package.json` as `@mlflow/eslint-plugin`.
+In `mlflow/server/js/.eslintrc.json`, we automatically load the recommended rules in `index.js`.
 
 ## Adding New Custom Rules
 

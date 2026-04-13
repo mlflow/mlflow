@@ -1,4 +1,5 @@
 import { FormUI, Radio } from '@databricks/design-system';
+import type { RadioChangeEvent } from '@databricks/design-system';
 import { Controller, useFormContext } from 'react-hook-form';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { FormattedMessage } from 'react-intl';

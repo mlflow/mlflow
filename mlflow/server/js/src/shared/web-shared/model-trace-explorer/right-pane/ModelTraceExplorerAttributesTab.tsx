@@ -3,8 +3,9 @@ import { isNil, keys } from 'lodash';
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import type { ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
+import { CodeSnippetRenderMode, type ModelTraceSpanNode, type SearchMatch } from '../ModelTrace.types';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
+import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
 
 export function ModelTraceExplorerAttributesTab({
   activeSpan,
@@ -16,9 +17,16 @@ export function ModelTraceExplorerAttributesTab({
   activeMatch: SearchMatch | null;
 }) {
   const { theme } = useDesignSystemTheme();
+  const { renderMode } = useModelTraceExplorerPreferences();
   const { attributes } = activeSpan;
   const containsAttributes = keys(attributes).length > 0;
   const isActiveMatchSpan = !isNil(activeMatch) && activeMatch.span.key === activeSpan.key;
+  const initialRenderMode =
+    renderMode === 'json'
+      ? CodeSnippetRenderMode.JSON
+      : renderMode === 'table'
+        ? CodeSnippetRenderMode.TABLE
+        : undefined;
 
   if (!containsAttributes || isNil(attributes)) {
     return (
@@ -52,6 +60,7 @@ export function ModelTraceExplorerAttributesTab({
           searchFilter={searchFilter}
           activeMatch={activeMatch}
           containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'attributes' && activeMatch.key === key}
+          initialRenderMode={initialRenderMode}
         />
       ))}
     </div>

@@ -10,6 +10,7 @@ export const RUN_EVALUATIONS_SINGLE_ITEM_REVIEW_UI_PAGE_ID = 'mlflow.evaluations
 
 // Views
 // Counts the number of times the expanded assessment details is clicked, showing how many times users view rationales.
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 export const EXPANDED_ASSESSMENT_DETAILS_VIEW: Record<string, string> = {
   // Important note: Overall is always expanded.
   overall: 'mlflow.evaluations_review.expanded_overall_assessment_details_view',

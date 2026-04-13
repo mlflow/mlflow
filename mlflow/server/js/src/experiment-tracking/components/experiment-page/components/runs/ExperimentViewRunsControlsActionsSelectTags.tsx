@@ -99,6 +99,7 @@ export const ExperimentViewRunsControlsActionsSelectTags = ({
 
   const openDropdown = (newTag?: KeyValueEntity) => {
     setSelectedTags(() => {
+      // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
       const selectedValues: Record<string, boolean | undefined> = { ...selectedTags };
       allTags.forEach((tag) => {
         if (allSelectedTags.includes(tag)) {

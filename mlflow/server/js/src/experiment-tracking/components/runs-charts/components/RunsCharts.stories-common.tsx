@@ -6,16 +6,13 @@ import { IntlProvider } from 'react-intl';
  * Creates a stable (seeded) function that returns
  * gaussian-distributed randomized values
  */
-export const stableNormalRandom = (seed = 0, g = 10) => {
+export const stableNormalRandom = (initialSeed = 0, g = 10) => {
+  let seed = initialSeed;
   const random = () => {
-    // eslint-disable-next-line no-param-reassign
     seed += 0x6d2b79f5;
     let t = seed;
-    // eslint-disable-next-line no-bitwise
     t = Math.imul(t ^ (t >>> 15), t | 1);
-    // eslint-disable-next-line no-bitwise
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    // eslint-disable-next-line no-bitwise
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
   return () => {

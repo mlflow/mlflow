@@ -1,11 +1,8 @@
-import { isNil } from 'lodash';
-
 import { useDesignSystemTheme } from '@databricks/design-system';
 
 import { ModelTraceExplorerDefaultSpanView } from './ModelTraceExplorerDefaultSpanView';
-import { ModelTraceExplorerRetrieverSpanView } from './ModelTraceExplorerRetrieverSpanView';
 import type { ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
-import { isRenderableRetrieverSpan } from '../ModelTraceExplorer.utils';
+import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
 
 export function ModelTraceExplorerContentTab({
   activeSpan,
@@ -19,26 +16,7 @@ export function ModelTraceExplorerContentTab({
   activeMatch: SearchMatch | null;
 }) {
   const { theme } = useDesignSystemTheme();
-
-  if (!isNil(activeSpan) && isRenderableRetrieverSpan(activeSpan)) {
-    return (
-      <div
-        css={{
-          overflowY: 'auto',
-          padding: theme.spacing.md,
-        }}
-        className={className}
-        data-testid="model-trace-explorer-content-tab"
-      >
-        <ModelTraceExplorerRetrieverSpanView
-          activeSpan={activeSpan}
-          className={className}
-          searchFilter={searchFilter}
-          activeMatch={activeMatch}
-        />
-      </div>
-    );
-  }
+  const { renderMode } = useModelTraceExplorerPreferences();
 
   return (
     <div
@@ -54,6 +32,7 @@ export function ModelTraceExplorerContentTab({
         className={className}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
+        renderMode={renderMode}
       />
     </div>
   );

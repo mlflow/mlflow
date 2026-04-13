@@ -75,15 +75,51 @@ export const RunViewModeSwitch = ({
   const [searchParams] = useSearchParams();
   const { theme } = useDesignSystemTheme();
   const currentTab = useRunViewActiveTab();
-  const [removeTabMargin, setRemoveTabMargin] = useState(TABS_WITHOUT_MARGIN.includes(currentTab));
+
+  if (!experimentId || !runUuid) {
+    return null;
+  }
+
+  const tabs: Array<{ key: RunPageTabName; label: JSX.Element }> = [
+    {
+      key: RunPageTabName.OVERVIEW,
+      label: (
+        <FormattedMessage defaultMessage="Overview" description="Run details page > tab selector > overview tab" />
+      ),
+    },
+    {
+      key: RunPageTabName.MODEL_METRIC_CHARTS,
+      label: (
+        <FormattedMessage
+          defaultMessage="Model metrics"
+          description="Run details page > tab selector > Model metrics tab"
+        />
+      ),
+    },
+    {
+      key: RunPageTabName.SYSTEM_METRIC_CHARTS,
+      label: (
+        <FormattedMessage
+          defaultMessage="System metrics"
+          description="Run details page > tab selector > Model metrics tab"
+        />
+      ),
+    },
+    {
+      key: RunPageTabName.EVALUATIONS,
+      label: <FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />,
+    },
+    {
+      key: RunPageTabName.ARTIFACTS,
+      label: (
+        <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
+      ),
+    },
+  ];
+
+  const removeTabMargin = TABS_WITHOUT_MARGIN.includes(currentTab);
 
   const onTabChanged = (newTabKey: string) => {
-    if (!experimentId || !runUuid || currentTab === newTabKey) {
-      return;
-    }
-
-    setRemoveTabMargin(TABS_WITHOUT_MARGIN.includes(newTabKey as RunPageTabName));
-
     const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
     const withSearchParams = (route: string) => (timeRangeSearch ? `${route}${timeRangeSearch}` : route);
 

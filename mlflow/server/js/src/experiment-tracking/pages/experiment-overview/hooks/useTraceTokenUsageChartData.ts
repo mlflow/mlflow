@@ -3,6 +3,9 @@ import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
+import { shouldEnableBatchedTokenMetricQueries } from '../../../../common/utils/FeatureUtils';
+
+const TOKEN_TIME_SERIES_METRIC_NAMES = [TraceMetricKey.INPUT_TOKENS, TraceMetricKey.OUTPUT_TOKENS];
 
 export interface TokenUsageChartDataPoint {
   name: string;
@@ -14,66 +17,63 @@ export interface TokenUsageChartDataPoint {
 }
 
 export interface UseTraceTokenUsageChartDataResult {
-  /** Processed chart data with all time buckets filled */
   chartData: TokenUsageChartDataPoint[];
-  /** Total tokens (input + output) in the time range */
   totalTokens: number;
-  /** Total input tokens in the time range */
   totalInputTokens: number;
-  /** Total output tokens in the time range */
   totalOutputTokens: number;
   /** Total cache read tokens in the time range */
   totalCacheReadTokens: number;
   /** Total cache creation tokens in the time range */
   totalCacheCreationTokens: number;
-  /** Whether data is currently being fetched */
   isLoading: boolean;
-  /** Error if data fetching failed */
   error: unknown;
-  /** Whether there are any data points */
   hasData: boolean;
 }
 
-/**
- * Custom hook that fetches and processes token usage chart data.
- * Encapsulates all data-fetching and processing logic for the token usage chart.
- * Uses OverviewChartContext to get chart props.
- *
- * @returns Processed chart data, loading state, and error state
- */
 export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult {
   const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
     useOverviewChartContext();
-  // Fetch input tokens over time
+
+  const isBatchingEnabled = Boolean(shouldEnableBatchedTokenMetricQueries());
+  const commonParams = { experimentIds, startTimeMs, endTimeMs, viewType: MetricViewType.TRACES, filters };
+  const timeSeriesAggregations = [{ aggregation_type: AggregationType.SUM }];
+
+  // Batched path: single query for input + output tokens
   const {
-    data: inputTokensData,
+    data: batchedData,
+    isLoading: isLoadingBatched,
+    error: batchedError,
+  } = useTraceMetricsQuery({
+    ...commonParams,
+    metricNames: TOKEN_TIME_SERIES_METRIC_NAMES,
+    aggregations: timeSeriesAggregations,
+    timeIntervalSeconds,
+    enabled: isBatchingEnabled,
+  });
+
+  // Non-batched path: separate queries
+  const {
+    data: inputData,
     isLoading: isLoadingInput,
     error: inputError,
   } = useTraceMetricsQuery({
-    experimentIds,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
+    ...commonParams,
     metricName: TraceMetricKey.INPUT_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.SUM }],
+    aggregations: timeSeriesAggregations,
     timeIntervalSeconds,
-    filters,
+    enabled: !isBatchingEnabled,
   });
 
-  // Fetch output tokens over time
   const {
-    data: outputTokensData,
+    data: outputData,
     isLoading: isLoadingOutput,
     error: outputError,
   } = useTraceMetricsQuery({
-    experimentIds,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
+    ...commonParams,
     metricName: TraceMetricKey.OUTPUT_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.SUM }],
+    aggregations: timeSeriesAggregations,
     timeIntervalSeconds,
-    filters,
+    enabled: !isBatchingEnabled,
   });
 
   // Fetch cache read tokens over time
@@ -82,14 +82,10 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     isLoading: isLoadingCacheRead,
     error: cacheReadError,
   } = useTraceMetricsQuery({
-    experimentIds,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
+    ...commonParams,
     metricName: TraceMetricKey.CACHE_READ_INPUT_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.SUM }],
+    aggregations: timeSeriesAggregations,
     timeIntervalSeconds,
-    filters,
   });
 
   // Fetch cache creation tokens over time
@@ -98,47 +94,54 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     isLoading: isLoadingCacheCreation,
     error: cacheCreationError,
   } = useTraceMetricsQuery({
-    experimentIds,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
+    ...commonParams,
     metricName: TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.SUM }],
+    aggregations: timeSeriesAggregations,
     timeIntervalSeconds,
-    filters,
   });
 
   // Fetch total tokens (without time bucketing) for the header.
   // Uses [SUM, AVG] so React Query deduplicates with the identical call
   // in useTraceTokenStatsChartData.
   const {
-    data: totalTokensData,
+    data: totalData,
     isLoading: isLoadingTotal,
     error: totalError,
   } = useTraceMetricsQuery({
-    experimentIds,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
+    ...commonParams,
     metricName: TraceMetricKey.TOTAL_TOKENS,
     aggregations: [{ aggregation_type: AggregationType.SUM }, { aggregation_type: AggregationType.AVG }],
-    filters,
   });
 
-  const inputDataPoints = useMemo(() => inputTokensData?.data_points || [], [inputTokensData?.data_points]);
-  const outputDataPoints = useMemo(() => outputTokensData?.data_points || [], [outputTokensData?.data_points]);
+  // Merge all data points (only one path is active) and filter by metric_name
+  const allTimeSeriesPoints = useMemo(
+    () => [...(batchedData?.data_points ?? []), ...(inputData?.data_points ?? []), ...(outputData?.data_points ?? [])],
+    [batchedData?.data_points, inputData?.data_points, outputData?.data_points],
+  );
+
+  const inputDataPoints = useMemo(
+    () => allTimeSeriesPoints.filter((dp) => dp.metric_name === TraceMetricKey.INPUT_TOKENS),
+    [allTimeSeriesPoints],
+  );
+  const outputDataPoints = useMemo(
+    () => allTimeSeriesPoints.filter((dp) => dp.metric_name === TraceMetricKey.OUTPUT_TOKENS),
+    [allTimeSeriesPoints],
+  );
   const cacheReadDataPoints = useMemo(() => cacheReadTokensData?.data_points || [], [cacheReadTokensData?.data_points]);
   const cacheCreationDataPoints = useMemo(
     () => cacheCreationTokensData?.data_points || [],
     [cacheCreationTokensData?.data_points],
   );
-  const isLoading = isLoadingInput || isLoadingOutput || isLoadingCacheRead || isLoadingCacheCreation || isLoadingTotal;
-  const error = inputError || outputError || cacheReadError || cacheCreationError || totalError;
 
-  // Extract total tokens from the response
-  const totalTokens = totalTokensData?.data_points?.[0]?.values?.[AggregationType.SUM] || 0;
+  const isLoading =
+    isLoadingTotal ||
+    isLoadingCacheRead ||
+    isLoadingCacheCreation ||
+    (isBatchingEnabled ? isLoadingBatched : isLoadingInput || isLoadingOutput);
+  const error =
+    totalError || cacheReadError || cacheCreationError || (isBatchingEnabled ? batchedError : inputError || outputError);
+  const totalTokens = totalData?.data_points?.[0]?.values?.[AggregationType.SUM] || 0;
 
-  // Calculate total input and output tokens from time-bucketed data
   const totalInputTokens = useMemo(
     () => inputDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.SUM] || 0), 0),
     [inputDataPoints],
@@ -156,7 +159,6 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     [cacheCreationDataPoints],
   );
 
-  // Create maps of tokens by timestamp using shared utility
   const sumExtractor = useCallback(
     (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.SUM] || 0,
     [],
@@ -166,7 +168,6 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
   const cacheReadTokensMap = useTimestampValueMap(cacheReadDataPoints, sumExtractor);
   const cacheCreationTokensMap = useTimestampValueMap(cacheCreationDataPoints, sumExtractor);
 
-  // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
     return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),

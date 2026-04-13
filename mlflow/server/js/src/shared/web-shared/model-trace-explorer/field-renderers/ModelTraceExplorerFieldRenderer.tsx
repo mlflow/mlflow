@@ -53,7 +53,7 @@ export const ModelTraceExplorerFieldRenderer = ({
 }: {
   title: string;
   data: string;
-  renderMode: 'default' | 'json' | 'text';
+  renderMode: 'default' | 'json' | 'text' | 'table';
   chatMessageFormat?: string;
   maxVisibleMessages?: number;
   assessments?: Assessment[];
@@ -136,6 +136,10 @@ export const ModelTraceExplorerFieldRenderer = ({
 
   if (renderMode === 'text') {
     return <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.TEXT} />;
+  }
+
+  if (renderMode === 'table') {
+    return <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.TABLE} />;
   }
 
   if (dataIsScalar) {

@@ -54,7 +54,7 @@ const getWorkspaceSearchInput = () => {
 };
 
 describe('WorkspaceSelector', () => {
-  const mockNavigate = jest.fn();
+  const mockNavigate = jest.fn() as ReturnType<typeof useNavigate>;
 
   beforeEach(() => {
     jest.clearAllMocks();

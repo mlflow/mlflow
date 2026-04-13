@@ -5,12 +5,14 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  PlusIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
-import { ModelTraceExplorerAddToDatasetProvider, useModelTraceExplorerContext } from './ModelTraceExplorerContext';
+import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
+import { FormattedMessage } from '@databricks/i18n';
 
 export interface ModelTraceExplorerDrawerProps {
   children: React.ReactNode;
@@ -71,6 +73,7 @@ export const ModelTraceExplorerDrawer = ({
   }, [handleKeyDown]);
 
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
+  const handleAddToDatasetClick = useCallback(() => setShowDatasetModal(true), []);
 
   return (
     <DrawerComponent.Root
@@ -101,6 +104,18 @@ export const ModelTraceExplorerDrawer = ({
               <ChevronRightIcon />
             </Button>
             <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            {showAddToDatasetButton && (
+              <Button
+                componentId="mlflow.evaluations_review.modal.add_to_dataset"
+                onClick={handleAddToDatasetClick}
+                icon={<PlusIcon />}
+              >
+                <FormattedMessage
+                  defaultMessage="Add to dataset"
+                  description="Button text for adding a trace to a dataset"
+                />
+              </Button>
+            )}
           </div>
         }
         expandContentToFullHeight
@@ -121,15 +136,7 @@ export const ModelTraceExplorerDrawer = ({
         ]}
       >
         <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
-          {isLoading ? (
-            <ModelTraceExplorerSkeleton />
-          ) : showAddToDatasetButton ? (
-            <ModelTraceExplorerAddToDatasetProvider openModal={() => setShowDatasetModal(true)}>
-              {children}
-            </ModelTraceExplorerAddToDatasetProvider>
-          ) : (
-            <>{children}</>
-          )}
+          {isLoading ? <ModelTraceExplorerSkeleton /> : <>{children}</>}
         </ApplyDesignSystemContextOverrides>
         {renderExportTracesToDatasetsModal?.({
           selectedTraceInfos: traceInfo ? [traceInfo] : [],

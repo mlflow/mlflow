@@ -54,7 +54,7 @@ export function useToolCallStatisticsData(): UseToolCallStatisticsDataResult {
     metricName: SpanMetricKey.SPAN_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     filters: toolFilter,
-    dimensions: [SpanDimensionKey.SPAN_STATUS],
+    dimensions: [SpanDimensionKey.SPAN_NAME, SpanDimensionKey.SPAN_STATUS],
   });
 
   // Query average latency for tool calls

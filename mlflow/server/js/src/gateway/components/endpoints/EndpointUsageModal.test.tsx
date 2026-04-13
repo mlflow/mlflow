@@ -1,9 +1,11 @@
+/* eslint-disable @databricks/no-mock-location*/
 import { describe, test, expect, jest } from '@jest/globals';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { EndpointUsageModal } from './EndpointUsageModal';
+import { setupTestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 
 const renderModal = (props: React.ComponentProps<typeof EndpointUsageModal>) =>
   renderWithDesignSystem(
@@ -13,6 +15,8 @@ const renderModal = (props: React.ComponentProps<typeof EndpointUsageModal>) =>
   );
 
 describe('EndpointUsageModal', () => {
+  setupTestRouter();
+
   const defaultProps = {
     open: true,
     onClose: jest.fn(),

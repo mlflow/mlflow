@@ -7,6 +7,7 @@ import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { isObject } from 'lodash';
 import { useTemplateOptions } from '../llmScorerUtils';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
+import { useSqlWarehouseContextSafe } from '../../experiment-page-tabs/SqlWarehouseContext';
 
 /**
  * Runs a known serialized scorer on a set of traces.
@@ -25,6 +26,8 @@ export const useRunSerializedScorer = ({
   });
   const { displayMap } = useTemplateOptions(scope);
 
+  const { traceSearchLocations = [] } = useSqlWarehouseContextSafe() ?? {};
+
   const getEvaluationParams = useCallback(
     (scorerOrTemplate: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string): EvaluateTracesParams => {
       if (!experimentId) {
@@ -34,7 +37,7 @@ export const useRunSerializedScorer = ({
       const baseParams: Omit<EvaluateTracesParams, 'judgeInstructions' | 'serializedScorer'> = {
         itemCount: undefined,
         itemIds: traceIds,
-        locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
+        locations: traceSearchLocations,
         experimentId,
         evaluationScope: scope,
         saveAssessment: true,
@@ -81,7 +84,13 @@ export const useRunSerializedScorer = ({
         serializedScorer: scorerConfig.serialized_scorer,
       };
     },
-    [displayMap, experimentId, scope],
+    // prettier-ignore
+    [
+      displayMap,
+      experimentId,
+      scope,
+      traceSearchLocations,
+    ],
   );
 
   const evaluateTraces = useCallback(

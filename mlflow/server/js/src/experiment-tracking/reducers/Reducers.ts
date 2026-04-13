@@ -218,6 +218,7 @@ export const runInfoOrderByUuid = (state: string[] = [], action: any) => {
 export const modelVersionsByRunUuid = (state = {}, action: any) => {
   switch (action.type) {
     case fulfilled(SEARCH_MODEL_VERSIONS): {
+      // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
       let newState: Record<string, ModelVersionInfoEntity[]> = { ...state };
       const updatedState: Record<string, ModelVersionInfoEntity[]> = {};
       if (action.payload) {

@@ -23,7 +23,7 @@ async function fetchConfig(): Promise<TelemetryConfig | null> {
       throw new Error(`Failed to fetch config: ${response.status}`);
     }
     return await response.json();
-  } catch {
+  } catch (error) {
     return null;
   }
 }
@@ -67,7 +67,7 @@ function handleMessage(event: MessageEvent): void {
 
   switch (message.type) {
     case ClientToWorkerMessageType.LOG_EVENT:
-      logger.addLogToQueue(message.payload as TelemetryRecord).catch(() => {
+      logger.addLogToQueue(message.payload as TelemetryRecord).catch((error) => {
         // fail silently
       });
       break;

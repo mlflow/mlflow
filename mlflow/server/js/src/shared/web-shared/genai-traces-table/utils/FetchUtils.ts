@@ -1,7 +1,5 @@
 import cookie from 'cookie';
-
-import { getWorkspacesEnabledSync } from '@mlflow/mlflow/src/experiment-tracking/hooks/useServerInfo';
-
+import { matchPredefinedError } from '../../errors/PredefinedErrors';
 // eslint-disable-next-line no-restricted-globals
 export const fetchFn = fetch; // use global fetch for oss
 
@@ -12,13 +10,11 @@ const WORKSPACE_STORAGE_KEY = 'mlflow.activeWorkspace';
  * This prevents stale localStorage values from causing errors on servers without workspaces.
  */
 const getActiveWorkspace = (): string | null => {
-  if (!getWorkspacesEnabledSync()) {
-    return null;
-  }
   if (typeof window === 'undefined') {
     return null;
   }
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
   } catch {
     return null;
@@ -104,28 +100,25 @@ export const fetchAPI = async (url: string, options: Omit<RequestInit, 'body'> &
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...headers,
     },
-    ...(body && { body: serializeBody(body) }),
   };
 
-  // eslint-disable-next-line no-restricted-globals
-  const response = await fetch(url, fetchOptions);
+  if (body) {
+    fetchOptions.body = serializeBody(body);
+  }
+
+  const response = await fetchFn(url, fetchOptions);
   if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-    try {
-      const responseBody = await response.text();
-      if (responseBody) {
-        // Limit response body to 1000 characters to prevent memory issues
-        const maxBodyLength = 1000;
-        if (responseBody.length > maxBodyLength) {
-          errorMessage += ` - ${responseBody.substring(0, maxBodyLength)}... (truncated)`;
-        } else {
-          errorMessage += ` - ${responseBody}`;
-        }
+    const predefinedError = matchPredefinedError(response);
+    if (predefinedError) {
+      try {
+        // Attempt to use message from the response
+        const message = (await response.json()).message;
+        predefinedError.message = message ?? predefinedError.message;
+      } catch {
+        // If the message can't be parsed, use default one
       }
-    } catch {
-      // If we can't read the body, just use the status message
+      throw predefinedError;
     }
-    throw new Error(errorMessage);
   }
   return response.json();
 };
