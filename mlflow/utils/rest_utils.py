@@ -169,8 +169,6 @@ def http_request(
     if host_creds.workspace_id:
         headers["x-databricks-org-id"] = host_creds.workspace_id
 
-    _logger.debug("Databricks request headers for %s %s: %s", method, endpoint, headers)
-
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
 
