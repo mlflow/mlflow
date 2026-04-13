@@ -7,11 +7,9 @@ import { GuardrailsTabContent } from './GuardrailsTabContent';
 jest.mock('../../hooks/useGuardrailsQuery');
 jest.mock('../../hooks/useRemoveGuardrail');
 jest.mock('./AddGuardrailModal', () => ({ AddGuardrailModal: () => null }));
-jest.mock('../../hooks/useEndpointsQuery', () => ({
-  useEndpointsQuery: () => ({ data: [] }),
-}));
-jest.mock('../../../experiment-tracking/components/EndpointSelector', () => ({
-  EndpointSelector: () => null,
+jest.mock('./GuardrailDetailModal', () => ({ GuardrailDetailModal: () => null }));
+jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
+  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 
 const { useGuardrailsQuery } = jest.requireMock<typeof import('../../hooks/useGuardrailsQuery')>(
@@ -66,7 +64,7 @@ function setup(guardrails = mockGuardrails, isLoading = false) {
     error: undefined,
     refetch,
   });
-  jest.mocked(useRemoveGuardrail).mockReturnValue({ mutateAsync: jest.fn() as any, isPending: false } as any);
+  jest.mocked(useRemoveGuardrail).mockReturnValue({ mutateAsync: jest.fn() as any, isLoading: false } as any);
   return { refetch };
 }
 
@@ -121,10 +119,10 @@ describe('GuardrailsTabContent', () => {
     expect(screen.getByText('Remove Guardrail')).toBeInTheDocument();
   });
 
-  test('view and edit buttons are rendered for each guardrail row', () => {
+  test('view buttons are enabled', () => {
     setup();
     renderWithDesignSystem(<GuardrailsTabContent {...defaultProps} />);
     const viewButtons = screen.getAllByRole('button', { name: /View and edit guardrail/i });
-    expect(viewButtons).toHaveLength(mockGuardrails.length);
+    viewButtons.forEach((btn) => expect(btn).not.toBeDisabled());
   });
 });

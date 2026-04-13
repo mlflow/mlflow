@@ -2342,6 +2342,10 @@
     "defaultMessage": "Version",
     "description": "Column header for model versions in the evaluation runs table"
   },
+  "CaIW+m": {
+    "defaultMessage": "Search guardrails",
+    "description": "Search guardrails placeholder"
+  },
   "CamReV": {
     "defaultMessage": "Does the response follow per-example guidelines from expectations?",
     "description": "Hint for ExpectationsGuidelines template"
@@ -5211,6 +5215,10 @@
   "ViqP7B": {
     "defaultMessage": "Traces",
     "description": "Label for the traces tab in the MLflow experiment navbar"
+  },
+  "Vjha2S": {
+    "defaultMessage": "Guardrails",
+    "description": "Tab label for endpoint guardrails"
   },
   "Vk+30L": {
     "defaultMessage": "Edit tags",
