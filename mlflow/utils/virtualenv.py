@@ -281,19 +281,23 @@ def _create_virtualenv(
             extra_env=env_creation_extra_env,
         )
 
-        # Try UV sync if model has uv.lock artifact and using UV env manager
-        uv_sync_succeeded = False
+        # Use UV sync if model has uv.lock artifact and using UV env manager
         if env_manager == em.UV and has_uv_lock_artifact(local_model_path):
-            _logger.info("Found uv.lock artifact, attempting UV sync for environment restoration")
-            if setup_uv_sync_environment(env_dir, local_model_path, python_env.python):
-                uv_sync_succeeded = run_uv_sync(env_dir, capture_output=capture_output)
-                if uv_sync_succeeded:
-                    _logger.info("UV sync completed successfully")
-                else:
-                    _logger.warning("UV sync failed, falling back to pip-based installation")
-
-        # Fall back to pip-based installation if UV sync was not used or failed
-        if not uv_sync_succeeded:
+            _logger.info("Found uv.lock artifact, restoring environment with uv sync")
+            if not setup_uv_sync_environment(env_dir, local_model_path, python_env.python):
+                raise MlflowException(
+                    "Failed to set up uv sync environment. Ensure the model's uv.lock "
+                    "and pyproject.toml artifacts are valid."
+                )
+            if not run_uv_sync(env_dir, capture_output=capture_output):
+                raise MlflowException(
+                    "Failed to restore model environment using uv sync. Ensure that uv is "
+                    "installed and the model's uv.lock artifact is valid. To install "
+                    "dependencies with pip instead, set the env_manager parameter to "
+                    "'virtualenv' instead of 'uv'."
+                )
+            _logger.info("UV sync completed successfully")
+        else:
             _logger.info("Installing dependencies")
             for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
                 with tempfile.TemporaryDirectory() as tmpdir:

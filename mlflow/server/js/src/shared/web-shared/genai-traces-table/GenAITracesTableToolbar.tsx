@@ -11,7 +11,6 @@ import {
   Button,
   RefreshIcon,
   ToggleButton,
-  SparkleIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
@@ -20,6 +19,7 @@ import { GenAiTracesTableFilter } from './GenAiTracesTableFilter';
 import { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 import { EvaluationsOverviewColumnSelectorGrouped } from './components/EvaluationsOverviewColumnSelectorGrouped';
 import { EvaluationsOverviewSortDropdown } from './components/EvaluationsOverviewSortDropdown';
+import { DetectIssuesButton } from './components/DetectIssuesButton';
 import type {
   EvaluationsOverviewTableSort,
   TraceActions,
@@ -27,6 +27,7 @@ import type {
   TracesTableColumn,
   TableFilter,
   TableFilterOptions,
+  TraceTablePageSource,
 } from './types';
 import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
@@ -40,6 +41,9 @@ interface CountInfo {
 }
 
 interface GenAITracesTableToolbarProps {
+  // Component for detect issues button
+  pageSource?: TraceTablePageSource;
+
   // Experiment metadata
   experimentId?: string;
 
@@ -99,6 +103,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: GenAITracesTableToolbarProps) => {
     const {
+      pageSource = 'experiment-traces',
       searchQuery,
       setSearchQuery,
       filters,
@@ -218,21 +223,16 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             </Tooltip>
           )}
           {shouldEnableIssueDetection() && onDetectIssues && (
-            <Button
-              componentId="mlflow.traces-table.detect-issues-button"
+            <DetectIssuesButton
+              componentId={
+                pageSource === 'experiment-traces'
+                  ? 'mlflow.traces-table.detect-issues-button'
+                  : pageSource === 'chat-sessions'
+                    ? 'mlflow.chat-sessions.detect-issues-button'
+                    : 'mlflow.run-view-traces.detect-issues-button'
+              }
               onClick={onDetectIssues}
-              aria-label={intl.formatMessage({
-                defaultMessage: 'Detect issues in traces',
-                description: 'Aria label for the detect issues button in the traces table toolbar',
-              })}
-              type="primary"
-              icon={<SparkleIcon />}
-            >
-              <FormattedMessage
-                defaultMessage="Detect Issues"
-                description="Label for the detect issues button in the traces table toolbar"
-              />
-            </Button>
+            />
           )}
           {onRefresh && (
             <Tooltip

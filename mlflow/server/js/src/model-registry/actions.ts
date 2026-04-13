@@ -134,8 +134,7 @@ export const parseMlModelFile = (modelName: any, version: any, mlModelFile: any,
         meta: { id, modelName, version },
       };
     } catch (error) {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(error);
+      // fail silently
       return {
         type: PARSE_MLMODEL_FILE,
         payload: Promise.reject(),

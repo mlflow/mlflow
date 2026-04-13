@@ -51,6 +51,7 @@ class GenAiTranslator(OtelSchemaTranslator):
     # Reference: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
     MODEL_NAME_KEYS = ["gen_ai.response.model", "gen_ai.request.model"]
     LLM_PROVIDER_KEY = "gen_ai.provider.name"
+    TOOL_DEFINITION_KEYS = ["gen_ai.tool.definitions"]
 
     def _decode_json_value(self, value: Any) -> Any:
         """Decode JSON-serialized string values."""

@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import BaseModel
 from ragas.embeddings.base import BaseRagasEmbedding
 
 import mlflow
@@ -279,7 +280,7 @@ def test_ragas_scorer_telemetry_direct_call(
         {
             "scorer_class": expected_class,
             "scorer_kind": "third_party",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -321,7 +322,7 @@ def test_ragas_scorer_telemetry_in_genai_evaluate(
         {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": expected_class, "kind": "third_party", "scope": "response"},
+                {"class": expected_class, "kind": "third_party", "scope": "trace"},
             ],
             "eval_data_type": "list[dict]",
             "eval_data_size": 1,
@@ -366,3 +367,113 @@ def test_agentic_scorer_with_expectations(scorer_class, expectations, sample_ass
 
     assert isinstance(result, Feedback)
     assert result.name == scorer_class.metric_name
+
+
+# --- Model adapter tests ---
+
+
+def test_gateway_ragas_llm_generate():
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM
+
+    class TestOutput(BaseModel):
+        score: int
+        reason: str
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
+        adapter = MlflowRagasLLM(ScorerLLMClient("openai:/gpt-4"))
+    mock_gpi.assert_called_once()
+
+    with patch(
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api",
+        return_value='{"score": 5, "reason": "Excellent"}',
+    ) as mock_call:
+        result = adapter.generate("Rate this", response_model=TestOutput)
+
+    assert isinstance(result, TestOutput)
+    assert result.score == 5
+    assert result.reason == "Excellent"
+    mock_call.assert_called_once()
+
+
+def test_gateway_ragas_llm_get_model_name():
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
+        adapter = MlflowRagasLLM(ScorerLLMClient("anthropic:/claude-3"))
+    mock_gpi.assert_called_once()
+    assert adapter.get_model_name() == "anthropic/claude-3"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "env_var"),
+    [
+        ("openai:/gpt-4", "OPENAI_API_KEY"),
+        ("anthropic:/claude-3", "ANTHROPIC_API_KEY"),
+    ],
+)
+def test_create_ragas_model_uses_gateway_for_supported_providers(model_uri, env_var, monkeypatch):
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM, create_ragas_model
+
+    monkeypatch.setenv(env_var, "test-key")
+    model = create_ragas_model(model_uri)
+    assert isinstance(model, MlflowRagasLLM)
+
+
+def test_create_ragas_model_falls_back_to_litellm_for_unsupported_provider():
+    pytest.importorskip("litellm")
+    from ragas.llms.litellm_llm import LiteLLMStructuredLLM
+
+    from mlflow.genai.scorers.ragas.models import create_ragas_model
+
+    model = create_ragas_model("some_unknown:/model")
+    assert isinstance(model, LiteLLMStructuredLLM)
+
+
+def test_create_ragas_model_uses_gateway_for_gateway_uri():
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM, create_ragas_model
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance"):
+        model = create_ragas_model("gateway:/my-endpoint")
+
+    assert isinstance(model, MlflowRagasLLM)
+
+
+def test_create_ragas_model_uses_databricks_for_bare_uri():
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM, create_ragas_model
+
+    model = create_ragas_model("databricks")
+    assert isinstance(model, MlflowRagasLLM)
+
+
+@pytest.mark.parametrize("provider", ["cohere", "mosaicml", "palm"])
+def test_create_ragas_model_registered_but_unsupported_falls_back_to_litellm(provider):
+    pytest.importorskip("litellm")
+    from ragas.llms.litellm_llm import LiteLLMStructuredLLM
+
+    from mlflow.genai.scorers.ragas.models import create_ragas_model
+
+    model = create_ragas_model(f"{provider}:/my-model")
+    assert isinstance(model, LiteLLMStructuredLLM)
+
+
+def test_high_level_scorer_call_chain():
+    """Exercises the full call chain as recommended in docs/blogs:
+    Faithfulness(model=...) → scorer(inputs=..., outputs=..., expectations=...)
+    """
+    scorer = Faithfulness(model="openai:/gpt-4", threshold=0.7)
+    scorer._metric.threshold = 0.7
+
+    with patch.object(scorer._metric, "ascore", make_mock_ascore(0.9)):
+        feedback = scorer(
+            inputs="What is MLflow?",
+            outputs="MLflow is an open-source platform.",
+            expectations={"context": "MLflow is an open-source platform for ML."},
+        )
+
+    assert isinstance(feedback, Feedback)
+    assert feedback.name == "Faithfulness"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4"

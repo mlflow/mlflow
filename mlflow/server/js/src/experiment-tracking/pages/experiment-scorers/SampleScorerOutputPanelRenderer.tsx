@@ -14,7 +14,7 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import { SimplifiedModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
 import type { Assessment, ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant, ScorerEvaluationScope } from './constants';
+import { BUTTON_VARIANT, type ButtonVariant, ScorerEvaluationScope } from './constants';
 import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvaluatePicker';
 import { useFormContext } from 'react-hook-form';
 import type { ScorerFormData } from './utils/scorerTransformUtils';

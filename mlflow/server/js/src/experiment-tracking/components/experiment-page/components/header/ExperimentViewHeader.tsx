@@ -97,6 +97,7 @@ export const ExperimentViewHeader = React.memo(
       () => [
         // eslint-disable-next-line react/jsx-key
         <Link
+          key="observatory"
           componentId="mlflow.experiment_tracking.header.experiments_breadcrumb_link"
           to={Routes.experimentsObservatoryRoute}
           data-testid="experiment-observatory-link"
@@ -107,6 +108,7 @@ export const ExperimentViewHeader = React.memo(
           />
         </Link>,
         <Link
+          key="experiment"
           componentId="mlflow.experiment_tracking.header.experiment_name_breadcrumb_link"
           to={Routes.getExperimentPageRoute(experiment.experimentId ?? '')}
           data-testid="experiment-link"

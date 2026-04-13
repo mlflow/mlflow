@@ -384,7 +384,7 @@ def test_concurrent_record_addition(mock_telemetry_client: TelemetryClient, mock
     # Start multiple threads
     threads = []
     for i in range(3):
-        thread = threading.Thread(target=add_records, args=(i,))
+        thread = threading.Thread(name=f"telemetry-client-{i}", target=add_records, args=(i,))
         threads.append(thread)
         thread.start()
 

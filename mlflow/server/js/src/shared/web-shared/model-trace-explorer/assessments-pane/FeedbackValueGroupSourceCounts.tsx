@@ -70,6 +70,7 @@ export const FeedbackValueGroupSourceCounts = ({ feedbacks }: { feedbacks: Feedb
     >
       {Object.entries(sourceCounts).map(([sourceType, count]) => (
         <Tooltip
+          key={sourceType}
           componentId="shared.model-trace-explorer.feedback-source-tooltip"
           content={getSourceTypeTooltipContent(sourceType as AssessmentSourceType)}
         >
@@ -81,7 +82,6 @@ export const FeedbackValueGroupSourceCounts = ({ feedbacks }: { feedbacks: Feedb
                 cursor: 'default',
               },
             }}
-            key={sourceType}
           >
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
               {getSourceTypeIcon(sourceType as AssessmentSourceType)}

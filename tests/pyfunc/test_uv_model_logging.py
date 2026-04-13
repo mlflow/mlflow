@@ -36,7 +36,7 @@ _PYTHON_ENV_FILE_NAME = "python_env.yaml"
 # Skip marker for tests requiring uv
 requires_uv = pytest.mark.skipif(
     not is_uv_available(),
-    reason="uv is not installed or below minimum required version (0.5.0)",
+    reason="uv is not installed or below minimum required version (0.6.10)",
 )
 
 

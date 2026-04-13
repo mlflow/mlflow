@@ -264,6 +264,15 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
             {intl.formatMessage(statusConfig.label)}
           </Tag>
         </div>
+        {issue.trace_count !== undefined && (
+          <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+            <FormattedMessage
+              defaultMessage="Impacted traces: {count}"
+              description="Label showing the number of traces impacted by this issue"
+              values={{ count: issue.trace_count }}
+            />
+          </Typography.Text>
+        )}
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <Typography.Text color="secondary" bold>
             <FormattedMessage defaultMessage="Description" description="Label for issue description section" />

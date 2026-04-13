@@ -74,7 +74,7 @@ function getTruncatedPreview(inputsOrOutputs: string, role: string): string {
   try {
     const obj = JSON.parse(inputsOrOutputs);
     if (obj && typeof obj === 'object') {
-      const messages = tryExtractMessages(obj);
+      const messages = tryExtractMessages(obj as Record<string, unknown>);
       if (messages && messages.length > 0) {
         const msg = getLastMessageByRole(messages, role);
         content = getTextContentFromMessage(msg);
@@ -102,11 +102,11 @@ function tryExtractMessages(obj: Record<string, unknown>): Record<string, unknow
     Array.isArray(obj.choices) &&
     obj.choices.length > 0 &&
     typeof obj.choices[0] === 'object' &&
-    obj.choices[0] !== null
+    obj.choices[0] != null
   ) {
     const msg = (obj.choices[0] as Record<string, unknown>).message;
     if (isMessage(msg)) {
-      return [msg as Record<string, unknown>];
+      return [msg];
     }
   }
 
@@ -130,7 +130,7 @@ function tryExtractMessages(obj: Record<string, unknown>): Record<string, unknow
 
 function isMessage(item: unknown): item is Record<string, unknown> {
   return (
-    item !== null &&
+    item != null &&
     typeof item === 'object' &&
     'role' in (item as Record<string, unknown>) &&
     'content' in (item as Record<string, unknown>)
@@ -162,7 +162,7 @@ function getTextContentFromMessage(message: Record<string, unknown>): string | n
       if (
         part &&
         typeof part === 'object' &&
-        ('type' in (part as Record<string, unknown>)) &&
+        'type' in (part as Record<string, unknown>) &&
         ((part as Record<string, unknown>).type === 'text' ||
           (part as Record<string, unknown>).type === 'output_text')
       ) {

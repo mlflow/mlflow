@@ -179,7 +179,7 @@ def test_silent_mode_is_respected_in_multithreaded_environments(
     executions = []
     with warnings.catch_warnings(record=True) as warnings_record:
         warnings.simplefilter("always")
-        with ThreadPoolExecutor(max_workers=50) as executor:
+        with ThreadPoolExecutor(max_workers=50, thread_name_prefix="test-silent-mode") as executor:
             executions.extend(executor.submit(parallel_fn) for _ in range(100))
 
     assert all(e.result() is True for e in executions)
@@ -230,10 +230,11 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        with ThreadPoolExecutor(max_workers=50) as executor:
+        with ThreadPoolExecutor(
+            max_workers=50, thread_name_prefix="test-silent-mode-errors"
+        ) as executor:
             for _ in range(100):
                 executor.submit(parallel_fn)
-
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
     assert "verify that event logs are enabled" in stream.getvalue()
@@ -333,10 +334,14 @@ def test_autolog_function_thread_safety(patch_destination):
         time.sleep(0.2)
         safe_patch("test_integration", patch_destination, "fn", patch_impl)
 
-    thread1 = threading.Thread(target=test_autolog, kwargs={"disable": False})
+    thread1 = threading.Thread(
+        name="test-autolog-disable-false", target=test_autolog, kwargs={"disable": False}
+    )
     thread1.start()
     time.sleep(0.1)
-    thread2 = threading.Thread(target=test_autolog, kwargs={"disable": True})
+    thread2 = threading.Thread(
+        name="test-autolog-disable-true", target=test_autolog, kwargs={"disable": True}
+    )
     thread2.start()
 
     thread1.join()

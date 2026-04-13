@@ -2,83 +2,39 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from mlflow.genai.scorers.deepeval.models import DatabricksDeepEvalLLM, create_deepeval_model
-from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
+from mlflow.genai.scorers.deepeval.models import MlflowDeepEvalLLM, create_deepeval_model
 
 
 @pytest.fixture
 def mock_call_chat_completions():
-    with patch("mlflow.genai.scorers.deepeval.models.call_chat_completions") as mock:
+    with patch(
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+    ) as mock:
         result = Mock()
         result.output = "Test output"
         mock.return_value = result
         yield mock
 
 
-def test_databricks_deepeval_llm_generate(mock_call_chat_completions):
-    llm = DatabricksDeepEvalLLM()
-    result = llm.generate("Test prompt")
-
+def test_databricks_model_generate(mock_call_chat_completions):
+    model = create_deepeval_model("databricks")
+    assert isinstance(model, MlflowDeepEvalLLM)
+    result = model.generate("Test prompt")
     assert result == "Test output"
-    mock_call_chat_completions.assert_called_once_with(
-        user_prompt="Test prompt",
-        system_prompt="",
-    )
+    mock_call_chat_completions.assert_called_once()
 
 
-def test_create_deepeval_model_gateway():
-    mock_config = GatewayLiteLLMConfig(
-        api_base="http://localhost:5000/gateway/mlflow/v1/",
-        api_key="mlflow-gateway-auth",
-        model="openai/my-endpoint",
-        extra_headers=None,
-    )
-    with patch(
-        "mlflow.genai.scorers.deepeval.models.get_gateway_litellm_config",
-        return_value=mock_config,
-    ) as mock_get_config:
+def test_create_deepeval_model_gateway_uses_native_provider():
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_get_provider:
         model = create_deepeval_model("gateway:/my-endpoint")
+    mock_get_provider.assert_called_once()
 
-    mock_get_config.assert_called_once_with("my-endpoint")
-    assert model.__class__.__name__ == "LiteLLMModel"
-
-
-def test_create_deepeval_model_gateway_sets_api_base_and_key():
-    mock_config = GatewayLiteLLMConfig(
-        api_base="http://localhost:5000/gateway/mlflow/v1/",
-        api_key="mlflow-gateway-auth",
-        model="openai/my-endpoint",
-        extra_headers=None,
-    )
-    with (
-        patch(
-            "mlflow.genai.scorers.deepeval.models.get_gateway_litellm_config",
-            return_value=mock_config,
-        ),
-        patch("mlflow.genai.scorers.deepeval.models.LiteLLMModel") as mock_litellm_model,
-    ):
-        create_deepeval_model("gateway:/my-endpoint")
-
-    mock_litellm_model.assert_called_once_with(
-        model="openai/my-endpoint",
-        base_url="http://localhost:5000/gateway/mlflow/v1/",
-        api_key="mlflow-gateway-auth",
-        generation_kwargs={"drop_params": True},
-    )
+    assert isinstance(model, MlflowDeepEvalLLM)
+    assert model.get_model_name() == "gateway/my-endpoint"
 
 
-@pytest.mark.parametrize(
-    ("model_uri", "expected_model_arg"),
-    [
-        ("openai:/gpt-4", "openai/gpt-4"),
-        ("databricks:/my-endpoint", "databricks/my-endpoint"),
-    ],
-)
-def test_create_deepeval_model_non_gateway(model_uri, expected_model_arg):
-    with patch("mlflow.genai.scorers.deepeval.models.LiteLLMModel") as mock_litellm_model:
-        create_deepeval_model(model_uri)
-
-    mock_litellm_model.assert_called_once_with(
-        model=expected_model_arg,
-        generation_kwargs={"drop_params": True},
-    )
+def test_create_deepeval_model_supported_provider_uses_native(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    model = create_deepeval_model("openai:/gpt-4")
+    assert isinstance(model, MlflowDeepEvalLLM)
+    assert model.get_model_name() == "openai/gpt-4"

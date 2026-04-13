@@ -1835,6 +1835,32 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toBe('tags.`my.tag` IS NULL');
   });
 
+  test('creates correct filter string for session ID equals', () => {
+    const networkFilters = [
+      {
+        column: SESSION_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: 'my-session-123',
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+    expect(filterString).toBe("request_metadata.mlflow.trace.session = 'my-session-123'");
+  });
+
+  test('creates correct filter string for session ID contains', () => {
+    const networkFilters = [
+      {
+        column: SESSION_COLUMN_ID,
+        operator: FilterOperator.CONTAINS,
+        value: 'session',
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+    expect(filterString).toBe("request_metadata.mlflow.trace.session ILIKE '%session%'");
+  });
+
   test('combines tag IS NULL/IS NOT NULL filters with other filters', () => {
     const networkFilters = [
       {

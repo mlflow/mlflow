@@ -80,14 +80,17 @@ from mlflow.exceptions import (
     _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
 )
+from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
@@ -141,6 +144,7 @@ from mlflow.protos.prompt_optimization_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    AddGuardrailToEndpoint,
     AttachModelToGatewayEndpoint,
     BatchGetTraceInfos,
     BatchGetTraces,
@@ -152,6 +156,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
+    CreateGatewayGuardrail,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
@@ -168,6 +173,7 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
+    DeleteGatewayGuardrail,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -192,6 +198,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     GetGatewayBudgetPolicy,
     GetGatewayEndpoint,
+    GetGatewayGuardrail,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
     GetLoggedModel,
@@ -207,10 +214,12 @@ from mlflow.protos.service_pb2 import (
     LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
+    ListEndpointGuardrailConfigs,
     ListGatewayBudgetPolicies,
     ListGatewayBudgetWindows,
     ListGatewayEndpointBindings,
     ListGatewayEndpoints,
+    ListGatewayGuardrails,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
     ListLoggedModelArtifacts,
@@ -228,6 +237,7 @@ from mlflow.protos.service_pb2 import (
     QueryTraceMetrics,
     RegisterScorer,
     RemoveDatasetFromExperiments,
+    RemoveGuardrailFromEndpoint,
     RestoreExperiment,
     RestoreRun,
     SearchDatasets,
@@ -248,6 +258,7 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
+    UpdateEndpointGuardrailConfig,
     UpdateExperiment,
     UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
@@ -267,7 +278,6 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server.gateway_budget import maybe_refresh_budget_policies
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
@@ -301,7 +311,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import workspace_context
-from mlflow.utils.crypto import KEKManager
+from mlflow.utils.crypto import CRYPTO_KEK_PASSPHRASE_ENV_VAR
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -313,7 +323,6 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.providers import (
-    _PROVIDER_BACKEND_AVAILABLE,
     get_all_providers,
     get_models,
     get_provider_config_response,
@@ -780,8 +789,8 @@ def _assert_item_type_string(x):
 
 
 def _assert_secret_value(x):
-    """Validate secret_value is a non-empty dict without ever printing the values in errors."""
-    if not x:
+    """Validate secret_value is present. Does not print values in errors."""
+    if x is None:
         raise MlflowException(
             message="Missing value for required parameter 'secret_value'.",
             error_code=INVALID_PARAMETER_VALUE,
@@ -3863,6 +3872,7 @@ def _fetch_trace_data_from_store(
 @_disable_if_artifacts_only
 def get_trace_artifact_handler() -> Response:
     request_id = request.args.get("request_id")
+    path = request.args.get("path")
 
     if not request_id:
         raise MlflowException(
@@ -3871,6 +3881,40 @@ def get_trace_artifact_handler() -> Response:
         )
 
     store = _get_tracking_store()
+
+    if path:
+        path = validate_path_is_safe(path)
+        trace_info = store.get_trace_info(request_id)
+        if trace_info is None:
+            raise MlflowException(
+                f"Trace with ID '{request_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        repo = _get_trace_artifact_repo(trace_info)
+        try:
+            content_bytes = repo.download_trace_attachment(path)
+        except MlflowException:
+            raise
+        except Exception:
+            _logger.warning(
+                "Failed to download attachment '%s' for trace '%s'",
+                path,
+                request_id,
+                exc_info=True,
+            )
+            raise MlflowException(
+                f"Failed to download attachment '{path}' for trace '{request_id}'.",
+                error_code=INTERNAL_ERROR,
+            )
+        buf = io.BytesIO(content_bytes)
+        file_sender_response = send_file(
+            buf,
+            mimetype="application/octet-stream",
+            as_attachment=True,
+            download_name=path,
+        )
+        return _response_with_file_attachment_headers(path, file_sender_response)
+
     trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
         trace_info = store.get_trace_info(request_id)
@@ -4132,6 +4176,9 @@ def _search_issues():
     if request_message.HasField("max_results"):
         search_kwargs["max_results"] = request_message.max_results
 
+    if request_message.HasField("include_trace_count"):
+        search_kwargs["include_trace_count"] = request_message.include_trace_count
+
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
@@ -4188,14 +4235,17 @@ def _invoke_issue_detection_handler():
 
     # Create the run upfront so we can return run_id immediately
     model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
+    tags = {
+        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+        "categories": ",".join(categories),
+        "model": model_name,
+        "total_traces": len(trace_ids),
+    }
+    if endpoint_name:
+        tags["endpoint_name"] = endpoint_name
     run = mlflow.start_run(
         experiment_id=experiment_id,
-        tags={
-            MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
-            "categories": ",".join(categories),
-            "model": model_name,
-            "total_traces": len(trace_ids),
-        },
+        tags=tags,
     )
     run_id = run.info.run_id
 
@@ -4219,13 +4269,14 @@ def _invoke_issue_detection_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_issue_detection_job(job_id):
+def _get_job(job_id):
     from mlflow.server.jobs import get_job
 
     job = get_job(job_id)
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "status_details": job.status_details,
     })
 
 
@@ -4601,6 +4652,19 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
+    # Decorator scorers contain a `call_source` field that is executed via exec() during
+    # deserialization. The Python client blocks this via `_check_can_be_registered()`, but
+    # that check is client-side only and can be bypassed by calling the REST API directly.
+    # Enforce the same restriction here in the server handler so it applies regardless of
+    # how the request arrives.
+    try:
+        serialized_data = json.loads(request_message.serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
+    if serialized_data.get("call_source") is not None:
+        raise MlflowException.invalid_parameter_value(
+            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+        )
     scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
@@ -4944,10 +5008,14 @@ def _get_gateway_endpoint():
     request_message = _get_request_message(
         GetGatewayEndpoint(),
         schema={
-            "endpoint_id": [_assert_required, _assert_string],
+            "endpoint_id": [_assert_string],
+            "name": [_assert_string],
         },
     )
-    endpoint = _get_tracking_store().get_gateway_endpoint(request_message.endpoint_id)
+    endpoint = _get_tracking_store().get_gateway_endpoint(
+        endpoint_id=request_message.endpoint_id or None,
+        name=request_message.name or None,
+    )
     response_message = GetGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
     return _wrap_response(response_message)
@@ -5515,6 +5583,172 @@ def _list_budget_windows():
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_gateway_guardrail():
+    request_message = _get_request_message(
+        CreateGatewayGuardrail(),
+        schema={
+            "name": [_assert_required, _assert_string],
+            "scorer_id": [_assert_required, _assert_string],
+            "scorer_version": [_assert_required, _assert_intlike],
+            "stage": [_assert_required],
+            "action": [_assert_required],
+            "action_endpoint_id": [_assert_string],
+        },
+    )
+    from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
+
+    stage = GuardrailStage.from_proto(request_message.stage)
+    if stage is None:
+        raise MlflowException(
+            message=f"Invalid stage: {request_message.stage}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    action = GuardrailAction.from_proto(request_message.action)
+    if action is None:
+        raise MlflowException(
+            message=f"Invalid action: {request_message.action}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    guardrail = _get_tracking_store().create_gateway_guardrail(
+        name=request_message.name,
+        scorer_id=request_message.scorer_id,
+        scorer_version=request_message.scorer_version,
+        stage=stage,
+        action=action,
+        action_endpoint_id=request_message.action_endpoint_id or None,
+        created_by=_get_user(),
+    )
+    response_message = CreateGatewayGuardrail.Response()
+    response_message.guardrail.CopyFrom(guardrail.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_gateway_guardrail():
+    request_message = _get_request_message(
+        GetGatewayGuardrail(),
+        schema={"guardrail_id": [_assert_required, _assert_string]},
+    )
+    guardrail = _get_tracking_store().get_gateway_guardrail(
+        guardrail_id=request_message.guardrail_id,
+    )
+    response_message = GetGatewayGuardrail.Response()
+    response_message.guardrail.CopyFrom(guardrail.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_gateway_guardrail():
+    request_message = _get_request_message(
+        DeleteGatewayGuardrail(),
+        schema={"guardrail_id": [_assert_required, _assert_string]},
+    )
+    _get_tracking_store().delete_gateway_guardrail(request_message.guardrail_id)
+    return _wrap_response(DeleteGatewayGuardrail.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_gateway_guardrails():
+    request_message = _get_request_message(
+        ListGatewayGuardrails(),
+        schema={
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    guardrails = _get_tracking_store().list_gateway_guardrails(
+        max_results=request_message.max_results or SEARCH_MAX_RESULTS_DEFAULT,
+        page_token=request_message.page_token or None,
+    )
+    response_message = ListGatewayGuardrails.Response()
+    response_message.guardrails.extend([g.to_proto() for g in guardrails])
+    if guardrails.token:
+        response_message.next_page_token = guardrails.token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _add_guardrail_to_endpoint():
+    request_message = _get_request_message(
+        AddGuardrailToEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "guardrail_id": [_assert_required, _assert_string],
+            "execution_order": [_assert_intlike],
+        },
+    )
+    config = _get_tracking_store().add_guardrail_to_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        guardrail_id=request_message.guardrail_id,
+        execution_order=(
+            request_message.execution_order if request_message.HasField("execution_order") else None
+        ),
+        created_by=_get_user(),
+    )
+    response_message = AddGuardrailToEndpoint.Response()
+    response_message.config.CopyFrom(config.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _remove_guardrail_from_endpoint():
+    request_message = _get_request_message(
+        RemoveGuardrailFromEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "guardrail_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().remove_guardrail_from_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        guardrail_id=request_message.guardrail_id,
+    )
+    return _wrap_response(RemoveGuardrailFromEndpoint.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_endpoint_guardrail_configs():
+    request_message = _get_request_message(
+        ListEndpointGuardrailConfigs(),
+        schema={"endpoint_id": [_assert_required, _assert_string]},
+    )
+    configs = _get_tracking_store().list_endpoint_guardrail_configs(
+        endpoint_id=request_message.endpoint_id,
+    )
+    response_message = ListEndpointGuardrailConfigs.Response()
+    response_message.configs.extend([c.to_proto() for c in configs])
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+def _update_endpoint_guardrail_config():
+    request_message = _get_request_message(
+        UpdateEndpointGuardrailConfig(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "guardrail_id": [_assert_required, _assert_string],
+        },
+    )
+    kwargs = {
+        "endpoint_id": request_message.endpoint_id,
+        "guardrail_id": request_message.guardrail_id,
+    }
+    if request_message.HasField("execution_order"):
+        kwargs["execution_order"] = request_message.execution_order
+    config = _get_tracking_store().update_endpoint_guardrail_config(**kwargs)
+    response_message = UpdateEndpointGuardrailConfig.Response()
+    response_message.config.CopyFrom(config.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
 def _get_server_info():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -5568,15 +5802,10 @@ def _get_provider_config():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_secrets_config():
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        return jsonify({
-            "secrets_available": False,
-            "using_default_passphrase": False,
-        })
-    kek_manager = KEKManager()
+    using_default_passphrase = not os.environ.get(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
     return jsonify({
         "secrets_available": True,
-        "using_default_passphrase": kek_manager.using_default_passphrase,
+        "using_default_passphrase": using_default_passphrase,
     })
 
 
@@ -5643,7 +5872,7 @@ def _invoke_scorer_handler():
 
 
 def _get_rest_path(base_path, version=2):
-    return f"/api/{version}.0{base_path}"
+    return _add_static_prefix(f"/api/{version}.0{base_path}")
 
 
 def _get_ajax_path(base_path, version=2):
@@ -5715,9 +5944,9 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
-        # NB: Use _get_paths() (not _add_static_prefix()) so that the endpoint is reachable
-        # both at /api/3.0/mlflow/server-info (for the Python client, unaffected by static prefix)
-        # and at <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
+        # NB: Use _get_paths() so that the endpoint is reachable at both
+        # <static-prefix>/api/3.0/mlflow/server-info (for the Python client)
+        # and <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
         + [
             (_path, _get_server_info, ["GET"])
             for _path in _get_paths("/mlflow/server-info", version=3)
@@ -5767,11 +5996,6 @@ def get_issues_detection_endpoints():
             _invoke_issue_detection_handler,
             ["POST"],
         ),
-        (
-            _get_ajax_path("/mlflow/issues/job/<job_id>", version=3),
-            _get_issue_detection_job,
-            ["GET"],
-        ),
     ]
 
 
@@ -5781,6 +6005,11 @@ def get_job_endpoints():
             _get_ajax_path("/mlflow/jobs/cancel/<job_id>", version=3),
             _cancel_job,
             ["PATCH"],
+        ),
+        (
+            _get_ajax_path("/mlflow/jobs/<job_id>", version=3),
+            _get_job,
+            ["GET"],
         ),
     ]
 
@@ -6733,6 +6962,15 @@ HANDLERS = {
     DeleteGatewayBudgetPolicy: _delete_budget_policy,
     ListGatewayBudgetPolicies: _list_budget_policies,
     ListGatewayBudgetWindows: _list_budget_windows,
+    # Guardrail APIs
+    CreateGatewayGuardrail: _create_gateway_guardrail,
+    GetGatewayGuardrail: _get_gateway_guardrail,
+    DeleteGatewayGuardrail: _delete_gateway_guardrail,
+    ListGatewayGuardrails: _list_gateway_guardrails,
+    AddGuardrailToEndpoint: _add_guardrail_to_endpoint,
+    RemoveGuardrailFromEndpoint: _remove_guardrail_from_endpoint,
+    ListEndpointGuardrailConfigs: _list_endpoint_guardrail_configs,
+    UpdateEndpointGuardrailConfig: _update_endpoint_guardrail_config,
     # Prompt Optimization APIs
     CreatePromptOptimizationJob: _create_prompt_optimization_job,
     GetPromptOptimizationJob: _get_prompt_optimization_job,

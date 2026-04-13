@@ -5,6 +5,14 @@ inputs:
     description: "Node version to use."
     default: 20
     required: false
+  cache:
+    description: "Package manager to cache (e.g., npm, yarn)."
+    default: ""
+    required: false
+  cache-dependency-path:
+    description: "Path to dependency file(s) for cache key generation."
+    default: ""
+    required: false
 
 runs:
   using: "composite"
@@ -12,3 +20,9 @@ runs:
     - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
       with:
         node-version: ${{ inputs.node-version }}
+        cache: ${{ inputs.cache }}
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}
+    - run: |
+        # min-release-age requires npm >= 11.10.0 (https://github.com/npm/cli/releases/tag/v11.10.0)
+        npm install -g npm@"^11.10.0"
+      shell: bash

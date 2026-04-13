@@ -35,7 +35,6 @@ export const ModelTraceExplorerSummarySection = ({
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
   const shouldTruncateItems = data.length > maxVisibleItems;
-
   const visibleItems = shouldTruncateItems && !expanded ? data.slice(-maxVisibleItems) : data;
   const hiddenItemCount = shouldTruncateItems ? data.length - visibleItems.length : 0;
 

@@ -577,8 +577,24 @@ class ClaudeCodeProvider(AssistantProvider):
                 except KeyError as e:
                     return Event.from_error(f"Failed to parse stream_event message: {e}")
 
+            case "rate_limit_event":
+                # rate_limit_event is a status event emitted by the CLI to report
+                # rate limit info. Only surface a message to the user when they are
+                # actually limited, not on every status update.
+                info = data.get("rate_limit_info", {})
+                if info.get("status") == "limited":
+                    resets_at = info.get("resetsAt")
+                    msg = "You've hit a rate limit — please wait a moment and try again."
+                    if resets_at:
+                        msg += f" Your limit resets at {resets_at}."
+                    return Event.from_message(
+                        Message(role="assistant", content=[TextBlock(text=msg)])
+                    )
+                return None
+
             case _:
-                return Event.from_error(f"Unknown message type: {message_type}")
+                _logger.warning("Unexpected message type from CLI: %s", message_type)
+                return None
 
     def _should_filter_out_message(self, data: dict[str, Any]) -> bool:
         """
