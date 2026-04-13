@@ -23,8 +23,15 @@ if [[ -z "$run_ids" ]]; then
 fi
 
 echo "Rerunning action_required workflows..."
+pids=()
 while IFS= read -r run_id; do
-  gh api --method POST "repos/${repo}/actions/runs/${run_id}/rerun" 2>&1 && \
-    echo "  Rerun triggered for run $run_id" || \
-    echo "  Failed to rerun run $run_id"
+  (
+    if gh api --method POST "repos/${repo}/actions/runs/${run_id}/rerun" >/dev/null 2>&1; then
+      echo "  Rerun triggered for run $run_id"
+    else
+      echo "  Failed to rerun run $run_id"
+    fi
+  ) &
+  pids+=($!)
 done <<< "$run_ids"
+wait "${pids[@]}"

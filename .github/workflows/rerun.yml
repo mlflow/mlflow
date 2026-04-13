@@ -33,3 +33,4 @@ jobs:
           name: pr_number
           path: /tmp/pr/
           retention-days: 1
+          if-no-files-found: error

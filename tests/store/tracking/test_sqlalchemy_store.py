@@ -1477,7 +1477,9 @@ def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
         return "success"
 
     log_metrics_futures = []
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(
+        max_workers=4, thread_name_prefix="test-sqlalchemy-log-metrics"
+    ) as executor:
         log_metrics_futures = [
             executor.submit(log_metrics, run) for run in [run1, run2, run1, run2]
         ]
@@ -13762,7 +13764,9 @@ def test_concurrent_log_spans_spans_location_tag(store: SqlAlchemyStore):
     # Simulate client-side workspace selection and ensure it propagates to worker threads.
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
         # Launch multiple concurrent log_spans calls
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(
+            max_workers=5, thread_name_prefix="test-sqlalchemy-log-spans"
+        ) as executor:
             futures = [executor.submit(log_span_worker, i) for i in range(111, 116)]
 
             # Wait for all to complete

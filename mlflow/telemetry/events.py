@@ -494,6 +494,33 @@ class GatewayListBudgetPoliciesEvent(Event):
     name: str = "gateway_list_budget_policies"
 
 
+# Gateway Guardrail CRUD Events
+class GatewayCreateGuardrailEvent(Event):
+    name: str = "gateway_create_guardrail"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
+            "action": str(arguments.get("action")) if arguments.get("action") else None,
+        }
+
+
+class GatewayUpdateGuardrailEvent(Event):
+    name: str = "gateway_update_guardrail"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
+            "action": str(arguments.get("action")) if arguments.get("action") else None,
+        }
+
+
+class GatewayDeleteGuardrailEvent(Event):
+    name: str = "gateway_delete_guardrail"
+
+
 # Gateway Secret CRUD Events
 class GatewayCreateSecretEvent(Event):
     name: str = "gateway_create_secret"

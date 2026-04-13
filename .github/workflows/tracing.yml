@@ -1,4 +1,4 @@
-name: 🔍 Tracing SDK Test
+name: Tracing SDK Test
 
 on:
   pull_request:
