@@ -41,12 +41,12 @@ const DEFAULT_PROVIDER = 'openai';
 const ALLOWED_PROVIDERS = ['openai', 'anthropic', 'gemini', 'azure'] as const;
 
 // Display names for providers
-const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+const PROVIDER_DISPLAY_NAMES = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   gemini: 'Google Gemini',
   azure: 'Azure OpenAI',
-};
+} satisfies Record<string, string>;
 
 const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
   mode: 'new',
@@ -60,11 +60,11 @@ const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
 };
 
 // Default to recommended models for each provider
-const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
+const DEFAULT_MODEL_BY_PROVIDER = {
   openai: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-6',
   gemini: 'gemini-2.5-pro',
-};
+} satisfies Record<string, string>;
 
 export interface ModelSelectionValues {
   mode: ModelConfigMode;

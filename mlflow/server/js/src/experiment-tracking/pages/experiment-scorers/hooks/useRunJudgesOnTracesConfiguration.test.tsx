@@ -64,7 +64,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
   });
 
   it('should show loading banner when evaluation is in progress', () => {
-    const evaluations: Record<string, ScorerEvaluation> = {
+    const evaluations = {
       'eval-1': {
         requestKey: 'eval-1',
         label: 'Test Judge',
@@ -72,7 +72,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
         jobStatuses: {},
         isLoading: true,
       },
-    };
+    } satisfies Record<string, ScorerEvaluation>;
 
     const { result } = renderHook(() => useRunJudgesOnTracesConfiguration(mockEvaluateTraces, evaluations, undefined), {
       wrapper,
@@ -86,7 +86,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
   });
 
   it('should show error banner when evaluation fails', () => {
-    const evaluations: Record<string, ScorerEvaluation> = {
+    const evaluations = {
       'eval-1': {
         requestKey: 'eval-1',
         label: 'Failing Judge',
@@ -95,7 +95,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
         isLoading: false,
         error: new Error('Something went wrong'),
       },
-    };
+    } satisfies Record<string, ScorerEvaluation>;
 
     const { result } = renderHook(() => useRunJudgesOnTracesConfiguration(mockEvaluateTraces, evaluations, undefined), {
       wrapper,
@@ -109,7 +109,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
   });
 
   it('should show success banner when evaluation completes', () => {
-    const evaluations: Record<string, ScorerEvaluation> = {
+    const evaluations = {
       'eval-1': {
         requestKey: 'eval-1',
         label: 'Success Judge',
@@ -117,7 +117,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
         jobStatuses: {},
         isLoading: false,
       },
-    };
+    } satisfies Record<string, ScorerEvaluation>;
 
     const { result } = renderHook(() => useRunJudgesOnTracesConfiguration(mockEvaluateTraces, evaluations, undefined), {
       wrapper,
@@ -130,7 +130,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
   });
 
   it('should hide dismissed evaluations from the banner', async () => {
-    const evaluations: Record<string, ScorerEvaluation> = {
+    const evaluations = {
       'eval-1': {
         requestKey: 'eval-1',
         label: 'Judge A',
@@ -145,7 +145,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
         jobStatuses: {},
         isLoading: false,
       },
-    };
+    } satisfies Record<string, ScorerEvaluation>;
 
     // Use a component that renders the banner directly from the hook,
     // so dismiss state updates propagate correctly
@@ -173,7 +173,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
   it('should auto-dismiss success banners after 10 seconds', async () => {
     jest.useFakeTimers();
 
-    const evaluations: Record<string, ScorerEvaluation> = {
+    const evaluations = {
       'eval-1': {
         requestKey: 'eval-1',
         label: 'Auto Judge',
@@ -181,7 +181,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
         jobStatuses: {},
         isLoading: false,
       },
-    };
+    } satisfies Record<string, ScorerEvaluation>;
 
     const BannerTestComponent = () => {
       const { JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(mockEvaluateTraces, evaluations, undefined);
@@ -211,7 +211,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
   it('should auto-dismiss error banners after 10 seconds', async () => {
     jest.useFakeTimers();
 
-    const evaluations: Record<string, ScorerEvaluation> = {
+    const evaluations = {
       'eval-1': {
         requestKey: 'eval-1',
         label: 'Error Judge',
@@ -220,7 +220,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
         isLoading: false,
         error: new Error('Something went wrong'),
       },
-    };
+    } satisfies Record<string, ScorerEvaluation>;
 
     const BannerTestComponent = () => {
       const { JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(mockEvaluateTraces, evaluations, undefined);
@@ -250,7 +250,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
   it('should not auto-dismiss loading banners', async () => {
     jest.useFakeTimers();
 
-    const evaluations: Record<string, ScorerEvaluation> = {
+    const evaluations = {
       'eval-1': {
         requestKey: 'eval-1',
         label: 'Loading Judge',
@@ -258,7 +258,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
         jobStatuses: {},
         isLoading: true,
       },
-    };
+    } satisfies Record<string, ScorerEvaluation>;
 
     const BannerTestComponent = () => {
       const { JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(mockEvaluateTraces, evaluations, undefined);

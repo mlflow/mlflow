@@ -2,7 +2,12 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem } from '../../../common/utils/TestUtils.react18';
 import ShowArtifactMarkdownView from './ShowArtifactMarkdownView';
-import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';import { jest } from '@jest/globals';import { describe } from '@jest/globals';import { beforeEach } from '@jest/globals';import { test } from '@jest/globals';import { expect } from '@jest/globals';
+
+
+
+
+
 
 jest.mock('./utils/fetchArtifactUnified', () => ({
   fetchArtifactUnified: jest.fn(),
