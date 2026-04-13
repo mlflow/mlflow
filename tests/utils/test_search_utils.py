@@ -826,3 +826,34 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_comparator", "expected_value"),
+    [
+        ("feedback.score > 50", ">", "50"),
+        ("feedback.score < 0.5", "<", "0.5"),
+        ("feedback.score >= 75", ">=", "75"),
+        ("feedback.score <= 100.0", "<=", "100.0"),
+        ("expectation.latency > 200", ">", "200"),
+        ("expectation.latency < 1000", "<", "1000"),
+    ],
+)
+def test_search_trace_utils_parse_numeric_assessment_comparators(
+    filter_string, expected_comparator, expected_value
+):
+    parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+    assert len(parsed) == 1
+    assert parsed[0]["comparator"] == expected_comparator
+    assert parsed[0]["value"] == expected_value
+
+
+def test_search_trace_utils_parse_numeric_assessment_combined_filter():
+    parsed = SearchTraceUtils.parse_search_filter_for_search_traces(
+        "feedback.score > 0 AND feedback.score <= 50"
+    )
+    assert len(parsed) == 2
+    assert parsed[0]["comparator"] == ">"
+    assert parsed[0]["value"] == "0"
+    assert parsed[1]["comparator"] == "<="
+    assert parsed[1]["value"] == "50"

@@ -1735,7 +1735,19 @@ class SearchTraceUtils(SearchUtils):
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
-    VALID_ASSESSMENT_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
+    VALID_ASSESSMENT_COMPARATORS = {
+        "!=",
+        "=",
+        ">",
+        "<",
+        ">=",
+        "<=",
+        "LIKE",
+        "ILIKE",
+        "RLIKE",
+        "IS NULL",
+        "IS NOT NULL",
+    }
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -2036,6 +2048,24 @@ class SearchTraceUtils(SearchUtils):
                 clause = sa.not_(clause)
             return clause
 
+        _NUMERIC_COMPARATORS = {">", "<", ">=", "<="}
+
+        if comparator in _NUMERIC_COMPARATORS:
+
+            def numeric_json_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
+                try:
+                    numeric_value = float(value)
+                except (ValueError, TypeError):
+                    raise MlflowException(
+                        f"Invalid numeric value '{value}' for comparator '{comparator}'. "
+                        "Numeric comparators (>, <, >=, <=) require numeric values.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                casted_column = sa.cast(column, sa.Float)
+                return SearchUtils.get_comparison_func(comparator)(casted_column, numeric_value)
+
+            return numeric_json_comparison
+
         if comparator not in ("=", "!="):
             return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
         elif dialect == MYSQL:
@@ -2144,14 +2174,14 @@ class SearchTraceUtils(SearchUtils):
             cls._EXPECTATION_IDENTIFIER,
             cls._ISSUE_IDENTIFIER,
         ):
-            # Feedback and expectation values are stored as JSON, so we expect string values
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif token.ttype in cls.NUMERIC_VALUE_TYPES:
+                return token.value
             else:
                 raise MlflowException(
-                    "Expected a quoted string value for "
-                    f"{identifier_type} (e.g. 'my-value'). Got value "
-                    f"{token.value}",
+                    "Expected a quoted string value or numeric value for "
+                    f"{identifier_type}. Got value {token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:

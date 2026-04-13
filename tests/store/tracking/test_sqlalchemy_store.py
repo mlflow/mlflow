@@ -6153,6 +6153,85 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     assert len(traces) == 0
 
 
+def test_search_traces_with_numeric_feedback_comparators(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_numeric_feedback_search")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+
+    # Create feedback with numeric values
+    store.create_assessment(
+        Feedback(trace_id=trace1_id, name="score", value=25.0, source=source)
+    )
+    store.create_assessment(
+        Feedback(trace_id=trace2_id, name="score", value=50.0, source=source)
+    )
+    store.create_assessment(
+        Feedback(trace_id=trace3_id, name="score", value=75.0, source=source)
+    )
+    store.create_assessment(
+        Feedback(trace_id=trace4_id, name="score", value=100.0, source=source)
+    )
+
+    # Create expectations with numeric values
+    store.create_assessment(
+        Expectation(trace_id=trace1_id, name="latency", value=100, source=source)
+    )
+    store.create_assessment(
+        Expectation(trace_id=trace2_id, name="latency", value=200, source=source)
+    )
+
+    # Test: greater than
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.score > 50")
+    assert sorted(t.request_id for t in traces) == ["trace3", "trace4"]
+
+    # Test: greater than or equal
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.score >= 50")
+    assert sorted(t.request_id for t in traces) == ["trace2", "trace3", "trace4"]
+
+    # Test: less than
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.score < 50")
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: less than or equal
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.score <= 50")
+    assert sorted(t.request_id for t in traces) == ["trace1", "trace2"]
+
+    # Test: combined range query
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string="feedback.score > 25 AND feedback.score < 100",
+    )
+    assert sorted(t.request_id for t in traces) == ["trace2", "trace3"]
+
+    # Test: numeric comparators on expectations
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.latency > 150")
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.latency <= 100")
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: float comparison values
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.score >= 75.0")
+    assert sorted(t.request_id for t in traces) == ["trace3", "trace4"]
+
+    # Test: no matches
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.score > 100")
+    assert len(traces) == 0
+
+
 def test_search_traces_with_run_id(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_run_id")
     run1_id = "run1"
