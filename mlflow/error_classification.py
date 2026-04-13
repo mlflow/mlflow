@@ -3,6 +3,37 @@
 Maps error codes to sqlstate codes and error classes for structured error
 classification and observability. Client-side errors use the KAM0x/XXM0x
 namespace, while server/CP errors use the KAMCx/XXMCx namespace.
+
+Terminology:
+    error_code: The existing MLflow error code from the protobuf definition
+        (e.g., INVALID_PARAMETER_VALUE, INTERNAL_ERROR). Defined in
+        mlflow/protos/databricks.proto. These are coarse-grained — many
+        different failure modes share the same error_code.
+
+    error_class: A more specific classification of the error (e.g.,
+        SCHEMA_ENFORCEMENT_FAILED, ATTRIBUTE_NOT_FOUND). Defined in the
+        ErrorClass enum below. When an error_class is not explicitly set
+        at a raise site, it is auto-derived from the error_code.
+
+    sqlstate: A 5-character code used by reliability dashboards to
+        categorize errors (e.g., KAM01, XXMC0). Defined in the SqlState
+        enum below. Derived automatically from error_class (if a specific
+        mapping exists) or from error_code (generic fallback).
+
+Derivation chain in MlflowException.__init__:
+    1. error_class: explicit value if provided, otherwise derived from error_code
+    2. sqlstate: explicit value if provided, otherwise derived from error_class
+       (via _ERROR_CLASS_TO_SQLSTATE), otherwise derived from error_code
+       (via _CLIENT_ERROR_CODE_TO_SQLSTATE)
+
+When to override at a raise site:
+    Most raise sites do NOT need to pass sqlstate or error_class — both are
+    auto-derived from error_code. Only pass error_class when the error_code
+    is too coarse to distinguish the specific failure. For example,
+    INVALID_PARAMETER_VALUE is used for both schema enforcement failures and
+    attribute lookup failures, so those raise sites pass error_class to
+    get distinct sqlstate codes (KAM01 vs KAM04). Never pass sqlstate
+    directly — it is always derived from error_class.
 """
 
 from __future__ import annotations
