@@ -3171,31 +3171,18 @@ class Summarization(BuiltInScorer):
         )
 
 
-# ---------------------------------------------------------------------------
-# Rule-based scorers (deterministic, no LLM calls)
-#
-# These scorers run microseconds instead of seconds and are free to execute.
-# They use AssessmentSourceType.CODE because they contain no model inference.
-# ---------------------------------------------------------------------------
-
 # Regex patterns for PII detection. These prioritize recall (catching PII) over
 # precision (not flagging innocuous look-alikes). For serious privacy workflows,
 # pair this with a dedicated library like Guardrails AI or Presidio.
 _PII_PATTERNS: dict[str, str] = {
     "email": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
-    "phone": (
-        r"(?:(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}"
-        r"|\+[1-9]\d{1,14})"
-    ),
+    "phone": r"(?:(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+[1-9]\d{1,14})",
     "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
     "credit_card": (
         r"\b(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))"
         r"[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b"
     ),
-    "ip_address": (
-        r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}"
-        r"(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b"
-    ),
+    "ip_address": r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b",
 }
 
 
@@ -3204,10 +3191,7 @@ def _resolve_output_text(
     trace: Trace | None,
     scorer_name: str,
 ) -> str:
-    """Resolve outputs from trace if needed and coerce to a string.
-
-    Shared helper for rule-based scorers that only operate on text.
-    """
+    """Resolve outputs from trace if needed and coerce to a string."""
     if outputs is None and trace is not None:
         outputs = resolve_outputs_from_trace(outputs, trace)
 
@@ -3219,10 +3203,6 @@ def _resolve_output_text(
     if isinstance(outputs, str):
         return outputs
     return parse_outputs_to_str(outputs)
-
-
-def _code_source() -> AssessmentSource:
-    return AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="code")
 
 
 @experimental(version="3.12.0")
@@ -3276,6 +3256,16 @@ class RegexMatch(BuiltInScorer):
     case_insensitive: bool = False
     required_columns: set[str] = {"outputs"}
     description: str = "Check whether output matches a regular expression pattern."
+    _compiled: re.Pattern[str] | None = pydantic.PrivateAttr(default=None)
+
+    @pydantic.model_validator(mode="after")
+    def _compile_pattern(self):
+        flags = re.IGNORECASE if self.case_insensitive else 0
+        try:
+            self._compiled = re.compile(self.pattern, flags)
+        except re.error as e:
+            raise ValueError(f"invalid regex pattern {self.pattern!r}: {e}")
+        return self
 
     @property
     def feedback_value_type(self) -> Any:
@@ -3302,27 +3292,12 @@ class RegexMatch(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        try:
-            outputs_str = _resolve_output_text(outputs, trace, "RegexMatch")
-        except MlflowException as e:
-            return Feedback(name=self.name, error=e, source=_code_source())
-
-        flags = re.IGNORECASE if self.case_insensitive else 0
-        try:
-            compiled = re.compile(self.pattern, flags)
-        except re.error as e:
-            return Feedback(
-                name=self.name,
-                error=MlflowException.invalid_parameter_value(
-                    f"Invalid regex pattern {self.pattern!r}: {e}"
-                ),
-                source=_code_source(),
-            )
+        outputs_str = _resolve_output_text(outputs, trace, "RegexMatch")
 
         if self.match_type == "fullmatch":
-            matched = compiled.fullmatch(outputs_str) is not None
+            matched = self._compiled.fullmatch(outputs_str) is not None
         else:
-            matched = compiled.search(outputs_str) is not None
+            matched = self._compiled.search(outputs_str) is not None
 
         return Feedback(
             name=self.name,
@@ -3330,7 +3305,6 @@ class RegexMatch(BuiltInScorer):
             rationale=(
                 f"Output {'matches' if matched else 'does not match'} pattern {self.pattern!r}"
             ),
-            source=_code_source(),
         )
 
 
@@ -3388,6 +3362,17 @@ class PIIDetection(BuiltInScorer):
     required_columns: set[str] = {"outputs"}
     description: str = "Detect common PII (email, phone, SSN, credit card, IP) in the output."
 
+    @pydantic.model_validator(mode="after")
+    def _validate_pii_types(self):
+        if self.pii_types is None:
+            return self
+        if unsupported := [t for t in self.pii_types if t not in _PII_PATTERNS]:
+            raise ValueError(
+                f"unsupported PII type(s) {unsupported}. "
+                f"Supported types: {list(_PII_PATTERNS.keys())}"
+            )
+        return self
+
     @property
     def feedback_value_type(self) -> Any:
         return Literal["yes", "no"]
@@ -3396,16 +3381,6 @@ class PIIDetection(BuiltInScorer):
     def instructions(self) -> str:
         types = self.pii_types or list(_PII_PATTERNS.keys())
         return f"Check whether the output contains any of the PII types: {types}."
-
-    def _resolved_pii_types(self) -> list[str]:
-        if not self.pii_types:
-            return list(_PII_PATTERNS.keys())
-        if unsupported := [t for t in self.pii_types if t not in _PII_PATTERNS]:
-            raise MlflowException.invalid_parameter_value(
-                f"Unsupported PII type(s): {unsupported}. "
-                f"Supported types: {list(_PII_PATTERNS.keys())}"
-            )
-        return list(self.pii_types)
 
     def get_input_fields(self) -> list[JudgeField]:
         return [
@@ -3421,11 +3396,8 @@ class PIIDetection(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        try:
-            outputs_str = _resolve_output_text(outputs, trace, "PIIDetection")
-            types_to_check = self._resolved_pii_types()
-        except MlflowException as e:
-            return Feedback(name=self.name, error=e, source=_code_source())
+        outputs_str = _resolve_output_text(outputs, trace, "PIIDetection")
+        types_to_check = self.pii_types or list(_PII_PATTERNS.keys())
 
         detected: list[str] = [
             pii_type
@@ -3438,14 +3410,12 @@ class PIIDetection(BuiltInScorer):
                 name=self.name,
                 value=CategoricalRating.NO,
                 rationale=f"Detected PII: {', '.join(detected)}",
-                source=_code_source(),
             )
 
         return Feedback(
             name=self.name,
             value=CategoricalRating.YES,
             rationale="No PII detected",
-            source=_code_source(),
         )
 
 
@@ -3497,6 +3467,22 @@ class ResponseLength(BuiltInScorer):
     required_columns: set[str] = {"outputs"}
     description: str = "Check whether the output length is within specified bounds."
 
+    @pydantic.model_validator(mode="after")
+    def _validate_bounds(self):
+        if self.min_length is None and self.max_length is None:
+            raise ValueError(
+                "ResponseLength requires at least one of `min_length` or `max_length`."
+            )
+        if (
+            self.min_length is not None
+            and self.max_length is not None
+            and self.min_length > self.max_length
+        ):
+            raise ValueError(
+                f"`min_length` ({self.min_length}) must be <= `max_length` ({self.max_length})."
+            )
+        return self
+
     @property
     def feedback_value_type(self) -> Any:
         return Literal["yes", "no"]
@@ -3529,34 +3515,7 @@ class ResponseLength(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        if self.min_length is None and self.max_length is None:
-            return Feedback(
-                name=self.name,
-                error=MlflowException.invalid_parameter_value(
-                    "ResponseLength requires at least one of `min_length` or `max_length`."
-                ),
-                source=_code_source(),
-            )
-
-        if (
-            self.min_length is not None
-            and self.max_length is not None
-            and self.min_length > self.max_length
-        ):
-            return Feedback(
-                name=self.name,
-                error=MlflowException.invalid_parameter_value(
-                    f"ResponseLength `min_length` ({self.min_length}) must be <= "
-                    f"`max_length` ({self.max_length})."
-                ),
-                source=_code_source(),
-            )
-
-        try:
-            outputs_str = _resolve_output_text(outputs, trace, "ResponseLength")
-        except MlflowException as e:
-            return Feedback(name=self.name, error=e, source=_code_source())
-
+        outputs_str = _resolve_output_text(outputs, trace, "ResponseLength")
         length = self._measure(outputs_str)
 
         if self.min_length is not None and length < self.min_length:
@@ -3567,7 +3526,6 @@ class ResponseLength(BuiltInScorer):
                     f"Output length ({length} {self.unit}) is below the minimum "
                     f"({self.min_length} {self.unit})"
                 ),
-                source=_code_source(),
             )
 
         if self.max_length is not None and length > self.max_length:
@@ -3578,14 +3536,12 @@ class ResponseLength(BuiltInScorer):
                     f"Output length ({length} {self.unit}) exceeds the maximum "
                     f"({self.max_length} {self.unit})"
                 ),
-                source=_code_source(),
             )
 
         return Feedback(
             name=self.name,
             value=CategoricalRating.YES,
             rationale=f"Output length ({length} {self.unit}) is within bounds",
-            source=_code_source(),
         )
 
 
