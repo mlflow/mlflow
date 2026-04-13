@@ -3,7 +3,19 @@ from typing import Any, Iterator
 
 from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import developer_stable
+
+
+class JobTerminalStateUpdateException(MlflowException):
+    """Raised when attempting to update a job that is already terminal."""
+
+    def __init__(self, job_id: str, status: str):
+        super().__init__(
+            f"The Job {job_id} is already finalized with status: {status}, it can't be updated.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 @developer_stable
