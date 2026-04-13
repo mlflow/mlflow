@@ -14,7 +14,7 @@ from mlflow.store.db.utils import (
     _safe_initialize_tables,
     create_sqlalchemy_engine_with_retry,
 )
-from mlflow.store.jobs.abstract_store import AbstractJobStore
+from mlflow.store.jobs.abstract_store import AbstractJobStore, JobTerminalStateUpdateException
 from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -86,6 +86,23 @@ class SqlAlchemyJobStore(AbstractJobStore):
             instance.workspace = DEFAULT_WORKSPACE_NAME
         return instance
 
+    @staticmethod
+    def _clear_job_transient_fields(job: SqlJob) -> None:
+        # TODO: Move job lifecycle transition policy out of the store once the
+        # framework owns a shared state-machine/transition layer. The store
+        # should still apply the resulting field updates atomically.
+        job.lease_expires_at = None
+        job.status_message = None
+        job.progress_payload = None
+        job.progress_updated_at = None
+        job.token_hash = None
+        job.scoped_permissions = None
+
+    @classmethod
+    def _reset_job_for_pending(cls, job: SqlJob) -> None:
+        job.result = None
+        cls._clear_job_transient_fields(job)
+
     def create_job(self, job_name: str, params: str, timeout: float | None = None) -> Job:
         """
         Create a new job with the specified function and parameters.
@@ -119,19 +136,30 @@ class SqlAlchemyJobStore(AbstractJobStore):
             session.flush()
             return job.to_mlflow_entity()
 
-    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> Job:
+    def _update_job(
+        self,
+        job_id: str,
+        new_status: JobStatus,
+        result: str | None = None,
+    ) -> Job:
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
 
-            if JobStatus.is_finalized(job.status):
-                raise MlflowException(
-                    f"The Job {job_id} is already finalized with status: {job.status}, "
+            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
+                raise MlflowException.invalid_parameter_value(
+                    "The Job "
+                    f"{job_id} is already finalized with status: {JobStatus.from_int(job.status)}, "
                     "it can't be updated."
                 )
 
             job.status = new_status.to_int()
-            if result is not None:
-                job.result = result
+            if new_status == JobStatus.PENDING:
+                self._reset_job_for_pending(job)
+            else:
+                if result is not None:
+                    job.result = result
+                if JobStatus.is_finalized(new_status):
+                    self._clear_job_transient_fields(job)
             job.last_update_time = get_current_time_millis()
             return job.to_mlflow_entity()
 
@@ -228,12 +256,22 @@ class SqlAlchemyJobStore(AbstractJobStore):
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
 
+            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
+                raise MlflowException.invalid_parameter_value(
+                    "The Job "
+                    f"{job_id} is already finalized with status: {JobStatus.from_int(job.status)}, "
+                    "it can't be updated."
+                )
+
             if job.retry_count >= max_retries:
                 job.status = JobStatus.FAILED.to_int()
                 job.result = error
+                self._clear_job_transient_fields(job)
+                job.last_update_time = get_current_time_millis()
                 return None
             job.retry_count += 1
             job.status = JobStatus.PENDING.to_int()
+            self._reset_job_for_pending(job)
             job.last_update_time = get_current_time_millis()
             return job.retry_count
 
@@ -425,6 +463,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
+
+            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
+                raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))
 
             # Merge new status details with existing
             current_details = job.status_details or {}
