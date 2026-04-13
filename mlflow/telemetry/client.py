@@ -276,7 +276,7 @@ class TelemetryClient:
                 for record in records
             ]
 
-            response = self._send_with_retries(
+            self._send_with_retries(
                 lambda timeout: requests.post(
                     self.config.ingestion_url,
                     json={"records": records},
@@ -285,9 +285,6 @@ class TelemetryClient:
                 ),
                 request_timeout,
             )
-            if response and response.status_code in UNRECOVERABLE_ERRORS:
-                self._is_stopped = True
-                self.is_active = False
         except Exception as e:
             _log_error(f"Failed to send telemetry records: {e}")
 
@@ -310,7 +307,7 @@ class TelemetryClient:
                 event["params_json"] = params_value
             events.append(event)
 
-        response = self._send_with_retries(
+        self._send_with_retries(
             lambda timeout: http_request(
                 host_creds=creds,
                 endpoint="/api/2.0/mlflow/client-telemetry/ingest",
@@ -322,13 +319,10 @@ class TelemetryClient:
             ),
             request_timeout,
         )
-        if response and response.status_code in UNRECOVERABLE_ERRORS:
-            self._is_stopped = True
-            self.is_active = False
 
     def _send_with_retries(
         self, send_fn: Callable[[float], requests.Response], request_timeout: float = 1
-    ) -> requests.Response | None:
+    ) -> None:
         max_attempts = 3
         sleep_time = 1
         for i in range(max_attempts):
@@ -342,11 +336,15 @@ class TelemetryClient:
             # NB: DO NOT retry when terminating
             # otherwise this increases shutdown overhead significantly
             if self._is_stopped:
-                return None
+                return
             if i < max_attempts - 1 and should_retry:
                 time.sleep(sleep_time)
+            elif response and response.status_code in UNRECOVERABLE_ERRORS:
+                self._is_stopped = True
+                self.is_active = False
+                return
             else:
-                return response
+                return
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
