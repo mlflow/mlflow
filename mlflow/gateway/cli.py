@@ -7,6 +7,11 @@ from mlflow.telemetry.events import GatewayStartEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.utils.os import is_windows
 
+_DEPRECATION_WARNING = (
+    "`mlflow gateway start` is deprecated and will be removed in a future release. "
+    f"Set `{MLFLOW_GATEWAY_CONFIG.name}` and use `mlflow server` instead."
+)
+
 
 def validate_config_path(_ctx, _param, value):
     try:
@@ -45,6 +50,7 @@ def commands():
     help="The number of workers.",
 )
 def start(config_path: str, host: str, port: str, workers: int):
+    click.secho(_DEPRECATION_WARNING, fg="yellow", err=True)
     if is_windows():
         raise click.ClickException("MLflow AI Gateway does not support Windows.")
     _record_event(GatewayStartEvent, {})
