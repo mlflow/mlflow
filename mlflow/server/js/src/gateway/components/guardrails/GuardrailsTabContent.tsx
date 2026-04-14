@@ -14,7 +14,9 @@ import {
   VisibleIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { GatewayQueryKeys } from '../../hooks/queryKeys';
 import { useGuardrailsQuery } from '../../hooks/useGuardrailsQuery';
 import { useRemoveGuardrail } from '../../hooks/useRemoveGuardrail';
 import { AddGuardrailModal } from './AddGuardrailModal';
@@ -64,7 +66,7 @@ const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
                   borderRadius: theme.borders.borderRadiusMd,
                   fontSize: theme.typography.fontSizeSm,
                   fontWeight: isActive ? theme.typography.typographyBoldFontWeight : 'normal',
-                  color: isActive ? '#fff' : theme.colors.textSecondary,
+                  color: isActive ? theme.colors.white : theme.colors.textSecondary,
                   backgroundColor: isActive ? activeColor : 'transparent',
                   border: `1px solid ${isActive ? activeColor : 'transparent'}`,
                   whiteSpace: 'nowrap',
@@ -207,6 +209,8 @@ const GuardrailRow = ({
 
 export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }: GuardrailsTabContentProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const queryClient = useQueryClient();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [detailGuardrail, setDetailGuardrail] = useState<GatewayGuardrailConfig | null>(null);
   const [search, setSearch] = useState('');
@@ -224,8 +228,8 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
 
   const handleConfirmDelete = useCallback(async () => {
     if (!pendingDelete) return;
-    setPendingDelete(null);
     await handleRemoveById(pendingDelete.guardrail_id);
+    setPendingDelete(null);
   }, [pendingDelete, handleRemoveById]);
 
   const handleView = useCallback((guardrail: GatewayGuardrailConfig) => {
@@ -266,7 +270,10 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
         <Input
           componentId="mlflow.gateway.guardrails.search"
           prefix={<SearchIcon />}
-          placeholder="Search guardrails"
+          placeholder={intl.formatMessage({
+            defaultMessage: 'Search guardrails',
+            description: 'Search guardrails placeholder',
+          })}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           allowClear
@@ -359,7 +366,7 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
       <AddGuardrailModal
         open={isAddModalOpen}
         onClose={handleModalClose}
-        onSuccess={() => {}}
+        onSuccess={() => queryClient.invalidateQueries(GatewayQueryKeys.guardrails)}
         endpointName={endpointName}
         endpointId={endpointId}
         experimentId={experimentId}
@@ -379,13 +386,11 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
         open={!!detailGuardrail}
         onClose={() => setDetailGuardrail(null)}
         onDelete={(guardrailId) => {
+          setDetailGuardrail(null);
           const toDelete = serverGuardrails.find((g) => g.guardrail_id === guardrailId);
-          if (toDelete) {
-            setDetailGuardrail(null);
-            setPendingDelete(toDelete);
-          }
+          if (toDelete) setPendingDelete(toDelete);
         }}
-        onSuccess={() => {}}
+        onSuccess={() => queryClient.invalidateQueries(GatewayQueryKeys.guardrails)}
         endpointId={endpointId}
         experimentId={experimentId}
         guardrailConfig={detailGuardrail}
