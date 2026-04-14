@@ -7,12 +7,13 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 
 # Guardrails
 
-Guardrails let you enforce content policies on traffic flowing through your AI Gateway endpoints. Each guardrail evaluates requests or responses against a set of natural-language instructions, then either **blocks** the traffic or **sanitizes** (redacts) it before allowing it through.
+Guardrails let you enforce content policies on traffic flowing through your AI Gateway endpoints. Each guardrail uses an LLM judge to evaluate requests or responses against a set of natural-language instructions — then either **blocks** the traffic or **sanitizes** (redacts) it before allowing it through.
 
 Common use cases include:
 
-- **Safety filtering**: reject harmful, offensive, or toxic content before it reaches your users or your LLM.
-- **PII detection**: prevent personally identifiable information from leaking in requests or responses.
+- **Safety filtering** — reject harmful, offensive, or toxic content before it reaches your users or your LLM.
+- **PII detection** — prevent personally identifiable information from leaking in requests or responses.
+- **Custom policies** — enforce organization-specific rules such as topic restrictions, tone requirements, or brand guidelines.
 
 ## Viewing Guardrails
 
@@ -38,7 +39,15 @@ Click **Create Guardrail** to open the creation wizard.
   style={{ maxWidth: "100%" }}
 />
 
-Selecting a built-in type pre-populates the name and instructions on the next step, saving you time. Choose "Custom Guardrail" if you want to write a guardrail prompt from scratch.
+Three built-in types are available:
+
+| Type                 | Description                                                                                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Safety**           | Pre-loaded instructions for detecting harmful, offensive, or toxic content. Defaults to the _After_ stage to check LLM responses.                                              |
+| **PII Detection**    | Pre-loaded instructions for detecting names, emails, phone numbers, and other personally identifiable information. Defaults to the _Before_ stage to screen incoming requests. |
+| **Custom Guardrail** | Start from a blank slate with your own name and instructions.                                                                                                                  |
+
+Selecting a built-in type pre-populates the name and instructions on the next step, saving you time.
 
 ### Step 2 — Configure the guardrail
 
@@ -62,8 +71,8 @@ Request  >  Before Guardrails  >  LLM  >  After Guardrails  >  Response
 
 Click **Before Guardrails** or **After Guardrails** to select where this guardrail runs:
 
-- **Before Guardrails**: evaluates the incoming request before it reaches the LLM. Use `{{ inputs }}` in your instructions to reference the request content.
-- **After Guardrails**: evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content.
+- **Before Guardrails** — evaluates the incoming request before it reaches the LLM. Use `{{ inputs }}` in your instructions to reference the request content.
+- **After Guardrails** — evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content.
 
 When you switch between stages, the editor automatically swaps `{{ inputs }}` ↔ `{{ outputs }}` in your instructions so they remain correct.
 
@@ -97,8 +106,8 @@ The current endpoint is automatically excluded from the list to prevent circular
 
 Choose what happens when the guardrail triggers (i.e., when the judge returns `"no"`):
 
-- **Block**: the request is rejected immediately with an HTTP 400 response. The response body includes the guardrail name and the judge's rationale so callers can understand why the request was blocked.
-- **Sanitize**: flagged content is redacted or masked, then the (sanitized) request or response is allowed to continue through the pipeline.
+- **Block** — the request is rejected immediately with an HTTP 400 response. The response body includes the guardrail name and the judge's rationale so callers can understand why the request was blocked.
+- **Sanitize** — flagged content is redacted or masked, then the (sanitized) request or response is allowed to continue through the pipeline.
 
 Click **Create Guardrail** to save. The guardrail is immediately active for all traffic through the endpoint.
 
@@ -110,15 +119,18 @@ When a guardrail's action is set to **Block** and the judge determines content i
 HTTP/1.1 400 Bad Request
 
 {
-  "detail": "Guardrail 'pii-detection' blocked: The request contains an email address (user@example.com) which is personally identifiable information."
+  "detail": {
+    "error_code": "INVALID_PARAMETER_VALUE",
+    "message": "Guardrail 'pii-detection' blocked: The request contains an email address (user@example.com) which is personally identifiable information."
+  }
 }
 ```
 
-The `detail` field contains the guardrail name and the judge's rationale, giving clients actionable information about why the request failed.
+The `detail.message` field contains the guardrail name and the judge's rationale, giving clients actionable information about why the request failed.
 
 ## Editing a Guardrail
 
-Click any row in the guardrails table to open the detail panel for that guardrail. You can update the stage, instructions, guardrail model, and action. Changes are saved by clicking **Save**, this registers a new scorer version under the hood and atomically replaces the guardrail on the endpoint so that no requests are dropped during the update.
+Click any row in the guardrails table to open the detail panel for that guardrail. You can update the stage, instructions, guardrail model, and action. Changes are saved by clicking **Save** — this registers a new scorer version under the hood and atomically replaces the guardrail on the endpoint so that no requests are dropped during the update.
 
 The **Save** button is disabled until you make a change, and it remains disabled if instructions contain a validation error (for example, if you switch to the After stage but the instructions still reference `{{ inputs }}`).
 
