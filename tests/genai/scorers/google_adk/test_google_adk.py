@@ -22,7 +22,7 @@ _PATCH_PREFIX = "mlflow.genai.scorers.google_adk"
 
 @pytest.fixture(autouse=True)
 def _mock_adk_installed():
-    with patch(f"{_PATCH_PREFIX}._check_adk_installed"):
+    with patch(f"{_PATCH_PREFIX}.check_adk_installed"):
         yield
 
 
@@ -70,7 +70,7 @@ def test_tool_trajectory_scorer(score, expected_value):
             f"{_PATCH_PREFIX}._create_trajectory_evaluator",
             return_value=_mock_trajectory_evaluator(score),
         ),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = ToolTrajectory(match_type="EXACT", threshold=0.5)
         result = scorer(
@@ -145,7 +145,7 @@ def test_tool_trajectory_error_handling():
 
     with (
         patch(f"{_PATCH_PREFIX}._create_trajectory_evaluator", return_value=mock_evaluator),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = ToolTrajectory()
         result = scorer(
@@ -177,7 +177,7 @@ def test_tool_trajectory_match_types(match_type):
             f"{_PATCH_PREFIX}._create_trajectory_evaluator",
             return_value=_mock_trajectory_evaluator(1.0),
         ) as mock_create,
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = ToolTrajectory(match_type=match_type, threshold=0.5)
         result = scorer(
@@ -197,7 +197,7 @@ def test_tool_trajectory_evaluator_called():
 
     with (
         patch(f"{_PATCH_PREFIX}._create_trajectory_evaluator", return_value=mock_evaluator),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = ToolTrajectory()
         scorer(
@@ -230,7 +230,7 @@ def test_response_match_scorer(score, expected_value):
             f"{_PATCH_PREFIX}._create_rouge_evaluator",
             return_value=_mock_rouge_evaluator(score),
         ),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = ResponseMatch(threshold=0.5)
         result = scorer(
@@ -277,7 +277,7 @@ def test_response_match_uses_reference_key():
             f"{_PATCH_PREFIX}._create_rouge_evaluator",
             return_value=_mock_rouge_evaluator(0.9),
         ),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = ResponseMatch(threshold=0.5)
         result = scorer(
@@ -295,7 +295,7 @@ def test_response_match_error_handling():
 
     with (
         patch(f"{_PATCH_PREFIX}._create_rouge_evaluator", return_value=mock_evaluator),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = ResponseMatch(threshold=0.5)
         result = scorer(
@@ -319,7 +319,7 @@ def test_response_match_evaluator_called():
 
     with (
         patch(f"{_PATCH_PREFIX}._create_rouge_evaluator", return_value=mock_evaluator),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = ResponseMatch(threshold=0.5)
         scorer(
@@ -363,7 +363,7 @@ def test_get_scorer_passes_kwargs():
             f"{_PATCH_PREFIX}._create_trajectory_evaluator",
             return_value=_mock_trajectory_evaluator(1.0),
         ) as mock_create,
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = get_scorer("ToolTrajectory", match_type="ANY_ORDER", threshold=0.8)
         result = scorer(
@@ -464,7 +464,7 @@ def test_response_match_with_trace():
             f"{_PATCH_PREFIX}._create_rouge_evaluator",
             return_value=_mock_rouge_evaluator(0.75),
         ),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = ResponseMatch(threshold=0.5)
         result = scorer(
@@ -479,16 +479,14 @@ def test_response_match_with_trace():
 
 
 # ---------------------------------------------------------------------------
-# _to_invocation helper tests (require google-adk installed)
+# map_scorer_inputs_to_invocation helper tests (require google-adk installed)
 # ---------------------------------------------------------------------------
 
 
-def test_to_invocation_basic():
-    from google.adk.evaluation.eval_case import Invocation  # noqa: F401
+def test_map_scorer_inputs_to_invocation_basic():
+    from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
 
-    from mlflow.genai.scorers.google_adk import _to_invocation
-
-    actual, expected = _to_invocation(
+    actual, expected = map_scorer_inputs_to_invocation(
         inputs="hello",
         outputs="world",
         expectations={
@@ -539,8 +537,8 @@ def test_response_evaluation_scorer(score, expected_value):
             f"{_PATCH_PREFIX}._create_response_evaluation_evaluator",
             return_value=_mock_llm_evaluator(score),
         ),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
-        patch(f"{_PATCH_PREFIX}._run_async", side_effect=lambda coro: _make_eval_result(score)),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.run_async", side_effect=lambda coro: _make_eval_result(score)),
     ):
         scorer = ResponseEvaluation(model="gemini-2.5-flash", threshold=0.5)
         result = scorer(
@@ -593,7 +591,7 @@ def test_safety_scorer(score, expected_value):
             f"{_PATCH_PREFIX}._create_safety_evaluator",
             return_value=_mock_llm_evaluator(score),
         ),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = Safety(model="gemini-2.5-flash", threshold=0.5)
         result = scorer(
@@ -618,7 +616,7 @@ def test_safety_error_handling():
 
     with (
         patch(f"{_PATCH_PREFIX}._create_safety_evaluator", return_value=mock_evaluator),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
     ):
         scorer = Safety()
         result = scorer(inputs="test", outputs="test")
@@ -648,8 +646,8 @@ def test_hallucination_scorer(score, expected_value):
             f"{_PATCH_PREFIX}._create_hallucination_evaluator",
             return_value=_mock_llm_evaluator(score),
         ),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
-        patch(f"{_PATCH_PREFIX}._run_async", side_effect=lambda coro: _make_eval_result(score)),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.run_async", side_effect=lambda coro: _make_eval_result(score)),
     ):
         scorer = Hallucination(model="gemini-2.5-flash", threshold=0.5)
         result = scorer(
@@ -677,8 +675,8 @@ def test_hallucination_error_handling():
             f"{_PATCH_PREFIX}._create_hallucination_evaluator",
             return_value=mock_evaluator,
         ),
-        patch(f"{_PATCH_PREFIX}._to_invocation", return_value=_mock_invocations()),
-        patch(f"{_PATCH_PREFIX}._run_async", side_effect=RuntimeError("Eval failed")),
+        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
+        patch(f"{_PATCH_PREFIX}.run_async", side_effect=RuntimeError("Eval failed")),
     ):
         scorer = Hallucination()
         result = scorer(inputs="test", outputs="test")
@@ -725,12 +723,10 @@ def test_llm_judge_default_model():
         mock_create.assert_called_once_with(0.5, "gemini-2.5-flash", 5)
 
 
-def test_to_invocation_no_expectations():
-    from google.adk.evaluation.eval_case import Invocation  # noqa: F401
+def test_map_scorer_inputs_to_invocation_no_expectations():
+    from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
 
-    from mlflow.genai.scorers.google_adk import _to_invocation
-
-    actual, expected = _to_invocation(
+    actual, expected = map_scorer_inputs_to_invocation(
         inputs="test input",
         outputs="test output",
     )
@@ -739,3 +735,16 @@ def test_to_invocation_no_expectations():
     assert actual.final_response.parts[0].text == "test output"
     assert expected.intermediate_data is None
     assert expected.final_response is None
+
+
+def test_map_scorer_inputs_to_invocation_uses_context_fallback():
+    """`context` key should be respected as a fallback for reference text."""
+    from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
+
+    _, expected = map_scorer_inputs_to_invocation(
+        inputs="q",
+        outputs="a",
+        expectations={"context": "reference from context key"},
+    )
+
+    assert expected.final_response.parts[0].text == "reference from context key"
