@@ -20,35 +20,34 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions: {}
-    env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github/workflows/triage.py
             .github/workflows/triage.md
           sparse-checkout-cone-mode: false
 
-      - run: python .github/workflows/triage.py test
+      - env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python .github/workflows/triage.py test
 
   # Main job: runs on new bug issues
   # Comments are only posted for area/uiux bugs; other bugs are triaged silently for observation.
   triage:
-    if: >-
-      github.event_name == 'issues'
-      && contains(github.event.issue.labels.*.name, 'bug')
+    if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'bug')
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
       issues: write
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       ISSUE_NUMBER: ${{ github.event.issue.number }}
       REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           sparse-checkout: .github/workflows/triage.py
           sparse-checkout-cone-mode: false
 
@@ -67,6 +66,7 @@ jobs:
           fromJSON(steps.triage.outputs.result).comment
           && contains(github.event.issue.labels.*.name, 'area/uiux')
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMENT: ${{ fromJSON(steps.triage.outputs.result).comment }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |

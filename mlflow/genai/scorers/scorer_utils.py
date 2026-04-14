@@ -19,6 +19,20 @@ GATEWAY_PROVIDER = "gateway"
 INSTRUCTIONS_JUDGE_PYDANTIC_DATA = "instructions_judge_pydantic_data"
 BUILTIN_SCORER_PYDANTIC_DATA = "builtin_scorer_pydantic_data"
 
+# Error message used by both the Python client (Scorer._check_can_be_registered) and the
+# server handler (_register_scorer) to consistently reject decorator scorer registration
+# outside of Databricks environments.
+DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR = (
+    "Custom scorer registration (using @scorer decorator) is not supported "
+    "outside of Databricks tracking environments due to security concerns. "
+    "Custom scorers require arbitrary code execution during deserialization.\n\n"
+    "To use custom scorers:\n"
+    "1. Configure MLflow to use a Databricks tracking URI, or\n"
+    "2. Manage your custom scorer code in a source code repository "
+    "(e.g., GitHub) and import it directly, or\n"
+    "3. Use built-in scorers or make_judge() scorers instead."
+)
+
 
 # FunctionBodyExtractor class is forked from https://github.com/unitycatalog/unitycatalog/blob/20dd3820be332ac04deec4e063099fb863eb3392/ai/core/src/unitycatalog/ai/core/utils/callable_utils.py
 class FunctionBodyExtractor(ast.NodeVisitor):

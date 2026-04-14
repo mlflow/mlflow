@@ -4,6 +4,7 @@ import phoenix.evals as phoenix_evals
 import pytest
 
 from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSourceType
 
 
 @pytest.fixture
@@ -124,3 +125,32 @@ def test_phoenix_scorer_error_handling(mock_model):
     assert isinstance(result, Feedback)
     assert result.error is not None
     assert "Evaluation failed" in str(result.error)
+
+
+def test_high_level_scorer_call_chain(monkeypatch):
+    """Exercises the full call chain: Hallucination(model=...) -> scorer(inputs=..., outputs=...)
+    as recommended in docs.
+    """
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    from mlflow.genai.scorers.phoenix import Hallucination
+
+    scorer = Hallucination(model="openai:/gpt-4")
+
+    with patch.object(
+        scorer._evaluator, "evaluate", return_value=("factual", 0.95, "Grounded.")
+    ) as mock_evaluate:
+        feedback = scorer(
+            inputs="What is MLflow?",
+            outputs="MLflow is an open-source platform for managing ML workflows.",
+            expectations={"context": "MLflow is an open-source ML platform."},
+        )
+
+    mock_evaluate.assert_called_once()
+    assert isinstance(feedback, Feedback)
+    assert feedback.name == "Hallucination"
+    assert feedback.value == "factual"
+    assert feedback.metadata["score"] == 0.95
+    assert feedback.rationale == "Grounded."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4"

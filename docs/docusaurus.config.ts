@@ -85,6 +85,71 @@ const config: Config = {
 
   clientModules: [require.resolve('./src/docusaurus.theme.js')],
 
+  headTags: [
+    // Open Graph
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:type', content: 'website' },
+    },
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:site_name', content: 'MLflow' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    // Twitter Card
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:card', content: 'summary_large_image' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:site', content: '@mlflow' },
+    },
+  ],
+
   themeConfig: {
     docs: {
       sidebar: {
@@ -754,7 +819,7 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/governance/ai-gateway/legacy/setup',
+            to: '/genai/governance/ai-gateway',
             from: [
               '/llms/deployments/guides/step1-create-deployments',
               '/llms/gateway/guides/step1-create-gateway',
@@ -766,12 +831,22 @@ const config: Config = {
             from: ['/genai/governance/ai-gateway/setup'],
           },
           {
-            to: '/genai/governance/ai-gateway/legacy/usage',
+            to: '/genai/governance/ai-gateway',
             from: [
               '/llms/deployments/guides/step2-query-deployments',
               '/llms/gateway/guides/step2-query-gateway',
               '/genai/governance/ai-gateway/guides/step2-query-deployments',
               '/genai/governance/ai-gateway/usage',
+            ],
+          },
+          {
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/genai/governance/ai-gateway/legacy',
+              '/genai/governance/ai-gateway/legacy/index',
+              '/genai/governance/ai-gateway/legacy/setup',
+              '/genai/governance/ai-gateway/legacy/configuration',
+              '/genai/governance/ai-gateway/legacy/usage',
             ],
           },
           {

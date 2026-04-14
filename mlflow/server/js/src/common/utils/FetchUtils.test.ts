@@ -12,52 +12,28 @@ import {
   getDefaultHeadersFromCookies,
   HTTPMethods,
   HTTPRetryStatuses,
-  jsonBigIntResponseParser,
   parseResponse,
   yamlResponseParser,
   retry,
   fetchEndpointRaw,
   fetchEndpoint,
   getJson,
-  getBigIntJson,
-  putBigIntJson,
-  patchBigIntJson,
   getYaml,
   putJson,
   putYaml,
   patchJson,
   patchYaml,
   postJson,
-  postBigIntJson,
   postYaml,
   deleteJson,
-  deleteBigIntJson,
   deleteYaml,
 } from './FetchUtils';
 import { ErrorWrapper } from './ErrorWrapper';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
-import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
-
-jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
-  ...jest.requireActual<typeof import('../../experiment-tracking/hooks/useServerInfo')>(
-    '../../experiment-tracking/hooks/useServerInfo',
-  ),
-  getWorkspacesEnabledSync: jest.fn(),
-}));
-
-const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('FetchUtils', () => {
   beforeAll(() => {
-    getWorkspacesEnabledSyncMock.mockReturnValue(true);
     setActiveWorkspace('default');
-
-    // Mock window.location to include workspace query param using Object.defineProperty
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      writable: true,
-      value: new URL('http://localhost:5000/?workspace=default'),
-    });
   });
 
   afterAll(() => {
@@ -78,12 +54,6 @@ describe('FetchUtils', () => {
   describe('getDefaultHeaders', () => {
     afterEach(() => {
       setActiveWorkspace(null);
-      // Restore default workspace in mocked location
-      Object.defineProperty(window, 'location', {
-        configurable: true,
-        writable: true,
-        value: new URL('http://localhost:5000/?workspace=default'),
-      });
     });
 
     it('includes default workspace header when none selected', () => {
@@ -92,12 +62,6 @@ describe('FetchUtils', () => {
 
     it('includes active workspace header when selected', () => {
       setActiveWorkspace('team-a');
-      // Update mocked location to reflect the new workspace
-      Object.defineProperty(window, 'location', {
-        configurable: true,
-        writable: true,
-        value: new URL('http://localhost:5000/?workspace=team-a'),
-      });
       expect(getDefaultHeaders('')).toMatchObject({ 'X-MLFLOW-WORKSPACE': 'team-a' });
     });
   });
@@ -128,13 +92,22 @@ describe('FetchUtils', () => {
       await new Promise(setImmediate);
       expect(mockResolve).toHaveBeenCalledWith({ a: 123, b: 'flying monkey' });
     });
-    it('jsonBigIntResponseParser', async () => {
+    it('defaultResponseParser preserves decimal metrics as numbers', async () => {
       const mockResponse = {
-        text: () => Promise.resolve('{"a": 11111111222222223333333344444445555555555}'),
+        text: () => Promise.resolve('{"metric":{"value":0.00011124613492593128}}'),
       };
-      jsonBigIntResponseParser({ resolve: mockResolve, response: mockResponse });
+      defaultResponseParser({ resolve: mockResolve, response: mockResponse });
       await new Promise(setImmediate);
-      expect(mockResolve).toHaveBeenCalledWith({ a: '11111111222222223333333344444445555555555' });
+      expect(mockResolve).toHaveBeenCalledWith({ metric: { value: 0.00011124613492593128 } });
+      expect(mockResolve.mock.calls[0][0].metric.value).toBeCloseTo(0.00011124613492593128);
+    });
+    it('defaultResponseParser returns objects with a standard prototype', async () => {
+      const mockResponse = {
+        text: () => Promise.resolve('{"metric":{"value":1}}'),
+      };
+      defaultResponseParser({ resolve: mockResolve, response: mockResponse });
+      await new Promise(setImmediate);
+      expect(Object.getPrototypeOf(mockResolve.mock.calls[0][0])).toBe(Object.prototype);
     });
     it('yamlResponseParser', async () => {
       const mockResponse = {
@@ -157,12 +130,6 @@ describe('FetchUtils', () => {
     beforeEach(() => {
       // Ensure workspace is set for these tests (may be cleared by other tests)
       setActiveWorkspace('default');
-      // Update mocked location to include workspace query param
-      Object.defineProperty(window, 'location', {
-        configurable: true,
-        writable: true,
-        value: new URL('http://localhost:5000/?workspace=default'),
-      });
       mockResponse = {
         ok: true,
         status: 200,
@@ -453,12 +420,6 @@ describe('FetchUtils', () => {
     beforeEach(() => {
       // Ensure workspace is set for these tests (may be cleared by other tests)
       setActiveWorkspace('default');
-      // Update mocked location to include workspace query param
-      Object.defineProperty(window, 'location', {
-        configurable: true,
-        writable: true,
-        value: new URL('http://localhost:5000/?workspace=default'),
-      });
       mockResponse = {
         ok: true,
         status: 200,
@@ -480,7 +441,7 @@ describe('FetchUtils', () => {
       jest.clearAllMocks();
     });
     it('GET requests bake data in query params', () => {
-      [getJson, getBigIntJson, getYaml].forEach(async (getCall) => {
+      [getJson, getYaml].forEach(async (getCall) => {
         await getCall({ relativeUrl, data: mockData });
         expect(mockFetch).toHaveBeenCalledWith(
           `${relativeUrl}?group_id=12345&user_id=qwerty&experimental_user=false&null_field=null`,
@@ -498,16 +459,12 @@ describe('FetchUtils', () => {
     it('other requests pass data to request body', () => {
       [
         { fetchCall: putJson, method: HTTPMethods.PUT },
-        { fetchCall: putBigIntJson, method: HTTPMethods.PUT },
         { fetchCall: putYaml, method: HTTPMethods.PUT },
         { fetchCall: patchJson, method: HTTPMethods.PATCH },
-        { fetchCall: patchBigIntJson, method: HTTPMethods.PATCH },
         { fetchCall: patchYaml, method: HTTPMethods.PATCH },
         { fetchCall: postJson, method: HTTPMethods.POST },
-        { fetchCall: postBigIntJson, method: HTTPMethods.POST },
         { fetchCall: postYaml, method: HTTPMethods.POST },
         { fetchCall: deleteJson, method: HTTPMethods.DELETE },
-        { fetchCall: deleteBigIntJson, method: HTTPMethods.DELETE },
         { fetchCall: deleteYaml, method: HTTPMethods.DELETE },
       ].forEach((args) => {
         const { fetchCall, method } = args;

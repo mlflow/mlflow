@@ -403,6 +403,12 @@ mlflow.entities.GatewayEndpointModelMapping.to_proto
 mlflow.entities.GatewayEndpointTag
 mlflow.entities.GatewayEndpointTag.from_proto
 mlflow.entities.GatewayEndpointTag.to_proto
+mlflow.entities.GatewayGuardrail
+mlflow.entities.GatewayGuardrail.from_proto
+mlflow.entities.GatewayGuardrail.to_proto
+mlflow.entities.GatewayGuardrailConfig
+mlflow.entities.GatewayGuardrailConfig.from_proto
+mlflow.entities.GatewayGuardrailConfig.to_proto
 mlflow.entities.GatewayModelDefinition
 mlflow.entities.GatewayModelDefinition.from_proto
 mlflow.entities.GatewayModelDefinition.to_proto
@@ -413,6 +419,12 @@ mlflow.entities.GatewayResourceType
 mlflow.entities.GatewaySecretInfo
 mlflow.entities.GatewaySecretInfo.from_proto
 mlflow.entities.GatewaySecretInfo.to_proto
+mlflow.entities.GuardrailAction
+mlflow.entities.GuardrailAction.from_proto
+mlflow.entities.GuardrailAction.to_proto
+mlflow.entities.GuardrailStage
+mlflow.entities.GuardrailStage.from_proto
+mlflow.entities.GuardrailStage.to_proto
 mlflow.entities.InferenceTableLocation
 mlflow.entities.InferenceTableLocation.from_dict
 mlflow.entities.InferenceTableLocation.from_proto
@@ -646,6 +658,10 @@ mlflow.entities.gateway_endpoint.GatewayModelDefinition
 mlflow.entities.gateway_endpoint.GatewayModelLinkageType
 mlflow.entities.gateway_endpoint.GatewayResourceType
 mlflow.entities.gateway_endpoint.RoutingStrategy
+mlflow.entities.gateway_guardrail.GatewayGuardrail
+mlflow.entities.gateway_guardrail.GatewayGuardrailConfig
+mlflow.entities.gateway_guardrail.GuardrailAction
+mlflow.entities.gateway_guardrail.GuardrailStage
 mlflow.entities.gateway_secrets.GatewaySecretInfo
 mlflow.entities.input_tag.InputTag
 mlflow.entities.issue.Issue
@@ -751,6 +767,7 @@ mlflow.gateway.base_models.ConfigModel
 mlflow.gateway.config.AI21LabsConfig
 mlflow.gateway.config.AI21LabsConfig.validate_ai21labs_api_key
 mlflow.gateway.config.AWSBaseConfig
+mlflow.gateway.config.AWSBearerToken
 mlflow.gateway.config.AWSIdAndKey
 mlflow.gateway.config.AWSRole
 mlflow.gateway.config.AliasedConfigModel
@@ -798,6 +815,7 @@ mlflow.gateway.config.RouteDestinationConfig
 mlflow.gateway.config.TogetherAIConfig
 mlflow.gateway.config.TogetherAIConfig.validate_togetherai_api_key
 mlflow.gateway.config.TrafficRouteConfig
+mlflow.gateway.config.VertexAIConfig
 mlflow.gateway.get_gateway_uri
 mlflow.gateway.set_gateway_uri
 mlflow.gemini.autolog
@@ -1721,6 +1739,10 @@ mlflow.tensorflow.load_model
 mlflow.tensorflow.log_model
 mlflow.tensorflow.save_model
 mlflow.trace
+mlflow.tracing.attachments.Attachment
+mlflow.tracing.attachments.Attachment.from_file
+mlflow.tracing.attachments.Attachment.parse_ref
+mlflow.tracing.attachments.Attachment.ref
 mlflow.tracing.configure
 mlflow.tracing.context
 mlflow.tracing.disable

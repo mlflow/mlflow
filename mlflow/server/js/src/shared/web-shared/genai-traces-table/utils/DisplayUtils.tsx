@@ -37,20 +37,11 @@ export function getDisplayOverallScoreAndChange(
   aggregateType: 'average' | 'percentage-true' | 'categorical';
 } {
   if (assessmentInfo.dtype === 'numeric') {
-    // Compute the average score for displayScore, and the change in average for displayScoreChange.
-    const currentNumericValues = assessmentDisplayInfo.currentNumericValues;
-    const otherNumericValues = assessmentDisplayInfo.otherNumericValues;
+    const currentAverage = assessmentDisplayInfo.currentNumericAverage ?? NaN;
+    const otherAverage = assessmentDisplayInfo.otherNumericAverage;
 
-    let currentAverage = NaN;
-    let otherAverage = NaN;
-    if (currentNumericValues) {
-      currentAverage = currentNumericValues.reduce((a, b) => a + b, 0) / currentNumericValues.length;
-    }
-    if (otherNumericValues) {
-      otherAverage = otherNumericValues.reduce((a, b) => a + b, 0) / otherNumericValues.length;
-    }
     const displayScore = displayFloat(currentAverage, 2);
-    const scoreChange = otherNumericValues ? currentAverage - otherAverage : undefined;
+    const scoreChange = otherAverage !== undefined ? currentAverage - otherAverage : undefined;
     const changeDirection = scoreChange ? (scoreChange > 0 ? 'up' : 'down') : 'none';
 
     const displayScoreChange = scoreChange

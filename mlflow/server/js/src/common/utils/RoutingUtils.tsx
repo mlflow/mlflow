@@ -97,8 +97,9 @@ const prefixRouteWithWorkspaceForTo = (to: To): To => {
   if (typeof to === 'object' && to !== null) {
     const pathname = 'pathname' in to ? to.pathname : undefined;
 
-    // Skip if workspaces not enabled or pathname not provided
-    if (!getWorkspacesEnabledSync() || typeof pathname !== 'string') {
+    // Keep workspace prefixing when an active workspace is already known, even
+    // if the async server feature flags have not resolved yet.
+    if ((!getWorkspacesEnabledSync() && !getActiveWorkspace()) || typeof pathname !== 'string') {
       return to;
     }
 
@@ -199,6 +200,7 @@ export {
 export const createLazyRouteElement = (
   // Load the module's default export and turn it into React Element
   componentLoader: () => Promise<{ default: React.ComponentType<React.PropsWithChildren<any>> }>,
+  // eslint-disable-next-line @databricks/react-lazy-only-at-top-level
 ) => React.createElement(React.lazy(componentLoader));
 export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
   React.createElement(component);

@@ -70,7 +70,6 @@ def _setup_job_runner(
         SqlAlchemyJobStore(backend_store_uri)
 
         with _launch_job_runner_for_test() as job_runner_proc:
-            time.sleep(10)
             yield job_runner_proc
     finally:
         # Clear the huey instance cache AFTER killing the runner to ensure clean state for next test

@@ -4,12 +4,12 @@
 # This file will be replaced by `pyproject.release.toml` when releasing a new version.
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools<=82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.11.1.dev0"
+version = "3.11.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -29,6 +29,7 @@ requires-python = ">=3.10"
 dependencies = [
   "Flask-CORS<7",
   "Flask<4",
+  "aiohttp<4",
   "alembic<2,!=1.10.0",
   "cachetools<8,>=5.0.0",
   "click<9,>=7.0",
@@ -96,7 +97,6 @@ mlserver = [
   "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
 ]
 gateway = [
-  "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
   "slowapi<1,>=0.1.9",
@@ -105,11 +105,8 @@ gateway = [
   "watchfiles<2",
 ]
 genai = [
-  "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
-  "gepa<1,>=0.0.26",
-  "litellm<2,>=1.0.0",
   "slowapi<1,>=0.1.9",
   "tiktoken<1",
   "uvicorn[standard]<1",
@@ -158,6 +155,7 @@ mlflow = [
   "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
+  "utils/model_catalog/*.json",
 ]
 
 [tool.setuptools.packages.find]
@@ -184,6 +182,7 @@ lint = [
   "toml==0.10.2",
   "types-toml",
   "mypy==1.17.1",
+  "ty==0.0.24",
   "pydantic>=2.0",
   "clint",
   "pyyaml>=6.0.2",
@@ -228,9 +227,6 @@ docs = [
   "pyspark",
   "datasets",
   "plotly",
-  "torch>=1.11.0",
-  "torchvision>=0.12.0,!=0.24.0",
-  "lightning>=1.8.1",
   "Flask-WTF<2",
   "polars>=1",
   "openai",
@@ -238,12 +234,13 @@ docs = [
   "deepeval",
   "ragas",
   "instructor",
-  "litellm",
   "langchain-community>=0.3.0",
 ]
 
 [tool.uv]
-required-version = ">=0.9.8"
+exclude-newer = "P14D"
+exclude-newer-package = { torch = false, torchvision = false }
+required-version = ">=0.10.12"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
@@ -255,9 +252,9 @@ constraint-dependencies = [
   "pyspark<4.1.0",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
-  # claude-agent-sdk 0.1.49 only published macOS ARM64 wheel, missing all other platforms
-  # https://github.com/anthropics/claude-agent-sdk-python/issues/687
-  "claude-agent-sdk!=0.1.49",
+  # litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
+  # https://github.com/BerriAI/litellm/issues/24512
+  "litellm<=1.82.6",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer
@@ -399,6 +396,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
+"dev/benchmarks/*" = ["T20"]
 "examples/*" = ["T20", "RET504", "E501"]
 "docs/*" = ["T20", "RET504", "E501"]
 "mlflow/*" = ["PT018"]
@@ -458,18 +456,10 @@ example-rules = [
 ]
 
 [tool.clint.per-file-ignores]
-# Rules that should only be enabled for files in the root mlflow directory
-"^(?!mlflow/).*$" = [
-  "forbidden-set-active-model-usage",
-  "unnamed-thread",
-  "unnamed-thread-pool",
-]
+"^(?!mlflow/).*$" = ["forbidden-set-active-model-usage"]
+"^(?!mlflow/|tests/).*$" = ["unnamed-thread", "unnamed-thread-pool"]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
-# New experimental TruLens agent scorers - not yet in clint's static allowlist.
-"mlflow/genai/scorers/trulens/scorers/agent_trace.py" = [
-  "unknown-mlflow-function",
-]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]

@@ -11,8 +11,7 @@ python dev/set_matrix.py
 python dev/set_matrix.py --no-dev
 
 # Test items affected by config file updates
-python dev/set_matrix.py --ref-versions-yaml \
-    "https://raw.githubusercontent.com/mlflow/mlflow/master/ml-package-versions.yml"
+python dev/set_matrix.py --ref-versions-yaml /path/to/ref-versions.yml
 
 # Test items affected by flavor module updates
 python dev/set_matrix.py --changed-files "mlflow/sklearn/__init__.py"
@@ -35,7 +34,7 @@ import shutil
 import sys
 import warnings
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, TypeVar
 
@@ -177,13 +176,8 @@ class MatrixItem(BaseModel):
 
 def read_yaml(location, if_error=None):
     try:
-        if re.match(r"^https?://", location):
-            resp = requests.get(location)
-            resp.raise_for_status()
-            yaml_dict = yaml.safe_load(resp.text)
-        else:
-            with open(location) as f:
-                yaml_dict = yaml.safe_load(f)
+        with open(location) as f:
+            yaml_dict = yaml.safe_load(f)
         return {name: FlavorConfig(**cfg) for name, cfg in yaml_dict.items()}
     except Exception as e:
         if if_error is not None:
@@ -192,8 +186,12 @@ def read_yaml(location, if_error=None):
         raise
 
 
+RELEASE_CUTOFF_DAYS = 14
+
+
 def get_released_versions(package_name: str) -> list[Version]:
     data = pypi_json(package_name)
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=RELEASE_CUTOFF_DAYS)
     versions: list[Version] = []
     for version_str, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
@@ -207,6 +205,11 @@ def get_released_versions(package_name: str) -> list[Version]:
         ]
 
         release_date = min(upload_times) if upload_times else None
+
+        # Exclude versions with unknown release dates or released on/after the cutoff date
+        if not release_date or release_date >= cutoff:
+            continue
+
         try:
             version = Version(version_str, release_date)
         except InvalidVersion:
@@ -405,7 +408,7 @@ def remove_comments(s):
 
 
 def make_pip_install_command(packages):
-    return "pip install " + " ".join(f"'{x}'" for x in packages)
+    return "uv pip install --system " + " ".join(f"'{x}'" for x in packages)
 
 
 def divider(title, length=None):
@@ -677,7 +680,9 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                     )
                 )
 
-            if package_info.install_dev:
+            # Skip dev version testing: install_dev installs from git, which
+            # doesn't respect UV_EXCLUDE_NEWER.
+            if False:  # package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
                 if requirements := get_matched_requirements(cfg.requirements or {}, DEV_VERSION):
                     install = make_pip_install_command(requirements) + "\n" + install_dev

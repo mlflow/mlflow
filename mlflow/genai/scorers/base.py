@@ -14,6 +14,9 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.scorer_utils import (
+    DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
+)
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
@@ -375,7 +378,7 @@ class Scorer(BaseModel):
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
                     inference_params=data.get("inference_params"),
-                    # TODO: add aggregations here once we support boolean/numeric judge outputs
+                    aggregations=serialized.aggregations,
                 )
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
@@ -441,14 +444,7 @@ class Scorer(BaseModel):
                 code_snippet += f"    {line}\n"
 
             raise MlflowException.invalid_parameter_value(
-                f"Loading custom scorer '{serialized.name}' is not supported outside of "
-                "Databricks environments due to security concerns. Custom scorers "
-                "require arbitrary code execution during deserialization.\n\n"
-                "To use this scorer, please:\n"
-                "1. Configure MLflow to use a Databricks tracking URI, or\n"
-                "2. Copy the code below and save it in your source code repository\n"
-                "3. Import and use it directly in your code, or\n"
-                "4. Use built-in scorers or make_judge() scorers instead\n\n"
+                f"{DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR}\n"
                 f"Registered scorer code:\n{code_snippet}"
             )
 
@@ -952,14 +948,7 @@ class Scorer(BaseModel):
         # to ensure loaded scorers can only be executed in controlled environments.
         if self.kind == ScorerKind.DECORATOR and not is_databricks_uri(get_tracking_uri()):
             raise MlflowException.invalid_parameter_value(
-                "Custom scorer registration (using @scorer decorator) is not supported "
-                "outside of Databricks tracking environments due to security concerns. "
-                "Custom scorers require arbitrary code execution during deserialization.\n\n"
-                "To use custom scorers:\n"
-                "1. Configure MLflow to use a Databricks tracking URI, or\n"
-                "2. Manage your custom scorer code in a source code repository "
-                "(e.g., GitHub) and import it directly, or\n"
-                "3. Use built-in scorers or make_judge() scorers instead"
+                DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
             )
 
         store = _get_scorer_store()

@@ -356,17 +356,18 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
     return calculate_cost_by_model_and_token_usage(model_name, usage, model_provider)
 
 
+# Model URI prefixes that are internal routing identifiers (not real model names).
+# Cost lookup would never find them in the catalog and just wastes time.
+_SKIP_COST_PREFIXES = ("gateway:/", "endpoints:/")
+
+
 def calculate_cost_by_model_and_token_usage(
     model_name: str | None, usage: dict[str, int] | None, model_provider: str | None = None
 ) -> dict[str, float] | None:
     if not model_name or not usage:
         return None
 
-    try:
-        import litellm
-        from litellm import cost_per_token
-    except ImportError:
-        _logger.debug("LiteLLM not available for cost calculation")
+    if model_name.startswith(_SKIP_COST_PREFIXES):
         return None
 
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
@@ -381,46 +382,59 @@ def calculate_cost_by_model_and_token_usage(
     if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_creation_input_tokens"] = created
 
-    original_suppress = None
     try:
-        # Suppress litellm debug messages (e.g. "Provider List: ...") unless
-        # MLflow's logger is set to DEBUG level.
+        import litellm
+        from litellm import cost_per_token
+    except ImportError:
+        from mlflow.utils.providers import cost_per_token
+
+        litellm = None
+
+    if litellm is not None:
         original_suppress = getattr(litellm, "suppress_debug_info")
-        litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
-        input_cost_usd, output_cost_usd = cost_per_token(
-            model=model_name,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            **cache_kwargs,
-        )
-    except Exception as e:
+
+    try:
+        if litellm is not None:
+            # Suppress litellm debug messages (e.g. "Provider List: ...") unless
+            # MLflow's logger is set to DEBUG level.
+            litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
+
+        # When provider is known, try it first — this is a fast single-provider lookup
+        # and avoids the slower all-provider scan.
+        result = None
         if model_provider:
-            # pass model_provider only in exception case to avoid invalid model_provider
-            # being used when model_name itself is enough to calculate cost, since model_provider
-            # field can be with any value and litellm may not support it.
             try:
-                input_cost_usd, output_cost_usd = cost_per_token(
+                result = cost_per_token(
                     model=model_name,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
-                    custom_llm_provider=model_provider,
+                    custom_llm_provider=model_provider.lower(),
                     **cache_kwargs,
                 )
-            except Exception as e:
-                _logger.debug(
-                    f"Failed to calculate cost for model {model_name}: {e}", exc_info=True
+            except Exception:
+                pass
+
+        # Fallback: try without provider (for litellm this may match by model name alone,
+        # for builtin this scans bundled providers).
+        if result is None:
+            try:
+                result = cost_per_token(
+                    model=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    **cache_kwargs,
                 )
-                return None
-        else:
-            _logger.debug(
-                f"Failed to calculate cost for model {model_name} without provider: {e}",
-                exc_info=True,
-            )
-            return None
+            except Exception:
+                pass
     finally:
-        if original_suppress is not None:
+        if litellm is not None:
             litellm.suppress_debug_info = original_suppress
 
+    if result is None:
+        _logger.debug(f"Failed to calculate cost for model {model_name}")
+        return None
+
+    input_cost_usd, output_cost_usd = result
     return {
         CostKey.INPUT_COST: input_cost_usd,
         CostKey.OUTPUT_COST: output_cost_usd,

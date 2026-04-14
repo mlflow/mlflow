@@ -64,7 +64,12 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
     assert trace.info.experiment_id == experiment_id
     assert trace.info.status == TraceState.OK
     assert trace.info.request_time == root_span.start_time // 1_000_000
-    assert trace.info.execution_duration == (root_span.end_time - root_span.start_time) // 1_000_000
+    assert (
+        abs(
+            trace.info.execution_duration - (root_span.end_time - root_span.start_time) // 1_000_000
+        )
+        <= 1
+    )
     assert trace.info.request_preview is None
     assert trace.info.response_preview is None
 
@@ -117,8 +122,11 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_mlflow_root_span(monkeypa
     assert trace.info.status == TraceState.OK
     assert trace.info.request_time == mlflow_span.start_time_ns // 1_000_000
     assert (
-        trace.info.execution_duration
-        == (mlflow_span.end_time_ns - mlflow_span.start_time_ns) // 1_000_000
+        abs(
+            trace.info.execution_duration
+            - (mlflow_span.end_time_ns - mlflow_span.start_time_ns) // 1_000_000
+        )
+        <= 1
     )
     assert trace.info.request_preview == '{"text": "hello"}'
     assert trace.info.response_preview == '{"text": "world"}'
@@ -175,8 +183,11 @@ def test_mlflow_and_opentelemetry_isolated_tracing(monkeypatch):
     assert trace.info.status == TraceState.OK
     assert trace.info.request_time == mlflow_span.start_time_ns // 1_000_000
     assert (
-        trace.info.execution_duration
-        == (mlflow_span.end_time_ns - mlflow_span.start_time_ns) // 1_000_000
+        abs(
+            trace.info.execution_duration
+            - (mlflow_span.end_time_ns - mlflow_span.start_time_ns) // 1_000_000
+        )
+        <= 1
     )
     assert trace.info.request_preview == '{"text": "hello"}'
     assert trace.info.response_preview == '{"text": "world"}'

@@ -2,12 +2,12 @@
 # This file defines the package metadata of `mlflow-tracing`.
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools<=82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-tracing"
-version = "3.11.1.dev0"
+version = "3.11.2.dev0"
 description = "MLflow Tracing SDK is an open-source, lightweight Python package that only includes the minimum set of dependencies and functionality to instrument your code/models/agents with MLflow Tracing."
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]

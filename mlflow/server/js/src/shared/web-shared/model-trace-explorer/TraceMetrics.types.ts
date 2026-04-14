@@ -64,6 +64,17 @@ export enum TraceStatus {
 }
 
 /**
+ * Dimension keys for trace metrics.
+ * Based on mlflow/tracing/constant.py TraceMetricDimensionKey
+ */
+export enum TraceDimensionKey {
+  /** Trace name dimension */
+  TRACE_NAME = 'trace_name',
+  /** Trace status dimension (OK, ERROR) */
+  TRACE_STATUS = 'trace_status',
+}
+
+/**
  * Creates a trace filter expression string.
  * @param field - The field to filter on (e.g., TraceFilterKey.STATUS)
  * @param value - The value to match (e.g., TraceStatus.ERROR)

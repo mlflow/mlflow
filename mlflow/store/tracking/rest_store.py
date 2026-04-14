@@ -2121,16 +2121,12 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         Log multiple span entities to the tracking store via the OTel API.
 
         Args:
-            location: The location to log spans to. It should be experiment ID of an MLflow
-                experiment.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            location: Experiment ID of an MLflow experiment.
+            spans: List of Span entities to log.
             tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         if not spans:
             return []
@@ -2146,13 +2142,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             raise NotImplementedError(
                 f"log_spans is not supported: MLflow server version {server_version} is"
                 f" less than 3.4"
-            )
-
-        trace_ids = {span.trace_id for span in spans}
-        if len(trace_ids) > 1:
-            raise MlflowException(
-                f"All spans must belong to the same trace. Found trace IDs: {trace_ids}",
-                error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 
         request = ExportTraceServiceRequest()
@@ -2177,18 +2166,13 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         return spans
 
     async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """
-        Async wrapper for log_spans method.
+        """Async wrapper for log_spans. Delegates to the synchronous implementation.
 
         Args:
-            location: The location to log spans to. It should be experiment ID of an MLflow
-                experiment.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            location: Experiment ID of an MLflow experiment.
+            spans: List of Span entities to log.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         return self.log_spans(location, spans)

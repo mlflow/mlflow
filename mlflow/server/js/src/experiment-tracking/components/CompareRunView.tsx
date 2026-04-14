@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
-import { Spacer, Switch, LegacyTabs, LegacyTooltip, Tooltip, Typography } from '@databricks/design-system';
+import { Spacer, Switch, LegacyTabs, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -263,13 +263,13 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       );
     }
     return (
-      <table
+      <CompareRunTable
         className="table mlflow-compare-table mlflow-compare-run-table"
         css={{ maxHeight: '500px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
         <tbody>{dataRows}</tbody>
-      </table>
+      </CompareRunTable>
     );
   }
 
@@ -329,13 +329,13 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       );
     }
     return (
-      <table
+      <CompareRunTable
         className="table mlflow-compare-table mlflow-compare-run-table"
         css={{ maxHeight: '500px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
         <tbody>{dataRows}</tbody>
-      </table>
+      </CompareRunTable>
     );
   }
 
@@ -514,7 +514,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             description: 'Compare table title on the compare runs page',
           })}
         >
-          <table
+          <CompareRunTable
             className="table mlflow-compare-table mlflow-compare-run-table"
             ref={this.runDetailsTableRef}
             onScroll={this.onCompareRunTableScrollHandler}
@@ -586,7 +586,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
                 </tr>
               )}
             </tbody>
-          </table>
+          </CompareRunTable>
         </CollapsibleSection>
         <CollapsibleSection title={paramsLabel}>
           <Switch
@@ -690,16 +690,15 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             const cellText = value === undefined ? '' : formatter(value);
             return (
               <td className="data-value" key={this.props.runInfos[i].runUuid} css={colWidthStyle}>
-                <LegacyTooltip
-                  title={cellText}
-                  // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
-                  color="gray"
-                  placement="topLeft"
-                  overlayStyle={{ maxWidth: '400px' }}
-                  mouseEnterDelay={1.0}
+                <Tooltip
+                  componentId="mlflow.compare_runs.data_cell"
+                  content={cellText}
+                  side="top"
+                  align="start"
+                  maxWidth={400}
                 >
                   <span className="truncate-text single-line">{cellText}</span>
-                </LegacyTooltip>
+                </Tooltip>
               </td>
             );
           })}
@@ -763,5 +762,28 @@ const parsePythonDictString = (value: string) => {
     return null;
   }
 };
+
+const CompareRunTable = React.forwardRef<HTMLTableElement, React.ComponentPropsWithoutRef<'table'>>(
+  function CompareRunTable({ style, ...props }, ref) {
+    const { theme } = useDesignSystemTheme();
+    return (
+      <table
+        ref={ref}
+        style={
+          {
+            '--mlflow-compare-border-color': theme.colors.border,
+            '--mlflow-compare-header-color': theme.colors.textPrimary,
+            '--mlflow-compare-header-bg': theme.colors.backgroundSecondary,
+            '--mlflow-compare-diff-bg': theme.colors.backgroundWarning,
+            '--mlflow-compare-diff-color': theme.colors.textSecondary,
+            '--mlflow-compare-hover-bg': theme.colors.backgroundSecondary,
+            ...style,
+          } as React.CSSProperties
+        }
+        {...props}
+      />
+    );
+  },
+);
 
 export default connect(mapStateToProps)(injectIntl(CompareRunView));

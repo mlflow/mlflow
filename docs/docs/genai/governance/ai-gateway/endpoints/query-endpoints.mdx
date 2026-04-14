@@ -1,5 +1,6 @@
 ---
 title: Query Endpoints
+description: Query MLflow AI Gateway endpoints using the MLflow unified API, OpenAI-compatible chat completions interface, or native passthrough APIs for OpenAI, Anthropic, and Google Gemini.
 ---
 
 import Tabs from "@theme/Tabs";
@@ -342,21 +343,6 @@ print(response.candidates[0].content.parts[0].text)
 The MLflow AI Gateway's OpenAI-compatible API makes it easy to integrate with popular LLM frameworks. Simply point your framework to the gateway's base URL and use your endpoint name as the model.
 
 <Tabs>
-<TabItem value="litellm" label="LiteLLM" default>
-
-```python
-import litellm
-
-response = litellm.completion(
-    model="openai/my-endpoint",
-    messages=[{"role": "user", "content": "Hello!"}],
-    api_base="http://localhost:5000/gateway/mlflow/v1",
-    api_key="not-needed",
-)
-print(response.choices[0].message.content)
-```
-
-</TabItem>
 <TabItem value="langchain" label="LangChain">
 
 ```python
@@ -420,6 +406,21 @@ set_default_openai_client(client)
 agent = Agent(name="Assistant", instructions="You are helpful.", model="my-endpoint")
 result = await Runner.run(agent, input="Hello!")
 print(result.final_output)
+```
+
+</TabItem>
+<TabItem value="litellm" label="LiteLLM" default>
+
+```python
+import litellm
+
+response = litellm.completion(
+    model="openai/my-endpoint",
+    messages=[{"role": "user", "content": "Hello!"}],
+    api_base="http://localhost:5000/gateway/mlflow/v1",
+    api_key="not-needed",
+)
+print(response.choices[0].message.content)
 ```
 
 </TabItem>

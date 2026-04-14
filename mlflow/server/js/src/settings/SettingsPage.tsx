@@ -49,7 +49,7 @@ const SettingsPage = () => {
         method: HTTPMethods.POST,
       });
     } catch (error) {
-      console.error('Failed to clear demo data:', error);
+      // fail silently
     } finally {
       setIsCleaningDemo(false);
     }

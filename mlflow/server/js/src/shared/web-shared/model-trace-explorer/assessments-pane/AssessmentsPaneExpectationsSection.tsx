@@ -38,7 +38,8 @@ export const AssessmentsPaneExpectationsSection = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          height: theme.spacing.lg,
+          marginTop: theme.spacing.sm,
+          marginBottom: theme.spacing.sm,
           flexShrink: 0,
         }}
       >
@@ -49,8 +50,6 @@ export const AssessmentsPaneExpectationsSection = ({
           />{' '}
           {!isEmpty(sortedExpectations) && <>({sortedExpectations?.length})</>}
         </Typography.Text>
-      </div>
-      <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
         {!isEmpty(sortedExpectations) && <AddExpectationButton onClick={() => setCreateFormVisible(true)} />}
       </div>
       {sortedExpectations.length > 0 ? (
@@ -101,7 +100,7 @@ export const AssessmentsPaneExpectationsSection = ({
         <AssessmentCreateForm
           spanId={activeSpanId}
           traceId={traceId}
-          initialAssessmentType="expectation"
+          assessmentType="expectation"
           setExpanded={() => setCreateFormVisible(false)}
         />
       )}
