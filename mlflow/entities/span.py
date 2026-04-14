@@ -415,24 +415,30 @@ class Span:
             if location_id
             else generate_mlflow_trace_id_from_otel_trace_id(trace_id)
         )
+        # Decode proto attributes and store as JSON-encoded strings to match set_attribute behavior.
+        # For string values, keep JSON-encoded complex values (dict/list) as-is; dump simple strings
+        # so they round-trip correctly through _SpanAttributesRegistry.get() (which calls json.loads).
+        proto_attrs: dict[str, str] = {}
+        for attr in otel_proto_span.attributes:
+            v = _decode_otel_proto_anyvalue(attr.value)
+            if isinstance(v, str):
+                try:
+                    decoded = json.loads(v)
+                    proto_attrs[attr.key] = v if isinstance(decoded, (dict, list)) else dump_span_attribute_value(v)
+                except (json.JSONDecodeError, TypeError):
+                    proto_attrs[attr.key] = dump_span_attribute_value(v)
+            else:
+                proto_attrs[attr.key] = dump_span_attribute_value(v)
+        # Include the MLflow trace request ID only if it's not already present in attributes
+        if SpanAttributeKey.REQUEST_ID not in proto_attrs:
+            proto_attrs[SpanAttributeKey.REQUEST_ID] = dump_span_attribute_value(mlflow_trace_id)
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
-            # we need to dump the attribute value to be consistent with span.set_attribute behavior
-            attributes={
-                # Include the MLflow trace request ID only if it's not already present in attributes
-                SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
-                **{
-                    attr.key: (
-                        v if isinstance(v := _decode_otel_proto_anyvalue(attr.value), str)
-                        else dump_span_attribute_value(v)
-                    )
-                    for attr in otel_proto_span.attributes
-                },
-            },
+            attributes=proto_attrs,
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
                 OTelEvent(
@@ -472,10 +478,20 @@ class Span:
 
         otel_span.status.CopyFrom(self.status.to_otel_proto_status())
 
-        for key, value in self._span.attributes.items():
+        for key, raw_value in self._span.attributes.items():
             attr = otel_span.attributes.add()
             attr.key = key
-            _set_otel_proto_anyvalue(attr.value, value)
+            if isinstance(raw_value, str):
+                try:
+                    decoded = json.loads(raw_value)
+                    # Keep dict/list values as JSON strings (string_value in OTLP);
+                    # decode primitive values so they use their native OTLP types.
+                    value = raw_value if isinstance(decoded, (dict, list)) else decoded
+                except (json.JSONDecodeError, TypeError):
+                    value = raw_value
+                _set_otel_proto_anyvalue(attr.value, value)
+            else:
+                _set_otel_proto_anyvalue(attr.value, raw_value)
 
         for event in self.events:
             otel_event = event.to_otel_proto()

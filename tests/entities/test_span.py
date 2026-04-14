@@ -434,6 +434,33 @@ def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
     assert attr_by_key["mlflow.spanOutputs"].HasField("string_value")
 
 
+def test_live_span_to_otel_proto_string_attributes():
+    """Regression test: LiveSpan attributes stored as JSON-encoded strings must be
+    decoded to plain types in OTLP output (e.g. spanType should be 'LLM', not '"LLM"').
+    Dict/list values must remain encoded as string_value."""
+    span_inputs = {"messages": [{"role": "user", "content": "hello"}]}
+    span_outputs = {"text": "world"}
+
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("live_span_proto") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id="tr-12345", span_type=SpanType.LLM)
+        span.set_inputs(span_inputs)
+        span.set_outputs(span_outputs)
+
+    otel_proto = span.to_otel_proto()
+    attr_by_key = {attr.key: attr.value for attr in otel_proto.attributes}
+
+    # String attributes should be plain strings, not JSON-quoted (e.g. "LLM" not '"LLM"')
+    assert attr_by_key["mlflow.spanType"].HasField("string_value")
+    assert attr_by_key["mlflow.spanType"].string_value == "LLM"
+
+    # Structured values should remain JSON-encoded as string_value
+    assert attr_by_key["mlflow.spanInputs"].HasField("string_value")
+    assert json.loads(attr_by_key["mlflow.spanInputs"].string_value) == span_inputs
+    assert attr_by_key["mlflow.spanOutputs"].HasField("string_value")
+    assert json.loads(attr_by_key["mlflow.spanOutputs"].string_value) == span_outputs
+
+
 def test_span_from_otel_proto_conversion():
     # Create OTel proto span
     otel_proto = OTelProtoSpan()
