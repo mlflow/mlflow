@@ -81,10 +81,12 @@ class LocalStorageStore {
   setItem(key: any, value: any) {
     try {
       this.storageObj.setItem(this.withScopePrefix(key), value);
-    } catch {
-      // Silently ignore QuotaExceededError — this happens when persisting
-      // large state (e.g. 3000+ chart configs). The app continues to work
-      // without persistence; the state will be regenerated on next visit.
+    } catch (e) {
+      if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
+        console.warn('localStorage quota exceeded — state will not be persisted');
+      } else {
+        throw e;
+      }
     }
   }
 

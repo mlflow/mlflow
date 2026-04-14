@@ -341,8 +341,12 @@ export const RunViewMetricCharts = (props: RunViewMetricChartsProps) => {
       if (serialized.length < 1_000_000) {
         localStore.setItem('chartUIState', serialized);
       }
-    } catch {
-      // Ignore localStorage errors (quota exceeded, etc.)
+    } catch (e) {
+      if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
+        console.warn('localStorage quota exceeded — chart UI state will not be persisted');
+      } else {
+        throw e;
+      }
     }
   }, [chartUIState, localStore]);
 

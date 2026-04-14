@@ -151,8 +151,12 @@ const loadPersistedDataFromStorage = async (storeIdentifier: string) => {
 const saveDataToStorage = async (storeIdentifier: string, dataToPersist: LoggedModelsChartsUIConfiguration) => {
   try {
     localStorage.setItem(createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
-  } catch {
-    // Ignore QuotaExceededError
+  } catch (e) {
+    if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
+      console.warn('localStorage quota exceeded — chart UI state will not be persisted');
+    } else {
+      throw e;
+    }
   }
 };
 

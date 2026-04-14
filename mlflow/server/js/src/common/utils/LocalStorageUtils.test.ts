@@ -61,7 +61,7 @@ test('Session scoped storage works', () => {
   });
 });
 
-test('QuotaExceededError is silently caught and does not crash the app', () => {
+test('QuotaExceededError is caught and does not crash the app', () => {
   const originalSetItem = Storage.prototype.setItem;
 
   // Simulate QuotaExceededError on every setItem call

@@ -153,8 +153,12 @@ const saveDataToStorage = async (
 ) => {
   try {
     localStorage.setItem(createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
-  } catch {
-    // Ignore QuotaExceededError
+  } catch (e) {
+    if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
+      console.warn('localStorage quota exceeded — evaluation chart state will not be persisted');
+    } else {
+      throw e;
+    }
   }
 };
 
