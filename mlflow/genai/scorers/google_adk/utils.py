@@ -30,6 +30,29 @@ def _to_str(value: Any) -> str:
     return str(value)
 
 
+def _extract_actual_tool_calls(
+    expectations: dict[str, Any] | None,
+    trace: Trace | None,
+) -> list[dict[str, Any]]:
+    """Resolve the actual tool calls the agent made.
+
+    Prefers ``expectations["actual_tool_calls"]`` when provided as an explicit
+    override; otherwise pulls TOOL spans from the trace.
+    """
+    if expectations and (explicit := expectations.get("actual_tool_calls")):
+        return list(explicit)
+
+    if trace is None:
+        return []
+
+    from mlflow.genai.utils.trace_utils import extract_tools_called_from_trace
+
+    return [
+        {"name": call.name, "args": call.arguments or {}}
+        for call in extract_tools_called_from_trace(trace)
+    ]
+
+
 def map_scorer_inputs_to_invocation(
     inputs: Any = None,
     outputs: Any = None,
@@ -89,15 +112,6 @@ def map_scorer_inputs_to_invocation(
                 tool_uses=expected_tool_uses,
             )
 
-        if actual_tool_calls_raw := expectations.get("actual_tool_calls"):
-            actual_tool_uses = [
-                genai_types.FunctionCall(name=tc["name"], args=tc.get("args", {}))
-                for tc in actual_tool_calls_raw
-            ]
-            actual_invocation.intermediate_data = IntermediateData(
-                tool_uses=actual_tool_uses,
-            )
-
         reference_text = (
             expectations.get("expected_response")
             or expectations.get("context")
@@ -109,6 +123,15 @@ def map_scorer_inputs_to_invocation(
                 role="model",
                 parts=[genai_types.Part.from_text(text=str(reference_text))],
             )
+
+    if actual_tool_calls_raw := _extract_actual_tool_calls(expectations, trace):
+        actual_tool_uses = [
+            genai_types.FunctionCall(name=tc["name"], args=tc.get("args") or {})
+            for tc in actual_tool_calls_raw
+        ]
+        actual_invocation.intermediate_data = IntermediateData(
+            tool_uses=actual_tool_uses,
+        )
 
     return actual_invocation, expected_invocation
 
