@@ -488,52 +488,6 @@ def test_prompt_linking_error_handling_with_experiment_id(monkeypatch):
     assert trace_dict is not None
 
 
-def test_export_skips_mlflow_backend_when_uc_destination_active(monkeypatch):
-    """
-    When a UCSchemaLocation/UnityCatalog trace destination is active, InferenceTableSpanExporter
-    must NOT export to the MLflow backend even if MLFLOW_EXPERIMENT_ID is set. The
-    DatabricksUCTableSpanProcessor (registered alongside InferenceTableSpanProcessor in serving)
-    already handles the MLflow backend export via MlflowV3SpanExporter. Exporting here too would
-    write the same trace to the same experiment twice.
-    """
-    from mlflow.entities.trace_location import UCSchemaLocation
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-
-    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "test-experiment-id")
-    _MLFLOW_TRACE_USER_DESTINATION.set(
-        UCSchemaLocation(catalog_name="catalog", schema_name="schema")
-    )
-
-    otel_span = create_mock_otel_span(
-        name="root",
-        trace_id=_OTEL_TRACE_ID,
-        span_id=1,
-        parent_id=None,
-        start_time=0,
-        end_time=1_000_000,
-    )
-    trace_id = generate_trace_id_v3(otel_span)
-    span = LiveSpan(otel_span, trace_id)
-    _register_span_and_trace(
-        span, client_request_id=_DATABRICKS_REQUEST_ID_1, experiment_id="test-experiment-id"
-    )
-
-    mock_tracing_client = mock.MagicMock()
-    with mock.patch(
-        "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
-    ):
-        exporter = InferenceTableSpanExporter()
-
-    exporter.export([otel_span])
-
-    # Trace must still be written to the buffer for the API response
-    assert pop_trace(_DATABRICKS_REQUEST_ID_1) is not None
-
-    # Must NOT export to the MLflow backend — DatabricksUCTableSpanProcessor handles that
-    assert mock_tracing_client.start_trace.call_count == 0
-
-    _MLFLOW_TRACE_USER_DESTINATION.set(None)
-
 
 def _register_span_and_trace(
     span: LiveSpan, client_request_id: str, experiment_id: str | None = None

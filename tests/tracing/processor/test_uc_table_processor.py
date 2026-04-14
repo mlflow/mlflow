@@ -178,3 +178,32 @@ def test_trace_metadata_and_tags(active_uc_schema_destination):
     # Check that metadata and tags are present
     assert trace_info.trace_metadata is not None
     assert trace_info.tags is not None
+
+
+def test_on_start_sets_client_request_id_in_model_serving(active_uc_schema_destination):
+    """
+    When MLFLOW_TRACING_DESTINATION is set to a UC schema, InferenceTableSpanProcessor is not
+    registered. Verify BaseMlflowSpanProcessor.on_start() populates client_request_id from the
+    prediction context so MlflowV3SpanExporter can later write the trace to _TRACE_BUFFER.
+    """
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
+    _DATABRICKS_REQUEST_ID = "databricks-request-id-123"
+
+    trace_id = 12345
+    span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
+
+    processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
+
+    with (
+        mock.patch(
+            "mlflow.tracing.processor.base_mlflow.is_in_databricks_model_serving_environment",
+            return_value=True,
+        ),
+        set_prediction_context(Context(request_id=_DATABRICKS_REQUEST_ID)),
+    ):
+        processor.on_start(span)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    created_trace = list(trace_manager._traces.values())[0]
+    assert created_trace.info.client_request_id == _DATABRICKS_REQUEST_ID

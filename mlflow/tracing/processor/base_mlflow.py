@@ -18,6 +18,8 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS,
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+    MLFLOW_USE_BATCH_SPAN_PROCESSOR,
 )
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -47,6 +49,7 @@ from mlflow.tracking.fluent import (
     _get_active_model_id_global,
     _get_latest_active_run,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
 _logger = logging.getLogger(__name__)
 
@@ -138,6 +141,14 @@ def _create_batch_span_processor(exporter: SpanExporter) -> BatchSpanProcessor:
     )
 
 
+def should_use_batch_span_processor() -> bool:
+    return (
+        MLFLOW_USE_BATCH_SPAN_PROCESSOR.get()
+        and MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
+        and MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+    )
+
+
 class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
@@ -197,6 +208,19 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             if trace_info is None:
                 return
             trace_id = trace_info.trace_id
+
+            # In model serving, the scoring server retrieves the trace from _TRACE_BUFFER using the
+            # Databricks request ID as key (set via set_prediction_context). Populate
+            # client_request_id here so MlflowV3SpanExporter._export_traces() can write the trace
+            # to _TRACE_BUFFER after the span ends.
+            if (
+                is_in_databricks_model_serving_environment()
+                and trace_info.client_request_id is None
+            ):
+                if client_request_id := maybe_get_request_id():
+                    with self._trace_manager.get_trace(trace_id) as manager_trace:
+                        if manager_trace is not None:
+                            manager_trace.info.client_request_id = client_request_id
 
         InMemoryTraceManager.get_instance().register_span(create_mlflow_span(span, trace_id))
 

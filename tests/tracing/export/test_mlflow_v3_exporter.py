@@ -657,3 +657,50 @@ def test_batch_write_skipped_when_store_unsupported(monkeypatch):
         mock_log_spans.assert_not_called()
         # Artifact upload should still happen as fallback
         mock_upload_trace_data.assert_called_once()
+
+
+def test_export_writes_to_trace_buffer_in_model_serving():
+    """
+    When a non-default trace destination is active (UC schema or MLflow experiment), only
+    MlflowV3SpanExporter runs — InferenceTableSpanExporter is not registered.
+    Verify that _export_traces() writes the trace to _TRACE_BUFFER so the scoring server
+    can return it via pop_trace(request_id).
+    """
+    from mlflow.tracing.export.inference_table import _TRACE_BUFFER
+
+    _DATABRICKS_REQUEST_ID = "serving-request-id-abc"
+
+    otel_span = create_mock_otel_span(name="root", trace_id=77777, span_id=1, parent_id=None)
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_info.client_request_id = _DATABRICKS_REQUEST_ID
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    _TRACE_BUFFER.pop(_DATABRICKS_REQUEST_ID, None)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.export.mlflow_v3.is_in_databricks_model_serving_environment",
+            return_value=True,
+        ),
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ),
+        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+        mock.patch("mlflow.tracing.client.TracingClient._upload_attachments", return_value=None),
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter.export([otel_span])
+
+    assert _DATABRICKS_REQUEST_ID in _TRACE_BUFFER, (
+        "_TRACE_BUFFER should contain the trace keyed by client_request_id "
+        "so the scoring server can retrieve it"
+    )
+    buffered = _TRACE_BUFFER[_DATABRICKS_REQUEST_ID]
+    assert isinstance(buffered, dict)
+    assert "info" in buffered and "data" in buffered

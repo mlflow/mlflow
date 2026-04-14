@@ -24,7 +24,10 @@ from mlflow.tracing.utils import (
     get_experiment_id_for_trace,
     maybe_get_request_id,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_notebook
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_notebook,
+)
 from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
@@ -159,6 +162,20 @@ class MlflowV3SpanExporter(SpanExporter):
 
             trace = manager_trace.trace
 
+            # In model serving, write to _TRACE_BUFFER so the scoring server can retrieve
+            # the trace via pop_trace(databricks_request_id) after predict() returns.
+            # This is needed when a non-default trace destination is configured (e.g. a UC
+            # schema or MLflow experiment via set_destination), because InferenceTableSpanProcessor
+            # is not registered in that case and won't write to _TRACE_BUFFER itself.
+            if is_in_databricks_model_serving_environment() and trace.info.client_request_id:
+                from mlflow.tracing.export.inference_table import _TRACE_BUFFER
+
+                _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
+                _logger.debug(
+                    f"Added trace {trace.info.client_request_id} to _TRACE_BUFFER "
+                    f"(trace_id={trace.info.trace_id})"
+                )
+
             # Store mapping from eval request ID to trace ID so that the evaluation
             # harness can access to the trace using mlflow.get_trace(eval_request_id)
             if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
@@ -259,7 +276,11 @@ class MlflowV3SpanExporter(SpanExporter):
             _logger.warning(f"Failed to link prompts to trace: {e}")
 
     def _should_enable_async_logging(self) -> bool:
-        if is_in_databricks_notebook():
+        if (
+            is_in_databricks_notebook()
+            # NB: Not defaulting OSS backend to async logging for now to reduce blast radius.
+            or not is_databricks_uri(self._client.tracking_uri)
+        ):
             # NB: We don't turn on async logging in Databricks notebook by default
             # until we are confident that the async logging is working on the
             # offline workload on Databricks, to derisk the inclusion to the
