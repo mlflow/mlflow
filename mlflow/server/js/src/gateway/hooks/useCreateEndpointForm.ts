@@ -153,6 +153,7 @@ export function useCreateEndpointForm({
       telemetryClient.logCustomEvent('mlflow.gateway.endpoint.create', 'onSubmit', {
         secretMode: values.secretMode,
         provider: values.provider,
+        model: values.modelName,
         usageTracking: String(values.usageTracking),
       });
 
