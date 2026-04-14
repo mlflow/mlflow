@@ -1,5 +1,5 @@
 import { ESLintUtils } from '@typescript-eslint/utils';
-import { RuleWithMetaAndName } from '@typescript-eslint/utils/eslint-utils';
+import type { RuleWithMetaAndName } from '@typescript-eslint/utils/eslint-utils';
 
 type BaseRuleConfig<MessageIds extends string> = Readonly<RuleWithMetaAndName<[], MessageIds>>;
 type BaseRuleConfigMeta<MessageIds extends string> = Readonly<BaseRuleConfig<MessageIds>['meta']>;

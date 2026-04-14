@@ -572,27 +572,32 @@ def start_span(
         # still propagate the OTel context so that child spans inherit the same
         # trace ID and are also consistently dropped.
         if not otel_span.is_recording():
-            mlflow_span = NoOpSpan(otel_span=otel_span)
-            with safe_set_span_in_context(mlflow_span):
-                yield mlflow_span
-            return
+            noop_span = NoOpSpan(otel_span=otel_span)
+        else:
+            noop_span = None
 
-        # Create a new MLflow span and register it to the in-memory trace manager
-        request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
+            # Create a new MLflow span and register it to the in-memory trace manager
+            request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
 
-        # SpanProcessor should have already registered the span in the in-memory trace manager
-        trace_manager = InMemoryTraceManager.get_instance()
-        mlflow_span = trace_manager.get_span_from_id(
-            request_id, encode_span_id(otel_span.context.span_id)
-        )
-        mlflow_span.set_span_type(span_type)
-        attributes = dict(attributes) if attributes is not None else {}
-        mlflow_span.set_attributes(attributes)
+            # SpanProcessor should have already registered the span in the in-memory trace manager
+            trace_manager = InMemoryTraceManager.get_instance()
+            mlflow_span = trace_manager.get_span_from_id(
+                request_id, encode_span_id(otel_span.context.span_id)
+            )
+            mlflow_span.set_span_type(span_type)
+            attributes = dict(attributes) if attributes is not None else {}
+            mlflow_span.set_attributes(attributes)
 
     except Exception:
         _logger.debug(f"Failed to start span {name}.", exc_info=True)
-        mlflow_span = NoOpSpan()
-        yield mlflow_span
+        noop_span = NoOpSpan()
+
+    # Yield NoOp spans outside the try/except block so that exceptions thrown
+    # back into the generator (via contextmanager's throw()) propagate correctly
+    # instead of being caught by the broad "except Exception" above.
+    if noop_span is not None:
+        with safe_set_span_in_context(noop_span):
+            yield noop_span
         return
 
     try:
@@ -1330,6 +1335,8 @@ def update_current_trace(
     response_preview: str | None = None,
     state: TraceState | str | None = None,
     model_id: str | None = None,
+    session_id: str | None = None,
+    user: str | None = None,
 ):
     """
     Update the current active trace with the given options.
@@ -1354,6 +1361,10 @@ def update_current_trace(
             affecting the status of the current span.
         model_id: The ID of the model to associate with the trace. If not set, the active
             model ID is associated with the trace.
+        session_id: Session ID to associate with the trace. Stored as metadata under the
+            ``mlflow.trace.session`` key.
+        user: User identifier to associate with the trace. Stored as metadata under the
+            ``mlflow.trace.user`` key.
 
     Example:
 
@@ -1377,16 +1388,14 @@ def update_current_trace(
             with mlflow.start_span("span"):
                 mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
 
-        Updating source information of the trace. These keys are reserved ones and MLflow populate
-        them from environment information by default. You can override them if needed. Please refer
-        to the MLflow Tracing documentation for the full list of reserved metadata keys.
+        Updating user, session, and source information of the trace:
 
         .. code-block:: python
 
             mlflow.update_current_trace(
+                session_id="session-4f855da00427",
+                user="user-id-cc156f29bcfb",
                 metadata={
-                    "mlflow.trace.session": "session-4f855da00427",
-                    "mlflow.trace.user": "user-id-cc156f29bcfb",
                     "mlflow.source.name": "inference.py",
                     "mlflow.source.git.commit": "1234567890",
                     "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
@@ -1447,8 +1456,12 @@ def update_current_trace(
             )
 
     tags = tags or {}
-    metadata = metadata or {}
+    metadata = dict(metadata) if metadata else {}
 
+    if session_id is not None:
+        metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+    if user is not None:
+        metadata[TraceMetadataKey.TRACE_USER] = user
     if model_id:
         metadata[TraceMetadataKey.MODEL_ID] = model_id
 

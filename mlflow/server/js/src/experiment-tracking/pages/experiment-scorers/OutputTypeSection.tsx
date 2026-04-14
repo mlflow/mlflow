@@ -40,6 +40,7 @@ const PRIMITIVE_TYPE_OPTIONS = [
   { value: 'str', label: 'String' },
 ] as const;
 
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 const OUTPUT_TYPE_KIND_DISPLAY_MAP: Record<string, string> = {
   default: 'Default',
   bool: 'Boolean',
@@ -51,6 +52,7 @@ const OUTPUT_TYPE_KIND_DISPLAY_MAP: Record<string, string> = {
   list: 'List',
 };
 
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 const PRIMITIVE_TYPE_DISPLAY_MAP: Record<string, string> = {
   bool: 'Boolean',
   int: 'Integer',

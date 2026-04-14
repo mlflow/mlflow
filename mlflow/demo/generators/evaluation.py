@@ -317,7 +317,9 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         return expectation_count
 
-    def _find_expected_answer(self, query: str) -> str | None:
+    def _find_expected_answer(self, query: str | None) -> str | None:
+        if not query:
+            return None
         query_lower = query.lower().strip()
         if query_lower in EXPECTED_ANSWERS:
             return EXPECTED_ANSWERS[query_lower]

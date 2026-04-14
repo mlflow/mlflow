@@ -385,7 +385,7 @@ export const useCreatePromptModal = ({
           })()
         : '',
     });
-    setShowAdvancedSettings(!!(hasModelConfig || responseFormat !== undefined));
+    setShowAdvancedSettings(Boolean(hasModelConfig || responseFormat !== undefined));
     setOpen(true);
   };
 

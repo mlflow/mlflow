@@ -22,6 +22,8 @@ import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { useBudgetWindowsQuery } from '../../hooks/useBudgetWindowsQuery';
 import { formatBudgetAmount, formatDuration, formatOnExceeded } from './budgetFormatUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
+import { Link } from '../../../common/utils/RoutingUtils';
+import GatewayRoutes from '../../routes';
 import type { BudgetPolicy } from '../../types';
 
 const PAGE_SIZE = 10;
@@ -58,7 +60,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
 
   const currentPageIndex = pageTokenHistory.length + 1;
   const hasPreviousPage = pageTokenHistory.length > 0;
-  const hasNextPage = !!nextPageToken;
+  const hasNextPage = Boolean(nextPageToken);
 
   if (isLoading) {
     return (
@@ -90,10 +92,16 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
             />
           }
           description={
-            <FormattedMessage
-              defaultMessage='Use "Create budget policy" button to set up cost limits for the AI Gateway'
-              description="Empty state message for budgets list"
-            />
+            <>
+              <FormattedMessage
+                defaultMessage="Set spending limits and control costs across your endpoints."
+                description="Empty state message for budgets list"
+              />
+              <br />
+              <Link componentId="mlflow.gateway.budgets.go_to_endpoints_link" to={GatewayRoutes.gatewayPageRoute}>
+                <FormattedMessage defaultMessage="Go to Endpoints" description="Link to endpoints page" />
+              </Link>
+            </>
           }
         />
       );

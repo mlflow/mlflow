@@ -43,6 +43,31 @@ const EXPANDED_GRAPH_HEIGHT_RATIO = 0.75;
 // Ratio of the container width the left pane occupies when graph is fully expanded.
 const EXPANDED_PANE_WIDTH_RATIO = 0.65;
 
+const ResizeHandle = React.forwardRef<HTMLDivElement, { handleAxis?: string }>(function ResizeHandle(
+  { handleAxis: _handleAxis, ...props },
+  ref,
+) {
+  return (
+    <div
+      ref={ref}
+      css={{
+        height: 8,
+        cursor: 'ns-resize',
+        backgroundColor: 'transparent',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1,
+        ':hover': {
+          backgroundColor: 'rgba(0,0,0,0.1)',
+        },
+      }}
+      {...props}
+    />
+  );
+});
+
 export const ModelTraceExplorerDetailView = ({
   modelTraceInfo,
   className,
@@ -111,7 +136,7 @@ export const ModelTraceExplorerDetailView = ({
     selectedNode,
     setSelectedNode,
   } = useGraphTreeLinkedState(workflowLayout.nodes);
-  const graphAvailable = !!rootNode && workflowLayout.nodes.length > 0;
+  const graphAvailable = Boolean(rootNode) && workflowLayout.nodes.length > 0;
   const hasGraph = showGraph && graphAvailable;
 
   const onSizeRatioChange = useCallback(
@@ -397,27 +422,7 @@ export const ModelTraceExplorerDetailView = ({
                     onResize={handleGraphResize}
                     onResizeStart={() => setIsResizing(true)}
                     onResizeStop={() => setIsResizing(false)}
-                    handle={
-                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                      (_axis: string, ref: React.Ref<HTMLDivElement>) => (
-                        <div
-                          ref={ref}
-                          css={{
-                            height: theme.spacing.sm,
-                            cursor: 'ns-resize',
-                            backgroundColor: 'transparent',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            zIndex: 1,
-                            ':hover': {
-                              backgroundColor: 'rgba(0,0,0,0.1)',
-                            },
-                          }}
-                        />
-                      )
-                    }
+                    handle={<ResizeHandle />}
                     css={{
                       display: 'flex',
                       flexDirection: 'column',

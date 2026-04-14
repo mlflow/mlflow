@@ -1087,10 +1087,16 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
     }
 
     switch (messageFormat) {
-      case 'langchain':
-        const langchainMessages = normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
+      case 'langchain': {
+        const langchainMessages =
+          normalizeLangchainChatInput(input) ??
+          normalizeLangchainChatResult(input) ??
+          // LangChain autolog may serialize messages in OpenAI format
+          normalizeOpenAIFormats(input) ??
+          normalizeOpenAIResponsesInput(input);
         if (langchainMessages) return langchainMessages;
         break;
+      }
       case 'llamaindex':
         const llamaIndexMessages = normalizeLlamaIndexChatInput(input) ?? normalizeLlamaIndexChatResponse(input);
         if (llamaIndexMessages) return llamaIndexMessages;

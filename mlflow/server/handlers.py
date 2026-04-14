@@ -79,9 +79,12 @@ from mlflow.exceptions import (
     MlflowTracingException,
     _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
+    _UnsupportedPresignedUploadException,
 )
+from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
 from mlflow.protos import databricks_pb2
@@ -158,6 +161,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
+    CreatePresignedUploadUrl,
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
@@ -276,12 +280,15 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server.gateway_budget import maybe_refresh_budget_policies
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
 )
-from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import (
+    MultipartDownloadMixin,
+    MultipartUploadMixin,
+    PresignedUploadMixin,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
@@ -3412,6 +3419,52 @@ def _validate_support_multipart_download(artifact_repo):
         raise _UnsupportedMultipartDownloadException()
 
 
+def _validate_support_presigned_upload(artifact_repo):
+    if not isinstance(artifact_repo, PresignedUploadMixin):
+        raise _UnsupportedPresignedUploadException()
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_presigned_upload_url():
+    """
+    Handler for POST /api/2.0/mlflow/artifacts/presigned-upload-url.
+    Generates a presigned URL for uploading an artifact directly to cloud storage.
+
+    Client reference: https://github.com/aws/sagemaker-mlflow
+    """
+    request_message = _get_request_message(
+        CreatePresignedUploadUrl(),
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "path": [_assert_required, _assert_string],
+            "expiration": [_assert_intlike],
+        },
+    )
+    run_id = request_message.run_id
+    path = validate_path_is_safe(request_message.path)
+    expiration = request_message.expiration if request_message.HasField("expiration") else 900
+
+    run = _get_tracking_store().get_run(run_id)
+    artifact_uri = run.info.artifact_uri
+    artifact_uri_scheme = urllib.parse.urlparse(artifact_uri).scheme
+    if artifact_uri_scheme in ("http", "https", "mlflow-artifacts"):
+        raise MlflowException(
+            "Presigned upload is not supported for runs with proxied artifact storage "
+            f"(artifact URI scheme: {artifact_uri_scheme}). "
+            "This endpoint requires a run with a direct cloud storage artifact URI.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    artifact_repo = _get_artifact_repo(run)
+    _validate_support_presigned_upload(artifact_repo)
+
+    response = artifact_repo.create_presigned_upload_url(path, expiration=expiration)
+    response_message = response.to_proto()
+    resp = Response(mimetype="application/json")
+    resp.set_data(message_to_json(response_message))
+    return resp
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -4651,6 +4704,19 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
+    # Decorator scorers contain a `call_source` field that is executed via exec() during
+    # deserialization. The Python client blocks this via `_check_can_be_registered()`, but
+    # that check is client-side only and can be bypassed by calling the REST API directly.
+    # Enforce the same restriction here in the server handler so it applies regardless of
+    # how the request arrives.
+    try:
+        serialized_data = json.loads(request_message.serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
+    if serialized_data.get("call_source") is not None:
+        raise MlflowException.invalid_parameter_value(
+            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+        )
     scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
@@ -6809,6 +6875,7 @@ HANDLERS = {
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
+    CreatePresignedUploadUrl: _create_presigned_upload_url,
     GetMetricHistory: _get_metric_history,
     GetMetricHistoryBulkInterval: get_metric_history_bulk_interval_handler,
     SearchExperiments: _search_experiments,

@@ -292,7 +292,9 @@ def test_async_bulk_export(monkeypatch):
     ):
         # Log many traces
         start_time = time.time()
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(
+            max_workers=10, thread_name_prefix="test-mlflow-v3-exporter"
+        ) as executor:
             for _ in range(100):
                 executor.submit(_predict, "hello")
 
@@ -332,7 +334,9 @@ def test_async_bulk_export_with_batch_span_processor(monkeypatch):
     ):
         # Log many traces concurrently
         start_time = time.time()
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(
+            max_workers=10, thread_name_prefix="test-mlflow-v3-exporter-batch"
+        ) as executor:
             for _ in range(100):
                 executor.submit(_predict, "hello")
 

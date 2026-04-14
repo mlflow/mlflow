@@ -31,6 +31,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
 )
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.cli import start
@@ -76,9 +77,11 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
+    GatewayCreateGuardrailEvent,
     GatewayCreateSecretEvent,
     GatewayDeleteBudgetPolicyEvent,
     GatewayDeleteEndpointEvent,
+    GatewayDeleteGuardrailEvent,
     GatewayDeleteSecretEvent,
     GatewayGetEndpointEvent,
     GatewayInvocationEvent,
@@ -88,6 +91,7 @@ from mlflow.telemetry.events import (
     GatewayStartEvent,
     GatewayUpdateBudgetPolicyEvent,
     GatewayUpdateEndpointEvent,
+    GatewayUpdateGuardrailEvent,
     GatewayUpdateSecretEvent,
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
@@ -538,20 +542,20 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
                 {
                     "class": "UserDefinedScorer",
                     "kind": "instructions",
-                    "scope": "response",
+                    "scope": "trace",
                 },
                 {
                     "class": "UserDefinedScorer",
                     "kind": "instructions",
                     "scope": "session",
                 },
-                {"class": "Guidelines", "kind": "guidelines", "scope": "response"},
-                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "response"},
+                {"class": "Guidelines", "kind": "guidelines", "scope": "trace"},
+                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "trace"},
                 {"class": "UserFrustration", "kind": "builtin", "scope": "session"},
             ],
             "eval_data_type": "list[dict]",
@@ -574,8 +578,8 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         expected_params = {
             "predict_fn_provided": True,
             "scorer_info": [
-                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "response"},
-                {"class": "Guidelines", "kind": "guidelines", "scope": "response"},
+                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "trace"},
+                {"class": "Guidelines", "kind": "guidelines", "scope": "trace"},
             ],
             "eval_data_type": "list[dict]",
             "eval_data_size": 1,
@@ -617,7 +621,7 @@ def test_genai_evaluate_telemetry_data_fields(
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
             ],
             "eval_data_type": "list[dict]",
@@ -644,7 +648,7 @@ def test_genai_evaluate_telemetry_data_fields(
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
             ],
             "eval_data_type": "pd.DataFrame",
@@ -674,7 +678,7 @@ def test_genai_evaluate_telemetry_data_fields(
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
             ],
             "eval_data_type": "list[Trace]",
@@ -712,7 +716,7 @@ def test_genai_evaluate_telemetry_data_fields(
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
             ],
             "eval_data_type": "EvaluationDataset",
@@ -1416,7 +1420,7 @@ def test_scorer_call_direct(mock_requests, mock_telemetry_client: TelemetryClien
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "decorator",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1443,7 +1447,7 @@ def test_scorer_call_direct(mock_requests, mock_telemetry_client: TelemetryClien
         {
             "scorer_class": "Safety",
             "scorer_kind": "builtin",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1467,7 +1471,7 @@ def test_scorer_call_direct(mock_requests, mock_telemetry_client: TelemetryClien
         {
             "scorer_class": "Guidelines",
             "scorer_kind": "guidelines",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1492,7 +1496,7 @@ def test_scorer_call_direct(mock_requests, mock_telemetry_client: TelemetryClien
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "class",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1561,7 +1565,7 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
         for params in event_params
         if params["scorer_class"] == "UserDefinedScorer"
         and params["scorer_kind"] == "decorator"
-        and params["is_session_level_scorer"] is False
+        and params["scope"] == "trace"
         and params["callsite"] == "genai_evaluate"
         and params["has_feedback_error"] is False
     ]
@@ -1573,7 +1577,7 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
         for params in event_params
         if params["scorer_class"] == "UserDefinedScorer"
         and params["scorer_kind"] == "instructions"
-        and params["is_session_level_scorer"] is True
+        and params["scope"] == "session"
         and params["callsite"] == "genai_evaluate"
         and params["has_feedback_error"] is False
     ]
@@ -1612,7 +1616,7 @@ def test_scorer_call_online_scoring_callsite(
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "decorator",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": expected_callsite,
             "has_feedback_error": False,
         },
@@ -1647,7 +1651,7 @@ def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "instructions",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": True,
         },
@@ -1672,7 +1676,7 @@ def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "decorator",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": True,
         },
@@ -1693,7 +1697,7 @@ def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "decorator",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1736,7 +1740,7 @@ def test_scorer_call_wrapped_builtin_scorer_direct(
         {
             "scorer_class": "Completeness",
             "scorer_kind": "builtin",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1795,7 +1799,7 @@ def test_scorer_call_wrapped_builtin_scorer_from_genai_evaluate(
         {
             "scorer_class": "UserFrustration",
             "scorer_kind": "builtin",
-            "is_session_level_scorer": True,
+            "scope": "session",
             "callsite": "genai_evaluate",
             "has_feedback_error": False,
         },
@@ -2006,6 +2010,89 @@ def test_gateway_budget_policy_crud_telemetry(
         mock_telemetry_client,
         mock_requests,
         GatewayDeleteBudgetPolicyEvent.name,
+    )
+
+
+def test_gateway_guardrail_crud_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+
+    secret = store.create_gateway_secret(
+        secret_name="test-secret",
+        secret_value={"api_key": "test-api-key"},
+        provider="openai",
+        created_by="test-user",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="test-model",
+        provider="openai",
+        model_name="gpt-4",
+        secret_id=secret.secret_id,
+        created_by="test-user",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=100,
+            )
+        ],
+        created_by="test-user",
+        usage_tracking=False,
+    )
+    scorer_experiment_id = store.create_experiment("guardrail-scorer-exp")
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/test-endpoint",
+            "instructions": "Is this input safe?",
+        }
+    })
+    scorer = store.register_scorer(
+        experiment_id=scorer_experiment_id,
+        name="safety-judge",
+        serialized_scorer=serialized_scorer,
+    )
+    guardrail = store.create_gateway_guardrail(
+        name="guardrail-1",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+        created_by="test-user",
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayCreateGuardrailEvent.name,
+        {
+            "stage": "BEFORE",
+            "action": "VALIDATION",
+        },
+    )
+
+    # Guardrail update telemetry is emitted by endpoint guardrail config updates.
+    store.add_guardrail_to_endpoint(endpoint.endpoint_id, guardrail.guardrail_id, execution_order=1)
+    store.update_endpoint_guardrail_config(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=2,
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayUpdateGuardrailEvent.name,
+        {"stage": None, "action": None},
+    )
+
+    store.delete_gateway_guardrail(guardrail.guardrail_id)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayDeleteGuardrailEvent.name,
     )
 
 
