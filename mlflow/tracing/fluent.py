@@ -572,27 +572,32 @@ def start_span(
         # still propagate the OTel context so that child spans inherit the same
         # trace ID and are also consistently dropped.
         if not otel_span.is_recording():
-            mlflow_span = NoOpSpan(otel_span=otel_span)
-            with safe_set_span_in_context(mlflow_span):
-                yield mlflow_span
-            return
+            noop_span = NoOpSpan(otel_span=otel_span)
+        else:
+            noop_span = None
 
-        # Create a new MLflow span and register it to the in-memory trace manager
-        request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
+            # Create a new MLflow span and register it to the in-memory trace manager
+            request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
 
-        # SpanProcessor should have already registered the span in the in-memory trace manager
-        trace_manager = InMemoryTraceManager.get_instance()
-        mlflow_span = trace_manager.get_span_from_id(
-            request_id, encode_span_id(otel_span.context.span_id)
-        )
-        mlflow_span.set_span_type(span_type)
-        attributes = dict(attributes) if attributes is not None else {}
-        mlflow_span.set_attributes(attributes)
+            # SpanProcessor should have already registered the span in the in-memory trace manager
+            trace_manager = InMemoryTraceManager.get_instance()
+            mlflow_span = trace_manager.get_span_from_id(
+                request_id, encode_span_id(otel_span.context.span_id)
+            )
+            mlflow_span.set_span_type(span_type)
+            attributes = dict(attributes) if attributes is not None else {}
+            mlflow_span.set_attributes(attributes)
 
     except Exception:
         _logger.debug(f"Failed to start span {name}.", exc_info=True)
-        mlflow_span = NoOpSpan()
-        yield mlflow_span
+        noop_span = NoOpSpan()
+
+    # Yield NoOp spans outside the try/except block so that exceptions thrown
+    # back into the generator (via contextmanager's throw()) propagate correctly
+    # instead of being caught by the broad "except Exception" above.
+    if noop_span is not None:
+        with safe_set_span_in_context(noop_span):
+            yield noop_span
         return
 
     try:

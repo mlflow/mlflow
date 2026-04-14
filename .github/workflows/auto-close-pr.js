@@ -69,10 +69,35 @@ function getMissingHeadings(body, headings) {
   return headings.filter((h) => !bodyLines.has(h));
 }
 
+async function isDatabricksAuthor({ github, context }) {
+  const prAuthor = context.payload.pull_request.user.login;
+  const { owner, repo } = context.repo;
+  const prNumber = context.payload.pull_request.number;
+
+  // Check user profile for Databricks affiliation
+  const { data: user } = await github.rest.users.getByUsername({ username: prAuthor });
+  if ([user.company, user.email].some((v) => /databricks/i.test(v || ""))) return true;
+
+  // Check commit author emails for @databricks.com
+  const commits = await github.paginate(github.rest.pulls.listCommits, {
+    owner,
+    repo,
+    pull_number: prNumber,
+    per_page: 100,
+  });
+  return commits.some((c) => /@databricks\.com$/i.test(c.commit.author.email || ""));
+}
+
 async function getCloseReason({ github, context }) {
   const association = context.payload.pull_request.author_association;
   if (["OWNER", "MEMBER", "COLLABORATOR"].includes(association)) return undefined;
   if (context.payload.pull_request.user.type === "Bot") return undefined;
+
+  if (await isDatabricksAuthor({ github, context })) {
+    const prAuthor = context.payload.pull_request.user.login;
+    console.log(`PR author @${prAuthor} has Databricks affiliation. Skipping.`);
+    return undefined;
+  }
 
   const prNumber = context.payload.pull_request.number;
   const prAuthor = context.payload.pull_request.user.login;
@@ -202,4 +227,4 @@ async function main({ context, github }) {
   }
 }
 
-module.exports = { main, getCloseReason };
+module.exports = { main, getCloseReason, isDatabricksAuthor };

@@ -488,7 +488,6 @@ def test_prompt_linking_error_handling_with_experiment_id(monkeypatch):
     assert trace_dict is not None
 
 
-
 def _register_span_and_trace(
     span: LiveSpan, client_request_id: str, experiment_id: str | None = None
 ):

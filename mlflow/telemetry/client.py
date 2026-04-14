@@ -9,7 +9,7 @@ import warnings
 from dataclasses import asdict
 from functools import lru_cache
 from queue import Empty, Full, Queue
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import requests
 
@@ -25,6 +25,7 @@ from mlflow.telemetry.constant import (
 from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import (
+    _IS_MLFLOW_DEV_VERSION,
     _detect_environment,
     _get_config_url,
     _log_error,
@@ -33,6 +34,8 @@ from mlflow.telemetry.utils import (
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.utils.rest_utils import http_request
+
+_DATABRICKS_SCHEMES = ("databricks", "databricks-uc", "uc")
 
 
 # Cache per tracking URI; 16 is more than enough for any realistic number of
@@ -257,12 +260,10 @@ class TelemetryClient:
         """Process a batch of telemetry records."""
         try:
             self._update_backend_store()
-            if self.info["tracking_uri_scheme"] in ["databricks", "databricks-uc", "uc"]:
-                self._is_stopped = True
-                # set config to None to allow consumer thread drop records in the queue
-                self.config = None
-                self.is_active = False
-                _set_telemetry_client(None)
+
+            if self.info.get("tracking_uri_scheme") in _DATABRICKS_SCHEMES:
+                if not _IS_MLFLOW_DEV_VERSION:
+                    self._forward_to_databricks(records, request_timeout)
                 return
 
             records = [
@@ -274,42 +275,76 @@ class TelemetryClient:
                 }
                 for record in records
             ]
-            # changing this value can affect total time for processing records
-            # the total time = request_timeout * max_attempts + sleep_time * (max_attempts - 1)
-            max_attempts = 3
-            sleep_time = 1
-            for i in range(max_attempts):
-                should_retry = False
-                response = None
-                try:
-                    response = requests.post(
-                        self.config.ingestion_url,
-                        json={"records": records},
-                        headers={"Content-Type": "application/json"},
-                        timeout=request_timeout,
-                    )
-                    should_retry = response.status_code in RETRYABLE_ERRORS
-                except (ConnectionError, TimeoutError):
-                    should_retry = True
-                # NB: DO NOT retry when terminating
-                # otherwise this increases shutdown overhead significantly
-                if self._is_stopped:
-                    return
-                if i < max_attempts - 1 and should_retry:
-                    # we do not use exponential backoff to avoid increasing
-                    # the processing time significantly
-                    time.sleep(sleep_time)
-                elif response and response.status_code in UNRECOVERABLE_ERRORS:
-                    self._is_stopped = True
-                    self.is_active = False
-                    # this is executed in the consumer thread, so
-                    # we cannot join the thread here, but this should
-                    # be enough to stop the telemetry collection
-                    return
-                else:
-                    return
+
+            self._send_with_retries(
+                lambda timeout: requests.post(
+                    self.config.ingestion_url,
+                    json={"records": records},
+                    headers={"Content-Type": "application/json"},
+                    timeout=timeout,
+                ),
+                request_timeout,
+            )
         except Exception as e:
             _log_error(f"Failed to send telemetry records: {e}")
+
+    def _forward_to_databricks(self, records: list[Record], request_timeout: float = 1):
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.databricks_utils import get_databricks_host_creds
+
+        try:
+            creds = get_databricks_host_creds(get_tracking_uri())
+        except Exception as e:
+            _log_error(f"Failed to get Databricks credentials for telemetry: {e}")
+            return
+
+        events = []
+        for record in records:
+            event = dict(self.info)
+            event.update(record.to_dict())
+            params_value = event.pop("params", None)
+            if params_value is not None:
+                event["params_json"] = params_value
+            events.append(event)
+
+        self._send_with_retries(
+            lambda timeout: http_request(
+                host_creds=creds,
+                endpoint="/api/2.0/mlflow/client-telemetry/ingest",
+                method="POST",
+                timeout=timeout,
+                max_retries=0,
+                raise_on_status=False,
+                json={"events": events},
+            ),
+            request_timeout,
+        )
+
+    def _send_with_retries(
+        self, send_fn: Callable[[float], requests.Response], request_timeout: float = 1
+    ) -> None:
+        max_attempts = 3
+        sleep_time = 1
+        for i in range(max_attempts):
+            response = None
+            should_retry = False
+            try:
+                response = send_fn(request_timeout)
+                should_retry = response.status_code in RETRYABLE_ERRORS
+            except (ConnectionError, TimeoutError, requests.ConnectionError, requests.Timeout):
+                should_retry = True
+            # NB: DO NOT retry when terminating
+            # otherwise this increases shutdown overhead significantly
+            if self._is_stopped:
+                return
+            if i < max_attempts - 1 and should_retry:
+                time.sleep(sleep_time)
+            elif response and response.status_code in UNRECOVERABLE_ERRORS:
+                self._is_stopped = True
+                self.is_active = False
+                return
+            else:
+                return
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""

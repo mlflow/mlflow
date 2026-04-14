@@ -342,6 +342,17 @@ deny_upload_artifact_without_retention contains msg if {
 	)
 }
 
+deny_upload_artifact_without_if_no_files_found contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/upload-artifact@")
+	not step["with"]["if-no-files-found"]
+	msg := sprintf(
+		"actions/upload-artifact in job '%s' must set 'if-no-files-found' explicitly.",
+		[job_id],
+	)
+}
+
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps

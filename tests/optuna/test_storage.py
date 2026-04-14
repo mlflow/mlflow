@@ -1,6 +1,8 @@
+import gc
 import os
 import random
 import tempfile
+import threading
 import time
 from datetime import datetime
 from time import sleep
@@ -701,3 +703,26 @@ def test_get_study_id_by_name_if_exists(setup_storage):
     # Test existing study
     result = storage.get_study_id_by_name_if_exists("test-study")
     assert result == study_id
+
+
+def test_flush_threads_exit_after_gc():
+    def _flush_threads():
+        return [t for t in threading.enumerate() if "mlflow_optuna_batch_flush_worker" in t.name]
+
+    threads_before = set(_flush_threads())
+
+    def _create_instances():
+        for _ in range(5):
+            MlflowStorage(experiment_id="1")
+
+    _create_instances()
+    gc.collect()
+
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        new_threads = [t for t in _flush_threads() if t not in threads_before]
+        if not new_threads:
+            break
+        time.sleep(0.1)
+    else:
+        raise TimeoutError(f"Flush threads still alive after 3s: {new_threads}")
