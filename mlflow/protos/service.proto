@@ -518,8 +518,7 @@ service MlflowService {
   //
   // Consumed by external artifact repository plugins
   // (e.g. https://github.com/aws/sagemaker-mlflow).
-  rpc createPresignedUploadUrl(CreatePresignedUploadUrl)
-      returns (CreatePresignedUploadUrl.Response) {
+  rpc createPresignedUploadUrl(CreatePresignedUploadUrl) returns (CreatePresignedUploadUrl.Response) {
     option (rpc) = {
       endpoints: [
         {
