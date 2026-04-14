@@ -591,7 +591,10 @@ async def invocations(endpoint_name: str, request: Request):
                 payload: chat.RequestPayload,
             ):
                 request_dict = await run_before_guardrails(
-                    guardrails, payload.model_dump(), auth_headers=auth_headers
+                    guardrails,
+                    payload.model_dump(),
+                    auth_headers=auth_headers,
+                    usage_tracking=endpoint_config.usage_tracking,
                 )
                 async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
                     yield chunk
@@ -614,12 +617,19 @@ async def invocations(endpoint_name: str, request: Request):
                 payload: chat.RequestPayload,
             ) -> chat.ResponsePayload:
                 request_dict = await run_before_guardrails(
-                    guardrails, payload.model_dump(), auth_headers=auth_headers
+                    guardrails,
+                    payload.model_dump(),
+                    auth_headers=auth_headers,
+                    usage_tracking=endpoint_config.usage_tracking,
                 )
                 modified_payload = chat.RequestPayload(**request_dict)
                 response = await provider.chat(modified_payload)
                 return await run_after_guardrails(
-                    guardrails, request_dict, response, auth_headers=auth_headers
+                    guardrails,
+                    request_dict,
+                    response,
+                    auth_headers=auth_headers,
+                    usage_tracking=endpoint_config.usage_tracking,
                 )
 
             try:
@@ -711,7 +721,10 @@ async def chat_completions(request: Request):
             payload: chat.RequestPayload,
         ):
             request_dict = await run_before_guardrails(
-                guardrails, payload.model_dump(), auth_headers=auth_headers
+                guardrails,
+                payload.model_dump(),
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
             )
             async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
                 yield chunk
@@ -734,12 +747,19 @@ async def chat_completions(request: Request):
             payload: chat.RequestPayload,
         ) -> chat.ResponsePayload:
             request_dict = await run_before_guardrails(
-                guardrails, payload.model_dump(), auth_headers=auth_headers
+                guardrails,
+                payload.model_dump(),
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
             )
             modified_payload = chat.RequestPayload(**request_dict)
             response = await provider.chat(modified_payload)
             return await run_after_guardrails(
-                guardrails, request_dict, response, auth_headers=auth_headers
+                guardrails,
+                request_dict,
+                response,
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
             )
 
         try:

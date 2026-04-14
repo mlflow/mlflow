@@ -77,6 +77,10 @@ class GatewayEndpointConfig:
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
 
+    @property
+    def usage_tracking(self) -> bool:
+        return self.experiment_id is not None
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 

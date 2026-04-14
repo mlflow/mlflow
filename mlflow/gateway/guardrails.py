@@ -79,6 +79,7 @@ class Guardrail(abc.ABC):
         self,
         request: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         """Process an incoming request payload before LLM invocation.
 
@@ -86,6 +87,8 @@ class Guardrail(abc.ABC):
             request: The chat request payload as a dict.
             auth_headers: Optional HTTP headers to forward when making
                 internal calls (e.g. sanitization via the gateway).
+            usage_tracking: If True, emit MLflow tracing spans for this
+                guardrail execution.
 
         Returns:
             The (possibly modified) request payload.
@@ -100,6 +103,7 @@ class Guardrail(abc.ABC):
         request: dict[str, Any],
         response: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         """Process an outgoing response payload after LLM invocation.
 
@@ -108,6 +112,8 @@ class Guardrail(abc.ABC):
             response: The chat response payload as a dict.
             auth_headers: Optional HTTP headers to forward when making
                 internal calls (e.g. sanitization via the gateway).
+            usage_tracking: If True, emit MLflow tracing spans for this
+                guardrail execution.
 
         Returns:
             The (possibly modified) response payload.
@@ -207,6 +213,7 @@ class JudgeGuardrail(Guardrail):
         rationale: str,
         payload_model: type[ChatCompletionRequest] | type[ChatCompletionResponse],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         """Send the full payload to the action endpoint LLM for rewriting.
 
@@ -251,7 +258,7 @@ class JudgeGuardrail(Guardrail):
 
         span_ctx = (
             mlflow.start_span(name="sanitization", span_type=SpanType.LLM)
-            if mlflow.get_current_active_span() is not None
+            if usage_tracking
             else nullcontext()
         )
         with span_ctx as san_span:
@@ -293,6 +300,7 @@ class JudgeGuardrail(Guardrail):
         payload_model: type[ChatCompletionRequest] | type[ChatCompletionResponse],
         result: ScorerResult,
         auth_headers: dict[str, str] | None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         """Block or sanitize *payload* based on *result*.
 
@@ -308,17 +316,24 @@ class JudgeGuardrail(Guardrail):
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return await self._sanitize(payload, rationale, payload_model, auth_headers=auth_headers)
+        return await self._sanitize(
+            payload,
+            rationale,
+            payload_model,
+            auth_headers=auth_headers,
+            usage_tracking=usage_tracking,
+        )
 
     async def process_request(
         self,
         request: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         if self.stage == GuardrailStage.AFTER:
             return request
 
-        if mlflow.get_current_active_span() is None:
+        if not usage_tracking:
             result = await asyncio.to_thread(self._invoke_judge, inputs=request)
             return await self._enforce(request, ChatCompletionRequest, result, auth_headers)
 
@@ -329,7 +344,9 @@ class JudgeGuardrail(Guardrail):
             with mlflow.start_span(name="judge", span_type=SpanType.EVALUATOR) as jspan:
                 result = await asyncio.to_thread(self._invoke_judge, inputs=request)
                 jspan.set_outputs({"passed": self._is_passing(result)})
-            output = await self._enforce(request, ChatCompletionRequest, result, auth_headers)
+            output = await self._enforce(
+                request, ChatCompletionRequest, result, auth_headers, usage_tracking=usage_tracking
+            )
             gspan.set_outputs(output)
             return output
 
@@ -338,11 +355,12 @@ class JudgeGuardrail(Guardrail):
         request: dict[str, Any],
         response: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         if self.stage == GuardrailStage.BEFORE:
             return response
 
-        if mlflow.get_current_active_span() is None:
+        if not usage_tracking:
             result = await asyncio.to_thread(self._invoke_judge, inputs=request, outputs=response)
             return await self._enforce(response, ChatCompletionResponse, result, auth_headers)
 
@@ -355,7 +373,13 @@ class JudgeGuardrail(Guardrail):
                     self._invoke_judge, inputs=request, outputs=response
                 )
                 jspan.set_outputs({"passed": self._is_passing(result)})
-            output = await self._enforce(response, ChatCompletionResponse, result, auth_headers)
+            output = await self._enforce(
+                response,
+                ChatCompletionResponse,
+                result,
+                auth_headers,
+                usage_tracking=usage_tracking,
+            )
             gspan.set_outputs(output)
             return output
 

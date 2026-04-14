@@ -509,7 +509,7 @@ async def test_process_request_creates_guardrail_and_judge_spans(tracing_experim
 
     @mlflow.trace
     async def _run():
-        return await guard.process_request(_make_request())
+        return await guard.process_request(_make_request(), usage_tracking=True)
 
     result = await _run()
     assert result == _make_request()
@@ -527,10 +527,10 @@ async def test_process_request_creates_guardrail_and_judge_spans(tracing_experim
 
 
 @pytest.mark.asyncio
-async def test_process_request_no_spans_without_active_trace(tracing_experiment):
+async def test_process_request_no_spans_when_usage_tracking_off(tracing_experiment):
     scorer = _SimpleScorer(_feedback(value=True))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "safety")
-    result = await guard.process_request(_make_request())
+    result = await guard.process_request(_make_request(), usage_tracking=False)
     assert result == _make_request()
 
     traces = TracingClient().search_traces(locations=[tracing_experiment])
@@ -544,7 +544,7 @@ async def test_process_response_creates_guardrail_and_judge_spans(tracing_experi
 
     @mlflow.trace
     async def _run():
-        return await guard.process_response(_make_request(), _make_response())
+        return await guard.process_response(_make_request(), _make_response(), usage_tracking=True)
 
     await _run()
 
@@ -560,7 +560,7 @@ async def test_process_response_creates_guardrail_and_judge_spans(tracing_experi
 
 
 @pytest.mark.asyncio
-async def test_sanitization_creates_span_when_traced(tracing_experiment):
+async def test_sanitization_creates_span_when_usage_tracking_on(tracing_experiment):
     scorer = _SimpleScorer(_feedback(value=False, rationale="contains PII"))
     guard = JudgeGuardrail(
         scorer,
@@ -577,7 +577,9 @@ async def test_sanitization_creates_span_when_traced(tracing_experiment):
         with mock.patch(
             "mlflow.gateway.guardrails.send_request", _send_request_returning(sanitized)
         ):
-            return await guard.process_request(_make_request("my SSN is 123-45-6789"))
+            return await guard.process_request(
+                _make_request("my SSN is 123-45-6789"), usage_tracking=True
+            )
 
     result = await _run()
     assert result == sanitized
