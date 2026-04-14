@@ -28,6 +28,37 @@ def _to_str(value: Any) -> str:
     return str(value)
 
 
+def _extract_actual_tool_calls(
+    expectations: dict[str, Any] | None,
+    trace: Trace | None,
+) -> list[dict[str, Any]]:
+    """Resolve the list of tool calls the agent actually made.
+
+    Priority:
+      1. ``expectations["actual_tool_calls"]`` when explicitly supplied
+         (lets callers override trace extraction, e.g. for synthetic data).
+      2. TOOL spans on ``trace`` via
+         :func:`mlflow.genai.utils.trace_utils.extract_tools_called_from_trace`.
+      3. Empty list.
+
+    Returned dicts have ``name`` and ``args`` keys, matching the shape
+    consumed by the ``{ "name": ..., "args": {...} }`` entries users
+    already pass under ``expectations["expected_tool_calls"]``.
+    """
+    if expectations and (explicit := expectations.get("actual_tool_calls")):
+        return list(explicit)
+
+    if trace is None:
+        return []
+
+    from mlflow.genai.utils.trace_utils import extract_tools_called_from_trace
+
+    return [
+        {"name": call.name, "args": call.arguments or {}}
+        for call in extract_tools_called_from_trace(trace)
+    ]
+
+
 def map_scorer_inputs_to_invocation(
     inputs: Any = None,
     outputs: Any = None,
@@ -37,9 +68,10 @@ def map_scorer_inputs_to_invocation(
     """Convert MLflow scorer inputs to an ADK ``Invocation`` pair.
 
     Builds actual and expected ``google.adk.evaluation.eval_case.Invocation``
-    objects from the raw scorer arguments. Tool call expectations are pulled
-    from ``expectations["expected_tool_calls"]`` and placed in
-    ``IntermediateData.tool_uses``.
+    objects from the raw scorer arguments. Expected tool calls come from
+    ``expectations["expected_tool_calls"]``; actual tool calls come from the
+    trace's TOOL spans, with ``expectations["actual_tool_calls"]`` honored as
+    an explicit override when callers want to bypass the trace.
 
     Returns a tuple of ``(actual_invocation, expected_invocation)``.
     """
@@ -77,23 +109,24 @@ def map_scorer_inputs_to_invocation(
         user_content=user_content,
     )
 
+    # Actual tool calls: prefer the trace, fall back to an explicit override.
+    if actual_tool_calls_raw := _extract_actual_tool_calls(expectations, trace):
+        actual_tool_uses = [
+            genai_types.FunctionCall(name=tc["name"], args=tc.get("args") or {})
+            for tc in actual_tool_calls_raw
+        ]
+        actual_invocation.intermediate_data = IntermediateData(
+            tool_uses=actual_tool_uses,
+        )
+
     if expectations:
         if tool_calls_raw := expectations.get("expected_tool_calls"):
             expected_tool_uses = [
-                genai_types.FunctionCall(name=tc["name"], args=tc.get("args", {}))
+                genai_types.FunctionCall(name=tc["name"], args=tc.get("args") or {})
                 for tc in tool_calls_raw
             ]
             expected_invocation.intermediate_data = IntermediateData(
                 tool_uses=expected_tool_uses,
-            )
-
-        if actual_tool_calls_raw := expectations.get("actual_tool_calls"):
-            actual_tool_uses = [
-                genai_types.FunctionCall(name=tc["name"], args=tc.get("args", {}))
-                for tc in actual_tool_calls_raw
-            ]
-            actual_invocation.intermediate_data = IntermediateData(
-                tool_uses=actual_tool_uses,
             )
 
         reference_text = (
