@@ -615,7 +615,19 @@ class LiveSpan(Span):
             return [self._extract_attachments(item, extract_base64) for item in value]
         return value
 
-    def _store_attachment(self, attachment: Attachment) -> str:
+    def _store_attachment(self, attachment: Attachment) -> str | None:
+        from mlflow.environment_variables import MLFLOW_TRACE_MAX_ATTACHMENT_SIZE
+
+        max_size = MLFLOW_TRACE_MAX_ATTACHMENT_SIZE.get()
+        if max_size is not None and max_size > 0 and len(attachment.content_bytes) > max_size:
+            size_bytes = len(attachment.content_bytes)
+            msg = (
+                f"Attachment too large ({size_bytes} bytes > {max_size} bytes limit). "
+                f"Content discarded."
+            )
+            _logger.warning(msg)
+            self.record_exception(msg)
+            return f"[Attachment too large: {size_bytes} bytes exceeds {max_size} bytes limit]"
         ref = attachment.ref(self.trace_id)
         self._attachments[attachment.id] = attachment
         return ref
@@ -660,6 +672,8 @@ class LiveSpan(Span):
                 ref = self._store_attachment(
                     Attachment(content_type=content_type, content_bytes=content_bytes)
                 )
+                if ref is None:
+                    return None
                 return {
                     **value,
                     "input_audio": {**audio, "data": ref},
@@ -678,6 +692,8 @@ class LiveSpan(Span):
                     ref = self._store_attachment(
                         Attachment(content_type=media_type, content_bytes=content_bytes)
                     )
+                    if ref is None:
+                        return None
                     return {
                         **value,
                         "source": {**source, "data": ref},
@@ -693,6 +709,8 @@ class LiveSpan(Span):
             ref = self._store_attachment(
                 Attachment(content_type="image/png", content_bytes=content_bytes)
             )
+            if ref is None:
+                return None
             return {**value, "b64_json": ref}
 
         # OpenAI audio output: {"audio": {"data": "<base64>", "transcript": "..."}, ...}
@@ -707,6 +725,8 @@ class LiveSpan(Span):
                 ref = self._store_attachment(
                     Attachment(content_type="audio/wav", content_bytes=content_bytes)
                 )
+                if ref is None:
+                    return None
                 return {
                     **value,
                     "audio": {**audio, "data": ref},
@@ -728,6 +748,8 @@ class LiveSpan(Span):
                     ref = self._store_attachment(
                         Attachment(content_type=f"image/{fmt}", content_bytes=content_bytes)
                     )
+                    if ref is None:
+                        return None
                     return {
                         **value,
                         "image": {**image, "source": {**source, "bytes": ref}},
@@ -758,6 +780,8 @@ class LiveSpan(Span):
                 ref = self._store_attachment(
                     Attachment(content_type=mime_type, content_bytes=content_bytes)
                 )
+                if ref is None:
+                    return None
                 return {
                     **value,
                     "inline_data": {**inline, "data": ref},
@@ -778,6 +802,8 @@ class LiveSpan(Span):
                 ref = self._store_attachment(
                     Attachment(content_type=f"image/{fmt}", content_bytes=content_bytes)
                 )
+                if ref is None:
+                    return None
                 return {**value, "result": ref}
 
         return None
