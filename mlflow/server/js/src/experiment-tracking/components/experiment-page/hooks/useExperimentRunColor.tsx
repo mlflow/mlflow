@@ -52,7 +52,11 @@ export const useSaveExperimentRunColor = () => {
       if (groupUuid) {
         const colors = loadSavedColors();
         colors[groupUuid] = colorValue;
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(colors));
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(colors));
+        } catch {
+          // Ignore QuotaExceededError
+        }
       }
     },
     [dispatch],

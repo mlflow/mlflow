@@ -79,7 +79,13 @@ class LocalStorageStore {
 
   /** Save the specified key-value pair in local storage. */
   setItem(key: any, value: any) {
-    this.storageObj.setItem(this.withScopePrefix(key), value);
+    try {
+      this.storageObj.setItem(this.withScopePrefix(key), value);
+    } catch {
+      // Silently ignore QuotaExceededError — this happens when persisting
+      // large state (e.g. 3000+ chart configs). The app continues to work
+      // without persistence; the state will be regenerated on next visit.
+    }
   }
 
   /** Fetch the value corresponding to the passed-in key from local storage. */

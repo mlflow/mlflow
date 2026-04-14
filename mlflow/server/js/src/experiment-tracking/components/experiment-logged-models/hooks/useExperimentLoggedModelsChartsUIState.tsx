@@ -149,7 +149,11 @@ const loadPersistedDataFromStorage = async (storeIdentifier: string) => {
 };
 
 const saveDataToStorage = async (storeIdentifier: string, dataToPersist: LoggedModelsChartsUIConfiguration) => {
-  localStorage.setItem(createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
+  try {
+    localStorage.setItem(createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
+  } catch {
+    // Ignore QuotaExceededError
+  }
 };
 
 export const useExperimentLoggedModelsChartsUIState = (
