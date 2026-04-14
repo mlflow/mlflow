@@ -1211,7 +1211,6 @@ def test_get_presigned_download_url_unsupported_repo(enable_serve_artifacts, tmp
 
 
 def test_create_presigned_upload_url_success():
-    """Test that the presigned upload URL handler works with a valid run and S3 repo."""
     from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
 
     class MockPresignedUploadRepo(PresignedUploadMixin):
@@ -1255,7 +1254,6 @@ def test_create_presigned_upload_url_success():
 
 
 def test_create_presigned_upload_url_unsupported_repo():
-    """Test that a non-S3 repo returns 501."""
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "file:///tmp/artifacts"
 
@@ -1297,7 +1295,6 @@ def test_create_presigned_upload_url_unsupported_repo():
     ],
 )
 def test_create_presigned_upload_url_rejects_proxy_artifact_uri(artifact_uri):
-    """Test that runs with proxied artifact URIs are rejected with 400."""
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = artifact_uri
 
@@ -1327,7 +1324,6 @@ def test_create_presigned_upload_url_rejects_proxy_artifact_uri(artifact_uri):
 
 
 def test_create_presigned_upload_url_invalid_run_id():
-    """Test that an invalid run_id returns 404."""
     from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
@@ -1366,7 +1362,6 @@ def test_create_presigned_upload_url_invalid_run_id():
     ],
 )
 def test_create_presigned_upload_url_rejects_path_traversal(path):
-    """Test that path traversal attempts are rejected."""
     from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
@@ -1388,7 +1383,6 @@ def test_create_presigned_upload_url_rejects_path_traversal(path):
 
 
 def test_create_presigned_upload_url_with_custom_expiration():
-    """Test that custom expiration is correctly passed through."""
     from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
 
     captured_expiration = {}
@@ -1433,7 +1427,6 @@ def test_create_presigned_upload_url_with_custom_expiration():
 
 
 def test_create_presigned_upload_url_default_expiration():
-    """Test that default expiration (900) is used when not specified."""
     from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
 
     captured_expiration = {}
@@ -1478,7 +1471,6 @@ def test_create_presigned_upload_url_default_expiration():
 
 
 def test_create_presigned_upload_url_blocked_in_artifacts_only_mode(monkeypatch):
-    """Test that the endpoint returns 503 when server runs with --artifacts-only."""
     from mlflow.server import ARTIFACTS_ONLY_ENV_VAR
 
     monkeypatch.setenv(ARTIFACTS_ONLY_ENV_VAR, "true")

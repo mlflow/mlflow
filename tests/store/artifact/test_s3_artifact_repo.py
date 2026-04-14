@@ -746,7 +746,9 @@ def test_create_presigned_upload_url_with_extra_args(s3_artifact_root, monkeypat
     assert presigned_response.presigned_url is not None
     # Verify headers include the extra args mapped to HTTP headers
     assert presigned_response.headers.get("x-amz-server-side-encryption") == "aws:kms"
-    assert presigned_response.headers.get("x-amz-server-side-encryption-aws-kms-key-id") == "my-key-id"
+    assert (
+        presigned_response.headers.get("x-amz-server-side-encryption-aws-kms-key-id") == "my-key-id"
+    )
     # Content-Type should still be present
     assert "Content-Type" in presigned_response.headers
 
