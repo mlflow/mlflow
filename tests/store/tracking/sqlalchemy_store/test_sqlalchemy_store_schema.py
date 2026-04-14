@@ -59,7 +59,9 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
 def expected_schema_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.normpath(
-        os.path.join(current_dir, os.pardir, os.pardir, "resources", "db", "latest_schema.sql")
+        os.path.join(
+            current_dir, os.pardir, os.pardir, os.pardir, "resources", "db", "latest_schema.sql"
+        )
     )
 
 

@@ -279,7 +279,7 @@ export const ApiKeysList = ({
               <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
                 <Checkbox
                   componentId="mlflow.gateway.api-keys.row-checkbox"
-                  isChecked={!!rowSelection[secret.secret_id]}
+                  isChecked={Boolean(rowSelection[secret.secret_id])}
                   onChange={() => handleSelectRow(secret.secret_id)}
                 />
               </TableCell>

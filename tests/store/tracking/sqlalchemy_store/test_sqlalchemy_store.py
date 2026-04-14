@@ -3598,7 +3598,7 @@ def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_m
     """
     current_dir = os.path.dirname(os.path.abspath(__file__))
     db_resources_path = os.path.normpath(
-        os.path.join(current_dir, os.pardir, os.pardir, "resources", "db")
+        os.path.join(current_dir, os.pardir, os.pardir, os.pardir, "resources", "db")
     )
     expected_metric_values_path = os.path.join(
         db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json"
