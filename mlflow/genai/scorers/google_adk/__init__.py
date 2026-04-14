@@ -29,7 +29,6 @@ Example usage:
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any, ClassVar, Literal
 
@@ -42,6 +41,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer, ScorerKind
+from mlflow.genai.scorers.google_adk.utils import (
+    check_adk_installed,
+    map_scorer_inputs_to_invocation,
+)
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
@@ -49,109 +52,6 @@ _logger = logging.getLogger(__name__)
 _FRAMEWORK_NAME = "google_adk"
 
 _DEFAULT_THRESHOLD = 0.5
-
-
-def _check_adk_installed():
-    try:
-        import google.adk.evaluation  # noqa: F401
-    except ImportError:
-        raise MlflowException.invalid_parameter_value(
-            "Google ADK scorers require the `google-adk` package. "
-            "Install it with: `pip install google-adk`"
-        )
-
-
-def _to_invocation(
-    inputs: Any = None,
-    outputs: Any = None,
-    expectations: dict[str, Any] | None = None,
-    trace: Trace | None = None,
-) -> tuple[Any, Any | None]:
-    """Convert MLflow scorer inputs to an ADK Invocation.
-
-    Builds a ``google.adk.evaluation.eval_case.Invocation`` from the raw
-    scorer arguments.  Tool call expectations are pulled from
-    ``expectations["expected_tool_calls"]`` and placed in
-    ``IntermediateData.tool_uses``.
-
-    Returns a tuple of ``(actual_invocation, expected_invocation)``.
-    """
-    from google.adk.evaluation.eval_case import IntermediateData, Invocation
-    from google.genai import types as genai_types
-
-    if trace is not None:
-        from mlflow.genai.utils.trace_utils import (
-            resolve_inputs_from_trace,
-            resolve_outputs_from_trace,
-        )
-
-        inputs = resolve_inputs_from_trace(inputs, trace)
-        outputs = resolve_outputs_from_trace(outputs, trace)
-
-    input_text = _to_str(inputs) if inputs is not None else ""
-    output_text = _to_str(outputs) if outputs is not None else ""
-
-    user_content = genai_types.Content(
-        role="user",
-        parts=[genai_types.Part.from_text(text=input_text)],
-    )
-
-    actual_response = genai_types.Content(
-        role="model",
-        parts=[genai_types.Part.from_text(text=output_text)],
-    )
-
-    actual_invocation = Invocation(
-        user_content=user_content,
-        final_response=actual_response,
-    )
-
-    expected_invocation = Invocation(
-        user_content=user_content,
-    )
-
-    if expectations:
-        # Tool call expectations
-        if tool_calls_raw := expectations.get("expected_tool_calls"):
-            expected_tool_uses = [
-                genai_types.FunctionCall(name=tc["name"], args=tc.get("args", {}))
-                for tc in tool_calls_raw
-            ]
-            expected_invocation.intermediate_data = IntermediateData(
-                tool_uses=expected_tool_uses,
-            )
-
-        # Actual tool calls (if provided)
-        if actual_tool_calls_raw := expectations.get("actual_tool_calls"):
-            actual_tool_uses = [
-                genai_types.FunctionCall(name=tc["name"], args=tc.get("args", {}))
-                for tc in actual_tool_calls_raw
-            ]
-            actual_invocation.intermediate_data = IntermediateData(
-                tool_uses=actual_tool_uses,
-            )
-
-        # Expected response text for ROUGE scoring
-        reference_text = (
-            expectations.get("expected_response")
-            or expectations.get("reference")
-            or expectations.get("expected_output")
-        )
-        if reference_text:
-            expected_invocation.final_response = genai_types.Content(
-                role="model",
-                parts=[genai_types.Part.from_text(text=str(reference_text))],
-            )
-
-    return actual_invocation, expected_invocation
-
-
-def _to_str(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return json.dumps(value, default=str)
-    return str(value)
 
 
 @experimental(version="3.11.0")
@@ -244,7 +144,7 @@ class ToolTrajectory(GoogleADKScorer):
         threshold: float = _DEFAULT_THRESHOLD,
         **kwargs: Any,
     ):
-        _check_adk_installed()
+        check_adk_installed()
         super().__init__(name=self.metric_name)
         self._threshold = threshold
         self._evaluator = _create_trajectory_evaluator(threshold, match_type)
@@ -268,7 +168,7 @@ class ToolTrajectory(GoogleADKScorer):
                     "ToolTrajectory scorer requires 'expected_tool_calls' in expectations."
                 )
 
-            actual_inv, expected_inv = _to_invocation(
+            actual_inv, expected_inv = map_scorer_inputs_to_invocation(
                 inputs=inputs,
                 outputs=outputs,
                 expectations=expectations,
@@ -335,7 +235,7 @@ class ResponseMatch(GoogleADKScorer):
         threshold: float = _DEFAULT_THRESHOLD,
         **kwargs: Any,
     ):
-        _check_adk_installed()
+        check_adk_installed()
         super().__init__(name=self.metric_name)
         self._threshold = threshold
         self._evaluator = _create_rouge_evaluator(threshold)
@@ -358,17 +258,18 @@ class ResponseMatch(GoogleADKScorer):
             if expectations:
                 reference = (
                     expectations.get("expected_response")
+                    or expectations.get("context")
                     or expectations.get("reference")
                     or expectations.get("expected_output")
                 )
 
             if reference is None:
                 raise MlflowException.invalid_parameter_value(
-                    "ResponseMatch scorer requires 'expected_response' or 'reference' "
-                    "in expectations."
+                    "ResponseMatch scorer requires 'expected_response', 'context', or "
+                    "'reference' in expectations."
                 )
 
-            actual_inv, expected_inv = _to_invocation(
+            actual_inv, expected_inv = map_scorer_inputs_to_invocation(
                 inputs=inputs,
                 outputs=outputs,
                 expectations=expectations,
@@ -463,16 +364,9 @@ def get_scorer(
             scorer = get_scorer("ToolTrajectory", match_type="IN_ORDER", threshold=0.5)
             scorer = get_scorer("ResponseMatch", threshold=0.7)
     """
-    match metric_name:
-        case "ToolTrajectory":
-            return ToolTrajectory(**kwargs)
-        case "ResponseMatch":
-            return ResponseMatch(**kwargs)
-        case _:
-            raise MlflowException.invalid_parameter_value(
-                f"Unknown Google ADK metric '{metric_name}'. "
-                "Available metrics: ['ToolTrajectory', 'ResponseMatch']"
-            )
+    from mlflow.genai.scorers.google_adk.registry import get_scorer_class
+
+    return get_scorer_class(metric_name)(**kwargs)
 
 
 __all__ = [
