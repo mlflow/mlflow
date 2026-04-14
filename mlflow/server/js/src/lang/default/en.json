@@ -1287,6 +1287,10 @@
     "defaultMessage": "Cost",
     "description": "Label for the cost section"
   },
+  "62kUmq": {
+    "defaultMessage": "Edit workspace",
+    "description": "Aria label for edit workspace button in workspaces table"
+  },
   "62puUb": {
     "defaultMessage": "Run your application and traces will appear here automatically. For more information, visit the <a>MLflow Tracing documentation</a>.",
     "description": "Step 3 description for traces onboarding"
@@ -1803,10 +1807,6 @@
     "defaultMessage": "X-axis:",
     "description": "Label text for X-axis in box plot comparison in MLflow"
   },
-  "8xpU1t": {
-    "defaultMessage": "Edit Artifact Root",
-    "description": "Title for edit workspace artifact root modal"
-  },
   "8xzQsr": {
     "defaultMessage": "Train models",
     "description": "Home page quick action title for training models"
@@ -1938,10 +1938,6 @@
   "9dX4XQ": {
     "defaultMessage": "Select parameter or metric",
     "description": "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
-  },
-  "9eWlQw": {
-    "defaultMessage": "Artifact Root",
-    "description": "Workspaces table artifact root column header"
   },
   "9fVZg8": {
     "defaultMessage": "Delete",
@@ -2106,6 +2102,10 @@
   "AQh8lf": {
     "defaultMessage": "Model",
     "description": "Dimension toggle option for model"
+  },
+  "AVeqtn": {
+    "defaultMessage": "Enter default artifact root URI",
+    "description": "Placeholder for workspace artifact root input"
   },
   "AX7L9r": {
     "defaultMessage": "Error",
@@ -2574,6 +2574,10 @@
   "D2svqS": {
     "defaultMessage": "overall error rate",
     "description": "Subtitle for overall tool error rate"
+  },
+  "D6gLbL": {
+    "defaultMessage": "Enter workspace description",
+    "description": "Placeholder for workspace description input"
   },
   "D7SSDK": {
     "defaultMessage": "Automatically log traces for LiteLLM API calls by calling the {code} function. For example:",
@@ -3195,10 +3199,6 @@
     "defaultMessage": "See more",
     "description": "Model trace explorer > selected span > code snippet > see more button"
   },
-  "HZH8Yr": {
-    "defaultMessage": "Set artifact root",
-    "description": "Label for set artifact root button in workspaces table"
-  },
   "HZdpLU": {
     "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
     "description": "A validation state for the prompt name format in the prompt creation modal"
@@ -3806,10 +3806,6 @@
   "LKH6uO": {
     "defaultMessage": "Not registered",
     "description": "Tag for not registered model on the logged model details page"
-  },
-  "LLANE+": {
-    "defaultMessage": "Edit Description",
-    "description": "Title for edit workspace description modal"
   },
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -5203,6 +5199,10 @@
     "defaultMessage": "Custom",
     "description": "Option for the start select dropdown to filter runs with a custom time range"
   },
+  "TqkZmy": {
+    "defaultMessage": "Default Artifact Root",
+    "description": "Label for workspace artifact root field"
+  },
   "TvjS47": {
     "defaultMessage": "This trace is very large, and may cause UI slowness when attempting to render. You can click the button below to attempt to display it anyway.",
     "description": "Body text explaining issues with rendering large traces."
@@ -5647,6 +5647,10 @@
     "defaultMessage": "Z-axis:",
     "description": "Label text for z-axis in contour plot comparison in MLflow"
   },
+  "WJuNcs": {
+    "defaultMessage": "Failed to update workspace. Please try again.",
+    "description": "Generic error message for edit workspace modal"
+  },
   "WP1pyQ": {
     "defaultMessage": "Created by",
     "description": "Column title for created by column for a model in the registered model page"
@@ -6026,10 +6030,6 @@
   "YeCF5P": {
     "defaultMessage": "Human feedback",
     "description": "Label for the button to add human feedback to the trace"
-  },
-  "YeIhTa": {
-    "defaultMessage": "Enter artifact root URI",
-    "description": "Placeholder for artifact root input in edit modal"
   },
   "Yhydp3": {
     "defaultMessage": "Relevance",
@@ -6915,10 +6915,6 @@
     "defaultMessage": "Detect issues in traces",
     "description": "Aria label for the detect issues button"
   },
-  "dUY9eq": {
-    "defaultMessage": "Edit description",
-    "description": "Label for edit description button in workspaces table"
-  },
   "dUm30k": {
     "defaultMessage": "Create a workspace to organize and logically isolate your experiments and models.",
     "description": "Home page workspaces empty state description"
@@ -7118,6 +7114,10 @@
   "eeLqSn": {
     "defaultMessage": "Submit",
     "description": "Experiment page > artifact compare view > \"add new row\" modal submit button label"
+  },
+  "efeZ8U": {
+    "defaultMessage": "Description",
+    "description": "Label for workspace description field"
   },
   "ega/Za": {
     "defaultMessage": "Hide finished runs",
@@ -7839,10 +7839,6 @@
     "defaultMessage": "TRUE",
     "description": "Header label for boolean assessment type for the true rate"
   },
-  "ie1fGj": {
-    "defaultMessage": "Edit artifact root",
-    "description": "Label for edit artifact root button in workspaces table"
-  },
   "ieY8lf": {
     "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
     "description": "Status text while evaluating traces or sessions"
@@ -8090,10 +8086,6 @@
   "k7itje": {
     "defaultMessage": "Create webhook",
     "description": "Create webhook button"
-  },
-  "k8oXRo": {
-    "defaultMessage": "Enter description",
-    "description": "Placeholder for description input in edit modal"
   },
   "kA+QJr": {
     "defaultMessage": "Overview",
@@ -9731,10 +9723,6 @@
     "defaultMessage": "Value",
     "description": "Key-value tag editor modal > Value input label (required)"
   },
-  "tJ+7No": {
-    "defaultMessage": "Set description",
-    "description": "Label for set description button in workspaces table"
-  },
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
@@ -9926,6 +9914,10 @@
   "ujm55z": {
     "defaultMessage": "Finished",
     "description": "Run page > Overview > Run status cell > Value for finished state"
+  },
+  "ulwC/L": {
+    "defaultMessage": "Edit Workspace",
+    "description": "Title for edit workspace modal"
   },
   "umeTwG": {
     "defaultMessage": "Latest",
