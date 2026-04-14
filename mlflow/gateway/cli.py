@@ -47,8 +47,8 @@ def commands():
 )
 @deprecated(
     impact=(
-        f"Set the `{MLFLOW_GATEWAY_CONFIG.name}` environment variable"
-        " and use `mlflow server` instead."
+        f"Set the `{MLFLOW_GATEWAY_CONFIG.name}` environment variable and use `mlflow server`"
+        " instead. See https://mlflow.org/docs/latest/genai/governance/ai-gateway/ for details."
     )
 )
 def start(config_path: str, host: str, port: str, workers: int):
