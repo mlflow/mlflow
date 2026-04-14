@@ -122,6 +122,7 @@ def save_model(
             resources required to serve the model.
         use_dspy_model_save: Whether to save the Dspy model by dspy builtin `dspy.Module.save`
             method.
+        uv: {{ uv }}
     """
 
     import dspy
@@ -377,6 +378,7 @@ def log_model(
         model_id: {{ model_id }}
         use_dspy_model_save: Whether to save the Dspy model by dspy builtin `dspy.Module.save`
             method.
+        uv: {{ uv }}
 
     .. code-block:: python
         :caption: Example

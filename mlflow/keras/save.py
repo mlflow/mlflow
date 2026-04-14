@@ -137,6 +137,7 @@ def save_model(
         save_model_kwargs: A dict of kwargs to pass to `keras.Model.save`
             method.
         metadata: {{ metadata }}
+        uv: {{ uv }}
 
     .. code-block:: python
         :caption: Example
@@ -336,6 +337,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
 
     .. code-block:: python
         :caption: Example

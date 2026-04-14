@@ -146,6 +146,7 @@ def save_model(
             compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
         kwargs: {{ kwargs }}
     """
     import xgboost as xgb
@@ -295,6 +296,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
 
     Returns

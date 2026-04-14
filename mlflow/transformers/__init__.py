@@ -490,6 +490,7 @@ def save_model(
             weights for PEFT models. When provided, only the PEFT adapter weights are
             saved and the base model weights are referenced by this path instead of
             being saved to the MLflow artifact. This is useful for:
+        uv: {{ uv }}
 
             - Air-gapped environments where the base model cannot be downloaded from
               HuggingFace Hub.
@@ -1088,6 +1089,7 @@ def log_model(
             weights for PEFT models. When provided, only the PEFT adapter weights are
             saved and the base model weights are referenced by this path instead of
             being saved to the MLflow artifact. See :py:func:`save_model` for details.
+        uv: {{ uv }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(

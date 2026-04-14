@@ -228,6 +228,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns
@@ -359,6 +360,7 @@ def save_model(
             to be saved is a keras model.
         metadata: {{ metadata }}
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
     """
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel

@@ -250,6 +250,7 @@ def save_model(
         streamable: A boolean value indicating if the model supports streaming prediction. If
             True, the model must implement `stream` method. If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
+        uv: {{ uv }}
     """
     import langchain
 
@@ -600,6 +601,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
