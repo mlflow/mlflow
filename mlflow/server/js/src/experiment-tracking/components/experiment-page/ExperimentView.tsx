@@ -21,7 +21,7 @@ import { useExperimentRuns } from './hooks/useExperimentRuns';
 import type { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
 import { useSharedExperimentViewState } from './hooks/useSharedExperimentViewState';
 import { useInitializeUIState } from './hooks/useInitializeUIState';
-import { ExperimentViewDescriptionNotes } from './components/ExperimentViewDescriptionNotes';
+import { ExperimentViewDescriptionNotes } from './components/ExperimentViewMetadataEditor';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';

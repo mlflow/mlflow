@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 import type { ExperimentEntity } from '../../../types';
-import { ExperimentViewDescriptionNotes } from './ExperimentViewDescriptionNotes';
+import { ExperimentViewDescriptionNotes } from './ExperimentViewMetadataEditor';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
 import type { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { getGraphQLErrorMessage } from '../../../../graphql/get-graphql-error';
