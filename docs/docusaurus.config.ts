@@ -819,7 +819,7 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/governance/ai-gateway/legacy/setup',
+            to: '/genai/governance/ai-gateway',
             from: [
               '/llms/deployments/guides/step1-create-deployments',
               '/llms/gateway/guides/step1-create-gateway',
@@ -831,12 +831,22 @@ const config: Config = {
             from: ['/genai/governance/ai-gateway/setup'],
           },
           {
-            to: '/genai/governance/ai-gateway/legacy/usage',
+            to: '/genai/governance/ai-gateway',
             from: [
               '/llms/deployments/guides/step2-query-deployments',
               '/llms/gateway/guides/step2-query-gateway',
               '/genai/governance/ai-gateway/guides/step2-query-deployments',
               '/genai/governance/ai-gateway/usage',
+            ],
+          },
+          {
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/genai/governance/ai-gateway/legacy',
+              '/genai/governance/ai-gateway/legacy/index',
+              '/genai/governance/ai-gateway/legacy/setup',
+              '/genai/governance/ai-gateway/legacy/configuration',
+              '/genai/governance/ai-gateway/legacy/usage',
             ],
           },
           {
