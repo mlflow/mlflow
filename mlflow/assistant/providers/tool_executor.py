@@ -36,6 +36,11 @@ async def execute_tool(
     perms = permissions or PermissionsConfig()
 
     if not perms.full_access:
+        if tool_name == "Bash":
+            command = tool_input.get("command", "").strip()
+            if not command.startswith("mlflow"):
+                return "Permission denied: only mlflow commands are allowed", True
+
         if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
             return f"Permission denied: {tool_name} is not allowed", True
 

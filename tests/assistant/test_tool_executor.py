@@ -71,9 +71,25 @@ def test_path_containment_blocks_escape(workspace):
     assert "Permission denied" in result
 
 
-def test_bash_works_without_cwd():
+def test_bash_blocks_non_mlflow_commands():
     result, is_error = _run(
         execute_tool("Bash", {"command": "echo hello"})
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_allows_mlflow_commands():
+    result, is_error = _run(
+        execute_tool("Bash", {"command": "mlflow --version"})
+    )
+    assert not is_error
+
+
+def test_bash_full_access_allows_any_command():
+    perms = PermissionsConfig(full_access=True)
+    result, is_error = _run(
+        execute_tool("Bash", {"command": "echo hello"}, permissions=perms)
     )
     assert not is_error
     assert "hello" in result
