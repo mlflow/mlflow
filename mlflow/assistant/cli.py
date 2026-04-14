@@ -37,7 +37,7 @@ class Spinner:
         self.thread.start()
         return self
 
-    def __exit__(self, *_):
+    def __exit__(self, *args):
         self.spinning = False
         if self.thread:
             self.thread.join()
