@@ -46,10 +46,8 @@ def commands():
     help="The number of workers.",
 )
 @deprecated(
-    impact=(
-        f"Set the `{MLFLOW_GATEWAY_CONFIG.name}` environment variable and use `mlflow server`"
-        " instead. See https://mlflow.org/docs/latest/genai/governance/ai-gateway/ for details."
-    )
+    impact="Please use the new UI-based AI Gateway instead:"
+    " https://mlflow.org/docs/latest/genai/governance/ai-gateway/"
 )
 def start(config_path: str, host: str, port: str, workers: int):
     if is_windows():
