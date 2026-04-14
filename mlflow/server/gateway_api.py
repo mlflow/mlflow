@@ -579,20 +579,21 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-        try:
-            body = await run_before_guardrails(
-                guardrails, payload.model_dump(), auth_headers=auth_headers
-            )
-            payload = chat.RequestPayload(**body)
-        except GuardrailViolation as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, endpoint_type
         )
 
         if payload.stream:
             # AFTER-stage guardrails are not applied to streaming responses.
+            # BEFORE guardrails run outside the stream trace.
+            try:
+                body = await run_before_guardrails(
+                    guardrails, payload.model_dump(), auth_headers=auth_headers
+                )
+                payload = chat.RequestPayload(**body)
+            except GuardrailViolation as e:
+                raise HTTPException(status_code=400, detail=str(e))
+
             stream = maybe_traced_gateway_call(
                 provider.chat_stream,
                 endpoint_config,
@@ -607,18 +608,27 @@ async def invocations(endpoint_name: str, request: Request):
                 media_type="text/event-stream",
             )
         else:
-            response = await maybe_traced_gateway_call(
-                provider.chat,
-                endpoint_config,
-                user_metadata,
-                request_headers=headers,
-                request_type=GatewayRequestType.UNIFIED_CHAT,
-                on_complete=make_budget_on_complete(store, workspace),
-            )(payload)
-            try:
-                return await run_after_guardrails(
-                    guardrails, body, response, auth_headers=auth_headers
+            async def _guarded_chat(
+                payload: chat.RequestPayload,
+            ) -> chat.ResponsePayload:
+                request_dict = await run_before_guardrails(
+                    guardrails, payload.model_dump(), auth_headers=auth_headers
                 )
+                modified_payload = chat.RequestPayload(**request_dict)
+                response = await provider.chat(modified_payload)
+                return await run_after_guardrails(
+                    guardrails, request_dict, response, auth_headers=auth_headers
+                )
+
+            try:
+                return await maybe_traced_gateway_call(
+                    _guarded_chat,
+                    endpoint_config,
+                    user_metadata,
+                    request_headers=headers,
+                    request_type=GatewayRequestType.UNIFIED_CHAT,
+                    on_complete=make_budget_on_complete(store, workspace),
+                )(payload)
             except GuardrailViolation as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
@@ -691,16 +701,17 @@ async def chat_completions(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-    try:
-        body = await run_before_guardrails(
-            guardrails, payload.model_dump(), auth_headers=auth_headers
-        )
-        payload = chat.RequestPayload(**body)
-    except GuardrailViolation as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
     if payload.stream:
         # AFTER-stage guardrails are not applied to streaming responses.
+        # BEFORE guardrails run outside the stream trace.
+        try:
+            body = await run_before_guardrails(
+                guardrails, payload.model_dump(), auth_headers=auth_headers
+            )
+            payload = chat.RequestPayload(**body)
+        except GuardrailViolation as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
         stream = maybe_traced_gateway_call(
             provider.chat_stream,
             endpoint_config,
@@ -715,16 +726,27 @@ async def chat_completions(request: Request):
             media_type="text/event-stream",
         )
     else:
-        response = await maybe_traced_gateway_call(
-            provider.chat,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.UNIFIED_CHAT,
-            on_complete=make_budget_on_complete(store, workspace),
-        )(payload)
+        async def _guarded_chat(
+            payload: chat.RequestPayload,
+        ) -> chat.ResponsePayload:
+            request_dict = await run_before_guardrails(
+                guardrails, payload.model_dump(), auth_headers=auth_headers
+            )
+            modified_payload = chat.RequestPayload(**request_dict)
+            response = await provider.chat(modified_payload)
+            return await run_after_guardrails(
+                guardrails, request_dict, response, auth_headers=auth_headers
+            )
+
         try:
-            return await run_after_guardrails(guardrails, body, response, auth_headers=auth_headers)
+            return await maybe_traced_gateway_call(
+                _guarded_chat,
+                endpoint_config,
+                user_metadata,
+                request_headers=headers,
+                request_type=GatewayRequestType.UNIFIED_CHAT,
+                on_complete=make_budget_on_complete(store, workspace),
+            )(payload)
         except GuardrailViolation as e:
             raise HTTPException(status_code=400, detail=str(e))
 

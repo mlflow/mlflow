@@ -3,9 +3,12 @@ from __future__ import annotations
 import abc
 import asyncio
 import json
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any
 
+import mlflow
 from fastapi import HTTPException
+from mlflow.entities import SpanType
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
@@ -246,26 +249,43 @@ class JudgeGuardrail(Guardrail):
         # Bypass guardrails on the sanitization call to prevent recursive loops.
         headers[_SANITIZE_BYPASS_HEADER] = "1"
 
-        try:
-            resp_json = await send_request(headers=headers, base_url=url, path=path, payload=body)
-        except HTTPException as e:
-            raise GuardrailViolation(self.name, f"Sanitization request failed: {e.detail}") from e
+        span_ctx = (
+            mlflow.start_span(name="sanitization", span_type=SpanType.LLM)
+            if mlflow.get_current_active_span() is not None
+            else nullcontext()
+        )
+        with span_ctx as san_span:
+            if san_span is not None:
+                san_span.set_inputs({"payload": payload, "rationale": rationale})
 
-        try:
-            content = resp_json["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as e:
-            raise GuardrailViolation(
-                self.name,
-                "Sanitization LLM response is missing 'choices[0].message.content'.",
-            ) from e
+            try:
+                resp_json = await send_request(
+                    headers=headers, base_url=url, path=path, payload=body
+                )
+            except HTTPException as e:
+                raise GuardrailViolation(
+                    self.name, f"Sanitization request failed: {e.detail}"
+                ) from e
 
-        try:
-            return json.loads(content)
-        except (json.JSONDecodeError, TypeError) as e:
-            raise GuardrailViolation(
-                self.name,
-                "Sanitization LLM returned invalid JSON.",
-            ) from e
+            try:
+                content = resp_json["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError) as e:
+                raise GuardrailViolation(
+                    self.name,
+                    "Sanitization LLM response is missing 'choices[0].message.content'.",
+                ) from e
+
+            try:
+                result = json.loads(content)
+            except (json.JSONDecodeError, TypeError) as e:
+                raise GuardrailViolation(
+                    self.name,
+                    "Sanitization LLM returned invalid JSON.",
+                ) from e
+
+            if san_span is not None:
+                san_span.set_outputs(result)
+            return result
 
     async def _enforce(
         self,
@@ -298,8 +318,20 @@ class JudgeGuardrail(Guardrail):
         if self.stage == GuardrailStage.AFTER:
             return request
 
-        result = await asyncio.to_thread(self._invoke_judge, inputs=request)
-        return await self._enforce(request, ChatCompletionRequest, result, auth_headers)
+        if mlflow.get_current_active_span() is None:
+            result = await asyncio.to_thread(self._invoke_judge, inputs=request)
+            return await self._enforce(request, ChatCompletionRequest, result, auth_headers)
+
+        with mlflow.start_span(
+            name=f"guardrail/{self.name}", span_type=SpanType.GUARDRAIL
+        ) as gspan:
+            gspan.set_inputs(request)
+            with mlflow.start_span(name="judge", span_type=SpanType.EVALUATOR) as jspan:
+                result = await asyncio.to_thread(self._invoke_judge, inputs=request)
+                jspan.set_outputs({"passed": self._is_passing(result)})
+            output = await self._enforce(request, ChatCompletionRequest, result, auth_headers)
+            gspan.set_outputs(output)
+            return output
 
     async def process_response(
         self,
@@ -310,8 +342,22 @@ class JudgeGuardrail(Guardrail):
         if self.stage == GuardrailStage.BEFORE:
             return response
 
-        result = await asyncio.to_thread(self._invoke_judge, inputs=request, outputs=response)
-        return await self._enforce(response, ChatCompletionResponse, result, auth_headers)
+        if mlflow.get_current_active_span() is None:
+            result = await asyncio.to_thread(self._invoke_judge, inputs=request, outputs=response)
+            return await self._enforce(response, ChatCompletionResponse, result, auth_headers)
+
+        with mlflow.start_span(
+            name=f"guardrail/{self.name}", span_type=SpanType.GUARDRAIL
+        ) as gspan:
+            gspan.set_inputs({"request": request, "response": response})
+            with mlflow.start_span(name="judge", span_type=SpanType.EVALUATOR) as jspan:
+                result = await asyncio.to_thread(
+                    self._invoke_judge, inputs=request, outputs=response
+                )
+                jspan.set_outputs({"passed": self._is_passing(result)})
+            output = await self._enforce(response, ChatCompletionResponse, result, auth_headers)
+            gspan.set_outputs(output)
+            return output
 
     @classmethod
     def from_entity(cls, entity: GatewayGuardrail, server_url: str | None = None) -> JudgeGuardrail:

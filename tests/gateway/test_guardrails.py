@@ -1,12 +1,16 @@
 import json
+import uuid
 from typing import Any
 from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
+from mlflow.entities import SpanType
 from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
+from mlflow.tracing.client import TracingClient
 from mlflow.types.chat import ChatCompletionRequest
 
 # ---------------------------------------------------------------------------
@@ -478,3 +482,115 @@ def test_from_entity_does_not_rewrite_non_gateway_model_uri():
         guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
 
     assert guard.scorer is mock_instructions_judge
+
+
+# ---------------------------------------------------------------------------
+# Tracing: spans created during guardrail execution
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def tracing_experiment():
+    exp_id = mlflow.create_experiment(f"guardrail-tracing-{uuid.uuid4()}")
+    mlflow.set_experiment(experiment_id=exp_id)
+    yield exp_id
+
+
+def _get_span_map(experiment_id):
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1, f"Expected 1 trace, got {len(traces)}"
+    return {s.name: s for s in traces[0].data.spans}
+
+
+@pytest.mark.asyncio
+async def test_process_request_creates_guardrail_and_judge_spans(tracing_experiment):
+    scorer = _SimpleScorer(_feedback(value=True))
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "safety")
+
+    @mlflow.trace
+    async def _run():
+        return await guard.process_request(_make_request())
+
+    result = await _run()
+    assert result == _make_request()
+
+    spans = _get_span_map(tracing_experiment)
+    assert "guardrail/safety" in spans
+    assert "judge" in spans
+
+    gspan = spans["guardrail/safety"]
+    jspan = spans["judge"]
+    assert gspan.span_type == SpanType.GUARDRAIL
+    assert jspan.span_type == SpanType.EVALUATOR
+    assert jspan.outputs == {"passed": True}
+    assert jspan.parent_id == gspan.span_id
+
+
+@pytest.mark.asyncio
+async def test_process_request_no_spans_without_active_trace(tracing_experiment):
+    scorer = _SimpleScorer(_feedback(value=True))
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "safety")
+    result = await guard.process_request(_make_request())
+    assert result == _make_request()
+
+    traces = TracingClient().search_traces(locations=[tracing_experiment])
+    assert len(traces) == 0
+
+
+@pytest.mark.asyncio
+async def test_process_response_creates_guardrail_and_judge_spans(tracing_experiment):
+    scorer = _SimpleScorer(_feedback(value=True))
+    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION, "pii")
+
+    @mlflow.trace
+    async def _run():
+        return await guard.process_response(_make_request(), _make_response())
+
+    await _run()
+
+    spans = _get_span_map(tracing_experiment)
+    assert "guardrail/pii" in spans
+    assert "judge" in spans
+
+    gspan = spans["guardrail/pii"]
+    jspan = spans["judge"]
+    assert gspan.span_type == SpanType.GUARDRAIL
+    assert jspan.span_type == SpanType.EVALUATOR
+    assert jspan.parent_id == gspan.span_id
+
+
+@pytest.mark.asyncio
+async def test_sanitization_creates_span_when_traced(tracing_experiment):
+    scorer = _SimpleScorer(_feedback(value=False, rationale="contains PII"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        "pii-guard",
+        action_llm_url="http://localhost:5000",
+        action_endpoint_name="ep-sanitizer",
+    )
+    sanitized = _make_request("my SSN is [REDACTED]")
+
+    @mlflow.trace
+    async def _run():
+        with mock.patch(
+            "mlflow.gateway.guardrails.send_request", _send_request_returning(sanitized)
+        ):
+            return await guard.process_request(_make_request("my SSN is 123-45-6789"))
+
+    result = await _run()
+    assert result == sanitized
+
+    spans = _get_span_map(tracing_experiment)
+    assert "guardrail/pii-guard" in spans
+    assert "judge" in spans
+    assert "sanitization" in spans
+
+    gspan = spans["guardrail/pii-guard"]
+    jspan = spans["judge"]
+    san_span = spans["sanitization"]
+    assert san_span.span_type == SpanType.LLM
+    assert jspan.outputs == {"passed": False}
+    assert jspan.parent_id == gspan.span_id
+    assert san_span.parent_id == gspan.span_id
