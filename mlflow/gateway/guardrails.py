@@ -343,7 +343,8 @@ class JudgeGuardrail(Guardrail):
             gspan.set_inputs(request)
             with mlflow.start_span(name="judge", span_type=SpanType.EVALUATOR) as jspan:
                 result = await asyncio.to_thread(self._invoke_judge, inputs=request)
-                jspan.set_outputs({"passed": self._is_passing(result)})
+                passed = self._is_passing(result)
+                jspan.set_outputs({"passed": passed, "rationale": self._get_rationale(result)})
             output = await self._enforce(
                 request, ChatCompletionRequest, result, auth_headers, usage_tracking=usage_tracking
             )
@@ -372,7 +373,8 @@ class JudgeGuardrail(Guardrail):
                 result = await asyncio.to_thread(
                     self._invoke_judge, inputs=request, outputs=response
                 )
-                jspan.set_outputs({"passed": self._is_passing(result)})
+                passed = self._is_passing(result)
+                jspan.set_outputs({"passed": passed, "rationale": self._get_rationale(result)})
             output = await self._enforce(
                 response,
                 ChatCompletionResponse,

@@ -522,7 +522,7 @@ async def test_process_request_creates_guardrail_and_judge_spans(tracing_experim
     jspan = spans["judge"]
     assert gspan.span_type == SpanType.GUARDRAIL
     assert jspan.span_type == SpanType.EVALUATOR
-    assert jspan.outputs == {"passed": True}
+    assert jspan.outputs == {"passed": True, "rationale": "some rationale"}
     assert jspan.parent_id == gspan.span_id
 
 
@@ -593,6 +593,6 @@ async def test_sanitization_creates_span_when_usage_tracking_on(tracing_experime
     jspan = spans["judge"]
     san_span = spans["sanitization"]
     assert san_span.span_type == SpanType.LLM
-    assert jspan.outputs == {"passed": False}
+    assert jspan.outputs == {"passed": False, "rationale": "contains PII"}
     assert jspan.parent_id == gspan.span_id
     assert san_span.parent_id == gspan.span_id
