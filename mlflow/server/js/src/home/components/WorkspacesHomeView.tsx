@@ -2,24 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
+  FormUI,
   GearIcon,
-  Input,
   Modal,
   Pagination,
   PencilIcon,
+  RHFControlledComponents,
   Spacer,
   Table,
   TableCell,
   TableHeader,
   TableRow,
+  Tag,
   Tooltip,
   Typography,
   useDesignSystemTheme,
-  Tag,
 } from '@databricks/design-system';
+import { FormProvider, useForm } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
-import { useCurrentUserAdminWorkspaces, useCurrentUserIsAdmin } from '../../account/hooks';
+import { useCurrentUserAdminWorkspaces, useCurrentUserIsAdmin, useIsAuthAvailable } from '../../account/hooks';
 import { useWorkspaces, type Workspace } from '../../workspaces/hooks/useWorkspaces';
 import {
   getLastUsedWorkspace,
@@ -27,10 +29,14 @@ import {
   WORKSPACE_QUERY_PARAM,
 } from '../../workspaces/utils/WorkspaceUtils';
 import { useUpdateWorkspace } from '../../workspaces/hooks/useUpdateWorkspace';
-import Utils from '../../common/utils/Utils';
 
 type WorkspacesHomeViewProps = {
   onCreateWorkspace: () => void;
+};
+
+type EditWorkspaceFormData = {
+  description: string;
+  defaultArtifactRoot: string;
 };
 
 const WorkspacesEmptyState = ({ onCreateWorkspace }: { onCreateWorkspace: () => void }) => {
@@ -68,20 +74,29 @@ const WorkspacesEmptyState = ({ onCreateWorkspace }: { onCreateWorkspace: () => 
 const WorkspaceRow = ({
   workspace,
   isLastUsed,
+  canEdit,
   canManage,
+  showEditColumn,
   showManageColumn,
 }: {
   workspace: Workspace;
   isLastUsed: boolean;
+  canEdit: boolean;
   canManage: boolean;
+  showEditColumn: boolean;
   showManageColumn: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { mutate: updateWorkspace, isLoading: isPending } = useUpdateWorkspace();
-
-  const [editingField, setEditingField] = useState<'description' | 'artifact_root' | null>(null);
-  const [editValue, setEditValue] = useState('');
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const form = useForm<EditWorkspaceFormData>({
+    defaultValues: {
+      description: '',
+      defaultArtifactRoot: '',
+    },
+  });
 
   const handleNameClick = () => {
     // Persist to localStorage for UI hints then hard reload to cleanly switch workspace
@@ -101,39 +116,55 @@ const WorkspaceRow = ({
     window.location.reload();
   };
 
-  const handleEditClick = (field: 'description' | 'artifact_root', currentValue: string | null | undefined) => {
-    setEditingField(field);
-    setEditValue(currentValue || '');
+  const handleEditClick = () => {
+    setEditError(null);
+    form.reset({
+      description: workspace.description ?? '',
+      defaultArtifactRoot: workspace.default_artifact_root ?? '',
+    });
+    setIsEditModalVisible(true);
   };
 
-  const handleSave = () => {
-    if (editingField === null) return;
+  const handleSave = form.handleSubmit((values) => {
+    const currentDescription = workspace.description ?? '';
+    const currentDefaultArtifactRoot = workspace.default_artifact_root ?? '';
+    const hasDescriptionChanged = values.description !== currentDescription;
+    const hasDefaultArtifactRootChanged = values.defaultArtifactRoot !== currentDefaultArtifactRoot;
 
-    const updateData: { name: string; description?: string; default_artifact_root?: string } = {
-      name: workspace.name,
-    };
-
-    if (editingField === 'description') {
-      updateData.description = editValue;
-    } else if (editingField === 'artifact_root') {
-      updateData.default_artifact_root = editValue;
+    if (!hasDescriptionChanged && !hasDefaultArtifactRootChanged) {
+      setIsEditModalVisible(false);
+      setEditError(null);
+      return;
     }
 
-    updateWorkspace(updateData, {
-      onSuccess: () => {
-        setEditingField(null);
-        setEditValue('');
+    setEditError(null);
+    updateWorkspace(
+      {
+        name: workspace.name,
+        ...(hasDescriptionChanged ? { description: values.description } : {}),
+        ...(hasDefaultArtifactRootChanged ? { default_artifact_root: values.defaultArtifactRoot } : {}),
       },
-      onError: (error: any) => {
-        // Display error notification to user
-        Utils.logErrorAndNotifyUser(error);
+      {
+        onSuccess: () => {
+          setIsEditModalVisible(false);
+          setEditError(null);
+        },
+        onError: (error: any) => {
+          setEditError(
+            error?.message ||
+              intl.formatMessage({
+                defaultMessage: 'Failed to update workspace. Please try again.',
+                description: 'Generic error message for edit workspace modal',
+              }),
+          );
+        },
       },
-    });
-  };
+    );
+  });
 
   const handleCancel = () => {
-    setEditingField(null);
-    setEditValue('');
+    setEditError(null);
+    setIsEditModalVisible(false);
   };
 
   return (
@@ -177,95 +208,48 @@ const WorkspaceRow = ({
           </div>
         </TableCell>
         <TableCell>
-          <div css={{ display: 'flex' }}>
-            <div
-              css={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                color: theme.colors.textSecondary,
-              }}
-            >
-              {workspace.description}
-            </div>
-            <Button
-              componentId="mlflow.home.workspaces.edit_description"
-              size="small"
-              type="tertiary"
-              icon={workspace.description ? <PencilIcon /> : undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditClick('description', workspace.description);
-              }}
-              aria-label={intl.formatMessage({
-                defaultMessage: 'Edit description',
-                description: 'Label for edit description button in workspaces table',
-              })}
-              css={{
-                flexShrink: 0,
-                opacity: 0,
-                '[role=row]:hover &': {
-                  opacity: 1,
-                },
-                '[role=row]:focus-within &': {
-                  opacity: 1,
-                },
-              }}
-            >
-              {!workspace.description ? (
-                <FormattedMessage
-                  defaultMessage="Set description"
-                  description="Label for set description button in workspaces table"
-                />
-              ) : undefined}
-            </Button>
+          <div
+            css={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: theme.colors.textSecondary,
+            }}
+          >
+            {workspace.description}
           </div>
         </TableCell>
-        <TableCell>
-          <div css={{ display: 'flex' }}>
-            <div
-              css={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                color: theme.colors.textSecondary,
-              }}
-            >
-              {workspace.default_artifact_root}
-            </div>
-            <Button
-              componentId="mlflow.home.workspaces.edit_artifact_root"
-              size="small"
-              type="tertiary"
-              icon={workspace.default_artifact_root ? <PencilIcon /> : undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditClick('artifact_root', workspace.default_artifact_root);
-              }}
-              aria-label={intl.formatMessage({
-                defaultMessage: 'Edit artifact root',
-                description: 'Label for edit artifact root button in workspaces table',
-              })}
-              css={{
-                flexShrink: 0,
-                opacity: 0,
-                '[role=row]:hover &': {
-                  opacity: 1,
-                },
-                '[role=row]:focus-within &': {
-                  opacity: 1,
-                },
-              }}
-            >
-              {!workspace.default_artifact_root ? (
-                <FormattedMessage
-                  defaultMessage="Set artifact root"
-                  description="Label for set artifact root button in workspaces table"
+        {showEditColumn && (
+          <TableCell css={{ width: 56, flex: '0 0 56px' }}>
+            <div css={{ display: 'flex', justifyContent: 'center' }}>
+              {canEdit && (
+                <Button
+                  componentId="mlflow.home.workspaces.edit_workspace"
+                  size="small"
+                  type="tertiary"
+                  icon={<PencilIcon />}
+                  aria-label={intl.formatMessage({
+                    defaultMessage: 'Edit workspace',
+                    description: 'Aria label for edit workspace button in workspaces table',
+                  })}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditClick();
+                  }}
+                  css={{
+                    opacity: 0,
+                    '[role=row]:hover &': {
+                      opacity: 1,
+                    },
+                    '[role=row]:focus-within &': {
+                      opacity: 1,
+                    },
+                  }}
                 />
-              ) : undefined}
-            </Button>
-          </div>
-        </TableCell>
+              )}
+            </div>
+          </TableCell>
+        )}
         {showManageColumn && (
           <TableCell
             css={{
@@ -313,59 +297,81 @@ const WorkspaceRow = ({
         )}
       </TableRow>
 
-      <Modal
-        componentId="mlflow.home.workspaces.edit_modal"
-        visible={editingField !== null}
-        onCancel={handleCancel}
-        onOk={handleSave}
-        okButtonProps={{ loading: isPending }}
-        okText={intl.formatMessage({
-          defaultMessage: 'Save',
-          description: 'Save button text for edit workspace modal',
-        })}
-        cancelText={intl.formatMessage({
-          defaultMessage: 'Cancel',
-          description: 'Cancel button text for edit workspace modal',
-        })}
-        title={
-          editingField === 'description'
-            ? intl.formatMessage({
-                defaultMessage: 'Edit Description',
-                description: 'Title for edit workspace description modal',
-              })
-            : intl.formatMessage({
-                defaultMessage: 'Edit Artifact Root',
-                description: 'Title for edit workspace artifact root modal',
-              })
-        }
-      >
-        <div
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSave();
-            }
-          }}
+      <FormProvider {...form}>
+        <Modal
+          componentId="mlflow.home.workspaces.edit_modal"
+          visible={isEditModalVisible}
+          onCancel={handleCancel}
+          onOk={handleSave}
+          size="wide"
+          okButtonProps={{ loading: isPending }}
+          okText={intl.formatMessage({
+            defaultMessage: 'Save',
+            description: 'Save button text for edit workspace modal',
+          })}
+          cancelText={intl.formatMessage({
+            defaultMessage: 'Cancel',
+            description: 'Cancel button text for edit workspace modal',
+          })}
+          title={intl.formatMessage({
+            defaultMessage: 'Edit Workspace',
+            description: 'Title for edit workspace modal',
+          })}
         >
-          <Input
-            componentId="mlflow.home.workspaces.edit_input"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            placeholder={
-              editingField === 'description'
-                ? intl.formatMessage({
-                    defaultMessage: 'Enter description',
-                    description: 'Placeholder for description input in edit modal',
-                  })
-                : intl.formatMessage({
-                    defaultMessage: 'Enter artifact root URI',
-                    description: 'Placeholder for artifact root input in edit modal',
-                  })
-            }
-            autoFocus
-          />
-        </div>
-      </Modal>
+          <div
+            css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSave();
+              }
+            }}
+          >
+            {editError && (
+              <Alert
+                componentId="mlflow.home.workspaces.edit_modal.error"
+                closable={false}
+                message={editError}
+                type="error"
+              />
+            )}
+            <div>
+              <FormUI.Label htmlFor={`mlflow.home.workspaces.edit.${workspace.name}.description`}>
+                <FormattedMessage defaultMessage="Description" description="Label for workspace description field" />
+              </FormUI.Label>
+              <RHFControlledComponents.Input
+                control={form.control}
+                id={`mlflow.home.workspaces.edit.${workspace.name}.description`}
+                componentId="mlflow.home.workspaces.edit.description_input"
+                name="description"
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Enter workspace description',
+                  description: 'Placeholder for workspace description input',
+                })}
+                autoFocus
+              />
+            </div>
+            <div>
+              <FormUI.Label htmlFor={`mlflow.home.workspaces.edit.${workspace.name}.artifact_root`}>
+                <FormattedMessage
+                  defaultMessage="Default Artifact Root"
+                  description="Label for workspace artifact root field"
+                />
+              </FormUI.Label>
+              <RHFControlledComponents.Input
+                control={form.control}
+                id={`mlflow.home.workspaces.edit.${workspace.name}.artifact_root`}
+                componentId="mlflow.home.workspaces.edit.artifact_root_input"
+                name="defaultArtifactRoot"
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Enter default artifact root URI',
+                  description: 'Placeholder for workspace artifact root input',
+                })}
+              />
+            </div>
+          </div>
+        </Modal>
+      </FormProvider>
     </>
   );
 };
@@ -389,7 +395,10 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
   // gating on ``!isAdmin`` is defense-in-depth so the gear stays hidden for
   // admins even if that short-circuit ever changes.
   const isAdmin = useCurrentUserIsAdmin();
+  const isAuthAvailable = useIsAuthAvailable();
   const adminWorkspaces = useCurrentUserAdminWorkspaces();
+  const canEditWorkspaces = !isAuthAvailable || isAdmin;
+  const showEditColumn = canEditWorkspaces;
   const showManageColumn = !isAdmin && adminWorkspaces.size > 0;
 
   const shouldShowEmptyState = !isLoading && !isError && workspaces.length === 0;
@@ -475,12 +484,12 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
                   description="Workspaces table description column header"
                 />
               </TableHeader>
-              <TableHeader componentId="mlflow.home.workspaces_table.header.artifact_root">
-                <FormattedMessage
-                  defaultMessage="Artifact Root"
-                  description="Workspaces table artifact root column header"
+              {showEditColumn && (
+                <TableHeader
+                  componentId="mlflow.home.workspaces_table.header.actions"
+                  css={{ width: 56, flex: '0 0 56px' }}
                 />
-              </TableHeader>
+              )}
               {showManageColumn && (
                 <TableHeader
                   componentId="mlflow.home.workspaces_table.header.manage"
@@ -505,7 +514,8 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
                 <TableCell css={{ padding: theme.spacing.lg, textAlign: 'center' }}>
                   <FormattedMessage defaultMessage="Loading workspaces..." description="Loading workspaces message" />
                 </TableCell>
-                <TableCell />
+                {showEditColumn && <TableCell css={{ width: 56, flex: '0 0 56px' }} />}
+                {showManageColumn && <TableCell />}
               </TableRow>
             ) : (
               paginatedWorkspaces.map((workspace) => (
@@ -513,7 +523,9 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
                   key={workspace.name}
                   workspace={workspace}
                   isLastUsed={workspace.name === lastUsedWorkspace}
+                  canEdit={canEditWorkspaces}
                   canManage={!isAdmin && adminWorkspaces.has(workspace.name)}
+                  showEditColumn={showEditColumn}
                   showManageColumn={showManageColumn}
                 />
               ))
