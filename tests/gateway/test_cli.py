@@ -1,3 +1,4 @@
+import pytest
 from click.testing import CliRunner
 
 from mlflow.gateway import cli as gateway_cli
@@ -60,10 +61,10 @@ def test_start_warns_deprecation(monkeypatch, tmp_path):
     monkeypatch.setattr(gateway_cli, "run_app", lambda **_kwargs: None)
     monkeypatch.setattr(gateway_cli, "is_windows", lambda: False)
 
-    res = runner.invoke(
-        start,
-        ["--config-path", config],
-        catch_exceptions=False,
-    )
+    with pytest.warns(FutureWarning, match="mlflow.gateway.cli.start.*deprecated"):
+        res = runner.invoke(
+            start,
+            ["--config-path", config],
+            catch_exceptions=False,
+        )
     assert res.exit_code == 0
-    assert "`mlflow gateway start` is deprecated" in res.output
