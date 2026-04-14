@@ -17,15 +17,15 @@ export const PipelineStagePicker = ({
         bold
         css={{ display: 'block', fontSize: theme.typography.fontSizeLg, marginBottom: theme.spacing.xs }}
       >
-        <FormattedMessage defaultMessage="Placement" description="Guardrail placement label" />
+        <FormattedMessage defaultMessage="Stage" description="Guardrail stage label" />
       </Typography.Text>
       <Typography.Text
         color="secondary"
         css={{ display: 'block', marginBottom: theme.spacing.sm, fontSize: theme.typography.fontSizeSm }}
       >
         <FormattedMessage
-          defaultMessage="Click on a pipeline stage to choose where this guardrail runs."
-          description="Placement help text"
+          defaultMessage="Click on a stage to choose where this guardrail runs."
+          description="Stage help text"
         />
       </Typography.Text>
       <div
@@ -44,12 +44,9 @@ export const PipelineStagePicker = ({
           const isSelected = isStage && item === stage;
           const label =
             item === 'BEFORE'
-              ? intl.formatMessage({ defaultMessage: 'Input Guardrails', description: 'Pipeline BEFORE stage label' })
+              ? intl.formatMessage({ defaultMessage: 'Before Guardrails', description: 'Pipeline BEFORE stage label' })
               : item === 'AFTER'
-                ? intl.formatMessage({
-                    defaultMessage: 'Output Guardrails',
-                    description: 'Pipeline AFTER stage label',
-                  })
+                ? intl.formatMessage({ defaultMessage: 'After Guardrails', description: 'Pipeline AFTER stage label' })
                 : item;
           return (
             <div key={item} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>

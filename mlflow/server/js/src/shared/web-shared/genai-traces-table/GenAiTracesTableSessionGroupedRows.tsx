@@ -185,7 +185,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
 
         const exportableTrace = row.original.currentRunValue && !isComparing;
         // For traces within a session, show a spacer instead of a checkbox to maintain alignment
-        const isSessionTrace = !!groupedRow.sessionId;
+        const isSessionTrace = Boolean(groupedRow.sessionId);
 
         return (
           <div

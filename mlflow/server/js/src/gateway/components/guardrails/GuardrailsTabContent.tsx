@@ -14,11 +14,14 @@ import {
   VisibleIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { GatewayQueryKeys } from '../../hooks/queryKeys';
 import { useGuardrailsQuery } from '../../hooks/useGuardrailsQuery';
 import { useRemoveGuardrail } from '../../hooks/useRemoveGuardrail';
 import { AddGuardrailModal } from './AddGuardrailModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
+import { GuardrailDetailModal } from './GuardrailDetailModal';
 import type { GatewayGuardrailConfig, GuardrailStage } from '../../types';
 
 interface GuardrailsTabContentProps {
@@ -30,7 +33,9 @@ interface GuardrailsTabContentProps {
 // ─── Pipeline stage tooltip ──────────────────────────────────────────────────
 
 const PIPELINE_STEPS = ['Request', 'BEFORE', 'LLM', 'AFTER', 'Response'] as const;
+// eslint-disable-next-line @databricks/no-const-object-record-string
 const STAGE_LABELS: Record<string, string> = { BEFORE: 'Input Guardrails', AFTER: 'Output Guardrails' };
+// eslint-disable-next-line @databricks/no-const-object-record-string
 const STAGE_DESCRIPTIONS: Record<string, string> = {
   BEFORE: 'This guardrail runs before the request reaches the LLM',
   AFTER: 'This guardrail runs after the LLM response is generated',
@@ -61,7 +66,7 @@ const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
                   borderRadius: theme.borders.borderRadiusMd,
                   fontSize: theme.typography.fontSizeSm,
                   fontWeight: isActive ? theme.typography.typographyBoldFontWeight : 'normal',
-                  color: isActive ? '#fff' : theme.colors.textSecondary,
+                  color: isActive ? theme.colors.white : theme.colors.textSecondary,
                   backgroundColor: isActive ? activeColor : 'transparent',
                   border: `1px solid ${isActive ? activeColor : 'transparent'}`,
                   whiteSpace: 'nowrap',
@@ -106,13 +111,11 @@ const GuardrailRow = ({
   onView,
   onDeleteClick,
   isRemoving,
-  isViewDisabled,
 }: {
   guardrail: GatewayGuardrailConfig;
   onView: (guardrail: GatewayGuardrailConfig) => void;
   onDeleteClick: (guardrail: GatewayGuardrailConfig) => void;
   isRemoving: boolean;
-  isViewDisabled?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const name = guardrail.guardrail?.name ?? guardrail.guardrail_id;
@@ -181,7 +184,6 @@ const GuardrailRow = ({
           size="small"
           type="tertiary"
           onClick={() => onView(guardrail)}
-          disabled={isViewDisabled}
           aria-label="View and edit guardrail"
         />
       </div>
@@ -207,29 +209,39 @@ const GuardrailRow = ({
 
 export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }: GuardrailsTabContentProps) => {
   const { theme } = useDesignSystemTheme();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const intl = useIntl();
+  const queryClient = useQueryClient();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [detailGuardrail, setDetailGuardrail] = useState<GatewayGuardrailConfig | null>(null);
   const [search, setSearch] = useState('');
   const [pendingDelete, setPendingDelete] = useState<GatewayGuardrailConfig | null>(null);
 
   const { data: serverGuardrails, isLoading, error } = useGuardrailsQuery(endpointId);
   const { mutateAsync: removeGuardrail, isLoading: isRemoving } = useRemoveGuardrail();
 
+  const handleRemoveById = useCallback(
+    async (guardrailId: string) => {
+      await removeGuardrail({ endpoint_id: endpointId, guardrail_id: guardrailId });
+    },
+    [removeGuardrail, endpointId],
+  );
+
   const handleConfirmDelete = useCallback(async () => {
     if (!pendingDelete) return;
+    await handleRemoveById(pendingDelete.guardrail_id);
     setPendingDelete(null);
-    await removeGuardrail({ endpoint_id: endpointId, guardrail_id: pendingDelete.guardrail_id });
-  }, [pendingDelete, removeGuardrail, endpointId]);
+  }, [pendingDelete, handleRemoveById]);
 
-  const handleView = useCallback((_guardrail: GatewayGuardrailConfig) => {
-    // Detail modal is wired in follow-up PR (7d)
+  const handleView = useCallback((guardrail: GatewayGuardrailConfig) => {
+    setDetailGuardrail(guardrail);
   }, []);
 
   const handleAdd = useCallback(() => {
-    setIsModalOpen(true);
+    setIsAddModalOpen(true);
   }, []);
 
   const handleModalClose = useCallback(() => {
-    setIsModalOpen(false);
+    setIsAddModalOpen(false);
   }, []);
 
   const filteredGuardrails = serverGuardrails.filter((g) => {
@@ -258,7 +270,10 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
         <Input
           componentId="mlflow.gateway.guardrails.search"
           prefix={<SearchIcon />}
-          placeholder="Search guardrails"
+          placeholder={intl.formatMessage({
+            defaultMessage: 'Search guardrails',
+            description: 'Search guardrails placeholder',
+          })}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           allowClear
@@ -343,29 +358,42 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
               onView={handleView}
               onDeleteClick={setPendingDelete}
               isRemoving={isRemoving}
-              isViewDisabled
             />
           ))
         )}
       </div>
 
       <AddGuardrailModal
-        open={isModalOpen}
+        open={isAddModalOpen}
         onClose={handleModalClose}
-        onSuccess={() => {}}
+        onSuccess={() => queryClient.invalidateQueries(GatewayQueryKeys.guardrails)}
         endpointName={endpointName}
         endpointId={endpointId}
         experimentId={experimentId}
       />
 
       <DeleteConfirmationModal
-        open={!!pendingDelete}
+        open={Boolean(pendingDelete)}
         onClose={() => setPendingDelete(null)}
         onConfirm={handleConfirmDelete}
         title="Remove Guardrail"
         itemName={pendingDelete?.guardrail?.name ?? pendingDelete?.guardrail_id ?? ''}
         itemType="guardrail"
         componentId="mlflow.gateway.guardrails.delete-confirm"
+      />
+
+      <GuardrailDetailModal
+        open={!!detailGuardrail}
+        onClose={() => setDetailGuardrail(null)}
+        onDelete={(guardrailId) => {
+          setDetailGuardrail(null);
+          const toDelete = serverGuardrails.find((g) => g.guardrail_id === guardrailId);
+          if (toDelete) setPendingDelete(toDelete);
+        }}
+        onSuccess={() => queryClient.invalidateQueries(GatewayQueryKeys.guardrails)}
+        endpointId={endpointId}
+        experimentId={experimentId}
+        guardrailConfig={detailGuardrail}
       />
     </div>
   );

@@ -39,7 +39,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.utils.time import get_current_time_millis
 
-from tests.store.tracking.test_sqlalchemy_store import create_test_span
+from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store import create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
 
