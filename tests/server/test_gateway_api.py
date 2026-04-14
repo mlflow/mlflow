@@ -3410,13 +3410,16 @@ async def test_chat_completions_before_sanitize_rewrites_request(store: SqlAlche
 async def test_guardrails_run_in_execution_order(store: SqlAlchemyStore):
     endpoint = _setup_guardrail_endpoint(store, "ep-order-test")
 
-    # Register order=2 first to ensure DB insertion order != execution order.
-    _setup_db_guardrail(
-        store, "ep-order-test", "BEFORE", "VALIDATION", execution_order=2, name="g-order-2"
-    )
-    _setup_db_guardrail(
-        store, "ep-order-test", "BEFORE", "VALIDATION", execution_order=1, name="g-order-1"
-    )
+    # Register in reverse order (5→1) to ensure DB insertion order != execution order.
+    for i in range(5, 0, -1):
+        _setup_db_guardrail(
+            store,
+            "ep-order-test",
+            "BEFORE",
+            "VALIDATION",
+            execution_order=i,
+            name=f"g-order-{i}",
+        )
 
     mock_request = _make_guardrail_mock_request({
         "messages": [{"role": "user", "content": "hello"}]
@@ -3431,7 +3434,8 @@ async def test_guardrails_run_in_execution_order(store: SqlAlchemyStore):
 
         return scorer
 
-    scorers = [make_scorer("order-1", passing=True), make_scorer("order-2", passing=False)]
+    # Guardrails 1-4 pass; guardrail 5 blocks — so all 5 must run in order 1→2→3→4→5.
+    scorers = [make_scorer(f"order-{i}", passing=(i < 5)) for i in range(1, 6)]
     call_count = {"n": 0}
 
     def model_validate_side_effect(serialized):
@@ -3449,5 +3453,4 @@ async def test_guardrails_run_in_execution_order(store: SqlAlchemyStore):
         with pytest.raises(HTTPException, match="400"):
             await invocations(endpoint.name, mock_request)
 
-    # order-1 (passing) must run before order-2 (blocking)
-    assert call_order == ["order-1", "order-2"]
+    assert call_order == ["order-1", "order-2", "order-3", "order-4", "order-5"]
