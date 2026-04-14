@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import inspect
 import logging
 import math
@@ -769,6 +770,7 @@ class ConversationSimulator:
         #     predict_fn call. The goal/persona/turn metadata is used for trace comparison UI
         #     since message content may differ between simulation runs.
         @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
+        @functools.wraps(predict_fn)
         def traced_predict(**kwargs):
             metadata = {
                 TraceMetadataKey.TRACE_SESSION: trace_session_id,
