@@ -1,6 +1,9 @@
-import { LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useState } from 'react';
+
+import { LegacySkeleton, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
 import { useTraceAttachment } from '../hooks/useTraceAttachment';
 
 export const ModelTraceExplorerAttachmentRenderer = ({
@@ -15,7 +18,12 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   contentType: string;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { objectUrl, isLoading, error } = useTraceAttachment({ traceId, attachmentId, contentType });
+  const { objectUrl, contentLength, isLoading, error } = useTraceAttachment({
+    traceId,
+    attachmentId,
+    contentType,
+  });
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   if (error) {
     return (
@@ -32,6 +40,26 @@ export const ModelTraceExplorerAttachmentRenderer = ({
     return <LegacySkeleton />;
   }
 
+  const exceedsRenderLimit = exceedsRenderSizeLimit(contentType, contentLength);
+
+  if (exceedsRenderLimit) {
+    return (
+      <div css={{ padding: theme.spacing.sm }}>
+        {title && (
+          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+            {title}
+          </Typography.Text>
+        )}
+        <DownloadLink
+          url={objectUrl}
+          contentType={contentType}
+          contentLength={contentLength}
+          filename={`attachment-${attachmentId}`}
+        />
+      </div>
+    );
+  }
+
   if (contentType.startsWith('image/')) {
     return (
       <div css={{ padding: theme.spacing.sm }}>
@@ -43,8 +71,28 @@ export const ModelTraceExplorerAttachmentRenderer = ({
         <img
           src={objectUrl}
           alt={`Attachment ${attachmentId}`}
-          css={{ maxWidth: '100%', maxHeight: 400, borderRadius: theme.borders.borderRadiusSm }}
+          css={{
+            maxWidth: '100%',
+            maxHeight: 200,
+            borderRadius: theme.borders.borderRadiusSm,
+            cursor: 'pointer',
+            '&:hover': { boxShadow: `0 0 4px ${theme.colors.border}` },
+          }}
+          onClick={() => setPreviewVisible(true)}
         />
+        <Modal
+          componentId="shared.model-trace-explorer.attachment-image-preview"
+          title=""
+          visible={previewVisible}
+          onCancel={() => setPreviewVisible(false)}
+          onOk={() => setPreviewVisible(false)}
+        >
+          <img
+            src={objectUrl}
+            alt={`Attachment ${attachmentId}`}
+            css={{ maxWidth: '100%', maxHeight: '70vh', display: 'block' }}
+          />
+        </Modal>
       </div>
     );
   }

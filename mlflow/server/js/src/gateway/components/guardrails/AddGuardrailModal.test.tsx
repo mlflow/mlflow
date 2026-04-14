@@ -68,7 +68,7 @@ describe('AddGuardrailModal', () => {
     await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
 
     expect(screen.getByText('Instructions')).toBeInTheDocument();
-    expect(screen.getByText('Placement')).toBeInTheDocument();
+    expect(screen.getByText('Stage')).toBeInTheDocument();
     expect(screen.getByText('Action')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create Guardrail' })).toBeInTheDocument();
   });
@@ -161,7 +161,7 @@ describe('AddGuardrailModal', () => {
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Custom Guardrail').closest('[role="option"]')!);
-    await userEvent.click(screen.getByText('Output Guardrails'));
+    await userEvent.click(screen.getByText('After Guardrails'));
 
     expect(screen.getByText(/Receives {{ inputs }}.*{{ outputs }}/s)).toBeInTheDocument();
   });

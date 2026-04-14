@@ -178,6 +178,15 @@ class _UnsupportedMultipartDownloadException(MlflowException):
         super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
 
 
+class _UnsupportedPresignedUploadException(MlflowException):
+    """Exception thrown when presigned upload is unsupported by an artifact repository"""
+
+    MESSAGE = "Presigned upload is not supported for the current artifact repository"
+
+    def __init__(self):
+        super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
+
+
 class MlflowTracingException(MlflowException):
     """
     Exception thrown from tracing logic
