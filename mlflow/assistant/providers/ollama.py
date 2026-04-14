@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+from collections.abc import Callable as CollectionsCallable
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
@@ -8,6 +9,7 @@ from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
+    ProviderNotConfiguredError,
     load_config,
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
@@ -19,11 +21,41 @@ _logger = logging.getLogger(__name__)
 # Cap serialized session history at 50 KB. Older turns are dropped first (system
 # message at index 0 is always kept) to prevent unbounded growth over long conversations.
 _MAX_SESSION_BYTES = 50 * 1024
+_JSON_LIST_OVERHEAD_BYTES = 2
+_JSON_LIST_SEPARATOR_BYTES = 2
+
+
+def _get_ollama_client_factory() -> CollectionsCallable[..., Any]:
+    import ollama
+
+    client_factory = getattr(ollama, "Client", None)
+    if client_factory is None:
+        raise ImportError("ollama.Client is unavailable")
+    return client_factory
+
+
+def _get_ollama_async_client_factory() -> CollectionsCallable[..., Any]:
+    import ollama
+
+    async_client_factory = getattr(ollama, "AsyncClient", None)
+    if async_client_factory is None:
+        raise ImportError("ollama.AsyncClient is unavailable")
+    return async_client_factory
+
+
+def _message_size_bytes(message: dict[str, Any]) -> int:
+    return len(json.dumps(message).encode())
 
 
 def _trim_session(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    while len(json.dumps(messages).encode()) > _MAX_SESSION_BYTES and len(messages) > 2:
+    message_sizes = [_message_size_bytes(message) for message in messages]
+    total_size = _JSON_LIST_OVERHEAD_BYTES + sum(message_sizes)
+    if len(message_sizes) > 1:
+        total_size += (len(message_sizes) - 1) * _JSON_LIST_SEPARATOR_BYTES
+
+    while total_size > _MAX_SESSION_BYTES and len(messages) > 2:
         messages.pop(1)
+        total_size -= message_sizes.pop(1) + _JSON_LIST_SEPARATOR_BYTES
     return messages
 
 
@@ -42,7 +74,7 @@ class OllamaProvider(AssistantProvider):
 
     def is_available(self) -> bool:
         try:
-            import ollama  # noqa: F401
+            _get_ollama_client_factory()
 
             return True
         except ImportError:
@@ -57,7 +89,7 @@ class OllamaProvider(AssistantProvider):
 
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         try:
-            import ollama
+            client_factory = _get_ollama_client_factory()
         except ImportError:
             if echo:
                 echo("ollama package not found")
@@ -70,7 +102,7 @@ class OllamaProvider(AssistantProvider):
             echo(f"Connecting to Ollama at {host}...")
 
         try:
-            client = ollama.Client(host=host)
+            client = client_factory(host=host)
             client.list()
             if echo:
                 echo("Connection verified")
@@ -80,6 +112,24 @@ class OllamaProvider(AssistantProvider):
             raise NotAuthenticatedError(
                 f"Cannot connect to Ollama server at {host}. "
                 "Make sure Ollama is running: ollama serve"
+            ) from e
+
+    def list_models(self, base_url: str | None = None) -> list[str]:
+        try:
+            client_factory = _get_ollama_client_factory()
+        except ImportError as e:
+            raise CLINotInstalledError(
+                "The 'ollama' Python package is not installed. Install it with: pip install ollama"
+            ) from e
+
+        host = base_url or self._get_host()
+        try:
+            client = client_factory(host=host)
+            response = client.list()
+            return [model.model for model in response.models if model.model]
+        except Exception as e:
+            raise ProviderNotConfiguredError(
+                f"Cannot connect to Ollama server at {host}: {e}"
             ) from e
 
     def resolve_skills_path(self, base_directory: Path) -> Path:
@@ -95,7 +145,7 @@ class OllamaProvider(AssistantProvider):
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
         try:
-            import ollama
+            async_client_factory = _get_ollama_async_client_factory()
         except ImportError:
             yield Event.from_error(
                 "The 'ollama' Python package is not installed. Install it with: pip install ollama"
@@ -125,7 +175,7 @@ class OllamaProvider(AssistantProvider):
         messages.append({"role": "user", "content": user_text})
 
         tools = build_tools_schema()
-        client = ollama.AsyncClient(host=host)
+        client = async_client_factory(host=host)
 
         try:
             while True:

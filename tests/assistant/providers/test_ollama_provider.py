@@ -1,9 +1,10 @@
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from mlflow.assistant.providers.base import clear_config_cache
-from mlflow.assistant.providers.ollama import OllamaProvider
+from mlflow.assistant.providers.ollama import _MAX_SESSION_BYTES, OllamaProvider, _trim_session
 from mlflow.assistant.types import EventType
 
 
@@ -60,6 +61,49 @@ def test_provider_name():
 def test_provider_display_name():
     provider = OllamaProvider()
     assert provider.display_name == "Ollama"
+
+
+def test_trim_session_avoids_reserializing_full_history(monkeypatch):
+    message_content = "x" * (_MAX_SESSION_BYTES // 3)
+    messages = [
+        {"role": "system", "content": "system"},
+        {"role": "user", "content": f"old-{message_content}"},
+        {"role": "assistant", "content": f"middle-{message_content}"},
+        {"role": "user", "content": f"new-{message_content}"},
+    ]
+
+    original_dumps = json.dumps
+    list_serialization_count = 0
+
+    def tracked_dumps(value, *args, **kwargs):
+        nonlocal list_serialization_count
+        if isinstance(value, list):
+            list_serialization_count += 1
+            if list_serialization_count > 1:
+                raise AssertionError("_trim_session reserialized the full message list")
+        return original_dumps(value, *args, **kwargs)
+
+    monkeypatch.setattr("mlflow.assistant.providers.ollama.json.dumps", tracked_dumps)
+
+    trimmed_messages = _trim_session(messages)
+
+    assert trimmed_messages[0]["role"] == "system"
+    assert trimmed_messages[-1]["content"].startswith("new-")
+    assert all(not message["content"].startswith("old-") for message in trimmed_messages[1:])
+
+
+def test_list_models_returns_model_names():
+    mock_ollama = MagicMock()
+    mock_model = MagicMock()
+    mock_model.model = "llama3"
+    mock_ollama.Client.return_value.list.return_value = MagicMock(models=[mock_model])
+
+    with patch.dict("sys.modules", {"ollama": mock_ollama}):
+        provider = OllamaProvider()
+        models = provider.list_models("http://localhost:11434")
+
+    assert models == ["llama3"]
+    mock_ollama.Client.assert_called_once_with(host="http://localhost:11434")
 
 
 @pytest.mark.asyncio

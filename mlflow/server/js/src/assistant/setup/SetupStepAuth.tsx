@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Button,
+  CheckCircleIcon,
   Input,
   SimpleSelect,
   SimpleSelectOption,
   Spinner,
-  CheckCircleIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -23,6 +23,29 @@ interface SetupStepAuthProps {
   onContinue: () => void;
 }
 
+interface ProviderSetupConfig {
+  defaultBaseUrl?: string;
+  requiresBaseUrl?: boolean;
+  supportsModelSelection?: boolean;
+  connectLabel: string;
+}
+
+const PROVIDER_CONFIG: Record<string, ProviderSetupConfig> = {
+  claude_code: {
+    connectLabel: 'Check Again',
+  },
+  ollama: {
+    defaultBaseUrl: 'http://localhost:11434',
+    requiresBaseUrl: true,
+    supportsModelSelection: true,
+    connectLabel: 'Connect',
+  },
+};
+
+const DEFAULT_PROVIDER_CONFIG: ProviderSetupConfig = {
+  connectLabel: 'Check Again',
+};
+
 export const SetupStepAuth = ({
   provider,
   cachedAuthStatus,
@@ -32,41 +55,54 @@ export const SetupStepAuth = ({
 }: SetupStepAuthProps) => {
   const { theme } = useDesignSystemTheme();
   const { config } = useAssistantConfigQuery();
+  const providerConfig = PROVIDER_CONFIG[provider] ?? DEFAULT_PROVIDER_CONFIG;
 
   const [authState, setAuthState] = useState<AuthState>(cachedAuthStatus ?? 'checking');
   const [error, setError] = useState<string | null>(null);
-
-  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
-  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
-  const [ollamaModel, setOllamaModel] = useState<string>('');
+  const [providerBaseUrl, setProviderBaseUrl] = useState(providerConfig.defaultBaseUrl ?? '');
+  const [providerModels, setProviderModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState('');
   const [isFetchingModels, setIsFetchingModels] = useState(false);
 
   useEffect(() => {
-    if (provider === 'ollama' && config?.providers?.['ollama']?.base_url) {
-      setOllamaUrl(config.providers['ollama'].base_url as string);
-    }
-  }, [provider, config]);
+    const configuredBaseUrl = config?.providers?.[provider]?.base_url;
+    setProviderBaseUrl(configuredBaseUrl ?? providerConfig.defaultBaseUrl ?? '');
+    setSelectedModel(config?.providers?.[provider]?.model ?? '');
+  }, [config, provider, providerConfig.defaultBaseUrl]);
 
-  const runHealthCheck = useCallback(async () => {
+  const hasProviderModelSelection = providerConfig.supportsModelSelection === true;
+  const requiresProviderBaseUrl = providerConfig.requiresBaseUrl === true;
+
+  const persistProviderBaseUrl = useCallback(async () => {
+    if (!requiresProviderBaseUrl || !providerBaseUrl) {
+      return;
+    }
+
+    await updateConfig({ providers: { [provider]: { base_url: providerBaseUrl } } });
+  }, [provider, providerBaseUrl, requiresProviderBaseUrl]);
+
+  const runProviderHealthCheck = useCallback(async () => {
     setAuthState('checking');
     setError(null);
 
     try {
-      if (provider === 'ollama') {
+      if (hasProviderModelSelection) {
         setIsFetchingModels(true);
         try {
-          const models = await listProviderModels('ollama', ollamaUrl);
-          setOllamaModels(models);
-          if (models.length > 0) {
-            setOllamaModel(models[0]);
-          }
-          // Only persist base_url after successful connection
-          await updateConfig({ providers: { ollama: { base_url: ollamaUrl } } });
+          const models = await listProviderModels(provider, providerBaseUrl);
+          setProviderModels(models);
+          setSelectedModel((currentModel) => {
+            if (currentModel && models.includes(currentModel)) {
+              return currentModel;
+            }
+            return models[0] ?? '';
+          });
+          await persistProviderBaseUrl();
           setAuthState('authenticated');
           onAuthStatusChange('authenticated');
         } catch (err) {
-          setOllamaModels([]);
-          setError(err instanceof Error ? err.message : 'Failed to check Ollama status');
+          setProviderModels([]);
+          setError(err instanceof Error ? err.message : 'Failed to check provider status');
           setAuthState('not_authenticated');
           onAuthStatusChange('not_authenticated');
         } finally {
@@ -76,44 +112,43 @@ export const SetupStepAuth = ({
       }
 
       const result = await checkProviderHealth(provider);
-
       if (result.ok) {
         setAuthState('authenticated');
         onAuthStatusChange('authenticated');
-      } else {
-        if (result.status === 412) {
-          setAuthState('cli_not_installed');
-          onAuthStatusChange('cli_not_installed');
-        } else {
-          setAuthState('not_authenticated');
-          onAuthStatusChange('not_authenticated');
-        }
-        setError(result.error);
+        return;
       }
+
+      const nextState = result.status === 412 ? 'cli_not_installed' : 'not_authenticated';
+      setAuthState(nextState);
+      setError(result.error);
+      onAuthStatusChange(nextState);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to check status');
       setAuthState('not_authenticated');
       onAuthStatusChange('not_authenticated');
     }
-  }, [provider, ollamaUrl, onAuthStatusChange]);
-
-  const handleOllamaContinue = useCallback(async () => {
-    if (ollamaModel) {
-      await updateConfig({ providers: { ollama: { model: ollamaModel, selected: true } } });
-    }
-    onContinue();
-  }, [ollamaModel, onContinue]);
+  }, [hasProviderModelSelection, onAuthStatusChange, persistProviderBaseUrl, provider, providerBaseUrl]);
 
   useEffect(() => {
-    if (!cachedAuthStatus) {
-      if (provider === 'ollama') {
-        setAuthState('not_authenticated');
-        onAuthStatusChange('not_authenticated');
-      } else {
-        runHealthCheck();
-      }
+    if (cachedAuthStatus) {
+      return;
     }
-  }, [cachedAuthStatus, provider, runHealthCheck, onAuthStatusChange]);
+
+    if (hasProviderModelSelection) {
+      setAuthState('not_authenticated');
+      onAuthStatusChange('not_authenticated');
+      return;
+    }
+
+    runProviderHealthCheck();
+  }, [cachedAuthStatus, hasProviderModelSelection, onAuthStatusChange, runProviderHealthCheck]);
+
+  const handleContinue = useCallback(async () => {
+    if (selectedModel) {
+      await updateConfig({ providers: { [provider]: { model: selectedModel, selected: true } } });
+    }
+    onContinue();
+  }, [onContinue, provider, selectedModel]);
 
   const renderCodeBlock = (code: string) => (
     <div
@@ -135,26 +170,41 @@ export const SetupStepAuth = ({
     </div>
   );
 
-  const renderClaudeContent = () => {
-    if (authState === 'checking') {
-      return (
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: theme.spacing.lg * 2,
-            gap: theme.spacing.md,
-          }}
-        >
-          <Spinner size="default" />
-          <Typography.Text color="secondary">Checking connection...</Typography.Text>
-          <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-            This may take several seconds...
-          </Typography.Text>
+  const renderCheckingState = (message: string, detail?: string) => (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: theme.spacing.lg * 2,
+        gap: theme.spacing.md,
+      }}
+    >
+      <Spinner size="default" />
+      <Typography.Text color="secondary">{message}</Typography.Text>
+      {detail && (
+        <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+          {detail}
+        </Typography.Text>
+      )}
+    </div>
+  );
+
+  const renderAuthenticatedChecks = (items: string[]) => (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {items.map((item) => (
+        <div key={item} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess, fontSize: 20 }} />
+          <Typography.Text>{item}</Typography.Text>
         </div>
-      );
+      ))}
+    </div>
+  );
+
+  const renderClaudeCodeContent = () => {
+    if (authState === 'checking') {
+      return renderCheckingState('Checking connection...', 'This may take several seconds...');
     }
 
     if (authState === 'cli_not_installed') {
@@ -206,91 +256,71 @@ export const SetupStepAuth = ({
           {renderCodeBlock('claude login')}
           <Typography.Text color="secondary">This will open your browser to complete authentication.</Typography.Text>
           <Typography.Text color="secondary">After logging in, click "Check Again" to verify.</Typography.Text>
+          {error && (
+            <Typography.Text color="error" css={{ fontSize: theme.typography.fontSizeSm }}>
+              {error}
+            </Typography.Text>
+          )}
         </div>
       );
     }
 
     return (
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess, fontSize: 20 }} />
-          <Typography.Text>Claude Code CLI Found</Typography.Text>
-        </div>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess, fontSize: 20 }} />
-          <Typography.Text>Connection Verified</Typography.Text>
-        </div>
+        {renderAuthenticatedChecks(['Claude Code CLI Found', 'Connection Verified'])}
         <Typography.Text color="secondary" css={{ marginTop: theme.spacing.sm }}>
-          You're connected and ready to continue!
+          You&apos;re connected and ready to continue!
         </Typography.Text>
       </div>
     );
   };
 
-  const renderOllamaContent = () => {
-    if (authState === 'checking') {
-      return (
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: theme.spacing.lg * 2,
-            gap: theme.spacing.md,
-          }}
-        >
-          <Spinner size="default" />
-          <Typography.Text color="secondary">Connecting to Ollama...</Typography.Text>
-        </div>
-      );
+  const renderProviderModelSelector = () => {
+    if (!hasProviderModelSelection) {
+      return null;
     }
 
-    if (authState === 'authenticated') {
-      return (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-            <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess, fontSize: 20 }} />
-            <Typography.Text>Connected to Ollama at {ollamaUrl}</Typography.Text>
-          </div>
-          <div css={{ marginTop: theme.spacing.sm }}>
-            <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-              Select a model:
-            </Typography.Text>
-            {isFetchingModels ? (
-              <Spinner size="small" />
-            ) : ollamaModels.length > 0 ? (
-              <SimpleSelect
-                id="mlflow.assistant.setup.ollama.model"
-                componentId="mlflow.assistant.setup.ollama.model"
-                value={ollamaModel}
-                onChange={({ target }) => setOllamaModel(target.value)}
-                css={{ width: '100%' }}
-              >
-                {ollamaModels.map((m) => (
-                  <SimpleSelectOption key={m} value={m}>
-                    {m}
-                  </SimpleSelectOption>
-                ))}
-              </SimpleSelect>
-            ) : (
-              <Typography.Text color="secondary">
-                No models found. Pull a model first with: <code>ollama pull llama3.2</code>
-              </Typography.Text>
-            )}
-          </div>
-        </div>
-      );
+    return (
+      <div css={{ marginTop: theme.spacing.sm }}>
+        <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.sm }}>Select a model:</Typography.Text>
+        {isFetchingModels ? (
+          <Spinner size="small" />
+        ) : providerModels.length > 0 ? (
+          <SimpleSelect
+            id="mlflow.assistant.setup.provider.model"
+            componentId="mlflow.assistant.setup.provider.model"
+            value={selectedModel}
+            onChange={({ target }) => setSelectedModel(target.value)}
+            css={{ width: '100%' }}
+          >
+            {providerModels.map((model) => (
+              <SimpleSelectOption key={model} value={model}>
+                {model}
+              </SimpleSelectOption>
+            ))}
+          </SimpleSelect>
+        ) : (
+          <Typography.Text color="secondary">
+            No models found. Pull a model first with: <code>ollama pull llama3.2</code>
+          </Typography.Text>
+        )}
+      </div>
+    );
+  };
+
+  const renderProviderConnectionForm = () => {
+    if (!requiresProviderBaseUrl) {
+      return null;
     }
 
     return (
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
         <Typography.Text color="secondary">Enter the URL of your running Ollama server:</Typography.Text>
         <Input
-          componentId="mlflow.assistant.setup.ollama.url"
-          value={ollamaUrl}
-          onChange={(e) => setOllamaUrl(e.target.value)}
-          placeholder="http://localhost:11434"
+          componentId="mlflow.assistant.setup.provider.url"
+          value={providerBaseUrl}
+          onChange={(event) => setProviderBaseUrl(event.target.value)}
+          placeholder={providerConfig.defaultBaseUrl}
         />
         {error && (
           <Typography.Text color="error" css={{ fontSize: theme.typography.fontSizeSm }}>
@@ -307,69 +337,57 @@ export const SetupStepAuth = ({
     );
   };
 
-  const renderContent = () => {
-    if (provider === 'ollama') return renderOllamaContent();
-    return renderClaudeContent();
-  };
-
-  const isContinueDisabled = () => {
-    if (provider === 'ollama') {
-      return authState !== 'authenticated' || isFetchingModels || ollamaModels.length === 0 || !ollamaModel;
-    }
-    return authState !== 'authenticated';
-  };
-
-  const handleContinue = provider === 'ollama' ? handleOllamaContinue : onContinue;
-
-  const renderFooterActions = () => {
-    if (provider === 'ollama') {
-      if (authState === 'authenticated') {
-        return (
-          <Button
-            componentId="mlflow.assistant.setup.connection.continue"
-            type="primary"
-            onClick={handleContinue}
-            disabled={isContinueDisabled()}
-          >
-            Continue
-          </Button>
-        );
-      }
-      return (
-        <Button
-          componentId="mlflow.assistant.setup.connection.connect"
-          type="primary"
-          onClick={runHealthCheck}
-          disabled={authState === 'checking' || !ollamaUrl}
-        >
-          Connect
-        </Button>
-      );
+  const renderOllamaContent = () => {
+    if (authState === 'checking') {
+      return renderCheckingState('Connecting to Ollama...');
     }
 
     if (authState === 'authenticated') {
       return (
-        <Button componentId="mlflow.assistant.setup.connection.continue" type="primary" onClick={handleContinue}>
-          Continue
-        </Button>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {renderAuthenticatedChecks([`Connected to Ollama at ${providerBaseUrl}`])}
+          {renderProviderModelSelector()}
+        </div>
       );
     }
 
-    return (
+    return renderProviderConnectionForm();
+  };
+
+  const content = hasProviderModelSelection ? renderOllamaContent() : renderClaudeCodeContent();
+
+  const continueDisabled = hasProviderModelSelection
+    ? authState !== 'authenticated' || isFetchingModels || providerModels.length === 0 || !selectedModel
+    : authState !== 'authenticated';
+
+  const actionButton =
+    hasProviderModelSelection && authState === 'authenticated' ? (
       <Button
-        componentId="mlflow.assistant.setup.connection.check_again"
+        componentId="mlflow.assistant.setup.connection.continue"
         type="primary"
-        onClick={runHealthCheck}
-        disabled={authState === 'checking'}
+        onClick={handleContinue}
+        disabled={continueDisabled}
       >
-        Check Again
+        Continue
+      </Button>
+    ) : !hasProviderModelSelection && authState === 'authenticated' ? (
+      <Button componentId="mlflow.assistant.setup.connection.continue" type="primary" onClick={onContinue}>
+        Continue
+      </Button>
+    ) : (
+      <Button
+        componentId={`mlflow.assistant.setup.connection.${hasProviderModelSelection ? 'connect' : 'check_again'}`}
+        type="primary"
+        onClick={runProviderHealthCheck}
+        disabled={authState === 'checking' || (requiresProviderBaseUrl && !providerBaseUrl)}
+      >
+        {providerConfig.connectLabel}
       </Button>
     );
-  };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div css={{ flex: 1 }}>{renderContent()}</div>
+      <div css={{ flex: 1 }}>{content}</div>
 
       <div
         css={{
@@ -383,7 +401,7 @@ export const SetupStepAuth = ({
         <Button componentId="mlflow.assistant.setup.connection.back" onClick={onBack}>
           Back
         </Button>
-        {renderFooterActions()}
+        {actionButton}
       </div>
     </div>
   );

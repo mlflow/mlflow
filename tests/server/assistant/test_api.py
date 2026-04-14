@@ -16,6 +16,7 @@ from mlflow.assistant.providers.base import (
     CLINotInstalledError,
     NotAuthenticatedError,
     ProviderConfig,
+    ProviderNotConfiguredError,
 )
 from mlflow.assistant.types import Event, Message
 from mlflow.server.assistant.api import _require_localhost, assistant_router
@@ -54,14 +55,17 @@ class MockProvider(AssistantProvider):
     def resolve_skills_path(self, base_directory: Path) -> Path:
         return base_directory / ".mock" / "skills"
 
+    def list_models(self, base_url: str | None = None) -> list[str]:
+        raise NotImplementedError
+
     async def astream(
         self,
         prompt: str,
         tracking_uri: str,
         session_id: str | None = None,
+        mlflow_session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
-        mlflow_session_id: str | None = None,
     ):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))
         yield Event.from_result(result="complete", session_id="mock-session-123")
@@ -449,37 +453,43 @@ def test_update_config_partial_update_preserves_selected_provider(client):
 
 
 def test_list_ollama_models_returns_model_list(client):
-    pytest.importorskip("ollama")
-    mock_model = MagicMock()
-    mock_model.model = "llama3"
-    mock_response = MagicMock()
-    mock_response.models = [mock_model]
+    mock_provider = MockProvider()
+    mock_provider.list_models = MagicMock(return_value=["llama3"])
 
-    with patch("ollama.Client") as mock_client_cls:
-        mock_client_cls.return_value.list.return_value = mock_response
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]):
         response = client.get(
-            "/ajax-api/3.0/mlflow/assistant/providers/ollama/models",
+            "/ajax-api/3.0/mlflow/assistant/providers/mock_provider/models",
             params={"base_url": "http://localhost:11434"},
         )
 
     assert response.status_code == 200
     assert response.json() == {"models": ["llama3"]}
+    mock_provider.list_models.assert_called_once_with("http://localhost:11434")
 
 
 def test_list_ollama_models_returns_412_when_not_installed(client):
-    with patch.dict("sys.modules", {"ollama": None}):
-        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/ollama/models")
+    class MissingDependencyProvider(MockProvider):
+        def list_models(self, base_url: str | None = None) -> list[str]:
+            raise CLINotInstalledError("ollama package missing")
+
+    with patch(
+        "mlflow.server.assistant.api.list_providers",
+        return_value=[MissingDependencyProvider()],
+    ):
+        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/models")
 
     assert response.status_code == 412
     assert "ollama" in response.json()["detail"].lower()
 
 
 def test_list_ollama_models_returns_503_on_connection_failure(client):
-    pytest.importorskip("ollama")
-    with patch("ollama.Client") as mock_client_cls:
-        mock_client_cls.return_value.list.side_effect = Exception("Connection refused")
+    class UnreachableProvider(MockProvider):
+        def list_models(self, base_url: str | None = None) -> list[str]:
+            raise ProviderNotConfiguredError("Cannot connect to Ollama server")
+
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[UnreachableProvider()]):
         response = client.get(
-            "/ajax-api/3.0/mlflow/assistant/providers/ollama/models",
+            "/ajax-api/3.0/mlflow/assistant/providers/mock_provider/models",
             params={"base_url": "http://localhost:11434"},
         )
 
@@ -488,7 +498,18 @@ def test_list_ollama_models_returns_503_on_connection_failure(client):
 
 
 def test_list_provider_models_returns_404_for_unsupported_provider(client):
-    response = client.get("/ajax-api/3.0/mlflow/assistant/providers/claude_code/models")
+    class UnsupportedProvider(MockProvider):
+        @property
+        def name(self) -> str:
+            return "unsupported_provider"
+
+    with patch(
+        "mlflow.server.assistant.api.list_providers",
+        return_value=[UnsupportedProvider()],
+    ):
+        response = client.get(
+            "/ajax-api/3.0/mlflow/assistant/providers/unsupported_provider/models"
+        )
 
     assert response.status_code == 404
     assert "not supported" in response.json()["detail"]

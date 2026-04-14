@@ -13,6 +13,7 @@ from mlflow.assistant.providers import list_providers
 from mlflow.assistant.providers.base import (
     CLINotInstalledError,
     NotAuthenticatedError,
+    ProviderNotConfiguredError,
     clear_config_cache,
 )
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
@@ -396,31 +397,25 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
 @assistant_router.get("/providers/{provider}/models")
 async def list_provider_models(provider: str, base_url: str | None = None) -> dict[str, Any]:
-    if provider != "ollama":
+    p = _get_provider(provider)
+    if p is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Provider '{provider}' not found",
+        )
+
+    try:
+        models = p.list_models(base_url)
+        return {"models": models}
+    except NotImplementedError:
         raise HTTPException(
             status_code=404,
             detail=f"Model listing is not supported for provider '{provider}'",
         )
-
-    try:
-        import ollama
-    except ImportError:
-        raise HTTPException(
-            status_code=412,
-            detail=(
-                "The 'ollama' Python package is not installed. Install it with: pip install ollama"
-            ),
-        )
-
-    host = base_url or "http://localhost:11434"
-
-    try:
-        client = ollama.Client(host=host)
-        response = client.list()
-        models = [m.model for m in response.models if m.model]
-        return {"models": models}
-    except Exception as e:
+    except CLINotInstalledError as e:
+        raise HTTPException(status_code=412, detail=str(e))
+    except ProviderNotConfiguredError as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Cannot connect to Ollama server at {host}: {e}",
+            detail=str(e),
         )
