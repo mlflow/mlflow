@@ -89,7 +89,7 @@ class TelemetryClient {
     });
   }
 
-  // Log a telemetry event
+  // Log a telemetry event from the Design System event provider
   public async logEvent(record: any): Promise<void> {
     const isReady = await this.ready;
     if (!isReady || !this.port) {
@@ -128,6 +128,43 @@ class TelemetryClient {
         `[TelemetryClient] Event "${record.eventType}" on component "${record.componentId}", payload:`,
         payload,
       );
+    }
+
+    this.port?.postMessage({
+      type: ClientToWorkerMessageType.LOG_EVENT,
+      payload,
+    });
+  }
+
+  /**
+   * Log a custom telemetry event with arbitrary params.
+   * Use this to attach user decisions or context to critical UI actions
+   * (e.g., form submissions) that can't be captured by Design System component events alone.
+   */
+  public async logCustomEvent(
+    componentId: string,
+    eventType: string,
+    params: Record<string, string | null | undefined>,
+  ): Promise<void> {
+    const isReady = await this.ready;
+    if (!isReady || !this.port) {
+      return;
+    }
+
+    const payload: Omit<TelemetryRecord, 'session_id'> = {
+      installation_id: this.installationId,
+      event_name: 'ui_event',
+      timestamp_ns: Date.now() * 1e6,
+      params: {
+        componentId,
+        eventType,
+        ...params,
+      },
+    };
+
+    if (process.env['NODE_ENV'] === 'development' && isTelemetryDevLoggingEnabled()) {
+      // eslint-disable-next-line no-console
+      console.log(`[TelemetryClient] Custom event "${eventType}" on "${componentId}", payload:`, payload);
     }
 
     this.port?.postMessage({

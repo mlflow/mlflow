@@ -9,6 +9,7 @@ import { useProviderConfigQuery } from './useProviderConfigQuery';
 import type { ProviderModel, Endpoint } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
 import { isValidEndpointName } from '../utils/gatewayUtils';
+import { telemetryClient } from '../../telemetry/TelemetryClient';
 
 export interface CreateEndpointFormData {
   name: string;
@@ -147,6 +148,12 @@ export function useCreateEndpointForm({
           },
         ],
         usage_tracking: values.usageTracking,
+      });
+
+      telemetryClient.logCustomEvent('mlflow.gateway.endpoint.create', 'onSubmit', {
+        secretMode: values.secretMode,
+        provider: values.provider,
+        usageTracking: String(values.usageTracking),
       });
 
       onSuccess?.(endpointResponse.endpoint);
