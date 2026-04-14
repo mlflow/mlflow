@@ -6,9 +6,9 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.entities import SpanType
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
-from mlflow.entities import SpanType
 from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
 from mlflow.tracing.client import TracingClient
 from mlflow.types.chat import ChatCompletionRequest
@@ -493,7 +493,7 @@ def test_from_entity_does_not_rewrite_non_gateway_model_uri():
 def tracing_experiment():
     exp_id = mlflow.create_experiment(f"guardrail-tracing-{uuid.uuid4()}")
     mlflow.set_experiment(experiment_id=exp_id)
-    yield exp_id
+    return exp_id
 
 
 def _get_span_map(experiment_id):

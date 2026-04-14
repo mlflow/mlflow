@@ -6,10 +6,10 @@ import json
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any
 
-import mlflow
 from fastapi import HTTPException
-from mlflow.entities import SpanType
 
+import mlflow
+from mlflow.entities import SpanType
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
