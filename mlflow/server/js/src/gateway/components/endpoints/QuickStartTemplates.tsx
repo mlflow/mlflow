@@ -21,7 +21,6 @@ import DatabricksLogo from '../../../common/static/logos/databricks.svg';
 interface ModelOption {
   model: string;
   endpointName: string;
-  componentId: string;
 }
 
 interface ProviderTemplate {
@@ -29,19 +28,23 @@ interface ProviderTemplate {
   secretName: string;
   logo: string;
   logoDark?: string;
+  componentId: string;
   models: ModelOption[];
 }
 
 interface ProviderCardProps {
   template: ProviderTemplate;
+  componentId: string;
   compact?: boolean;
 }
 
-const ProviderCard = ({ template, compact }: ProviderCardProps) => {
+const ProviderCard = ({ template, componentId, compact }: ProviderCardProps) => {
   const { theme } = useDesignSystemTheme();
 
   const logoSize = compact ? 16 : 20;
-  const headerPadding = compact ? `${theme.spacing.xs}px ${theme.spacing.sm}px` : `${theme.spacing.sm}px ${theme.spacing.md}px`;
+  const headerPadding = compact
+    ? `${theme.spacing.xs}px ${theme.spacing.sm}px`
+    : `${theme.spacing.sm}px ${theme.spacing.md}px`;
   const headerGap = compact ? theme.spacing.xs : theme.spacing.sm;
   const headerFontSize = compact ? theme.typography.fontSizeSm : undefined;
   const rowPadding = compact ? `3px ${theme.spacing.sm}px` : `${theme.spacing.xs}px ${theme.spacing.md}px`;
@@ -80,7 +83,7 @@ const ProviderCard = ({ template, compact }: ProviderCardProps) => {
         {template.models.map((modelOption) => (
           <Link
             key={modelOption.model}
-            componentId={modelOption.componentId}
+            componentId={componentId}
             to={GatewayRoutes.createEndpointPageRoute}
             state={{
               provider: template.provider,
@@ -136,23 +139,12 @@ const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     secretName: 'openai-api-key',
     logo: OpenAiLogo,
     logoDark: OpenAiLogoDark,
+    componentId: 'mlflow.gateway.quick_start.openai',
     models: [
-      {
-        model: 'gpt-5.4',
-        endpointName: 'openai-gpt-5.4-endpoint',
-        componentId: 'mlflow.gateway.quick_start.openai.gpt-5.4',
-      },
-      { model: 'gpt-5', endpointName: 'openai-gpt-5-endpoint', componentId: 'mlflow.gateway.quick_start.openai.gpt-5' },
-      {
-        model: 'gpt-5-mini',
-        endpointName: 'openai-gpt-5-mini-endpoint',
-        componentId: 'mlflow.gateway.quick_start.openai.gpt-5-mini',
-      },
-      {
-        model: 'o4-mini',
-        endpointName: 'openai-o4-mini-endpoint',
-        componentId: 'mlflow.gateway.quick_start.openai.o4-mini',
-      },
+      { model: 'gpt-5.4', endpointName: 'openai-gpt-5.4-endpoint' },
+      { model: 'gpt-5', endpointName: 'openai-gpt-5-endpoint' },
+      { model: 'gpt-5-mini', endpointName: 'openai-gpt-5-mini-endpoint' },
+      { model: 'o4-mini', endpointName: 'openai-o4-mini-endpoint' },
     ],
   },
   {
@@ -160,83 +152,45 @@ const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     secretName: 'anthropic-api-key',
     logo: AnthropicLogo,
     logoDark: AnthropicLogoDark,
+    componentId: 'mlflow.gateway.quick_start.anthropic',
     models: [
-      {
-        model: 'claude-opus-4-6',
-        endpointName: 'anthropic-claude-opus-endpoint',
-        componentId: 'mlflow.gateway.quick_start.anthropic.claude-opus-4-6',
-      },
-      {
-        model: 'claude-sonnet-4-6',
-        endpointName: 'anthropic-claude-sonnet-endpoint',
-        componentId: 'mlflow.gateway.quick_start.anthropic.claude-sonnet-4-6',
-      },
-      {
-        model: 'claude-sonnet-4-5',
-        endpointName: 'anthropic-claude-sonnet-4-5-endpoint',
-        componentId: 'mlflow.gateway.quick_start.anthropic.claude-sonnet-4-5',
-      },
-      {
-        model: 'claude-haiku-4-5',
-        endpointName: 'anthropic-claude-haiku-endpoint',
-        componentId: 'mlflow.gateway.quick_start.anthropic.claude-haiku-4-5',
-      },
+      { model: 'claude-opus-4-6', endpointName: 'anthropic-claude-opus-endpoint' },
+      { model: 'claude-sonnet-4-6', endpointName: 'anthropic-claude-sonnet-endpoint' },
+      { model: 'claude-sonnet-4-5', endpointName: 'anthropic-claude-sonnet-4-5-endpoint' },
+      { model: 'claude-haiku-4-5', endpointName: 'anthropic-claude-haiku-endpoint' },
     ],
   },
   {
     provider: 'gemini',
     secretName: 'gemini-api-key',
     logo: GeminiLogo,
+    componentId: 'mlflow.gateway.quick_start.gemini',
     models: [
-      {
-        model: 'gemini-3.0-pro',
-        endpointName: 'gemini-3.0-pro-endpoint',
-        componentId: 'mlflow.gateway.quick_start.gemini.gemini-3.0-pro',
-      },
-      {
-        model: 'gemini-3.0-flash',
-        endpointName: 'gemini-3.0-flash-endpoint',
-        componentId: 'mlflow.gateway.quick_start.gemini.gemini-3.0-flash',
-      },
-      {
-        model: 'gemini-2.5-pro',
-        endpointName: 'gemini-2.5-pro-endpoint',
-        componentId: 'mlflow.gateway.quick_start.gemini.gemini-2.5-pro',
-      },
-      {
-        model: 'gemini-2.5-flash',
-        endpointName: 'gemini-2.5-flash-endpoint',
-        componentId: 'mlflow.gateway.quick_start.gemini.gemini-2.5-flash',
-      },
+      { model: 'gemini-3.0-pro', endpointName: 'gemini-3.0-pro-endpoint' },
+      { model: 'gemini-3.0-flash', endpointName: 'gemini-3.0-flash-endpoint' },
+      { model: 'gemini-2.5-pro', endpointName: 'gemini-2.5-pro-endpoint' },
+      { model: 'gemini-2.5-flash', endpointName: 'gemini-2.5-flash-endpoint' },
     ],
   },
   {
     provider: 'databricks',
     secretName: 'databricks-api-key',
     logo: DatabricksLogo,
+    componentId: 'mlflow.gateway.quick_start.databricks',
     models: [
-      {
-        model: 'databricks-gpt-4.1',
-        endpointName: 'databricks-gpt-4.1-endpoint',
-        componentId: 'mlflow.gateway.quick_start.databricks.databricks-gpt-4.1',
-      },
-      {
-        model: 'databricks-claude-sonnet-4-6',
-        endpointName: 'databricks-claude-sonnet-endpoint',
-        componentId: 'mlflow.gateway.quick_start.databricks.databricks-claude-sonnet-4-6',
-      },
-      {
-        model: 'databricks-gemini-2.5-flash',
-        endpointName: 'databricks-gemini-flash-endpoint',
-        componentId: 'mlflow.gateway.quick_start.databricks.databricks-gemini-2.5-flash',
-      },
-      {
-        model: 'databricks-llama-4-maverick',
-        endpointName: 'databricks-llama-maverick-endpoint',
-        componentId: 'mlflow.gateway.quick_start.databricks.databricks-llama-4-maverick',
-      },
+      { model: 'databricks-gpt-4.1', endpointName: 'databricks-gpt-4.1-endpoint' },
+      { model: 'databricks-claude-sonnet-4-6', endpointName: 'databricks-claude-sonnet-endpoint' },
+      { model: 'databricks-gemini-2.5-flash', endpointName: 'databricks-gemini-flash-endpoint' },
+      { model: 'databricks-llama-4-maverick', endpointName: 'databricks-llama-maverick-endpoint' },
     ],
   },
+];
+
+const COMPACT_PROVIDER_CONFIGS: { template: ProviderTemplate; componentId: string }[] = [
+  { template: PROVIDER_TEMPLATES[0], componentId: 'mlflow.gateway.quick_start.compact.openai' },
+  { template: PROVIDER_TEMPLATES[1], componentId: 'mlflow.gateway.quick_start.compact.anthropic' },
+  { template: PROVIDER_TEMPLATES[2], componentId: 'mlflow.gateway.quick_start.compact.gemini' },
+  { template: PROVIDER_TEMPLATES[3], componentId: 'mlflow.gateway.quick_start.compact.databricks' },
 ];
 
 export const QuickStartTemplates = () => {
@@ -284,7 +238,7 @@ export const QuickStartTemplates = () => {
         }}
       >
         {PROVIDER_TEMPLATES.map((template) => (
-          <ProviderCard key={template.provider} template={template} />
+          <ProviderCard key={template.provider} template={template} componentId={template.componentId} />
         ))}
       </div>
 
@@ -339,8 +293,8 @@ export const QuickStartTemplatesCompact = () => {
           scrollbarWidth: 'none',
         }}
       >
-        {PROVIDER_TEMPLATES.map((template) => (
-          <ProviderCard key={template.provider} template={template} compact />
+        {COMPACT_PROVIDER_CONFIGS.map(({ componentId, template }) => (
+          <ProviderCard key={template.provider} template={template} componentId={componentId} compact />
         ))}
       </div>
     </div>
