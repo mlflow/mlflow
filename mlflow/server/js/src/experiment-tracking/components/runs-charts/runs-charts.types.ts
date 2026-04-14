@@ -246,11 +246,14 @@ export abstract class RunsChartsCardConfig {
       ...[MLFLOW_MODEL_METRIC_NAME, MLFLOW_SYSTEM_METRIC_NAME].filter((name) => enabledSectionNames.includes(name)),
     ];
 
+    // Auto-collapse sections when there are many charts to prevent browser performance issues
+    const collapseByDefault = resultChartSet.length > 100;
+
     // Create section configs
     const resultSectionSet: ChartSectionConfig[] = sortedSectionNames.map((sectionName) => ({
       uuid: sectionName2Uuid[sectionName],
       name: sectionName,
-      display: true,
+      display: !collapseByDefault,
       isReordered: false,
       deleted: false,
       isGenerated: true,
