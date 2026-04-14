@@ -200,6 +200,7 @@ export {
 export const createLazyRouteElement = (
   // Load the module's default export and turn it into React Element
   componentLoader: () => Promise<{ default: React.ComponentType<React.PropsWithChildren<any>> }>,
+  // eslint-disable-next-line @databricks/react-lazy-only-at-top-level
 ) => React.createElement(React.lazy(componentLoader));
 export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
   React.createElement(component);

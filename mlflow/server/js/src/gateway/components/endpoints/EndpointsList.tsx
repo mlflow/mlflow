@@ -273,7 +273,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
             endpoint={endpoint}
             bindings={getBindingsForEndpoint(endpoint.endpoint_id)}
             visibleColumns={visibleColumns}
-            isSelected={!!rowSelection[endpoint.endpoint_id]}
+            isSelected={Boolean(rowSelection[endpoint.endpoint_id])}
             onSelectChange={() => handleSelectRow(endpoint.endpoint_id)}
             onViewBindings={() =>
               setBindingsDrawerEndpoint({
