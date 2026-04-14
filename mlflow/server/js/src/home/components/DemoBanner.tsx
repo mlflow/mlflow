@@ -5,18 +5,14 @@ import { useNavigate } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
 import { fetchAPI, getAjaxUrl } from '../../common/utils/FetchUtils';
 import { WorkflowType, useWorkflowType } from '../../common/contexts/WorkflowTypeContext';
-import { useLocalStorage } from '@databricks/web-shared/hooks';
 
 const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed';
 
 export const DemoBanner = () => {
   const navigate = useNavigate();
   const { theme } = useDesignSystemTheme();
-  const [isDismissed, setIsDismissed] = useLocalStorage({
-    key: DEMO_BANNER_DISMISSED_KEY,
-    version: 0,
-    initialValue: false,
-  });
+  // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
+  const [isDismissed, setIsDismissed] = useState(() => localStorage.getItem(DEMO_BANNER_DISMISSED_KEY) === 'true');
   const [isLoading, setIsLoading] = useState(false);
   const { setWorkflowType } = useWorkflowType();
 
@@ -36,8 +32,10 @@ export const DemoBanner = () => {
   }, [navigate, setWorkflowType]);
 
   const handleDismiss = useCallback(() => {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
+    localStorage.setItem(DEMO_BANNER_DISMISSED_KEY, 'true');
     setIsDismissed(true);
-  }, [setIsDismissed]);
+  }, []);
 
   if (isDismissed) {
     return null;

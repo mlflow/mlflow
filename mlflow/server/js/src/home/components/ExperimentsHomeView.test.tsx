@@ -1,11 +1,10 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { ExperimentEntity } from '../../experiment-tracking/types';
 import { ExperimentsHomeView } from './ExperimentsHomeView';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { beforeEach } from '@jest/globals';
 
 const mockShowEditExperimentTagsModal = jest.fn();
 
