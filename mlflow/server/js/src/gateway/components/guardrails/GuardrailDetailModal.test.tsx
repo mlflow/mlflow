@@ -69,8 +69,8 @@ describe('GuardrailDetailModal', () => {
     renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} />);
 
     // Stage and action are custom div selectors, not <select> elements
-    expect(screen.getByText('Input Guardrails')).toBeInTheDocument();
-    expect(screen.getByText('Output Guardrails')).toBeInTheDocument();
+    expect(screen.getByText('Before Guardrails')).toBeInTheDocument();
+    expect(screen.getByText('After Guardrails')).toBeInTheDocument();
     expect(screen.getByText('Block')).toBeInTheDocument();
     expect(screen.getByText('Sanitize')).toBeInTheDocument();
   });
@@ -95,7 +95,7 @@ describe('GuardrailDetailModal', () => {
   test('Remove button calls onDelete and onClose', async () => {
     renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Remove/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Delete/ }));
 
     expect(defaultProps.onDelete).toHaveBeenCalledWith('gr-abc');
     expect(defaultProps.onClose).toHaveBeenCalled();
@@ -122,7 +122,7 @@ describe('GuardrailDetailModal', () => {
     renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} />);
 
     // Change stage by clicking the custom div selector
-    await userEvent.click(screen.getByText('Output Guardrails'));
+    await userEvent.click(screen.getByText('After Guardrails'));
 
     await userEvent.click(screen.getByRole('button', { name: /Save/ }));
 
