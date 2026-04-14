@@ -585,17 +585,19 @@ async def invocations(endpoint_name: str, request: Request):
 
         if payload.stream:
             # AFTER-stage guardrails are not applied to streaming responses.
-            # BEFORE guardrails run outside the stream trace.
-            try:
-                body = await run_before_guardrails(
+            # BEFORE guardrails run inside the trace as child spans; violations
+            # are surfaced as SSE error chunks via safe_stream.
+            async def _guarded_stream(
+                payload: chat.RequestPayload,
+            ):
+                request_dict = await run_before_guardrails(
                     guardrails, payload.model_dump(), auth_headers=auth_headers
                 )
-                payload = chat.RequestPayload(**body)
-            except GuardrailViolation as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
+                    yield chunk
 
             stream = maybe_traced_gateway_call(
-                provider.chat_stream,
+                _guarded_stream,
                 endpoint_config,
                 user_metadata,
                 output_reducer=aggregate_chat_stream_chunks,
@@ -703,17 +705,19 @@ async def chat_completions(request: Request):
 
     if payload.stream:
         # AFTER-stage guardrails are not applied to streaming responses.
-        # BEFORE guardrails run outside the stream trace.
-        try:
-            body = await run_before_guardrails(
+        # BEFORE guardrails run inside the trace as child spans; violations
+        # are surfaced as SSE error chunks via safe_stream.
+        async def _guarded_stream(
+            payload: chat.RequestPayload,
+        ):
+            request_dict = await run_before_guardrails(
                 guardrails, payload.model_dump(), auth_headers=auth_headers
             )
-            payload = chat.RequestPayload(**body)
-        except GuardrailViolation as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
+                yield chunk
 
         stream = maybe_traced_gateway_call(
-            provider.chat_stream,
+            _guarded_stream,
             endpoint_config,
             user_metadata,
             output_reducer=aggregate_chat_stream_chunks,
