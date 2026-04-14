@@ -1082,10 +1082,6 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
-  "5DWDg/": {
-    "defaultMessage": "Placement",
-    "description": "Guardrail placement label"
-  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -2198,6 +2194,10 @@
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
   },
+  "Bg/LgH": {
+    "defaultMessage": "Instructions",
+    "description": "Label for guardrail judge instructions"
+  },
   "BkDhmT": {
     "defaultMessage": "Chat",
     "description": "Label for the chat tab of the model trace explorer."
@@ -2505,6 +2505,10 @@
   "DcGPfO": {
     "defaultMessage": "Row height",
     "description": "Label for the row height radio group"
+  },
+  "Df9GMB": {
+    "defaultMessage": "Delete",
+    "description": "Delete guardrail button"
   },
   "Dhn7Mb": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -3094,10 +3098,6 @@
     "defaultMessage": "Assistant",
     "description": "Display text for the 'assistant' role in a GenAI chat message."
   },
-  "Hx3CSc": {
-    "defaultMessage": "Output Guardrails",
-    "description": "Pipeline AFTER stage label"
-  },
   "HyBP+D": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section under details tab on the model view\n                   page"
@@ -3649,6 +3649,10 @@
   "Ls2ris": {
     "defaultMessage": "Mark as reviewed",
     "description": "Evaluation review > assessments > mark as reviewed button"
+  },
+  "Lvcsl4": {
+    "defaultMessage": "Review and edit the guardrail details, choose placement and action.",
+    "description": "Detail modal subtitle"
   },
   "Lw+dTL": {
     "defaultMessage": "Please configure at least one model in traffic split",
@@ -4309,6 +4313,14 @@
     "defaultMessage": "Actions{count}",
     "description": "Trace actions dropdown button"
   },
+  "Px7S/2": {
+    "defaultMessage": "Close",
+    "description": "Close button"
+  },
+  "Q/QcTS": {
+    "defaultMessage": "Save",
+    "description": "Save guardrail changes button"
+  },
   "Q/evEc": {
     "defaultMessage": "Parameters ({length})",
     "description": "Run page > Overview > Parameters table > Section title"
@@ -4633,6 +4645,10 @@
     "defaultMessage": "Only run on traces matching this filter; leave blank to run on all. Uses MLflow {link}.",
     "description": "Hint text for filter string input"
   },
+  "SAXxAc": {
+    "defaultMessage": "Stage",
+    "description": "Guardrail stage label"
+  },
   "SAxj6I": {
     "defaultMessage": "Create budget policy",
     "description": "Gateway > Budgets page > Create budget policy button"
@@ -4732,6 +4748,10 @@
   "SojbzO": {
     "defaultMessage": "Evaluate entire sessions for conversation quality and outcomes.",
     "description": "Hint for the scorer evaluation scope selection for sessions"
+  },
+  "SqmrRR": {
+    "defaultMessage": "Guardrail Details",
+    "description": "Edit modal section title"
   },
   "SrV58C": {
     "defaultMessage": "Settings",
@@ -5067,6 +5087,10 @@
   "V1kYC+": {
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
+  },
+  "V3RNMD": {
+    "defaultMessage": "After Guardrails",
+    "description": "Pipeline AFTER stage label"
   },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
@@ -5611,10 +5635,6 @@
     "defaultMessage": "Reasoning",
     "description": "Filter option for reasoning support"
   },
-  "YOG1vG": {
-    "defaultMessage": "Reject the request or response entirely and return an error.",
-    "description": "Block action description"
-  },
   "YOp3/x": {
     "defaultMessage": "Unavailable when runs are grouped",
     "description": "Experiment page > view mode switch > evaluation mode disabled tooltip"
@@ -6082,6 +6102,10 @@
   "bCdY2j": {
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
+  },
+  "bFG2sC": {
+    "defaultMessage": "Before Guardrails",
+    "description": "Pipeline BEFORE stage label"
   },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
@@ -7595,6 +7619,10 @@
     "defaultMessage": "Correctness",
     "description": "LLM template option"
   },
+  "kDCMl+": {
+    "defaultMessage": "Click on a stage to choose where this guardrail runs.",
+    "description": "Stage help text"
+  },
   "kHDQiE": {
     "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
     "description": "Placeholder text for session level instructions textarea. {br} is a newline."
@@ -8647,10 +8675,6 @@
     "defaultMessage": "Please select sessions to run the judge",
     "description": "Tooltip message when no sessions are selected"
   },
-  "qfxutt": {
-    "defaultMessage": "Input Guardrails",
-    "description": "Pipeline BEFORE stage label"
-  },
   "qhOwHa": {
     "defaultMessage": "Endpoints",
     "description": "Sidebar link for gateway endpoints"
@@ -8866,6 +8890,10 @@
   "rstugP": {
     "defaultMessage": "Max Tokens",
     "description": "Label for max tokens input"
+  },
+  "rt9clc": {
+    "defaultMessage": "Return a 400 error with the guardrail name and reason. The original request or response is not passed through.",
+    "description": "Block action description"
   },
   "rvRhzv": {
     "defaultMessage": "Masked Key:",
@@ -9167,10 +9195,6 @@
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
   },
-  "tnykaX": {
-    "defaultMessage": "Click on a pipeline stage to choose where this guardrail runs.",
-    "description": "Placement help text"
-  },
   "tqw27y": {
     "defaultMessage": "Evaluation criteria",
     "description": "Accordion section header for evaluation criteria (judge type, guidelines/instructions, and output type)"
@@ -9234,6 +9258,10 @@
   "uIY1qq": {
     "defaultMessage": "Learn More",
     "description": "Link to MLflow documentation for more information on MLflow tracing"
+  },
+  "uPG7mJ": {
+    "defaultMessage": "Guardrail: {name}",
+    "description": "Title for guardrail detail modal"
   },
   "uSVfB9": {
     "defaultMessage": "Not grounded",

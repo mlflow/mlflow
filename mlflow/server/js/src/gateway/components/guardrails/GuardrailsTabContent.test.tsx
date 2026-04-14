@@ -7,6 +7,12 @@ import { GuardrailsTabContent } from './GuardrailsTabContent';
 jest.mock('../../hooks/useGuardrailsQuery');
 jest.mock('../../hooks/useRemoveGuardrail');
 jest.mock('./AddGuardrailModal', () => ({ AddGuardrailModal: () => null }));
+jest.mock('../../hooks/useEndpointsQuery', () => ({
+  useEndpointsQuery: () => ({ data: [] }),
+}));
+jest.mock('../../../experiment-tracking/components/EndpointSelector', () => ({
+  EndpointSelector: () => null,
+}));
 
 const { useGuardrailsQuery } = jest.requireMock<typeof import('../../hooks/useGuardrailsQuery')>(
   '../../hooks/useGuardrailsQuery',
@@ -115,10 +121,10 @@ describe('GuardrailsTabContent', () => {
     expect(screen.getByText('Remove Guardrail')).toBeInTheDocument();
   });
 
-  test('view buttons are disabled', () => {
+  test('view and edit buttons are rendered for each guardrail row', () => {
     setup();
     renderWithDesignSystem(<GuardrailsTabContent {...defaultProps} />);
     const viewButtons = screen.getAllByRole('button', { name: /View and edit guardrail/i });
-    viewButtons.forEach((btn) => expect(btn).toBeDisabled());
+    expect(viewButtons).toHaveLength(mockGuardrails.length);
   });
 });
