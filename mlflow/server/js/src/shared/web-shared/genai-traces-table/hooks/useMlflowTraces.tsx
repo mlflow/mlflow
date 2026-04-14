@@ -313,6 +313,7 @@ export const useSearchMlflowTraces = ({
   loggedModelId,
   sqlWarehouseId,
   filterByAssessmentSourceRun = false,
+  enablePagination = true,
 }: {
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   runUuid?: string | null;
@@ -344,6 +345,12 @@ export const useSearchMlflowTraces = ({
    * Defaults to false for other tabs (traces, labeling, etc.).
    */
   filterByAssessmentSourceRun?: boolean;
+  /**
+   * When false, forces the eager-fetch path even when infinite pagination is globally enabled.
+   * Used to disable pagination in run comparison mode where both runs need complete data
+   * to join on inputs.
+   */
+  enablePagination?: boolean;
 }): {
   data: ModelTraceInfoV3[] | undefined;
   isLoading: boolean;
@@ -389,6 +396,7 @@ export const useSearchMlflowTraces = ({
     orderBy,
     loggedModelId,
     sqlWarehouseId,
+    enablePagination,
   });
 
   // TODO: Remove this once mlflow apis support filtering
@@ -553,6 +561,7 @@ interface UseSearchMlflowTracesInnerParams {
   loggedModelId?: string;
   sqlWarehouseId?: string;
   enabled?: boolean;
+  enablePagination?: boolean;
 }
 
 interface UseSearchMlflowTracesInnerResult {
@@ -676,10 +685,11 @@ const useSearchMlflowTracesInner = ({
   loggedModelId,
   sqlWarehouseId,
   enabled = true,
+  enablePagination = true,
 }: UseSearchMlflowTracesInnerParams): UseSearchMlflowTracesInnerResult => {
   const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
   const usingLongRunningAPI = usingV4APIs && shouldUseLongRunningTracesAPI();
-  const usingInfinitePagination = !usingV4APIs && shouldUseInfinitePaginatedTraces();
+  const usingInfinitePagination = !usingV4APIs && shouldUseInfinitePaginatedTraces() && enablePagination;
 
   const queryCacheConfig = useMemo(() => getSearchMlflowTracesQueryCacheConfig(Boolean(usingV4APIs)), [usingV4APIs]);
 

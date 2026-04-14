@@ -58,3 +58,18 @@ export const getEndpointDisplayInfo = (
 export const isValidEndpointName = (name: string): boolean => {
   return /^[a-zA-Z0-9_\-.]+$/.test(name);
 };
+
+/**
+ * Generates a unique copy name for an endpoint.
+ * Produces names like "my-endpoint-copy-1", "my-endpoint-copy-2", etc.
+ */
+export const generateCopyName = (originalName: string, existingNames: string[]): string => {
+  const nameSet = new Set(existingNames);
+  let counter = 1;
+  let candidate = `${originalName}-copy-${counter}`;
+  while (nameSet.has(candidate)) {
+    counter++;
+    candidate = `${originalName}-copy-${counter}`;
+  }
+  return candidate;
+};

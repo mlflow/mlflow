@@ -1,7 +1,7 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 3.11.1
+Version: 3.11.2
 Authors@R: 
     c(person(given = "Ben",
              family = "Wilson",
@@ -32,34 +32,34 @@ BugReports: https://github.com/mlflow/mlflow/issues
 Depends:
     R (>= 3.3.0)
 Imports:
-    base64enc (<= 0.1-6),
-    fs (<= 1.6.7),
-    git2r (<= 0.36.2),
-    glue (<= 1.8.0),
-    httpuv (<= 1.6.16),
-    httr (<= 1.4.8),
-    ini (<= 0.3.1),
-    jsonlite (<= 2.0.0),
-    openssl (<= 2.3.5),
-    processx (<= 3.8.6),
-    purrr (<= 1.2.1),
-    rlang (<= 1.1.7),
-    swagger (<= 5.17.14.1),
-    tibble (<= 3.3.1),
-    withr (<= 3.0.2),
-    yaml (<= 2.3.12),
-    zeallot (<= 0.2.0)
+    base64enc,
+    fs,
+    git2r,
+    glue,
+    httpuv,
+    httr,
+    ini,
+    jsonlite,
+    openssl,
+    processx,
+    purrr,
+    rlang (>= 0.2.0),
+    swagger,
+    tibble (>= 2.0.0),
+    withr,
+    yaml,
+    zeallot
 Suggests:
-    carrier (<= 0.3.0.4),
-    covr (<= 3.6.5),
-    h2o (<= 3.44.0.3),
-    keras (<= 2.16.1),
-    lintr (<= 3.3.0-1),
-    sparklyr (<= 1.9.3),
-    stringi (<= 1.8.7),
-    testthat (<= 3.3.2),
-    reticulate (<= 1.45.0),
-    xgboost (<= 3.2.0.1)
+    carrier,
+    covr,
+    h2o,
+    keras,
+    lintr,
+    sparklyr,
+    stringi,
+    testthat (>= 2.0.0),
+    reticulate,
+    xgboost
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:

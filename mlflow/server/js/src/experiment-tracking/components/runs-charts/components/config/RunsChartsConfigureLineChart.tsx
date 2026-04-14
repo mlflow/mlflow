@@ -3,7 +3,6 @@ import {
   Radio,
   LegacySelect,
   Switch,
-  LegacyTooltip,
   QuestionMarkIcon,
   useDesignSystemTheme,
   SegmentedControlGroup,

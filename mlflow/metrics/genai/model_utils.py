@@ -10,6 +10,7 @@ from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
 from mlflow.genai.utils.gateway_utils import get_gateway_config
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.provider_filter import normalize_provider_name
 from mlflow.utils.providers import (
     AZURE_API_BASE_ENV_VAR,
     AZURE_API_KEY_ENV_VAR,
@@ -256,7 +257,7 @@ def _call_llm_provider_api(
         # re-apply them. When messages is not None, they're already in the payload.
         chat_payload.update(eval_parameters)
 
-    if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
+    if normalize_provider_name(provider_name) == Provider.BEDROCK:
         if proxy_url or extra_headers:
             _logger.warning(
                 "Proxy URL and extra headers are not supported for Bedrock LLMs. "
@@ -360,7 +361,7 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         config = AnthropicConfig(anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"))
         return AnthropicProvider(_get_route_config(config))
 
-    elif provider in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
+    elif normalize_provider_name(provider) == Provider.BEDROCK:
         from mlflow.gateway.config import AWSBearerToken, AWSIdAndKey, AWSRole
         from mlflow.gateway.providers.bedrock import AmazonBedrockConfig, AmazonBedrockProvider
 
