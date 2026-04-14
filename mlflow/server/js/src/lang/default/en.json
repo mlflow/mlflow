@@ -3210,6 +3210,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
   },
+  "Ikj6rr": {
+    "defaultMessage": "Quick start",
+    "description": "Gateway > Endpoints > Compact quick start section label"
+  },
   "IlYdrX": {
     "defaultMessage": "Tokens per Trace",
     "description": "Title for the token stats chart"
@@ -8938,6 +8942,10 @@
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Home page hero title"
+  },
+  "sHvLH2": {
+    "defaultMessage": "Browse all providers →",
+    "description": "Gateway > Endpoints > Compact quick start browse all providers link"
   },
   "sIC5K3": {
     "defaultMessage": "Time (relative)",

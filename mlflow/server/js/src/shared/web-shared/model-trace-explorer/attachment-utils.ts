@@ -39,7 +39,7 @@ export function parseAttachmentUri(uri: string): { attachmentId: string; traceId
 export function useAttachmentUrl(uri: string | null): { url: string | null; loading: boolean; error: boolean } {
   const parsed = uri ? parseAttachmentUri(uri) : null;
   const [url, setUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!!parsed);
+  const [loading, setLoading] = useState(Boolean(parsed));
   const [error, setError] = useState(false);
 
   useEffect(() => {

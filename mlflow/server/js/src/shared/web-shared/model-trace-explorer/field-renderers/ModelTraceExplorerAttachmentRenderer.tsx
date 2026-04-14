@@ -1,4 +1,6 @@
-import { LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useState } from 'react';
+
+import { LegacySkeleton, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useTraceAttachment } from '../hooks/useTraceAttachment';
@@ -16,6 +18,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const { objectUrl, isLoading, error } = useTraceAttachment({ traceId, attachmentId, contentType });
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   if (error) {
     return (
@@ -43,8 +46,28 @@ export const ModelTraceExplorerAttachmentRenderer = ({
         <img
           src={objectUrl}
           alt={`Attachment ${attachmentId}`}
-          css={{ maxWidth: '100%', maxHeight: 400, borderRadius: theme.borders.borderRadiusSm }}
+          css={{
+            maxWidth: '100%',
+            maxHeight: 200,
+            borderRadius: theme.borders.borderRadiusSm,
+            cursor: 'pointer',
+            '&:hover': { boxShadow: `0 0 4px ${theme.colors.border}` },
+          }}
+          onClick={() => setPreviewVisible(true)}
         />
+        <Modal
+          componentId="shared.model-trace-explorer.attachment-image-preview"
+          title=""
+          visible={previewVisible}
+          onCancel={() => setPreviewVisible(false)}
+          onOk={() => setPreviewVisible(false)}
+        >
+          <img
+            src={objectUrl}
+            alt={`Attachment ${attachmentId}`}
+            css={{ maxWidth: '100%', maxHeight: '70vh', display: 'block' }}
+          />
+        </Modal>
       </div>
     );
   }

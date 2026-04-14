@@ -158,7 +158,7 @@ export const getModelConfigFromTags = (tags?: KeyValueEntity[]): PromptModelConf
  * Returns undefined if no fields have values.
  */
 export const formDataToModelConfig = (formData: PromptModelConfigFormData): PromptModelConfig | undefined => {
-  const hasAnyValue = Object.values(formData).some((v) => !!v);
+  const hasAnyValue = Object.values(formData).some((v) => Boolean(v));
   if (!hasAnyValue) {
     return undefined;
   }

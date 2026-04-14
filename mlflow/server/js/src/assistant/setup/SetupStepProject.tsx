@@ -376,7 +376,7 @@ export const SetupStepProject = ({
         nextLabel={nextLabel}
         backLabel={backLabel}
         isLoading={isSaving}
-        nextDisabled={!!error}
+        nextDisabled={Boolean(error)}
       />
     </div>
   );

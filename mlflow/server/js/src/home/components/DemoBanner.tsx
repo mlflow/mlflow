@@ -11,6 +11,7 @@ const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed';
 export const DemoBanner = () => {
   const navigate = useNavigate();
   const { theme } = useDesignSystemTheme();
+  // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
   const [isDismissed, setIsDismissed] = useState(() => localStorage.getItem(DEMO_BANNER_DISMISSED_KEY) === 'true');
   const [isLoading, setIsLoading] = useState(false);
   const { setWorkflowType } = useWorkflowType();
@@ -31,6 +32,7 @@ export const DemoBanner = () => {
   }, [navigate, setWorkflowType]);
 
   const handleDismiss = useCallback(() => {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     localStorage.setItem(DEMO_BANNER_DISMISSED_KEY, 'true');
     setIsDismissed(true);
   }, []);

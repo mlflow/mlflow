@@ -30,7 +30,9 @@ interface GuardrailsTabContentProps {
 // ─── Pipeline stage tooltip ──────────────────────────────────────────────────
 
 const PIPELINE_STEPS = ['Request', 'BEFORE', 'LLM', 'AFTER', 'Response'] as const;
+// eslint-disable-next-line @databricks/no-const-object-record-string
 const STAGE_LABELS: Record<string, string> = { BEFORE: 'Input Guardrails', AFTER: 'Output Guardrails' };
+// eslint-disable-next-line @databricks/no-const-object-record-string
 const STAGE_DESCRIPTIONS: Record<string, string> = {
   BEFORE: 'This guardrail runs before the request reaches the LLM',
   AFTER: 'This guardrail runs after the LLM response is generated',
@@ -359,7 +361,7 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
       />
 
       <DeleteConfirmationModal
-        open={!!pendingDelete}
+        open={Boolean(pendingDelete)}
         onClose={() => setPendingDelete(null)}
         onConfirm={handleConfirmDelete}
         title="Remove Guardrail"
