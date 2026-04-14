@@ -181,14 +181,6 @@ def check_budget_limit(
             f"Budget resets at {reset_time}. "
             "Request rejected."
         )
-        _record_event(
-            GatewayBudgetExceededEvent,
-            params={
-                "budget_action": policy.budget_action.value,
-                "target_scope": window.policy.target_scope.value,
-                "is_rejection": True,
-            },
-        )
         exc = HTTPException(status_code=429, detail=detail)
         _create_budget_error_trace(endpoint_config, exc)
         raise exc

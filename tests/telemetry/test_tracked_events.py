@@ -35,7 +35,7 @@ from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
-from mlflow.gateway.budget import check_budget_limit, make_budget_on_complete
+from mlflow.gateway.budget import make_budget_on_complete
 from mlflow.gateway.budget_tracker import BudgetWindow
 from mlflow.gateway.cli import start
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
@@ -2355,46 +2355,6 @@ def test_gateway_budget_exceeded_telemetry(
     store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
     mock_telemetry_client.flush()
     mock_requests.clear()
-
-    mock_policy = MagicMock()
-    mock_policy.budget_policy_id = "bp-test"
-    mock_policy.budget_action = BudgetAction.REJECT
-    mock_policy.budget_amount = 100.0
-    mock_policy.duration.unit.value = "DAYS"
-    mock_policy.duration.value = 1
-    mock_policy.target_scope = BudgetTargetScope.GLOBAL
-
-    mock_window = BudgetWindow(
-        policy=mock_policy,
-        window_start=datetime(2025, 1, 1, tzinfo=timezone.utc),
-        window_end=datetime(2025, 1, 2, tzinfo=timezone.utc),
-    )
-    mock_window.cumulative_spend = 150.0
-
-    mock_endpoint_config = MagicMock()
-    mock_endpoint_config.experiment_id = None
-
-    # Test check_budget_limit rejection emits telemetry with correct budget_action casing
-    mock_tracker = MagicMock()
-    mock_tracker.needs_refresh.return_value = False
-    mock_tracker.should_reject_request.return_value = (True, mock_window)
-
-    with (
-        patch("mlflow.gateway.budget.get_budget_tracker", return_value=mock_tracker),
-        pytest.raises(Exception, match="Budget limit exceeded"),
-    ):
-        check_budget_limit(store, mock_endpoint_config, workspace=None)
-
-    data = validate_telemetry_record(
-        mock_telemetry_client,
-        mock_requests,
-        GatewayBudgetExceededEvent.name,
-        check_params=False,
-    )
-    params = json.loads(data["params"])
-    assert params["budget_action"] == "REJECT"
-    assert params["target_scope"] == "GLOBAL"
-    assert params["is_rejection"] is True
 
     # Test make_budget_on_complete emits telemetry for newly exceeded windows
     mock_policy_alert = MagicMock()
