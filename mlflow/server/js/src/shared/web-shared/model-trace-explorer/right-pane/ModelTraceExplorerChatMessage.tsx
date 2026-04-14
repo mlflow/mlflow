@@ -14,7 +14,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
-import { exceedsRenderSizeLimit, formatFileSize } from '../../media-rendering-utils';
+import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
 import {
   attachmentAwareUrlTransform,
   isAttachmentUri,
@@ -72,11 +72,7 @@ function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
     return <span>{`[${alt ?? 'Failed to load image'}]`}</span>;
   }
   if (contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
-    return (
-      <a href={url} download>
-        {`Download ${contentType} (${formatFileSize(contentLength)})`}
-      </a>
-    );
+    return <DownloadLink url={url} contentType={contentType} contentLength={contentLength} />;
   }
   return <ClickToExpandImage src={url} alt={alt} />;
 }
@@ -267,11 +263,7 @@ function AttachmentAudioPlayer({ uri }: { uri: string }) {
     );
   }
   if (contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
-    return (
-      <a href={url} download>
-        {`Download ${contentType} (${formatFileSize(contentLength)})`}
-      </a>
-    );
+    return <DownloadLink url={url} contentType={contentType} contentLength={contentLength} />;
   }
   // eslint-disable-next-line jsx-a11y/media-has-caption
   return <audio controls css={{ width: '100%', maxWidth: 500 }} src={url} />;

@@ -8447,6 +8447,10 @@
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
   },
+  "pMb1cg": {
+    "defaultMessage": "Download {contentType} ({size})",
+    "description": "Download link for media content that exceeds the rendering size limit"
+  },
   "pOqgMC": {
     "defaultMessage": "Weight",
     "description": "Label for traffic split weight input"

@@ -4,6 +4,8 @@
  * and artifact viewing.
  */
 
+import { FormattedMessage } from '@databricks/i18n';
+
 // Auto-render size thresholds (bytes). Files exceeding these show a download link.
 const MAX_IMAGE_RENDER_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_AUDIO_RENDER_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -39,4 +41,31 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Download link shown when media content exceeds the rendering size limit.
+ */
+export function DownloadLink({
+  url,
+  contentType,
+  contentLength,
+  filename,
+  onClick,
+}: {
+  url: string;
+  contentType: string;
+  contentLength: number;
+  filename?: string;
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  return (
+    <a href={url} download={filename} onClick={onClick}>
+      <FormattedMessage
+        defaultMessage="Download {contentType} ({size})"
+        description="Download link for media content that exceeds the rendering size limit"
+        values={{ contentType, size: formatFileSize(contentLength) }}
+      />
+    </a>
+  );
 }

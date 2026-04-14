@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { LegacySkeleton, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { exceedsRenderSizeLimit, formatFileSize } from '../../media-rendering-utils';
+import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
 import { useTraceAttachment } from '../hooks/useTraceAttachment';
 
 export const ModelTraceExplorerAttachmentRenderer = ({
@@ -50,13 +50,12 @@ export const ModelTraceExplorerAttachmentRenderer = ({
             {title}
           </Typography.Text>
         )}
-        <a href={objectUrl} download={`attachment-${attachmentId}`}>
-          <FormattedMessage
-            defaultMessage="Download {contentType} ({size})"
-            description="Download link for trace attachment that exceeds the rendering size limit"
-            values={{ contentType, size: formatFileSize(contentLength) }}
-          />
-        </a>
+        <DownloadLink
+          url={objectUrl}
+          contentType={contentType}
+          contentLength={contentLength}
+          filename={`attachment-${attachmentId}`}
+        />
       </div>
     );
   }
