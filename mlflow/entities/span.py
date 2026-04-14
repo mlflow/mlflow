@@ -424,7 +424,9 @@ class Span:
             if isinstance(v, str):
                 try:
                     decoded = json.loads(v)
-                    proto_attrs[attr.key] = v if isinstance(decoded, (dict, list)) else dump_span_attribute_value(v)
+                    proto_attrs[attr.key] = (
+                        v if isinstance(decoded, (dict, list)) else dump_span_attribute_value(v)
+                    )
                 except (json.JSONDecodeError, TypeError):
                     proto_attrs[attr.key] = dump_span_attribute_value(v)
             else:

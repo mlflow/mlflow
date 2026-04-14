@@ -437,7 +437,8 @@ def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
 def test_live_span_to_otel_proto_string_attributes():
     """Regression test: LiveSpan attributes stored as JSON-encoded strings must be
     decoded to plain types in OTLP output (e.g. spanType should be 'LLM', not '"LLM"').
-    Dict/list values must remain encoded as string_value."""
+    Dict/list values must remain encoded as string_value.
+    """
     span_inputs = {"messages": [{"role": "user", "content": "hello"}]}
     span_outputs = {"text": "world"}
 
