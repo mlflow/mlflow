@@ -39,11 +39,11 @@ describe('DemoBanner', () => {
     await userEvent.click(screen.getByLabelText('Dismiss'));
 
     expect(screen.queryByText('New to MLflow?')).not.toBeInTheDocument();
-    expect(localStorage.getItem('mlflow.demo.banner.dismissed')).toBe('true');
+    expect(localStorage.getItem('mlflow.demo.banner.dismissed_v0')).toBe('true');
   });
 
   it('does not render when previously dismissed', () => {
-    localStorage.setItem('mlflow.demo.banner.dismissed', 'true');
+    localStorage.setItem('mlflow.demo.banner.dismissed_v0', 'true');
 
     renderWithDesignSystem(<DemoBanner />);
 
