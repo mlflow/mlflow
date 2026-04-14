@@ -613,6 +613,7 @@ async def invocations(endpoint_name: str, request: Request):
                 media_type="text/event-stream",
             )
         else:
+
             async def _guarded_chat(
                 payload: chat.RequestPayload,
             ) -> chat.ResponsePayload:
@@ -743,6 +744,7 @@ async def chat_completions(request: Request):
             media_type="text/event-stream",
         )
     else:
+
         async def _guarded_chat(
             payload: chat.RequestPayload,
         ) -> chat.ResponsePayload:
