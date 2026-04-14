@@ -30,6 +30,7 @@ from mlflow.telemetry.events import (
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateGuardrailEvent,
+    GatewayCreateModelDefinitionEvent,
     GatewayCreateSecretEvent,
     GatewayDeleteGuardrailEvent,
     GatewayListBudgetPoliciesEvent,
@@ -150,6 +151,7 @@ def test_event_name():
     assert GatewayCreateGuardrailEvent.name == "gateway_create_guardrail"
     assert GatewayUpdateGuardrailEvent.name == "gateway_update_guardrail"
     assert GatewayDeleteGuardrailEvent.name == "gateway_delete_guardrail"
+    assert GatewayCreateModelDefinitionEvent.name == "gateway_create_model_definition"
 
 
 def test_start_trace_parse_format_native():
@@ -481,6 +483,19 @@ def test_gateway_list_endpoints_parse_params(arguments, expected_params):
 )
 def test_gateway_create_secret_parse_params(arguments, expected_params):
     assert GatewayCreateSecretEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        ({"model_name": "gpt-4o"}, {"model_name": "gpt-4o"}),
+        ({"model_name": "claude-3-5-sonnet"}, {"model_name": "claude-3-5-sonnet"}),
+        ({"model_name": None}, {"model_name": None}),
+        ({}, {"model_name": None}),
+    ],
+)
+def test_gateway_create_model_definition_parse_params(arguments, expected_params):
+    assert GatewayCreateModelDefinitionEvent.parse(arguments) == expected_params
 
 
 @pytest.mark.parametrize(
