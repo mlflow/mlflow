@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -34,6 +35,8 @@ from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.gateway.budget import check_budget_limit, make_budget_on_complete
+from mlflow.gateway.budget_tracker import BudgetWindow
 from mlflow.gateway.cli import start
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas import chat
@@ -58,7 +61,7 @@ from mlflow.pyfunc.model import (
     ResponsesAgentResponse,
 )
 from mlflow.server.gateway_api import chat_completions, invocations
-from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
@@ -75,6 +78,7 @@ from mlflow.telemetry.events import (
     CreateWebhookEvent,
     DiscoverIssuesEvent,
     EvaluateEvent,
+    GatewayBudgetExceededEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateGuardrailEvent,
@@ -2148,8 +2152,17 @@ async def test_gateway_invocation_telemetry(
         usage=chat.ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
+    mock_model = GatewayModelConfig(
+        model_definition_id="test-model-def",
+        provider="openai",
+        model_name="gpt-4",
+        secret_value={"api_key": "test"},
+        linkage_type=GatewayModelLinkageType.PRIMARY,
+    )
+
     # Test invocations endpoint (chat)
-    mock_request = MagicMock()
+    mock_request = MagicMock(spec=Request)
+    mock_request.headers = {}
     mock_request.json = AsyncMock(
         return_value={
             "messages": [{"role": "user", "content": "Hi"}],
@@ -2167,21 +2180,34 @@ async def test_gateway_invocation_telemetry(
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
         mock_endpoint_config = GatewayEndpointConfig(
-            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+            endpoint_id=endpoint.endpoint_id,
+            endpoint_name=endpoint.name,
+            models=[mock_model],
         )
         mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         await invocations(endpoint.name, mock_request)
 
-    validate_telemetry_record(
+    data = validate_telemetry_record(
         mock_telemetry_client,
         mock_requests,
         GatewayInvocationEvent.name,
-        {"is_streaming": False, "invocation_type": "mlflow_invocations"},
+        check_params=False,
     )
+    params = json.loads(data["params"])
+    assert params["is_streaming"] is False
+    assert params["invocation_type"] == "mlflow_invocations"
+    assert params["has_traceparent"] is False
+    assert params["auth_enabled"] is False
+    assert params["endpoint_id"] == endpoint.endpoint_id
+    assert params["provider"] == "openai"
+    # Non-streaming includes timing fields
+    assert "provider_duration_ms" in params
+    assert "gateway_overhead_ms" in params
 
     # Test chat_completions endpoint
-    mock_request = MagicMock()
+    mock_request = MagicMock(spec=Request)
+    mock_request.headers = {}
     mock_request.json = AsyncMock(
         return_value={
             "model": endpoint.name,
@@ -2200,21 +2226,29 @@ async def test_gateway_invocation_telemetry(
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
         mock_endpoint_config = GatewayEndpointConfig(
-            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+            endpoint_id=endpoint.endpoint_id,
+            endpoint_name=endpoint.name,
+            models=[mock_model],
         )
         mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         await chat_completions(mock_request)
 
-    validate_telemetry_record(
+    data = validate_telemetry_record(
         mock_telemetry_client,
         mock_requests,
         GatewayInvocationEvent.name,
-        {"is_streaming": False, "invocation_type": "mlflow_chat_completions"},
+        check_params=False,
     )
+    params = json.loads(data["params"])
+    assert params["is_streaming"] is False
+    assert params["invocation_type"] == "mlflow_chat_completions"
+    assert params["endpoint_id"] == endpoint.endpoint_id
+    assert params["provider"] == "openai"
 
-    # Test streaming invocation
-    mock_request = MagicMock()
+    # Test streaming invocation — timing fields should be absent
+    mock_request = MagicMock(spec=Request)
+    mock_request.headers = {}
     mock_request.json = AsyncMock(
         return_value={
             "model": endpoint.name,
@@ -2247,20 +2281,28 @@ async def test_gateway_invocation_telemetry(
         mock_provider = MagicMock()
         mock_provider.chat_stream = MagicMock(return_value=mock_stream())
         mock_endpoint_config = GatewayEndpointConfig(
-            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+            endpoint_id=endpoint.endpoint_id,
+            endpoint_name=endpoint.name,
+            models=[mock_model],
         )
         mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         await chat_completions(mock_request)
 
-    validate_telemetry_record(
+    data = validate_telemetry_record(
         mock_telemetry_client,
         mock_requests,
         GatewayInvocationEvent.name,
-        {"is_streaming": True, "invocation_type": "mlflow_chat_completions"},
+        check_params=False,
     )
+    params = json.loads(data["params"])
+    assert params["is_streaming"] is True
+    assert params["invocation_type"] == "mlflow_chat_completions"
+    # Streaming responses should NOT include timing fields
+    assert "provider_duration_ms" not in params
+    assert "gateway_overhead_ms" not in params
 
-    # Test that caller header is included in telemetry when present
+    # Test that caller header and traceparent are included in telemetry when present
     mock_request = MagicMock(spec=Request)
     mock_request.json = AsyncMock(
         return_value={
@@ -2269,29 +2311,130 @@ async def test_gateway_invocation_telemetry(
             "stream": False,
         }
     )
-    mock_request.headers = {MLFLOW_GATEWAY_CALLER_HEADER: "judge"}
+    mock_request.headers = {MLFLOW_GATEWAY_CALLER_HEADER: "judge", "traceparent": "00-abc-def-01"}
+
+    mock_auth_module = MagicMock()
+    mock_auth_module.is_auth_enabled = MagicMock(return_value=True)
 
     with (
         patch("mlflow.server.gateway_api._get_store", return_value=store),
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
+        patch.dict("sys.modules", {"mlflow.server.auth": mock_auth_module}),
     ):
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
         mock_endpoint_config = GatewayEndpointConfig(
-            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+            endpoint_id=endpoint.endpoint_id,
+            endpoint_name=endpoint.name,
+            models=[mock_model],
         )
         mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         await chat_completions(mock_request)
 
-    validate_telemetry_record(
+    data = validate_telemetry_record(
         mock_telemetry_client,
         mock_requests,
         GatewayInvocationEvent.name,
-        {"is_streaming": False, "invocation_type": "mlflow_chat_completions", "caller": "judge"},
+        check_params=False,
     )
+    params = json.loads(data["params"])
+    assert params["is_streaming"] is False
+    assert params["invocation_type"] == "mlflow_chat_completions"
+    assert params["caller"] == "judge"
+    assert params["has_traceparent"] is True
+    assert params["auth_enabled"] is True
+
+
+def test_gateway_budget_exceeded_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+    mock_telemetry_client.flush()
+    mock_requests.clear()
+
+    mock_policy = MagicMock()
+    mock_policy.budget_policy_id = "bp-test"
+    mock_policy.budget_action = BudgetAction.REJECT
+    mock_policy.budget_amount = 100.0
+    mock_policy.duration.unit.value = "DAYS"
+    mock_policy.duration.value = 1
+    mock_policy.target_scope = BudgetTargetScope.GLOBAL
+
+    mock_window = BudgetWindow(
+        policy=mock_policy,
+        window_start=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        window_end=datetime(2025, 1, 2, tzinfo=timezone.utc),
+    )
+    mock_window.cumulative_spend = 150.0
+
+    mock_endpoint_config = MagicMock()
+    mock_endpoint_config.experiment_id = None
+
+    # Test check_budget_limit rejection emits telemetry with correct budget_action casing
+    mock_tracker = MagicMock()
+    mock_tracker.needs_refresh.return_value = False
+    mock_tracker.should_reject_request.return_value = (True, mock_window)
+
+    with (
+        patch("mlflow.gateway.budget.get_budget_tracker", return_value=mock_tracker),
+        pytest.raises(Exception, match="Budget limit exceeded"),
+    ):
+        check_budget_limit(store, mock_endpoint_config, workspace=None)
+
+    data = validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayBudgetExceededEvent.name,
+        check_params=False,
+    )
+    params = json.loads(data["params"])
+    assert params["budget_action"] == "REJECT"
+    assert params["target_scope"] == "GLOBAL"
+    assert params["is_rejection"] is True
+
+    # Test make_budget_on_complete emits telemetry for newly exceeded windows
+    mock_policy_alert = MagicMock()
+    mock_policy_alert.budget_action = BudgetAction.ALERT
+    mock_policy_alert.target_scope = BudgetTargetScope.WORKSPACE
+
+    mock_window_alert = BudgetWindow(
+        policy=mock_policy_alert,
+        window_start=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        window_end=datetime(2025, 1, 2, tzinfo=timezone.utc),
+    )
+
+    mock_tracker_on_complete = MagicMock()
+    mock_tracker_on_complete.needs_refresh.return_value = False
+    mock_tracker_on_complete.record_cost.return_value = [mock_window_alert]
+
+    mock_span = MagicMock()
+    mock_span.trace_id = "test-trace-id"
+
+    with (
+        patch("mlflow.gateway.budget.get_budget_tracker", return_value=mock_tracker_on_complete),
+        patch("mlflow.gateway.budget.mlflow.get_current_active_span", return_value=mock_span),
+        patch("mlflow.gateway.budget._compute_cost_from_child_spans", return_value=5.0),
+        patch(
+            "mlflow.server.handlers._get_model_registry_store",
+            side_effect=Exception("no store"),
+        ),
+    ):
+        on_complete = make_budget_on_complete(store, workspace="test-ws")
+        on_complete()
+
+    data = validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayBudgetExceededEvent.name,
+        check_params=False,
+    )
+    params = json.loads(data["params"])
+    assert params["budget_action"] == "ALERT"
+    assert params["target_scope"] == "WORKSPACE"
 
 
 def test_tracing_context_propagation_get_and_set_success(

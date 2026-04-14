@@ -184,7 +184,7 @@ def check_budget_limit(
         _record_event(
             GatewayBudgetExceededEvent,
             params={
-                "budget_action": "reject",
+                "budget_action": policy.budget_action.value,
                 "target_scope": window.policy.target_scope.value,
                 "is_rejection": True,
             },
