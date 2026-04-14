@@ -1,6 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { LegacySkeleton, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  LegacySkeleton,
+  Modal,
+  Typography,
+  useDesignSystemEventComponentCallbacks,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useTraceAttachment } from '../hooks/useTraceAttachment';
@@ -19,6 +27,18 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   const { theme } = useDesignSystemTheme();
   const { objectUrl, isLoading, error } = useTraceAttachment({ traceId, attachmentId, contentType });
   const [previewVisible, setPreviewVisible] = useState(false);
+  const audioEvents = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const audioEventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: 'shared.model-trace-explorer.attachment-audio-play',
+    analyticsEvents: audioEvents,
+  });
+  const downloadEvents = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const downloadEventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: 'shared.model-trace-explorer.attachment-download',
+    analyticsEvents: downloadEvents,
+  });
 
   if (error) {
     return (
@@ -81,7 +101,12 @@ export const ModelTraceExplorerAttachmentRenderer = ({
           </Typography.Text>
         )}
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <audio controls css={{ width: '100%', maxWidth: 500 }} src={objectUrl} />
+        <audio
+          controls
+          css={{ width: '100%', maxWidth: 500 }}
+          src={objectUrl}
+          onPlay={(e) => audioEventContext.onClick(e as any)}
+        />
       </div>
     );
   }
@@ -110,7 +135,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
 
   return (
     <div css={{ padding: theme.spacing.sm }}>
-      <a href={objectUrl} download={`attachment-${attachmentId}`}>
+      <a href={objectUrl} download={`attachment-${attachmentId}`} onClick={(e) => downloadEventContext.onClick(e)}>
         <FormattedMessage
           defaultMessage="Download attachment ({contentType})"
           description="Download link for trace attachment with unknown content type"

@@ -45,6 +45,7 @@ from mlflow.telemetry.events import (
     PromptOptimizationEvent,
     SimulateConversationEvent,
     StartTraceEvent,
+    TraceAttachmentsEvent,
     UpdateIssueEvent,
 )
 
@@ -829,3 +830,16 @@ def test_update_issue_parse_result_none():
 def test_genai_evaluate_event_parse_eval_data_type(arguments, expected_eval_data_type):
     result = GenAIEvaluateEvent.parse(arguments)
     assert result.get("eval_data_type") == expected_eval_data_type
+
+
+def test_trace_attachments_event_parse():
+    att1 = Mock(content_type="image/png")
+    att2 = Mock(content_type="audio/wav")
+    att3 = Mock(content_type="image/png")
+    result = TraceAttachmentsEvent.parse({"attachments": {"a": att1, "b": att2, "c": att3}})
+    assert result == {"content_types": {"image/png": 2, "audio/wav": 1}}
+
+
+def test_trace_attachments_event_parse_empty():
+    assert TraceAttachmentsEvent.parse({"attachments": {}}) is None
+    assert TraceAttachmentsEvent.parse({}) is None
