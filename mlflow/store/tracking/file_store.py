@@ -59,6 +59,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.file_store import FileStore as ModelRegistryFileStore
 from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    SEARCH_ALL_EXPERIMENTS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
@@ -1059,6 +1060,11 @@ class FileStore(AbstractStore):
                 f"most {SEARCH_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
+        if SEARCH_ALL_EXPERIMENTS in experiment_ids:
+            experiment_ids = [
+                exp.experiment_id
+                for exp in self.search_experiments(view_type=ViewType.ALL)
+            ]
         runs = []
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)

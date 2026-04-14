@@ -14215,3 +14215,76 @@ def test_get_decrypted_secret_integration_multiple_secrets(store):
 
     assert decrypted1 == {"api_key": "key-1"}
     assert decrypted2 == {"api_key": "key-2"}
+
+
+def test_search_runs_experiment_ids_all(store: SqlAlchemyStore):
+    """Test that experiment_ids=["ALL"] searches across all experiments."""
+    exp1 = store.create_experiment("search_all_exp1")
+    exp2 = store.create_experiment("search_all_exp2")
+    exp3 = store.create_experiment("search_all_exp3")
+
+    run1 = _run_factory(store, _get_run_configs(exp1))
+    run2 = _run_factory(store, _get_run_configs(exp2))
+    run3 = _run_factory(store, _get_run_configs(exp3))
+
+    result = store.search_runs(
+        experiment_ids=["ALL"],
+        filter_string=None,
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id in run_ids
+    assert run3.info.run_id in run_ids
+
+
+def test_search_runs_experiment_ids_all_with_filter(store: SqlAlchemyStore):
+    """Test that experiment_ids=["ALL"] works correctly with tag filters."""
+    exp1 = store.create_experiment("search_all_filter_exp1")
+    exp2 = store.create_experiment("search_all_filter_exp2")
+
+    run1 = _run_factory(store, _get_run_configs(exp1))
+    run2 = _run_factory(store, _get_run_configs(exp2))
+    run3 = _run_factory(store, _get_run_configs(exp1))
+
+    store.set_tag(run1.info.run_id, RunTag("include_in_leaderboard", "true"))
+    store.set_tag(run2.info.run_id, RunTag("include_in_leaderboard", "true"))
+
+    result = store.search_runs(
+        experiment_ids=["ALL"],
+        filter_string="tags.include_in_leaderboard = 'true'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id in run_ids
+    assert run3.info.run_id not in run_ids
+
+
+def test_search_runs_experiment_ids_all_respects_lifecycle(store: SqlAlchemyStore):
+    """Test that experiment_ids=["ALL"] respects run_view_type."""
+    exp1 = store.create_experiment("search_all_lifecycle_exp1")
+    exp2 = store.create_experiment("search_all_lifecycle_exp2")
+
+    run1 = _run_factory(store, _get_run_configs(exp1))
+    run2 = _run_factory(store, _get_run_configs(exp2))
+
+    store.delete_run(run2.info.run_id)
+
+    result = store.search_runs(
+        experiment_ids=["ALL"],
+        filter_string=None,
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id not in run_ids
+
+    result = store.search_runs(
+        experiment_ids=["ALL"],
+        filter_string=None,
+        run_view_type=ViewType.DELETED_ONLY,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id not in run_ids
+    assert run2.info.run_id in run_ids

@@ -18,6 +18,9 @@ DEFAULT_TRACKING_URI = "sqlite:///mlflow.db"
 # storage location will be `DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH`.
 DEFAULT_ARTIFACTS_URI = "mlflow-artifacts:/"
 SEARCH_MAX_RESULTS_DEFAULT = 1000
+# Reserved value in experiment_ids to indicate "search all experiments".
+# Since experiment IDs are always numeric, there is no collision risk.
+SEARCH_ALL_EXPERIMENTS = "ALL"
 SEARCH_MAX_RESULTS_THRESHOLD = 50000
 GET_METRIC_HISTORY_MAX_RESULTS = 25000
 SEARCH_TRACES_DEFAULT_MAX_RESULTS = 100
