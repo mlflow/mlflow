@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -45,6 +46,7 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.gateway import GatewayStoreMixin
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
@@ -399,6 +401,62 @@ class AbstractStore(GatewayStoreMixin):
             List of TraceInfo objects containing only metadata (no spans).
         """
         raise MlflowNotImplementedException()
+
+    def archive_traces(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+        long_retention_allowlist: set[str] | list[str] | None = None,
+        max_traces: int | None = None,
+    ) -> int:
+        """
+        Archive eligible DB-backed trace payloads into the archival repository.
+
+        Concurrent executions of this method against the same backing store / trace population
+        are not supported.
+
+        Args:
+            default_trace_archival_location: Broader-scope archival repository root for this
+                archival pass. Implementations may override it with workspace-specific
+                configuration, but callers must supply a broader-scope default explicitly.
+            default_retention: Broader-scope default retention in the form ``<int><unit>`` where
+                unit is one of ``m``, ``h``, or ``d``. Callers must supply it explicitly.
+            long_retention_allowlist: Experiment IDs allowed to exceed the broader-scope
+                retention with a longer experiment-level retention override.
+            max_traces: Maximum number of traces to archive in this pass. If unset, archive all
+                eligible traces.
+
+        Returns:
+            The number of traces archived during the pass.
+        """
+        raise MlflowNotImplementedException()
+
+    def resolve_trace_archival_config(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+    ) -> ResolvedTraceArchivalConfig:
+        """
+        Resolve the effective trace archival configuration for the current store context.
+
+        Single-tenant stores use the broader-scope defaults directly. Workspace-aware stores may
+        override this to apply workspace-specific archival settings.
+
+        Returns:
+            A ``ResolvedTraceArchivalConfig`` describing the effective archival location,
+            retention, and whether additional workspace path scoping should be applied by the
+            caller.
+        """
+
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_trace_archival_location,
+                retention=default_retention,
+            ),
+            append_workspace_prefix=False,
+        )
 
     def get_online_trace_details(
         self,

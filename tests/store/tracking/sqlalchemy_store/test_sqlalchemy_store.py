@@ -51,6 +51,7 @@ from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_URI,
@@ -361,6 +362,24 @@ def store_and_trace_info(store):
             response_preview=None,
         ),
     )
+
+
+def test_resolve_trace_archival_config_returns_defaults_for_single_tenant(
+    store: SqlAlchemyStore, workspaces_enabled: bool
+):
+    if workspaces_enabled:
+        pytest.skip("Workspace-aware resolution is covered separately.")
+
+    resolved = store.resolve_trace_archival_config(
+        default_trace_archival_location="s3://archive/default",
+        default_retention="30d",
+    )
+
+    assert resolved.config == TraceArchivalConfig(
+        location="s3://archive/default",
+        retention="30d",
+    )
+    assert not resolved.append_workspace_prefix
 
 
 def _get_store(tmp_path: Path):

@@ -444,16 +444,24 @@ class ArtifactRepository:
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             self.log_artifact(temp_file)
 
-    def upload_archived_trace_data(self, trace_data: TraceData | str) -> None:
+    def upload_archived_trace_data(self, trace_data: TraceData) -> None:
         """
         Upload archived trace data as OTLP protobuf to ``traces.pb``.
 
         Args:
-            trace_data: The archived trace data as a ``TraceData`` object or serialized JSON.
+            trace_data: The archived trace data as a ``TraceData`` object.
         """
+        from mlflow.exceptions import MlflowTraceArchivalMalformedTrace
         from mlflow.tracing.otel.otel_archival import spans_to_traces_data_pb
 
-        data = spans_to_traces_data_pb(_coerce_archived_trace_data(trace_data).spans)
+        if not isinstance(trace_data, TraceData):
+            raise MlflowException.invalid_parameter_value(
+                "Archived trace data must be a TraceData object."
+            )
+        try:
+            data = spans_to_traces_data_pb(trace_data.spans)
+        except (MlflowException, TypeError, ValueError) as e:
+            raise MlflowTraceArchivalMalformedTrace(str(e)) from e
         self.upload_archived_trace_data_bytes(data)
 
     def upload_archived_trace_data_bytes(self, data: bytes) -> None:
@@ -492,22 +500,6 @@ def _write_local_temp_trace_data_pb_file(data: bytes):
         temp_file = Path(temp_dir, TRACE_ARCHIVAL_FILENAME)
         temp_file.write_bytes(data)
         yield temp_file
-
-
-def _coerce_archived_trace_data(trace_data: TraceData | str) -> TraceData:
-    if isinstance(trace_data, TraceData):
-        return trace_data
-    if isinstance(trace_data, str):
-        try:
-            return TraceData.from_dict(json.loads(trace_data))
-        except (TypeError, json.JSONDecodeError) as e:
-            raise MlflowException.invalid_parameter_value(
-                "Archived trace data must be a TraceData object or valid serialized "
-                "trace-data JSON."
-            ) from e
-    raise MlflowException.invalid_parameter_value(
-        "Archived trace data must be a TraceData object or valid serialized trace-data JSON."
-    )
 
 
 def try_read_trace_data(trace_data_path):

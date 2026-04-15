@@ -16,6 +16,18 @@ from mlflow.tracing.utils.otlp import resource_to_otel_proto
 TRACE_ARCHIVAL_FILENAME = "traces.pb"
 
 
+def _sort_spans_for_trace_output(spans: list[Span]) -> list[Span]:
+    """Normalize archived spans to MLflow's canonical root-first display order."""
+    return sorted(
+        spans,
+        key=lambda span: (
+            0 if span.parent_id is None else 1,
+            span.start_time_ns,
+            span.span_id,
+        ),
+    )
+
+
 def normalize_otel_resource_attributes(resource) -> tuple[tuple[str, Any], ...]:
     """Convert resource attributes into an order-insensitive comparable representation."""
     if resource is None:
@@ -117,4 +129,4 @@ def traces_data_pb_to_spans(data: bytes) -> list[Span]:
             "Archived trace payload must contain spans for a single OTLP trace, "
             f"but got distinct trace IDs: {sorted(otlp_trace_ids)}"
         )
-    return spans
+    return _sort_spans_for_trace_output(spans)
