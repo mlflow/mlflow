@@ -21,7 +21,7 @@ import { useExperimentRuns } from './hooks/useExperimentRuns';
 import type { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
 import { useSharedExperimentViewState } from './hooks/useSharedExperimentViewState';
 import { useInitializeUIState } from './hooks/useInitializeUIState';
-import { ExperimentViewDescriptionNotes } from './components/ExperimentViewMetadataEditor';
+import { ExperimentViewMetadataEditor } from './components/ExperimentViewMetadataEditor';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
@@ -56,8 +56,6 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
   const { elementHeight: hideableElementHeight, observeHeight } = useElementHeight();
 
   const [editing, setEditing] = useState(false);
-
-  const [showAddDescriptionButton, setShowAddDescriptionButton] = useState(true);
 
   // Create new version of the UI state for the experiment page on this level
   const [uiState, setUIState, seedInitialUIState] = useInitializeUIState(experimentIds);
@@ -225,12 +223,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
         css={{ overflowY: 'hidden', flexShrink: 0, transition: 'max-height .12s' }}
       >
         <div ref={observeHeight}>
-          <ExperimentViewDescriptionNotes
-            experiment={firstExperiment}
-            setShowAddDescriptionButton={setShowAddDescriptionButton}
-            editing={editing}
-            setEditing={setEditing}
-          />
+          <ExperimentViewMetadataEditor experiment={firstExperiment} editing={editing} setEditing={setEditing} />
         </div>
       </div>
     </>

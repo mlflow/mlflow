@@ -52,7 +52,6 @@ export const ExperimentViewHeader = React.memo(
     uiState,
     setEditing,
     experimentKindSelector,
-    refetchExperiment,
   }: {
     experiment: ExperimentEntity;
     inferredExperimentKind?: ExperimentKind;
@@ -60,7 +59,6 @@ export const ExperimentViewHeader = React.memo(
     uiState?: ExperimentPageUIState;
     setEditing: (editing: boolean) => void;
     experimentKindSelector?: React.ReactNode;
-    refetchExperiment?: () => Promise<unknown>;
   }) => {
     const { theme } = useDesignSystemTheme();
     const navigate = useNavigate();
@@ -245,11 +243,7 @@ export const ExperimentViewHeader = React.memo(
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            <ExperimentViewManagementMenu
-              experiment={experiment}
-              setEditing={setEditing}
-              refetchExperiment={refetchExperiment}
-            />
+            <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
             <ExperimentViewHeaderShareButton
               experimentIds={experimentIds}
               searchFacetsState={searchFacetsState}
