@@ -176,6 +176,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.otel.translation import (
+    normalize_cost_value,
     translate_loaded_span,
     translate_span_when_storing,
     update_cost,
@@ -4549,7 +4550,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 SpanAttributeKey.TOOL_COST: CostKey.TOOL_COST,
                 SpanAttributeKey.EMBEDDING_COST: CostKey.EMBEDDING_COST,
                 SpanAttributeKey.RETRIEVAL_COST: CostKey.RETRIEVAL_COST,
-                SpanAttributeKey.SPAN_COST: CostKey.MISC_COST,
+                SpanAttributeKey.SPAN_COST: CostKey.OTHER_COST,
             }
 
             for span in trace_spans:
@@ -4561,46 +4562,28 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         aggregated_token_usage = update_token_usage(
                             aggregated_token_usage, span_token_usage
                         )
-                        # Check all cost attribute types in priority order
-                        for cost_attr_key in [
-                            SpanAttributeKey.LLM_COST,
-                            SpanAttributeKey.TOOL_COST,
-                            SpanAttributeKey.EMBEDDING_COST,
-                            SpanAttributeKey.RETRIEVAL_COST,
-                            SpanAttributeKey.SPAN_COST,
-                        ]:
-                            if cost_value := span_attributes.get(cost_attr_key):
-                                # Normalize cost value for non-LLM spans
-                                normalized_cost_value = cost_value
-                                if cost_attr_key in span_cost_key_mapping:
-                                    # Parse the cost value to check if it needs normalization
-                                    try:
-                                        parsed_cost = json.loads(cost_value)
-                                        if isinstance(parsed_cost, (int, float)):
-                                            # Float: create dict with total & span-type key
-                                            span_type_key = span_cost_key_mapping[cost_attr_key]
-                                            normalized_cost_value = json.dumps({
-                                                CostKey.TOTAL_COST: float(parsed_cost),
-                                                span_type_key: float(parsed_cost),
-                                            })
-                                        elif isinstance(parsed_cost, dict):
-                                            if CostKey.TOTAL_COST in parsed_cost:
-                                                # Dict: ensure span-type key is set
-                                                span_type_key = span_cost_key_mapping[cost_attr_key]
-                                                if span_type_key not in parsed_cost:
-                                                    total = parsed_cost[CostKey.TOTAL_COST]
-                                                    parsed_cost[span_type_key] = total
-                                                    normalized_cost_value = json.dumps(parsed_cost)
-                                    except (json.JSONDecodeError, TypeError):
-                                        pass  # Keep original value if parsing fails
 
-                                aggregated_cost = update_cost(aggregated_cost, normalized_cost_value)
-                                # Use first cost attribute found for span metrics
-                                if span_cost is None:
-                                    span_cost = cost_value
-                                    span_cost_attr_key = cost_attr_key
-                                # Only use one cost attribute per span
-                                break
+                    # Check all cost attribute types in priority order
+                    for cost_attr_key in SpanAttributeKey.get_cost_attribute_keys():
+                        if cost_value := span_attributes.get(cost_attr_key):
+                            # Normalize cost value for non-LLM spans
+                            if cost_attr_key in span_cost_key_mapping:
+                                normalized_cost = normalize_cost_value(
+                                    cost_value, cost_attr_key, span_cost_key_mapping
+                                )
+                                if normalized_cost:
+                                    aggregated_cost = update_cost(aggregated_cost, normalized_cost)
+                            else:
+                                # LLM cost - pass directly as JSON string
+                                aggregated_cost = update_cost(aggregated_cost, cost_value)
+
+                            # Use first cost attribute found for span metrics
+                            if span_cost is None:
+                                span_cost = cost_value
+                                span_cost_attr_key = cost_attr_key
+                            # Only use one cost attribute per span
+                            break
+
                     # Session ID from OTel semantic conventions:
                     # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
                     if session_id is None and (
@@ -4610,8 +4593,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     # user id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
                     if user_id is None and (span_user_id := span_attributes.get("user.id")):
                         user_id = span_user_id
-                    # Get cost for span metrics
-                    span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
+
+                    # Get cost for span metrics if not already set (for spans without token usage)
+                    if span_cost is None:
+                        for cost_attr_key in SpanAttributeKey.get_cost_attribute_keys():
+                            if cost_value := span_attributes.get(cost_attr_key):
+                                span_cost = cost_value
+                                span_cost_attr_key = cost_attr_key
+                                break
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
@@ -4641,30 +4630,26 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 })
 
                 if span_cost:
-                    span_cost = json.loads(span_cost)
-                    # Normalize float to dict format
-                    if isinstance(span_cost, (int, float)):
-                        cost_value = float(span_cost)
-                        span_cost = {CostKey.TOTAL_COST: cost_value}
-                        # For non-LLM spans, also set the span-type-specific cost key
-                        if span_cost_attr_key in span_cost_key_mapping:
-                            span_type_key = span_cost_key_mapping[span_cost_attr_key]
-                            span_cost[span_type_key] = cost_value
-                    # For non-LLM spans with dict format, ensure span-type key is set
-                    elif isinstance(span_cost, dict):
-                        if span_cost_attr_key in span_cost_key_mapping:
-                            span_type_key = span_cost_key_mapping[span_cost_attr_key]
-                            if CostKey.TOTAL_COST in span_cost:
-                                if span_type_key not in span_cost:
-                                    # Set span-type-specific key from total_cost
-                                    span_cost[span_type_key] = span_cost[CostKey.TOTAL_COST]
-                    for cost_key, cost_value in span_cost.items():
-                        all_metric_rows.append({
-                            "trace_id": span.trace_id,
-                            "span_id": span.span_id,
-                            "key": cost_key,
-                            "value": float(cost_value),
-                        })
+                    # Normalize the cost value
+                    if span_cost_attr_key in span_cost_key_mapping:
+                        normalized_span_cost = normalize_cost_value(
+                            span_cost, span_cost_attr_key, span_cost_key_mapping
+                        )
+                    else:
+                        # LLM cost - parse directly
+                        try:
+                            normalized_span_cost = json.loads(span_cost)
+                        except (json.JSONDecodeError, TypeError):
+                            normalized_span_cost = None
+
+                    if normalized_span_cost:
+                        for cost_key, cost_value in normalized_span_cost.items():
+                            all_metric_rows.append({
+                                "trace_id": span.trace_id,
+                                "span_id": span.span_id,
+                                "key": cost_key,
+                                "value": float(cost_value),
+                            })
 
                 if span.parent_id is None:
                     root_span_dict = span_dict

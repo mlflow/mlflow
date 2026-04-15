@@ -55,11 +55,11 @@ const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
       });
     }
 
-    if ((cost.misc_cost ?? 0) > 0) {
+    if ((cost.other_cost ?? 0) > 0) {
       items.push({
         key: 'misc',
         label: 'Other cost',
-        value: formatCostUSD(cost.misc_cost!),
+        value: formatCostUSD(cost.other_cost!),
       });
     }
 

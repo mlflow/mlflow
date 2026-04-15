@@ -439,15 +439,7 @@ def update_cost(
                 ) + float(new_cost)
             # Handle dictionary format
             elif isinstance(new_cost, dict):
-                for key in [
-                    CostKey.INPUT_COST,
-                    CostKey.OUTPUT_COST,
-                    CostKey.TOTAL_COST,
-                    CostKey.TOOL_COST,
-                    CostKey.EMBEDDING_COST,
-                    CostKey.RETRIEVAL_COST,
-                    CostKey.MISC_COST,
-                ]:
+                for key in CostKey.all_keys():
                     current_cost[key] = current_cost.get(key, 0.0) + new_cost.get(key, 0.0)
     except Exception:
         _logger.debug(
@@ -456,6 +448,50 @@ def update_cost(
         )
 
     return current_cost
+
+
+def normalize_cost_value(
+    cost_value: str, cost_attr_key: str, span_cost_key_mapping: dict[str, str]
+) -> dict[str, float] | None:
+    """
+    Normalize cost value to ensure proper structure with both total_cost
+    and span-type-specific keys.
+
+    Args:
+        cost_value: JSON-encoded cost value (float or dict)
+        cost_attr_key: The cost attribute key (e.g., SpanAttributeKey.TOOL_COST)
+        span_cost_key_mapping: Mapping from attribute keys to cost keys
+
+    Returns:
+        Normalized cost as a dict, or None if parsing fails
+    """
+    try:
+        parsed_cost = json.loads(cost_value)
+
+        if isinstance(parsed_cost, (int, float)):
+            # Float: create dict with total & span-type key
+            if span_type_key := span_cost_key_mapping.get(cost_attr_key):
+                return {
+                    CostKey.TOTAL_COST: float(parsed_cost),
+                    span_type_key: float(parsed_cost),
+                }
+            return {CostKey.TOTAL_COST: float(parsed_cost)}
+
+        elif isinstance(parsed_cost, dict):
+            if CostKey.TOTAL_COST in parsed_cost:
+                # Dict: ensure span-type key is set if applicable
+                span_type_key = span_cost_key_mapping.get(cost_attr_key)
+                if span_type_key and span_type_key not in parsed_cost:
+                    parsed_cost[span_type_key] = parsed_cost[CostKey.TOTAL_COST]
+            return parsed_cost
+
+    except (json.JSONDecodeError, TypeError):
+        _logger.debug(
+            f"Failed to normalize cost value: {cost_value} for attribute: {cost_attr_key}",
+            exc_info=True,
+        )
+
+    return None
 
 
 def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:

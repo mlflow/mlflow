@@ -285,7 +285,7 @@ export interface SpanCostInfo {
   tool_cost?: number;
   embedding_cost?: number;
   retrieval_cost?: number;
-  misc_cost?: number;
+  other_cost?: number;
 }
 
 /**

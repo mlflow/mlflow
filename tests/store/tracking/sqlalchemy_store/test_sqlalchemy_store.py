@@ -12946,6 +12946,11 @@ def test_log_spans_cost(store: SqlAlchemyStore) -> None:
     assert trace_info.cost["input_cost"] == 0.01
     assert trace_info.cost["output_cost"] == 0.02
     assert trace_info.cost["total_cost"] == 0.03
+    # Verify non-LLM cost keys are 0 or not present
+    assert trace_info.cost.get("tool_cost", 0) == 0
+    assert trace_info.cost.get("embedding_cost", 0) == 0
+    assert trace_info.cost.get("retrieval_cost", 0) == 0
+    assert trace_info.cost.get("other_cost", 0) == 0
 
     # verify loaded trace has same cost
     traces = store.batch_get_traces([trace_id])
@@ -12955,6 +12960,11 @@ def test_log_spans_cost(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["input_cost"] == 0.01
     assert trace.info.cost["output_cost"] == 0.02
     assert trace.info.cost["total_cost"] == 0.03
+    # Verify non-LLM cost keys are 0 or not present
+    assert trace.info.cost.get("tool_cost", 0) == 0
+    assert trace.info.cost.get("embedding_cost", 0) == 0
+    assert trace.info.cost.get("retrieval_cost", 0) == 0
+    assert trace.info.cost.get("other_cost", 0) == 0
 
 
 def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
@@ -12986,6 +12996,11 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["input_cost"] == 0.01
     assert trace.info.cost["output_cost"] == 0.02
     assert trace.info.cost["total_cost"] == 0.03
+    # Verify non-LLM cost keys are 0 or not present
+    assert trace.info.cost.get("tool_cost", 0) == 0
+    assert trace.info.cost.get("embedding_cost", 0) == 0
+    assert trace.info.cost.get("retrieval_cost", 0) == 0
+    assert trace.info.cost.get("other_cost", 0) == 0
 
     otel_span2 = create_test_otel_span(
         trace_id=trace_id,
@@ -13012,6 +13027,11 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["input_cost"] == 0.015
     assert trace.info.cost["output_cost"] == 0.03
     assert trace.info.cost["total_cost"] == 0.045
+    # Verify non-LLM cost keys are 0 or not present
+    assert trace.info.cost.get("tool_cost", 0) == 0
+    assert trace.info.cost.get("embedding_cost", 0) == 0
+    assert trace.info.cost.get("retrieval_cost", 0) == 0
+    assert trace.info.cost.get("other_cost", 0) == 0
 
 
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
@@ -13495,7 +13515,7 @@ def test_log_spans_float_cost_values(store: SqlAlchemyStore) -> None:
             (0.001, CostKey.TOOL_COST),
             (0.0005, CostKey.EMBEDDING_COST),
             (0.0003, CostKey.RETRIEVAL_COST),
-            (0.005, CostKey.MISC_COST),
+            (0.005, CostKey.OTHER_COST),
         ]
 
         for span, (expected_cost, expected_type_key) in zip(spans, expected_span_data):
@@ -13518,7 +13538,7 @@ def test_log_spans_float_cost_values(store: SqlAlchemyStore) -> None:
     assert trace_info.cost[CostKey.TOOL_COST] == 0.001
     assert trace_info.cost[CostKey.EMBEDDING_COST] == 0.0005
     assert trace_info.cost[CostKey.RETRIEVAL_COST] == 0.0003
-    assert trace_info.cost[CostKey.MISC_COST] == 0.005
+    assert trace_info.cost[CostKey.OTHER_COST] == 0.005
     assert trace_info.cost["total_cost"] == 0.001 + 0.0005 + 0.0003 + 0.005
     # Input and output costs should be 0 since we only used float values
     assert trace_info.cost.get("input_cost", 0) == 0
