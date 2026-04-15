@@ -40,6 +40,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
 )
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.store.workspace_aware_mixin import WorkspaceAwareMixin
 from mlflow.tracking._workspace.registry import get_workspace_store
@@ -400,6 +401,19 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         if self._workspace_provider is None:
             self._workspace_provider = get_workspace_store(workspace_uri=self._workspace_store_uri)
         return self._workspace_provider
+
+    def resolve_trace_archival_config(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+    ) -> ResolvedTraceArchivalConfig:
+        provider = self._get_workspace_provider_instance()
+        return provider.resolve_trace_archival_config(
+            default_trace_archival_location,
+            default_retention,
+            self._get_active_workspace(),
+        )
 
     def _ensure_default_workspace_experiment(self) -> None:
         """

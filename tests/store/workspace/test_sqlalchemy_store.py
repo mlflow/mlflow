@@ -322,6 +322,67 @@ def test_resolve_artifact_root_cache_clears_when_override_removed(workspace_stor
     )
 
 
+def test_resolve_trace_archival_config_returns_defaults(workspace_store):
+    config = workspace_store.resolve_trace_archival_config(
+        default_trace_archival_root="s3://archive/default",
+        default_retention="30d",
+        workspace_name=DEFAULT_WORKSPACE_NAME,
+    )
+    assert config.config.location == "s3://archive/default"
+    assert config.append_workspace_prefix
+    assert config.config.retention == "30d"
+
+
+def test_resolve_trace_archival_config_prefers_workspace_overrides(workspace_store):
+    workspace_store.create_workspace(
+        Workspace(
+            name="team-a",
+            description=None,
+            trace_archival_location="s3://archive/team-a",
+            trace_archival_retention="14d",
+        )
+    )
+
+    config = workspace_store.resolve_trace_archival_config(
+        default_trace_archival_root="s3://archive/default",
+        default_retention="30d",
+        workspace_name="team-a",
+    )
+    assert config.config.location == "s3://archive/team-a"
+    assert not config.append_workspace_prefix
+    assert config.config.retention == "14d"
+
+
+def test_resolve_trace_archival_config_cache_updates_on_override_change(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-cache", description=None))
+
+    initial = workspace_store.resolve_trace_archival_config(
+        default_trace_archival_root="s3://archive/default",
+        default_retention="30d",
+        workspace_name="team-cache",
+    )
+    assert initial.config.location == "s3://archive/default"
+    assert initial.append_workspace_prefix
+    assert initial.config.retention == "30d"
+
+    workspace_store.update_workspace(
+        Workspace(
+            name="team-cache",
+            trace_archival_location="s3://archive/team-cache",
+            trace_archival_retention="7d",
+        )
+    )
+
+    updated = workspace_store.resolve_trace_archival_config(
+        default_trace_archival_root="s3://archive/default",
+        default_retention="30d",
+        workspace_name="team-cache",
+    )
+    assert updated.config.location == "s3://archive/team-cache"
+    assert not updated.append_workspace_prefix
+    assert updated.config.retention == "7d"
+
+
 def test_get_default_workspace_returns_default(workspace_store):
     default_ws = workspace_store.get_default_workspace()
     assert default_ws.name == DEFAULT_WORKSPACE_NAME

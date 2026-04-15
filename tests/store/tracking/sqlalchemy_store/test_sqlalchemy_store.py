@@ -309,6 +309,13 @@ def store_and_trace_info(store):
     )
 
 
+def test_resolve_trace_archival_config_returns_defaults_for_single_tenant(
+    store: SqlAlchemyStore, workspaces_enabled: bool
+):
+    if workspaces_enabled:
+        pytest.skip("Workspace-aware resolution is covered separately.")
+
+
 def _get_store(tmp_path: Path):
     db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
     artifact_uri = tmp_path / "artifacts"

@@ -278,7 +278,7 @@ def test_archived_trace_data_errors(local_artifact_repo):
 
 def test_upload_archived_trace_data_rejects_empty_spans(local_artifact_repo):
     with pytest.raises(MlflowException, match="at least one span"):
-        local_artifact_repo.upload_archived_trace_data(json.dumps({"spans": []}))
+        local_artifact_repo.upload_archived_trace_data(TraceData(spans=[]))
 
 
 def test_trace_data_artifact_repo(local_artifact_repo):
@@ -290,13 +290,9 @@ def test_trace_data_artifact_repo(local_artifact_repo):
     assert restored == trace_data
 
 
-def test_archived_trace_data_with_serialized_json(local_artifact_repo):
-    trace_data = TraceData(spans=[_make_span()]).to_dict()
-
-    local_artifact_repo.upload_archived_trace_data(json.dumps(trace_data))
-
-    restored = local_artifact_repo.download_archived_trace_data()
-    assert restored.to_dict() == trace_data
+def test_upload_archived_trace_data_rejects_non_trace_data(local_artifact_repo):
+    with pytest.raises(MlflowException, match="Archived trace data must be a TraceData object."):
+        local_artifact_repo.upload_archived_trace_data("not-trace-data")
 
 
 def test_archived_trace_data_with_trace_data_object(local_artifact_repo):
