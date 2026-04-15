@@ -564,7 +564,9 @@ def _validate_attachment_path(path: str) -> None:
         if str(parsed) != path:
             raise ValueError("Non-canonical UUID format")
     except (ValueError, AttributeError, TypeError):
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute/type validation failure
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,
+            error_class="ATTRIBUTE_NOT_FOUND",
         )

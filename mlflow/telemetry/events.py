@@ -462,6 +462,17 @@ class GatewayListEndpointsEvent(Event):
         }
 
 
+class GatewayCreateModelDefinitionEvent(Event):
+    name: str = "gateway_create_model_definition"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "model_name": arguments.get("model_name"),
+            "provider": arguments.get("provider"),
+        }
+
+
 # Gateway Budget Policy CRUD Events
 class GatewayCreateBudgetPolicyEvent(Event):
     name: str = "gateway_create_budget_policy"
