@@ -50,7 +50,7 @@ describe('ExperimentViewHeader', () => {
     name: 'test/experiment/name',
     artifactLocation: 'file:/tmp/mlruns',
     lifecycleStage: 'active',
-    allowedActions: [],
+    allowedActions: ['RENAME', 'DELETE'],
     creationTime: 0,
     lastUpdateTime: 0,
     tags: [],
