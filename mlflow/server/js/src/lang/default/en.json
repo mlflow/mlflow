@@ -879,10 +879,6 @@
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"
   },
-  "3FZ8dZ": {
-    "defaultMessage": "Rename",
-    "description": "Text for rename button on the experiment view page header"
-  },
   "3JAJtl": {
     "defaultMessage": "Current password",
     "description": "Label for the current-password field"
@@ -890,6 +886,10 @@
   "3N1zOb": {
     "defaultMessage": "Disabled",
     "description": "Webhook disabled label"
+  },
+  "3NBvz7": {
+    "defaultMessage": "Cancel",
+    "description": "experiment page > edit experiment modal > cancel button"
   },
   "3PBIB8": {
     "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
@@ -946,6 +946,10 @@
   "3pUugt": {
     "defaultMessage": "Run Analysis",
     "description": "Submit button to trigger issue detection job"
+  },
+  "3sDV5K": {
+    "defaultMessage": "Description",
+    "description": "experiment page > edit experiment modal > description label"
   },
   "3v2Y8K": {
     "defaultMessage": "AI Gateway",
@@ -1343,10 +1347,6 @@
     "defaultMessage": "The retrieval groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of retrieval groundedness judge."
   },
-  "6R2ply": {
-    "defaultMessage": "Edit description",
-    "description": "Text for edit description button on experiment view page header"
-  },
   "6SXoSp": {
     "defaultMessage": "Model definition",
     "description": "Label for model definition selector"
@@ -1490,10 +1490,6 @@
   "73ydH0": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
-  },
-  "757GVc": {
-    "defaultMessage": "Cancel",
-    "description": "experiment page > description modal > cancel button"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
@@ -1926,6 +1922,10 @@
   "9W3kev": {
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
+  },
+  "9YgUED": {
+    "defaultMessage": "Experiment name",
+    "description": "experiment page > edit experiment modal > experiment name label"
   },
   "9ZHB3D": {
     "defaultMessage": "MLflow runs:",
@@ -4031,6 +4031,10 @@
     "defaultMessage": "OK",
     "description": "Experiment page > traces table > status label > ok"
   },
+  "Mob8jy": {
+    "defaultMessage": "Please input a new name for the experiment.",
+    "description": "experiment page > edit experiment modal > empty experiment name validation error"
+  },
   "Mp01o5": {
     "defaultMessage": "View all integrations",
     "description": "Link text directing users to additional tracing integrations"
@@ -4342,6 +4346,10 @@
   "OZXWas": {
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
+  },
+  "OaRUyM": {
+    "defaultMessage": "Edit experiment",
+    "description": "experiment page > edit experiment modal > title"
   },
   "Ob5d+s": {
     "defaultMessage": "System metrics",
@@ -5531,10 +5539,6 @@
     "defaultMessage": "Equivalence",
     "description": "LLM template option"
   },
-  "Vkr4Bs": {
-    "defaultMessage": "Add description",
-    "description": "experiment page > description modal > title"
-  },
   "Vm9CvZ": {
     "defaultMessage": "Description",
     "description": "Column title text for description in model version table"
@@ -6130,6 +6134,10 @@
   "ZKtBkW": {
     "defaultMessage": "Edit the request body below and click Send request to call the provider API.",
     "description": "Try it description for passthrough"
+  },
+  "ZMPAq5": {
+    "defaultMessage": "Edit experiment",
+    "description": "Text for edit experiment button on experiment view page header"
   },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
@@ -7239,6 +7247,10 @@
     "defaultMessage": "An error occurred while rendering the chat session.",
     "description": "Generic error message for uncaught errors when rendering a single chat session in MLflow experiment page"
   },
+  "fZ/UO2": {
+    "defaultMessage": "Save",
+    "description": "experiment page > edit experiment modal > save button"
+  },
   "fZPf0W": {
     "defaultMessage": "Reverse color:",
     "description": "Label text for reverse color toggle in contour plot comparison\n                      in MLflow"
@@ -7546,6 +7558,10 @@
   "hBAhI8": {
     "defaultMessage": "Copy",
     "description": "Tooltip message displayed on copy action"
+  },
+  "hBl2eF": {
+    "defaultMessage": "Enter experiment name",
+    "description": "experiment page > edit experiment modal > experiment name placeholder"
   },
   "hDExYR": {
     "defaultMessage": "Fallback Model {order}",
@@ -8991,6 +9007,10 @@
     "defaultMessage": "Model version created",
     "description": "Webhook event label"
   },
+  "pEoMLi": {
+    "defaultMessage": "Failed to update experiment. Please try again.",
+    "description": "experiment page > edit experiment modal > generic save error"
+  },
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
@@ -10362,10 +10382,6 @@
   "xTsXb6": {
     "defaultMessage": "Are you sure you want to delete the {itemType} \"{itemName}\"?",
     "description": "Delete confirmation message"
-  },
-  "xUnYdk": {
-    "defaultMessage": "Save",
-    "description": "experiment page > description modal > save button"
   },
   "xV6NWF": {
     "defaultMessage": "Guideline adherence",

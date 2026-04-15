@@ -1,17 +1,20 @@
 import type { ExperimentEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
 import {
+  Alert,
   Button,
   ChevronDownIcon,
   ChevronUpIcon,
+  FormUI,
+  Input,
   Modal,
   PencilIcon,
   Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getExperimentTags } from '../../../reducers/Reducers';
+import { getExperiments, getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
 import type { ThunkDispatch } from '../../../../redux-types';
 import { SvgIcon } from 'react-mde';
@@ -21,11 +24,14 @@ import {
   sanitizeConvertedHtml,
 } from '../../../../common/utils/MarkdownUtils';
 import { ThemeAwareReactMde } from '../../../../common/components/EditableNote';
-import { FormattedMessage } from 'react-intl';
-import { setExperimentTagApi } from '../../../actions';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { getExperimentApi, setExperimentTagApi, updateExperimentApi } from '../../../actions';
+import { getExperimentNameValidator } from '../../../../common/forms/validations';
+import { useInvalidateExperimentList } from '../hooks/useExperimentListQuery';
+import { canModifyExperiment, canRenameExperiment } from '../utils/experimentPage.common-utils';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
-  Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
+  Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value;
 
 const toolbarCommands = [
   ['header', 'bold', 'italic', 'strikethrough'],
@@ -43,18 +49,16 @@ const getSanitizedHtmlContent = (markdown: string | undefined) => {
   return null;
 };
 
-export const ExperimentViewDescriptionNotes = ({
+export const ExperimentViewMetadataEditor = ({
   experiment,
   editing,
   setEditing,
-  setShowAddDescriptionButton,
   onNoteUpdated,
   defaultValue,
 }: {
   experiment: ExperimentEntity;
   editing: boolean;
   setEditing: (editing: boolean) => void;
-  setShowAddDescriptionButton: (show: boolean) => void;
   onNoteUpdated?: () => void;
   defaultValue?: string;
 }) => {
@@ -62,14 +66,23 @@ export const ExperimentViewDescriptionNotes = ({
     const tags = getExperimentTags(experiment.experimentId, state);
     return tags ? extractNoteFromTags(tags) : '';
   });
-  setShowAddDescriptionButton(!storedNote);
+  const existingExperimentNames = useSelector((state) =>
+    getExperiments(state)
+      .map((exp) => exp.name)
+      .filter((name) => name !== experiment.name),
+  );
 
-  const effectiveNote = storedNote || defaultValue;
+  const effectiveNote = storedNote ?? defaultValue;
+  const [tmpName, setTmpName] = useState(experiment.name);
   const [tmpNote, setTmpNote] = useState(effectiveNote);
+  const [nameError, setNameError] = useState<string | undefined>();
+  const [saveError, setSaveError] = useState<string | undefined>();
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'write' | 'preview'>('write');
   const [isExpanded, setIsExpanded] = useState(false);
 
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const PADDING_HORIZONTAL = 12;
   const DISPLAY_LINE_HEIGHT = 16;
   const COLLAPSE_MAX_HEIGHT = DISPLAY_LINE_HEIGHT + 2 * theme.spacing.sm;
@@ -78,15 +91,88 @@ export const ExperimentViewDescriptionNotes = ({
   const MIN_PREVIEW_HEIGHT = 20;
 
   const dispatch = useDispatch<ThunkDispatch>();
+  const invalidateExperimentList = useInvalidateExperimentList();
+  const canEditMetadata = canModifyExperiment(experiment);
+  const canRename = canRenameExperiment(experiment);
 
-  const handleSubmitEditNote = useCallback(
-    (updatedNote?: string) => {
-      setEditing(false);
-      setShowAddDescriptionButton(!updatedNote);
-      const action = setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote);
-      dispatch(action).then(onNoteUpdated);
+  const validateExperimentName = useCallback(
+    async (experimentName: string) =>
+      new Promise<string | undefined>((resolve) => {
+        getExperimentNameValidator(() => existingExperimentNames)(undefined, experimentName, resolve);
+      }),
+    [existingExperimentNames],
+  );
+
+  const handleSubmitEditExperiment = useCallback(
+    async (updatedName?: string, updatedNote?: string) => {
+      const trimmedName = updatedName?.trim() ?? '';
+      const currentNote = effectiveNote ?? '';
+      const updatedNoteValue = updatedNote ?? '';
+      const hasNoteChanged = canEditMetadata && updatedNoteValue !== currentNote;
+      const shouldRename = canRename && trimmedName !== experiment.name;
+      if (canRename && !trimmedName) {
+        setNameError(
+          intl.formatMessage({
+            defaultMessage: 'Please input a new name for the experiment.',
+            description: 'experiment page > edit experiment modal > empty experiment name validation error',
+          }),
+        );
+        return;
+      }
+
+      if (shouldRename) {
+        const validationError = await validateExperimentName(trimmedName);
+        if (validationError) {
+          setNameError(validationError);
+          return;
+        }
+      }
+
+      setNameError(undefined);
+      setSaveError(undefined);
+      setIsSaving(true);
+
+      try {
+        if (shouldRename) {
+          await dispatch(updateExperimentApi(experiment.experimentId, trimmedName));
+          invalidateExperimentList();
+        }
+
+        if (hasNoteChanged) {
+          await dispatch(setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote));
+        }
+
+        if (shouldRename) {
+          await dispatch(getExperimentApi(experiment.experimentId)).catch(() => undefined);
+        }
+
+        onNoteUpdated?.();
+        setEditing(false);
+      } catch (e: any) {
+        setSaveError(
+          e?.message ||
+            intl.formatMessage({
+              defaultMessage: 'Failed to update experiment. Please try again.',
+              description: 'experiment page > edit experiment modal > generic save error',
+            }),
+        );
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [experiment.experimentId, dispatch, setEditing, setShowAddDescriptionButton, onNoteUpdated],
+    [
+      dispatch,
+      experiment.experimentId,
+      experiment.name,
+      effectiveNote,
+      invalidateExperimentList,
+      intl,
+      onNoteUpdated,
+      setEditing,
+      validateExperimentName,
+      canEditMetadata,
+      canRename,
+    ],
   );
 
   const sanitizedContent = getSanitizedHtmlContent(effectiveNote);
@@ -103,6 +189,15 @@ export const ExperimentViewDescriptionNotes = ({
     },
     [theme],
   );
+
+  useEffect(() => {
+    if (editing) {
+      setTmpName(experiment.name);
+      setTmpNote(effectiveNote);
+      setNameError(undefined);
+      setSaveError(undefined);
+    }
+  }, [editing, effectiveNote, experiment.name]);
 
   return (
     <div
@@ -146,22 +241,25 @@ export const ExperimentViewDescriptionNotes = ({
               dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
           </div>
-          <Button
-            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_114"
-            icon={<PencilIcon />}
-            onClick={() => setEditing(true)}
-            style={{ padding: `0px ${theme.spacing.sm}px` }}
-          />
+          {canEditMetadata && (
+            <Button
+              componentId="mlflow.experiment.metadata_editor.edit_button"
+              data-testid="experiment-metadata-editor-edit-button"
+              icon={<PencilIcon />}
+              onClick={() => setEditing(true)}
+              style={{ padding: `0px ${theme.spacing.sm}px` }}
+            />
+          )}
           {isExpanded ? (
             <Button
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_120"
+              componentId="mlflow.experiment.metadata_editor.collapse_button"
               icon={<ChevronUpIcon />}
               onClick={() => setIsExpanded(false)}
               style={{ padding: `0px ${theme.spacing.sm}px` }}
             />
           ) : (
             <Button
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_126"
+              componentId="mlflow.experiment.metadata_editor.expand_button"
               icon={<ChevronDownIcon />}
               onClick={() => setIsExpanded(true)}
               style={{ padding: `0px ${theme.spacing.sm}px` }}
@@ -170,41 +268,93 @@ export const ExperimentViewDescriptionNotes = ({
         </div>
       )}
       <Modal
-        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_141"
+        componentId="mlflow.experiment.metadata_editor.modal"
         title={
           <FormattedMessage
-            defaultMessage="Add description"
-            description="experiment page > description modal > title"
+            defaultMessage="Edit experiment"
+            description="experiment page > edit experiment modal > title"
           />
         }
         visible={editing}
+        okButtonProps={{ loading: isSaving }}
         okText={
-          <FormattedMessage defaultMessage="Save" description="experiment page > description modal > save button" />
+          <FormattedMessage defaultMessage="Save" description="experiment page > edit experiment modal > save button" />
         }
         cancelText={
-          <FormattedMessage defaultMessage="Cancel" description="experiment page > description modal > cancel button" />
+          <FormattedMessage
+            defaultMessage="Cancel"
+            description="experiment page > edit experiment modal > cancel button"
+          />
         }
-        onOk={() => {
-          handleSubmitEditNote(tmpNote);
-          setEditing(false);
-        }}
+        onOk={() => handleSubmitEditExperiment(tmpName, tmpNote)}
         onCancel={() => {
+          setTmpName(experiment.name);
           setTmpNote(effectiveNote);
+          setNameError(undefined);
+          setSaveError(undefined);
           setEditing(false);
         }}
       >
-        <ThemeAwareReactMde
-          value={tmpNote || ''}
-          minEditorHeight={MIN_EDITOR_HEIGHT}
-          maxEditorHeight={MAX_EDITOR_HEIGHT}
-          minPreviewHeight={MIN_PREVIEW_HEIGHT}
-          toolbarCommands={toolbarCommands}
-          onChange={(value) => setTmpNote(value)}
-          selectedTab={selectedTab}
-          onTabChange={(newTab) => setSelectedTab(newTab)}
-          generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
-          getIcon={getIcon}
-        />
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {saveError && (
+            <Alert
+              componentId="mlflow.experiment.metadata_editor.error"
+              closable={false}
+              message={saveError}
+              type="error"
+            />
+          )}
+          {canRename && (
+            <div>
+              <FormUI.Label htmlFor="mlflow.experiment.edit.name">
+                <FormattedMessage
+                  defaultMessage="Experiment name"
+                  description="experiment page > edit experiment modal > experiment name label"
+                />
+              </FormUI.Label>
+              <Input
+                componentId="mlflow.experiment.edit.name"
+                id="mlflow.experiment.edit.name"
+                value={tmpName}
+                onChange={(e) => {
+                  setTmpName(e.target.value);
+                  if (nameError) {
+                    setNameError(undefined);
+                  }
+                }}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Enter experiment name',
+                  description: 'experiment page > edit experiment modal > experiment name placeholder',
+                })}
+                autoFocus
+                validationState={nameError ? 'error' : undefined}
+              />
+              {nameError && <FormUI.Message type="error" message={nameError} />}
+            </div>
+          )}
+          {canEditMetadata && (
+            <div>
+              <FormUI.Label htmlFor="mlflow.experiment.edit.description">
+                <FormattedMessage
+                  defaultMessage="Description"
+                  description="experiment page > edit experiment modal > description label"
+                />
+              </FormUI.Label>
+              <ThemeAwareReactMde
+                value={tmpNote || ''}
+                minEditorHeight={MIN_EDITOR_HEIGHT}
+                maxEditorHeight={MAX_EDITOR_HEIGHT}
+                minPreviewHeight={MIN_PREVIEW_HEIGHT}
+                toolbarCommands={toolbarCommands}
+                onChange={(value) => setTmpNote(value)}
+                selectedTab={selectedTab}
+                onTabChange={(newTab) => setSelectedTab(newTab)}
+                generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
+                getIcon={getIcon}
+              />
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );

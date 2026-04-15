@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 import type { ExperimentEntity } from '../../../types';
-import { ExperimentViewDescriptionNotes } from './ExperimentViewMetadataEditor';
+import { ExperimentViewMetadataEditor } from './ExperimentViewMetadataEditor';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
 import type { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { getGraphQLErrorMessage } from '../../../../graphql/get-graphql-error';
@@ -13,7 +13,7 @@ import type { ExperimentKind } from '../../../constants';
 type GetExperimentReturnType = ReturnType<typeof useGetExperimentQuery>['data'];
 
 /**
- * Renders experiment page header with description and notes editor.
+ * Renders experiment page header with the experiment metadata editor.
  */
 export const ExperimentPageHeaderWithDescription = ({
   experiment,
@@ -22,7 +22,6 @@ export const ExperimentPageHeaderWithDescription = ({
   error,
   experimentKindSelector,
   inferredExperimentKind,
-  refetchExperiment,
 }: {
   experiment: GetExperimentReturnType;
   loading?: boolean;
@@ -30,10 +29,8 @@ export const ExperimentPageHeaderWithDescription = ({
   error: ApolloError | ReturnType<typeof useGetExperimentQuery>['apiError'];
   experimentKindSelector?: React.ReactNode;
   inferredExperimentKind?: ExperimentKind;
-  refetchExperiment?: () => Promise<unknown>;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [showAddDescriptionButton, setShowAddDescriptionButton] = useState(true);
   const [editing, setEditing] = useState(false);
 
   const experimentEntity = useMemo(() => {
@@ -80,11 +77,9 @@ export const ExperimentPageHeaderWithDescription = ({
           inferredExperimentKind={inferredExperimentKind}
           setEditing={setEditing}
           experimentKindSelector={experimentKindSelector}
-          refetchExperiment={refetchExperiment}
         />
-        <ExperimentViewDescriptionNotes
+        <ExperimentViewMetadataEditor
           experiment={experimentEntity}
-          setShowAddDescriptionButton={setShowAddDescriptionButton}
           editing={editing}
           setEditing={setEditing}
           onNoteUpdated={onNoteUpdated}

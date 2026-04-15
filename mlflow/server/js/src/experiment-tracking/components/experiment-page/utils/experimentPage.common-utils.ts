@@ -53,8 +53,16 @@ export const isExperimentTypeNotebook = (experiment: ExperimentEntity) =>
  * Function that checks if experiment's allowed actions include
  * modification. TODO: fix typo in the const name.
  */
-export const canModifyExperiment = (experiment: ExperimentEntity) =>
-  (experiment.allowedActions || []).includes('MODIFIY_PERMISSION');
+const hasAllowedActions = (experiment: ExperimentEntity) => experiment.allowedActions !== undefined;
+
+const hasAllowedAction = (experiment: ExperimentEntity, action: string) =>
+  !hasAllowedActions(experiment) || (experiment.allowedActions || []).includes(action);
+
+export const canModifyExperiment = (experiment: ExperimentEntity) => hasAllowedAction(experiment, 'MODIFIY_PERMISSION');
+
+export const canRenameExperiment = (experiment: ExperimentEntity) => hasAllowedAction(experiment, 'RENAME');
+
+export const canDeleteExperiment = (experiment: ExperimentEntity) => hasAllowedAction(experiment, 'DELETE');
 
 /**
  * Function that gets the experiment source ID for a given experiment object
