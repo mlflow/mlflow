@@ -469,6 +469,7 @@ class GatewayCreateModelDefinitionEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         return {
             "model_name": arguments.get("model_name"),
+            "provider": arguments.get("provider"),
         }
 
 

@@ -1829,7 +1829,7 @@ def test_gateway_crud_telemetry(mock_requests, mock_telemetry_client: TelemetryC
         mock_telemetry_client,
         mock_requests,
         GatewayCreateModelDefinitionEvent.name,
-        {"model_name": "gpt-4"},
+        {"model_name": "gpt-4", "provider": "openai"},
     )
 
     model_config = GatewayEndpointModelConfig(

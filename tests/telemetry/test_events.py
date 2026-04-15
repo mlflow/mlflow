@@ -488,10 +488,16 @@ def test_gateway_create_secret_parse_params(arguments, expected_params):
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [
-        ({"model_name": "gpt-4o"}, {"model_name": "gpt-4o"}),
-        ({"model_name": "claude-3-5-sonnet"}, {"model_name": "claude-3-5-sonnet"}),
-        ({"model_name": None}, {"model_name": None}),
-        ({}, {"model_name": None}),
+        (
+            {"model_name": "gpt-4o", "provider": "openai"},
+            {"model_name": "gpt-4o", "provider": "openai"},
+        ),
+        (
+            {"model_name": "claude-3-5-sonnet", "provider": "anthropic"},
+            {"model_name": "claude-3-5-sonnet", "provider": "anthropic"},
+        ),
+        ({"model_name": None, "provider": None}, {"model_name": None, "provider": None}),
+        ({}, {"model_name": None, "provider": None}),
     ],
 )
 def test_gateway_create_model_definition_parse_params(arguments, expected_params):
