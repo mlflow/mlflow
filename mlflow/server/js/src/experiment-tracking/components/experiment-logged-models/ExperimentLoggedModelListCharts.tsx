@@ -27,6 +27,7 @@ import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsCo
 import Routes from '../../routes';
 
 const ExperimentLoggedModelListChartsImpl = memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     chartData,
     uiState,
@@ -189,6 +190,7 @@ const ExperimentLoggedModelListChartsImpl = memo(
 );
 
 export const ExperimentLoggedModelListCharts = memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     loggedModels,
     experimentId,

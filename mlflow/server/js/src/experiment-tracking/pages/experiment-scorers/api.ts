@@ -39,12 +39,12 @@ export interface ListScorersResponse {
 /**
  * Get scheduled scorers for an experiment
  */
-export async function listScheduledScorers(experimentId: string): Promise<ListScorersResponse> {
+export async function listScheduledScorers(experimentId: string) {
   const params = new URLSearchParams();
   params.append('experiment_id', experimentId);
   return fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/scorers/list?${params.toString()}`))
     .then((res) => res.json())
-    .catch(catchNetworkErrorIfExists);
+    .catch(catchNetworkErrorIfExists) as Promise<ListScorersResponse>;
 }
 
 /**
@@ -117,14 +117,62 @@ export async function deleteScheduledScorers(experimentId: string, scorerNames?:
   };
 
   // Add scorer name if provided to delete a specific scorer
-  if (scorerNames && scorerNames.length > 0) {
+  if (scorerNames && (scorerNames?.length ?? 0) > 0) {
     // Backend expects 'name' parameter for the scorer name
-    body.name = scorerNames[0];
+    body.name = scorerNames?.[0];
   }
 
   return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/scorers/delete'), {
     method: 'DELETE',
     body: JSON.stringify(body),
+  })
+    .then((res) => res.json())
+    .catch(catchNetworkErrorIfExists);
+}
+
+/**
+ * Type for online scoring config
+ */
+export interface OnlineScoringConfig {
+  sample_rate: number;
+  filter_string?: string;
+  scorer_id?: string;
+  online_scoring_config_id?: string;
+  experiment_id?: string;
+}
+
+/**
+ * Get online scoring configurations for a list of scorer IDs
+ */
+export async function getOnlineScoringConfigs(scorerIds: string[]): Promise<{ configs: OnlineScoringConfig[] }> {
+  const params = new URLSearchParams();
+  scorerIds.forEach((id) => params.append('scorer_ids', id));
+  return fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/scorers/online-configs?${params.toString()}`))
+    .then((res) => res.json())
+    .catch(catchNetworkErrorIfExists);
+}
+
+/**
+ * Update online scoring configuration for a scorer
+ * This sets the sample_rate and filter_string for automatic trace evaluation
+ */
+export async function updateOnlineScoringConfig(
+  experimentId: string,
+  scorerName: string,
+  sampleRate: number,
+  filterString?: string,
+): Promise<{ config: OnlineScoringConfig }> {
+  return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/scorers/online-config'), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      experiment_id: experimentId,
+      name: scorerName,
+      sample_rate: sampleRate,
+      filter_string: filterString || null,
+    }),
   })
     .then((res) => res.json())
     .catch(catchNetworkErrorIfExists);

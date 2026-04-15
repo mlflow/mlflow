@@ -16,6 +16,7 @@ import { getDisplayScore, getDisplayScoreChange } from '../../utils/DisplayUtils
 const MAX_VISIBLE_ITEMS = 4;
 
 export const CategoricalAggregateChart = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     theme,
     intl,

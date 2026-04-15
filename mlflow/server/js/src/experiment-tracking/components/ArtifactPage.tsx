@@ -62,9 +62,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     return (
       <span>
         <FormattedMessage
-          // eslint-disable-next-line max-len
           defaultMessage="Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory."
-          // eslint-disable-next-line max-len
           description="Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
           values={{ artifactUri: this.props.artifactRootUri }}
         />
@@ -220,8 +218,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     if (this.renderErrorCondition(shouldRenderError)) {
       const failedReq = requests[0];
       if (failedReq && failedReq.error) {
-        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-        console.error(failedReq.error);
+        // error is handled by the component below
       }
       const errorDescription = (() => {
         const error = failedReq?.error;

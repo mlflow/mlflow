@@ -43,7 +43,7 @@ const NewsThumbnail = ({ gradient, title, description, icon: IconComponent }: Ne
   );
 };
 
-const DiscoverNewsCard = ({ title, description, link, thumbnail }: typeof homeNewsItems[number]) => {
+const DiscoverNewsCard = ({ title, description, link, thumbnail }: (typeof homeNewsItems)[number]) => {
   const { theme } = useDesignSystemTheme();
   const linkStyles = {
     textDecoration: 'none',
@@ -130,3 +130,5 @@ export const DiscoverNews = () => {
     </section>
   );
 };
+
+export default DiscoverNews;

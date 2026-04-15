@@ -362,13 +362,13 @@ def test_predict_use_current_experiment():
             python_model=TestModel(),
         )
 
-    assert len(client.search_traces(experiment_ids=[exp_id])) == 0
+    assert len(client.search_traces(locations=[exp_id])) == 0
     mlflow.models.predict(
         model_uri=model_info.model_uri,
         input_data=["a", "b", "c"],
         env_manager=VIRTUALENV,
     )
-    traces = client.search_traces(experiment_ids=[exp_id])
+    traces = client.search_traces(locations=[exp_id])
     assert len(traces) == 1
     assert json.loads(traces[0].data.request)["model_input"] == ["a", "b", "c"]
 

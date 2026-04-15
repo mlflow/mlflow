@@ -115,6 +115,7 @@ export const TabSelectorBar = ({ experimentKind }: { experimentKind?: Experiment
         return (
           <React.Fragment key={tabName}>
             <Link
+              componentId="mlflow.experiment_tracking.tab_selector.tab_text_link"
               css={{ display: 'none' }}
               className="tab-icon-text"
               key={`${tabName}-text`}
@@ -130,6 +131,7 @@ export const TabSelectorBar = ({ experimentKind }: { experimentKind?: Experiment
               </SegmentedControlButton>
             </Link>
             <Link
+              componentId="mlflow.experiment_tracking.tab_selector.tab_icon_link"
               className="tab-icon-with-tooltip"
               key={`${tabName}-tooltip`}
               to={tabConfig.getRoute(experimentId ?? '')}
@@ -147,7 +149,7 @@ export const TabSelectorBar = ({ experimentKind }: { experimentKind?: Experiment
                         {tabConfig.label}
                       </span>
                     }
-                    componentId={`mlflow.experiment-tracking.tab-selector-bar.${tabName}`}
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_experiment_page_components_header_tab_selector_bar_tabselectorbar_184"
                   >
                     <span>{tabConfig.icon}</span>
                   </Tooltip>

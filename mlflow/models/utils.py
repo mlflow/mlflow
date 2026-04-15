@@ -359,12 +359,10 @@ class _Example:
             model_input = _convert_dataframe_to_split_dict(model_input)
             self.serving_input = {DF_SPLIT: model_input}
             orient = "split" if "columns" in model_input else "values"
-            self.info.update(
-                {
-                    "type": "dataframe",
-                    "pandas_orient": orient,
-                }
-            )
+            self.info.update({
+                "type": "dataframe",
+                "pandas_orient": orient,
+            })
         elif np.isscalar(model_input) or isinstance(model_input, dt.datetime):
             self.info["type"] = "json_object"
             self.serving_input = {INPUTS: model_input}
@@ -761,7 +759,9 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
-    if t == DataType.string and values.dtype == object:
+    if t == DataType.string and (
+        values.dtype == object or isinstance(values.dtype, pd.StringDtype)
+    ):
         # NB: the object can contain any type and we currently cannot cast to pandas Strings
         # due to how None is cast
         return values
@@ -1189,16 +1189,14 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str | N
                         # ColSpec model signatures do not support array columns, so subsequent
                         # validation logic will result in a clear "incompatible input types"
                         # exception. This is preferable to a pandas DataFrame construction error
-                        pf_input = pd.DataFrame(
-                            {
-                                key: (
-                                    value.tolist()
-                                    if (isinstance(value, np.ndarray) and value.ndim > 1)
-                                    else value
-                                )
-                                for key, value in pf_input.items()
-                            }
-                        )
+                        pf_input = pd.DataFrame({
+                            key: (
+                                value.tolist()
+                                if (isinstance(value, np.ndarray) and value.ndim > 1)
+                                else value
+                            )
+                            for key, value in pf_input.items()
+                        })
                     else:
                         pf_input = pd.DataFrame(pf_input)
                 except Exception as e:
@@ -1350,8 +1348,11 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
     try:
         pd_series = _enforce_mlflow_datatype("", pd_series, dtype)
     except MlflowException:
+        # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
         raise MlflowException(
-            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`"
+            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`",
+            error_code=INVALID_PARAMETER_VALUE,
+            error_class="SCHEMA_ENFORCEMENT_FAILED",
         )
     return pd_series[0]
 

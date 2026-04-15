@@ -303,13 +303,13 @@ export const EvaluationCreatePromptRunModal = ({
   // one input variable defined (otherwise prompt engineering won't make sense).
   const createRunButtonEnabled = Boolean(
     selectedModel &&
-      promptTemplateProvided &&
-      allInputValuesProvided &&
-      evaluationOutput &&
-      !outputDirty &&
-      inputVariables.length > 0 &&
-      runNameProvided &&
-      !lastEvaluationError,
+    promptTemplateProvided &&
+    allInputValuesProvided &&
+    evaluationOutput &&
+    !outputDirty &&
+    inputVariables.length > 0 &&
+    runNameProvided &&
+    !lastEvaluationError,
   );
 
   // Let's prepare a proper tooltip content for every scenario

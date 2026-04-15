@@ -58,8 +58,10 @@ describe('ModelVersionPage', () => {
     let counter = 0;
     (getUUID as any).mockImplementation(() => `${counter++}`);
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
-    // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
+    jest
+      .spyOn(global, 'fetch')
+      // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
+      .mockImplementation(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     jest
       .mocked(getModelVersionApi)
       .mockImplementation(jest.requireActual<typeof import('../actions')>('../actions').getModelVersionApi);
@@ -99,7 +101,6 @@ describe('ModelVersionPage', () => {
     expect(wrapper.find(Spinner).length).toBe(1);
   });
   test('should fetch new data when props are updated after mount', () => {
-    // eslint-disable-next-line no-unused-vars
     const endpoint = 'ajax-api/2.0/mlflow/model-versions/get';
     const TestComponent = ({ params = minimalProps.params }) => (
       <Provider store={minimalStore}>
@@ -130,8 +131,8 @@ describe('ModelVersionPage', () => {
         return 'RESOURCE_DOES_NOT_EXIST';
       },
     };
-    Utils.isBrowserTabVisible = jest.fn(() => true);
-    instance.loadData = jest.fn(() => Promise.reject(mockError));
+    jest.spyOn(Utils, 'isBrowserTabVisible').mockImplementation(() => true);
+    jest.spyOn(instance, 'loadData').mockImplementation(() => Promise.reject(mockError));
     expect(instance.props.modelName).toEqual('Model A');
     await instance.pollData();
     expect(navigate).toHaveBeenCalledWith(ModelRegistryRoutes.getModelPageRoute('Model A'));

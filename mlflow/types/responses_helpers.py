@@ -1,7 +1,7 @@
 import warnings
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 """
 Classes are inspired by classes for Response and ResponseStreamEvent in openai-python
@@ -74,7 +74,7 @@ class Annotation(BaseModel):
 
 
 class ResponseOutputText(BaseModel):
-    annotations: list[Annotation] | None = None
+    annotations: list[Annotation] = Field(default_factory=list)
     text: str
     type: str = "output_text"
 
@@ -370,7 +370,7 @@ class Message(Status):
 
 class FunctionCallOutput(Status):
     call_id: str
-    output: str
+    output: str | list[dict[str, Any]]
     type: str = "function_call_output"
 
 
@@ -386,6 +386,7 @@ class BaseRequestPayload(Truncation, ToolChoice):
     text: Any | None = None
     top_p: float | None = None
     user: str | None = None
+    background: bool | None = None
 
 
 #####################################

@@ -8,10 +8,11 @@ import type {
   OpenAIResponsesInputMessageRole,
   OpenAIResponsesInputText,
   OpenAIResponsesOutputItem,
+  OpenAIResponsesReasoning,
   OpenAIResponsesStreamingOutputDelta,
   OpenAIResponsesStreamingOutputDone,
 } from './openai.types';
-import type { ModelTraceChatMessage } from '../ModelTrace.types';
+import type { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
 import {
   isModelTraceChatResponse,
   isModelTraceChoices,
@@ -37,20 +38,14 @@ export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | nu
 // normalize the OpenAI chat response format (object with 'choices' key)
 export const normalizeOpenAIChatResponse = (obj: any): ModelTraceChatMessage[] | null => {
   if (isModelTraceChoices(obj)) {
-    return obj.map((choice) => ({
-      ...choice.message,
-      tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-    }));
+    return compact(obj.map((choice) => prettyPrintChatMessage(choice.message)));
   }
 
   if (!isModelTraceChatResponse(obj)) {
     return null;
   }
 
-  return obj.choices.map((choice) => ({
-    ...choice.message,
-    tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-  }));
+  return compact(obj.choices.map((choice) => prettyPrintChatMessage(choice.message)));
 };
 
 const isOpenAIResponsesInputMessage = (obj: unknown): obj is OpenAIResponsesInputMessage => {
@@ -94,40 +89,11 @@ export const isOpenAIResponsesOutputItem = (obj: unknown): obj is OpenAIResponse
   }
 
   if (get(obj, 'type') === 'reasoning') {
-    return has(obj, 'id') && isArray(get(obj, 'summary'));
+    const summary = get(obj, 'summary');
+    return has(obj, 'id') && (isArray(summary) || summary === null);
   }
 
   return false;
-};
-
-const normalizeOpenAIResponsesInputItem = (
-  obj: OpenAIResponsesInputText | OpenAIResponsesInputFile | OpenAIResponsesInputImage,
-  role: OpenAIResponsesInputMessageRole,
-): ModelTraceChatMessage | null => {
-  const text = get(obj, 'text');
-  if (get(obj, 'type') === 'input_text' && isString(text)) {
-    return prettyPrintChatMessage({
-      type: 'message',
-      content: [{ type: 'text', text }],
-      role: role,
-    });
-  }
-
-  const imageUrl = get(obj, 'image_url');
-  if (get(obj, 'type') === 'input_image' && isString(imageUrl)) {
-    return prettyPrintChatMessage({
-      type: 'message',
-      content: [{ type: 'image_url', image_url: { url: imageUrl } }],
-      role: role,
-    });
-  }
-
-  // TODO: file input not supported yet
-  // if ('type' in obj && obj.type === 'input_file') {
-  //   return prettyPrintChatMessage({ type: 'message', content: obj.file_url, role: role });
-  // }
-
-  return null;
 };
 
 const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage): ModelTraceChatMessage[] | null => {
@@ -135,7 +101,30 @@ const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage):
     const message = prettyPrintChatMessage({ type: 'message', content: obj.content, role: obj.role });
     return message && [message];
   } else {
-    return obj.content.map((item) => normalizeOpenAIResponsesInputItem(item, obj.role)).filter((item) => item !== null);
+    // Combine all content parts into a single message to preserve the original
+    // multi-part structure (e.g., text + image in one user message)
+    const contentParts: ModelTraceContentParts[] = [];
+    for (const item of obj.content) {
+      const text = get(item, 'text');
+      if (get(item, 'type') === 'input_text' && isString(text)) {
+        contentParts.push({ type: 'text', text });
+      } else if (get(item, 'type') === 'input_image' && isString(get(item, 'image_url'))) {
+        contentParts.push({ type: 'image_url', image_url: { url: get(item, 'image_url') as string } });
+      } else if (get(item, 'type') === 'input_file') {
+        const filename = get(item, 'filename');
+        const fileData = get(item, 'file_data');
+        if (isString(fileData) && fileData.startsWith('mlflow-attachment://')) {
+          // Render as image_url so the attachment renderer picks it up
+          // (AttachmentRenderer handles PDFs, images, audio, etc.)
+          contentParts.push({ type: 'image_url', image_url: { url: fileData } });
+        } else if (isString(filename)) {
+          contentParts.push({ type: 'text', text: `[File: ${filename}]` });
+        }
+      }
+    }
+    if (contentParts.length === 0) return null;
+    const message = prettyPrintChatMessage({ type: 'message', content: contentParts, role: obj.role });
+    return message && [message];
   }
 };
 
@@ -149,16 +138,54 @@ export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessa
     return message && [message];
   }
 
-  if (isArray(input) && input.every(isOpenAIResponsesInputMessage)) {
-    return compact(input.flatMap(normalizeOpenAIResponsesInputMessage));
+  if (
+    isArray(input) &&
+    // openai inputs can consititute of output items such as function calls and function call outputs
+    input.every((message: unknown) => isOpenAIResponsesInputMessage(message) || isOpenAIResponsesOutputItem(message))
+  ) {
+    return compact(
+      input.flatMap((message: unknown) =>
+        isOpenAIResponsesInputMessage(message)
+          ? normalizeOpenAIResponsesInputMessage(message as OpenAIResponsesInputMessage)
+          : normalizeOpenAIResponsesOutputItem(message as OpenAIResponsesOutputItem),
+      ),
+    );
   }
 
   return null;
 };
 
-export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputItem): ModelTraceChatMessage | null => {
+const extractReasoningText = (reasoning: OpenAIResponsesReasoning): string | null => {
+  if (!reasoning.summary) {
+    return null;
+  }
+  return reasoning.summary.map((s) => s.text).join('\n\n') || null;
+};
+
+// Process output items, attaching reasoning to following messages
+const processOutputItemsWithReasoning = (items: OpenAIResponsesOutputItem[]): ModelTraceChatMessage[] => {
+  const messages: (ModelTraceChatMessage | null)[] = [];
+  let pendingReasoning: string | null = null;
+
+  for (const item of items) {
+    if (item.type === 'reasoning') {
+      pendingReasoning = extractReasoningText(item as OpenAIResponsesReasoning);
+    } else {
+      messages.push(normalizeOpenAIResponsesOutputItem(item, pendingReasoning));
+      pendingReasoning = null;
+    }
+  }
+
+  return compact(messages);
+};
+
+export const normalizeOpenAIResponsesOutputItem = (
+  obj: OpenAIResponsesOutputItem,
+  reasoning?: string | null,
+): ModelTraceChatMessage | null => {
   if (obj.type === 'message') {
-    return prettyPrintChatMessage(obj);
+    const message = prettyPrintChatMessage(obj);
+    return message && reasoning ? { ...message, reasoning } : message;
   }
 
   if (obj.type === 'function_call') {
@@ -173,6 +200,7 @@ export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputIte
           },
         }),
       ],
+      ...(reasoning && { reasoning }),
     };
   }
 
@@ -185,9 +213,13 @@ export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputIte
   }
 
   if (obj.type === 'image_generation_call') {
+    // If result is an mlflow-attachment:// URI (from auto-extraction), use it directly
+    const imageUrl = obj.result?.startsWith('mlflow-attachment://')
+      ? obj.result
+      : `data:image/${obj.output_format};base64,${obj.result ?? ''}`;
     return prettyPrintChatMessage({
       type: 'message',
-      content: [{ type: 'image_url', image_url: { url: `data:image/${obj.output_format};base64,${obj.result}` } }],
+      content: [{ type: 'image_url', image_url: { url: imageUrl } }],
       role: 'tool',
     });
   }
@@ -211,7 +243,8 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
 
   // list of output items
   if (isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
-    return compact(output.map(normalizeOpenAIResponsesOutputItem).filter(Boolean));
+    const messages = processOutputItemsWithReasoning(output);
+    return messages.length > 0 ? messages : null;
   }
 
   // list of output chunks
@@ -220,7 +253,9 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
     output.length > 0 &&
     output.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
   ) {
-    return compact(output.map((chunk) => normalizeOpenAIResponsesOutputItem(chunk.item)));
+    const items = output.map((chunk) => chunk.item);
+    const messages = processOutputItemsWithReasoning(items);
+    return messages.length > 0 ? messages : null;
   }
 
   return null;

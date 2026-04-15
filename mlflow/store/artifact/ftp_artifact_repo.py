@@ -108,8 +108,8 @@ class FTPArtifactRepository(ArtifactRepository):
             artifact_files = ftp.nlst(list_dir)
             # Make sure artifact_files is a list of file names because ftp.nlst
             # may return absolute paths.
-            artifact_files = [os.path.basename(f) for f in artifact_files]
-            artifact_files = list(filter(lambda x: x not in {".", ".."}, artifact_files))
+            artifact_files = [posixpath.basename(f) for f in artifact_files]
+            artifact_files = [f for f in artifact_files if f not in {".", "..", ""}]
             infos = []
             for file_name in artifact_files:
                 file_path = file_name if path is None else posixpath.join(path, file_name)

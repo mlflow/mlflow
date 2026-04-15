@@ -89,6 +89,7 @@ const RunViewMetricsTableSection = ({
               }}
             >
               <Link
+                componentId="mlflow.run_page.overview.metric_chart_link"
                 to={Routes.getRunPageTabRoute(
                   runInfo.experimentId ?? '',
                   runInfo.runUuid ?? '',
@@ -115,6 +116,7 @@ const RunViewMetricsTableSection = ({
                   <Overflow>
                     {loggedModels?.map((model) => (
                       <Link
+                        componentId="mlflow.run_page.overview.metric_model_link"
                         key={model.info?.model_id}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -210,6 +212,7 @@ export const RunViewMetricsTable = ({
       {
         id: 'key',
         accessorKey: 'key',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         header: () => (
           <FormattedMessage
             defaultMessage="Metric"
@@ -221,6 +224,7 @@ export const RunViewMetricsTable = ({
       },
       {
         id: 'value',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         header: () => (
           <FormattedMessage
             defaultMessage="Value"

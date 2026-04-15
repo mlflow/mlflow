@@ -20,6 +20,7 @@ describe('PermissionDeniedView', () => {
     minimalProps = { errorMessage: mockErrorMessage };
   });
 
+  // eslint-disable-next-line jest/expect-expect -- TODO(FEINF-1337)
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<PermissionDeniedView {...minimalProps} />);
   });

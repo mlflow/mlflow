@@ -1,10 +1,11 @@
 import functools
 import inspect
+import json
 import logging
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, TypeAlias
+from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -13,13 +14,21 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.scorer_utils import (
+    DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
+)
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracking import get_tracking_uri
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.uri import is_databricks_uri
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
+from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
+
+# Backend identifiers for registered scorers
+SCORER_BACKEND_TRACKING = "tracking"
+SCORER_BACKEND_DATABRICKS = "databricks"
 
 # Context variable to track if we're in a scorer call (prevents nested telemetry)
 _in_scorer_call: ContextVar[bool] = ContextVar("mlflow_scorer_call_context", default=False)
@@ -39,6 +48,7 @@ class ScorerKind(Enum):
     INSTRUCTIONS = "instructions"
     GUIDELINES = "guidelines"
     THIRD_PARTY = "third_party"
+    MEMORY_AUGMENTED = "memory_augmented"
 
 
 _ALLOWED_SCORERS_FOR_REGISTRATION = [
@@ -46,6 +56,7 @@ _ALLOWED_SCORERS_FOR_REGISTRATION = [
     ScorerKind.DECORATOR,
     ScorerKind.INSTRUCTIONS,
     ScorerKind.GUIDELINES,
+    ScorerKind.MEMORY_AUGMENTED,
 ]
 
 
@@ -100,20 +111,30 @@ class SerializedScorer:
     # InstructionsJudge fields (for make_judge created judges)
     instructions_judge_pydantic_data: dict[str, Any] | None = None
 
+    # MemoryAugmentedJudge fields (for aligned judges)
+    memory_augmented_judge_data: dict[str, Any] | None = None
+
     def __post_init__(self):
         """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
         has_decorator_fields = self.call_source is not None
         has_instructions_fields = self.instructions_judge_pydantic_data is not None
+        has_memory_augmented_fields = self.memory_augmented_judge_data is not None
 
         # Count how many field types are present
-        field_count = sum([has_builtin_fields, has_decorator_fields, has_instructions_fields])
+        field_count = sum([
+            has_builtin_fields,
+            has_decorator_fields,
+            has_instructions_fields,
+            has_memory_augmented_fields,
+        ])
 
         if field_count == 0:
             raise ValueError(
                 "SerializedScorer must have either builtin scorer fields "
                 "(builtin_scorer_class), decorator scorer fields (call_source), "
-                "or instructions judge fields (instructions_judge_pydantic_data) present"
+                "instructions judge fields (instructions_judge_pydantic_data), "
+                "or memory augmented judge fields (memory_augmented_judge_data) present"
             )
 
         if field_count > 1:
@@ -163,6 +184,7 @@ class Scorer(BaseModel):
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
+    _experiment_id: str | None = PrivateAttr(default=None)
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -190,11 +212,13 @@ class Scorer(BaseModel):
         """
         return False
 
+    @experimental(version="3.9.0")
     @property
     def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
+    @experimental(version="3.9.0")
     @property
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
@@ -353,12 +377,19 @@ class Scorer(BaseModel):
                     instructions=data["instructions"],
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
-                    # TODO: add aggregations here once we support boolean/numeric judge outputs
+                    inference_params=data.get("inference_params"),
+                    aggregations=serialized.aggregations,
                 )
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to create InstructionsJudge scorer '{serialized.name}': {e}"
                 )
+
+        # Handle MemoryAugmentedJudge scorers
+        elif serialized.memory_augmented_judge_data is not None:
+            from mlflow.genai.judges.optimizers.memalign.optimizer import MemoryAugmentedJudge
+
+            return MemoryAugmentedJudge._from_serialized(serialized)
 
         # Invalid serialized data
         else:
@@ -373,13 +404,38 @@ class Scorer(BaseModel):
             )
 
     @classmethod
+    def model_validate_json(cls, json_data: str) -> "Scorer":
+        """
+        Override model_validate_json to parse JSON and delegate to custom model_validate.
+
+        Args:
+            json_data: JSON string containing serialized scorer data.
+
+        Returns:
+            Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
+
+        Raises:
+            mlflow.exceptions.MlflowException: If JSON parsing or scorer validation fails.
+        """
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise MlflowException.invalid_parameter_value(f"Invalid JSON in serialized scorer: {e}")
+
+        try:
+            return cls.model_validate(data)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(f"Failed to validate scorer: {e}")
+
+    @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
         # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Only allow loading in Databricks runtime environments where the
-        # execution environment is controlled.
-        if not is_in_databricks_runtime():
+        # execution risk. Only allow loading when connected to a Databricks workspace, where
+        # registration is gated behind authentication. OSS backends don't have this guarantee,
+        # so block loading to prevent executing untrusted code.
+        if not is_databricks_uri(get_tracking_uri()):
             code_snippet = (
                 "\n\nfrom mlflow.genai import scorer\n\n"
                 f"@scorer\ndef {serialized.original_func_name}{serialized.call_signature}:\n"
@@ -387,34 +443,10 @@ class Scorer(BaseModel):
             for line in serialized.call_source.split("\n"):
                 code_snippet += f"    {line}\n"
 
-            is_databricks_remote = is_databricks_uri(get_tracking_uri())
-
-            if is_databricks_remote:
-                error_msg = (
-                    f"Loading custom scorer '{serialized.name}' via remote access is not "
-                    "supported. You are connected to a Databricks workspace but executing code "
-                    "outside of it. Custom scorers require arbitrary code execution during "
-                    "deserialization and must be loaded within the Databricks workspace for "
-                    "security reasons.\n\n"
-                    "To use this scorer:\n"
-                    "1. Run your code inside the Databricks workspace (notebook or job), or\n"
-                    "2. Copy the code below and use it directly in your source code, or\n"
-                    "3. Use built-in scorers or make_judge() scorers instead\n\n"
-                    f"Registered scorer code:\n{code_snippet}"
-                )
-            else:
-                error_msg = (
-                    f"Loading custom scorer '{serialized.name}' is not supported outside of "
-                    "Databricks runtime environments due to security concerns. Custom scorers "
-                    "require arbitrary code execution during deserialization.\n\n"
-                    "To use this scorer, please:\n"
-                    "1. Copy the code below and save it in your source code repository\n"
-                    "2. Import and use it directly in your code, or\n"
-                    "3. Use built-in scorers or make_judge() scorers instead\n\n"
-                    f"Registered scorer code:\n{code_snippet}"
-                )
-
-            raise MlflowException.invalid_parameter_value(error_msg)
+            raise MlflowException.invalid_parameter_value(
+                f"{DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR}\n"
+                f"Registered scorer code:\n{code_snippet}"
+            )
 
         try:
             recreated_func = recreate_function(
@@ -667,11 +699,12 @@ class Scorer(BaseModel):
         store.register_scorer(experiment_id, new_scorer)
 
         if isinstance(store, DatabricksStore):
-            new_scorer._registered_backend = "databricks"
+            new_scorer._registered_backend = SCORER_BACKEND_DATABRICKS
         else:
-            new_scorer._registered_backend = "tracking"
+            new_scorer._registered_backend = SCORER_BACKEND_TRACKING
         return new_scorer
 
+    @experimental(version="3.9.0")
     def start(
         self,
         *,
@@ -717,14 +750,10 @@ class Scorer(BaseModel):
                     )
                 )
         """
-        from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Scheduling scorers is only supported by Databricks tracking URI."
-            )
+        from mlflow.genai.scorers.registry import (
+            DatabricksStore,
+            _get_scorer_store,
+        )
 
         self._check_can_be_registered()
 
@@ -734,16 +763,30 @@ class Scorer(BaseModel):
             )
 
         scorer_name = name or self.name
+        store = _get_scorer_store()
 
-        # Update the scorer on the server
-        return DatabricksStore.update_registered_scorer(
-            name=scorer_name,
+        if isinstance(store, DatabricksStore):
+            return DatabricksStore.update_registered_scorer(
+                name=scorer_name,
+                scorer=self,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+                experiment_id=experiment_id,
+            )
+
+        # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
+        exp_id = experiment_id or self._experiment_id
+        if exp_id is None:
+            exp_id = _get_experiment_id()
+
+        return store.upsert_online_scoring_config(
             scorer=self,
+            experiment_id=exp_id,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
-            experiment_id=experiment_id,
         )
 
+    @experimental(version="3.9.0")
     def update(
         self,
         *,
@@ -795,28 +838,38 @@ class Scorer(BaseModel):
                 )
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
-        from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Updating scheduled scorers is only supported by Databricks tracking URI."
-            )
+        from mlflow.genai.scorers.registry import (
+            DatabricksStore,
+            _get_scorer_store,
+        )
 
         self._check_can_be_registered()
 
         scorer_name = name or self.name
+        store = _get_scorer_store()
 
-        # Update the scorer on the server
-        return DatabricksStore.update_registered_scorer(
-            name=scorer_name,
+        if isinstance(store, DatabricksStore):
+            return DatabricksStore.update_registered_scorer(
+                name=scorer_name,
+                scorer=self,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+                experiment_id=experiment_id,
+            )
+
+        # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
+        exp_id = experiment_id or self._experiment_id
+        if exp_id is None:
+            exp_id = _get_experiment_id()
+
+        return store.upsert_online_scoring_config(
             scorer=self,
+            experiment_id=exp_id,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
-            experiment_id=experiment_id,
         )
 
+    @experimental(version="3.9.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
@@ -855,14 +908,6 @@ class Scorer(BaseModel):
                     sampling_config=ScorerSamplingConfig(sample_rate=0.3)
                 )
         """
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Stopping scheduled scorers is only supported by Databricks tracking URI."
-            )
-
         self._check_can_be_registered()
 
         scorer_name = name or self.name
@@ -903,14 +948,7 @@ class Scorer(BaseModel):
         # to ensure loaded scorers can only be executed in controlled environments.
         if self.kind == ScorerKind.DECORATOR and not is_databricks_uri(get_tracking_uri()):
             raise MlflowException.invalid_parameter_value(
-                "Custom scorer registration (using @scorer decorator) is not supported "
-                "outside of Databricks tracking environments due to security concerns. "
-                "Custom scorers require arbitrary code execution during deserialization.\n\n"
-                "To use custom scorers:\n"
-                "1. Configure MLflow to use a Databricks tracking URI, or\n"
-                "2. Manage your custom scorer code in a source code repository "
-                "(e.g., GitHub) and import it directly, or\n"
-                "3. Use built-in scorers or make_judge() scorers instead"
+                DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
             )
 
         store = _get_scorer_store()
@@ -927,13 +965,36 @@ class Scorer(BaseModel):
             )
 
 
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+@overload
 def scorer(
-    func=None,
+    func: _F,
     *,
     name: str | None = None,
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
-):
+) -> Scorer: ...
+
+
+@overload
+def scorer(
+    func: None = None,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+) -> Callable[[_F], Scorer]: ...
+
+
+def scorer(
+    func: _F | None = None,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
 
@@ -979,6 +1040,15 @@ def scorer(
         * - ``trace``
           - A trace object corresponding to the prediction for the row.
           - Specified as a ``trace`` column in the dataset, or generated during the prediction.
+
+        * - ``session``
+          - A list of trace objects belonging to the same conversation session.
+          - When this parameter is present, the scorer is automatically treated as a
+            **session-level** (multi-turn) scorer. It will be called once per session
+            rather than once per trace.
+
+            * ``session`` can only be combined with ``expectations``. Using ``session``
+              together with ``inputs``, ``outputs``, or ``trace`` is not allowed.
 
     The scorer function should return one of the following:
 
@@ -1067,6 +1137,18 @@ def scorer(
                 )
 
 
+            # Session-level scorer that evaluates an entire conversation.
+            # Including `session` in the function signature automatically makes this
+            # a session-level scorer.
+            @scorer
+            def conversation_quality(session) -> Feedback:
+                total_turns = len(session)
+                has_errors = any(t.info.status == "ERROR" for t in session)
+                return Feedback(
+                    value=not has_errors, rationale=f"{total_turns} turns, errors={has_errors}"
+                )
+
+
             # Use the scorer in an evaluation
             mlflow.genai.evaluate(
                 data=data,
@@ -1079,9 +1161,23 @@ def scorer(
             scorer, name=name, description=description, aggregations=aggregations
         )
 
+    func_params = set(inspect.signature(func).parameters.keys())
+    _is_session_level = "session" in func_params
+
+    if _is_session_level:
+        if invalid_params := func_params & {"inputs", "outputs", "trace"}:
+            raise MlflowException.invalid_parameter_value(
+                f"Session-level scorers (functions with a `session` parameter) cannot "
+                f"also accept {', '.join(sorted(f'`{p}`' for p in invalid_params))}. "
+                f"Session-level scorers are called once per session with the full list "
+                f"of traces, so single-turn parameters are not available. "
+                f"Use only `session` and optionally `expectations`."
+            )
+
     class CustomScorer(Scorer):
         # Store reference to the original function
         _original_func: Callable[..., Any] | None = PrivateAttr(default=None)
+        _is_session_level_scorer: ClassVar[bool] = _is_session_level
 
         def __init__(self, **data):
             super().__init__(**data)
@@ -1093,6 +1189,10 @@ def scorer(
 
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)
+
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return self._is_session_level_scorer
 
         @property
         def kind(self) -> ScorerKind:

@@ -2,14 +2,36 @@
 
 import ast
 import inspect
+import json
 import logging
 import re
 from textwrap import dedent
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
+if TYPE_CHECKING:
+    from mlflow.genai.utils.type import FunctionCall
+
 _logger = logging.getLogger(__name__)
+
+GATEWAY_PROVIDER = "gateway"
+INSTRUCTIONS_JUDGE_PYDANTIC_DATA = "instructions_judge_pydantic_data"
+BUILTIN_SCORER_PYDANTIC_DATA = "builtin_scorer_pydantic_data"
+
+# Error message used by both the Python client (Scorer._check_can_be_registered) and the
+# server handler (_register_scorer) to consistently reject decorator scorer registration
+# outside of Databricks environments.
+DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR = (
+    "Custom scorer registration (using @scorer decorator) is not supported "
+    "outside of Databricks tracking environments due to security concerns. "
+    "Custom scorers require arbitrary code execution during deserialization.\n\n"
+    "To use custom scorers:\n"
+    "1. Configure MLflow to use a Databricks tracking URI, or\n"
+    "2. Manage your custom scorer code in a source code repository "
+    "(e.g., GitHub) and import it directly, or\n"
+    "3. Use built-in scorers or make_judge() scorers instead."
+)
 
 
 # FunctionBodyExtractor class is forked from https://github.com/unitycatalog/unitycatalog/blob/20dd3820be332ac04deec4e063099fb863eb3392/ai/core/src/unitycatalog/ai/core/utils/callable_utils.py
@@ -121,17 +143,15 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
         )
         from mlflow.genai.judges import CategoricalRating
 
-        import_namespace.update(
-            {
-                "Feedback": Feedback,
-                "Assessment": Assessment,
-                "AssessmentSource": AssessmentSource,
-                "AssessmentError": AssessmentError,
-                "AssessmentSourceType": AssessmentSourceType,
-                "Trace": Trace,
-                "CategoricalRating": CategoricalRating,
-            }
-        )
+        import_namespace.update({
+            "Feedback": Feedback,
+            "Assessment": Assessment,
+            "AssessmentSource": AssessmentSource,
+            "AssessmentError": AssessmentError,
+            "AssessmentSourceType": AssessmentSourceType,
+            "Trace": Trace,
+            "CategoricalRating": CategoricalRating,
+        })
     except ImportError:
         pass  # Some imports might not be available in all contexts
 
@@ -143,3 +163,148 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
 
     # Return the recreated function
     return local_namespace[func_name]
+
+
+def is_gateway_model(model: str | None) -> bool:
+    if model is None:
+        return False
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    try:
+        provider, _ = _parse_model_uri(model)
+        return provider == GATEWAY_PROVIDER
+    except MlflowException:
+        return False
+
+
+def extract_endpoint_ref(model: str) -> str:
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    _, endpoint_ref = _parse_model_uri(model)
+    return endpoint_ref
+
+
+def build_gateway_model(endpoint_ref: str) -> str:
+    return f"{GATEWAY_PROVIDER}:/{endpoint_ref}"
+
+
+def extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str | None:
+    if ij_data := serialized_data.get(INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
+        return ij_data.get("model")
+    if bs_data := serialized_data.get(BUILTIN_SCORER_PYDANTIC_DATA):
+        return bs_data.get("model")
+    if mem_data := serialized_data.get("memory_augmented_judge_data"):
+        base_judge = mem_data.get("base_judge", {})
+        return extract_model_from_serialized_scorer(base_judge)
+    return None
+
+
+def update_model_in_serialized_scorer(
+    serialized_data: dict[str, Any], new_model: str | None
+) -> dict[str, Any]:
+    result = serialized_data.copy()
+    if ij_data := result.get(INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
+        result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA] = {**ij_data, "model": new_model}
+    elif bs_data := result.get(BUILTIN_SCORER_PYDANTIC_DATA):
+        result[BUILTIN_SCORER_PYDANTIC_DATA] = {**bs_data, "model": new_model}
+    elif mem_data := result.get("memory_augmented_judge_data"):
+        result["memory_augmented_judge_data"] = {
+            **mem_data,
+            "base_judge": update_model_in_serialized_scorer(
+                mem_data.get("base_judge", {}), new_model
+            ),
+        }
+    return result
+
+
+def validate_scorer_name(name: str | None) -> None:
+    """
+    Validate the scorer name.
+
+    Args:
+        name: The scorer name to validate.
+
+    Raises:
+        MlflowException: If the name is invalid.
+    """
+    if name is None:
+        raise MlflowException.invalid_parameter_value("Scorer name cannot be None.")
+    if not isinstance(name, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer name must be a string, got {type(name).__name__}."
+        )
+    if not name.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer name cannot be empty or contain only whitespace."
+        )
+
+
+def validate_scorer_model(model: str | None) -> None:
+    """
+    Validate the scorer model string if present.
+
+    Args:
+        model: The model string to validate.
+
+    Raises:
+        MlflowException: If the model is invalid.
+    """
+    if model is None:
+        return
+
+    if not isinstance(model, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer model must be a string, got {type(model).__name__}."
+        )
+    if not model.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer model cannot be empty or contain only whitespace."
+        )
+
+
+def parse_tool_call_expectations(
+    expectations: dict[str, Any] | None,
+) -> list["FunctionCall"] | None:
+    from mlflow.genai.utils.type import FunctionCall
+
+    if not expectations or "expected_tool_calls" not in expectations:
+        return None
+
+    expected_tool_calls = expectations["expected_tool_calls"]
+    if not expected_tool_calls:
+        return None
+
+    normalized_calls = []
+    for call in expected_tool_calls:
+        if isinstance(call, FunctionCall):
+            normalized_calls.append(call)
+        elif isinstance(call, dict):
+            name = call.get("name")
+            arguments = call.get("arguments")
+            if arguments is not None and not isinstance(arguments, dict):
+                raise MlflowException(
+                    f"Invalid arguments type: {type(arguments)}. Arguments must be a dict."
+                )
+            normalized_calls.append(FunctionCall(name=name, arguments=arguments))
+        else:
+            raise MlflowException(
+                f"Invalid expected tool call format: {type(call)}. "
+                "Expected dict with 'name' and optional 'arguments', or FunctionCall object."
+            )
+
+    return normalized_calls
+
+
+def normalize_tool_call_arguments(args: dict[str, Any] | None) -> dict[str, Any]:
+    if args is None:
+        return {}
+    if isinstance(args, dict):
+        return args
+    raise MlflowException(f"Invalid arguments type: {type(args)}. Arguments must be a dict.")
+
+
+def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> str | None:
+    if include_arguments:
+        args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
+        return f"{call.name}({args})"
+    return call.name

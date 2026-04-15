@@ -40,6 +40,9 @@ import { useEditModelConfigModal } from './hooks/useEditModelConfigModal';
 import type { ThunkDispatch } from '../../../redux-types';
 import { setModelVersionAliasesApi } from '../../../model-registry/actions';
 import { ExperimentPageTabName } from '../../constants';
+import { PromptFilteredTracesView } from './components/PromptFilteredTracesView';
+import { ForkHorizontalIcon } from '@databricks/design-system';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -91,19 +94,31 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
     onSuccess: refetch,
   });
 
-  const { setCompareMode, setPreviewMode, switchSides, viewState, setSelectedVersion, setComparedVersion } =
-    usePromptDetailsPageViewState(promptDetailsData);
+  const {
+    setCompareMode,
+    setPreviewMode,
+    setTracesMode,
+    switchSides,
+    viewState,
+    selectedVersion,
+    setSelectedVersion,
+    setComparedVersion,
+  } = usePromptDetailsPageViewState(promptDetailsData);
+
+  useRegisterAssistantContext('promptName', promptName);
+  useRegisterAssistantContext('promptVersion', selectedVersion);
+  useRegisterAssistantContext('comparedPromptVersion', viewState.comparedVersion);
 
   const { mode } = viewState;
 
   const isEmptyVersions = !isLoading && !promptDetailsData?.versions.length;
 
   const showPreviewPane =
-    !isLoading && !isEmptyVersions && [PromptVersionsTableMode.PREVIEW, PromptVersionsTableMode.COMPARE].includes(mode);
+    !isLoading &&
+    !isEmptyVersions &&
+    [PromptVersionsTableMode.PREVIEW, PromptVersionsTableMode.COMPARE, PromptVersionsTableMode.TRACES].includes(mode);
 
-  const selectedVersionEntity = promptDetailsData?.versions.find(
-    ({ version }) => version === viewState.selectedVersion,
-  );
+  const selectedVersionEntity = promptDetailsData?.versions.find(({ version }) => version === selectedVersion);
 
   const comparedVersionEntity = promptDetailsData?.versions.find(
     ({ version }) => version === viewState.comparedVersion,
@@ -150,7 +165,9 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
   const breadcrumbs = !experimentId ? (
     <Breadcrumb>
       <Breadcrumb.Item>
-        <Link to={Routes.promptsPageRoute}>Prompts</Link>
+        <Link componentId="mlflow.prompts.details.breadcrumb_link" to={Routes.promptsPageRoute}>
+          Prompts
+        </Link>
       </Breadcrumb.Item>
     </Breadcrumb>
   ) : undefined;
@@ -230,6 +247,19 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
                   />
                 </div>
               </SegmentedControlButton>
+              <SegmentedControlButton
+                disabled={!experimentId}
+                value={PromptVersionsTableMode.TRACES}
+                onClick={() => setTracesMode()}
+              >
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <ForkHorizontalIcon />
+                  <FormattedMessage
+                    defaultMessage="Traces"
+                    description="Label for the traces mode on the registered prompt details page"
+                  />
+                </div>
+              </SegmentedControlButton>
             </SegmentedControlGroup>
           </div>
           <Spacer shrinks={false} size="sm" />
@@ -237,7 +267,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
             isLoading={isLoading}
             registeredPrompt={promptDetailsData?.prompt}
             promptVersions={promptDetailsData?.versions}
-            selectedVersion={viewState.selectedVersion}
+            selectedVersion={selectedVersion}
             comparedVersion={viewState.comparedVersion}
             showEditAliasesModal={showEditAliasesModal}
             aliasesByVersion={aliasesByVersion}
@@ -247,7 +277,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
           />
         </div>
         {showPreviewPane && (
-          <div css={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div css={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <div css={{ borderLeft: `1px solid ${theme.colors.border}`, flex: 1, overflow: 'hidden', display: 'flex' }}>
               {mode === PromptVersionsTableMode.PREVIEW && (
                 <PromptContentPreview
@@ -278,6 +308,9 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
                   registeredPrompt={promptDetailsData?.prompt}
                   aliasesByVersion={aliasesByVersion}
                 />
+              )}
+              {mode === PromptVersionsTableMode.TRACES && (
+                <PromptFilteredTracesView promptVersion={selectedVersionEntity} experimentId={experimentId} />
               )}
             </div>
           </div>

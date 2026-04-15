@@ -16,6 +16,7 @@ from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
+    _deserialize_trace_column_if_needed,
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -294,30 +295,66 @@ def test_convert_to_eval_set_with_missing_root_span():
 
 def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
     # Data with invalid `inputs` column
-    df = spark.createDataFrame(
-        [
-            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
-            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
-        ]
-    )
+    df = spark.createDataFrame([
+        {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+        {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+    ])
     with pytest.raises(MlflowException, match="Failed to parse `inputs` column."):
         _convert_to_eval_set(df)
 
     # Data with invalid `expectations` column
-    df = spark.createDataFrame(
-        [
-            {
-                "inputs": '{"question": "What is the capital of France?"}',
-                "expectations": "invalid expectations",
-            },
-            {
-                "inputs": '{"question": "What is the capital of Germany?"}',
-                "expectations": "invalid expectations",
-            },
-        ]
-    )
+    df = spark.createDataFrame([
+        {
+            "inputs": '{"question": "What is the capital of France?"}',
+            "expectations": "invalid expectations",
+        },
+        {
+            "inputs": '{"question": "What is the capital of Germany?"}',
+            "expectations": "invalid expectations",
+        },
+    ])
     with pytest.raises(MlflowException, match="Failed to parse `expectations` column."):
         _convert_to_eval_set(df)
+
+
+def _trace_test_cases():
+    data = {
+        "info": {
+            "trace_id": "test-trace-id",
+            "trace_location": {
+                "type": "MLFLOW_EXPERIMENT",
+                "mlflow_experiment": {"experiment_id": "0"},
+            },
+            "request_time": "2024-01-21T12:00:00Z",
+            "state": "OK",
+            "trace_metadata": {},
+            "tags": {},
+            "assessments": [],
+        },
+        "data": {"spans": []},
+    }
+    return [
+        pytest.param(data, dict, id="dict"),
+        pytest.param(json.dumps(data), str, id="string"),
+        pytest.param(Trace.from_dict(data), Trace, id="trace_object"),
+    ]
+
+
+@pytest.mark.parametrize(("trace_value", "expected_input_type"), _trace_test_cases())
+def test_deserialize_trace_column(trace_value, expected_input_type):
+    df = pd.DataFrame([{"trace": trace_value, "inputs": {"question": "test"}}])
+    assert isinstance(df["trace"].iloc[0], expected_input_type)
+
+    result = _deserialize_trace_column_if_needed(df)
+    assert isinstance(result["trace"].iloc[0], Trace)
+    assert result["trace"].iloc[0].info.trace_id == "test-trace-id"
+
+
+def test_deserialize_trace_column_with_none():
+    df = pd.DataFrame([{"trace": None, "inputs": {"question": "test"}}])
+
+    result = _deserialize_trace_column_if_needed(df)
+    assert result["trace"].iloc[0] is None
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
@@ -328,14 +365,12 @@ def test_scorer_receives_correct_data(data_fixture, request):
 
     @scorer
     def dummy_scorer(inputs, outputs, expectations):
-        received_args.append(
-            (
-                inputs["question"],
-                outputs,
-                expectations.get("expected_response"),
-                expectations.get("my_custom_expectation"),
-            )
-        )
+        received_args.append((
+            inputs["question"],
+            outputs,
+            expectations.get("expected_response"),
+            expectations.get("my_custom_expectation"),
+        ))
         return 0
 
     mlflow.genai.evaluate(
@@ -385,9 +420,10 @@ def test_input_is_required_if_trace_is_not_provided():
         mock_evaluate.assert_not_called()
 
         mlflow.genai.evaluate(
-            data=pd.DataFrame(
-                {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
-            ),
+            data=pd.DataFrame({
+                "inputs": [{"question": "What is the capital of France?"}],
+                "outputs": ["Paris"],
+            }),
             scorers=[RelevanceToQuery()],
         )
         mock_evaluate.assert_called_once()

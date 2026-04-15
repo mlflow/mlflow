@@ -20,7 +20,7 @@ describe('getSampledMetricHistoryBulkAction service function', () => {
   const runAction = (state: SampledMetricsByRunUuidState) => {
     const actionCreator = getSampledMetricHistoryBulkAction(['run_1', 'run_2'], 'metric_key', undefined, testRange);
     // @ts-expect-error Argument of type 'Mock<UnknownFunction>' is not assignable to parameter of type 'ThunkDispatch<ReduxState, any>'
-    actionCreator(testDispatch, () => ({ entities: { sampledMetricsByRunUuid: state } } as any));
+    actionCreator(testDispatch, () => ({ entities: { sampledMetricsByRunUuid: state } }) as any);
   };
   it('should be able to retrieve sampled metric history for all runs', () => {
     runAction({});

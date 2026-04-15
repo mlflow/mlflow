@@ -29,3 +29,17 @@ def good_dict() -> dict[str, int]:
     assert all(isinstance(v.rule, UnparameterizedGenericType) for v in violations)
     assert violations[0].range == Range(Position(4, 18))  # bad_list return type
     assert violations[1].range == Range(Position(7, 18))  # bad_dict return type
+
+
+def test_unparameterized_generic_type_async(index_path: Path) -> None:
+    code = """
+async def bad_async_dict(x: dict) -> dict:
+    pass
+
+async def good_async_dict(x: dict[str, int]) -> dict[str, int]:
+    pass
+"""
+    config = Config(select={UnparameterizedGenericType.name})
+    violations = lint_file(Path("test.py"), code, config, index_path)
+    assert len(violations) == 2  # param and return type
+    assert all(isinstance(v.rule, UnparameterizedGenericType) for v in violations)

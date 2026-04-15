@@ -18,6 +18,33 @@ from mlflow.genai.evaluation.utils import is_none_or_nan
 
 
 @dataclass
+class ScorerStat:
+    """Statistics for a single scorer's invocations during evaluation.
+
+    Tracks the total number of invocations and how many failed with errors.
+    """
+
+    failure_count: int = 0
+    total_count: int = 0
+
+    def record_invocation(self, *, failed: bool) -> None:
+        """Record a scorer invocation."""
+        self.total_count += 1
+        if failed:
+            self.failure_count += 1
+
+    def merge(self, other: "ScorerStat") -> None:
+        """Merge stats from another ScorerStat."""
+        self.failure_count += other.failure_count
+        self.total_count += other.total_count
+
+    @property
+    def has_failures(self) -> bool:
+        """Check if this scorer had any failures."""
+        return self.failure_count > 0
+
+
+@dataclass
 class EvalItem:
     """Represents a row in the evaluation dataset."""
 
@@ -46,6 +73,25 @@ class EvalItem:
     source: DatasetRecordSource | None = None
 
     @classmethod
+    def from_trace(cls, trace: Trace) -> "EvalItem":
+        """
+        Create an EvalItem from a Trace.
+
+        Args:
+            trace: The trace to create an EvalItem from.
+
+        Returns:
+            An EvalItem with the trace set and request_id from the trace.
+        """
+        return cls(
+            request_id=trace.info.trace_id,
+            inputs=None,
+            outputs=None,
+            expectations=None,
+            trace=trace,
+        )
+
+    @classmethod
     def from_dataset_row(cls, row: dict[str, Any]) -> "EvalItem":
         """
         Create an EvalItem from a row of input Pandas Dataframe row.
@@ -63,6 +109,8 @@ class EvalItem:
 
         # Extract expectations column from the dataset.
         expectations = row.get(InputDatasetColumn.EXPECTATIONS, {})
+        if is_none_or_nan(expectations):
+            expectations = {}
 
         # Extract tags column from the dataset.
         tags = row.get(InputDatasetColumn.TAGS, {})
@@ -147,6 +195,8 @@ class EvalResult:
     assessments: list[Feedback] = field(default_factory=list)
     """Error message encountered in processing the eval item."""
     eval_error: str | None = None
+    """Statistics for each scorer that ran on this eval item."""
+    scorer_stats: dict[str, ScorerStat] = field(default_factory=dict)
 
     def to_pd_series(self) -> pd.Series:
         """Converts the EvalResult to a flattened pd.Series."""

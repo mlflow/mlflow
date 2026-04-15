@@ -144,9 +144,9 @@ def test_invalid_return_key_from_mlflow_serving():
     config = completions_config()
     provider = MlflowModelServingProvider(EndpointConfig(**config))
     with pytest.raises(AIGatewayException, match=r".*") as e:
-        provider._process_completions_response_for_mlflow_serving(
-            {"invalid_return_key": ["invalid", "response"]}
-        )
+        provider._process_completions_response_for_mlflow_serving({
+            "invalid_return_key": ["invalid", "response"]
+        })
 
     assert "1 validation error for ServingTextResponse\npredictions" in e.value.detail
     assert e.value.status_code == 502
@@ -289,7 +289,7 @@ async def test_chat():
             "http://127.0.0.1:4000/invocations",
             json={
                 "inputs": ["Is this a test?"],
-                "params": {"temperature": 0.0, "n": 1},
+                "params": {"n": 1},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )

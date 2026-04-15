@@ -8,22 +8,25 @@ export const useImageSliderStepMarks = ({
   data: RunsChartsRunData[];
   selectedImageKeys: string[];
 }) => {
-  const stepMarks = data.reduce((acc, run: RunsChartsRunData) => {
-    for (const imageKey of Object.keys(run.images)) {
-      if (selectedImageKeys?.includes(imageKey)) {
-        const metadata = run.images[imageKey];
-        for (const meta of Object.values(metadata)) {
-          if (meta.step !== undefined) {
-            acc[meta.step] = {
-              style: { display: 'none' },
-              label: '',
-            };
+  const stepMarks = data.reduce(
+    (acc, run: RunsChartsRunData) => {
+      for (const imageKey of Object.keys(run.images)) {
+        if (selectedImageKeys?.includes(imageKey)) {
+          const metadata = run.images[imageKey];
+          for (const meta of Object.values(metadata)) {
+            if (meta.step !== undefined) {
+              acc[meta.step] = {
+                style: { display: 'none' },
+                label: '',
+              };
+            }
           }
         }
       }
-    }
-    return acc;
-  }, {} as Record<number, any>);
+      return acc;
+    },
+    {} as Record<number, any>,
+  );
 
   return {
     stepMarks,

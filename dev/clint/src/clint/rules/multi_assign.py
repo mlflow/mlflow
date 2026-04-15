@@ -6,7 +6,7 @@ from clint.rules.base import Rule
 class MultiAssign(Rule):
     def _message(self) -> str:
         return (
-            "Avoid multiple assignment (e.g., `x, y = 1, 2`). Use separate assignments "
+            "Avoid multiple assignment (e.g., `x, y = func()`). Use separate assignments "
             "instead for better readability and easier debugging."
         )
 
@@ -14,17 +14,18 @@ class MultiAssign(Rule):
     def check(node: ast.Assign) -> bool:
         """
         Returns True if the assignment is a tuple assignment where the number of
-        targets matches the number of values.
+        targets matches the number of values, unless all values are constants.
 
         Examples that should be flagged:
-        - x, y = 1, 2
-        - a, b, c = "test", "test2", "test3"
-        - foo, bar = None, 1
+        - x, y = func1(), func2()
+        - a, b = get_value(), other_value
 
         Examples that should NOT be flagged:
-        - x, y = z
-        - a, b = func()
-        - x, y = get_coordinates()
+        - x, y = 1, 1 (all constants)
+        - a, b, c = 0, 0, 0 (all constants)
+        - x, y = z (unpacking from single value)
+        - a, b = func() (unpacking from function return)
+        - x, y = get_coordinates() (unpacking from function return)
         """
         # Check if we have exactly one target and it's a Tuple
         if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Tuple):
@@ -38,5 +39,13 @@ class MultiAssign(Rule):
         num_targets = len(node.targets[0].elts)
         num_values = len(node.value.elts)
 
-        # Flag only when we have matching number of targets and values (at least 2)
-        return num_targets == num_values and num_targets >= 2
+        # Only flag when we have matching number of targets and values (at least 2)
+        if not (num_targets == num_values and num_targets >= 2):
+            return False
+
+        # Allow if all values are constants (e.g., x, y = 1, 1)
+        all_constants = all(isinstance(elt, ast.Constant) for elt in node.value.elts)
+        if all_constants:
+            return False
+
+        return True

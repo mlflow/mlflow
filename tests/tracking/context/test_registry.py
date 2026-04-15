@@ -9,6 +9,7 @@ from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebo
 from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
 from mlflow.tracking.context.default_context import DefaultRunContext
 from mlflow.tracking.context.git_context import GitRunContext
+from mlflow.tracking.context.jupyter_notebook_context import JupyterNotebookRunContext
 from mlflow.tracking.context.registry import RunContextProviderRegistry, resolve_tags
 
 
@@ -67,6 +68,7 @@ def test_registry_instance_defaults():
     expected_classes = {
         DefaultRunContext,
         GitRunContext,
+        JupyterNotebookRunContext,
         DatabricksNotebookRunContext,
         DatabricksJobRunContext,
         DatabricksRepoRunContext,

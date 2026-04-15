@@ -8,6 +8,7 @@ To be executed only during the model deployment.
 import logging
 import multiprocessing
 import os
+import shlex
 import shutil
 import signal
 import sys
@@ -15,7 +16,6 @@ from pathlib import Path
 from subprocess import Popen, check_call
 
 import mlflow
-import mlflow.version
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import Model
@@ -138,12 +138,18 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
     env_conf = conf[mlflow.pyfunc.ENV]
 
     if env_manager == em.LOCAL:
-        # Install pip dependencies directly into the local environment
         python_env_config_path = os.path.join(model_path, env_conf[em.VIRTUALENV])
         python_env = _PythonEnv.from_yaml(python_env_config_path)
-        deps = " ".join(python_env.build_dependencies + python_env.dependencies)
-        deps = deps.replace("requirements.txt", os.path.join(model_path, "requirements.txt"))
-        if Popen(["bash", "-c", f"python -m pip install {deps}"]).wait() != 0:
+
+        pip_args = [sys.executable, "-m", "pip", "install"]
+        for dep in python_env.build_dependencies + python_env.dependencies:
+            dep_args = shlex.split(dep)
+            for i, arg in enumerate(dep_args):
+                if arg == "requirements.txt" or arg.endswith("/requirements.txt"):
+                    dep_args[i] = os.path.join(model_path, "requirements.txt")
+            pip_args.extend(dep_args)
+
+        if Popen(pip_args).wait() != 0:
             raise Exception("Failed to install model dependencies.")
         return []
 
@@ -173,8 +179,8 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
 
 def _serve_pyfunc(model, env_manager):
     # option to disable manually nginx. The default behavior is to enable nginx.
-    disable_nginx = os.getenv(DISABLE_NGINX, "false").lower() == "true"
-    enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
+    disable_nginx = os.environ.get(DISABLE_NGINX, "false").lower() == "true"
+    enable_mlserver = os.environ.get(ENABLE_MLSERVER, "false").lower() == "true"
     disable_env_creation = MLFLOW_DISABLE_ENV_CREATION.get()
 
     conf = model.flavors[pyfunc.FLAVOR_NAME]
@@ -222,7 +228,7 @@ def _serve_pyfunc(model, env_manager):
         inference_server = mlserver
         # Allows users to choose the number of workers using MLServer var env settings.
         # Default to cpu count
-        nworkers = int(os.getenv("MLSERVER_INFER_WORKERS", cpu_count))
+        nworkers = int(os.environ.get("MLSERVER_INFER_WORKERS", cpu_count))
         # Since MLServer will run without NGINX, expose the server in the `8080`
         # port, which is the assumed "public" port.
         port = DEFAULT_MLSERVER_PORT
@@ -237,7 +243,7 @@ def _serve_pyfunc(model, env_manager):
         }
     else:
         inference_server = scoring_server
-        nworkers = int(os.getenv("MLFLOW_MODELS_WORKERS", cpu_count))
+        nworkers = int(os.environ.get("MLFLOW_MODELS_WORKERS", cpu_count))
         port = DEFAULT_INFERENCE_SERVER_PORT
 
     cmd, cmd_env = inference_server.get_cmd(

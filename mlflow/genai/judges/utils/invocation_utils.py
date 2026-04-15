@@ -13,9 +13,13 @@ if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
-from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    _run_databricks_agentic_loop,
+)
 from mlflow.genai.judges.adapters.utils import get_adapter
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
@@ -40,6 +44,8 @@ def invoke_judge_model(
     response_format: type[pydantic.BaseModel] | None = None,
     use_case: str | None = None,
     inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
@@ -47,9 +53,8 @@ def invoke_judge_model(
     Routes to the appropriate adapter based on the model URI and configuration.
     Uses a factory pattern to select the correct adapter:
     - DatabricksManagedJudgeAdapter: For the default Databricks judge
-    - DatabricksServingEndpointAdapter: For Databricks serving endpoints
-    - LiteLLMAdapter: For LiteLLM-supported providers
-    - GatewayAdapter: Fallback for native providers
+    - GatewayAdapter: For native AI Gateway providers
+    - LiteLLMAdapter: Fallback for providers not supported by the gateway
 
     Args:
         model_uri: The model URI.
@@ -65,6 +70,10 @@ def invoke_judge_model(
         inference_params: Optional dictionary of inference parameters to pass to the
             model (e.g., temperature, top_p, max_tokens). These parameters allow
             fine-grained control over the model's behavior during evaluation.
+        base_url: Optional base URL to route requests through. When specified, all
+            requests to the LLM provider will be routed through this URL.
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the LLM provider.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -83,10 +92,74 @@ def invoke_judge_model(
         response_format=response_format,
         use_case=use_case,
         inference_params=inference_params,
+        base_url=base_url,
+        extra_headers=extra_headers,
     )
 
     output = adapter.invoke(input_params)
     return output.feedback
+
+
+def _invoke_databricks_structured_output(
+    messages: list["ChatMessage"],
+    output_schema: type[pydantic.BaseModel],
+    trace: "Trace | None" = None,
+) -> pydantic.BaseModel:
+    """
+    Invoke Databricks chat completions for structured output extraction.
+
+    Uses the gpt-oss-120b model via the Databricks endpoint for agentic tool calling
+    to examine trace spans.
+
+    Args:
+        messages: List of ChatMessage objects for the conversation.
+        output_schema: Pydantic model class defining the expected output structure.
+        trace: Optional trace object for context. When provided, enables tool
+               calling to examine trace spans.
+
+    Returns:
+        Instance of output_schema with the structured data from the LLM.
+
+    Raises:
+        MlflowException: If databricks-agents is not installed or invocation fails.
+    """
+    from mlflow.types.llm import ChatMessage
+
+    judge_messages = [ChatMessage(role=msg.role, content=msg.content) for msg in messages]
+
+    # Add schema instructions to the system message
+    schema_instruction = (
+        f"\n\nYou must return your response as JSON matching this schema:\n"
+        f"{json.dumps(output_schema.model_json_schema(), indent=2)}"
+    )
+    if judge_messages and judge_messages[0].role == "system":
+        judge_messages[0] = ChatMessage(
+            role="system",
+            content=judge_messages[0].content + schema_instruction,
+        )
+    else:
+        judge_messages.insert(
+            0,
+            ChatMessage(role="system", content=schema_instruction),
+        )
+
+    def parse_structured_output(content: str | None) -> pydantic.BaseModel:
+        if not content:
+            raise MlflowException("Empty content in final response from Databricks judge")
+        try:
+            cleaned = _strip_markdown_code_blocks(content)
+            response_dict = json.loads(cleaned)
+            return output_schema(**response_dict)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse JSON response from Databricks judge: {e}\n\nResponse: {content}"
+            ) from e
+        except pydantic.ValidationError as e:
+            raise MlflowException(
+                f"Response does not match expected schema: {e}\n\nResponse: {content}"
+            ) from e
+
+    return _run_databricks_agentic_loop(judge_messages, trace, parse_structured_output)
 
 
 def get_chat_completions_with_structured_output(
@@ -104,7 +177,8 @@ def get_chat_completions_with_structured_output(
     When a trace is provided, the LLM can use tool calling to examine trace spans.
 
     Args:
-        model_uri: The model URI (e.g., "openai:/gpt-4", "anthropic:/claude-3").
+        model_uri: The model URI (e.g., "openai:/gpt-4", "anthropic:/claude-3",
+                   or "databricks" for the default Databricks judge).
         messages: List of ChatMessage objects for the conversation with the LLM.
         output_schema: Pydantic model class defining the expected output structure.
                        The LLM will be instructed to return data matching this schema.
@@ -119,8 +193,7 @@ def get_chat_completions_with_structured_output(
         Instance of output_schema with the structured data from the LLM.
 
     Raises:
-        ImportError: If LiteLLM is not installed.
-        JSONDecodeError: If the LLM response cannot be parsed as JSON.
+        MlflowException: If the LLM invocation fails or the response is not valid JSON.
         ValidationError: If the LLM response does not match the output schema.
 
     Example:
@@ -150,15 +223,37 @@ def get_chat_completions_with_structured_output(
             print(result.inputs)  # Extracted from inner span
             print(result.outputs)  # Extracted from inner span
     """
+    # Handle Databricks default judge model
+    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        return _invoke_databricks_structured_output(messages, output_schema, trace)
+
+    from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
+
+    if GatewayAdapter.is_applicable(model_uri=model_uri, prompt=messages):
+        return GatewayAdapter().invoke_with_structured_output(
+            model_uri=model_uri,
+            messages=messages,
+            output_schema=output_schema,
+            trace=trace,
+            num_retries=num_retries,
+            inference_params=inference_params,
+        )
+
+    # Fallback to litellm for providers not supported by the gateway
+    from mlflow.genai.judges.adapters.litellm_adapter import (
+        _invoke_litellm_and_handle_tools,
+        _is_litellm_available,
+    )
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    model_provider, model_name = _parse_model_uri(model_uri)
+    if not _is_litellm_available():
+        raise MlflowException(
+            f"No suitable adapter found for model_uri='{model_uri}'. "
+            "Some providers may require LiteLLM. Install it with: `pip install litellm`",
+        )
 
-    # TODO: The cost measurement is discarded here from the parsing of the
-    # tool handling response. We should eventually pass this cost estimation through
-    # so that the total cost of the usage of the scorer incorporates tool call usage.
-    # Deferring for initial implementation due to complexity.
-    response, _ = _invoke_litellm_and_handle_tools(
+    model_provider, model_name = _parse_model_uri(model_uri)
+    output = _invoke_litellm_and_handle_tools(
         provider=model_provider,
         model_name=model_name,
         messages=messages,
@@ -167,7 +262,11 @@ def get_chat_completions_with_structured_output(
         response_format=output_schema,
         inference_params=inference_params,
     )
-
-    cleaned_response = _strip_markdown_code_blocks(response)
-    response_dict = json.loads(cleaned_response)
+    cleaned_response = _strip_markdown_code_blocks(output.response)
+    try:
+        response_dict = json.loads(cleaned_response)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Failed to parse response from judge model. Response: {output.response}",
+        ) from e
     return output_schema(**response_dict)

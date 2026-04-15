@@ -26,6 +26,7 @@ from packaging.version import Version
 import mlflow
 from mlflow import pyfunc
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.constants import FLAVOR_NAME
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
@@ -68,6 +69,7 @@ from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
     is_mlflow_tracing_enabled_in_model_serving,
 )
@@ -248,9 +250,9 @@ def save_model(
             True, the model must implement `stream` method. If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
     """
-    with tempfile.TemporaryDirectory() as temp_dir:
-        import langchain
+    import langchain
 
+    with tempfile.TemporaryDirectory() as temp_dir:
         from mlflow.langchain._compat import import_base_retriever
 
         BaseRetriever = import_base_retriever()
@@ -335,6 +337,25 @@ def save_model(
     model_data_kwargs = {}
     flavor_conf = {}
     if not isinstance(model_code_path, str):
+        if Version(langchain.__version__).major >= 1:
+            raise MlflowException.invalid_parameter_value(
+                "LangChain v1 onward only supports models-from-code, i.e., the 'lc_model' "
+                "argument value must be a path containing the `LangChain` model code. "
+                "You can refer to documentation at "
+                "https://mlflow.org/docs/latest/ml/model/models-from-code/#examples-and-patterns "
+                "for example code."
+            )
+        else:
+            logger.warning(
+                "Saving langchain model in the cloudpickle format requires exercising "
+                "caution because these formats rely on Python's object serialization mechanism, "
+                "which can execute arbitrary code during deserialization."
+                "The recommended alternative is to save it as 'models-from-code' artifacts."
+                "You can refer to documentation at "
+                "https://mlflow.org/docs/latest/ml/model/models-from-code/#examples-and-patterns "
+                "for example code.",
+            )
+
         model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
         flavor_conf = {
             _MODEL_TYPE_KEY: lc_model.__class__.__name__,
@@ -878,6 +899,19 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             # after loading the mode to avoid the schema being used in the next model loading
             _clear_dependencies_schemas()
     else:
+        if (
+            not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+            and not is_in_databricks_runtime()
+            and not is_in_databricks_model_serving_environment()
+        ):
+            raise MlflowException(
+                "Deserializing model using pickle is disallowed, but this model is saved "
+                "in cloudpickle format. To address this issue, you need to set environment "
+                "variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'; or save the model as "
+                "models-from-code artifacts, you can refer to documentation at "
+                "https://mlflow.org/docs/latest/ml/model/models-from-code/#examples-and-patterns "
+                "for example code."
+            )
         model = _load_model(local_model_path, flavor_conf)
     # set active model after model loading since experiment ID might be set
     # in the model loading process

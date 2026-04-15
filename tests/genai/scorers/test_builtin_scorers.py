@@ -3,7 +3,6 @@ from unittest import mock
 from unittest.mock import Mock, call, patch
 
 import pytest
-from litellm.types.utils import ModelResponse
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -16,6 +15,7 @@ from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Completeness,
+    ConversationalGuidelines,
     ConversationalRoleAdherence,
     ConversationalSafety,
     ConversationalToolCallEfficiency,
@@ -38,12 +38,15 @@ from mlflow.genai.scorers import (
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.builtin_scorers import (
+    BuiltInScorer,
     ExtractedFields,
     _construct_field_extraction_config,
     _validate_required_fields,
     get_all_scorers,
     resolve_scorer_fields,
 )
+from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
+from mlflow.genai.utils.type import FunctionCall
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.uri import is_databricks_uri
 
@@ -225,29 +228,32 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_retrieval_relevance_with_custom_model(sample_rag_trace):
+    def make_feedback(*args, **kwargs):
+        return Feedback(name="retrieval_relevance", value="yes", rationale="Relevant content")
+
     with patch(
         "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
-        return_value=Feedback(
-            name="retrieval_relevance", value="yes", rationale="Relevant content"
-        ),
+        side_effect=make_feedback,
     ) as mock_invoke_judge:
         custom_model = "openai:/gpt-4"
         scorer = RetrievalRelevance(model=custom_model)
         results = scorer(trace=sample_rag_trace)
 
-        # Should be called for each chunk (3 total chunks)
         assert mock_invoke_judge.call_count == 3
-
-        for call_args in mock_invoke_judge.call_args_list:
-            args, kwargs = call_args
-            assert args[0] == custom_model  # First positional arg is model
-            assert kwargs["assessment_name"] == "retrieval_relevance"
-
-        # 2 span-level + 3 chunk-level feedbacks
         assert len(results) == 5
-        # Span-level feedbacks should be 100% relevance
-        assert results[0].value == 1.0
-        assert results[3].value == 1.0
+
+        retriever_span_ids = [
+            s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
+        ]
+
+        # Retriever 0 has 2 chunks, retriever 1 has 1 chunk. Each chunk feedback
+        # should target its retriever span and carry its index within that span.
+        chunk_feedbacks = [r for r in results if r.name == "retrieval_relevance"]
+        assert [(f.span_id, f.metadata["chunk_index"]) for f in chunk_feedbacks] == [
+            (retriever_span_ids[0], 0),
+            (retriever_span_ids[0], 1),
+            (retriever_span_ids[1], 0),
+        ]
 
 
 def test_retrieval_sufficiency(sample_rag_trace):
@@ -367,6 +373,27 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
             ),
         ],
     )
+
+
+@pytest.fixture
+def trace_without_retriever():
+    """Create a trace without any RETRIEVER spans."""
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "query"})
+        span.set_outputs("answer")
+    return mlflow.get_trace(span.trace_id)
+
+
+@pytest.mark.parametrize(
+    "scorer_class",
+    [RetrievalRelevance, RetrievalSufficiency, RetrievalGroundedness],
+)
+def test_retrieval_scorers_raise_error_without_retriever_span(
+    trace_without_retriever, scorer_class
+):
+    scorer = scorer_class()
+    with pytest.raises(MlflowException, match="No retrieval context found in the trace"):
+        scorer(trace=trace_without_retriever)
 
 
 def test_guidelines():
@@ -667,15 +694,15 @@ def test_fluency_get_input_fields():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_default_name():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
         scorer = Fluency()
         result = scorer(outputs="The cat sat on the mat.")
 
@@ -685,15 +712,15 @@ def test_fluency_default_name():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_model():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
         custom_model = "anthropic:/claude-3-opus"
         scorer = Fluency(model=custom_model)
         result = scorer(outputs="This is a fluent response")
@@ -704,15 +731,15 @@ def test_fluency_with_custom_model():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_name():
-    mock_content = json.dumps(
-        {
-            "result": "no",
-            "rationale": "The text has issues.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "no",
+        "rationale": "The text has issues.",
+    })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
         scorer = Fluency(name="my_fluency_check")
         result = scorer(outputs="Bad text")
 
@@ -1560,12 +1587,10 @@ def test_completeness_with_trace():
 def test_conversational_safety_with_session():
     session_id = "test_session_safety"
     traces = []
-    for i, (q, a) in enumerate(
-        [
-            ("What is Python?", "Python is a programming language."),
-            ("How do I install it?", "You can download it from python.org."),
-        ]
-    ):
+    for i, (q, a) in enumerate([
+        ("What is Python?", "Python is a programming language."),
+        ("How do I install it?", "You can download it from python.org."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": q})
             span.set_outputs(a)
@@ -1641,12 +1666,10 @@ def test_conversational_safety_instructions():
 def test_conversational_tool_call_efficiency_with_session():
     session_id = "test_session_efficiency"
     traces = []
-    for i, (question, stock, stock_price) in enumerate(
-        [
-            ("What is the price of AAPL?", "AAPL", "150"),
-            ("How about MSFT?", "MSFT", "300"),
-        ]
-    ):
+    for i, (question, stock, stock_price) in enumerate([
+        ("What is the price of AAPL?", "AAPL", "150"),
+        ("How about MSFT?", "MSFT", "300"),
+    ]):
         answer = f"{stock} is ${stock_price}."
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
@@ -1779,15 +1802,168 @@ def test_tool_call_correctness_with_incorrect_tool_call():
         mock_invoke.assert_called()
 
 
+@pytest.fixture
+def tool_call_trace_two_tools():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "Search for MLflow and summarize"})
+        with mlflow.start_span(name="search", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"query": "MLflow"})
+            tool_span.set_outputs("MLflow is an ML platform")
+        with mlflow.start_span(name="summarize", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"max_length": 100})
+            tool_span.set_outputs("MLflow platform summary")
+        span.set_outputs("Summary: MLflow platform summary")
+    return mlflow.get_trace(span.trace_id)
+
+
+@pytest.fixture
+def tool_call_trace_one_tool():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "Search for MLflow"})
+        with mlflow.start_span(name="search", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"query": "MLflow"})
+            tool_span.set_outputs("MLflow is an ML platform")
+        span.set_outputs("MLflow is an ML platform")
+    return mlflow.get_trace(span.trace_id)
+
+
+@pytest.mark.parametrize(
+    ("should_consider_ordering", "expected_tool_calls", "expected_result"),
+    [
+        # Ordered, correct order -> YES
+        (
+            True,
+            [
+                {"name": "search", "arguments": {"query": "MLflow"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ],
+            CategoricalRating.YES,
+        ),
+        # Ordered, wrong order -> NO
+        (
+            True,
+            [
+                {"name": "summarize", "arguments": {"max_length": 100}},
+                {"name": "search", "arguments": {"query": "MLflow"}},
+            ],
+            CategoricalRating.NO,
+        ),
+        # Unordered, different order -> YES
+        (
+            False,
+            [
+                {"name": "summarize", "arguments": {"max_length": 100}},
+                {"name": "search", "arguments": {"query": "MLflow"}},
+            ],
+            CategoricalRating.YES,
+        ),
+        # Unordered, wrong arguments -> NO
+        (
+            False,
+            [
+                {"name": "search", "arguments": {"query": "Wrong query"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ],
+            CategoricalRating.NO,
+        ),
+    ],
+)
+def test_tool_call_correctness_exact_match_full_expectations(
+    tool_call_trace_two_tools, should_consider_ordering, expected_tool_calls, expected_result
+):
+    scorer = ToolCallCorrectness(
+        should_exact_match=True, should_consider_ordering=should_consider_ordering
+    )
+    expectations = {"expected_tool_calls": expected_tool_calls}
+    result = scorer(trace=tool_call_trace_two_tools, expectations=expectations)
+    assert result.value == expected_result
+
+
+@pytest.mark.parametrize(
+    ("expected_tool_calls", "expected_result"),
+    [
+        # Correct tool names -> YES
+        ([{"name": "search"}, {"name": "summarize"}], CategoricalRating.YES),
+        # Wrong tool name -> NO
+        ([{"name": "search"}, {"name": "translate"}], CategoricalRating.NO),
+    ],
+)
+def test_tool_call_correctness_exact_match_partial_expectations(
+    tool_call_trace_two_tools, expected_tool_calls, expected_result
+):
+    scorer = ToolCallCorrectness(should_exact_match=True, should_consider_ordering=False)
+    expectations = {"expected_tool_calls": expected_tool_calls}
+    result = scorer(trace=tool_call_trace_two_tools, expectations=expectations)
+    assert result.value == expected_result
+
+
+def test_tool_call_correctness_exact_match_count_mismatch(tool_call_trace_one_tool):
+    scorer = ToolCallCorrectness(should_exact_match=True, should_consider_ordering=False)
+    expectations = {"expected_tool_calls": [{"name": "search"}, {"name": "summarize"}]}
+    result = scorer(trace=tool_call_trace_one_tool, expectations=expectations)
+    assert result.value == CategoricalRating.NO
+    assert "Expected 2 tool call(s), but got 1" in result.rationale
+
+
+def test_tool_call_correctness_exact_match_without_expectations_raises_error(
+    tool_call_trace_one_tool,
+):
+    scorer = ToolCallCorrectness(should_exact_match=True)
+    with pytest.raises(MlflowException, match="should_exact_match=True requires expectations"):
+        scorer(trace=tool_call_trace_one_tool)
+
+
+def test_tool_call_correctness_fuzzy_match_with_expectations(tool_call_trace_one_tool):
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value=CategoricalRating.YES,
+            rationale="Tool calls match expectations semantically",
+        )
+
+        scorer = ToolCallCorrectness()
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search", "arguments": {"query": "MLflow documentation"}}
+            ]
+        }
+        result = scorer(trace=tool_call_trace_one_tool, expectations=expectations)
+
+        assert result.value == CategoricalRating.YES
+        mock_invoke.assert_called_once()
+
+
+def test_tool_call_correctness_parse_expectations_with_function_call_objects():
+    expectations = {
+        "expected_tool_calls": [
+            FunctionCall(name="search", arguments={"query": "test"}),
+            FunctionCall(name="summarize"),
+        ]
+    }
+
+    expected_calls = parse_tool_call_expectations(expectations)
+    assert len(expected_calls) == 2
+    assert expected_calls[0].name == "search"
+    assert expected_calls[0].arguments == {"query": "test"}
+    assert expected_calls[1].name == "summarize"
+
+
+@pytest.mark.parametrize(
+    "expectations",
+    [None, {}, {"expected_tool_calls": []}],
+)
+def test_tool_call_correctness_parse_expectations_empty(expectations):
+    expected_calls = parse_tool_call_expectations(expectations)
+    assert expected_calls is None
+
+
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []
-    for i, (question, answer) in enumerate(
-        [
-            ("What can you cook?", "I can help you make many dishes!"),
-            ("How do I make soup?", "Start by boiling vegetables..."),
-        ]
-    ):
+    for i, (question, answer) in enumerate([
+        ("What can you cook?", "I can help you make many dishes!"),
+        ("How do I make soup?", "Start by boiling vegetables..."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
             span.set_outputs(answer)
@@ -1822,6 +1998,100 @@ def test_conversational_role_adherence_instructions():
     instructions = scorer.instructions
     assert "role" in instructions.lower()
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
+
+
+@pytest.mark.parametrize(
+    "guidelines",
+    [
+        "The assistant must respond professionally",
+        ["The assistant must respond professionally", "The assistant must be helpful"],
+    ],
+)
+def test_conversational_guidelines_with_session(guidelines):
+    session_id = "test_session_guidelines"
+    traces = []
+    for i, (question, answer) in enumerate([
+        ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
+        ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
+    ]):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="conversational_guidelines",
+            value="yes",
+            rationale="Evaluation complete.",
+        ),
+    ) as mock_invoke_judge:
+        scorer = ConversationalGuidelines(guidelines=guidelines)
+        result = scorer(session=traces)
+
+        assert result.name == "conversational_guidelines"
+        assert result.value == "yes"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name"),
+    [
+        (None, None, "conversational_guidelines"),
+        ("custom_guidelines_check", "openai:/gpt-4", "custom_guidelines_check"),
+    ],
+)
+def test_conversational_guidelines_with_custom_name_and_model(name, model, expected_name):
+    session_id = "test_session_guidelines_custom"
+    traces = []
+    with mlflow.start_span(name="test_turn") as span:
+        span.set_inputs({"question": "Test question"})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale="Guidelines followed"),
+    ) as mock_invoke_judge:
+        kwargs = {"guidelines": ["Respond politely"]}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = ConversationalGuidelines(**kwargs)
+        result = scorer(session=traces)
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == "Guidelines followed"
+        mock_invoke_judge.assert_called_once()
+
+
+def test_conversational_guidelines_get_input_fields():
+    scorer = ConversationalGuidelines(guidelines=["Test guideline"])
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_conversational_guidelines_instructions():
+    scorer = ConversationalGuidelines(
+        guidelines=["The assistant must respond in English", "The assistant must be polite"]
+    )
+    instructions = scorer.instructions
+    assert "conversation" in instructions.lower()
+    assert "guideline" in instructions.lower()
+    assert "The assistant must respond in English" in instructions
+    assert "The assistant must be polite" in instructions
+
+
+def test_conversational_guidelines_single_guideline_string():
+    scorer = ConversationalGuidelines(guidelines="Single guideline as string")
+    instructions = scorer.instructions
+    assert "Single guideline as string" in instructions
 
 
 def _create_test_trace_with_session(
@@ -2025,6 +2295,24 @@ def test_knowledge_retention_empty_session():
         scorer(session=[])
 
 
+def test_knowledge_retention_model_propagation():
+    # When model is specified, it should propagate
+    scorer = KnowledgeRetention(model="custom-model")
+    assert scorer.last_turn_scorer.model == "custom-model"
+
+    # When model is None (default), last_turn_scorer keeps its default
+    scorer_default = KnowledgeRetention()
+    assert scorer_default.last_turn_scorer.model is None
+
+    # When custom last_turn_scorer is provided with model override,
+    # the original scorer should NOT be mutated (we make a copy)
+    custom_scorer = Mock(spec=Scorer)
+    custom_scorer.model = None
+    kr = KnowledgeRetention(model="override-model", last_turn_scorer=custom_scorer)
+    assert custom_scorer.model is None  # original unchanged
+    assert kr.last_turn_scorer.model == "override-model"  # copy has new model
+
+
 def test_session_level_scorer_with_invalid_kwargs():
     scorer = UserFrustration()
 
@@ -2094,3 +2382,91 @@ def test_summarization_with_trace():
         assert result.value == "yes"
         assert result.rationale == "Accurate summary"
         mock_invoke_judge.assert_called_once()
+
+
+def test_equivalence_passes_inference_params():
+    inference_params = {"temperature": 0.0, "max_tokens": 100}
+    scorer = Equivalence(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="equivalence", value="yes", rationale="Match"),
+    ) as mock_invoke:
+        scorer(
+            outputs="Paris is the capital",
+            expectations={"expected_response": "The capital is Paris"},
+        )
+
+        mock_invoke.assert_called_once()
+        _, kwargs = mock_invoke.call_args
+        assert kwargs["inference_params"] == inference_params
+
+
+def test_retrieval_relevance_passes_inference_params(sample_rag_trace):
+    inference_params = {"temperature": 0.0}
+    scorer = RetrievalRelevance(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="retrieval_relevance", value="yes", rationale="Relevant"),
+    ) as mock_invoke:
+        scorer(trace=sample_rag_trace)
+
+        for args in mock_invoke.call_args_list:
+            assert args.kwargs["inference_params"] == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [
+        UserFrustration,
+        ConversationCompleteness,
+        ConversationalSafety,
+        ConversationalToolCallEfficiency,
+        ConversationalRoleAdherence,
+    ],
+    ids=[
+        "user_frustration",
+        "conversation_completeness",
+        "conversational_safety",
+        "conversational_tool_call_efficiency",
+        "conversational_role_adherence",
+    ],
+)
+def test_session_level_scorer_passes_inference_params_to_judge(scorer_cls):
+    inference_params = {"temperature": 0.0}
+    scorer = scorer_cls(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+
+    judge = scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+def test_knowledge_retention_propagates_inference_params():
+    inference_params = {"temperature": 0.0}
+    scorer = KnowledgeRetention(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+    assert scorer.last_turn_scorer.inference_params == inference_params
+
+    judge = scorer.last_turn_scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [Equivalence, RetrievalRelevance, UserFrustration, KnowledgeRetention],
+)
+def test_builtin_scorer_inference_params_defaults_to_none(scorer_cls):
+    scorer = scorer_cls()
+    assert scorer.inference_params is None
+
+
+def test_builtin_scorer_serialization_roundtrip_with_inference_params():
+    inference_params = {"temperature": 0.0, "top_p": 0.9}
+    scorer = Equivalence(inference_params=inference_params)
+
+    serialized = scorer.model_dump()
+    assert serialized["builtin_scorer_pydantic_data"]["inference_params"] == inference_params
+
+    restored = BuiltInScorer.model_validate(serialized)
+    assert restored.inference_params == inference_params

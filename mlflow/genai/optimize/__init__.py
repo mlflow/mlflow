@@ -1,6 +1,10 @@
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimize import optimize_prompts
-from mlflow.genai.optimize.optimizers import BasePromptOptimizer, GepaPromptOptimizer
+from mlflow.genai.optimize.optimizers import (
+    BasePromptOptimizer,
+    GepaPromptOptimizer,
+    MetaPromptOptimizer,
+)
 from mlflow.genai.optimize.types import (
     LLMParams,
     OptimizerConfig,
@@ -95,6 +99,7 @@ __all__ = [
     "OptimizerConfig",
     "BasePromptOptimizer",
     "GepaPromptOptimizer",
+    "MetaPromptOptimizer",
     "PromptOptimizerOutput",
     "PromptOptimizationResult",
 ]

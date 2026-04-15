@@ -29,7 +29,6 @@ export const useGetDatasetRecords = ({ datasetId, enabled = true }: { datasetId:
 
       return (await fetchAPI(
         getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records?${queryParams.toString()}`),
-        'GET',
       )) as GetDatasetRecordsResponse;
     },
     cacheTime: 0,

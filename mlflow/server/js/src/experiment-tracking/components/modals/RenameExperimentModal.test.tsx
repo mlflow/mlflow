@@ -75,7 +75,7 @@ describe('RenameExperimentModal', () => {
     const error = new Error('123');
     jest
       .mocked(updateExperimentApi)
-      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) } as any));
+      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) }) as any);
 
     renderTestComponent();
     await userEvent.clear(screen.getByLabelText('New experiment name'));
@@ -91,7 +91,7 @@ describe('RenameExperimentModal', () => {
     const error = new Error('123');
     jest
       .mocked(getExperimentApi)
-      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) } as any));
+      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) }) as any);
 
     renderTestComponent();
     await userEvent.clear(screen.getByLabelText('New experiment name'));

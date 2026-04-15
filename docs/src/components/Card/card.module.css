@@ -48,6 +48,7 @@
   border: 1px solid var(--docusaurus-tag-list-border);
   border-radius: var(--card-border-radius);
   transition: box-shadow 0.2s ease-in-out;
+  color: var(--ifm-heading-color);
 }
 
 .CardBordered:hover {
@@ -133,6 +134,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: stretch;
+  width: 100%;
 }
 
 .SmallLogoCardRounded {
@@ -140,9 +143,53 @@
 }
 
 .SmallLogoCardImage {
+  justify-content: center;
+}
+
+.SmallLogoCardImageWithTitle {
+  max-width: 30px;
+  max-height: 30px;
+}
+
+.SmallLogoCardImageDefault {
   max-width: 200px;
   max-height: 60px;
-  justify-content: center;
+}
+
+.SmallLogoCardRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.SmallLogoCardLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+  font-weight: 600;
+  color: var(--ifm-heading-color);
+  font-size: 1.2rem;
+  text-align: left;
+}
+
+.SmallLogoCardArrow {
+  font-size: 1.1rem;
+}
+
+.SmallLogoCardLink {
+  color: var(--ifm-heading-color);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-decoration: none;
+}
+
+.SmallLogoCardLink:hover {
+  color: var(--ifm-heading-color);
+  text-decoration: none;
 }
 
 .NewFeatureCardContent {

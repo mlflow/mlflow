@@ -1,0 +1,109 @@
+import { Button, PlusIcon, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import type { ExpectationAssessment } from '../ModelTrace.types';
+import { ExpectationItem } from './ExpectationItem';
+import { useMemo, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
+import { isEmpty } from 'lodash';
+import { AssessmentCreateForm } from './AssessmentCreateForm';
+
+const AddExpectationButton = ({ onClick }: { onClick: () => void }) => (
+  <Button componentId="shared.model-trace-explorer.add-expectation" size="small" icon={<PlusIcon />} onClick={onClick}>
+    <FormattedMessage defaultMessage="Add expectation" description="Label for the button to add a new expectation" />
+  </Button>
+);
+
+export const AssessmentsPaneExpectationsSection = ({
+  expectations,
+  activeSpanId,
+  traceId,
+  sessionId,
+}: {
+  expectations: ExpectationAssessment[];
+  activeSpanId?: string;
+  traceId: string;
+  sessionId?: string;
+}) => {
+  const sortedExpectations = useMemo(
+    () => expectations.toSorted((left, right) => left.assessment_name.localeCompare(right.assessment_name)),
+    [expectations],
+  );
+
+  const [createFormVisible, setCreateFormVisible] = useState(false);
+
+  const { theme } = useDesignSystemTheme();
+  return (
+    <>
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: theme.spacing.sm,
+          marginBottom: theme.spacing.sm,
+          flexShrink: 0,
+        }}
+      >
+        <Typography.Text bold>
+          <FormattedMessage
+            defaultMessage="Expectations"
+            description="Label for the expectations section in the assessments pane"
+          />{' '}
+          {!isEmpty(sortedExpectations) && <>({sortedExpectations?.length})</>}
+        </Typography.Text>
+        {!isEmpty(sortedExpectations) && <AddExpectationButton onClick={() => setCreateFormVisible(true)} />}
+      </div>
+      {sortedExpectations.length > 0 ? (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
+          {sortedExpectations.map((expectation) => (
+            <ExpectationItem expectation={expectation} key={expectation.assessment_id} />
+          ))}
+        </div>
+      ) : (
+        !createFormVisible && (
+          <div
+            css={{
+              textAlign: 'center',
+              borderRadius: theme.spacing.xs,
+              border: `1px dashed ${theme.colors.border}`,
+              padding: `${theme.spacing.md}px ${theme.spacing.md}px`,
+            }}
+          >
+            <Typography.Hint>
+              {sessionId ? (
+                <FormattedMessage
+                  defaultMessage="Add a custom expectation to this session."
+                  description="Hint message prompting user to add a new expectation to a session"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Add a custom expectation to this trace."
+                  description="Hint message prompting user to add a new expectation to a trace"
+                />
+              )}{' '}
+              <Typography.Link
+                componentId="shared.model-trace-explorer.expectation-learn-more-link"
+                openInNewTab
+                href="https://www.mlflow.org/docs/latest/genai/assessments/expectations/"
+              >
+                <FormattedMessage
+                  defaultMessage="Learn more."
+                  description="Link text for learning more about expectations"
+                />
+              </Typography.Link>
+            </Typography.Hint>
+            <Spacer size="sm" />
+            <AddExpectationButton onClick={() => setCreateFormVisible(true)} />
+          </div>
+        )
+      )}
+      {createFormVisible && (
+        <AssessmentCreateForm
+          spanId={activeSpanId}
+          traceId={traceId}
+          assessmentType="expectation"
+          setExpanded={() => setCreateFormVisible(false)}
+        />
+      )}
+    </>
+  );
+};

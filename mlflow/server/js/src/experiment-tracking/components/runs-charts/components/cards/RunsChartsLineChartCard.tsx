@@ -50,9 +50,7 @@ const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig): string => {
 };
 
 export interface RunsChartsLineChartCardProps
-  extends RunsChartCardReorderProps,
-    RunsChartCardSizeProps,
-    RunsChartCardVisibilityProps {
+  extends RunsChartCardReorderProps, RunsChartCardSizeProps, RunsChartCardVisibilityProps {
   config: RunsChartsLineCardConfig;
   chartRunData: RunsChartsRunData[];
 

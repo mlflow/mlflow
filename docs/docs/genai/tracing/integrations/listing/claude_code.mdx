@@ -1,6 +1,10 @@
 ---
+title: Tracing Claude Code
+description: Trace Claude Code CLI conversations and Claude Agent SDK usage with MLflow for full observability into AI-assisted software development workflows.
 sidebar_position: 9
 sidebar_label: Claude Code
+keywords: [claude code, tracing, mlflow, anthropic, ai agent, coding assistant]
+image: /images/llms/anthropic/claude-code-tracing.png
 ---
 
 import Tabs from "@theme/Tabs";
@@ -21,6 +25,7 @@ After setting up auto tracing, MLflow will automatically capture traces of your 
 - Tool usage (file operations, code execution, web searches, etc.)
 - Conversation timing and duration
 - Tool execution results
+- Token usage (input, output, and total tokens)
 - Session metadata including working directory and user
 
 ## Setup
@@ -36,7 +41,7 @@ Use CLI tracing to automatically capture your interactive Claude Code CLI conver
 
 #### Requirements
 
-- MLflow >= 3.4 (`pip install mlflow>=3.4`)
+- MLflow >= 3.4 (`pip install 'mlflow>=3.4'`)
 - [Claude Code CLI](https://claude.com/product/claude-code) installed and configured
 
 #### Basic Setup
@@ -46,7 +51,7 @@ Use CLI tracing to automatically capture your interactive Claude Code CLI conver
 mlflow autolog claude
 
 # Set up tracing in specific directory
-mlflow autolog claude ~/my-project
+mlflow autolog claude -d ~/my-project
 
 # Check tracing status
 mlflow autolog claude --status
@@ -79,7 +84,7 @@ mlflow autolog claude -n "My AI Project"
 
 ```bash
 # Set up tracing in your project
-mlflow autolog claude ~/my-project
+mlflow autolog claude -d ~/my-project
 
 # Navigate to project directory
 cd ~/my-project
@@ -100,7 +105,7 @@ Use SDK tracing when building applications that programmatically use the Claude 
 
 #### Requirements
 
-- MLflow >= 3.5 (`pip install mlflow>=3.5`)
+- MLflow >= 3.5 (`pip install 'mlflow>=3.5'`)
 - [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview) >= 0.1.0 (`pip install claude-agent-sdk >= 0.1.0`)
 
 #### Basic Setup
@@ -144,9 +149,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-#### Claude Tracing with MLflow GenAI Evaluation
+#### Claude Tracing with MLflow Evaluation
 
-You can also use SDK tracing with MLflow's GenAI evaluation framework:
+You can also use SDK tracing with MLflow's evaluation framework:
 
 ```python
 import asyncio
@@ -189,12 +194,10 @@ relevance = make_judge(
 )
 
 # Create evaluation dataset
-eval_data = pd.DataFrame(
-    [
-        {"inputs": {"query": "What is machine learning?"}},
-        {"inputs": {"query": "Explain neural networks"}},
-    ]
-)
+eval_data = pd.DataFrame([
+    {"inputs": {"query": "What is machine learning?"}},
+    {"inputs": {"query": "Explain neural networks"}},
+])
 
 # Run evaluation with automatic tracing
 mlflow.set_experiment("claude_evaluation")
@@ -203,6 +206,10 @@ evaluate(data=eval_data, predict_fn=predict_fn, scorers=[relevance])
 
 </TabItem>
 </Tabs>
+
+## Tracking Token Usage and Cost
+
+MLflow automatically tracks token usage and cost for Claude Code conversations. The token usage for each LLM call will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 ## Troubleshooting
 

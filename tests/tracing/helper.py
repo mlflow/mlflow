@@ -9,6 +9,7 @@ from unittest import mock
 import opentelemetry.trace as trace_api
 import pytest
 from opentelemetry.sdk.trace import Event, ReadableSpan
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
@@ -19,6 +20,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
+from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, get_autolog_function
@@ -149,6 +151,8 @@ def create_test_trace_info_with_uc_table(
 
 
 def get_traces(experiment_id=None) -> list[Trace]:
+    # Flush any pending async trace writes before querying so tests see complete results.
+    mlflow.flush_trace_async_logging()
     # Get all traces from the backend
     return TracingClient().search_traces(
         locations=[experiment_id or _get_experiment_id()],
@@ -225,7 +229,9 @@ def score_in_model_serving(model_uri: str, model_input: dict[str, Any]):
         def _load_model():
             return mlflow.pyfunc.load_model(model_uri)
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="test-tracing-helper"
+        ) as executor:
             model = executor.submit(_load_model).result()
 
         # Score the model
@@ -252,6 +258,22 @@ def skip_module_when_testing_trace_sdk():
             "Skipping test because it requires mlflow or mlflow-skinny to be installed.",
             allow_module_level=True,
         )
+
+
+@pytest.fixture
+def capture_otel_export():
+    """Capture traces in memory for testing otel export."""
+    from mlflow.tracing.provider import provider
+
+    exporter = InMemorySpanExporter()
+    provider.get_or_init_tracer("test")
+    tp = provider.get()
+    processor = OtelSpanProcessor(span_exporter=exporter, export_metrics=False)
+    processor._should_register_traces = False
+    tp.add_span_processor(processor)
+    yield exporter, processor
+    processor.force_flush(timeout_millis=5000)
+    processor.shutdown()
 
 
 V2_TRACE_DICT = {

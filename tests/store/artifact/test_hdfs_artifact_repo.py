@@ -1,5 +1,4 @@
 import sys
-from tempfile import NamedTemporaryFile
 from unittest import mock
 from unittest.mock import call
 
@@ -55,7 +54,7 @@ def test_log_artifact_viewfs(hdfs_system_mock, tmp_path):
     upload_mock.assert_called_once_with("/mypath/more_path/some/sample_file")
 
 
-def test_log_artifact_with_kerberos_setup(hdfs_system_mock, monkeypatch):
+def test_log_artifact_with_kerberos_setup(hdfs_system_mock, monkeypatch, tmp_path):
     if sys.platform == "win32":
         pytest.skip()
     monkeypatch.setenv("MLFLOW_KERBEROS_TICKET_CACHE", "/tmp/krb5cc_22222222")
@@ -63,21 +62,20 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock, monkeypatch):
 
     repo = HdfsArtifactRepository("hdfs:/some/maybe/path")
 
-    with NamedTemporaryFile() as tmp_local_file:
-        tmp_local_file.write(b"PyArrow Works")
-        tmp_local_file.seek(0)
+    tmp_local_file = tmp_path / "test_file"
+    tmp_local_file.write_bytes(b"PyArrow Works")
 
-        repo.log_artifact(tmp_local_file.name, "test_hdfs/some/path")
+    repo.log_artifact(str(tmp_local_file), "test_hdfs/some/path")
 
-        hdfs_system_mock.assert_called_once_with(
-            extra_conf=None,
-            host="default",
-            kerb_ticket="/tmp/krb5cc_22222222",
-            port=0,
-            user="some_kerberos_user",
-        )
-        upload_mock = hdfs_system_mock.return_value.open_output_stream
-        upload_mock.assert_called_once()
+    hdfs_system_mock.assert_called_once_with(
+        extra_conf=None,
+        host="default",
+        kerb_ticket="/tmp/krb5cc_22222222",
+        port=0,
+        user="some_kerberos_user",
+    )
+    upload_mock = hdfs_system_mock.return_value.open_output_stream
+    upload_mock.assert_called_once()
 
 
 def test_log_artifact_with_invalid_local_dir(hdfs_system_mock):

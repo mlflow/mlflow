@@ -36,7 +36,7 @@ export class MlflowClient {
     this.artifactsClient = getArtifactsClient({
       trackingUri: options.trackingUri,
       host: this.hostUrl,
-      authProvider: options.authProvider
+      authProvider: options.authProvider,
     });
   }
 
@@ -62,7 +62,7 @@ export class MlflowClient {
       'POST',
       url,
       this.headersProvider,
-      payload
+      payload,
     );
     return TraceInfo.fromJson(response.trace.trace_info);
   }
@@ -109,7 +109,7 @@ export class MlflowClient {
   async createExperiment(
     name: string,
     artifactLocation?: string,
-    tags?: Record<string, string>
+    tags?: Record<string, string>,
   ): Promise<string> {
     const url = CreateExperiment.getEndpoint(this.hostUrl);
     const payload: CreateExperiment.Request = { name, artifact_location: artifactLocation, tags };
@@ -117,7 +117,7 @@ export class MlflowClient {
       'POST',
       url,
       this.headersProvider,
-      payload
+      payload,
     );
     return response.experiment_id;
   }

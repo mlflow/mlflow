@@ -54,6 +54,13 @@ def completions_response():
     }
 
 
+def test_get_provider_name():
+    config = completions_config()
+    provider = TogetherAIProvider(EndpointConfig(**config))
+    assert provider.DISPLAY_NAME == "TogetherAI"
+    assert provider.get_provider_name() == "together_ai"
+
+
 @pytest.mark.asyncio
 async def test_completions():
     config = completions_config()
@@ -182,6 +189,7 @@ async def test_completions_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -195,6 +203,7 @@ async def test_completions_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -208,6 +217,7 @@ async def test_completions_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
         ]
 
@@ -523,6 +533,7 @@ async def test_chat_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -540,6 +551,7 @@ async def test_chat_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -557,6 +569,11 @@ async def test_chat_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "chat.completion.chunk",
+                "usage": {
+                    "prompt_tokens": 17,
+                    "completion_tokens": 200,
+                    "total_tokens": 217,
+                },
             },
         ]
 

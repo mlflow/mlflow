@@ -4,7 +4,7 @@ import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentKind, getMlflow3DocsLink } from '../../constants';
-import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
+import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import invariant from 'invariant';
@@ -147,9 +147,8 @@ export const ExperimentLoggedModelListPageTableEmpty = ({
     experimentId,
   });
   const experiment = experimentEntity;
-  const experimentKind = getExperimentKindFromTags(experiment?.tags);
-  const isGenAIExperiment =
-    experimentKind === ExperimentKind.GENAI_DEVELOPMENT || experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED;
+  const experimentKind = useExperimentKind(experiment?.tags);
+  const isGenAIExperiment = experimentKind ? isGenAIExperimentKind(experimentKind) : false;
 
   const isEmpty = !badRequestError && !isFilteringActive;
 

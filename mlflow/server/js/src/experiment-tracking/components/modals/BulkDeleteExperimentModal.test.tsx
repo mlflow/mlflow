@@ -65,7 +65,7 @@ describe('RenameExperimentModal', () => {
     const error = new Error('123');
     jest
       .mocked(deleteExperimentApi)
-      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) } as any));
+      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) }) as any);
 
     renderTestComponent();
     await userEvent.click(screen.getByText('Delete'));

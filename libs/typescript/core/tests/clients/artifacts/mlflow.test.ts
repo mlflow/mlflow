@@ -17,9 +17,9 @@ describe('MlflowArtifactsClient', () => {
     getHost: () => testHost,
     // eslint-disable-next-line require-await, @typescript-eslint/require-await
     getHeadersProvider: () => async () => ({
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     }),
-    getDatabricksToken: () => undefined
+    getDatabricksToken: () => undefined,
   };
 
   beforeAll(() => {
@@ -41,13 +41,13 @@ describe('MlflowArtifactsClient', () => {
         traceId: 'tr-abc123',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '0' }
+          mlflowExperiment: { experimentId: '0' },
         },
         state: TraceState.OK,
         requestTime: 1000,
         tags: {
-          'mlflow.artifactLocation': 'mlflow-artifacts:/0/traces/tr-abc123/artifacts'
-        }
+          'mlflow.artifactLocation': 'mlflow-artifacts:/0/traces/tr-abc123/artifacts',
+        },
       });
       const traceData = new TraceData([]);
 
@@ -57,8 +57,8 @@ describe('MlflowArtifactsClient', () => {
           'http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/0/traces/tr-abc123/artifacts/traces.json',
           () => {
             return HttpResponse.json({}, { status: 200 });
-          }
-        )
+          },
+        ),
       );
 
       await client.uploadTraceData(traceInfo, traceData);
@@ -71,16 +71,16 @@ describe('MlflowArtifactsClient', () => {
         traceId: 'tr-no-artifact',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '0' }
+          mlflowExperiment: { experimentId: '0' },
         },
         state: TraceState.OK,
         requestTime: 1000,
-        tags: {} // No artifact location
+        tags: {}, // No artifact location
       });
       const traceData = new TraceData([]);
 
       await expect(client.uploadTraceData(traceInfo, traceData)).rejects.toThrow(
-        'Artifact location not found in trace tags'
+        'Artifact location not found in trace tags',
       );
 
       // Test passes if error is thrown as expected
@@ -93,13 +93,13 @@ describe('MlflowArtifactsClient', () => {
         traceId: 'tr-download',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '5' }
+          mlflowExperiment: { experimentId: '5' },
         },
         state: TraceState.OK,
         requestTime: 4000,
         tags: {
-          'mlflow.artifactLocation': 'mlflow-artifacts:/5/traces/tr-download/artifacts'
-        }
+          'mlflow.artifactLocation': 'mlflow-artifacts:/5/traces/tr-download/artifacts',
+        },
       });
 
       const mockResponse = {
@@ -111,9 +111,9 @@ describe('MlflowArtifactsClient', () => {
             start_time: '4000000000',
             end_time: '4100000000',
             status: { code: 'OK' },
-            attributes: {}
-          }
-        ]
+            attributes: {},
+          },
+        ],
       };
 
       // Mock the artifacts download endpoint
@@ -122,8 +122,8 @@ describe('MlflowArtifactsClient', () => {
           'http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/5/traces/tr-download/artifacts/traces.json',
           () => {
             return HttpResponse.json(mockResponse);
-          }
-        )
+          },
+        ),
       );
 
       const result = await client.downloadTraceData(traceInfo);
@@ -138,14 +138,14 @@ describe('MlflowArtifactsClient', () => {
         traceId: 'tr-complex-path',
         traceLocation: {
           type: TraceLocationType.MLFLOW_EXPERIMENT,
-          mlflowExperiment: { experimentId: '42' }
+          mlflowExperiment: { experimentId: '42' },
         },
         state: TraceState.OK,
         requestTime: 5000,
         tags: {
           'mlflow.artifactLocation':
-            'mlflow-artifacts:/42/some/nested/path/traces/tr-complex-path/artifacts'
-        }
+            'mlflow-artifacts:/42/some/nested/path/traces/tr-complex-path/artifacts',
+        },
       });
 
       // Mock the complex path artifacts download endpoint
@@ -154,8 +154,8 @@ describe('MlflowArtifactsClient', () => {
           'http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/42/some/nested/path/traces/tr-complex-path/artifacts/traces.json',
           () => {
             return HttpResponse.json({ spans: [] });
-          }
-        )
+          },
+        ),
       );
 
       await client.downloadTraceData(traceInfo);

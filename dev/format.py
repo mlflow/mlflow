@@ -25,7 +25,7 @@ def transform(stdout: str, is_maintainer: bool) -> str:
     return "\n".join(transformed) + "\n"
 
 
-def main():
+def main() -> None:
     if "NO_FIX" in os.environ:
         with subprocess.Popen(
             [
@@ -43,12 +43,10 @@ def main():
             sys.stderr.write(stderr)
             sys.exit(prc.returncode)
     else:
-        with subprocess.Popen(
-            [
-                *RUFF_FORMAT,
-                *sys.argv[1:],
-            ]
-        ) as prc:
+        with subprocess.Popen([
+            *RUFF_FORMAT,
+            *sys.argv[1:],
+        ]) as prc:
             prc.communicate()
             sys.exit(prc.returncode)
 

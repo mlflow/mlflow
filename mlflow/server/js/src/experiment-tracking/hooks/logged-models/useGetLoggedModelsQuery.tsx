@@ -25,7 +25,7 @@ const queryFn = async ({ queryKey: [, loggedModelIds] }: QueryFunctionContext<Qu
       for (const id of chunkedIds) {
         queryParams.append('model_ids', id);
       }
-      return fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models:batchGet?${queryParams.toString()}`), 'GET');
+      return fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models:batchGet?${queryParams.toString()}`));
     }),
   );
 };

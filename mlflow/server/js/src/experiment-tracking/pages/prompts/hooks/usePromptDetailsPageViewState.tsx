@@ -2,36 +2,31 @@ import { useCallback, useReducer } from 'react';
 import { PromptVersionsTableMode } from '../utils';
 import { first } from 'lodash';
 import type { RegisteredPromptDetailsResponse } from '../types';
+import { useSelectedPromptVersion } from './useSelectedPromptVersion';
 
 const promptDetailsViewStateReducer = (
   state: {
     mode: PromptVersionsTableMode;
-    selectedVersion?: string;
     comparedVersion?: string;
   },
   action:
-    | { type: 'switchSides' }
-    | { type: 'setPreviewMode'; selectedVersion?: string }
-    | { type: 'setCompareMode'; selectedVersion?: string; comparedVersion?: string }
-    | { type: 'setSelectedVersion'; selectedVersion: string }
-    | { type: 'setComparedVersion'; comparedVersion: string },
+    | { type: 'setPreviewMode' }
+    | { type: 'setCompareMode'; comparedVersion?: string }
+    | { type: 'setTracesMode' }
+    | { type: 'setComparedVersion'; comparedVersion?: string },
 ) => {
-  if (action.type === 'switchSides') {
-    return { ...state, selectedVersion: state.comparedVersion, comparedVersion: state.selectedVersion };
-  }
   if (action.type === 'setPreviewMode') {
-    return { ...state, mode: PromptVersionsTableMode.PREVIEW, selectedVersion: action.selectedVersion };
+    return { ...state, mode: PromptVersionsTableMode.PREVIEW };
   }
   if (action.type === 'setCompareMode') {
     return {
       ...state,
       mode: PromptVersionsTableMode.COMPARE,
-      selectedVersion: action.selectedVersion,
       comparedVersion: action.comparedVersion,
     };
   }
-  if (action.type === 'setSelectedVersion') {
-    return { ...state, selectedVersion: action.selectedVersion };
+  if (action.type === 'setTracesMode') {
+    return { ...state, mode: PromptVersionsTableMode.TRACES };
   }
   if (action.type === 'setComparedVersion') {
     return { ...state, comparedVersion: action.comparedVersion };
@@ -40,6 +35,7 @@ const promptDetailsViewStateReducer = (
 };
 
 export const usePromptDetailsPageViewState = (promptDetailsData?: RegisteredPromptDetailsResponse) => {
+  const [selectedVersion, setSelectedVersion] = useSelectedPromptVersion();
   const [viewState, dispatchViewMode] = useReducer(promptDetailsViewStateReducer, {
     mode: PromptVersionsTableMode.PREVIEW,
   });
@@ -47,38 +43,56 @@ export const usePromptDetailsPageViewState = (promptDetailsData?: RegisteredProm
   const setPreviewMode = useCallback(
     (versionEntity?: { version: string }) => {
       const firstVersion = (versionEntity ?? first(promptDetailsData?.versions))?.version;
-      dispatchViewMode({ type: 'setPreviewMode', selectedVersion: firstVersion });
+      setSelectedVersion(firstVersion);
+      dispatchViewMode({ type: 'setPreviewMode' });
     },
-    [promptDetailsData],
+    [promptDetailsData, setSelectedVersion],
   );
-  const setSelectedVersion = useCallback((selectedVersion: string) => {
-    dispatchViewMode({ type: 'setSelectedVersion', selectedVersion });
-  }, []);
   const setComparedVersion = useCallback((comparedVersion: string) => {
     dispatchViewMode({ type: 'setComparedVersion', comparedVersion });
   }, []);
+
   const setCompareMode = useCallback(() => {
-    // Last (highest) version will be the compared version
-    const comparedVersion = first(promptDetailsData?.versions)?.version;
-    // The one immediately before the last version will be the baseline version
-    const baselineVersion = promptDetailsData?.versions[1]?.version;
-    dispatchViewMode({ type: 'setCompareMode', selectedVersion: baselineVersion, comparedVersion });
-  }, [promptDetailsData]);
+    const latestVersion = first(promptDetailsData?.versions)?.version;
+    // Use the currently selected version as baseline (left side), or fall back to second version
+    const baselineVersion = selectedVersion ?? promptDetailsData?.versions[1]?.version;
+    // If baseline is already the latest, compare with the second version; otherwise compare with latest
+    const comparedVersion = baselineVersion === latestVersion ? promptDetailsData?.versions[1]?.version : latestVersion;
 
-  const switchSides = useCallback(() => dispatchViewMode({ type: 'switchSides' }), []);
+    setSelectedVersion(baselineVersion);
+    dispatchViewMode({ type: 'setCompareMode', comparedVersion });
+  }, [promptDetailsData, selectedVersion, setSelectedVersion]);
 
-  if (
-    first(promptDetailsData?.versions) &&
-    viewState.mode === PromptVersionsTableMode.PREVIEW &&
-    !viewState.selectedVersion
-  ) {
+  const setTracesMode = useCallback(
+    (versionEntity?: { version: string }) => {
+      const firstVersion = (versionEntity ?? first(promptDetailsData?.versions))?.version;
+      setSelectedVersion(firstVersion);
+      dispatchViewMode({ type: 'setTracesMode' });
+    },
+    [promptDetailsData, setSelectedVersion],
+  );
+
+  const switchSides = useCallback(() => {
+    if (!selectedVersion || !viewState.comparedVersion) {
+      return;
+    }
+
+    const comparedVersion = viewState.comparedVersion;
+    const tempSelectedVersion = selectedVersion;
+    setSelectedVersion(comparedVersion);
+    setComparedVersion(tempSelectedVersion);
+  }, [selectedVersion, setComparedVersion, setSelectedVersion, viewState.comparedVersion]);
+
+  if (first(promptDetailsData?.versions) && viewState.mode === PromptVersionsTableMode.PREVIEW && !selectedVersion) {
     setPreviewMode(first(promptDetailsData?.versions));
   }
 
   return {
     viewState,
+    selectedVersion,
     setPreviewMode,
     setCompareMode,
+    setTracesMode,
     switchSides,
     setSelectedVersion,
     setComparedVersion,

@@ -217,10 +217,18 @@ export const normalizeVoltAgentChatOutput = (obj: unknown): ModelTraceChatMessag
 };
 
 const getToolCallIdFromSpan = (child: ModelTraceSpanNode): string => {
+  if (Array.isArray(child.attributes)) {
+    const attribute = child.attributes.find((attr) => attr.key === 'tool.call.id');
+    return attribute?.value.string_value ?? '';
+  }
   return child.attributes?.['tool.call.id'] as string;
 };
 
 const getToolNameFromSpan = (child: ModelTraceSpanNode): string => {
+  if (Array.isArray(child.attributes)) {
+    const attribute = child.attributes.find((attr) => attr.key === 'tool.name');
+    return attribute?.value.string_value ?? '';
+  }
   return child.attributes?.['tool.name'] as string;
 };
 
@@ -239,7 +247,13 @@ export const synthesizeVoltAgentChatMessages = (
 
   messages.push(...inputMessages);
 
-  const toolSpans = children.filter((child) => child.attributes?.['span.type'] === 'tool');
+  const toolSpans = children.filter((child) => {
+    if (Array.isArray(child.attributes)) {
+      const attribute = child.attributes.find((attr) => attr.key === 'span.type');
+      return attribute?.value.string_value === 'tool';
+    }
+    return child.attributes?.['span.type'] === 'tool';
+  });
 
   if (toolSpans.length > 0) {
     const toolCalls: ModelTraceToolCall[] = toolSpans.map((toolSpan) => {

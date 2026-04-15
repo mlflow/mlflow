@@ -1,4 +1,4 @@
-import type { TimelineTreeNode } from './timeline-tree';
+import type { TimelineTreeNode } from './timeline-tree/TimelineTree.types';
 
 export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 
@@ -95,7 +95,30 @@ export type ModelTraceSpanV3 = {
   type?: ModelSpanType;
 };
 
-export type ModelTraceSpan = ModelTraceSpanV2 | ModelTraceSpanV3;
+export type ModelTraceSpanV4 = {
+  trace_id: string;
+  span_id: string;
+  // can be empty or null
+  parent_span_id: string | null;
+  name: string;
+  kind: string;
+  start_time_unix_nano: string;
+  end_time_unix_nano: string;
+  attributes: Array<{
+    key: string;
+    value: {
+      string_value?: string;
+      int_value?: number;
+      bool_value?: boolean;
+    };
+  }>;
+  status: { code: ModelSpanStatusCode };
+  events?: ModelTraceEvent[];
+  /* metadata for ui usage logging */
+  type?: ModelSpanType;
+};
+
+export type ModelTraceSpan = ModelTraceSpanV2 | ModelTraceSpanV3 | ModelTraceSpanV4;
 
 export type ModelTraceEvent = {
   name: string;
@@ -253,6 +276,15 @@ export type ModelTraceStatus =
   | ModelTraceStatusInProgress;
 
 /**
+ * Cost information for a span in USD.
+ */
+export interface SpanCostInfo {
+  input_cost: number;
+  output_cost: number;
+  total_cost: number;
+}
+
+/**
  * Represents a single node in the model trace tree.
  */
 export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpan, 'attributes' | 'type' | 'events'> {
@@ -265,6 +297,9 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   chatTools?: ModelTraceChatTool[];
   parentId?: string | null;
   traceId: string;
+  modelName?: string;
+  cost?: SpanCostInfo;
+  linkedGatewayTraceId?: string;
 }
 
 export type ModelTraceExplorerTab = 'chat' | 'content' | 'attributes' | 'events';
@@ -318,7 +353,7 @@ type ModelTraceImageContentPart = {
   image_url: ModelTraceImageUrl;
 };
 
-type ModelTraceInputAudio = {
+export type ModelTraceInputAudio = {
   data: string;
   format: 'wav' | 'mp3';
 };
@@ -328,10 +363,20 @@ type ModelTraceAudioContentPart = {
   input_audio: ModelTraceInputAudio;
 };
 
+type ModelTraceAnthropicImageContentPart = {
+  type: 'image';
+  source: {
+    type: 'base64';
+    media_type: string;
+    data: string;
+  };
+};
+
 export type ModelTraceContentParts =
   | ModelTraceTextContentPart
   | ModelTraceImageContentPart
-  | ModelTraceAudioContentPart;
+  | ModelTraceAudioContentPart
+  | ModelTraceAnthropicImageContentPart;
 
 export type ModelTraceContentType = string | ModelTraceContentParts[];
 
@@ -342,6 +387,8 @@ export type ModelTraceChatMessage = {
   content?: string | null;
   tool_calls?: ModelTraceToolCall[];
   tool_call_id?: string;
+  reasoning?: string | null;
+  audioParts?: ModelTraceInputAudio[];
 };
 
 // The actual chat message schema of mlflow contains string, null and content part list.
@@ -469,4 +516,12 @@ export interface ExpectationAssessment extends AssessmentBase {
   expectation: Expectation;
 }
 
-export type Assessment = FeedbackAssessment | ExpectationAssessment;
+export interface IssueReferenceValue {
+  issue_name: string;
+}
+
+export interface IssueReferenceAssessment extends AssessmentBase {
+  issue: IssueReferenceValue;
+}
+
+export type Assessment = FeedbackAssessment | ExpectationAssessment | IssueReferenceAssessment;

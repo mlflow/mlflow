@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import {
   WorkerToClientMessageType,
   type TelemetryRecord,
@@ -22,15 +23,14 @@ async function fetchConfig(): Promise<TelemetryConfig | null> {
       throw new Error(`Failed to fetch config: ${response.status}`);
     }
     return await response.json();
-  } catch (error) {
-    console.error('[TelemetryWorker] Failed to fetch config:', error);
+  } catch {
     return null;
   }
 }
 
 class TelemetryLogger {
   private config: Promise<TelemetryConfig | null> = fetchConfig();
-  private sessionId = crypto.randomUUID();
+  private sessionId = uuidv4();
   private logQueue: LogQueue = new LogQueue();
   private samplingValue: number = Math.random() * 100;
 
@@ -67,8 +67,8 @@ function handleMessage(event: MessageEvent): void {
 
   switch (message.type) {
     case ClientToWorkerMessageType.LOG_EVENT:
-      logger.addLogToQueue(message.payload as TelemetryRecord).catch((error) => {
-        console.error('[TelemetryWorker] Error logging event:', error);
+      logger.addLogToQueue(message.payload as TelemetryRecord).catch(() => {
+        // fail silently
       });
       break;
     case ClientToWorkerMessageType.SHUTDOWN:

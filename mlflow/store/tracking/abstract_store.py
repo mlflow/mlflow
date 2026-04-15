@@ -7,6 +7,9 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     DatasetRecord,
+    Issue,
+    IssueSeverity,
+    IssueStatus,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -25,6 +28,11 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.genai.scorers.online.entities import (
+        CompletedSession,
+        OnlineScorer,
+        OnlineScoringConfig,
+    )
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
@@ -59,6 +67,11 @@ class AbstractStore(GatewayStoreMixin):
         derived class would be forced to create one.
         """
         self._async_logging_queue = AsyncLoggingQueue(logging_func=self.log_batch)
+
+    @property
+    def supports_workspaces(self) -> bool:
+        """Return whether workspaces are supported by this tracking store."""
+        return False
 
     @abstractmethod
     def search_experiments(
@@ -369,6 +382,24 @@ class AbstractStore(GatewayStoreMixin):
         # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
         raise MlflowNotImplementedException()
 
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        """
+        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
+
+        This is more efficient than batch_get_traces when only metadata is needed,
+        as it avoids loading potentially large span data.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
+
+        Returns:
+            List of TraceInfo objects containing only metadata (no spans).
+        """
+        raise MlflowNotImplementedException()
+
     def get_online_trace_details(
         self,
         trace_id: str,
@@ -411,6 +442,43 @@ class AbstractStore(GatewayStoreMixin):
             not be meaningful in such cases.
         """
         raise NotImplementedError
+
+    def find_completed_sessions(
+        self,
+        experiment_id: str,
+        min_last_trace_timestamp_ms: int,
+        max_last_trace_timestamp_ms: int,
+        max_results: int | None = None,
+        filter_string: str | None = None,
+    ) -> list["CompletedSession"]:
+        """
+        Find completed sessions based on their last trace timestamp.
+
+        A completed session is one whose last trace timestamp falls within the specified
+        time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms] and has
+        no traces after max_last_trace_timestamp_ms (i.e., the session is not ongoing).
+
+        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
+        deterministic and stable ordering, especially when timestamp ties occur. This is
+        useful when repeatedly calling this method with a ``max_results`` limit.
+
+        Args:
+            experiment_id: The experiment to search.
+            min_last_trace_timestamp_ms: Lower bound for session's last trace timestamp (inclusive).
+                Sessions with last trace before this time are excluded.
+            max_last_trace_timestamp_ms: Upper bound for session's last trace timestamp (inclusive).
+                Sessions with any traces after this time are excluded.
+            max_results: Maximum number of sessions to return. If None, returns all
+                matching sessions.
+            filter_string: Optional filter string to apply to the first trace in each session.
+                Uses the same syntax as search_traces. If provided, only sessions whose
+                first trace matches this filter will be included.
+
+        Returns:
+            List of CompletedSession objects sorted by (last_trace_timestamp_ms ASC,
+            session_id ASC).
+        """
+        raise NotImplementedError(self.__class__.__name__)
 
     def query_trace_metrics(
         self,
@@ -534,6 +602,95 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise NotImplementedError
 
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        categories: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+        include_trace_count: bool = False,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        raise MlflowNotImplementedException()
+
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
@@ -541,14 +698,12 @@ class AbstractStore(GatewayStoreMixin):
         Args:
             location: The location to log spans to. Can be either experiment ID or the
                 full UC table name.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces;
+                the store will group them by trace_id internally.
             tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -558,13 +713,10 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             location: The location to log spans to.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -1174,6 +1326,24 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
+    def delete_dataset_records(
+        self,
+        dataset_id: str,
+        dataset_record_ids: list[str],
+    ) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
@@ -1306,13 +1476,13 @@ class AbstractStore(GatewayStoreMixin):
             f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
         )
 
-    def link_prompts_to_trace(self, _trace_id: str, _prompt_versions: list[PromptVersion]) -> None:
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
         """
         Link multiple prompt versions to a trace by creating entity associations.
 
         Args:
-            _trace_id: ID of the trace to link prompt versions to.
-            _prompt_versions: List of PromptVersion objects to link.
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
 
         Raises:
             NotImplementedError: If the operation is not supported by this store.
@@ -1431,5 +1601,58 @@ class AbstractStore(GatewayStoreMixin):
 
         Raises:
             MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def upsert_online_scoring_config(
+        self,
+        experiment_id: str,
+        scorer_name: str,
+        sample_rate: float,
+        filter_string: str | None = None,
+    ) -> "OnlineScoringConfig":
+        """
+        Create or update online scoring configuration for a scorer.
+
+        Args:
+            experiment_id: The ID of the Experiment containing the scorer.
+            scorer_name: The scorer name.
+            sample_rate: The sampling rate (0.0 to 1.0).
+            filter_string: Optional filter expression for trace selection.
+
+        Returns:
+            The created or updated OnlineScoringConfig object.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
+        """
+        Get online scoring configurations for multiple scorers by their IDs.
+
+        A single scorer can have multiple configurations (e.g., running in different
+        experiments or with different filter strings).
+
+        Args:
+            scorer_ids: List of scorer IDs to fetch configurations for.
+
+        Returns:
+            A list of OnlineScoringConfig objects for the specified scorers.
+            Scorers without configurations are not included.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_active_online_scorers(self) -> list["OnlineScorer"]:
+        """
+        Get all active online scorers across all experiments.
+
+        Active online scorers are those with a sample_rate greater than zero.
+        Each OnlineScorer contains the serialized scorer and sampling configuration.
+
+        Returns:
+            List of OnlineScorer entities with serialized_scorer, sample_rate,
+            and filter_string fields populated.
         """
         raise NotImplementedError(self.__class__.__name__)

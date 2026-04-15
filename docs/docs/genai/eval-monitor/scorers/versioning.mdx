@@ -1,18 +1,40 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
 # Registering and Versioning Scorers
 
 Scorers can be registered to MLflow experiments for version control and team collaboration.
 
 ## Supported Scorers
 
-| Scorer Type                                                                      | Supported                                                         |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [Agent-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/agentic-overview)       | ✅                                                                |
-| [Template-based LLM Scorers](/genai/eval-monitor/scorers/llm-judge/make-judge)   | ✅                                                                |
-| [Code-based Scorers](/genai/eval-monitor/scorers/custom)                         | ✅                                                                |
-| [Guidelines-based LLM Scorers](/genai/eval-monitor/scorers/llm-judge/guidelines) | ❌ (Use [MLflow Prompt Registry](/genai/prompt-registry) instead) |
-| [Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined)           | ❌ (Prompts are hard-coded in MLflow)                             |
+| Scorer Type                                                              | Supported                                                         |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| [Custom LLM Judges](/genai/eval-monitor/scorers/llm-judge/custom-judges) | ✅                                                                |
+| [Code-based Scorers](/genai/eval-monitor/scorers/custom)                 | ❌                                                                |
+| [Guidelines Judges](/genai/eval-monitor/scorers/llm-judge/guidelines)    | ❌ (Use [MLflow Prompt Registry](/genai/prompt-registry) instead) |
+| [Built-in Judges](/genai/eval-monitor/scorers/llm-judge/predefined)      | ✅                                                                |
 
-## Usage
+<Tabs groupId="method">
+  <TabItem value="ui" label="UI" default>
+
+### Registering a Scorer
+
+When you create a judge using the [Judge Builder UI](/genai/eval-monitor/scorers/llm-judge/custom-judges), it is automatically registered to the current experiment as version 1.
+
+### Updating a Scorer
+
+1. Navigate to the **Judges** tab in your experiment
+2. Click the **Edit** button on the scorer you want to update
+3. Modify the scorer configuration (instructions, model, output type, etc.)
+4. Click **Save**. This will create a new version of the scorer.
+
+### Deleting a Scorer
+
+1. Navigate to the **Judges** tab in your experiment
+2. Click the **Delete** button on the scorer you want to remove
+
+  </TabItem>
+  <TabItem value="sdk" label="SDK">
 
 ### Prerequisite
 
@@ -74,7 +96,7 @@ registered_v2 = quality_judge_v2.register(experiment_id=experiment_id)
 To load a registered scorer, use the `get_scorer` function.
 
 ```python
-from mlflow.genai.scorers import get_scorer
+from mlflow.genai import get_scorer
 
 # Get the latest version
 latest_judge = get_scorer(name="response_quality")
@@ -87,13 +109,12 @@ latest_judge = get_scorer(name="response_quality")
 The `list_scorers` function returns a list of the scorers registered in the experiment.
 
 ```python
-from mlflow.genai.scorers import list_scorers
+from mlflow.genai import list_scorers
 
 all_scorers = list_scorers(experiment_id=experiment_id)
 for scorer in all_scorers:
     print(f"Scorer: {scorer.name}, Model: {scorer.model}")
 ```
 
-## UI Support
-
-Coming soon!
+  </TabItem>
+</Tabs>

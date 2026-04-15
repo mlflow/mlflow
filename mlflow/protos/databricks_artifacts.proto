@@ -357,6 +357,11 @@ message GetCredentialsForTraceDataDownload {
 
   optional string request_id = 1 [(validate_required) = true];
 
+  // Optional relative path within the trace artifact directory.
+  // If not specified, defaults to "traces.json".
+  // Used for downloading individual attachment files (e.g., "attachments/<attachment_id>").
+  optional string path = 2;
+
   message Response {
     optional ArtifactCredentialInfo credential_info = 1;
   }
@@ -366,6 +371,11 @@ message GetCredentialsForTraceDataUpload {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   optional string request_id = 1 [(validate_required) = true];
+
+  // Optional relative path within the trace artifact directory.
+  // If not specified, defaults to "traces.json".
+  // Used for uploading individual attachment files (e.g., "attachments/<attachment_id>").
+  optional string path = 2;
 
   message Response {
     optional ArtifactCredentialInfo credential_info = 1;

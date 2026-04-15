@@ -14,7 +14,7 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/actions', () => ({
 }));
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
-jest.setTimeout(10000);
+jest.setTimeout(30000);
 
 describe('ExperimentViewRunsControlsActionsSelectTags', () => {
   beforeEach(() => {

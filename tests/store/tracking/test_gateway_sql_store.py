@@ -1,16 +1,34 @@
+import json
+import uuid
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
 from mlflow.entities import (
+    BudgetAction,
+    BudgetDuration,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+    FallbackConfig,
+    FallbackStrategy,
+    GatewayBudgetPolicy,
     GatewayEndpoint,
     GatewayEndpointBinding,
+    GatewayEndpointModelConfig,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
     GatewayModelDefinition,
+    GatewayModelLinkageType,
     GatewaySecretInfo,
+    GuardrailAction,
+    GuardrailStage,
+    RoutingStrategy,
 )
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -20,18 +38,35 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlExperiment,
+    SqlExperimentTag,
+    SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
     SqlGatewayEndpointTag,
+    SqlGatewayGuardrail,
+    SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
+    SqlOnlineScoringConfig,
+    SqlScorer,
+    SqlScorerVersion,
+    SqlSpan,
+    SqlSpanMetrics,
+    SqlTraceInfo,
+    SqlTraceMetadata,
 )
 from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
     get_resource_endpoint_configs,
 )
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -48,27 +83,58 @@ def _cleanup_database(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         # Delete all rows in gateway tables in dependency order
         for model in (
+            SqlGatewayGuardrailConfig,
+            SqlGatewayGuardrail,
+            SqlGatewayBudgetPolicy,
             SqlGatewayEndpointTag,
             SqlGatewayEndpointBinding,
             SqlGatewayEndpointModelMapping,
             SqlGatewayEndpoint,
             SqlGatewayModelDefinition,
             SqlGatewaySecret,
+            SqlOnlineScoringConfig,
+            SqlScorerVersion,
+            SqlScorer,
+            SqlSpanMetrics,
+            SqlSpan,
+            SqlTraceMetadata,
+            SqlTraceInfo,
+            SqlExperimentTag,
+            SqlExperiment,
         ):
             session.query(model).delete()
 
+        # Ensure the default experiment exists in the default workspace (ID 0).
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            store._create_default_experiment(session)
+
+
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request, monkeypatch):
+    enabled = request.param
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true" if enabled else "false")
+    if enabled:
+        # Use a unique workspace per test to avoid name collisions on shared DBs.
+        workspace_name = f"gateway-test-{uuid.uuid4().hex}"
+        with WorkspaceContext(workspace_name):
+            yield enabled
+    else:
+        yield enabled
+
 
 @pytest.fixture
-def store(tmp_path: Path, db_uri: str):
+def store(tmp_path: Path, db_uri: str, workspaces_enabled):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
+    store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
     if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
+        s = store_cls(db_uri_env, artifact_uri.as_uri())
         yield s
         _cleanup_database(s)
     else:
-        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+        s = store_cls(db_uri, artifact_uri.as_uri())
         yield s
+        _cleanup_database(s)
 
 
 # =============================================================================
@@ -450,7 +516,14 @@ def test_delete_gateway_model_definition_in_use_raises(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     store.create_gateway_endpoint(
-        name="uses-model", model_definition_ids=[model_def.model_definition_id]
+        name="uses-model",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     with pytest.raises(MlflowException, match="currently in use") as exc:
@@ -469,10 +542,21 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
         name="ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
 
+    # Create an experiment to link with the endpoint
+    experiment_id = store.create_experiment("test-experiment")
+
     endpoint = store.create_gateway_endpoint(
         name="my-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
         created_by="test-user",
+        usage_tracking=True,
+        experiment_id=experiment_id,
     )
 
     assert isinstance(endpoint, GatewayEndpoint)
@@ -480,17 +564,83 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
     assert endpoint.name == "my-endpoint"
     assert len(endpoint.model_mappings) == 1
     assert endpoint.model_mappings[0].model_definition_id == model_def.model_definition_id
+    assert endpoint.usage_tracking is True
+    assert endpoint.experiment_id == experiment_id
+
+
+def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="auto-exp-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="auto-exp-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="auto-exp-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+    )
+
+    assert endpoint.usage_tracking is True
+    assert endpoint.experiment_id is not None
+
+    experiment = store.get_experiment(endpoint.experiment_id)
+    assert experiment.name == "gateway/auto-exp-endpoint"
+    assert experiment.tags.get("mlflow.experiment.sourceType") == "GATEWAY"
+    assert experiment.tags.get("mlflow.experiment.sourceId") == endpoint.endpoint_id
+    assert experiment.tags.get("mlflow.experiment.isGateway") == "true"
+
+
+def test_create_gateway_endpoint_usage_tracking_defaults_to_true(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="default-ut-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="default-ut-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    # Create endpoint without specifying usage_tracking
+    endpoint = store.create_gateway_endpoint(
+        name="default-ut-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    assert endpoint.usage_tracking is True
+    # An experiment should be auto-created since usage_tracking defaults to True
+    assert endpoint.experiment_id is not None
 
 
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="at least one") as exc:
-        store.create_gateway_endpoint(name="empty-endpoint", model_definition_ids=[])
+        store.create_gateway_endpoint(name="empty-endpoint", model_configs=[])
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_create_gateway_endpoint_nonexistent_model_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found") as exc:
-        store.create_gateway_endpoint(name="orphan-endpoint", model_definition_ids=["nonexistent"])
+        store.create_gateway_endpoint(
+            name="orphan-endpoint",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id="nonexistent",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+            ],
+        )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
@@ -502,7 +652,14 @@ def test_get_gateway_endpoint_by_id(store: SqlAlchemyStore):
         name="get-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     created = store.create_gateway_endpoint(
-        name="get-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="get-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     retrieved = store.get_gateway_endpoint(endpoint_id=created.endpoint_id)
@@ -519,7 +676,14 @@ def test_get_gateway_endpoint_by_name(store: SqlAlchemyStore):
         name="name-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     created = store.create_gateway_endpoint(
-        name="named-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="named-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     retrieved = store.get_gateway_endpoint(name="named-endpoint")
@@ -534,24 +698,155 @@ def test_get_gateway_endpoint_requires_one_of_id_or_name(store: SqlAlchemyStore)
 
 
 def test_update_gateway_endpoint(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        secret_name="upd-ep-key", secret_value={"api_key": "value"}
+    secret1 = store.create_gateway_secret(
+        secret_name="upd-ep-key1", secret_value={"api_key": "value1"}
     )
-    model_def = store.create_gateway_model_definition(
-        name="upd-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    secret2 = store.create_gateway_secret(
+        secret_name="upd-ep-key2", secret_value={"api_key": "value2"}
     )
-    created = store.create_gateway_endpoint(
-        name="update-endpoint", model_definition_ids=[model_def.model_definition_id]
+    secret3 = store.create_gateway_secret(
+        secret_name="upd-ep-key3", secret_value={"api_key": "value3"}
+    )
+    secret4 = store.create_gateway_secret(
+        secret_name="upd-ep-key4", secret_value={"api_key": "value4"}
     )
 
-    updated = store.update_gateway_endpoint(
+    model_def1 = store.create_gateway_model_definition(
+        name="upd-ep-model1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="upd-ep-model2",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+    model_def3 = store.create_gateway_model_definition(
+        name="upd-ep-model3",
+        secret_id=secret3.secret_id,
+        provider="cohere",
+        model_name="command-r-plus",
+    )
+    model_def4 = store.create_gateway_model_definition(
+        name="upd-ep-model4",
+        secret_id=secret4.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+
+    # Create endpoint with model1 as PRIMARY
+    created = store.create_gateway_endpoint(
+        name="update-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Verify initial state
+    assert len(created.model_mappings) == 1
+    assert created.model_mappings[0].model_definition_id == model_def1.model_definition_id
+    assert created.model_mappings[0].linkage_type == GatewayModelLinkageType.PRIMARY
+    assert created.routing_strategy is None
+    assert created.fallback_config is None
+
+    # Test 1: Basic update - rename endpoint
+    renamed = store.update_gateway_endpoint(
         endpoint_id=created.endpoint_id,
         name="renamed-endpoint",
         updated_by="updater",
     )
 
-    assert updated.name == "renamed-endpoint"
-    assert updated.last_updated_by == "updater"
+    assert renamed.name == "renamed-endpoint"
+    assert renamed.last_updated_by == "updater"
+
+    # Test 2: Update with routing strategy and fallback config
+    with_fallback = store.update_gateway_endpoint(
+        endpoint_id=created.endpoint_id,
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def3.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=1,
+            ),
+        ],
+        updated_by="updater2",
+    )
+
+    assert with_fallback.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert with_fallback.fallback_config is not None
+    assert with_fallback.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert with_fallback.fallback_config.max_attempts == 2
+    assert len(with_fallback.model_mappings) == 3
+    fallback_mappings = [
+        m
+        for m in with_fallback.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.FALLBACK
+    ]
+    assert len(fallback_mappings) == 2
+    assert with_fallback.last_updated_by == "updater2"
+
+    # Test 3: Update PRIMARY models and FALLBACK models
+    with_new_models = store.update_gateway_endpoint(
+        endpoint_id=created.endpoint_id,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def3.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def4.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=1,
+        ),
+        updated_by="updater3",
+    )
+
+    # Verify PRIMARY models were replaced (in model_mappings)
+    assert len(with_new_models.model_mappings) == 3
+    primary_mappings = [
+        m
+        for m in with_new_models.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.PRIMARY
+    ]
+    assert len(primary_mappings) == 2
+
+    primary_model_ids = {m.model_definition_id for m in primary_mappings}
+    assert primary_model_ids == {model_def2.model_definition_id, model_def3.model_definition_id}
 
 
 def test_delete_gateway_endpoint(store: SqlAlchemyStore):
@@ -562,7 +857,14 @@ def test_delete_gateway_endpoint(store: SqlAlchemyStore):
         name="del-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     created = store.create_gateway_endpoint(
-        name="delete-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="delete-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.delete_gateway_endpoint(created.endpoint_id)
@@ -575,18 +877,64 @@ def test_list_gateway_endpoints(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="list-ep-key", secret_value={"api_key": "value"}
     )
+    secret_fallback = store.create_gateway_secret(
+        secret_name="list-ep-fallback-key", secret_value={"api_key": "fallback-value"}
+    )
+
     model_def = store.create_gateway_model_definition(
         name="list-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    store.create_gateway_endpoint(
-        name="list-endpoint-1", model_definition_ids=[model_def.model_definition_id]
+    model_def_fallback = store.create_gateway_model_definition(
+        name="list-ep-fallback-model",
+        secret_id=secret_fallback.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
     )
-    store.create_gateway_endpoint(
-        name="list-endpoint-2", model_definition_ids=[model_def.model_definition_id]
+
+    # Create endpoint without fallback
+    ep1 = store.create_gateway_endpoint(
+        name="list-endpoint-1",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Create endpoint with fallback config and routing strategy
+    ep2 = store.create_gateway_endpoint(
+        name="list-endpoint-2",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def_fallback.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
     )
 
     endpoints = store.list_gateway_endpoints()
     assert len(endpoints) >= 2
+
+    # Find our test endpoints
+    found_ep1 = next((e for e in endpoints if e.endpoint_id == ep1.endpoint_id), None)
+    found_ep2 = next((e for e in endpoints if e.endpoint_id == ep2.endpoint_id), None)
+
+    assert found_ep1 is not None
+    assert found_ep2 is not None
 
 
 # =============================================================================
@@ -608,13 +956,23 @@ def test_attach_model_to_gateway_endpoint(store: SqlAlchemyStore):
         model_name="claude-3",
     )
     endpoint = store.create_gateway_endpoint(
-        name="attach-endpoint", model_definition_ids=[model_def1.model_definition_id]
+        name="attach-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
-        model_definition_id=model_def2.model_definition_id,
-        weight=2.0,
+        model_config=GatewayEndpointModelConfig(
+            model_definition_id=model_def2.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=2.0,
+        ),
         created_by="attacher",
     )
 
@@ -636,13 +994,24 @@ def test_attach_duplicate_model_raises(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="dup-attach-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="dup-attach-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     with pytest.raises(MlflowException, match="already attached") as exc:
         store.attach_model_to_endpoint(
             endpoint_id=endpoint.endpoint_id,
-            model_definition_id=model_def.model_definition_id,
+            model_config=GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
@@ -665,7 +1034,18 @@ def test_detach_model_from_gateway_endpoint(store: SqlAlchemyStore):
     )
     endpoint = store.create_gateway_endpoint(
         name="detach-endpoint",
-        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.detach_model_from_endpoint(
@@ -687,7 +1067,14 @@ def test_detach_nonexistent_mapping_raises(store: SqlAlchemyStore):
         name="no-map-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="no-map-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="no-map-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     with pytest.raises(MlflowException, match="not attached") as exc:
@@ -709,19 +1096,26 @@ def test_create_gateway_endpoint_binding(store: SqlAlchemyStore):
         name="bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="bind-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="bind-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     binding = store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="job-123",
         created_by="binder",
     )
 
     assert isinstance(binding, GatewayEndpointBinding)
     assert binding.endpoint_id == endpoint.endpoint_id
-    assert binding.resource_type == "scorer_job"
+    assert binding.resource_type == "scorer"
     assert binding.resource_id == "job-123"
     assert binding.created_by == "binder"
 
@@ -734,17 +1128,24 @@ def test_delete_gateway_endpoint_binding(store: SqlAlchemyStore):
         name="del-bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="del-bind-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="del-bind-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="job-456",
     )
 
     store.delete_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="job-456",
     )
 
@@ -763,24 +1164,31 @@ def test_list_gateway_endpoint_bindings(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="list-bind-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="list-bind-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="job-1",
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="job-2",
     )
 
     bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
     assert len(bindings) == 2
 
-    filtered = store.list_endpoint_bindings(resource_type="scorer_job", resource_id="job-1")
+    filtered = store.list_endpoint_bindings(resource_type="scorer", resource_id="job-1")
     assert len(filtered) == 1
     assert filtered[0].resource_id == "job-1"
 
@@ -803,16 +1211,23 @@ def test_get_resource_gateway_endpoint_configs(store: SqlAlchemyStore):
         model_name="gpt-4-turbo",
     )
     endpoint = store.create_gateway_endpoint(
-        name="resolver-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="resolver-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="resolver-job-123",
     )
 
     configs = get_resource_endpoint_configs(
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="resolver-job-123",
         store=store,
     )
@@ -844,16 +1259,23 @@ def test_get_resource_endpoint_configs_with_auth_config(store: SqlAlchemyStore):
         model_name="anthropic.claude-3",
     )
     endpoint = store.create_gateway_endpoint(
-        name="auth-resolver-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="auth-resolver-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="auth-job",
     )
 
     configs = get_resource_endpoint_configs(
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="auth-job",
         store=store,
     )
@@ -879,16 +1301,23 @@ def test_get_resource_endpoint_configs_with_dict_secret(store: SqlAlchemyStore):
         model_name="anthropic.claude-3",
     )
     endpoint = store.create_gateway_endpoint(
-        name="aws-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="aws-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="aws-job",
     )
 
     configs = get_resource_endpoint_configs(
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="aws-job",
         store=store,
     )
@@ -906,7 +1335,7 @@ def test_get_resource_endpoint_configs_with_dict_secret(store: SqlAlchemyStore):
 
 def test_get_resource_endpoint_configs_no_bindings(store: SqlAlchemyStore):
     configs = get_resource_endpoint_configs(
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="nonexistent-resource",
         store=store,
     )
@@ -929,25 +1358,39 @@ def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore
         model_name="claude-3",
     )
     endpoint1 = store.create_gateway_endpoint(
-        name="multi-endpoint-1", model_definition_ids=[model_def1.model_definition_id]
+        name="multi-endpoint-1",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     endpoint2 = store.create_gateway_endpoint(
-        name="multi-endpoint-2", model_definition_ids=[model_def2.model_definition_id]
+        name="multi-endpoint-2",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.create_endpoint_binding(
         endpoint_id=endpoint1.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="multi-resource",
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint2.endpoint_id,
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="multi-resource",
     )
 
     configs = get_resource_endpoint_configs(
-        resource_type="scorer_job",
+        resource_type="scorer",
         resource_id="multi-resource",
         store=store,
     )
@@ -970,7 +1413,14 @@ def test_get_gateway_endpoint_config(store: SqlAlchemyStore):
         model_name="gpt-4o",
     )
     endpoint = store.create_gateway_endpoint(
-        name="ep-config-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="ep-config-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     config = get_endpoint_config(
@@ -1003,7 +1453,14 @@ def test_get_gateway_endpoint_config_with_auth_config(store: SqlAlchemyStore):
         model_name="anthropic.claude-3-sonnet",
     )
     endpoint = store.create_gateway_endpoint(
-        name="ep-auth-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="ep-auth-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     config = get_endpoint_config(
@@ -1038,7 +1495,18 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
 
     endpoint = store.create_gateway_endpoint(
         name="ep-multi-endpoint",
-        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     config = get_endpoint_config(
@@ -1062,6 +1530,270 @@ def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlche
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+def test_get_gateway_endpoint_config_experiment_id_is_string(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="exp-id-test-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="exp-id-test-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="exp-id-test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+    )
+
+    config = get_endpoint_config(
+        endpoint_name=endpoint.name,
+        store=store,
+    )
+
+    # Verify experiment_id is a string (not an integer from SQLAlchemy)
+    assert config.experiment_id is not None
+    assert isinstance(config.experiment_id, str)
+
+
+# =============================================================================
+# Serialization & Caching Tests
+# =============================================================================
+
+
+def test_gateway_model_config_roundtrip():
+    original = GatewayModelConfig(
+        model_definition_id="md-123",
+        provider="openai",
+        model_name="gpt-4",
+        secret_value={"api_key": "sk-test"},
+        auth_config={"region": "us-east-1"},
+        weight=0.7,
+        linkage_type=GatewayModelLinkageType.FALLBACK,
+        fallback_order=2,
+    )
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayModelConfig.from_dict(serialized)
+    assert restored == original
+    assert isinstance(restored.linkage_type, GatewayModelLinkageType)
+
+
+def test_gateway_endpoint_config_roundtrip_with_fallback():
+    original = GatewayEndpointConfig(
+        endpoint_id="e-abc",
+        endpoint_name="my-ep",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-1",
+                provider="openai",
+                model_name="gpt-4",
+                secret_value={"api_key": "sk-1"},
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+            ),
+            GatewayModelConfig(
+                model_definition_id="md-2",
+                provider="anthropic",
+                model_name="claude-3",
+                secret_value={"api_key": "sk-2"},
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=3,
+        ),
+        experiment_id="42",
+    )
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayEndpointConfig.from_dict(serialized)
+    assert restored == original
+    assert isinstance(restored.routing_strategy, RoutingStrategy)
+    assert isinstance(restored.models[0].linkage_type, GatewayModelLinkageType)
+    assert isinstance(restored.fallback_config.strategy, FallbackStrategy)
+
+
+def test_gateway_endpoint_config_roundtrip_no_fallback():
+    original = GatewayEndpointConfig(
+        endpoint_id="e-xyz",
+        endpoint_name="simple-ep",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-1",
+                provider="openai",
+                model_name="gpt-4",
+                secret_value={"api_key": "sk-1"},
+            ),
+        ],
+    )
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayEndpointConfig.from_dict(serialized)
+    assert restored == original
+
+
+def test_endpoint_config_cache_hit_skips_db(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="cache-hit-key", secret_value={"api_key": "sk-cache"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="cache-hit-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cache-hit-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # First call populates the cache
+    config1 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config1.endpoint_name == endpoint.name
+
+    # Second call should hit the cache and not open a new DB session
+    original_session_maker = store.ManagedSessionMaker
+    with mock.patch.object(
+        store, "ManagedSessionMaker", wraps=original_session_maker
+    ) as mock_session:
+        config2 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+        mock_session.assert_not_called()
+
+    assert config2.endpoint_name == config1.endpoint_name
+    assert config2.models[0].secret_value == config1.models[0].secret_value
+
+
+def test_endpoint_config_cache_invalidated_on_secret_update(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="cache-inv-key", secret_value={"api_key": "sk-old"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="cache-inv-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cache-inv-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Populate cache
+    config1 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config1.models[0].secret_value == {"api_key": "sk-old"}
+
+    # Update secret — should invalidate cache
+    store.update_gateway_secret(
+        secret_id=secret.secret_id,
+        secret_value={"api_key": "sk-new"},
+    )
+
+    # Next call should fetch fresh data from DB
+    config2 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config2.models[0].secret_value == {"api_key": "sk-new"}
+
+
+def test_endpoint_config_cache_invalidated_on_endpoint_delete(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="cache-del-key", secret_value={"api_key": "sk-del"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="cache-del-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cache-del-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Populate cache
+    config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config.endpoint_id == endpoint.endpoint_id
+
+    # Delete endpoint — should invalidate cache
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    # Next call should hit DB and raise since endpoint is gone
+    with pytest.raises(MlflowException, match="not found"):
+        get_endpoint_config(endpoint_name=endpoint.name, store=store)
+
+
+def test_gateway_endpoint_config_roundtrip_fallback_with_none_fields():
+    original = GatewayEndpointConfig(
+        endpoint_id="e-none",
+        endpoint_name="none-fallback-ep",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-1",
+                provider="openai",
+                model_name="gpt-4",
+                secret_value={"api_key": "sk-1"},
+            ),
+        ],
+        fallback_config=FallbackConfig(strategy=None, max_attempts=None),
+    )
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayEndpointConfig.from_dict(serialized)
+    assert restored == original
+
+
+def test_endpoint_config_cache_workspace_isolation(store: SqlAlchemyStore, workspaces_enabled):
+    if not workspaces_enabled:
+        pytest.skip("workspace isolation only relevant when workspaces enabled")
+
+    secret = store.create_gateway_secret(
+        secret_name="ws-iso-key", secret_value={"api_key": "sk-ws"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="ws-iso-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="ws-iso-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Populate cache in current workspace
+    config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config.endpoint_id == endpoint.endpoint_id
+
+    # Switch to a different workspace — same endpoint name should NOT be served from cache
+    with WorkspaceContext(f"other-workspace-{uuid.uuid4().hex}"):
+        with pytest.raises(MlflowException, match="not found"):
+            get_endpoint_config(endpoint_name=endpoint.name, store=store)
+
+
 # =============================================================================
 # Endpoint Tag Operations
 # =============================================================================
@@ -1073,7 +1805,14 @@ def test_set_gateway_endpoint_tag(store: SqlAlchemyStore):
         name="tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="tag-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     tag = GatewayEndpointTag(key="env", value="production")
@@ -1093,7 +1832,14 @@ def test_set_gateway_endpoint_tag_update_existing(store: SqlAlchemyStore):
         name="tag-upd-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="tag-upd-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="tag-upd-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.set_gateway_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="env", value="dev"))
@@ -1115,7 +1861,14 @@ def test_set_multiple_endpoint_tags(store: SqlAlchemyStore):
         name="multi-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="multi-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="multi-tag-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.set_gateway_endpoint_tag(
@@ -1147,7 +1900,14 @@ def test_delete_gateway_endpoint_tag(store: SqlAlchemyStore):
         name="del-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="del-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="del-tag-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.set_gateway_endpoint_tag(
         endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production")
@@ -1175,7 +1935,14 @@ def test_delete_gateway_endpoint_tag_nonexistent_key_no_op(store: SqlAlchemyStor
         name="del-noop-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="del-noop-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="del-noop-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Should not raise even if tag doesn't exist
@@ -1196,7 +1963,14 @@ def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="cascade-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="cascade-tag-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.set_gateway_endpoint_tag(
         endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production")
@@ -1206,3 +1980,1034 @@ def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match="not found"):
         store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+
+
+# =============================================================================
+# Scorer-Endpoint Integration Tests
+# =============================================================================
+
+
+def _create_gateway_endpoint(store: SqlAlchemyStore, name: str) -> GatewayEndpoint:
+    """Helper to create a gateway endpoint for scorer tests."""
+    secret = store.create_gateway_secret(
+        secret_name=f"{name}-secret", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"{name}-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    return store.create_gateway_endpoint(
+        name=name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+
+def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"scorer-endpoint-test-{uuid.uuid4().hex}")
+    endpoint = _create_gateway_endpoint(store, "test-endpoint")
+
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Rate the response",
+        }
+    })
+
+    scorer = store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+    # The returned scorer should have the endpoint name (resolved from ID)
+    stored_data = json.loads(scorer._serialized_scorer)
+    stored_model = stored_data["instructions_judge_pydantic_data"]["model"]
+    assert stored_model == f"gateway:/{endpoint.name}"
+
+
+def test_register_scorer_with_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"scorer-nonexistent-endpoint-test-{uuid.uuid4().hex}")
+
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/nonexistent-endpoint",
+            "instructions": "Rate the response",
+        }
+    })
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+
+def test_get_scorer_resolves_endpoint_id_to_name(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"get-scorer-endpoint-test-{uuid.uuid4().hex}")
+    endpoint = _create_gateway_endpoint(store, "get-test-endpoint")
+
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Rate the response",
+        }
+    })
+
+    store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+    # When retrieving, the endpoint ID should be resolved back to name
+    retrieved = store.get_scorer(experiment_id, "my-scorer")
+    retrieved_data = json.loads(retrieved._serialized_scorer)
+    retrieved_model = retrieved_data["instructions_judge_pydantic_data"]["model"]
+    assert retrieved_model == f"gateway:/{endpoint.name}"
+
+
+def test_get_scorer_with_deleted_endpoint_sets_model_to_null(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"deleted-endpoint-scorer-test-{uuid.uuid4().hex}")
+    endpoint = _create_gateway_endpoint(store, "to-delete-endpoint")
+
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Rate the response",
+        }
+    })
+
+    store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+    # Delete the endpoint
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    # Retrieving should set model to null
+    retrieved = store.get_scorer(experiment_id, "my-scorer")
+    retrieved_data = json.loads(retrieved._serialized_scorer)
+    assert retrieved_data["instructions_judge_pydantic_data"]["model"] is None
+
+
+def test_list_scorers_batch_resolves_endpoint_ids(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"list-scorers-endpoint-test-{uuid.uuid4().hex}")
+    endpoint1 = _create_gateway_endpoint(store, "list-endpoint-1")
+    endpoint2 = _create_gateway_endpoint(store, "list-endpoint-2")
+
+    # Create scorers with different endpoints
+    store.register_scorer(
+        experiment_id,
+        "scorer-1",
+        json.dumps({
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint1.name}",
+                "instructions": "Rate 1",
+            }
+        }),
+    )
+    store.register_scorer(
+        experiment_id,
+        "scorer-2",
+        json.dumps({
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint2.name}",
+                "instructions": "Rate 2",
+            }
+        }),
+    )
+    store.register_scorer(
+        experiment_id,
+        "scorer-3",
+        json.dumps({
+            "instructions_judge_pydantic_data": {
+                "model": "openai:/gpt-4",
+                "instructions": "Rate 3",
+            }
+        }),
+    )
+
+    scorers = store.list_scorers(experiment_id)
+    assert len(scorers) == 3
+
+    # Find each scorer and verify model resolution
+    scorer_map = {s.scorer_name: s for s in scorers}
+
+    data1 = json.loads(scorer_map["scorer-1"]._serialized_scorer)
+    assert data1["instructions_judge_pydantic_data"]["model"] == f"gateway:/{endpoint1.name}"
+
+    data2 = json.loads(scorer_map["scorer-2"]._serialized_scorer)
+    assert data2["instructions_judge_pydantic_data"]["model"] == f"gateway:/{endpoint2.name}"
+
+    data3 = json.loads(scorer_map["scorer-3"]._serialized_scorer)
+    assert data3["instructions_judge_pydantic_data"]["model"] == "openai:/gpt-4"
+
+
+# =============================================================================
+# Fallback Routing Tests
+# =============================================================================
+
+
+def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
+    # Create secrets and model definitions
+    secret1 = store.create_gateway_secret(
+        secret_name="fallback-key-1", secret_value={"api_key": "sk-model1"}
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="fallback-key-2", secret_value={"api_key": "sk-model2"}
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="fallback-model-1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="fallback-model-2",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+
+    # Create a third model for PRIMARY
+    secret3 = store.create_gateway_secret(
+        secret_name="primary-key", secret_value={"api_key": "sk-primary"}
+    )
+    model_def3 = store.create_gateway_model_definition(
+        name="primary-model",
+        secret_id=secret3.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+
+    # Create endpoint with fallback configuration
+    endpoint = store.create_gateway_endpoint(
+        name="fallback-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def3.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=1,
+            ),
+        ],
+        created_by="test-user",
+        routing_strategy=None,  # Fallback is independent of routing strategy
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
+    )
+
+    # Verify endpoint was created with fallback config
+    assert isinstance(endpoint, GatewayEndpoint)
+    assert endpoint.endpoint_id.startswith("e-")
+    assert endpoint.name == "fallback-endpoint"
+    assert endpoint.routing_strategy is None  # No routing strategy needed for fallback
+    assert endpoint.fallback_config is not None
+    assert isinstance(endpoint.fallback_config, FallbackConfig)
+    assert endpoint.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert endpoint.fallback_config.max_attempts == 2
+    assert len(endpoint.model_mappings) == 3
+    fallback_ids = [
+        m.model_definition_id
+        for m in endpoint.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.FALLBACK
+    ]
+    assert model_def1.model_definition_id in fallback_ids
+    assert model_def2.model_definition_id in fallback_ids
+
+    # Verify linkage types and fallback_order
+    # PRIMARY models are in endpoint.model_mappings
+    assert len(endpoint.model_mappings) == 3
+    primary_mapping = next(
+        m for m in endpoint.model_mappings if m.linkage_type == GatewayModelLinkageType.PRIMARY
+    )
+    assert primary_mapping.model_definition_id == model_def3.model_definition_id
+
+
+def test_create_gateway_endpoint_with_traffic_split(store: SqlAlchemyStore):
+    secret1 = store.create_gateway_secret(
+        secret_name="traffic-split-key-1", secret_value={"api_key": "sk-test1"}
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="traffic-split-key-2", secret_value={"api_key": "sk-test2"}
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="traffic-split-model-1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="traffic-split-model-2",
+        secret_id=secret2.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="traffic-split-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+    )
+
+    assert endpoint.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert len(endpoint.model_mappings) == 2
+    # All should be PRIMARY linkages for traffic split
+    for mapping in endpoint.model_mappings:
+        assert mapping.linkage_type == GatewayModelLinkageType.PRIMARY
+
+
+# =============================================================================
+# Budget Policy Operations
+# =============================================================================
+
+
+def test_create_budget_policy(store: SqlAlchemyStore):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+        created_by="admin",
+    )
+    assert isinstance(policy, GatewayBudgetPolicy)
+    assert policy.budget_policy_id.startswith("bp-")
+    assert policy.budget_unit == BudgetUnit.USD
+    assert policy.budget_amount == 100.0
+    assert policy.duration.unit == BudgetDurationUnit.MONTHS
+    assert policy.duration.value == 1
+    assert policy.target_scope == BudgetTargetScope.GLOBAL
+    assert policy.budget_action == BudgetAction.ALERT
+    assert policy.created_by == "admin"
+    assert policy.created_at > 0
+    assert policy.last_updated_at > 0
+
+
+def test_get_budget_policy_by_id(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=75.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=24),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.REJECT,
+    )
+    fetched = store.get_budget_policy(budget_policy_id=created.budget_policy_id)
+    assert fetched.budget_policy_id == created.budget_policy_id
+    assert fetched.budget_unit == BudgetUnit.USD
+    assert fetched.budget_amount == 75.0
+    assert fetched.duration.unit == BudgetDurationUnit.HOURS
+    assert fetched.duration.value == 24
+    assert fetched.target_scope == BudgetTargetScope.WORKSPACE
+    assert fetched.budget_action == BudgetAction.REJECT
+
+
+def test_get_budget_policy_not_found_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="BudgetPolicy"):
+        store.get_budget_policy(budget_policy_id="bp-nonexistent")
+
+
+def test_update_budget_policy(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        budget_amount=200.0,
+        budget_action=BudgetAction.REJECT,
+        updated_by="editor",
+    )
+    assert updated.budget_amount == 200.0
+    assert updated.budget_action == BudgetAction.REJECT
+    assert updated.last_updated_by == "editor"
+    assert updated.last_updated_at >= created.last_updated_at
+    # Unchanged fields should remain
+    assert updated.duration.unit == BudgetDurationUnit.MONTHS
+    assert updated.duration.value == 1
+    assert updated.target_scope == BudgetTargetScope.GLOBAL
+
+
+def test_update_budget_policy_not_found_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="BudgetPolicy"):
+        store.update_budget_policy(
+            budget_policy_id="bp-nonexistent",
+            budget_amount=999.0,
+        )
+
+
+def test_delete_budget_policy(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=10.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    store.delete_budget_policy(created.budget_policy_id)
+
+    with pytest.raises(MlflowException, match="BudgetPolicy"):
+        store.get_budget_policy(budget_policy_id=created.budget_policy_id)
+
+
+def test_delete_budget_policy_not_found_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="BudgetPolicy"):
+        store.delete_budget_policy("bp-nonexistent")
+
+
+def test_list_budget_policies(store: SqlAlchemyStore):
+    store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=50.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=7),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.REJECT,
+    )
+
+    all_policies = store.list_budget_policies()
+    assert len(all_policies) == 2
+    assert all_policies.token is None
+
+
+def test_list_budget_policies_empty(store: SqlAlchemyStore):
+    policies = store.list_budget_policies()
+    assert policies == []
+    assert policies.token is None
+
+
+def test_list_budget_policies_pagination(store: SqlAlchemyStore):
+    for i in range(3):
+        store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0 + i,
+            duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
+            target_scope=BudgetTargetScope.GLOBAL,
+            budget_action=BudgetAction.ALERT,
+        )
+
+    page1 = store.list_budget_policies(max_results=2)
+    assert len(page1) == 2
+    assert page1.token is not None
+
+    page2 = store.list_budget_policies(max_results=2, page_token=page1.token)
+    assert len(page2) == 1
+    assert page2.token is None
+
+    all_ids = [p.budget_policy_id for p in page1] + [p.budget_policy_id for p in page2]
+    assert len(set(all_ids)) == 3
+
+
+def test_list_budget_policies_invalid_max_results(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="max_results"):
+        store.list_budget_policies(max_results=0)
+
+
+def test_create_budget_policy_all_duration_units(store: SqlAlchemyStore):
+    for du in BudgetDurationUnit:
+        policy = store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0,
+            duration=BudgetDuration(unit=du, value=1),
+            target_scope=BudgetTargetScope.GLOBAL,
+            budget_action=BudgetAction.ALERT,
+        )
+        assert policy.duration.unit == du
+
+
+def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
+    for action in BudgetAction:
+        policy = store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
+            target_scope=BudgetTargetScope.GLOBAL,
+            budget_action=action,
+        )
+        assert policy.budget_action == action
+
+
+# =============================================================================
+# Guardrail Tests
+# =============================================================================
+
+
+def _create_scorer(store: SqlAlchemyStore, endpoint_name: str | None = None):
+    """Helper to create a scorer for guardrail tests."""
+    name_suffix = uuid.uuid4().hex[:8]
+    ep_name = endpoint_name or f"guardrail-ep-{name_suffix}"
+    endpoint = _create_gateway_endpoint(store, ep_name)
+    experiment_id = store.create_experiment(f"guardrail-scorer-exp-{name_suffix}")
+
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input safe?",
+        }
+    })
+
+    return store.register_scorer(experiment_id, f"safety-judge-{name_suffix}", serialized_scorer)
+
+
+def test_create_gateway_guardrail(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+        created_by="test-user",
+    )
+
+    assert isinstance(guardrail, GatewayGuardrail)
+    assert guardrail.guardrail_id.startswith("gr-")
+    assert guardrail.name == "test-guardrail"
+    assert guardrail.scorer.scorer_id == scorer.scorer_id
+    assert guardrail.scorer.scorer_version == scorer.scorer_version
+    assert guardrail.stage == GuardrailStage.BEFORE
+    assert guardrail.action == GuardrailAction.VALIDATION
+    assert guardrail.created_by == "test-user"
+    assert guardrail.last_updated_by == "test-user"
+    assert guardrail.created_at > 0
+    assert guardrail.last_updated_at > 0
+
+
+def test_create_gateway_guardrail_after_sanitization(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.AFTER,
+        action=GuardrailAction.SANITIZATION,
+    )
+
+    assert guardrail.stage == GuardrailStage.AFTER
+    assert guardrail.action == GuardrailAction.SANITIZATION
+
+
+def test_get_gateway_guardrail(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    created = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    fetched = store.get_gateway_guardrail(created.guardrail_id)
+
+    assert fetched.guardrail_id == created.guardrail_id
+    assert fetched.scorer.scorer_id == scorer.scorer_id
+    assert fetched.scorer.scorer_version == scorer.scorer_version
+    assert fetched.stage == GuardrailStage.BEFORE
+    assert fetched.action == GuardrailAction.VALIDATION
+
+
+def test_get_gateway_guardrail_not_found(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_gateway_guardrail("gr-nonexistent")
+
+
+def test_delete_gateway_guardrail(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.delete_gateway_guardrail(guardrail.guardrail_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_gateway_guardrail(guardrail.guardrail_id)
+
+
+def test_delete_gateway_guardrail_not_found(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_gateway_guardrail("gr-nonexistent")
+
+
+def test_list_gateway_guardrails(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    for stage in GuardrailStage:
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=stage,
+            action=GuardrailAction.VALIDATION,
+        )
+
+    result = store.list_gateway_guardrails()
+    assert len(result) == 2
+    assert result.token is None
+
+
+def test_list_gateway_guardrails_empty(store: SqlAlchemyStore):
+    result = store.list_gateway_guardrails()
+    assert result == []
+    assert result.token is None
+
+
+def test_list_gateway_guardrails_pagination(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    for _ in range(3):
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+
+    page1 = store.list_gateway_guardrails(max_results=2)
+    assert len(page1) == 2
+    assert page1.token is not None
+
+    page2 = store.list_gateway_guardrails(max_results=2, page_token=page1.token)
+    assert len(page2) == 1
+    assert page2.token is None
+
+    all_ids = sorted([g.guardrail_id for g in page1] + [g.guardrail_id for g in page2])
+    assert len(all_ids) == 3
+    assert len(set(all_ids)) == 3
+
+
+def test_add_guardrail_to_endpoint(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-endpoint-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    config = store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=5,
+        created_by="test-user",
+    )
+
+    assert isinstance(config, GatewayGuardrailConfig)
+    assert config.endpoint_id == endpoint.endpoint_id
+    assert config.guardrail_id == guardrail.guardrail_id
+    assert config.execution_order == 5
+    assert config.created_by == "test-user"
+
+
+def test_add_guardrail_to_endpoint_null_execution_order(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-null-order-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    config = store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    assert config.execution_order is None
+
+
+def test_add_guardrail_to_endpoint_duplicate_raises(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-dup-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    with pytest.raises(MlflowException, match="already added"):
+        store.add_guardrail_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id=guardrail.guardrail_id,
+        )
+
+
+def test_update_endpoint_guardrail_config(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-update-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=5,
+    )
+
+    updated = store.update_endpoint_guardrail_config(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=10,
+    )
+
+    assert updated.execution_order == 10
+    assert updated.guardrail_id == guardrail.guardrail_id
+
+
+def test_update_endpoint_guardrail_config_not_found(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-upd-nf-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_endpoint_guardrail_config(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+            execution_order=1,
+        )
+
+
+def test_add_guardrail_to_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.add_guardrail_to_endpoint(
+            endpoint_id="e-nonexistent",
+            guardrail_id=guardrail.guardrail_id,
+        )
+
+
+def test_add_nonexistent_guardrail_to_endpoint_raises(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-noguard-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.add_guardrail_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+        )
+
+
+def test_remove_guardrail_from_endpoint(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-remove-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    store.remove_guardrail_from_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert configs == []
+
+
+def test_remove_guardrail_from_endpoint_not_found(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-removenf-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.remove_guardrail_from_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+        )
+
+
+def test_list_endpoint_guardrail_configs(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-list-{uuid.uuid4().hex[:8]}")
+
+    guardrails = [
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+        for _ in range(3)
+    ]
+
+    configs = [
+        store.add_guardrail_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id=g.guardrail_id,
+            execution_order=(i + 1) * 10,
+        )
+        for i, g in enumerate(guardrails)
+    ]
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert len(configs) == 3
+    assert [c.execution_order for c in configs] == [10, 20, 30]
+    assert [c.guardrail_id for c in configs] == [g.guardrail_id for g in guardrails]
+    for config, guardrail in zip(configs, guardrails):
+        assert config.guardrail is not None
+        assert config.guardrail.guardrail_id == guardrail.guardrail_id
+        assert config.guardrail.stage == GuardrailStage.BEFORE
+
+
+def test_list_endpoint_guardrail_configs_empty(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-empty-{uuid.uuid4().hex[:8]}")
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert configs == []
+
+
+def test_list_endpoint_guardrail_configs_nonexistent_endpoint(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found"):
+        store.list_endpoint_guardrail_configs("e-nonexistent")
+
+
+def test_delete_guardrail_cascades_to_configs(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-cascade-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    store.delete_gateway_guardrail(guardrail.guardrail_id)
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert configs == []
+
+
+def test_delete_endpoint_cascades_to_guardrail_configs(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-ep-cascade-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    # Guardrail itself should still exist
+    fetched = store.get_gateway_guardrail(guardrail.guardrail_id)
+    assert fetched.guardrail_id == guardrail.guardrail_id
+
+
+# =============================================================================
+# sum_gateway_trace_cost Tests
+# =============================================================================
+
+
+def _insert_trace_with_cost(
+    session,
+    experiment_id,
+    trace_id,
+    timestamp_ms,
+    span_costs,
+    is_gateway=True,
+    endpoint_id="ep-test",
+):
+    trace = SqlTraceInfo(
+        request_id=trace_id,
+        experiment_id=experiment_id,
+        timestamp_ms=timestamp_ms,
+        execution_time_ms=100,
+        status="OK",
+    )
+    session.add(trace)
+    session.flush()
+
+    if is_gateway:
+        metadata = SqlTraceMetadata(
+            request_id=trace_id,
+            key=TraceMetadataKey.GATEWAY_ENDPOINT_ID,
+            value=endpoint_id,
+        )
+        session.add(metadata)
+
+    for span_id, cost in span_costs:
+        span = SqlSpan(
+            trace_id=trace_id,
+            experiment_id=experiment_id,
+            span_id=span_id,
+            status="OK",
+            start_time_unix_nano=timestamp_ms * 1_000_000,
+            end_time_unix_nano=(timestamp_ms + 100) * 1_000_000,
+            content="{}",
+        )
+        session.add(span)
+        session.flush()
+
+        metric = SqlSpanMetrics(
+            trace_id=trace_id,
+            span_id=span_id,
+            key=SpanMetricKey.TOTAL_COST,
+            value=cost,
+        )
+        session.add(metric)
+
+    session.flush()
+
+
+def test_sum_gateway_trace_cost_basic(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-basic")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "t1", 1000, [("s1", 0.05), ("s2", 0.03)])
+        _insert_trace_with_cost(session, exp_id, "t2", 2000, [("s1", 0.10)])
+
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total - 0.18) < 1e-9
+
+
+def test_sum_gateway_trace_cost_excludes_non_gateway(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-non-gw")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "gw1", 1000, [("s1", 0.10)], is_gateway=True)
+        _insert_trace_with_cost(session, exp_id, "nongw1", 1000, [("s1", 0.50)], is_gateway=False)
+
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total - 0.10) < 1e-9
+
+
+def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-window")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "early", 500, [("s1", 0.01)])
+        _insert_trace_with_cost(session, exp_id, "in-window", 1500, [("s1", 0.05)])
+        _insert_trace_with_cost(session, exp_id, "late", 3000, [("s1", 0.99)])
+
+    # Only in-window trace should be included
+    total = store.sum_gateway_trace_cost(start_time_ms=1000, end_time_ms=2000)
+    assert abs(total - 0.05) < 1e-9
+
+
+def test_sum_gateway_trace_cost_workspace_filter(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        # Create two experiments in different workspaces
+        exp_ws_a = SqlExperiment(
+            name=f"cost-ws-a-{uuid.uuid4().hex}",
+            artifact_location="/tmp/a",
+            lifecycle_stage="active",
+            workspace="workspace-a",
+        )
+        exp_ws_b = SqlExperiment(
+            name=f"cost-ws-b-{uuid.uuid4().hex}",
+            artifact_location="/tmp/b",
+            lifecycle_stage="active",
+            workspace="workspace-b",
+        )
+        session.add_all([exp_ws_a, exp_ws_b])
+        session.flush()
+
+        _insert_trace_with_cost(session, exp_ws_a.experiment_id, "t-a", 1000, [("s1", 0.10)])
+        _insert_trace_with_cost(session, exp_ws_b.experiment_id, "t-b", 1000, [("s1", 0.25)])
+
+    # Filtering by workspace-a should only include 0.10
+    total_a = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-a"
+    )
+    assert abs(total_a - 0.10) < 1e-9
+
+    # Filtering by workspace-b should only include 0.25
+    total_b = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-b"
+    )
+    assert abs(total_b - 0.25) < 1e-9
+
+    # No workspace filter should include both
+    total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total_all - 0.35) < 1e-9
+
+
+def test_sum_gateway_trace_cost_empty(store: SqlAlchemyStore):
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert total == 0.0

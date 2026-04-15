@@ -1,23 +1,10 @@
 import pickle
 
-import numpy as np
 import shap
 from shap._serializable import Deserializer, Serializable, Serializer
 
 
 class _PatchedKernelExplainer(shap.KernelExplainer):
-    @staticmethod
-    def not_equal(i, j):
-        # `shap.KernelExplainer.not_equal` method fails on some special types such as
-        # timestamp, this breaks the kernel explainer routine.
-        # `PatchedKernelExplainer` fixes this issue.
-        # See https://github.com/slundberg/shap/pull/2586
-        number_types = (int, float, np.number)
-        if isinstance(i, number_types) and isinstance(j, number_types):
-            return 0 if np.isclose(i, j, equal_nan=True) else 1
-        else:
-            return 0 if i == j else 1
-
     def save(self, out_file, model_saver=None, masker_saver=None):
         """
         This patched `save` method fix `KernelExplainer.save`.

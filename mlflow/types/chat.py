@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_serializer
 
 
 class TextContentPart(BaseModel):
@@ -157,17 +157,39 @@ class ResponseFormat(BaseModel):
     json_schema: dict[str, Any] | None = None
 
 
+class ToolChoiceFunction(BaseModel):
+    """Specifies a tool the model should use."""
+
+    name: str
+
+
+class ToolChoice(BaseModel):
+    """
+    Specifies a particular tool to use.
+
+    OpenAI format: {"type": "function", "function": {"name": "my_function"}}
+    """
+
+    type: Literal["function"]
+    function: ToolChoiceFunction
+
+
 class BaseRequestPayload(BaseModel):
     """Common parameters used for chat completions and completion endpoints."""
 
-    temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
     stop: list[str] | None = Field(None, min_length=1)
     max_tokens: int | None = Field(None, ge=1)
+    max_completion_tokens: int | None = Field(None, ge=1)
     stream: bool | None = None
     stream_options: dict[str, Any] | None = None
     model: str | None = None
     response_format: ResponseFormat | None = None
+    temperature: float | None = Field(None, ge=0, le=2)
+    top_p: float | None = Field(None, ge=0, le=1)
+    presence_penalty: float | None = Field(None, ge=-2, le=2)
+    frequency_penalty: float | None = Field(None, ge=-2, le=2)
+    top_k: int | None = Field(None, ge=1)
 
 
 # NB: For interface constructs that rely on other BaseModel implementations, in
@@ -183,10 +205,26 @@ class ChatChoice(BaseModel):
     finish_reason: str | None = None
 
 
+class PromptTokensDetails(BaseModel):
+    model_config = {"extra": "allow"}
+
+    cached_tokens: int | None = None
+
+
 class ChatUsage(BaseModel):
+    model_config = {"extra": "allow"}
+
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
+    prompt_tokens_details: PromptTokensDetails | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if data.get("prompt_tokens_details") is None:
+            data.pop("prompt_tokens_details", None)
+        return data
 
 
 class ToolCallDelta(BaseModel):
@@ -216,6 +254,7 @@ class ChatCompletionChunk(BaseModel):
     created: int
     model: str
     choices: list[ChatChunkChoice]
+    usage: ChatUsage | None = None
 
 
 class ChatCompletionRequest(BaseRequestPayload):
@@ -228,6 +267,7 @@ class ChatCompletionRequest(BaseRequestPayload):
 
     messages: list[ChatMessage] = Field(..., min_length=1)
     tools: list[ChatTool] | None = Field(None, min_length=1)
+    tool_choice: Literal["none", "auto", "required"] | ToolChoice | None = None
 
 
 class ChatCompletionResponse(BaseModel):

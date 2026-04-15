@@ -51,14 +51,17 @@ export const getExpressionChartsSortedMetricHistory = ({
 
   // For each xDataPoint, extract variables and evaluate expression
   return xDataPoints.flatMap((xDataPoint) => {
-    const variables = expression.variables.reduce((obj, variable) => {
-      const elements = runEntry.metricsHistory?.[variable];
-      const value = elements?.find((element) => getCompareValue(element, xAxisKey) === xDataPoint)?.value;
-      if (value !== undefined) {
-        obj[variable] = value;
-      }
-      return obj;
-    }, {} as Record<string, number>);
+    const variables = expression.variables.reduce(
+      (obj, variable) => {
+        const elements = runEntry.metricsHistory?.[variable];
+        const value = elements?.find((element) => getCompareValue(element, xAxisKey) === xDataPoint)?.value;
+        if (value !== undefined) {
+          obj[variable] = value;
+        }
+        return obj;
+      },
+      {} as Record<string, number>,
+    );
 
     const expressionValue = evaluateExpression(expression, variables);
     if (expressionValue !== undefined) {

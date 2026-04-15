@@ -17,18 +17,17 @@ import {
 } from '../components/prompt-engineering/PromptEngineering.utils';
 
 const EVALUATE_PROMPT_TABLE_VALUE = 'EVALUATE_PROMPT_TABLE_VALUE';
-export interface EvaluatePromptTableValueAction
-  extends AsyncAction<
-    { metadata: any; text: string },
-    {
-      inputValues: Record<string, string>;
-      run: RunRowType;
-      compiledPrompt: string;
-      rowKey: string;
-      startTime: number;
-      gatewayRoute: ModelGatewayRoute;
-    }
-  > {
+export interface EvaluatePromptTableValueAction extends AsyncAction<
+  { metadata: any; text: string },
+  {
+    inputValues: Record<string, string>;
+    run: RunRowType;
+    compiledPrompt: string;
+    rowKey: string;
+    startTime: number;
+    gatewayRoute: ModelGatewayRoute;
+  }
+> {
   type: 'EVALUATE_PROMPT_TABLE_VALUE';
 }
 const evaluatePromptTableValueUnified =
@@ -92,11 +91,10 @@ export const discardPendingEvaluationData = () => ({
 
 export const WRITE_BACK_EVALUATION_ARTIFACTS = 'WRITE_BACK_EVALUATION_ARTIFACTS';
 
-export interface WriteBackEvaluationArtifactsAction
-  extends AsyncAction<
-    { runUuid: string; newEvaluationTable: EvaluationArtifactTable }[],
-    { runUuidsToUpdate: string[]; artifactPath: string }
-  > {
+export interface WriteBackEvaluationArtifactsAction extends AsyncAction<
+  { runUuid: string; newEvaluationTable: EvaluationArtifactTable }[],
+  { runUuidsToUpdate: string[]; artifactPath: string }
+> {
   type: 'WRITE_BACK_EVALUATION_ARTIFACTS';
 }
 

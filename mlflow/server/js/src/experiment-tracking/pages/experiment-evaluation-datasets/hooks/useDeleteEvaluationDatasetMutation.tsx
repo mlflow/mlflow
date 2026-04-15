@@ -13,7 +13,7 @@ export const useDeleteEvaluationDatasetMutation = ({
 
   const { mutate: deleteEvaluationDatasetMutation, isLoading } = useMutation({
     mutationFn: async ({ datasetId }: { datasetId: string }) => {
-      await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}`), 'DELETE');
+      await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}`), { method: 'DELETE' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [SEARCH_EVALUATION_DATASETS_QUERY_KEY] });

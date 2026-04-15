@@ -14,6 +14,7 @@ import { useCallback, useMemo } from 'react';
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useIntl } from '@databricks/i18n';
 import Routes from '../../routes';
+import { useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
 import {
   useGenAiExperimentRunsForComparison,
   COMPARE_TO_RUN_DROPDOWN_COMPONENT_ID,
@@ -70,20 +71,16 @@ export const EvaluationRunCompareSelector = ({
   const currentRunInfo = experimentRunInfos?.find((runInfo) => runInfo.runUuid === currentRunUuid);
   const compareToRunInfo = experimentRunInfos?.find((runInfo) => runInfo.runUuid === compareToRunUuid);
 
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const defaultSetCurrentRunUuid = useCallback(
     (runUuid: string) => {
       const link = Routes.getRunPageRoute(experimentId, runUuid) + '/evaluations';
-      // Propagate all the current URL query params.
-      const currentParams = new URLSearchParams(window.location.search);
-
-      const newUrl = new URL(link, window.location.origin);
-      currentParams.forEach((value, key) => {
-        newUrl.searchParams.set(key, value);
-      });
-
-      window.location.href = newUrl.toString();
+      // Navigate using React Router, preserving all current query params (including workspace)
+      navigate({ pathname: link, search: location.search });
     },
-    [experimentId],
+    [experimentId, location.search, navigate],
   );
 
   const setCurrentRunUuid = setCurrentRunUuidProp ?? defaultSetCurrentRunUuid;
@@ -109,7 +106,7 @@ export const EvaluationRunCompareSelector = ({
         }}
       >
         <DialogCombobox
-          componentId={COMPARE_TO_RUN_DROPDOWN_COMPONENT_ID}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_evaluations_evaluationruncompareselector_112"
           id="compare-to-run-combobox"
           value={currentRunUuid ? [currentRunUuid] : undefined}
         >
@@ -186,7 +183,7 @@ export const EvaluationRunCompareSelector = ({
             }}
           >
             <DialogCombobox
-              componentId={COMPARE_TO_RUN_DROPDOWN_COMPONENT_ID}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_evaluations_evaluationruncompareselector_190"
               id="compare-to-run-combobox"
               value={compareToRunUuid ? [compareToRunUuid] : undefined}
             >

@@ -27,7 +27,7 @@ describe('safeJsonStringify', () => {
       fn: () => console.log('hello'),
       method: function () {
         return 42;
-      }
+      },
     };
 
     const result = safeJsonStringify(obj);
@@ -42,7 +42,7 @@ describe('safeJsonStringify', () => {
     const obj = {
       name: 'test',
       value: undefined,
-      nested: { prop: undefined }
+      nested: { prop: undefined },
     };
 
     const result = safeJsonStringify(obj);
@@ -57,7 +57,7 @@ describe('safeJsonStringify', () => {
     const error = new Error('Test error');
     const obj = {
       status: 'failed',
-      error
+      error,
     };
 
     const result = safeJsonStringify(obj);

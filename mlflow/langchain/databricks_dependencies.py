@@ -303,7 +303,7 @@ def _get_deps_from_closures(lc_model):
         from langchain_core.runnables import Runnable
 
         closure = inspect.getclosurevars(lc_model.func)
-        candidates = {**closure.globals, **closure.nonlocals}
+        candidates = closure.globals | closure.nonlocals
         deps = []
 
         # This code is taken from Langchain deps here: https://github.com/langchain-ai/langchain/blob/14f182795312f01985344576b5199681683641e1/libs/core/langchain_core/runnables/base.py#L4481

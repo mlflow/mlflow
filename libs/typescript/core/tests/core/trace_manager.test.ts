@@ -19,7 +19,7 @@ function createTestTraceInfo(traceId: string): TraceInfo {
     requestPreview: undefined,
     responsePreview: undefined,
     traceMetadata: {},
-    tags: {}
+    tags: {},
   });
 }
 

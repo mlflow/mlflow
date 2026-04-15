@@ -86,7 +86,8 @@ def test_trace_halted_after_timeout(monkeypatch):
     assert root_span.status.status_code == SpanStatusCode.ERROR
     assert root_span.events[0].name == "exception"
     assert (
-        root_span.events[0]
+        root_span
+        .events[0]
         .attributes["exception.message"]
         .startswith(f"Trace {trace.info.request_id} is timed out")
     )
@@ -116,7 +117,7 @@ def test_trace_halted_after_timeout_in_model_serving(
         with set_prediction_context(Context(request_id=request_id)):
             _SlowModel().predict(seconds)
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-tracing-timeout") as executor:
         executor.map(_run_single, ["request-id-1", "request-id-2", "request-id-3"], [5, 6, 1])
 
     # All traces should be logged

@@ -2,42 +2,72 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
+    GatewayEndpointModelConfig,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
     GatewayResourceType,
     GatewaySecretInfo,
+    RoutingStrategy,
+)
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDuration,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
 )
 from mlflow.protos.service_pb2 import (
+    AddGuardrailToEndpoint,
     AttachModelToGatewayEndpoint,
+    CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
+    CreateGatewayGuardrail,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
+    DeleteGatewayBudgetPolicy,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
+    DeleteGatewayGuardrail,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DetachModelFromGatewayEndpoint,
+    FallbackConfig,
+    GetGatewayBudgetPolicy,
     GetGatewayEndpoint,
+    GetGatewayGuardrail,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
+    ListEndpointGuardrailConfigs,
+    ListGatewayBudgetPolicies,
     ListGatewayEndpointBindings,
     ListGatewayEndpoints,
+    ListGatewayGuardrails,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
+    RemoveGuardrailFromEndpoint,
     SetGatewayEndpointTag,
+    UpdateEndpointGuardrailConfig,
+    UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.proto_json_utils import message_to_json
 
 
@@ -76,6 +106,19 @@ class RestGatewayStoreMixin:
         ListGatewayEndpointBindings,
         SetGatewayEndpointTag,
         DeleteGatewayEndpointTag,
+        CreateGatewayBudgetPolicy,
+        GetGatewayBudgetPolicy,
+        UpdateGatewayBudgetPolicy,
+        DeleteGatewayBudgetPolicy,
+        ListGatewayBudgetPolicies,
+        CreateGatewayGuardrail,
+        GetGatewayGuardrail,
+        DeleteGatewayGuardrail,
+        ListGatewayGuardrails,
+        AddGuardrailToEndpoint,
+        RemoveGuardrailFromEndpoint,
+        ListEndpointGuardrailConfigs,
+        UpdateEndpointGuardrailConfig,
     }
 
     # ========== Secrets Management APIs ==========
@@ -106,13 +149,12 @@ class RestGatewayStoreMixin:
         Returns:
             The created GatewaySecretInfo object with masked value.
         """
-        auth_config_json = json.dumps(auth_config) if auth_config is not None else None
         req_body = message_to_json(
             CreateGatewaySecret(
                 secret_name=secret_name,
                 secret_value=secret_value,
                 provider=provider,
-                auth_config_json=auth_config_json,
+                auth_config=auth_config or {},
                 created_by=created_by,
             )
         )
@@ -161,12 +203,11 @@ class RestGatewayStoreMixin:
         Returns:
             The updated GatewaySecretInfo object with masked value.
         """
-        auth_config_json = json.dumps(auth_config) if auth_config is not None else None
         req_body = message_to_json(
             UpdateGatewaySecret(
                 secret_id=secret_id,
                 secret_value=secret_value or {},
-                auth_config_json=auth_config_json,
+                auth_config=auth_config or {},
                 updated_by=updated_by,
             )
         )
@@ -202,16 +243,26 @@ class RestGatewayStoreMixin:
     def create_gateway_endpoint(
         self,
         name: str,
-        model_definition_ids: list[str],
+        model_configs: list[GatewayEndpointModelConfig],
         created_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
+        experiment_id: str | None = None,
+        usage_tracking: bool = True,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with associated model definitions.
 
         Args:
             name: Name to identify the endpoint.
-            model_definition_ids: List of model definition IDs to attach.
+            model_configs: List of model configurations specifying model_definition_id,
+                          linkage_type, weight, and fallback_order for each model.
             created_by: Optional identifier of the user creating the endpoint.
+            routing_strategy: Optional routing strategy for the endpoint.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            experiment_id: Optional experiment ID for tracing. Only used when usage_tracking
+                          is True. If not provided and usage_tracking is True, one is auto-created.
+            usage_tracking: Whether to enable usage tracking for this endpoint.
 
         Returns:
             The created GatewayEndpoint object with associated model mappings.
@@ -219,8 +270,12 @@ class RestGatewayStoreMixin:
         req_body = message_to_json(
             CreateGatewayEndpoint(
                 name=name,
-                model_definition_ids=model_definition_ids,
+                model_configs=[config.to_proto() for config in model_configs],
                 created_by=created_by,
+                routing_strategy=routing_strategy.to_proto() if routing_strategy else None,
+                fallback_config=fallback_config.to_proto() if fallback_config else None,
+                experiment_id=experiment_id,
+                usage_tracking=usage_tracking,
             )
         )
         response_proto = self._call_endpoint(CreateGatewayEndpoint, req_body)
@@ -248,14 +303,24 @@ class RestGatewayStoreMixin:
         endpoint_id: str,
         name: str | None = None,
         updated_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
+        model_configs: list[GatewayEndpointModelConfig] | None = None,
+        experiment_id: str | None = None,
+        usage_tracking: bool | None = None,
     ) -> GatewayEndpoint:
         """
-        Update an endpoint's metadata.
+        Update an endpoint's configuration.
 
         Args:
             endpoint_id: The unique identifier of the endpoint to update.
             name: Optional new name for the endpoint.
             updated_by: Optional identifier of the user updating the endpoint.
+            routing_strategy: Optional new routing strategy for the endpoint.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            model_configs: Optional new list of model configurations (replaces all linkages).
+            experiment_id: Optional new experiment ID for tracing.
+            usage_tracking: Optional flag to enable/disable usage tracking.
 
         Returns:
             The updated GatewayEndpoint object.
@@ -265,6 +330,13 @@ class RestGatewayStoreMixin:
                 endpoint_id=endpoint_id,
                 name=name,
                 updated_by=updated_by,
+                routing_strategy=routing_strategy.to_proto() if routing_strategy else None,
+                fallback_config=fallback_config.to_proto() if fallback_config else None,
+                model_configs=[config.to_proto() for config in model_configs]
+                if model_configs
+                else [],
+                experiment_id=experiment_id,
+                usage_tracking=usage_tracking,
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayEndpoint, req_body)
@@ -419,8 +491,7 @@ class RestGatewayStoreMixin:
     def attach_model_to_endpoint(
         self,
         endpoint_id: str,
-        model_definition_id: str,
-        weight: float = 1.0,
+        model_config: GatewayEndpointModelConfig,
         created_by: str | None = None,
     ) -> GatewayEndpointModelMapping:
         """
@@ -428,8 +499,7 @@ class RestGatewayStoreMixin:
 
         Args:
             endpoint_id: The unique identifier of the endpoint.
-            model_definition_id: The unique identifier of the model definition.
-            weight: Optional routing weight (default 1).
+            model_config: Configuration for the model to attach.
             created_by: Optional identifier of the user creating the mapping.
 
         Returns:
@@ -438,8 +508,7 @@ class RestGatewayStoreMixin:
         req_body = message_to_json(
             AttachModelToGatewayEndpoint(
                 endpoint_id=endpoint_id,
-                model_definition_id=model_definition_id,
-                weight=weight,
+                model_config=model_config.to_proto(),
                 created_by=created_by,
             )
         )
@@ -577,3 +646,168 @@ class RestGatewayStoreMixin:
             )
         )
         self._call_endpoint(DeleteGatewayEndpointTag, req_body)
+
+    # ========== Budget Policy Management APIs ==========
+
+    def create_budget_policy(
+        self,
+        budget_unit: BudgetUnit,
+        budget_amount: float,
+        duration: BudgetDuration,
+        target_scope: BudgetTargetScope,
+        budget_action: BudgetAction,
+        created_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        req_body = message_to_json(
+            CreateGatewayBudgetPolicy(
+                budget_unit=budget_unit.to_proto(),
+                budget_amount=budget_amount,
+                duration=duration.to_proto(),
+                target_scope=target_scope.to_proto(),
+                budget_action=budget_action.to_proto(),
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(CreateGatewayBudgetPolicy, req_body)
+        return GatewayBudgetPolicy.from_proto(response_proto.budget_policy)
+
+    def get_budget_policy(
+        self,
+        budget_policy_id: str,
+    ) -> GatewayBudgetPolicy:
+        req_body = message_to_json(GetGatewayBudgetPolicy(budget_policy_id=budget_policy_id))
+        response_proto = self._call_endpoint(GetGatewayBudgetPolicy, req_body)
+        return GatewayBudgetPolicy.from_proto(response_proto.budget_policy)
+
+    def update_budget_policy(
+        self,
+        budget_policy_id: str,
+        budget_unit: BudgetUnit | None = None,
+        budget_amount: float | None = None,
+        duration: BudgetDuration | None = None,
+        target_scope: BudgetTargetScope | None = None,
+        budget_action: BudgetAction | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        req_body = message_to_json(
+            UpdateGatewayBudgetPolicy(
+                budget_policy_id=budget_policy_id,
+                budget_unit=budget_unit.to_proto() if budget_unit else None,
+                budget_amount=budget_amount,
+                duration=duration.to_proto() if duration else None,
+                target_scope=target_scope.to_proto() if target_scope else None,
+                budget_action=budget_action.to_proto() if budget_action else None,
+                updated_by=updated_by,
+            )
+        )
+        response_proto = self._call_endpoint(UpdateGatewayBudgetPolicy, req_body)
+        return GatewayBudgetPolicy.from_proto(response_proto.budget_policy)
+
+    def delete_budget_policy(self, budget_policy_id: str) -> None:
+        req_body = message_to_json(DeleteGatewayBudgetPolicy(budget_policy_id=budget_policy_id))
+        self._call_endpoint(DeleteGatewayBudgetPolicy, req_body)
+
+    def list_budget_policies(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayBudgetPolicy]:
+        req_body = message_to_json(
+            ListGatewayBudgetPolicies(max_results=max_results, page_token=page_token)
+        )
+        response_proto = self._call_endpoint(ListGatewayBudgetPolicies, req_body)
+        policies = [GatewayBudgetPolicy.from_proto(p) for p in response_proto.budget_policies]
+        return PagedList(policies, response_proto.next_page_token or None)
+
+    # ========== Guardrail APIs ==========
+
+    def create_gateway_guardrail(
+        self,
+        name: str,
+        scorer_id: str,
+        scorer_version: int,
+        stage: GuardrailStage,
+        action: GuardrailAction,
+        action_endpoint_id: str | None = None,
+    ) -> GatewayGuardrail:
+        kwargs = {
+            "name": name,
+            "scorer_id": scorer_id,
+            "scorer_version": scorer_version,
+            "stage": stage.to_proto(),
+            "action": action.to_proto(),
+        }
+        if action_endpoint_id is not None:
+            kwargs["action_endpoint_id"] = action_endpoint_id
+        req_body = message_to_json(CreateGatewayGuardrail(**kwargs))
+        response_proto = self._call_endpoint(CreateGatewayGuardrail, req_body)
+        return GatewayGuardrail.from_proto(response_proto.guardrail)
+
+    def get_gateway_guardrail(self, guardrail_id: str) -> GatewayGuardrail:
+        req_body = message_to_json(GetGatewayGuardrail(guardrail_id=guardrail_id))
+        response_proto = self._call_endpoint(GetGatewayGuardrail, req_body)
+        return GatewayGuardrail.from_proto(response_proto.guardrail)
+
+    def delete_gateway_guardrail(self, guardrail_id: str) -> None:
+        req_body = message_to_json(DeleteGatewayGuardrail(guardrail_id=guardrail_id))
+        self._call_endpoint(DeleteGatewayGuardrail, req_body)
+
+    def list_gateway_guardrails(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayGuardrail]:
+        req_body = message_to_json(
+            ListGatewayGuardrails(max_results=max_results, page_token=page_token)
+        )
+        response_proto = self._call_endpoint(ListGatewayGuardrails, req_body)
+        guardrails = [GatewayGuardrail.from_proto(g) for g in response_proto.guardrails]
+        return PagedList(guardrails, response_proto.next_page_token or None)
+
+    def add_guardrail_to_endpoint(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+        created_by: str | None = None,
+    ) -> GatewayGuardrailConfig:
+        kwargs = {
+            "endpoint_id": endpoint_id,
+            "guardrail_id": guardrail_id,
+        }
+        if execution_order is not None:
+            kwargs["execution_order"] = execution_order
+        req_body = message_to_json(AddGuardrailToEndpoint(**kwargs))
+        response_proto = self._call_endpoint(AddGuardrailToEndpoint, req_body)
+        return GatewayGuardrailConfig.from_proto(response_proto.config)
+
+    def remove_guardrail_from_endpoint(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+    ) -> None:
+        req_body = message_to_json(
+            RemoveGuardrailFromEndpoint(endpoint_id=endpoint_id, guardrail_id=guardrail_id)
+        )
+        self._call_endpoint(RemoveGuardrailFromEndpoint, req_body)
+
+    def list_endpoint_guardrail_configs(
+        self,
+        endpoint_id: str,
+    ) -> list[GatewayGuardrailConfig]:
+        req_body = message_to_json(ListEndpointGuardrailConfigs(endpoint_id=endpoint_id))
+        response_proto = self._call_endpoint(ListEndpointGuardrailConfigs, req_body)
+        return [GatewayGuardrailConfig.from_proto(c) for c in response_proto.configs]
+
+    def update_endpoint_guardrail_config(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+    ) -> GatewayGuardrailConfig:
+        kwargs = {"endpoint_id": endpoint_id, "guardrail_id": guardrail_id}
+        if execution_order is not None:
+            kwargs["execution_order"] = execution_order
+        req_body = message_to_json(UpdateEndpointGuardrailConfig(**kwargs))
+        response_proto = self._call_endpoint(UpdateEndpointGuardrailConfig, req_body)
+        return GatewayGuardrailConfig.from_proto(response_proto.config)

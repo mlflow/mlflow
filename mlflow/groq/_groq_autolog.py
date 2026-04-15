@@ -36,6 +36,11 @@ def patched_call(original, self, *args, **kwargs):
             span.set_inputs(kwargs)
             span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "groq")
 
+            # Extract model name from kwargs
+            if model := kwargs.get("model"):
+                span.set_attribute(SpanAttributeKey.MODEL, model)
+                span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "groq")
+
             if tools := kwargs.get("tools"):
                 try:
                     set_span_chat_tools(span, tools)

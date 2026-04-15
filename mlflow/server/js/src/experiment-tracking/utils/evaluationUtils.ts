@@ -32,6 +32,7 @@ const TEMPLATE_VARIABLE_PATTERN = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][
 
 // Reserved template variables that can be used in instructions
 export const TEMPLATE_VARIABLES = ['inputs', 'outputs', 'expectations', 'trace'];
+export const SESSION_TEMPLATE_VARIABLES = ['conversation', 'expectations'];
 
 /**
  * Extracts template variables from instructions string. Variables are returned in the order they first appear.
@@ -100,6 +101,7 @@ export function buildUserPrompt(
   const parts: string[] = [];
 
   // Build a map of variable name to data
+  // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
   const dataMap: Record<string, any> = {
     inputs,
     outputs,

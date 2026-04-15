@@ -52,7 +52,7 @@ try:
     from mlflow.pyfunc import PyFuncModel, load_model
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
-from io import StringIO
+from io import BytesIO, StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
@@ -62,10 +62,12 @@ SERVING_MODEL_CONFIG = "SERVING_MODEL_CONFIG"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_PARQUET = "application/vnd.apache.parquet"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
+    CONTENT_TYPE_PARQUET,
 ]
 
 _logger = logging.getLogger(__name__)
@@ -261,6 +263,27 @@ def parse_csv_input(csv_input, schema: Schema = None):
         )
 
 
+def parse_parquet_input(parquet_input):
+    """
+    Args:
+        parquet_input: A Parquet BinaryIO stream containing a representation of a Pandas DataFrame,
+                       or a Parquet file path containing such a representation.
+    """
+    import pandas as pd
+
+    try:
+        return pd.read_parquet(parquet_input)
+    except Exception as e:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                " a valid Parquet Pandas DataFrame produced using the"
+                f" `pandas.DataFrame.to_parquet()` method. Error: '{e}'"
+            ),
+            error_code=BAD_REQUEST,
+        )
+
+
 def unwrapped_predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
     return json.dump(predictions, output, cls=NumpyEncoder)
@@ -347,6 +370,11 @@ def invocations(data, content_type, model, input_schema):
         data = parsed_json_input.data
         params = parsed_json_input.params
         should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
+    elif mime_type == CONTENT_TYPE_PARQUET:
+        # Convert from Parquet to pandas
+        parquet_input = BytesIO(data)
+        data = parse_parquet_input(parquet_input=parquet_input)
+        params = None
     else:
         return InvocationsResponse(
             response=(
@@ -480,9 +508,7 @@ def init(model: PyFuncModel):
                 media_type="application/json",
             )
 
-    @app.route("/ping", methods=["GET"])
-    @app.route("/health", methods=["GET"])
-    async def ping(request: Request):
+    async def ping():
         """
         Determine if the container is working and healthy.
         We declare it healthy if we can load the model successfully.
@@ -491,14 +517,17 @@ def init(model: PyFuncModel):
         status = 200 if health else 404
         return Response(content="\n", status_code=status, media_type="application/json")
 
-    @app.route("/version", methods=["GET"])
-    async def version(request: Request):
+    app.get("/ping")(ping)
+    app.get("/health")(ping)
+
+    @app.get("/version")
+    async def version():
         """
         Returns the current mlflow version.
         """
         return Response(content=VERSION, status_code=200, media_type="application/json")
 
-    @app.route("/invocations", methods=["POST"])
+    @app.post("/invocations")
     @_async_catch_mlflow_exception
     async def transformation(request: Request):
         """

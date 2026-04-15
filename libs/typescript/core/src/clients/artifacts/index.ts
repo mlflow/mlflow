@@ -34,7 +34,7 @@ export interface ArtifactsClientOptions {
 export function getArtifactsClient({
   trackingUri,
   host,
-  authProvider
+  authProvider,
 }: {
   trackingUri: string;
   host: string;

@@ -2,6 +2,7 @@ export { normalizeAnthropicChatInput, normalizeAnthropicChatOutput } from './ant
 export { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './autogen';
 export { normalizeBedrockChatInput, normalizeBedrockChatOutput } from './bedrock';
 export { normalizeGeminiChatInput, normalizeGeminiChatOutput } from './gemini';
+export { normalizeMistralChatInput, normalizeMistralChatOutput } from './mistral';
 export {
   normalizeOpenAIAgentInput,
   normalizeOpenAIAgentOutput,

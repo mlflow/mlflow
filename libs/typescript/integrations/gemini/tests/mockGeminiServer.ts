@@ -34,7 +34,7 @@ interface GeminiGenerateContentResponse {
  * Create a realistic Gemini generateContent response
  */
 function createGenerateContentResponse(
-  _request: GeminiGenerateContentRequest
+  _request: GeminiGenerateContentRequest,
 ): GeminiGenerateContentResponse {
   const responseText = 'Test response from Gemini';
 
@@ -44,21 +44,21 @@ function createGenerateContentResponse(
         content: {
           parts: [
             {
-              text: responseText
-            }
+              text: responseText,
+            },
           ],
-          role: 'model'
+          role: 'model',
         },
         finishReason: 'STOP',
-        index: 0
-      }
+        index: 0,
+      },
     ],
     usageMetadata: {
       promptTokenCount: 10,
       candidatesTokenCount: 5,
-      totalTokenCount: 15
+      totalTokenCount: 15,
     },
-    text: () => responseText
+    text: () => responseText,
   };
 }
 
@@ -71,7 +71,7 @@ export const geminiMockHandlers = [
     async ({ request }) => {
       const body = (await request.json()) as GeminiGenerateContentRequest;
       return HttpResponse.json(createGenerateContentResponse(body));
-    }
+    },
   ),
 
   http.post(
@@ -79,6 +79,6 @@ export const geminiMockHandlers = [
     async ({ request }) => {
       const body = (await request.json()) as GeminiGenerateContentRequest;
       return HttpResponse.json(createGenerateContentResponse(body));
-    }
-  )
+    },
+  ),
 ];

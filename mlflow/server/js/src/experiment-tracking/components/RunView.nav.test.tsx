@@ -14,6 +14,12 @@ import { useRunDetailsPageData } from './run-page/hooks/useRunDetailsPageData';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+jest.mock('../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../hooks/useServerInfo')>('../hooks/useServerInfo'),
+  getWorkspacesEnabledSync: () => false,
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
+}));
+
 // Mock tab contents
 jest.mock('./run-page/RunViewMetricCharts', () => ({
   // @ts-expect-error 'props' is of type 'unknown'
@@ -69,7 +75,7 @@ describe('RunView navigation integration test', () => {
           params: {},
           error: null,
           loading: false,
-        } as any),
+        }) as any,
     );
   });
   test('should display overview by default and allow changing the tab', async () => {

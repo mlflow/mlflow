@@ -52,13 +52,13 @@ export const OverviewLayout = ({
       ? { width: '100%' }
       : { borderBottom: `1px solid ${theme.colors.border}`, width: '100%' }
     : verticalDisplayPrimaryContentOnTop
-    ? {
-        width: innerSidebarWidth,
-      }
-    : {
-        paddingBottom: theme.spacing.sm,
-        width: innerSidebarWidth,
-      };
+      ? {
+          width: innerSidebarWidth,
+        }
+      : {
+          paddingBottom: theme.spacing.sm,
+          width: innerSidebarWidth,
+        };
 
   return (
     <div

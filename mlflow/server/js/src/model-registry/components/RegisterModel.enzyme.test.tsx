@@ -91,6 +91,7 @@ describe('RegisterModelButton', () => {
 
       await instance.handleRegisterModel();
 
+      // eslint-disable-next-line jest/no-standalone-expect
       expect(createModelVersionApi).toHaveBeenCalledWith(
         'existing-model',
         'models:/m-12345-model-id', // Should use models:/ format
@@ -125,6 +126,7 @@ describe('RegisterModelButton', () => {
 
       await instance.handleRegisterModel();
 
+      // eslint-disable-next-line jest/no-standalone-expect
       expect(createModelVersionApi).toHaveBeenCalledWith(
         'existing-model',
         'runs:/test-run-uuid/my_model', // Should use runs:/ format
@@ -159,6 +161,7 @@ describe('RegisterModelButton', () => {
 
       await instance.handleRegisterModel();
 
+      // eslint-disable-next-line jest/no-standalone-expect
       expect(createModelVersionApi).toHaveBeenCalledWith(
         'existing-model',
         'file:///absolute/path/to/model', // Should use absolute path as fallback

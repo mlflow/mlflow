@@ -29,8 +29,8 @@ const getLoggedModelsDemoData = (experimentId: string) =>
         index % 20 === 7
           ? LoggedModelStatusProtoEnum.LOGGED_MODEL_UPLOAD_FAILED
           : index % 10 === 1
-          ? LoggedModelStatusProtoEnum.LOGGED_MODEL_PENDING
-          : LoggedModelStatusProtoEnum.LOGGED_MODEL_READY,
+            ? LoggedModelStatusProtoEnum.LOGGED_MODEL_PENDING
+            : LoggedModelStatusProtoEnum.LOGGED_MODEL_READY,
       registrations: [],
     },
     data: {

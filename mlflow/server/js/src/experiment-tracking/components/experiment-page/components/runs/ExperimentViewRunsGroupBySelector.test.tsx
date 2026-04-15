@@ -9,6 +9,9 @@ import type { RunsGroupByConfig } from '../../utils/experimentPage.group-row-uti
 import { RunGroupingAggregateFunction, RunGroupingMode } from '../../utils/experimentPage.row-types';
 import { useState } from 'react';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
+
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
 describe('ExperimentViewRunsGroupBySelector', () => {

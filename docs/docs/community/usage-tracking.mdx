@@ -132,6 +132,7 @@ The below section outlines the data currently collected in this version of MLflo
 
 **No details about the specific model, code, or weights are collected.** Only the parameters listed under the `Tracked Parameters` column are recorded alongside the event;
 For events with None in the `Tracked Parameters` column, only the event name is recorded. If "MLFLOW_EXPERIMENT_ID" environment variable exists, it is tracked as a param.
+For a comprehensive list of tracked events, please refer to the [source code](https://github.com/mlflow/mlflow/blob/005f8b18186d254286a7d258a564b414f0ee0f75/mlflow/telemetry/events.py).
 
 <Table>
   <thead>
@@ -266,6 +267,56 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>gateway_start</td>
       <td>None</td>
       <td>None</td>
+    </tr>
+    <tr>
+      <td>gateway_create_endpoint</td>
+      <td>Whether fallback config is set, routing strategy, and number of model configs</td>
+      <td>`{"has_fallback_config": true, "routing_strategy": "REQUEST_BASED_TRAFFIC_SPLIT", "num_model_configs": 2}`</td>
+    </tr>
+    <tr>
+      <td>gateway_update_endpoint</td>
+      <td>Whether fallback config is set, routing strategy, and number of model configs (null if not provided)</td>
+      <td>`{"has_fallback_config": false, "routing_strategy": "ROUND_ROBIN", "num_model_configs": 1}`</td>
+    </tr>
+    <tr>
+      <td>gateway_delete_endpoint</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>gateway_get_endpoint</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>gateway_list_endpoints</td>
+      <td>Whether filtering by provider</td>
+      <td>`{"filter_by_provider": true}`</td>
+    </tr>
+    <tr>
+      <td>gateway_create_secret</td>
+      <td>Provider name</td>
+      <td>`{"provider": "openai"}`</td>
+    </tr>
+    <tr>
+      <td>gateway_update_secret</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>gateway_delete_secret</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>gateway_list_secrets</td>
+      <td>Whether filtering by provider</td>
+      <td>`{"filter_by_provider": false}`</td>
+    </tr>
+    <tr>
+      <td>gateway_invocation</td>
+      <td>Whether streaming is enabled and the invocation type</td>
+      <td>`{"is_streaming": true, "invocation_type": "mlflow_chat_completions"}`</td>
     </tr>
     <tr>
       <td>ui_event</td>

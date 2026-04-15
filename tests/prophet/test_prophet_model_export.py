@@ -16,7 +16,6 @@ from prophet import Prophet
 import mlflow
 import mlflow.prophet
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-import mlflow.utils
 from mlflow import pyfunc
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example, load_serving_example
@@ -399,7 +398,8 @@ def test_pyfunc_serve_and_score(prophet_model):
     # cast to string representation of datetime series, otherwise will default cast to Unix time
     # which Prophet does not support for encoding
     inference_data = (
-        prophet_model.model.make_future_dataframe(FORECAST_HORIZON)["ds"]
+        prophet_model.model
+        .make_future_dataframe(FORECAST_HORIZON)["ds"]
         .dt.strftime(INFER_FORMAT)
         .to_frame(name="ds")
     )

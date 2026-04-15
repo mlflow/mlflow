@@ -34,6 +34,10 @@ def mock_tracking_store():
         yield mock_store
 
 
+def test_supports_workspaces_defaults_to_false(store):
+    assert store.supports_workspaces is False
+
+
 def test_get_metric_history_bulk_interval_empty_run_ids(store):
     result = store.get_metric_history_bulk_interval([], "accuracy", 10, 0, 100)
     assert result == []

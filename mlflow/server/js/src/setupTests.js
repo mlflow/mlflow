@@ -48,14 +48,22 @@ jest.mock('./i18n/loadMessages', () => ({
   },
 }));
 
-// Mock TelemetryClient which uses import.meta.url (not supported in Jest)
-jest.mock('./telemetry/TelemetryClient', () => ({
-  telemetryClient: {
-    logEvent: jest.fn(),
-    shutdown: jest.fn(),
-    start: jest.fn(),
-  },
-}));
+(() => {
+  // Mock TelemetryClient which uses import.meta.url (not supported in Jest)
+  // eslint-disable-next-line no-unreachable
+  jest.mock('./telemetry/TelemetryClient', () => ({
+    telemetryClient: {
+      logEvent: jest.fn(),
+      shutdown: jest.fn(),
+      start: jest.fn(),
+    },
+  }));
+
+  // Mock crypto API for tests
+  global.crypto = {
+    randomUUID: () => 'test-uuid-' + Math.random().toString(36).substring(2, 15),
+  };
+})();
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -70,11 +78,6 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: jest.fn(),
   })),
 });
-
-// Mock crypto API for tests
-global.crypto = {
-  randomUUID: () => 'test-uuid-' + Math.random().toString(36).substring(2, 15),
-};
 
 beforeEach(() => {
   // Prevent unit tests making actual fetch calls,

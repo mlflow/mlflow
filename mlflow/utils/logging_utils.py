@@ -7,6 +7,12 @@ import sys
 from mlflow.environment_variables import MLFLOW_LOGGING_LEVEL
 from mlflow.utils.thread_utils import ThreadLocalVariable
 
+
+def get_mlflow_log_level() -> str:
+    """Returns the log level from MLFLOW_LOGGING_LEVEL env var, defaulting to INFO."""
+    return (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
+
+
 # Logging format example:
 # 2018/11/20 12:36:37 INFO mlflow.sagemaker: Creating new SageMaker endpoint
 LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -113,49 +119,56 @@ class SuppressLogFilter(logging.Filter):
 
 
 def _configure_mlflow_loggers(root_module_name):
-    logging.config.dictConfig(
-        {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "formatters": {
-                "mlflow_formatter": {
-                    "()": MlflowFormatter,
-                    "format": LOGGING_LINE_FORMAT,
-                    "datefmt": LOGGING_DATETIME_FORMAT,
-                },
+    log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
+    # For alembic, use WARNING minimum to reduce noise, but respect higher levels
+    alembic_level = log_level if log_level in ("WARNING", "ERROR", "CRITICAL") else "WARNING"
+
+    logging.config.dictConfig({
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "mlflow_formatter": {
+                "()": MlflowFormatter,
+                "format": LOGGING_LINE_FORMAT,
+                "datefmt": LOGGING_DATETIME_FORMAT,
             },
-            "handlers": {
-                "mlflow_handler": {
-                    "formatter": "mlflow_formatter",
-                    "class": "logging.StreamHandler",
-                    "stream": MLFLOW_LOGGING_STREAM,
-                    "filters": ["suppress_in_thread"],
-                },
+        },
+        "handlers": {
+            "mlflow_handler": {
+                "formatter": "mlflow_formatter",
+                "class": "logging.StreamHandler",
+                "stream": MLFLOW_LOGGING_STREAM,
+                "filters": ["suppress_in_thread"],
             },
-            "loggers": {
-                root_module_name: {
-                    "handlers": ["mlflow_handler"],
-                    "level": (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper(),
-                    "propagate": False,
-                },
-                "sqlalchemy.engine": {
-                    "handlers": ["mlflow_handler"],
-                    "level": "WARN",
-                    "propagate": False,
-                },
-                "alembic": {
-                    "handlers": ["mlflow_handler"],
-                    "level": "INFO",
-                    "propagate": False,
-                },
+        },
+        "loggers": {
+            root_module_name: {
+                "handlers": ["mlflow_handler"],
+                "level": get_mlflow_log_level(),
+                "propagate": False,
             },
-            "filters": {
-                "suppress_in_thread": {
-                    "()": SuppressLogFilter,
-                }
+            "sqlalchemy.engine": {
+                "handlers": ["mlflow_handler"],
+                "level": "WARN",
+                "propagate": False,
             },
-        }
-    )
+            "alembic": {
+                "handlers": ["mlflow_handler"],
+                "level": alembic_level,
+                "propagate": False,
+            },
+            "huey": {
+                "handlers": ["mlflow_handler"],
+                "level": alembic_level,
+                "propagate": False,
+            },
+        },
+        "filters": {
+            "suppress_in_thread": {
+                "()": SuppressLogFilter,
+            }
+        },
+    })
 
 
 def eprint(*args, **kwargs):

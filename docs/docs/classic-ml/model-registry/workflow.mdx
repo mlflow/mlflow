@@ -92,9 +92,7 @@ from mlflow.models import infer_signature
 
 with mlflow.start_run() as run:
     X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     params = {"max_depth": 2, "random_state": 42}
     model = RandomForestRegressor(**params)
     model.fit(X_train, y_train)
@@ -213,9 +211,7 @@ from mlflow import MlflowClient
 # Registry URI must be set to workspace registry
 client = MlflowClient(registry_uri="databricks")
 src_model_uri = f"models:/my_wmr_model/1"
-uc_migrated_copy = client.copy_model_version(
-    src_model_uri, "mycatalog.myschema.my_uc_model"
-)
+uc_migrated_copy = client.copy_model_version(src_model_uri, "mycatalog.myschema.my_uc_model")
 ```
 
 If the destination UC model doesn't exist, one will be created as part of this API call.
@@ -533,8 +529,7 @@ This outputs:
 {
     "creation_timestamp": 1582671933246,
     "current_stage": "Production",
-    "description": "A random forest model containing 100 decision trees "
-    "trained in scikit-learn",
+    "description": "A random forest model containing 100 decision trees trained in scikit-learn",
     "last_updated_timestamp": 1582671960712,
     "name": "sk-learn-random-forest-reg-model",
     "run_id": "ae2cc01346de45f79a44a320aab1797b",
@@ -573,9 +568,7 @@ You can either delete specific versions of a registered model or you can delete 
 client = MlflowClient()
 versions = [1, 2, 3]
 for version in versions:
-    client.delete_model_version(
-        name="sk-learn-random-forest-reg-model", version=version
-    )
+    client.delete_model_version(name="sk-learn-random-forest-reg-model", version=version)
 
 # Delete a registered model along with all its versions
 client.delete_registered_model(name="sk-learn-random-forest-reg-model")
@@ -750,9 +743,7 @@ INPUT_TEXTS = [
     {"text": "LOL, this guy fell off a chair while sleeping and snoring in a meeting"},
     {"text": "Men shoots himself while trying to steal a dog, OMG"},
     {"text": "Yay!! Another good phone interview. I nailed it!!"},
-    {
-        "text": "This is INSANE! I can't believe it. How could you do such a horrible thing?"
-    },
+    {"text": "This is INSANE! I can't believe it. How could you do such a horrible thing?"},
 ]
 
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
@@ -810,9 +801,7 @@ with mlflow.start_run(run_name="Vader Sentiment Analysis") as run:
     model_path = f"{model_path}-{run.info.run_id}"
     mlflow.log_param("algorithm", "VADER")
     mlflow.log_param("total_sentiments", len(INPUT_TEXTS))
-    mlflow.pyfunc.save_model(
-        path=model_path, python_model=vader_model, conda_env=conda_env
-    )
+    mlflow.pyfunc.save_model(path=model_path, python_model=vader_model, conda_env=conda_env)
 
 # Use the saved model path to log and register into the model registry
 mlflow.pyfunc.log_model(

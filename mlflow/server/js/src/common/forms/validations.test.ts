@@ -38,7 +38,7 @@ describe('modelNameValidator should work properly', () => {
   // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should invoke callback with error message when model exists', (done) => {
     // getRegisteredModel returns resolved promise indicates model exists
-    ModelRegistryService.getRegisteredModel = jest.fn(() => Promise.resolve());
+    jest.spyOn(ModelRegistryService, 'getRegisteredModel').mockImplementation(() => Promise.resolve());
     const mockCallback = jest.fn((err) => err);
     const modelName = 'model A';
     modelNameValidator(undefined, modelName, mockCallback);
@@ -53,7 +53,7 @@ describe('modelNameValidator should work properly', () => {
   // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should invoke callback with undefined when model does not exist', (done) => {
     // getRegisteredModel returns rejected promise indicates model does not exist
-    ModelRegistryService.getRegisteredModel = jest.fn(() => Promise.reject());
+    jest.spyOn(ModelRegistryService, 'getRegisteredModel').mockImplementation(() => Promise.reject());
     const mockCallback = jest.fn((err) => err);
     const modelName = 'model A';
     modelNameValidator(undefined, modelName, mockCallback);

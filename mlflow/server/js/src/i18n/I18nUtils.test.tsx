@@ -153,7 +153,7 @@ describe('I18nUtils', () => {
       const errorThrown = new Error('failing translation load');
 
       const originalI18nUtils = { ...I18nUtils };
-      I18nUtils.initI18n = jest.fn<typeof I18nUtils.initI18n>().mockRejectedValue(errorThrown);
+      jest.spyOn(I18nUtils, 'initI18n').mockRejectedValue(errorThrown);
 
       const { result } = renderHook(() => useI18nInit());
 

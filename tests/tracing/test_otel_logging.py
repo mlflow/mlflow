@@ -58,6 +58,11 @@ def mlflow_server(tmp_path: Path, db_uri: str) -> Iterator[str]:
     # Start the FastAPI app in a background thread and yield its URL.
     with ServerThread(mlflow_app, get_safe_port()) as url:
         yield url
+        # Drain any pending async trace exports while the server is still up.
+        # The autouse `enable_async_trace_logging` fixture in tests/tracing/conftest.py
+        # also calls flush on teardown, but by that time this ServerThread has
+        # already exited, causing the worker to retry against a dead server.
+        mlflow.flush_trace_async_logging()
 
 
 def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypatch):
@@ -125,7 +130,7 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
     traces = []
     for _ in range(30):
         traces = mlflow.search_traces(
-            experiment_ids=[experiment_id], include_spans=False, return_type="list"
+            locations=[experiment_id], include_spans=False, return_type="list"
         )
         if traces:
             break
@@ -200,10 +205,10 @@ def test_missing_required_span_fields_returns_422(mlflow_server: str):
     """
     Test that spans that fail MLflow conversion return HTTP 422.
     """
-    # Create protobuf request with missing trace_id (this should cause MLflow conversion to fail)
+    # Create protobuf request with missing span_id (this should cause MLflow conversion to fail)
     span = OTelProtoSpan()
-    # Don't set trace_id - this should cause from_otel_proto to fail
-    span.span_id = bytes.fromhex("00000001" + "0" * 8)
+    span.trace_id = bytes.fromhex("0000000000000001" + "0" * 16)
+    # Don't set span_id - this should cause from_otel_proto to fail
     span.name = "incomplete-span"
 
     scope = InstrumentationScope()
@@ -226,7 +231,7 @@ def test_missing_required_span_fields_returns_422(mlflow_server: str):
         data=request.SerializeToString(),
         headers={
             "Content-Type": "application/x-protobuf",
-            MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
+            MLFLOW_EXPERIMENT_ID_HEADER: "0",
         },
         timeout=10,
     )
@@ -371,7 +376,7 @@ def test_batch_span_processor_with_multiple_traces(mlflow_server: str):
     span_processor.force_flush()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 3
@@ -434,7 +439,7 @@ def test_multiple_traces_in_single_request(mlflow_server: str):
     assert response.status_code == 200
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 3
@@ -484,7 +489,7 @@ def test_logging_many_traces_in_single_request(mlflow_server: str):
     )
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == num_traces
@@ -547,9 +552,7 @@ def test_mixed_trace_spans_in_single_request(mlflow_server: str):
 
     assert response.status_code == 200
 
-    traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=True, return_type="list"
-    )
+    traces = mlflow.search_traces(locations=[experiment_id], include_spans=True, return_type="list")
 
     assert len(traces) == 3
     span_counts = [len(trace.data.spans) for trace in traces]
@@ -603,17 +606,18 @@ def test_error_logging_spans(mlflow_server: str):
 
         span_processor.force_flush()
 
-        assert any(
-            "Failed to log OpenTelemetry spans" in error[0][2]
-            for error in mock_error.call_args_list
-        )
-        assert any("test_error" in error[0][2] for error in mock_error.call_args_list)
+        assert any("Failed to export" in error[0][0] for error in mock_error.call_args_list)
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
-    assert len(traces) == 1
+    # The OTLP endpoint now calls log_spans once for all spans in the batch.
+    # If that call fails, all spans in the batch are dropped together (HTTP 422 is
+    # non-retryable for the OTel OTLP exporter). Previously, per-trace calls meant
+    # the second trace could still succeed. With the unified log_spans call, the
+    # result is 0 stored traces.
+    assert len(traces) == 0
 
 
 def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
@@ -712,6 +716,7 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
 
     with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
         mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_client.config = None  # Ensure telemetry is not disabled for any event
         mock_get_client.return_value = mock_client
 
         response = requests.post(

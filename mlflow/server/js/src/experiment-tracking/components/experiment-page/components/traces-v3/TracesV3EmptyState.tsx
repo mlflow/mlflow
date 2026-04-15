@@ -1,17 +1,24 @@
 import { useMonitoringFilters } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import { createTraceLocationForExperiment, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
+import {
+  createTraceLocationForExperiment,
+  GenAITracesTableBodySkeleton,
+  useSearchMlflowTraces,
+} from '@databricks/web-shared/genai-traces-table';
 import { FormattedMessage } from '@databricks/i18n';
 import { Button, DangerIcon, Empty, ParagraphSkeleton, SearchIcon } from '@databricks/design-system';
 import { getNamedDateFilters } from './utils/dateUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
 import { useMemo } from 'react';
 import { useIntl } from '@databricks/i18n';
-import { getExperimentKindFromTags } from '@mlflow/mlflow/src/experiment-tracking/utils/ExperimentKindUtils';
-import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import {
+  useExperimentKind,
+  isGenAIExperimentKind,
+} from '@mlflow/mlflow/src/experiment-tracking/utils/ExperimentKindUtils';
 import { TracesViewTableNoTracesQuickstart } from '../../../traces/quickstart/TracesViewTableNoTracesQuickstart';
-import type {
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
+import {
+  shouldEnableTracesTableStatePersistence,
+  type ModelTraceLocationMlflowExperiment,
+  type ModelTraceLocationUcSchema,
 } from '@databricks/web-shared/model-trace-explorer';
 
 export const TracesV3EmptyState = (props: {
@@ -41,14 +48,15 @@ export const TracesV3EmptyState = (props: {
     experimentId: experimentIds[0],
   });
   const experiment = experimentEntity;
-  const experimentKind = getExperimentKindFromTags(experiment?.tags);
+  const experimentKind = useExperimentKind(experiment?.tags);
 
-  const isGenAIExperiment =
-    experimentKind === ExperimentKind.GENAI_DEVELOPMENT || experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED;
+  const isGenAIExperiment = experimentKind ? isGenAIExperimentKind(experimentKind) : false;
 
   const hasMoreTraces = traces && traces.length > 0;
 
-  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
+  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters({
+    persist: shouldEnableTracesTableStatePersistence(),
+  });
 
   const namedDateFilters = useMemo(() => getNamedDateFilters(intl), [intl]);
 
@@ -59,13 +67,7 @@ export const TracesV3EmptyState = (props: {
   );
 
   if (isLoading || isExperimentLoading) {
-    return (
-      <>
-        {[...Array(10).keys()].map((i) => (
-          <ParagraphSkeleton label="Loading..." key={i} seed={`s-${i}`} />
-        ))}
-      </>
-    );
+    return <GenAITracesTableBodySkeleton />;
   }
 
   if (error) {

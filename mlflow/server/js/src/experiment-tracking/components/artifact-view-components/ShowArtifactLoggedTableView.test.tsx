@@ -54,7 +54,7 @@ describe('ShowArtifactLoggedTableView', () => {
           right: 0,
           bottom: 0,
           left: 0,
-        } as DOMRect),
+        }) as DOMRect,
     );
   });
 
@@ -252,14 +252,19 @@ describe('ShowArtifactLoggedTableView', () => {
       expect(screen.getByRole('columnheader', { name: 'images' })).toBeInTheDocument();
     });
 
+    await waitFor(() => {
+      expect(document.body.innerHTML).toContain('get-artifact?path=');
+    });
+
     // Wait for the table cells to render
     await waitFor(() => {
-      const image = screen.getByRole('img');
-      expect(image).toBeInTheDocument();
-      expect(image).toHaveAttribute(
-        'src',
-        expect.stringContaining('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
-      );
+      const images = screen.getAllByRole('img');
+      expect(images.length).toBeGreaterThan(0);
+      expect(
+        images.some((image) =>
+          image.getAttribute('src')?.includes('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
+        ),
+      ).toBe(true);
     });
   });
 

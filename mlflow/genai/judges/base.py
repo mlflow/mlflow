@@ -6,15 +6,16 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from mlflow.entities.trace import Trace
-from mlflow.genai.judges.constants import _RATIONALE_FIELD_DESCRIPTION, _RESULT_FIELD_DESCRIPTION
+from mlflow.genai.judges.constants import (
+    _RATIONALE_FIELD_DESCRIPTION,
+    _RESULT_FIELD_DESCRIPTION,
+)
 from mlflow.genai.judges.utils import get_default_optimizer
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.telemetry.events import AlignJudgeEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 class AlignmentOptimizer(ABC):
     """
     Abstract base class for judge alignment optimizers.
@@ -49,7 +50,6 @@ class JudgeField(BaseModel):
     value_type: Any = Field(default=str, description="Type of the field's value")
 
 
-@experimental(version="3.4.0")
 class Judge(Scorer):
     """
     Base class for LLM-as-a-judge scorers that can be aligned with human feedback.
@@ -67,6 +67,13 @@ class Judge(Scorer):
     def instructions(self) -> str:
         """
         Plain text instructions of what this judge evaluates.
+        """
+
+    @property
+    @abstractmethod
+    def feedback_value_type(self) -> Any:
+        """
+        Type of the feedback value.
         """
 
     @abstractmethod
@@ -96,7 +103,6 @@ class Judge(Scorer):
             ),
         ]
 
-    @experimental(version="3.4.0")
     @record_usage_event(AlignJudgeEvent)
     def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
         """

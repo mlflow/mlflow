@@ -31,6 +31,20 @@ def job_assert_tracking_uri(server_url: str) -> None:
     assert mlflow.get_tracking_uri() == server_url
 
 
+@job(name="job_with_progress_tracking", max_workers=1)
+def job_with_progress_tracking(sleep_secs: int = 1) -> str:
+    from mlflow.server.jobs.progress import update_status_details
+
+    update_status_details({"stage": "init", "progress": "0%"})
+    time.sleep(sleep_secs)
+
+    update_status_details({"stage": "processing", "progress": "50%"})
+    time.sleep(sleep_secs)
+
+    update_status_details({"stage": "done", "progress": "100%"})
+    return "completed"
+
+
 class Client:
     def __init__(self, server_url: str):
         self.server_url = server_url
@@ -52,6 +66,11 @@ class Client:
 
     def get_job(self, job_id: str) -> dict[str, Any]:
         response = requests.get(f"{self.server_url}/ajax-api/3.0/jobs/{job_id}")
+        response.raise_for_status()
+        return response.json()
+
+    def cancel_job(self, job_id: str) -> dict[str, Any]:
+        response = requests.patch(f"{self.server_url}/ajax-api/3.0/jobs/cancel/{job_id}")
         response.raise_for_status()
         return response.json()
 
@@ -108,9 +127,13 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             "PYTHONPATH": os.path.dirname(__file__),
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
             "_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST": (
-                "test_endpoint.simple_job_fun,test_endpoint.job_assert_tracking_uri"
+                "test_endpoint.simple_job_fun,"
+                "test_endpoint.job_assert_tracking_uri,"
+                "test_endpoint.job_with_progress_tracking"
             ),
-            "_MLFLOW_ALLOWED_JOB_NAME_LIST": ("simple_job_fun,job_assert_tracking_uri"),
+            "_MLFLOW_ALLOWED_JOB_NAME_LIST": (
+                "simple_job_fun,job_assert_tracking_uri,job_with_progress_tracking"
+            ),
         },
         start_new_session=True,  # new session & process group
     ) as server_proc:
@@ -136,12 +159,12 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             os.killpg(server_proc.pid, signal.SIGKILL)
 
 
-def test_job_endpoint(client: Client):
+def test_job_submit(client: Client):
     job_id = client.submit_job(
         job_name="simple_job_fun",
         params={"x": 3, "y": 4},
     )["job_id"]
-    job_json = client.wait_job(job_id)
+    job_json = client.wait_job(job_id, timeout=30)
     job_json.pop("creation_time")
     job_json.pop("last_update_time")
     assert job_json == {
@@ -152,6 +175,38 @@ def test_job_endpoint(client: Client):
         "status": "SUCCEEDED",
         "result": {"a": 7, "b": 12},
         "retry_count": 0,
+        "status_details": None,
+    }
+
+
+def test_job_cancel(client: Client):
+    job_id = client.submit_job(
+        job_name="simple_job_fun",
+        params={"x": 3, "y": 4, "sleep_secs": 120},
+    )["job_id"]
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        status = client.get_job(job_id)["status"]
+        if status == "RUNNING":
+            break
+        time.sleep(0.5)
+    else:
+        raise TimeoutError(f"Job did not start running within 20 seconds, last status: {status}")
+
+    client.cancel_job(job_id)
+
+    job_json = client.get_job(job_id)
+    job_json.pop("creation_time")
+    job_json.pop("last_update_time")
+    assert job_json == {
+        "job_id": job_id,
+        "job_name": "simple_job_fun",
+        "params": {"x": 3, "y": 4, "sleep_secs": 120},
+        "timeout": None,
+        "status": "CANCELED",
+        "result": None,
+        "retry_count": 0,
+        "status_details": None,
     }
 
 
@@ -281,5 +336,20 @@ def test_job_endpoint_search(client: Client):
     assert response.status_code == 422
     assert (
         response.json()["detail"][0]["msg"]
-        == "Input should be 'PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED' or 'TIMEOUT'"
+        == "Input should be 'PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'TIMEOUT' or 'CANCELED'"
     )
+
+
+def test_job_status_details_in_api_response(client: Client):
+    job_id = client.submit_job(
+        job_name="job_with_progress_tracking",
+        params={"sleep_secs": 1},
+    )["job_id"]
+
+    job_json = client.wait_job(job_id, timeout=30)
+
+    assert "status_details" in job_json
+    assert job_json["status_details"] is not None
+    assert job_json["status_details"].get("stage") == "done"
+    assert job_json["status"] == "SUCCEEDED"
+    assert job_json["result"] == "completed"

@@ -25,6 +25,15 @@ from mlflow.prompt.constants import (
 PromptVersionTag = ModelVersionTag
 
 
+def _is_jinja2_template(template: str | list[dict[str, Any]]) -> bool:
+    """Check if template uses Jinja2 control flow syntax ({% %})."""
+    if isinstance(template, str):
+        return "{%" in template and "%}" in template
+    return any(
+        "{%" in msg.get("content", "") and "%}" in msg.get("content", "") for msg in template
+    )
+
+
 class PromptModelConfig(BaseModel):
     """
     Configuration for a model associated with a prompt, including model name and inference
@@ -439,7 +448,10 @@ class PromptVersion(_ModelRegistryEntity):
         self._tags[tag.key] = tag.value
 
     def format(
-        self, allow_partial: bool = False, **kwargs
+        self,
+        allow_partial: bool = False,
+        use_jinja_sandbox: bool = True,
+        **kwargs,
     ) -> PromptVersion | str | list[dict[str, Any]]:
         """
         Format the template with the given keyword arguments.
@@ -475,15 +487,55 @@ class PromptVersion(_ModelRegistryEntity):
             print(formatted)
             # Output: PromptVersion(name=my-prompt, version=1, template="Hello, Ms {{name}}!")
 
+            # Jinja2 template formatting (with conditionals and loops)
+            jinja_prompt = PromptVersion(
+                "jinja-prompt",
+                1,
+                "Hello {% if name %}{{ name }}{% else %}Guest{% endif %}!",
+            )
+            formatted = jinja_prompt.format(name="Alice")
+            print(formatted)
+            # Output: "Hello Alice!"
+
 
         Args:
             allow_partial: If True, allow partial formatting of the prompt text.
                 If False, raise an error if there are missing variables.
+            use_jinja_sandbox: If True (default), use Jinja2's SandboxedEnvironment
+                for safe rendering. Set to False to use unrestricted Environment.
+                Only applies to Jinja2 templates (those containing {% %} syntax).
             kwargs: Keyword arguments to replace the variables in the template.
         """
         from mlflow.genai.prompts.utils import format_prompt
 
-        input_keys = set(kwargs.keys())
+        # Jinja2 template rendering
+        if _is_jinja2_template(self.template):
+            try:
+                from jinja2 import Environment, Undefined
+                from jinja2.sandbox import SandboxedEnvironment
+            except ImportError:
+                raise MlflowException.invalid_parameter_value(
+                    "The prompt is a Jinja2 template. To format the prompt, "
+                    "install Jinja2 with `pip install jinja2`."
+                )
+
+            env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
+            env = env_cls(undefined=Undefined)
+
+            if self.is_text_prompt:
+                tmpl = env.from_string(self.template)
+                return tmpl.render(**kwargs)
+            else:
+                # Jinja2 rendering for chat prompts
+                return [
+                    {
+                        "role": message["role"],
+                        "content": env.from_string(message.get("content", "")).render(**kwargs),
+                    }
+                    for message in self.template
+                ]
+
+        # Double-brace template formatting (native MLflow format)
         if self.is_text_prompt:
             template = format_prompt(self.template, **kwargs)
         else:
@@ -496,6 +548,8 @@ class PromptVersion(_ModelRegistryEntity):
                 }
                 for message in self.template
             ]
+
+        input_keys = set(kwargs.keys())
         if missing_keys := self.variables - input_keys:
             if not allow_partial:
                 raise MlflowException.invalid_parameter_value(

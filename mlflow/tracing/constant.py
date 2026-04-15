@@ -11,6 +11,14 @@ class TraceMetadataKey:
     SIZE_STATS = "mlflow.trace.sizeStats"
     # Aggregated token usage information in a single trace, stored as a dumped JSON string.
     TOKEN_USAGE = "mlflow.trace.tokenUsage"
+    # Set by start_trace() when it writes the authoritative (DFS-dedup) TOKEN_USAGE / COST
+    # so that concurrent log_spans() calls do not accumulate on top of them.
+    # Set by start_trace() after writing authoritative trace-level values (TOKEN_USAGE,
+    # COST, session ID, request_time, execution_duration) so that concurrent log_spans()
+    # calls do not overwrite them.
+    TRACE_INFO_FINALIZED = "mlflow.trace.infoFinalized"
+    # Aggregated cost information in a single trace, stored as a dumped JSON string (USD).
+    COST = "mlflow.trace.cost"
     # Store the user ID/name of the application request. Do not confuse this with mlflow.user
     # tag, which stores "who created the trace" i.e. developer or system name.
     TRACE_USER = "mlflow.trace.user"
@@ -19,6 +27,13 @@ class TraceMetadataKey:
 
     # Total size of the trace in bytes. Deprecated, use SIZE_STATS instead.
     SIZE_BYTES = "mlflow.trace.sizeBytes"
+
+    # Gateway-specific metadata keys
+    GATEWAY_ENDPOINT_ID = "mlflow.gateway.endpointId"
+    GATEWAY_REQUEST_TYPE = "mlflow.gateway.requestType"
+    # Store the user ID/name from authentication
+    AUTH_USER_ID = "mlflow.auth.userId"
+    AUTH_USERNAME = "mlflow.auth.username"
 
 
 class TraceTagKey:
@@ -41,10 +56,30 @@ class TokenUsageKey:
     INPUT_TOKENS = "input_tokens"
     OUTPUT_TOKENS = "output_tokens"
     TOTAL_TOKENS = "total_tokens"
+    CACHE_READ_INPUT_TOKENS = "cache_read_input_tokens"
+    CACHE_CREATION_INPUT_TOKENS = "cache_creation_input_tokens"
 
     @classmethod
     def all_keys(cls):
-        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
+        return [
+            cls.INPUT_TOKENS,
+            cls.OUTPUT_TOKENS,
+            cls.TOTAL_TOKENS,
+            cls.CACHE_READ_INPUT_TOKENS,
+            cls.CACHE_CREATION_INPUT_TOKENS,
+        ]
+
+    @classmethod
+    def cache_keys(cls):
+        return [cls.CACHE_READ_INPUT_TOKENS, cls.CACHE_CREATION_INPUT_TOKENS]
+
+
+class CostKey:
+    """Key for the cost information in the `mlflow.llm.cost` span attribute."""
+
+    INPUT_COST = "input_cost"
+    OUTPUT_COST = "output_cost"
+    TOTAL_COST = "total_cost"
 
 
 class TraceSizeStatsKey:
@@ -67,8 +102,15 @@ class SpanAttributeKey:
     START_TIME_NS = "mlflow.spanStartTimeNs"
     CHAT_TOOLS = "mlflow.chat.tools"
     # This attribute is used to store token usage information from LLM responses.
-    # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
+    # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int,
+    #   "cache_read_input_tokens"?: int, "cache_creation_input_tokens"?: int} format.
     CHAT_USAGE = "mlflow.chat.tokenUsage"
+    # This attribute stores cost information calculated from token usage and model pricing.
+    # Stored in {"input_cost": float, "output_cost": float, "total_cost": float} format (USD).
+    LLM_COST = "mlflow.llm.cost"
+    # This attribute stores the model name extracted from span inputs/attributes.
+    MODEL = "mlflow.llm.model"
+    MODEL_PROVIDER = "mlflow.llm.provider"
     # This attribute indicates which flavor/format generated the LLM span. This is
     # used by downstream (e.g., UI) to determine the message format for parsing.
     MESSAGE_FORMAT = "mlflow.message.format"
@@ -81,6 +123,16 @@ class SpanAttributeKey:
     # within an active span. Stored as a JSON list of {"name": "...", "version": "..."} objects,
     # same format as LINKED_PROMPTS_TAG_KEY in traces.
     LINKED_PROMPTS = "mlflow.linkedPrompts"
+    # This attribute stores the trace ID of the linked gateway trace, used when a gateway
+    # endpoint is called by a traced agent via distributed tracing (traceparent header).
+    LINKED_GATEWAY_TRACE_ID = "mlflow.gateway.linkedTraceId"
+
+    # User and session IDs copied from trace metadata to root span attributes for OTLP export.
+    # Following OTel semantic conventions:
+    # https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
+    # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
+    USER_ID = "user.id"
+    SESSION_ID = "session.id"
 
 
 class AssessmentMetadataKey:
@@ -88,8 +140,13 @@ class AssessmentMetadataKey:
     SOURCE_RUN_ID = "mlflow.assessment.sourceRunId"
     # Total LLM cost spent for generating the feedback (llm-as-a-judge).
     JUDGE_COST = "mlflow.assessment.judgeCost"
+    # Token counts for the judge LLM call.
+    JUDGE_INPUT_TOKENS = "mlflow.assessment.judgeInputTokens"
+    JUDGE_OUTPUT_TOKENS = "mlflow.assessment.judgeOutputTokens"
     # When the scorer generates a trace for assessment scoring, log the trace ID here.
     SCORER_TRACE_ID = "mlflow.assessment.scorerTraceId"
+    # When the assessment is generated by online scoring, log the session ID here.
+    ONLINE_SCORING_SESSION_ID = "mlflow.assessment.onlineScoringSessionId"
 
 
 # All storage backends are guaranteed to support request_metadata key/value up to 250 characters
@@ -157,10 +214,18 @@ class TraceMetricKey:
     INPUT_TOKENS = "input_tokens"
     OUTPUT_TOKENS = "output_tokens"
     TOTAL_TOKENS = "total_tokens"
+    CACHE_READ_INPUT_TOKENS = "cache_read_input_tokens"
+    CACHE_CREATION_INPUT_TOKENS = "cache_creation_input_tokens"
 
     @classmethod
     def token_usage_keys(cls) -> list[str]:
-        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
+        return [
+            cls.INPUT_TOKENS,
+            cls.OUTPUT_TOKENS,
+            cls.TOTAL_TOKENS,
+            cls.CACHE_READ_INPUT_TOKENS,
+            cls.CACHE_CREATION_INPUT_TOKENS,
+        ]
 
 
 class TraceMetricDimensionKey:
@@ -179,6 +244,13 @@ class SpanMetricKey:
 
     SPAN_COUNT = "span_count"
     LATENCY = "latency"
+    INPUT_COST = "input_cost"
+    OUTPUT_COST = "output_cost"
+    TOTAL_COST = "total_cost"
+
+    @classmethod
+    def cost_keys(cls) -> list[str]:
+        return [cls.INPUT_COST, cls.OUTPUT_COST, cls.TOTAL_COST]
 
 
 class SpanMetricDimensionKey:
@@ -189,6 +261,8 @@ class SpanMetricDimensionKey:
     SPAN_NAME = "span_name"
     SPAN_TYPE = "span_type"
     SPAN_STATUS = "span_status"
+    SPAN_MODEL_NAME = "span_model_name"
+    SPAN_MODEL_PROVIDER = "span_model_provider"
 
 
 class AssessmentMetricKey:
@@ -281,3 +355,26 @@ class AssessmentMetricSearchKey:
             cls.NAME: False,
             cls.TYPE: False,
         }
+
+
+# OpenTelemetry GenAI Semantic Convention attribute keys.
+# https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+class GenAiSemconvKey:
+    OPERATION_NAME = "gen_ai.operation.name"
+    REQUEST_MODEL = "gen_ai.request.model"
+    RESPONSE_MODEL = "gen_ai.response.model"
+    RESPONSE_ID = "gen_ai.response.id"
+    PROVIDER_NAME = "gen_ai.provider.name"
+    USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
+    USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
+    INPUT_MESSAGES = "gen_ai.input.messages"
+    OUTPUT_MESSAGES = "gen_ai.output.messages"
+    SYSTEM_INSTRUCTIONS = "gen_ai.system_instructions"
+    REQUEST_TEMPERATURE = "gen_ai.request.temperature"
+    REQUEST_MAX_TOKENS = "gen_ai.request.max_tokens"
+    REQUEST_TOP_P = "gen_ai.request.top_p"
+    REQUEST_STOP_SEQUENCES = "gen_ai.request.stop_sequences"
+    RESPONSE_FINISH_REASONS = "gen_ai.response.finish_reasons"
+    TOOL_DEFINITIONS = "gen_ai.tool.definitions"
+    TOOL_CALL_ARGUMENTS = "gen_ai.tool.call.arguments"
+    TOOL_CALL_RESULT = "gen_ai.tool.call.result"

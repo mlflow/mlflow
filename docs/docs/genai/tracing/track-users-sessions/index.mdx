@@ -1,37 +1,63 @@
+---
+description: Associate MLflow traces with users and sessions to analyze multi-turn conversations and user behavior.
+---
+
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Search, TrendingUp } from "lucide-react";
+import { Search, TrendingUp, MessageSquare } from "lucide-react";
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Track Users & Sessions
 
 <video src={useBaseUrl("/images/llms/tracing/chat-sessions-demo.mp4")} controls loop autoPlay muted aria-label="Traces with session IDs" />
 
-Many real-world AI applications use session to maintain multi-turn user interactions. MLflow Tracing provides built-in support for associating traces with users and grouping them into sessions. Tracking users and sessions in your GenAI application provides essential context for understanding user behavior, analyzing conversation flows, and improving personalization.
+Many real-world AI applications use sessions to maintain multi-turn user interactions. MLflow Tracing provides built-in support for associating traces with users and grouping them into sessions. Tracking users and sessions in your LLM application or AI agent provides essential context for understanding user behavior, analyzing conversation flows, and improving personalization.
 
 ## Store User and Session IDs in Metadata
 
-:::note New in MLflow 3
-The standard metadata for user and session tracking is only available in MLflow 3 and above. To upgrade, please run `pip install --upgrade mlflow`.
-:::
-
-MLflow provides two standard metadata fields for session and user tracking:
-
-- `mlflow.trace.user` - Associates traces with specific users
-- `mlflow.trace.session` - Groups traces belonging to multi-turn conversations
-
-When you use these standard metadata fields, MLflow automatically enables filtering and grouping in the UI. Unlike tags, metadata cannot be updated once the trace is logged, making it ideal for immutable identifiers like user and session IDs.
+MLflow provides dedicated `session_id` and `user` parameters in both <APILink fn="mlflow.update_current_trace" /> and <APILink fn="mlflow.tracing.context" /> for session and user tracking. Once they are set, you can filter and group traces by session and user.
 
 ## Basic Usage
 
-To record user and session information in your application, use the <APILink fn="mlflow.update_current_trace" /> API and pass the user and session IDs in the metadata.
+### Context manager (Suitable for auto-instrumented applications)
+
+When using auto-instrumented libraries (e.g. `mlflow.langchain.autolog()`), you don't control
+the traced function directly. Use <APILink fn="mlflow.tracing.context" /> to inject user and
+session information into any trace created within its scope.
+
+```python
+import mlflow
+
+mlflow.langchain.autolog()
+
+with mlflow.tracing.context(session_id="session-123", user="user-456"):
+    # Any trace created inside this block will carry the session and user metadata.
+    agent.invoke("What is the capital of France?")
+```
+
+This is especially useful in web applications where you can wrap request handlers with the
+context manager to automatically associate all traces with the current user and session.
+
+:::note
+
+The `session_id` and `user` parameters are supported since MLflow 3.11.0. For earlier versions,
+set `mlflow.trace.session` or `mlflow.trace.user` key to the trace metadata directly.
+
+```
+mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+```
+
+:::
+
+### Inline update (Suitable for a manually traced function)
+
+To record user and session information within a function you control, use the <APILink fn="mlflow.update_current_trace" /> API and pass the user and session IDs directly.
 
 <Tabs>
   <TabItem value="python" label="Python" default>
-    Here's how to add user and session tracking to your application:
 
     ```python
     import mlflow
@@ -39,15 +65,8 @@ To record user and session information in your application, use the <APILink fn=
 
     @mlflow.trace
     def chat_completion(message: list[dict], user_id: str, session_id: str):
-        """Process a chat message with user and session tracking."""
-
         # Add user and session context to the current trace
-        mlflow.update_current_trace(
-            metadata={
-                "mlflow.trace.user": user_id,  # Links trace to specific user
-                "mlflow.trace.session": session_id,  # Groups trace with conversation
-            }
-        )
+        mlflow.update_current_trace(session_id=session_id, user=user_id)
 
         # Your chat logic here
         return generate_response(message)
@@ -56,20 +75,18 @@ To record user and session information in your application, use the <APILink fn=
   </TabItem>
   <TabItem value="typescript" label="TypeScript">
     ```typescript
-    import * as mlflow from "mlflow-tracing";
+    import * as mlflow from "@mlflow/core";
 
     const chatCompletion = mlflow.trace(
-        (message: list[dict], user_id: str, session_id: str) => {
+        (message: Array<Record<string, any>>, userId: string, sessionId: string) => {
             // Add user and session context to the current trace
             mlflow.updateCurrentTrace({
-                metadata: {
-                    "mlflow.trace.user": user_id,
-                    "mlflow.trace.session": session_id,
-                },
+                sessionId: sessionId,
+                user: userId,
             });
 
             // Your chat logic here
-            return generate_response(message);
+            return generateResponse(message);
         },
         { name: "chat_completion" }
     );
@@ -105,12 +122,7 @@ To record user and session information in your application, use the <APILink fn=
     @mlflow.trace
     def process_chat(message: str, user_id: str, session_id: str):
         # Update trace with user and session context
-        mlflow.update_current_trace(
-            metadata={
-                "mlflow.trace.session": session_id,
-                "mlflow.trace.user": user_id,
-            }
-        )
+        mlflow.update_current_trace(session_id=session_id, user=user_id)
 
         # Process chat message using OpenAI API
         response = client.chat.completions.create(
@@ -147,8 +159,8 @@ To record user and session information in your application, use the <APILink fn=
     ```typescript
     import express, { Request, Response } from 'express';
     import bodyParser from 'body-parser';
-    import * as mlflow from 'mlflow-tracing';
-    import { tracedOpenAI } from "mlflow-openai";
+    import * as mlflow from '@mlflow/core';
+    import { tracedOpenAI } from "@mlflow/openai";
     import OpenAI from 'openai';
 
     const app = express();
@@ -168,10 +180,8 @@ To record user and session information in your application, use the <APILink fn=
       static async process(message: string, userId: string, sessionId: string) {
         // Update MLflow trace metadata for this user and session
         await mlflow.updateCurrentTrace({
-          metadata: {
-            'mlflow.trace.session': sessionId,
-            'mlflow.trace.user': userId,
-          },
+          sessionId: sessionId,
+          user: userId,
         });
 
         const response = await openai.responses.create({
@@ -269,6 +279,13 @@ curl -X POST http://localhost:8000/chat \
 ## Next Steps
 
 <TilesGrid>
+  <TileCard
+    icon={MessageSquare}
+    title="Evaluate Conversations"
+    description="Assess multi-turn session quality with conversation-level scorers"
+    href="/genai/eval-monitor/running-evaluation/multi-turn"
+    linkText="Evaluate sessions →"
+  />
   <TileCard
     icon={Search}
     title="Search Traces"

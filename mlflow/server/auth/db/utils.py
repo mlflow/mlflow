@@ -59,7 +59,6 @@ def _stamp_legacy_database(engine: Engine, revision: str) -> None:
 def migrate(engine: Engine, revision: str) -> None:
     if _is_legacy_database(engine):
         _stamp_legacy_database(engine, INITIAL_REVISION)
-        return
 
     alembic_cfg = _get_alembic_config(engine.url.render_as_string(hide_password=False))
     with engine.begin() as conn:
@@ -70,7 +69,6 @@ def migrate(engine: Engine, revision: str) -> None:
 def migrate_if_needed(engine: Engine, revision: str) -> None:
     if _is_legacy_database(engine):
         _stamp_legacy_database(engine, INITIAL_REVISION)
-        return
 
     alembic_cfg = _get_alembic_config(engine.url.render_as_string(hide_password=False))
     script_dir = ScriptDirectory.from_config(alembic_cfg)

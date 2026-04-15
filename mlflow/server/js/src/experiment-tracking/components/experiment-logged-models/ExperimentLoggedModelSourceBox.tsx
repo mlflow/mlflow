@@ -32,13 +32,16 @@ export const ExperimentLoggedModelSourceBox = ({
 
   const tagsByKey = useMemo(
     () =>
-      loggedModel?.info?.tags?.reduce((acc, tag) => {
-        if (!tag.key) {
+      loggedModel?.info?.tags?.reduce(
+        (acc, tag) => {
+          if (!tag.key) {
+            return acc;
+          }
+          acc[tag.key] = tag;
           return acc;
-        }
-        acc[tag.key] = tag;
-        return acc;
-      }, {} as Record<string, LoggedModelKeyValueProto>) ?? {},
+        },
+        {} as Record<string, LoggedModelKeyValueProto>,
+      ) ?? {},
     [loggedModel?.info?.tags],
   );
 

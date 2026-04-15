@@ -1,6 +1,5 @@
 services:
   base:
-    image: mlflow-base
     build:
       context: .
     volumes:
@@ -78,7 +77,6 @@ services:
     extends:
       service: base
     platform: linux/amd64
-    image: mlflow-mssql
     build:
       context: .
       dockerfile: Dockerfile.mssql
@@ -92,7 +90,6 @@ services:
     extends:
       service: base
     platform: linux/amd64
-    image: mlflow-mssql
     build:
       context: .
       dockerfile: Dockerfile.mssql

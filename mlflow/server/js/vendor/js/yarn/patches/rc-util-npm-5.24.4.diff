@@ -1,0 +1,99 @@
+diff --git a/es/Dom/scrollLocker.js b/es/Dom/scrollLocker.js
+index 14326f37cb19f6a047a683d3d9c672a421ff4aff..1775155e2007c7c5ad0c013dc350ab0b82cb573c 100644
+--- a/es/Dom/scrollLocker.js
++++ b/es/Dom/scrollLocker.js
+@@ -5,7 +5,7 @@ import getScrollBarSize from '../getScrollBarSize';
+ import setStyle from '../setStyle';
+ var uuid = 0;
+ var locks = [];
+-var scrollingEffectClassName = 'ant-scrolling-effect';
++var scrollingEffectClassName = 'scroll-lock-effect';
+ var scrollingEffectClassNameReg = new RegExp("".concat(scrollingEffectClassName), 'g'); // https://github.com/ant-design/ant-design/issues/19340
+ // https://github.com/ant-design/ant-design/issues/19332
+ 
+diff --git a/lib/Dom/scrollLocker.js b/lib/Dom/scrollLocker.js
+index d0b197d4b2bb8ae73f8cbeaba6474799ff8e5972..b8d73aa78fe2a8f1efd2394e007eaf55a418e404 100644
+--- a/lib/Dom/scrollLocker.js
++++ b/lib/Dom/scrollLocker.js
+@@ -19,7 +19,7 @@ var _setStyle = _interopRequireDefault(require("../setStyle"));
+ 
+ var uuid = 0;
+ var locks = [];
+-var scrollingEffectClassName = 'ant-scrolling-effect';
++var scrollingEffectClassName = 'scroll-lock-effect';
+ var scrollingEffectClassNameReg = new RegExp("".concat(scrollingEffectClassName), 'g'); // https://github.com/ant-design/ant-design/issues/19340
+ // https://github.com/ant-design/ant-design/issues/19332
+ 
+diff --git a/lib/switchScrollingEffect.js b/lib/switchScrollingEffect.js
+index ef2ac026bbd234a6c9d3ac367cd4ecb95dd40614..35a048d572ff794e07190fd4ad58a14c9ba35574 100644
+--- a/lib/switchScrollingEffect.js
++++ b/lib/switchScrollingEffect.js
+@@ -1,9 +1,10 @@
+ "use strict";
+ 
+-var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
++var _interopRequireDefault =
++  require("@babel/runtime/helpers/interopRequireDefault").default;
+ 
+ Object.defineProperty(exports, "__esModule", {
+-  value: true
++  value: true,
+ });
+ exports.default = void 0;
+ 
+@@ -12,7 +13,11 @@ var _getScrollBarSize = _interopRequireDefault(require("./getScrollBarSize"));
+ var _setStyle = _interopRequireDefault(require("./setStyle"));
+ 
+ function isBodyOverflowing() {
+-  return document.body.scrollHeight > (window.innerHeight || document.documentElement.clientHeight) && window.innerWidth > document.body.offsetWidth;
++  return (
++    document.body.scrollHeight >
++      (window.innerHeight || document.documentElement.clientHeight) &&
++    window.innerWidth > document.body.offsetWidth
++  );
+ }
+ 
+ var cacheStyle = {};
+@@ -22,16 +27,20 @@ var _default = function _default(close) {
+     return;
+   } // https://github.com/ant-design/ant-design/issues/19729
+ 
+-
+-  var scrollingEffectClassName = 'ant-scrolling-effect';
+-  var scrollingEffectClassNameReg = new RegExp("".concat(scrollingEffectClassName), 'g');
++  var scrollingEffectClassName = "ant-scrolling-effect";
++  var scrollingEffectClassNameReg = new RegExp(
++    "".concat(scrollingEffectClassName),
++    "g"
++  );
+   var bodyClassName = document.body.className;
+ 
+   if (close) {
+     if (!scrollingEffectClassNameReg.test(bodyClassName)) return;
+     (0, _setStyle.default)(cacheStyle);
+     cacheStyle = {};
+-    document.body.className = bodyClassName.replace(scrollingEffectClassNameReg, '').trim();
++    document.body.className = bodyClassName
++      .replace(scrollingEffectClassNameReg, "")
++      .trim();
+     return;
+   }
+ 
+@@ -39,12 +48,14 @@ var _default = function _default(close) {
+ 
+   if (scrollBarSize) {
+     cacheStyle = (0, _setStyle.default)({
+-      position: 'relative',
+-      width: "calc(100% - ".concat(scrollBarSize, "px)")
++      position: "relative",
++      width: "calc(100% - ".concat(scrollBarSize, "px)"),
+     });
+ 
+     if (!scrollingEffectClassNameReg.test(bodyClassName)) {
+-      var addClassName = "".concat(bodyClassName, " ").concat(scrollingEffectClassName);
++      var addClassName = ""
++        .concat(bodyClassName, " ")
++        .concat(scrollingEffectClassName);
+       document.body.className = addClassName.trim();
+     }
+   }

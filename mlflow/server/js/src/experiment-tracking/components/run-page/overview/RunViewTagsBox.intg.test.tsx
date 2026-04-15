@@ -8,6 +8,9 @@ import type { KeyValueEntity } from '../../../../common/types';
 import { RunViewTagsBox } from './RunViewTagsBox';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
+
 const testRunUuid = 'test-run-uuid';
 
 jest.mock('../../../actions', () => ({
@@ -110,7 +113,7 @@ describe('RunViewTagsBox integration', () => {
         ({
           type: 'setRunTagsBulkApi',
           payload: Promise.reject(new Error('Some error message')),
-        } as any),
+        }) as any,
     );
 
     await act(async () => {

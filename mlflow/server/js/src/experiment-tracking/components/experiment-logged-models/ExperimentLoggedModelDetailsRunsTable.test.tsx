@@ -14,7 +14,7 @@ describe('ExperimentLoggedModelDetailsRunsTable', () => {
           runName: `test-run-name-${i}`,
           runUuid: `test-run-id-${i}`,
         },
-      } as any),
+      }) as any,
   );
   const testLoggedModelMetrics: LoggedModelProto = {
     info: {

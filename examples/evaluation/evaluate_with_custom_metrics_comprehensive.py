@@ -1,19 +1,19 @@
 import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
-from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import load_diabetes
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
 import mlflow
 from mlflow.models import infer_signature, make_metric
 
-# loading the California housing dataset
-cali_housing = fetch_california_housing(as_frame=True)
+# loading the diabetes dataset
+diabetes_dataset = load_diabetes(as_frame=True)
 
 # split the dataset into train and test partitions
 X_train, X_test, y_train, y_test = train_test_split(
-    cali_housing.data, cali_housing.target, test_size=0.2, random_state=123
+    diabetes_dataset.data, diabetes_dataset.target, test_size=0.2, random_state=123
 )
 
 # train the model

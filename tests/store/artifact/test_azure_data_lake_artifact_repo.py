@@ -285,9 +285,7 @@ def test_log_artifacts_in_parallel_when_necessary(tmp_path, monkeypatch):
 def test_download_file_in_parallel_when_necessary(file_size, is_parallel_download):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, credential=TEST_CREDENTIAL)
     remote_file_path = "file_1.txt"
-    list_artifacts_result = (
-        [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
-    )
+    list_artifacts_result = [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)]
     with (
         mock.patch(
             f"{ADLS_ARTIFACT_REPOSITORY}.list_artifacts",
@@ -402,10 +400,8 @@ def test_refresh_credentials():
 
         get_data_lake_client_mock.assert_called_with(account_url=ANY, credential=first_credential)
 
-        try:
+        with pytest.raises(requests.HTTPError, match=r".*", check=lambda e: e == err):
             repo._download_from_cloud("test.txt", "local_path")
-        except requests.HTTPError as e:
-            assert e == err
 
         get_data_lake_client_mock.assert_called_with(account_url=ANY, credential=second_credential)
 

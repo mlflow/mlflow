@@ -16,6 +16,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.webhook import (
     Webhook,
     WebhookEvent,
@@ -28,6 +29,7 @@ from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
     is_prompt_supported_registry,
 )
+from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -41,7 +43,6 @@ from mlflow.telemetry.events import (
 )
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
-from mlflow.utils.annotations import experimental
 from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
@@ -564,6 +565,7 @@ class ModelRegistryClient:
         description: str | None = None,
         tags: dict[str, str] | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -584,11 +586,19 @@ class ModelRegistryClient:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
+            model_config: Optional PromptModelConfig or dictionary defining the model configuration.
 
         Returns:
             A PromptVersion object representing the new version.
         """
-        return self.store.create_prompt_version(name, template, description, tags, response_format)
+        return self.store.create_prompt_version(
+            name=name,
+            template=template,
+            description=description,
+            tags=tags,
+            response_format=response_format,
+            model_config=model_config,
+        )
 
     def get_prompt_version(self, name: str, version: str) -> PromptVersion:
         """
@@ -706,11 +716,9 @@ class ModelRegistryClient:
 
     def search_prompt_versions(
         self, name: str, max_results: int | None = None, page_token: str | None = None
-    ):
+    ) -> PagedList[PromptVersion]:
         """
         Search prompt versions for a given prompt name.
-
-        This method delegates directly to the store. Only supported in Unity Catalog registries.
 
         Args:
             name: Name of the prompt to search versions for.
@@ -718,12 +726,18 @@ class ModelRegistryClient:
             page_token: Token for pagination.
 
         Returns:
-            SearchPromptVersionsResponse containing the list of versions.
-
-        Raises:
-            MlflowException: If used with non-Unity Catalog registries.
+            A PagedList of PromptVersion objects.
         """
-        return self.store.search_prompt_versions(name, max_results, page_token)
+        response = self.store.search_prompt_versions(name, max_results, page_token)
+
+        # OSS stores already return PagedList[PromptVersion]
+        if isinstance(response, PagedList):
+            return response
+
+        # UC store returns SearchPromptVersionsResponse proto — normalize it
+        prompt_versions = [proto_to_mlflow_prompt(pv) for pv in response.prompt_versions]
+        next_token = response.next_page_token or None
+        return PagedList(prompt_versions, next_token)
 
     def link_prompt_version_to_model(self, name: str, version: int | str, model_id: str) -> None:
         """
@@ -795,7 +809,6 @@ class ModelRegistryClient:
         self.store.delete_prompt_version_tag(name, version, key)
 
     # Webhook APIs
-    @experimental(version="3.3.0")
     @record_usage_event(CreateWebhookEvent)
     def create_webhook(
         self,
@@ -822,7 +835,6 @@ class ModelRegistryClient:
         """
         return self.store.create_webhook(name, url, events, description, secret, status)
 
-    @experimental(version="3.3.0")
     def get_webhook(self, webhook_id: str) -> Webhook:
         """
         Get webhook instance by ID.
@@ -835,7 +847,6 @@ class ModelRegistryClient:
         """
         return self.store.get_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def list_webhooks(
         self,
         max_results: int | None = None,
@@ -853,7 +864,6 @@ class ModelRegistryClient:
         """
         return self.store.list_webhooks(max_results, page_token)
 
-    @experimental(version="3.3.0")
     def update_webhook(
         self,
         webhook_id: str,
@@ -881,7 +891,6 @@ class ModelRegistryClient:
         """
         return self.store.update_webhook(webhook_id, name, description, url, events, secret, status)
 
-    @experimental(version="3.3.0")
     def delete_webhook(self, webhook_id: str) -> None:
         """
         Delete a webhook.
@@ -894,7 +903,6 @@ class ModelRegistryClient:
         """
         self.store.delete_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def test_webhook(
         self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
     ) -> WebhookTestResult:

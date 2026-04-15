@@ -1,0 +1,24 @@
+diff --git a/index.d.ts b/index.d.ts
+index f972fa22de2d0d47ee3b144955faf68663d24a86..aaadc2eaa198a2bec5b64fd0644522211e9cb625 100755
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -235,7 +235,8 @@ declare namespace Backbone {
+          * That works only if you set it in the constructor or the initialize method.
+          */
+         defaults(): Partial<T>;
+-        id: string | number;
++        // PATCH: We only use numeric ids, so we can use number instead of string | number
++        id: number;
+         idAttribute: string;
+         validationError: any;
+ 
+@@ -266,7 +267,8 @@ declare namespace Backbone {
+          *    return super.get("name");
+          * }
+          */
+-        get<A extends _StringKey<T>>(attributeName: A): T[A] | undefined;
++        // PATCH: Typescript enforces that a valid attribute key is passed, so we can use the type T[A]
++        get<A extends _StringKey<T>>(attributeName: A): T[A];
+ 
+         /**
+          * For strongly-typed assignment of attributes, use the `set` method only privately in public setter properties.

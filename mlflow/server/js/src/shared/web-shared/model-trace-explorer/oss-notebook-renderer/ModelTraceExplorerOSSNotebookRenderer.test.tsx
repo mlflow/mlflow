@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import { ModelTraceExplorerOSSNotebookRenderer } from './ModelTraceExplorerOSSNotebookRenderer';
 import { getTraceArtifact } from './mlflow-fetch-utils';
@@ -21,6 +21,7 @@ jest.mock('../hooks/useGetModelTraceInfo', () => ({
 
 describe('ModelTraceExplorerOSSNotebookRenderer', () => {
   beforeEach(() => {
+    // eslint-disable-next-line @databricks/no-mock-location -- TODO(FEINF-4390)
     Object.defineProperty(window, 'location', {
       configurable: true,
       writable: true,

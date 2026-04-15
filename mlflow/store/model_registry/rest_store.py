@@ -37,6 +37,7 @@ from mlflow.protos.webhooks_pb2 import (
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.base_rest_store import BaseRestStore
+from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -52,7 +53,7 @@ _WEBHOOK_METHOD_TO_INFO = extract_api_info_for_service(WebhookService, _REST_API
 _logger = logging.getLogger(__name__)
 
 
-class RestStore(BaseRestStore):
+class RestStore(WorkspaceRestStoreMixin, BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
@@ -61,6 +62,15 @@ class RestStore(BaseRestStore):
             :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
             is a function so that we can obtain fresh credentials in the case of expiry.
     """
+
+    def _call_endpoint(self, api, json_body, call_all_endpoints=False, extra_headers=None):
+        self._validate_workspace_support_if_specified()
+        return super()._call_endpoint(
+            api,
+            json_body,
+            call_all_endpoints=call_all_endpoints,
+            extra_headers=extra_headers,
+        )
 
     def _get_response_from_method(self, method):
         return method.Response()

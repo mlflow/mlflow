@@ -143,6 +143,7 @@ const normalizeModelRequest = (request: PydanticAIModelRequest): ModelTraceChatM
 const normalizeModelResponse = (response: PydanticAIModelResponse): ModelTraceChatMessage[] => {
   const messages: ModelTraceChatMessage[] = [];
   const textParts: string[] = [];
+  const thinkingParts: string[] = [];
   const toolCalls: ModelTraceToolCall[] = [];
 
   for (const part of response.parts) {
@@ -152,7 +153,7 @@ const normalizeModelResponse = (response: PydanticAIModelResponse): ModelTraceCh
         break;
       }
       case 'thinking': {
-        textParts.push(`[Thinking] ${part.content}`);
+        thinkingParts.push(part.content);
         break;
       }
       case 'tool-call':
@@ -168,6 +169,7 @@ const normalizeModelResponse = (response: PydanticAIModelResponse): ModelTraceCh
   }
 
   const content = textParts.length > 0 ? textParts.join('\n\n') : undefined;
+  const reasoning = thinkingParts.length > 0 ? thinkingParts.join('\n\n') : undefined;
   const message = prettyPrintChatMessage({
     role: 'assistant',
     content,
@@ -175,7 +177,7 @@ const normalizeModelResponse = (response: PydanticAIModelResponse): ModelTraceCh
   });
 
   if (message) {
-    messages.push(message);
+    messages.push(reasoning ? { ...message, reasoning } : message);
   }
 
   return messages;
@@ -192,6 +194,25 @@ export const normalizePydanticAIChatInput = (obj: unknown): ModelTraceChatMessag
       const messages: ModelTraceChatMessage[] = [];
 
       for (const item of messageHistory) {
+        if (isPydanticAIModelRequest(item)) {
+          messages.push(...normalizeModelRequest(item));
+        } else if (isPydanticAIModelResponse(item)) {
+          messages.push(...normalizeModelResponse(item));
+        }
+      }
+
+      return messages.length > 0 ? messages : null;
+    }
+  }
+
+  // Handle InstrumentedModel span inputs which have a `messages` key
+  // containing an array of request/response objects
+  if (isObject(obj) && has(obj, 'messages')) {
+    const messagesArray = (obj as any).messages;
+    if (isArray(messagesArray) && messagesArray.length > 0) {
+      const messages: ModelTraceChatMessage[] = [];
+
+      for (const item of messagesArray) {
         if (isPydanticAIModelRequest(item)) {
           messages.push(...normalizeModelRequest(item));
         } else if (isPydanticAIModelResponse(item)) {

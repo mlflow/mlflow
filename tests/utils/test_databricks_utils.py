@@ -22,6 +22,7 @@ from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
+    get_databricks_runtime_version,
     get_databricks_workspace_client_config,
     get_dbconnect_udf_sandbox_info,
     get_mlflow_credential_context_by_run_id,
@@ -321,8 +322,9 @@ def test_is_in_databricks_runtime(monkeypatch):
     assert not databricks_utils.is_in_databricks_runtime()
 
 
-def test_is_in_databricks_model_serving_environment(monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+@pytest.mark.parametrize("val", ["true", "1"])
+def test_is_in_databricks_model_serving_environment(monkeypatch, val):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", val)
     assert databricks_utils.is_in_databricks_model_serving_environment()
 
     monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
@@ -351,10 +353,27 @@ def test_get_repl_id():
     # Outside of Databricks environments, the Databricks REPL ID should be absent
     assert databricks_utils.get_repl_id() is None
 
+    mock_client = mock.MagicMock()
+    mock_client.getReplId.return_value = "testReplId1"
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_runtime_integration_client",
+        return_value=mock_client,
+    ):
+        assert databricks_utils.get_repl_id() == "testReplId1"
+        mock_client.getReplId.assert_called_once()
+
+    # When runtime_integration_client is unavailable, fall back to entry_point.
     mock_dbutils = mock.MagicMock()
     mock_dbutils.entry_point.getReplId.return_value = "testReplId1"
-    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+    ):
         assert databricks_utils.get_repl_id() == "testReplId1"
+        mock_dbutils.entry_point.getReplId.assert_called_once()
 
     mock_sparkcontext_inst = mock.MagicMock()
     mock_sparkcontext_inst.getLocalProperty.return_value = "testReplId2"
@@ -715,12 +734,16 @@ def test_print_databricks_deployment_job_url():
 
 
 @pytest.mark.parametrize(
-    ("version_str", "expected_is_client", "expected_major", "expected_minor"),
+    ("version_str", "expected_is_client", "expected_major", "expected_minor", "expected_is_gpu"),
     [
-        ("client.2.0", True, 2, 0),
-        ("client.3.1", True, 3, 1),
-        ("13.2", False, 13, 2),
-        ("15.4", False, 15, 4),
+        ("client.2.0", True, 2, 0, False),
+        ("client.3.1", True, 3, 1, False),
+        ("13.2", False, 13, 2, False),
+        ("15.4", False, 15, 4, False),
+        ("client.8.1-gpu", True, 8, 1, True),
+        ("client.10.0-gpu", True, 10, 0, True),
+        ("14.3-gpu", False, 14, 3, True),
+        ("15.1-gpu", False, 15, 1, True),
     ],
 )
 def test_databricks_runtime_version_parse(
@@ -728,18 +751,22 @@ def test_databricks_runtime_version_parse(
     expected_is_client,
     expected_major,
     expected_minor,
+    expected_is_gpu,
 ):
     version = DatabricksRuntimeVersion.parse(version_str)
     assert version.is_client_image == expected_is_client
     assert version.major == expected_major
     assert version.minor == expected_minor
+    assert version.is_gpu_image == expected_is_gpu
 
 
 @pytest.mark.parametrize(
-    ("env_version", "expected_is_client", "expected_major", "expected_minor"),
+    ("env_version", "expected_is_client", "expected_major", "expected_minor", "expected_is_gpu"),
     [
-        ("client.2.0", True, 2, 0),
-        ("13.2", False, 13, 2),
+        ("client.2.0", True, 2, 0, False),
+        ("13.2", False, 13, 2, False),
+        ("client.8.1-gpu", True, 8, 1, True),
+        ("14.3-gpu", False, 14, 3, True),
     ],
 )
 def test_databricks_runtime_version_parse_default(
@@ -748,12 +775,14 @@ def test_databricks_runtime_version_parse_default(
     expected_is_client,
     expected_major,
     expected_minor,
+    expected_is_gpu,
 ):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", env_version)
     version = DatabricksRuntimeVersion.parse()
     assert version.is_client_image == expected_is_client
     assert version.major == expected_major
     assert version.minor == expected_minor
+    assert version.is_gpu_image == expected_is_gpu
 
 
 def test_databricks_runtime_version_parse_default_no_env(monkeypatch):
@@ -761,8 +790,59 @@ def test_databricks_runtime_version_parse_default_no_env(monkeypatch):
     set.
     """
     monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.delenv("DATABRICKS_ENV_VERSION", raising=False)
     with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
         DatabricksRuntimeVersion.parse()
+
+
+@pytest.mark.parametrize(
+    ("env_version", "accelerator", "expected"),
+    [
+        ("4", "A10G", "client.4-gpu"),
+        ("4", "NVIDIA H100", "client.4-gpu"),
+        ("4", None, "client.4"),
+    ],
+)
+def test_get_databricks_runtime_version_from_env_version(
+    monkeypatch, env_version, accelerator, expected
+):
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.setenv("DATABRICKS_ENV_VERSION", env_version)
+    if accelerator:
+        monkeypatch.setenv("DATABRICKS_ACCELERATOR", accelerator)
+    else:
+        monkeypatch.delenv("DATABRICKS_ACCELERATOR", raising=False)
+    assert get_databricks_runtime_version() == expected
+
+
+@pytest.mark.parametrize(
+    ("accelerator", "expected"),
+    [
+        ("A10G", "client.4-gpu"),
+        (None, "client.4"),
+    ],
+)
+def test_databricks_env_version_takes_priority_over_runtime_version(
+    monkeypatch, accelerator, expected
+):
+    monkeypatch.setenv("DATABRICKS_ENV_VERSION", "4")
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.4.1")
+    if accelerator:
+        monkeypatch.setenv("DATABRICKS_ACCELERATOR", accelerator)
+    else:
+        monkeypatch.delenv("DATABRICKS_ACCELERATOR", raising=False)
+    assert get_databricks_runtime_version() == expected
+
+
+def test_databricks_runtime_version_parse_from_env_version(monkeypatch):
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.setenv("DATABRICKS_ENV_VERSION", "4")
+    monkeypatch.setenv("DATABRICKS_ACCELERATOR", "A10")
+    version = DatabricksRuntimeVersion.parse()
+    assert version.is_client_image is True
+    assert version.major == 4
+    assert version.minor == 0
+    assert version.is_gpu_image is True
 
 
 @pytest.mark.parametrize(
@@ -956,3 +1036,84 @@ def test_get_sgc_job_run_id_widget_takes_precedence_over_env_var(monkeypatch):
         mock_dbutils.widgets.get.assert_called_once_with(
             "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
         )
+
+
+def test_databricks_config_profile_env_var_is_respected(tmp_path, monkeypatch):
+    file_path = tmp_path / ".databrickscfg"
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
+    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(file_path))
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "test")
+
+    file_path.write_text("""[DEFAULT]
+host = http://default-workspace.databricks.com
+token = default-token
+
+[test]
+host = https://test-workspace.databricks.com
+token = test-token
+""")
+
+    # the resulting config should be the one from the [test] section
+    result = get_databricks_host_creds("databricks")
+    assert result.host == "https://test-workspace.databricks.com"
+    assert result.token == "test-token"
+
+
+def test_get_databricks_nfs_temp_dir():
+    mock_dbutils = mock.MagicMock()
+    mock_client = mock.MagicMock()
+    mock_client.getUserNFSTempDir.return_value = "/nfs/user/grpc"
+
+    # When runtime_integration_client is available, use getUserNFSTempDir from client
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            return_value=mock_client,
+        ),
+    ):
+        assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user/grpc"
+        mock_client.getUserNFSTempDir.assert_called_once()
+
+    # When runtime_integration_client raises, fall back to entry_point.getUserNFSTempDir
+    mock_dbutils2 = mock.MagicMock()
+    mock_dbutils2.entry_point.getUserNFSTempDir.return_value = "/nfs/user"
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+    ):
+        assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user"
+        mock_dbutils2.entry_point.getUserNFSTempDir.assert_called_once()
+
+
+def test_get_databricks_local_temp_dir():
+    mock_dbutils = mock.MagicMock()
+    mock_client = mock.MagicMock()
+    mock_client.getUserLocalTempDir.return_value = "/local/user/grpc"
+
+    # When runtime_integration_client is available, use getUserLocalTempDir from client
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            return_value=mock_client,
+        ),
+    ):
+        assert databricks_utils.get_databricks_local_temp_dir() == "/local/user/grpc"
+        mock_client.getUserLocalTempDir.assert_called_once()
+
+    # When runtime_integration_client raises, fall back to entry_point.getUserLocalTempDir
+    mock_dbutils2 = mock.MagicMock()
+    mock_dbutils2.entry_point.getUserLocalTempDir.return_value = "/local/user"
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+    ):
+        assert databricks_utils.get_databricks_local_temp_dir() == "/local/user"
+        mock_dbutils2.entry_point.getUserLocalTempDir.assert_called_once()

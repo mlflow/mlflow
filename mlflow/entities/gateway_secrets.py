@@ -1,9 +1,9 @@
-import json
 from dataclasses import dataclass
 from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import GatewaySecretInfo as ProtoGatewaySecretInfo
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,7 @@ class GatewaySecretInfo(_MlflowObject):
         provider: LLM provider this secret is for (e.g., "openai", "anthropic").
         auth_config: Provider-specific configuration (e.g., region, project_id).
             This is non-sensitive metadata useful for UI disambiguation.
+        workspace: Workspace that owns the secret.
         created_by: User ID who created the secret.
         last_updated_by: User ID who last updated the secret.
     """
@@ -47,8 +48,12 @@ class GatewaySecretInfo(_MlflowObject):
     last_updated_at: int
     provider: str | None = None
     auth_config: dict[str, Any] | None = None
+    workspace: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
+
+    def __post_init__(self):
+        object.__setattr__(self, "workspace", resolve_entity_workspace_name(self.workspace))
 
     def to_proto(self):
         proto = ProtoGatewaySecretInfo()
@@ -60,7 +65,7 @@ class GatewaySecretInfo(_MlflowObject):
         if self.provider is not None:
             proto.provider = self.provider
         if self.auth_config is not None:
-            proto.auth_config_json = json.dumps(self.auth_config)
+            proto.auth_config.update(self.auth_config)
         if self.created_by is not None:
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
@@ -69,9 +74,8 @@ class GatewaySecretInfo(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        auth_config = None
-        if proto.auth_config_json:
-            auth_config = json.loads(proto.auth_config_json)
+        # Empty map means no auth_config was provided
+        auth_config = dict(proto.auth_config) or None
         return cls(
             secret_id=proto.secret_id,
             secret_name=proto.secret_name,

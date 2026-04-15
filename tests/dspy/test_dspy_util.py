@@ -10,6 +10,7 @@ from mlflow.dspy.util import (
     log_dspy_dataset,
     log_dspy_lm_state,
     log_dspy_module_params,
+    sanitize_params,
     save_dspy_module_state,
 )
 from mlflow.tracking import MlflowClient
@@ -58,12 +59,10 @@ def test_log_dspy_module_state_params():
     }
 
     if Version(importlib.metadata.version("dspy")).major >= 3:
-        expected_params.update(
-            {
-                "Predict.demos.0.answer.0": "Tokyo",
-                "Predict.demos.0.answer.1": "Osaka",
-            }
-        )
+        expected_params.update({
+            "Predict.demos.0.answer.0": "Tokyo",
+            "Predict.demos.0.answer.1": "Osaka",
+        })
     else:
         expected_params["Predict.demos.0.answer"] = "['Tokyo', 'Osaka']"
 
@@ -125,3 +124,17 @@ def test_log_dspy_lm_state():
         # Verify sensitive attributes are filtered out
         assert "api_key" not in lm_params
         assert "api_base" not in lm_params
+
+
+def test_sanitize_params():
+    params = {
+        "api_key": "secret-key",
+        "api_base": "https://api.openai.com",
+        "azure_ad_token": "secret-token",
+        "client_secret": "secret-client-secret",
+        "azure_password": "secret-azure-password",
+        "model": "gpt-4o-mini",
+    }
+    assert sanitize_params(params) == {"model": "gpt-4o-mini"}
+
+    assert sanitize_params({}) == {}

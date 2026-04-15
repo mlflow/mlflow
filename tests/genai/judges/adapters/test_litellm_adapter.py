@@ -10,10 +10,17 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
+from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     _invoke_litellm,
     _remove_oldest_tool_call_pair,
+)
+from mlflow.genai.judges.utils.telemetry_utils import (
+    _record_judge_model_usage_failure_databricks_telemetry,
+    _record_judge_model_usage_success_databricks_telemetry,
 )
 from mlflow.types.llm import ChatMessage
 
@@ -184,13 +191,13 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_pro
         mock.patch(
             "mlflow.genai.judges.adapters.litellm_adapter._prune_messages_exceeding_context_window_length"
         ) as mock_prune,
-        mock.patch("litellm.get_max_tokens", return_value=8000),
+        mock.patch("litellm.get_model_info", return_value={"max_input_tokens": 8000}),
     ):
         mock_prune.return_value = [litellm.Message(role="user", content="Pruned")]
 
         from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 
-        result, cost = _invoke_litellm_and_handle_tools(
+        output = _invoke_litellm_and_handle_tools(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="Very long message" * 100)],
@@ -200,8 +207,8 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_pro
 
     assert mock_litellm.call_count == 2
     mock_prune.assert_called_once()
-    assert result == '{"result": "yes", "rationale": "OK"}'
-    assert cost is None
+    assert output.response == '{"result": "yes", "rationale": "OK"}'
+    assert output.cost is None
 
 
 def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_provider():
@@ -223,7 +230,7 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_pr
             "mlflow.genai.judges.adapters.litellm_adapter._remove_oldest_tool_call_pair"
         ) as mock_truncate,
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri",
+            "mlflow.genai.utils.gateway_utils.get_tracking_uri",
             return_value="http://localhost:5000",
         ),
     ):
@@ -231,7 +238,7 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_pr
 
         from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 
-        result, cost = _invoke_litellm_and_handle_tools(
+        output = _invoke_litellm_and_handle_tools(
             provider="gateway",
             model_name="my-endpoint",
             messages=[ChatMessage(role="user", content="Very long message" * 100)],
@@ -241,8 +248,8 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_pr
 
     assert mock_litellm.call_count == 2
     mock_truncate.assert_called_once()
-    assert result == '{"result": "yes", "rationale": "OK"}'
-    assert cost is None
+    assert output.response == '{"result": "yes", "rationale": "OK"}'
+    assert output.cost is None
 
 
 def test_invoke_litellm_and_handle_tools_gateway_context_window_no_tool_calls_to_truncate():
@@ -258,7 +265,7 @@ def test_invoke_litellm_and_handle_tools_gateway_context_window_no_tool_calls_to
             return_value=None,  # No tool calls to truncate
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri",
+            "mlflow.genai.utils.gateway_utils.get_tracking_uri",
             return_value="http://localhost:5000",
         ),
     ):
@@ -310,7 +317,7 @@ def test_invoke_litellm_and_handle_tools_integration(mock_trace):
 
         from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 
-        result, cost = _invoke_litellm_and_handle_tools(
+        output = _invoke_litellm_and_handle_tools(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="Test with trace")],
@@ -320,8 +327,8 @@ def test_invoke_litellm_and_handle_tools_integration(mock_trace):
 
     assert mock_litellm.call_count == 2
     mock_invoke.assert_called_once()
-    assert result == '{"result": "yes", "rationale": "Good"}'
-    assert cost == pytest.approx(0.20)
+    assert output.response == '{"result": "yes", "rationale": "Good"}'
+    assert output.cost == pytest.approx(0.20)
 
     second_call_messages = mock_litellm.call_args_list[1].kwargs["messages"]
     assert len(second_call_messages) == 3
@@ -337,7 +344,7 @@ def test_gateway_provider_integration():
 
     with (
         mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
-        mock.patch("mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri") as mock_get_uri,
+        mock.patch("mlflow.genai.utils.gateway_utils.get_tracking_uri") as mock_get_uri,
     ):
         mock_get_uri.return_value = "http://localhost:5000"
 
@@ -345,7 +352,7 @@ def test_gateway_provider_integration():
             _invoke_litellm_and_handle_tools,
         )
 
-        result, cost = _invoke_litellm_and_handle_tools(
+        output = _invoke_litellm_and_handle_tools(
             provider="gateway",
             model_name="my-endpoint",
             messages=[ChatMessage(role="user", content="Test")],
@@ -353,21 +360,20 @@ def test_gateway_provider_integration():
             num_retries=3,
         )
 
-    assert result == '{"result": "yes", "rationale": "Good"}'
+    assert output.response == '{"result": "yes", "rationale": "Good"}'
 
     call_kwargs = mock_litellm.call_args.kwargs
     assert call_kwargs["model"] == "openai/my-endpoint"
     assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
     assert call_kwargs["api_key"] == "mlflow-gateway-auth"
+    assert call_kwargs["extra_headers"][MLFLOW_GATEWAY_CALLER_HEADER] == "judge"
 
 
 def test_gateway_provider_requires_http_tracking_uri():
     from mlflow.exceptions import MlflowException
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri", return_value="databricks"
-    ):
+    with mock.patch("mlflow.genai.utils.gateway_utils.get_tracking_uri", return_value="databricks"):
         with pytest.raises(MlflowException, match="Gateway provider requires an HTTP"):
             _invoke_litellm_and_handle_tools(
                 provider="gateway",
@@ -461,3 +467,321 @@ def test_remove_oldest_tool_call_pair_preserves_non_tool_messages():
     assert result[1].content == "Hello"
     assert result[2].role == "user"
     assert result[2].content == "Thanks"
+
+
+def test_invoke_litellm_with_extra_headers():
+    mock_response = ModelResponse(choices=[{"message": {"content": '{"result": "yes"}'}}])
+
+    headers = {"X-Custom-Auth": "token123", "X-Request-ID": "req-456"}
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        _invoke_litellm(
+            litellm_model="openai/gpt-4",
+            messages=[litellm.Message(role="user", content="Test")],
+            tools=[],
+            num_retries=3,
+            response_format=None,
+            include_response_format=False,
+            extra_headers=headers,
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["extra_headers"] == headers
+
+
+def test_invoke_litellm_without_extra_headers_omits_key():
+    mock_response = ModelResponse(choices=[{"message": {"content": '{"result": "yes"}'}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        _invoke_litellm(
+            litellm_model="openai/gpt-4",
+            messages=[litellm.Message(role="user", content="Test")],
+            tools=[],
+            num_retries=3,
+            response_format=None,
+            include_response_format=False,
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert "extra_headers" not in call_kwargs
+
+
+def test_invoke_litellm_and_handle_tools_with_base_url():
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        output = _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+            base_url="http://my-proxy:8080/v1",
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["api_base"] == "http://my-proxy:8080/v1"
+    assert "api_key" not in call_kwargs
+    assert output.response == '{"result": "yes", "rationale": "OK"}'
+
+
+def test_invoke_litellm_and_handle_tools_with_extra_headers():
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    headers = {"X-Api-Key": "secret", "X-Org": "my-org"}
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        output = _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+            extra_headers=headers,
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["extra_headers"] == headers
+    assert output.response == '{"result": "yes", "rationale": "OK"}'
+
+
+def test_invoke_litellm_and_handle_tools_with_base_url_and_extra_headers():
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    headers = {"Authorization": "Bearer xyz"}
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        output = _invoke_litellm_and_handle_tools(
+            provider="anthropic",
+            model_name="claude-3",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+            base_url="http://proxy:9090",
+            extra_headers=headers,
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["api_base"] == "http://proxy:9090"
+    assert "api_key" not in call_kwargs
+    assert call_kwargs["extra_headers"] == headers
+    assert output.response == '{"result": "yes", "rationale": "OK"}'
+
+
+def test_invoke_litellm_and_handle_tools_base_url_ignored_for_gateway():
+    # When provider is 'gateway', base_url is ignored because gateway has its own routing
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    with (
+        mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
+        mock.patch(
+            "mlflow.genai.utils.gateway_utils.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
+    ):
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        _invoke_litellm_and_handle_tools(
+            provider="gateway",
+            model_name="my-endpoint",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+            base_url="http://proxy:9090",
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    # Gateway uses its own api_base, not the base_url
+    assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
+    assert call_kwargs["api_key"] == "mlflow-gateway-auth"
+
+
+@pytest.mark.parametrize("model_provider", ["databricks", "endpoints"])
+def test_litellm_adapter_rejects_base_url_for_databricks(model_provider):
+    from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
+
+    adapter = LiteLLMAdapter()
+    input_params = AdapterInvocationInput(
+        prompt="test prompt",
+        assessment_name="test",
+        model_uri=f"{model_provider}:/test-endpoint",
+        trace=None,
+        num_retries=3,
+        base_url="http://proxy:8080",
+    )
+
+    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
+        adapter.invoke(input_params)
+
+
+@pytest.mark.parametrize("model_provider", ["databricks", "endpoints"])
+def test_litellm_adapter_rejects_extra_headers_for_databricks(model_provider):
+    from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
+
+    adapter = LiteLLMAdapter()
+    input_params = AdapterInvocationInput(
+        prompt="test prompt",
+        assessment_name="test",
+        model_uri=f"{model_provider}:/test-endpoint",
+        trace=None,
+        num_retries=3,
+        extra_headers={"X-Key": "val"},
+    )
+
+    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
+        adapter.invoke(input_params)
+
+
+def test_record_success_telemetry_with_databricks_agents():
+    mock_telemetry_module = mock.MagicMock()
+    mock_record = mock.MagicMock()
+    mock_telemetry_module.record_judge_model_usage_success = mock_record
+
+    with (
+        mock.patch(
+            "mlflow.tracking.fluent._get_experiment_id",
+            return_value="exp-123",
+        ) as mock_experiment_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_id",
+            return_value="ws-456",
+        ) as mock_workspace_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_id",
+            return_value="job-789",
+        ) as mock_job_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_run_id",
+            return_value="run-101",
+        ) as mock_job_run_id,
+        mock.patch.dict(
+            "sys.modules",
+            {"databricks.agents.telemetry": mock_telemetry_module},
+        ),
+    ):
+        _record_judge_model_usage_success_databricks_telemetry(
+            request_id="req-123",
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            num_prompt_tokens=10,
+            num_completion_tokens=5,
+        )
+
+        mock_record.assert_called_once_with(
+            request_id="req-123",
+            experiment_id="exp-123",
+            job_id="job-789",
+            job_run_id="run-101",
+            workspace_id="ws-456",
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            num_prompt_tokens=10,
+            num_completion_tokens=5,
+        )
+        mock_experiment_id.assert_called_once()
+        mock_workspace_id.assert_called_once()
+        mock_job_id.assert_called_once()
+        mock_job_run_id.assert_called_once()
+
+
+def test_record_success_telemetry_without_databricks_agents():
+    with (
+        mock.patch.dict("sys.modules", {"databricks.agents.telemetry": None}),
+        mock.patch("mlflow.genai.judges.utils.telemetry_utils._logger") as mock_logger,
+    ):
+        _record_judge_model_usage_success_databricks_telemetry(
+            request_id="req-123",
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            num_prompt_tokens=10,
+            num_completion_tokens=5,
+        )
+
+        mock_logger.debug.assert_called_once()
+        assert "databricks-agents needs to be installed" in str(mock_logger.debug.call_args)
+
+
+def test_record_failure_telemetry_with_databricks_agents():
+    mock_telemetry_module = mock.MagicMock()
+    mock_record = mock.MagicMock()
+    mock_telemetry_module.record_judge_model_usage_failure = mock_record
+
+    with (
+        mock.patch(
+            "mlflow.tracking.fluent._get_experiment_id",
+            return_value="exp-123",
+        ) as mock_experiment_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_id",
+            return_value="ws-456",
+        ) as mock_workspace_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_id",
+            return_value="job-789",
+        ) as mock_job_id,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_run_id",
+            return_value="run-101",
+        ) as mock_job_run_id,
+        mock.patch.dict(
+            "sys.modules",
+            {"databricks.agents.telemetry": mock_telemetry_module},
+        ),
+    ):
+        _record_judge_model_usage_failure_databricks_telemetry(
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            error_code="TIMEOUT",
+            error_message="Request timed out",
+        )
+
+        mock_record.assert_called_once_with(
+            experiment_id="exp-123",
+            job_id="job-789",
+            job_run_id="run-101",
+            workspace_id="ws-456",
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            error_code="TIMEOUT",
+            error_message="Request timed out",
+        )
+        mock_experiment_id.assert_called_once()
+        mock_workspace_id.assert_called_once()
+        mock_job_id.assert_called_once()
+        mock_job_run_id.assert_called_once()
+
+
+def test_record_failure_telemetry_without_databricks_agents():
+    with (
+        mock.patch.dict("sys.modules", {"databricks.agents.telemetry": None}),
+        mock.patch("mlflow.genai.judges.utils.telemetry_utils._logger") as mock_logger,
+    ):
+        _record_judge_model_usage_failure_databricks_telemetry(
+            model_provider="databricks",
+            endpoint_name="test-endpoint",
+            error_code="TIMEOUT",
+            error_message="Request timed out",
+        )
+
+        mock_logger.debug.assert_called_once()
+        assert "databricks-agents needs to be installed" in str(mock_logger.debug.call_args)

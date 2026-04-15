@@ -1,6 +1,7 @@
 import { isNil, isString } from 'lodash';
 import { useMemo } from 'react';
 
+import type { ThemeType } from '@databricks/design-system';
 import {
   PencilIcon,
   SparkleDoubleIcon,
@@ -17,7 +18,6 @@ import {
   BracketsXIcon,
   DangerIcon,
 } from '@databricks/design-system';
-import type { ThemeType } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
@@ -42,7 +42,7 @@ import { useMarkdownConverter } from '../utils/MarkdownUtils';
 
 export const isAssessmentPassing = (
   assessmentInfo: AssessmentInfo,
-  assessmentValue?: string | number | boolean | null,
+  assessmentValue?: string | number | boolean | string[] | null,
 ) => {
   if (!isNil(assessmentValue)) {
     if (assessmentInfo.dtype === 'pass-fail') {
@@ -161,7 +161,7 @@ function getAssessmentTagDisplayValue(
 
       if (knownMapping) {
         const messageDescriptor = value
-          ? knownMapping[value.toString()] ?? knownMapping[KnownEvaluationResultAssessmentStringValue.YES]
+          ? (knownMapping[value.toString()] ?? knownMapping[KnownEvaluationResultAssessmentStringValue.YES])
           : knownMapping[KnownEvaluationResultAssessmentStringValue.YES];
         if (messageDescriptor) {
           tagText = <FormattedMessage {...messageDescriptor} values={{ value }} />;

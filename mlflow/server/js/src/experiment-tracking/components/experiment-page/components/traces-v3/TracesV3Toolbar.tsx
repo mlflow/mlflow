@@ -3,7 +3,15 @@ import { CopyActionButton } from '@databricks/web-shared/copy';
 import { TracesV3DateSelector } from './TracesV3DateSelector';
 import { FormattedMessage } from '@databricks/i18n';
 
-export const TracesV3Toolbar = ({ viewState, sessionId }: { viewState: string; sessionId?: string }) => {
+export const TracesV3Toolbar = ({
+  viewState,
+  sessionId,
+  className,
+}: {
+  viewState: string;
+  sessionId?: string;
+  className?: string;
+}) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const { theme } = useDesignSystemTheme();
 
@@ -13,9 +21,10 @@ export const TracesV3Toolbar = ({ viewState, sessionId }: { viewState: string; s
         display: 'flex',
         alignItems: 'center',
         width: '100%',
-        borderBottom: `1px solid ${theme.colors.grey100}`,
+        borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         paddingBottom: `${theme.spacing.sm}px`,
       }}
+      className={className}
     >
       {/**
        * in the single chat session view, the date sector is irrelevant as we

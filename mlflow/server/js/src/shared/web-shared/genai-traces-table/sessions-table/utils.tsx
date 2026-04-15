@@ -1,10 +1,8 @@
 import { compact, isNil, sortBy } from 'lodash';
 
-import {
-  getTotalTokens,
-  type ModelTraceInfoV3,
-  SESSION_ID_METADATA_KEY,
-} from '@databricks/web-shared/model-trace-explorer';
+import { getTotalTokens } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+import { SESSION_ID_METADATA_KEY } from '../../model-trace-explorer/constants';
 
 import type { SessionTableRow } from './types';
 import MlflowUtils from '../utils/MlflowUtils';
@@ -58,7 +56,7 @@ export const getSessionTableRows = (experimentId: string, traces: ModelTraceInfo
   );
 };
 
-const calculateSessionDuration = (traces: ModelTraceInfoV3[]) => {
+export const calculateSessionDuration = (traces: ModelTraceInfoV3[]) => {
   const durations = traces.map((trace) => trace.execution_duration);
 
   if (durations.some((duration) => isNil(duration))) {

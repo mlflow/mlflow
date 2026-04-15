@@ -7,6 +7,7 @@ import type { ExperimentPageTabName } from './constants';
  */
 export enum PageId {
   home = 'mlflow.home',
+  workspacesPage = 'mlflow.workspaces',
   settingsPage = 'mlflow.settings',
   promptsPage = 'mlflow.prompts',
   promptDetailsPage = 'mlflow.prompts.details',
@@ -15,6 +16,7 @@ export enum PageId {
   experimentLoggedModelDetailsPage = 'mlflow.logged-model.details',
   experimentPage = 'mlflow.experiment.details',
   // Child routes for experiment page:
+  experimentPageTabOverview = 'mlflow.experiment.tab.overview',
   experimentPageTabRuns = 'mlflow.experiment.tab.runs',
   experimentPageTabModels = 'mlflow.experiment.tab.models',
   experimentPageTabTraces = 'mlflow.experiment.tab.traces',
@@ -47,6 +49,9 @@ export class RoutePaths {
     return createMLflowRoutePath('/experiments/:experimentId');
   }
   // Child routes for experiment page:
+  static get experimentPageTabOverview() {
+    return createMLflowRoutePath('/experiments/:experimentId/overview/:overviewTab?');
+  }
   static get experimentPageTabRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/runs');
   }
@@ -64,6 +69,12 @@ export class RoutePaths {
   }
   static get experimentPageTabEvaluationRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs');
+  }
+  static get experimentPageTabIssueDetectionRunDetails() {
+    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid');
+  }
+  static get experimentPageTabIssueDetectionRunDetailsWithTab() {
+    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid/*');
   }
   static get experimentPageTabDatasets() {
     return createMLflowRoutePath('/experiments/:experimentId/datasets');
@@ -219,6 +230,14 @@ class Routes {
     });
   }
 
+  static getIssueDetectionRunDetailsRoute(experimentId: string, runUuid: string) {
+    return generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid });
+  }
+
+  static getIssueDetectionRunDetailsTabRoute(experimentId: string, runUuid: string, tabName: string) {
+    return `${generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid })}/${tabName}`;
+  }
+
   /**
    * Get route to the metric plot page
    * @param runUuids - Array of string run IDs to plot
@@ -300,6 +319,7 @@ class Routes {
    * Routes for prompts management.
    * Featured exclusively in open source MLflow.
    */
+
   static get promptsPageRoute() {
     return RoutePaths.promptsPage;
   }

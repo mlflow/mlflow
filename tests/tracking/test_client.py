@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -10,6 +11,7 @@ from unittest.mock import Mock, patch
 import pytest
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from pydantic import BaseModel
 
 import mlflow
 from mlflow import MlflowClient, flush_async_logging
@@ -17,6 +19,8 @@ from mlflow.config import enable_async_logging
 from mlflow.entities import (
     EvaluationDataset,
     ExperimentTag,
+    IssueSeverity,
+    IssueStatus,
     LoggedModel,
     Run,
     RunInfo,
@@ -49,6 +53,7 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
+from mlflow.prompt.registry_utils import PromptCache
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
@@ -230,28 +235,26 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
             ),
             TraceData(
                 spans=[
-                    Span.from_dict(
-                        {
-                            "name": "predict",
-                            "context": {
-                                "trace_id": "0x123456789",
-                                "span_id": "0x12345",
-                            },
-                            "parent_id": None,
-                            "start_time": 123000000,
-                            "end_time": 579000000,
-                            "status_code": "OK",
-                            "status_message": "",
-                            "attributes": {
-                                "mlflow.traceRequestId": f'"{trace_id}"',
-                                "mlflow.spanType": '"LLM"',
-                                "mlflow.spanFunctionName": '"predict"',
-                                "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
-                                "mlflow.spanOutputs": '{"answer": 42}',
-                            },
-                            "events": [],
-                        }
-                    )
+                    Span.from_dict({
+                        "name": "predict",
+                        "context": {
+                            "trace_id": "0x123456789",
+                            "span_id": "0x12345",
+                        },
+                        "parent_id": None,
+                        "start_time": 123000000,
+                        "end_time": 579000000,
+                        "status_code": "OK",
+                        "status_message": "",
+                        "attributes": {
+                            "mlflow.traceRequestId": f'"{trace_id}"',
+                            "mlflow.spanType": '"LLM"',
+                            "mlflow.spanFunctionName": '"predict"',
+                            "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
+                            "mlflow.spanOutputs": '{"answer": 42}',
+                        },
+                        "events": [],
+                    })
                 ]
             ),
         )
@@ -452,12 +455,10 @@ def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo)
     )
     assert len(results) == 100
     assert mock_store.batch_get_traces.call_count == 10
-    assert mock_store.batch_get_traces.has_calls(
-        [
-            mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
-            for j in range(10)
-        ]
-    )
+    assert mock_store.batch_get_traces.has_calls([
+        mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
+        for j in range(10)
+    ])
     mock_artifact_repo.download_trace_data.assert_not_called()
 
 
@@ -636,7 +637,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
             ),
         ]
         mock_store.search_traces.return_value = (mock_traces, None)
-        traces = MlflowClient().search_traces(experiment_ids=["1"], include_spans=include_spans)
+        traces = MlflowClient().search_traces(locations=["1"], include_spans=include_spans)
 
         if include_spans:
             assert traces == []
@@ -682,6 +683,13 @@ def disable_prompt_cache():
     yield
     MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.unset()
     MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.unset()
+
+
+@pytest.fixture(autouse=True)
+def reset_prompt_cache():
+    PromptCache._reset_instance()
+    yield
+    PromptCache._reset_instance()
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
@@ -777,7 +785,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    trace_id = mlflow.get_trace(mlflow.get_last_active_trace_id()).info.trace_id
+    trace_id = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True).info.trace_id
 
     # Validate that trace is logged to the backend
     trace = client.get_trace(trace_id)
@@ -843,7 +851,7 @@ def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
     client.end_span(trace_id=root.trace_id, span_id=span.span_id, outputs=False)
     client.end_trace(trace_id=root.trace_id, outputs="")
 
-    trace = client.get_trace(root.trace_id)
+    trace = client.get_trace(root.trace_id, flush=True)
     assert trace.data.spans[0].inputs == []
     assert trace.data.spans[0].outputs == ""
     assert trace.data.spans[1].inputs == 0
@@ -888,7 +896,7 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    traces = MlflowClient().search_traces(experiment_ids=[exp_id])
+    traces = MlflowClient().search_traces(locations=[exp_id])
     assert len(traces) == 1
 
     trace_info = traces[0].info
@@ -1025,7 +1033,7 @@ def test_start_and_end_trace_does_not_log_trace_when_disabled(
     res = func()
 
     assert res == "done"
-    assert client.search_traces(experiment_ids=[experiment_id]) == []
+    assert client.search_traces(locations=[experiment_id]) == []
     # No warning should be issued
     mock_logger.warning.assert_not_called()
 
@@ -1044,7 +1052,7 @@ def test_start_trace_within_active_run(async_logging_enabled):
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    traces = client.search_traces(experiment_ids=[exp_id])
+    traces = client.search_traces(locations=[exp_id])
     assert len(traces) == 1
     assert traces[0].info.experiment_id == exp_id
 
@@ -1117,17 +1125,17 @@ def test_log_trace(tracking_uri):
     )
     client.end_trace(span.trace_id, status="OK")
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
 
     # Purge all traces in the backend once
     client.delete_traces(experiment_id=experiment_id, trace_ids=[trace.info.trace_id])
-    assert client.search_traces(experiment_ids=[experiment_id]) == []
+    assert client.search_traces(locations=[experiment_id]) == []
 
-    # Log the trace manually
+    # Log the trace manually — _log_trace triggers async export via span processor
     new_trace_id = client._log_trace(trace)
 
-    # Validate the trace is added to the backend
-    backend_traces = client.search_traces(experiment_ids=[experiment_id])
+    # Validate the trace is added to the backend (flush=True waits for async writes)
+    backend_traces = client.search_traces(locations=[experiment_id], flush=True)
     assert len(backend_traces) == 1
     assert backend_traces[0].info.trace_id == new_trace_id  # new request ID is assigned
     assert backend_traces[0].info.experiment_id == experiment_id
@@ -1141,10 +1149,11 @@ def test_log_trace(tracking_uri):
     # If the experiment ID is None in the given trace, it should be set to the default experiment
     trace.info.experiment_id = None
     new_trace_id = client._log_trace(trace)
-    backend_traces = client.search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
+    backend_traces = client.search_traces(locations=[DEFAULT_EXPERIMENT_ID], flush=True)
     assert len(backend_traces) == 1
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_search_traces_experiment_ids_deprecation_warning():
     client = MlflowClient()
     exp_id = mlflow.set_experiment("test_experiment_deprecation").experiment_id
@@ -1202,19 +1211,17 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
     client.set_trace_tag(trace_id, "foo", "bar")
     client.end_trace(trace_id)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert trace.info.tags["foo"] == "bar"
 
 
 def test_set_trace_tag_on_logged_trace(mock_store):
     mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "bar")
     mlflow.tracking.MlflowClient().set_trace_tag("test", "mlflow.some.reserved.tag", "value")
-    mock_store.set_trace_tag.assert_has_calls(
-        [
-            mock.call("test", "foo", "bar"),
-            mock.call("test", "mlflow.some.reserved.tag", "value"),
-        ]
-    )
+    mock_store.set_trace_tag.assert_has_calls([
+        mock.call("test", "foo", "bar"),
+        mock.call("test", "mlflow.some.reserved.tag", "value"),
+    ])
 
 
 def test_delete_trace_tag_on_active_trace(monkeypatch):
@@ -1227,7 +1234,7 @@ def test_delete_trace_tag_on_active_trace(monkeypatch):
     client.delete_trace_tag(trace_id, "foo")
     client.end_trace(trace_id)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert "baz" in trace.info.tags
     assert "foo" not in trace.info.tags
 
@@ -2047,8 +2054,8 @@ def test_file_store_download_upload_trace_data(tmp_path):
         client = MlflowClient()
         span = client.start_trace("test", inputs={"test": 1})
         client.end_trace(span.trace_id, outputs={"result": 2})
-        trace = mlflow.get_trace(span.trace_id)
-        trace_data = client.get_trace(span.trace_id).data
+        trace = mlflow.get_trace(span.trace_id, flush=True)
+        trace_data = client.get_trace(span.trace_id, flush=True).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
 
@@ -2117,6 +2124,14 @@ def test_crud_prompts(tracking_uri):
 
 
 def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache):
+    def wait_for_prompt_linking():
+        """Wait for background prompt linking threads to complete."""
+        for t in threading.enumerate():
+            if t.name.startswith("link_prompt_to_experiment_thread"):
+                t.join(timeout=5.0)
+                if t.is_alive():
+                    raise TimeoutError(f"Thread {t.name} did not complete within timeout.")
+
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt with version-specific tags
@@ -2125,6 +2140,9 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
         template="Hi, {{name}}!",
         tags={"author": "Alice"},  # This will be version-level tags now
     )
+
+    # Wait for the background linking thread to complete
+    wait_for_prompt_linking()
 
     # Set some prompt-level tags separately
     client.set_prompt_tag("prompt_1", "application", "greeting")
@@ -2136,6 +2154,9 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
     # Version tags are separate from prompt tags
     assert prompt_v1.tags == {"author": "Alice"}
 
+    # Wait for the background linking thread from load_prompt
+    wait_for_prompt_linking()
+
     # Test prompt-level tags (separate from version)
     prompt_entity = client.get_prompt("prompt_1")
     # Note: Currently includes the version tags too, but we expect this behavior to change
@@ -2143,6 +2164,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
         "author": "Alice",  # This appears due to current implementation
         "application": "greeting",
         "language": "en",
+        "_mlflow_experiment_ids": ",0,",  # Linked to Default experiment
     }
 
     # Create version 2 with different version-level tags
@@ -2151,6 +2173,9 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
         template="こんにちは、{{name}}!",
         tags={"author": "Bob", "date": "2022-01-01"},  # Version-level tags
     )
+
+    # Wait for the background linking thread from register_prompt
+    wait_for_prompt_linking()
 
     # Update some prompt-level tags
     client.set_prompt_tag("prompt_1", "project", "toy")
@@ -2162,6 +2187,9 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
     # Version 2 has its own version tags (decoupled from prompt and version 1)
     assert prompt_v2.tags == {"author": "Bob", "date": "2022-01-01"}
 
+    # Wait for the background linking thread from load_prompt
+    wait_for_prompt_linking()
+
     # Verify prompt-level tags are updated and separate
     prompt_entity_updated = client.get_prompt("prompt_1")
     # Note: Currently the prompt tags get overwritten by the newest version's tags
@@ -2171,6 +2199,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache
         "application": "greeting",
         "project": "toy",
         "language": "ja",
+        "_mlflow_experiment_ids": ",0,",  # Linked to Default experiment
     }
 
     # Version 1 tags should be unchanged (decoupled from prompt tags)
@@ -2453,8 +2482,109 @@ def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
         client.get_prompt_version("test_prompt", 1)
 
 
+def test_delete_prompt_version_invalidates_cached_load_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt_ver = client.register_prompt(name="test_prompt", template="Version 1")
+    loaded = client.load_prompt(prompt_ver.name, version=prompt_ver.version)
+    assert loaded.template == "Version 1"
+
+    client.delete_prompt_version(prompt_ver.name, str(prompt_ver.version))
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Prompt.*name={prompt_ver.name}.*version={prompt_ver.version}.*not found",
+    ):
+        client.get_prompt_version(prompt_ver.name, prompt_ver.version)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Prompt.*name={prompt_ver.name}.*version={prompt_ver.version}.*not found",
+    ):
+        client.load_prompt(prompt_ver.name, version=prompt_ver.version)
+
+
+def test_delete_prompt_version_invalidates_latest_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt_v1 = client.register_prompt(name="test_prompt", template="Version 1")
+    prompt_v2 = client.register_prompt(name=prompt_v1.name, template="Version 2")
+
+    latest_prompt = client.load_prompt(f"prompts:/{prompt_v1.name}@latest")
+    assert latest_prompt.version == prompt_v2.version
+    assert latest_prompt.template == prompt_v2.template
+
+    client.delete_prompt_version(prompt_v2.name, str(prompt_v2.version))
+
+    latest_prompt_after_delete = client.load_prompt(f"prompts:/{prompt_v1.name}@latest")
+    assert latest_prompt_after_delete.version == prompt_v1.version
+    assert latest_prompt_after_delete.template == prompt_v1.template
+
+
+def test_set_prompt_model_config_invalidates_latest_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    cache_ttl_seconds = 60
+    prompt = client.register_prompt(name="test_prompt", template="test")
+    prompt_before_update = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_before_update.model_config is None
+
+    model_config = {"model_name": "gpt-4", "temperature": 0.7}
+    mlflow.genai.set_prompt_model_config(
+        name=prompt.name,
+        version=prompt.version,
+        model_config=model_config,
+    )
+
+    prompt_after_update = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_after_update.model_config == model_config
+
+
+def test_delete_prompt_model_config_invalidates_latest_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    cache_ttl_seconds = 60
+    model_config = {"model_name": "gpt-4", "temperature": 0.7}
+    prompt = client.register_prompt(
+        name="test_prompt",
+        template="test",
+        model_config=model_config,
+    )
+    prompt_before_delete = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_before_delete.model_config == model_config
+
+    mlflow.genai.delete_prompt_model_config(name=prompt.name, version=prompt.version)
+
+    prompt_after_delete = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_after_delete.model_config is None
+
+
+def test_delete_prompt_version_invalidates_alias_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt_v1 = client.register_prompt(name="test_prompt", template="Version 1")
+    client.register_prompt(name=prompt_v1.name, template="Version 2")
+    client.set_prompt_alias(prompt_v1.name, alias="production", version=prompt_v1.version)
+
+    aliased_prompt = client.load_prompt(f"prompts:/{prompt_v1.name}@production")
+    assert aliased_prompt.version == prompt_v1.version
+    assert aliased_prompt.template == prompt_v1.template
+
+    client.delete_prompt_version(prompt_v1.name, str(prompt_v1.version))
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            r"Prompt (.*) does not exist.|Prompt alias (.*) not found.|"
+            rf"Prompt.*version={prompt_v1.version}.*not found"
+        ),
+    ):
+        client.load_prompt(f"prompts:/{prompt_v1.name}@production")
+
+
 def test_delete_prompt_with_no_versions(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
+    mlflow.set_experiment("test_delete_prompt_with_no_versions")
 
     # Create prompt and version, then delete version
     client.register_prompt(name="empty_prompt", template="Hello {{name}}!")
@@ -2470,6 +2600,21 @@ def test_delete_prompt_with_no_versions(tracking_uri):
     # Prompt should be gone
     prompt = client.get_prompt("empty_prompt")
     assert prompt is None
+
+
+def test_delete_prompt_invalidates_cached_load_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt_ver = client.register_prompt(name="test_prompt", template="Version 1")
+    loaded = client.load_prompt(prompt_ver.name, version=prompt_ver.version)
+    assert loaded.template == "Version 1"
+
+    client.delete_prompt(prompt_ver.name)
+
+    assert client.get_prompt(prompt_ver.name) is None
+
+    with pytest.raises(MlflowException, match=rf"Prompt.*name={prompt_ver.name}.*not found"):
+        client.load_prompt(prompt_ver.name, version=prompt_ver.version)
 
 
 def test_delete_prompt_complete_workflow(tracking_uri):
@@ -2550,12 +2695,11 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
     # Mock Unity Catalog behavior
     client = MlflowClient(registry_uri=registry_uri)
 
-    # Mock the search_prompt_versions to return versions
-    mock_response = Mock()
-    mock_response.prompt_versions = [Mock(version="1")]
+    # Mock the search_prompt_versions to return a PagedList with versions
+    mock_versions = PagedList([Mock(version="1")], None)
 
     with (
-        patch.object(client, "search_prompt_versions", return_value=mock_response),
+        patch.object(client, "search_prompt_versions", return_value=mock_versions),
         patch.object(client, "_registry_uri", registry_uri),
     ):
         with pytest.raises(
@@ -2852,8 +2996,6 @@ def test_link_chat_prompt_version_to_run():
 
 
 def test_create_prompt_with_pydantic_response_format_client():
-    from pydantic import BaseModel
-
     class ResponseSchema(BaseModel):
         answer: str
         confidence: float
@@ -2959,18 +3101,6 @@ def test_create_prompt_with_none_response_format_client():
     # Load and verify
     loaded_prompt = client.get_prompt_version("test_none_response_client", 1)
     assert loaded_prompt.response_format is None
-
-
-def test_create_prompt_with_empty_chat_template_client():
-    client = MlflowClient()
-    prompt = client.register_prompt(name="test_empty_chat_client", template=[])
-
-    assert prompt.is_text_prompt
-    assert prompt.template == "[]"  # Empty list serialized as string
-
-    # Load and verify
-    loaded_prompt = client.get_prompt_version("test_empty_chat_client", 1)
-    assert loaded_prompt.is_text_prompt
 
 
 def test_create_prompt_with_single_message_chat_client():
@@ -3504,6 +3634,7 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
             pass
 
         trace_id = span.trace_id
+        mlflow.flush_trace_async_logging()
         sql_alchemy_store_module = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
         with (
             mock.patch(f"{sql_alchemy_store_module}.get_trace") as mock_get_trace,
@@ -3523,3 +3654,61 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
 
         mock_get_trace.assert_called_once_with(trace_id)
         mock_batch_get_traces.assert_called_once_with([trace_id])
+
+
+def test_create_issue_basic(tmp_path: Path):
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+
+    with _use_tracking_uri(tracking_uri):
+        client = MlflowClient()
+        exp_id = client.create_experiment("test_create_issue")
+        tracing_client = client._tracing_client
+
+        issue = tracing_client._create_issue(
+            experiment_id=exp_id,
+            name="Test issue",
+            description="This is a test issue",
+        )
+
+        assert issue.issue_id.startswith("iss-")
+        assert issue.experiment_id == exp_id
+        assert issue.name == "Test issue"
+        assert issue.description == "This is a test issue"
+        assert issue.status == IssueStatus.PENDING
+        assert issue.severity is None
+        assert issue.root_causes is None
+        assert issue.source_run_id is None
+        assert issue.created_by is None
+        assert issue.created_timestamp > 0
+        assert issue.last_updated_timestamp == issue.created_timestamp
+
+
+def test_create_issue_with_all_fields(tmp_path: Path):
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+
+    with _use_tracking_uri(tracking_uri):
+        client = MlflowClient()
+        exp_id = client.create_experiment("test_create_issue_all_fields")
+        tracing_client = client._tracing_client
+        with mlflow.start_run(experiment_id=exp_id) as run:
+            issue = tracing_client._create_issue(
+                experiment_id=exp_id,
+                name="High latency",
+                description="API response times exceed threshold",
+                status=IssueStatus.RESOLVED,
+                severity=IssueSeverity.HIGH,
+                root_causes=["Database query slow", "Network congestion"],
+                source_run_id=run.info.run_id,
+                created_by="monitoring_system",
+            )
+
+    assert issue.issue_id.startswith("iss-")
+    assert issue.experiment_id == exp_id
+    assert issue.name == "High latency"
+    assert issue.description == "API response times exceed threshold"
+    assert issue.status == IssueStatus.RESOLVED
+    assert issue.severity == IssueSeverity.HIGH
+    assert issue.root_causes == ["Database query slow", "Network congestion"]
+    assert issue.source_run_id == run.info.run_id
+    assert issue.created_by == "monitoring_system"
+    assert issue.created_timestamp > 0

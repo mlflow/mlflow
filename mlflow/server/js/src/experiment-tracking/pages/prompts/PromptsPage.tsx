@@ -1,6 +1,6 @@
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { usePromptsListQuery } from './hooks/usePromptsListQuery';
-import { Alert, Button, Header, Spacer } from '@databricks/design-system';
+import { Alert, Button, Header, Spacer, TextBoxIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useState } from 'react';
 import { PromptsListFilters } from './components/PromptsListFilters';
@@ -8,15 +8,23 @@ import { PromptsListTable } from './components/PromptsListTable';
 import { useUpdateRegisteredPromptTags } from './hooks/useUpdateRegisteredPromptTags';
 import { CreatePromptModalMode, useCreatePromptModal } from './hooks/useCreatePromptModal';
 import Routes from '../../routes';
-import { useNavigate } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
 import { useDebounce } from 'use-debounce';
+import { shouldEnableWorkspaces } from '../../../common/utils/FeatureUtils';
+import { extractWorkspaceFromSearchParams } from '../../../workspaces/utils/WorkspaceUtils';
 
 const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
+  const { theme } = useDesignSystemTheme();
+  const [searchParams] = useSearchParams();
+  const workspacesEnabled = shouldEnableWorkspaces();
+  const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+
   const [searchFilter, setSearchFilter] = useState('');
   const navigate = useNavigate();
+  const componentId = experimentId ? 'mlflow.prompts.experiment.list' : 'mlflow.prompts.global.list';
 
   const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
 
@@ -30,26 +38,66 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName, experimentId)),
   });
 
-  return (
-    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Spacer shrinks={false} />
-      <Header
-        title={<FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />}
-        buttons={
-          <Button componentId="mlflow.prompts.list.create" type="primary" onClick={openCreateVersionModal}>
-            <FormattedMessage
-              defaultMessage="Create prompt"
-              description="Label for the create prompt button on the registered prompts page"
-            />
-          </Button>
-        }
+  const isEmptyState = !isLoading && !error && !data?.length && !searchFilter;
+  // Only show creation buttons when: workspaces are disabled OR a workspace is selected
+  const showCreationButtons = !isEmptyState && (!workspacesEnabled || workspaceFromUrl !== null);
+
+  const createButton = showCreationButtons && (
+    <Button
+      componentId={`${componentId}.create`}
+      data-testid="create-prompt-button"
+      type="primary"
+      onClick={openCreateVersionModal}
+    >
+      <FormattedMessage
+        defaultMessage="Create prompt"
+        description="Label for the create prompt button on the registered prompts page"
       />
-      <Spacer shrinks={false} />
+    </Button>
+  );
+
+  const Wrapper = experimentId ? 'div' : ScrollablePageWrapper;
+
+  return (
+    <Wrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      {!experimentId && (
+        <>
+          <Spacer shrinks={false} />
+          <Header
+            title={
+              <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                <span
+                  css={{
+                    display: 'flex',
+                    borderRadius: theme.borders.borderRadiusSm,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                    padding: theme.spacing.sm,
+                  }}
+                >
+                  <TextBoxIcon />
+                </span>
+                <FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />
+              </span>
+            }
+            buttons={createButton}
+          />
+          <Spacer shrinks={false} />
+        </>
+      )}
       <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <PromptsListFilters searchFilter={searchFilter} onSearchFilterChange={setSearchFilter} />
+        <div css={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <div css={{ flex: 1 }}>
+            <PromptsListFilters
+              searchFilter={searchFilter}
+              onSearchFilterChange={setSearchFilter}
+              componentId={`${componentId}.search`}
+            />
+          </div>
+          {experimentId && createButton}
+        </div>
         {error?.message && (
           <>
-            <Alert type="error" message={error.message} componentId="mlflow.prompts.list.error" closable={false} />
+            <Alert type="error" message={error.message} componentId={`${componentId}.error`} closable={false} />
             <Spacer />
           </>
         )}
@@ -64,11 +112,13 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
           onPreviousPage={onPreviousPage}
           onEditTags={showEditPromptTagsModal}
           experimentId={experimentId}
+          onCreatePrompt={openCreateVersionModal}
+          componentId={componentId}
         />
       </div>
       {EditTagsModal}
       {CreatePromptModal}
-    </ScrollablePageWrapper>
+    </Wrapper>
   );
 };
 

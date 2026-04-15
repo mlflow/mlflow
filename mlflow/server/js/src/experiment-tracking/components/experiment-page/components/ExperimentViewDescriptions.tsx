@@ -5,6 +5,7 @@ import { FormattedMessage } from 'react-intl';
 import type { ExperimentEntity } from '../../../types';
 import { ExperimentViewArtifactLocation } from './ExperimentViewArtifactLocation';
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ExperimentViewDescriptions = React.memo(({ experiment }: { experiment: ExperimentEntity }) => (
   <div css={styles.container}>
     <Typography.Text color="secondary">

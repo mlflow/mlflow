@@ -70,7 +70,7 @@ describe('MetricView', () => {
     };
 
     // @ts-expect-error TS(2322): Type 'Mock<{ selectedMetricKeys: string[]; }, []>'... Remove this comment to see the full error message
-    Utils.getMetricPlotStateFromUrl = jest.fn(() => {
+    jest.spyOn(Utils, 'getMetricPlotStateFromUrl').mockImplementation(() => {
       return { selectedMetricKeys: ['selectedKey'] };
     });
 

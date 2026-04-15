@@ -22,7 +22,7 @@ export function ModelTraceExplorerRenderModeToggle({
       data-testid="model-trace-explorer-render-mode-toggle"
       name="render-mode"
       size="small"
-      componentId={`shared.model-trace-explorer.toggle-markdown-rendering-${!shouldRenderMarkdown}`}
+      componentId="codegen_no_dynamic_js_packages_web_shared_src_model_trace_explorer_modeltraceexplorerrendermodetoggle_25"
       value={shouldRenderMarkdown}
       onChange={(event) => {
         setShouldRenderMarkdown(event.target.value);

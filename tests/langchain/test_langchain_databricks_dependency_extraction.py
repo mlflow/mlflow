@@ -291,14 +291,12 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
             ]
         }
         # Add the catalog, schema and name to the function Info followed by the parameter
-        return FunctionInfo.from_dict(
-            {
-                "catalog_name": components[0],
-                "schema_name": components[1],
-                "name": components[2],
-                "input_params": param_dict,
-            }
-        )
+        return FunctionInfo.from_dict({
+            "catalog_name": components[0],
+            "schema_name": components[1],
+            "name": components[2],
+            "input_params": param_dict,
+        })
 
     monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
@@ -344,14 +342,12 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch):
                 }
             ]
         }
-        return FunctionInfo.from_dict(
-            {
-                "catalog_name": components[0],
-                "schema_name": components[1],
-                "name": components[2],
-                "input_params": param_dict,
-            }
-        )
+        return FunctionInfo.from_dict({
+            "catalog_name": components[0],
+            "schema_name": components[1],
+            "name": components[2],
+            "input_params": param_dict,
+        })
 
     # In addition to above now handle the case where a '*' is passed in and list all the functions
     def mock_function_list(self, catalog_name, schema_name):
@@ -510,14 +506,12 @@ def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch
             ]
         }
         # Add the catalog, schema and name to the function Info followed by the parameter
-        return FunctionInfo.from_dict(
-            {
-                "catalog_name": components[0],
-                "schema_name": components[1],
-                "name": components[2],
-                "input_params": param_dict,
-            }
-        )
+        return FunctionInfo.from_dict({
+            "catalog_name": components[0],
+            "schema_name": components[1],
+            "name": components[2],
+            "input_params": param_dict,
+        })
 
     monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")

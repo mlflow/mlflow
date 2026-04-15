@@ -36,7 +36,7 @@ class _PromptlabModel:
             query_data = self._construct_query_data(prompt)
 
             response = client.predict(
-                endpoint=self.model_route, inputs={**query_data, **model_parameters_as_dict}
+                endpoint=self.model_route, inputs=query_data | model_parameters_as_dict
             )
             results.append(self._parse_gateway_response(response))
 

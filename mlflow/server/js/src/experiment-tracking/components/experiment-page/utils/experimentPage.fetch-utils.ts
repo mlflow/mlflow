@@ -217,9 +217,9 @@ export const isSearchFacetsFilterUsed = (currentSearchFacetsState: ExperimentPag
   const { lifecycleFilter, modelVersionFilter, datasetsFilter, searchFilter, startTime } = currentSearchFacetsState;
   return Boolean(
     lifecycleFilter !== DEFAULT_LIFECYCLE_FILTER ||
-      modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
-      datasetsFilter.length !== 0 ||
-      searchFilter ||
-      startTime !== DEFAULT_START_TIME,
+    modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
+    datasetsFilter.length !== 0 ||
+    searchFilter ||
+    startTime !== DEFAULT_START_TIME,
   );
 };

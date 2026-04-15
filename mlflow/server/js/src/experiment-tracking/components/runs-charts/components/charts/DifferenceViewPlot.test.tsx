@@ -13,7 +13,7 @@ describe('DifferenceViewPlot', () => {
 
   // Required to see virtualized entities
   beforeAll(() => {
-    window.Element.prototype.getBoundingClientRect = () => ({ height: 300, width: 100 } as DOMRect);
+    window.Element.prototype.getBoundingClientRect = () => ({ height: 300, width: 100 }) as DOMRect;
   });
   afterAll(() => {
     window.Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;

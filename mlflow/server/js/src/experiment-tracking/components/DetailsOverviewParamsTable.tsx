@@ -144,7 +144,7 @@ const staticColumns: ParamsColumnDef[] = [
     enableResizing: false,
     meta: { styles: { paddingLeft: 0 } },
     cell: ({
-      row: { original, getIsExpanded, toggleExpanded },
+      row,
       table: {
         options: { meta },
       },
@@ -152,10 +152,10 @@ const staticColumns: ParamsColumnDef[] = [
       const { autoExpandedRowsList } = meta as DetailsOverviewParamsTableMeta;
       return (
         <ExpandableParamValueCell
-          name={original.key}
-          value={original.value}
-          isExpanded={getIsExpanded()}
-          toggleExpanded={toggleExpanded}
+          name={row.original.key}
+          value={row.original.value}
+          isExpanded={row.getIsExpanded()}
+          toggleExpanded={row.toggleExpanded.bind(row)}
           autoExpandedRowsList={autoExpandedRowsList.current}
         />
       );
@@ -199,6 +199,7 @@ export const DetailsOverviewParamsTable = ({
             {
               id: 'key',
               accessorKey: 'key',
+              // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
               header: () => (
                 <FormattedMessage
                   defaultMessage="Parameter"
@@ -210,6 +211,7 @@ export const DetailsOverviewParamsTable = ({
             },
             {
               id: 'value',
+              // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
               header: () => (
                 <FormattedMessage
                   defaultMessage="Value"
@@ -219,12 +221,13 @@ export const DetailsOverviewParamsTable = ({
               accessorKey: 'value',
               enableResizing: false,
               meta: { styles: { paddingLeft: 0 } },
-              cell: ({ row: { original, getIsExpanded, toggleExpanded } }) => (
+              // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
+              cell: ({ row }) => (
                 <ExpandableParamValueCell
-                  name={original.key}
-                  value={original.value}
-                  isExpanded={getIsExpanded()}
-                  toggleExpanded={toggleExpanded}
+                  name={row.original.key}
+                  value={row.original.value}
+                  isExpanded={row.getIsExpanded()}
+                  toggleExpanded={row.toggleExpanded.bind(row)}
                   autoExpandedRowsList={autoExpandedRowsList.current}
                 />
               ),

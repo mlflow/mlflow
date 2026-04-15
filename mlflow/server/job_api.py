@@ -29,6 +29,7 @@ class Job(BaseModel):
     result: Any
     retry_count: int
     last_update_time: int
+    status_details: dict[str, Any] | None = None
 
     @classmethod
     def from_job_entity(cls, job: JobEntity) -> "Job":
@@ -42,6 +43,7 @@ class Job(BaseModel):
             result=job.parsed_result,
             retry_count=job.retry_count,
             last_update_time=job.last_update_time,
+            status_details=job.status_details,
         )
 
 
@@ -75,6 +77,20 @@ def submit_job(payload: SubmitJobPayload) -> Job:
         function_fullname = get_job_fn_fullname(job_name)
         function = _load_function(function_fullname)
         job = submit_job(function, payload.params, payload.timeout)
+        return Job.from_job_entity(job)
+    except MlflowException as e:
+        raise HTTPException(
+            status_code=e.get_http_status_code(),
+            detail=e.message,
+        )
+
+
+@job_api_router.patch("/cancel/{job_id}", response_model=Job)
+def cancel_job(job_id: str) -> Job:
+    from mlflow.server.jobs import cancel_job
+
+    try:
+        job = cancel_job(job_id)
         return Job.from_job_entity(job)
     except MlflowException as e:
         raise HTTPException(

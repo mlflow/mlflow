@@ -2,26 +2,22 @@ import pandas as pd
 import pytest
 
 import mlflow
-import mlflow.utils
-import mlflow.utils.autologging_utils
 from mlflow.metrics import latency
 from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.openai.test_openai_evaluate import purge_traces
 from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
 
-_EVAL_DATA = pd.DataFrame(
-    {
-        "inputs": [
-            "What is MLflow?",
-            "What is Spark?",
-        ],
-        "ground_truth": [
-            "MLflow is an open-source platform to manage the ML lifecycle.",
-            "Spark is a unified analytics engine for big data processing.",
-        ],
-    }
-)
+_EVAL_DATA = pd.DataFrame({
+    "inputs": [
+        "What is MLflow?",
+        "What is Spark?",
+    ],
+    "ground_truth": [
+        "MLflow is an open-source platform to manage the ML lifecycle.",
+        "Spark is a unified analytics engine for big data processing.",
+    ],
+})
 
 
 @pytest.mark.parametrize(

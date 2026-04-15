@@ -106,7 +106,7 @@ def merge_dicts(dict_a, dict_b, raise_on_duplicates=True):
     duplicate_keys = dict_a.keys() & dict_b.keys()
     if raise_on_duplicates and len(duplicate_keys) > 0:
         raise ValueError(f"The two merging dictionaries contains duplicate keys: {duplicate_keys}.")
-    return {**dict_a, **dict_b}
+    return dict_a | dict_b
 
 
 def _get_fully_qualified_class_name(obj):
@@ -166,6 +166,25 @@ def find_free_port():
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return s.getsockname()[1]
+
+
+def is_port_available(port: int, host: str = "127.0.0.1") -> bool:
+    """
+    Check if a port is available for binding.
+
+    Args:
+        port: The port number to check.
+        host: The host address to check. Defaults to localhost.
+
+    Returns:
+        True if the port is available, False if it's already in use.
+    """
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            return False
 
 
 def check_port_connectivity():

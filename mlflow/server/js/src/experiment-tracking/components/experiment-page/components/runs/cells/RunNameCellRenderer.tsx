@@ -17,6 +17,7 @@ export interface RunNameCellRendererProps extends ICellRendererParams {
   onExpand: (runUuid: string, childrenIds?: string[]) => void;
 }
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -77,7 +78,12 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
             onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
           />
         )}
-        <Link to={Routes.getRunPageRoute(experimentId, runUuid)} css={styles.runLink} tabIndex={0}>
+        <Link
+          componentId="mlflow.experiment_tracking.runs_table.run_name_link"
+          to={Routes.getRunPageRoute(experimentId, runUuid)}
+          css={styles.runLink}
+          tabIndex={0}
+        >
           <span css={styles.runName}>{runName}</span>
         </Link>
       </div>

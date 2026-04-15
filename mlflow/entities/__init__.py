@@ -10,6 +10,7 @@ from mlflow.entities.assessment import (
     AssessmentSourceType,
     Expectation,
     Feedback,
+    IssueReference,
 )
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
@@ -21,16 +22,36 @@ from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDuration,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
 from mlflow.entities.gateway_endpoint import (
+    FallbackConfig,
+    FallbackStrategy,
     GatewayEndpoint,
     GatewayEndpointBinding,
+    GatewayEndpointModelConfig,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
+    GatewayModelLinkageType,
     GatewayResourceType,
+    RoutingStrategy,
+)
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
 )
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -49,6 +70,7 @@ from mlflow.entities.run_outputs import RunOutputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.scorer import ScorerVersion
+from mlflow.entities.session import Session
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -62,6 +84,7 @@ from mlflow.entities.trace_location import (
     TraceLocation,
     TraceLocationType,
     UCSchemaLocation,
+    UnityCatalog,
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.view_type import ViewType
@@ -71,6 +94,7 @@ from mlflow.entities.webhook import (
     WebhookStatus,
     WebhookTestResult,
 )
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 
 __all__ = [
     "Experiment",
@@ -90,6 +114,9 @@ __all__ = [
     "LifecycleStage",
     "Dataset",
     "InputTag",
+    "Issue",
+    "IssueSeverity",
+    "IssueStatus",
     "DatasetInput",
     "RunInputs",
     "RunOutputs",
@@ -102,11 +129,13 @@ __all__ = [
     "Trace",
     "TraceData",
     "TraceInfo",
+    "Session",
     "TraceLocation",
     "TraceLocationType",
     "MlflowExperimentLocation",
     "InferenceTableLocation",
     "UCSchemaLocation",
+    "UnityCatalog",
     "TraceState",
     "SpanStatusCode",
     "_DatasetSummary",
@@ -123,6 +152,7 @@ __all__ = [
     "AssessmentSourceType",
     "Expectation",
     "Feedback",
+    "IssueReference",
     # Note: EvaluationDataset is intentionally excluded from __all__ to prevent
     # circular import issues during plugin registration. It can still be imported
     # explicitly via: from mlflow.entities import EvaluationDataset
@@ -130,17 +160,34 @@ __all__ = [
     "DatasetRecordSource",
     "DatasetRecordSourceType",
     "EntityAssociationType",
+    "BudgetAction",
+    "BudgetDuration",
+    "BudgetDurationUnit",
+    "BudgetTargetScope",
+    "BudgetUnit",
+    "FallbackConfig",
+    "FallbackStrategy",
+    "GatewayBudgetPolicy",
     "GatewayEndpoint",
     "GatewayEndpointBinding",
+    "GatewayEndpointModelConfig",
     "GatewayEndpointModelMapping",
     "GatewayEndpointTag",
     "GatewayModelDefinition",
     "GatewayResourceType",
     "GatewaySecretInfo",
+    "GatewayModelLinkageType",
+    "RoutingStrategy",
     "Webhook",
     "WebhookEvent",
     "WebhookStatus",
     "WebhookTestResult",
+    "Workspace",
+    "WorkspaceDeletionMode",
+    "GatewayGuardrail",
+    "GatewayGuardrailConfig",
+    "GuardrailAction",
+    "GuardrailStage",
 ]
 
 

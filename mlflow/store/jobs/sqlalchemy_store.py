@@ -18,6 +18,7 @@ from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 sqlalchemy.orm.configure_mappers()
 
@@ -61,6 +62,30 @@ class SqlAlchemyJobStore(AbstractJobStore):
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
 
+    def _get_active_workspace(self) -> str:
+        """
+        Get the active workspace name.
+
+        In single-tenant mode, always returns DEFAULT_WORKSPACE_NAME.
+        Workspace-aware subclasses override this to enforce isolation.
+        """
+        return DEFAULT_WORKSPACE_NAME
+
+    def _get_query(self, session, model):
+        """
+        Return a query for ``model``.
+        Workspace-aware subclasses override this to enforce scoping.
+        """
+        return session.query(model)
+
+    def _with_workspace_field(self, instance):
+        """
+        Allow subclasses to populate model fields (e.g., workspace metadata) on ORM instances.
+        """
+        if hasattr(instance, "workspace") and getattr(instance, "workspace", None) is None:
+            instance.workspace = DEFAULT_WORKSPACE_NAME
+        return instance
+
     def create_job(self, job_name: str, params: str, timeout: float | None = None) -> Job:
         """
         Create a new job with the specified function and parameters.
@@ -77,29 +102,38 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job_id = str(uuid.uuid4())
             creation_time = get_current_time_millis()
 
-            job = SqlJob(
-                id=job_id,
-                creation_time=creation_time,
-                job_name=job_name,
-                params=params,
-                timeout=timeout,
-                status=JobStatus.PENDING.to_int(),
-                result=None,
-                last_update_time=creation_time,
+            job = self._with_workspace_field(
+                SqlJob(
+                    id=job_id,
+                    creation_time=creation_time,
+                    job_name=job_name,
+                    params=params,
+                    timeout=timeout,
+                    status=JobStatus.PENDING.to_int(),
+                    result=None,
+                    last_update_time=creation_time,
+                )
             )
 
             session.add(job)
             session.flush()
             return job.to_mlflow_entity()
 
-    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> None:
+    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> Job:
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
+
+            if JobStatus.is_finalized(job.status):
+                raise MlflowException(
+                    f"The Job {job_id} is already finalized with status: {job.status}, "
+                    "it can't be updated."
+                )
 
             job.status = new_status.to_int()
             if result is not None:
                 job.result = result
             job.last_update_time = get_current_time_millis()
+            return job.to_mlflow_entity()
 
     def start_job(self, job_id: str) -> None:
         """
@@ -115,18 +149,17 @@ class SqlAlchemyJobStore(AbstractJobStore):
         with self.ManagedSessionMaker() as session:
             # Atomic update: only transition from PENDING to RUNNING
             rows_updated = (
-                session.query(SqlJob)
+                self
+                ._get_query(session, SqlJob)
                 .filter(SqlJob.id == job_id, SqlJob.status == JobStatus.PENDING.to_int())
-                .update(
-                    {
-                        SqlJob.status: JobStatus.RUNNING.to_int(),
-                        SqlJob.last_update_time: get_current_time_millis(),
-                    }
-                )
+                .update({
+                    SqlJob.status: JobStatus.RUNNING.to_int(),
+                    SqlJob.last_update_time: get_current_time_millis(),
+                })
             )
 
             if rows_updated == 0:
-                job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+                job = self._get_query(session, SqlJob).filter(SqlJob.id == job_id).one_or_none()
                 if job is None:
                     raise MlflowException(
                         f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
@@ -242,7 +275,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         while True:
             with self.ManagedSessionMaker() as session:
                 # Select all columns needed for Job entity
-                query = session.query(SqlJob)
+                query = self._get_query(session, SqlJob)
 
                 # Apply filters
                 if job_name is not None:
@@ -261,7 +294,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
                 # Order by creation time (oldest first) and apply pagination
                 jobs = (
-                    query.order_by(SqlJob.creation_time)
+                    query
+                    .order_by(SqlJob.creation_time)
                     .offset(offset)
                     .limit(_LIST_JOB_PAGE_SIZE)
                     .all()
@@ -288,7 +322,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 offset += _LIST_JOB_PAGE_SIZE
 
     def _get_sql_job(self, session, job_id) -> SqlJob:
-        job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+        job = self._get_query(session, SqlJob).filter(SqlJob.id == job_id).one_or_none()
         if job is None:
             raise MlflowException(
                 f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
@@ -310,8 +344,91 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
-                )
             return job.to_mlflow_entity()
+
+    def delete_jobs(self, older_than: int = 0, job_ids: list[str] | None = None) -> list[str]:
+        """
+        Delete finalized jobs based on the provided filters. Used by ``mlflow gc``.
+
+        Only jobs with finalized status (SUCCEEDED, FAILED, TIMEOUT, CANCELED) are
+        eligible for deletion.
+
+        Behavior:
+            - No filters: Deletes all finalized jobs.
+            - Only ``older_than``: Deletes finalized jobs older than the threshold.
+            - Only ``job_ids``: Deletes only the specified finalized jobs.
+            - Both filters: Deletes finalized jobs matching both conditions.
+
+        Args:
+            older_than: Time threshold in milliseconds. Jobs with creation_time
+                older than (current_time - older_than) are eligible for deletion.
+                A value of 0 disables this filter.
+            job_ids: List of specific job IDs to delete. If None, all finalized jobs
+                (subject to older_than filter) are eligible for deletion.
+
+        Returns:
+            List of job IDs that were deleted.
+        """
+        current_time = get_current_time_millis()
+        time_threshold = current_time - older_than
+
+        finalized_statuses = [
+            JobStatus.SUCCEEDED.to_int(),
+            JobStatus.FAILED.to_int(),
+            JobStatus.TIMEOUT.to_int(),
+            JobStatus.CANCELED.to_int(),
+        ]
+
+        with self.ManagedSessionMaker() as session:
+            query = self._get_query(session, SqlJob).filter(SqlJob.status.in_(finalized_statuses))
+
+            if job_ids:
+                query = query.filter(SqlJob.id.in_(job_ids))
+
+            if older_than > 0:
+                query = query.filter(SqlJob.creation_time < time_threshold)
+
+            ids_to_delete = [job.id for job in query.all()]
+
+            if ids_to_delete:
+                self._get_query(session, SqlJob).filter(SqlJob.id.in_(ids_to_delete)).delete(
+                    synchronize_session=False
+                )
+
+            return ids_to_delete
+
+    def cancel_job(self, job_id: str) -> Job:
+        """
+        Cancel a job by its ID.
+
+        Args:
+            job_id: The ID of the job to cancel
+
+        Returns:
+            Job entity
+
+        Raises:
+            MlflowException: If job with the given ID is not found
+        """
+        return self._update_job(job_id, JobStatus.CANCELED)
+
+    def update_status_details(self, job_id: str, status_details: dict[str, Any]) -> None:
+        """
+        Update job status details.
+
+        Merges the provided status details with existing job status details. For the same
+        key, the new value will overwrite the existing value.
+
+        Args:
+            job_id: The ID of the job to update
+            status_details: Status details to merge into existing job status details
+        """
+        with self.ManagedSessionMaker() as session:
+            job = self._get_sql_job(session, job_id)
+
+            # Merge new status details with existing
+            current_details = job.status_details or {}
+            current_details.update(status_details)
+            job.status_details = current_details
+
+            job.last_update_time = get_current_time_millis()

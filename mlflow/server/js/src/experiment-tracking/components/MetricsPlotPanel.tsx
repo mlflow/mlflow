@@ -323,7 +323,6 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
   };
 
   getMetrics = () => {
-    /* eslint-disable no-param-reassign */
     const state = this.getUrlState();
     const selectedMetricsSet = new Set(state.selectedMetricKeys);
     const { selectedXAxis } = state;
@@ -536,7 +535,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
           hidden: false,
           color: getStableColorForRun(runUuid),
           displayName: runNames?.[index] || runDisplayNames?.[index] || runUuid,
-        } as RunsChartsRunData),
+        }) as RunsChartsRunData,
     );
   };
 

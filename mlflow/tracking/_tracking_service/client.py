@@ -9,6 +9,7 @@ import os
 import sys
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, Literal
+from urllib import parse as urllib_parse
 
 from mlflow.entities import (
     ExperimentTag,
@@ -62,7 +63,7 @@ from mlflow.utils import chunk_list
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION, MLFLOW_USER
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
@@ -74,6 +75,8 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+from mlflow.utils.workspace_context import get_request_workspace
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -763,9 +766,7 @@ class TrackingServiceClient:
 
         # Check for a special run tag that indicates the run is triggered by evaluation.
         # MLflow already shows a link to evaluation results so no need to print it again.
-        if (
-            is_eval_tag := run.data.tags.get(MLFLOW_RUN_IS_EVALUATION)
-        ) and is_eval_tag.lower() == "true":
+        if run.data.tags.get(MLFLOW_RUN_TYPE) == MLFLOW_RUN_TYPE_GENAI_EVALUATE:
             return
 
         experiment_id = run.info.experiment_id
@@ -775,6 +776,12 @@ class TrackingServiceClient:
         else:
             experiment_url = f"{host_url}/#/experiments/{experiment_id}"
         run_url = f"{experiment_url}/runs/{run_id}"
+
+        workspace = get_request_workspace()
+        if workspace and workspace != DEFAULT_WORKSPACE_NAME:
+            encoded = urllib_parse.quote(workspace, safe="")
+            experiment_url = f"{experiment_url}?workspace={encoded}"
+            run_url = f"{run_url}?workspace={encoded}"
 
         sys.stdout.write(f"🏃 View run {run_name} at: {run_url}\n")
         sys.stdout.write(f"🧪 View experiment at: {experiment_url}\n")
@@ -863,9 +870,11 @@ class TrackingServiceClient:
         tags: dict[str, str] | None = None,
         params: dict[str, str] | None = None,
         model_type: str | None = None,
-        # This parameter is only used for telemetry purposes, and
-        # does not affect the logged model.
+        # These parameters are only used for telemetry purposes, and
+        # do not affect the logged model.
         flavor: str | None = None,
+        serialization_format: str | None = None,
+        uses_uv: bool = False,
     ) -> LoggedModel:
         return self.store.create_logged_model(
             experiment_id=experiment_id,

@@ -164,8 +164,15 @@ export const AssessmentDisplayValue = ({
     );
   }
 
+  const tooltipContent = (
+    <>
+      {prefix}
+      {children}
+    </>
+  );
+
   return (
-    <Tooltip componentId="shared.model-trace-explorer.assesment-value-tooltip" content={children}>
+    <Tooltip componentId="shared.model-trace-explorer.assesment-value-tooltip" content={tooltipContent}>
       <Tag
         css={{ display: 'inline-flex', maxWidth: '100%', minWidth: theme.spacing.md, marginRight: 0 }}
         componentId="shared.model-trace-explorer.assesment-value-tag"
