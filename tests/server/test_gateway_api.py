@@ -3488,9 +3488,9 @@ async def test_guardrail_spans_created_when_usage_tracking_on(store: SqlAlchemyS
     _setup_db_guardrail(store, endpoint_name, "BEFORE", "VALIDATION", name="safety-check")
 
     mock_response = _make_guardrail_chat_response("Safe response")
-    mock_request = _make_guardrail_mock_request(
-        {"messages": [{"role": "user", "content": "hello"}]}
-    )
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
     passing_scorer = _SimpleScorer(passing=True)
 
     with (
