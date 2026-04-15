@@ -24,6 +24,7 @@ from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
@@ -57,6 +58,24 @@ from tests.store.tracking.sqlalchemy_store.conftest import (
 )
 
 pytestmark = pytest.mark.notrackingurimock
+
+
+def test_resolve_trace_archival_config_returns_defaults_for_single_tenant(
+    store: SqlAlchemyStore, workspaces_enabled: bool
+):
+    if workspaces_enabled:
+        pytest.skip("Workspace-aware resolution is covered separately.")
+
+    resolved = store.resolve_trace_archival_config(
+        default_trace_archival_location="s3://archive/default",
+        default_retention="30d",
+    )
+
+    assert resolved.config == TraceArchivalConfig(
+        location="s3://archive/default",
+        retention="30d",
+    )
+    assert not resolved.append_workspace_prefix
 
 
 def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):

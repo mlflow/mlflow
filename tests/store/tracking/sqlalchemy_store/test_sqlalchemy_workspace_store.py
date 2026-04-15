@@ -30,6 +30,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
@@ -44,6 +45,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking._tracking_service import utils as tracking_utils
@@ -442,6 +444,45 @@ def test_create_experiment_requires_effective_artifact_root(workspace_tracking_s
     with WorkspaceContext("team-misconfigured"):
         with pytest.raises(MlflowException, match="Cannot determine an artifact root"):
             workspace_tracking_store.create_experiment("should-fail")
+
+
+def test_resolve_trace_archival_config_uses_workspace_provider(
+    workspace_tracking_store, monkeypatch
+):
+    calls = []
+
+    class TrackingProvider:
+        def resolve_trace_archival_config(
+            self, default_root: str, default_retention: str, workspace_name: str
+        ) -> ResolvedTraceArchivalConfig:
+            calls.append((default_root, default_retention, workspace_name))
+            return ResolvedTraceArchivalConfig(
+                config=TraceArchivalConfig(
+                    location=f"s3://archive/{workspace_name}",
+                    retention="14d",
+                ),
+                append_workspace_prefix=False,
+            )
+
+    provider = TrackingProvider()
+    monkeypatch.setattr(
+        WorkspaceAwareSqlAlchemyStore,
+        "_get_workspace_provider_instance",
+        lambda self, provider=provider: provider,
+    )
+
+    with WorkspaceContext("team-archive"):
+        resolved = workspace_tracking_store.resolve_trace_archival_config(
+            default_trace_archival_location="s3://archive/default",
+            default_retention="30d",
+        )
+
+    assert calls == [("s3://archive/default", "30d", "team-archive")]
+    assert resolved.config == TraceArchivalConfig(
+        location="s3://archive/team-archive",
+        retention="14d",
+    )
+    assert not resolved.append_workspace_prefix
 
 
 def test_default_workspace_experiment_uses_zero_id(workspace_tracking_store):
