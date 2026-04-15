@@ -16,6 +16,7 @@ from mlflow.entities import (
     GatewayEndpointModelConfig,
     GatewayModelLinkageType,
     RoutingStrategy,
+    SpanType,
 )
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace_state import TraceState
@@ -3458,8 +3459,6 @@ async def test_guardrails_run_in_execution_order(store: SqlAlchemyStore):
 
 @pytest.mark.asyncio
 async def test_guardrail_spans_created_when_usage_tracking_on(store: SqlAlchemyStore):
-    from mlflow.entities import SpanType
-
     endpoint_name = "ep-guardrail-tracing"
     experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
 
