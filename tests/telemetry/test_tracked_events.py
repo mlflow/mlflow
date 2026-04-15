@@ -78,6 +78,7 @@ from mlflow.telemetry.events import (
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateGuardrailEvent,
+    GatewayCreateModelDefinitionEvent,
     GatewayCreateSecretEvent,
     GatewayDeleteBudgetPolicyEvent,
     GatewayDeleteEndpointEvent,
@@ -1823,6 +1824,12 @@ def test_gateway_crud_telemetry(mock_requests, mock_telemetry_client: TelemetryC
         model_name="gpt-4",
         secret_id=secret.secret_id,
         created_by="test-user",
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayCreateModelDefinitionEvent.name,
+        {"model_name": "gpt-4", "provider": "openai"},
     )
 
     model_config = GatewayEndpointModelConfig(
