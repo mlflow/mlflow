@@ -91,7 +91,19 @@ class CostKey:
     TOOL_COST = "tool_cost"
     EMBEDDING_COST = "embedding_cost"
     RETRIEVAL_COST = "retrieval_cost"
-    MISC_COST = "misc_cost"  # For generic/unknown spans
+    OTHER_COST = "other_cost"  # For generic/unknown spans
+
+    @classmethod
+    def all_keys(cls):
+        return [
+            cls.INPUT_COST,
+            cls.OUTPUT_COST,
+            cls.TOTAL_COST,
+            cls.TOOL_COST,
+            cls.EMBEDDING_COST,
+            cls.RETRIEVAL_COST,
+            cls.OTHER_COST,
+        ]
 
 
 class TraceSizeStatsKey:
@@ -170,6 +182,17 @@ class TraceExperimentTagKey:
 class TraceArchivalFailureReason(str, Enum):
     MALFORMED_TRACE = "MALFORMED_TRACE"
     UNSUPPORTED_ARCHIVE_REPOSITORY = "UNSUPPORTED_ARCHIVE_REPOSITORY"
+
+    @classmethod
+    def get_cost_attribute_keys(cls):
+        """Returns cost attribute keys in priority order."""
+        return [
+            cls.LLM_COST,
+            cls.TOOL_COST,
+            cls.EMBEDDING_COST,
+            cls.RETRIEVAL_COST,
+            cls.SPAN_COST,
+        ]
 
 
 class AssessmentMetadataKey:

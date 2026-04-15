@@ -13,7 +13,7 @@ export interface TraceCost {
   tool_cost?: number;
   embedding_cost?: number;
   retrieval_cost?: number;
-  misc_cost?: number;
+  other_cost?: number;
 }
 
 export const isTraceCostType = (value?: unknown): value is TraceCost => {
@@ -69,11 +69,11 @@ export const ModelTraceExplorerCostHoverCard = ({ cost }: { cost: TraceCost }) =
       });
     }
 
-    if ((cost.misc_cost ?? 0) > 0) {
+    if ((cost.other_cost ?? 0) > 0) {
       items.push({
         key: 'misc',
         label: 'Other cost',
-        value: formatCostUSD(cost.misc_cost!),
+        value: formatCostUSD(cost.other_cost!),
       });
     }
 
