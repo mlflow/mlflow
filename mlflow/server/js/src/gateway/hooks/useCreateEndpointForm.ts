@@ -150,12 +150,16 @@ export function useCreateEndpointForm({
         usage_tracking: values.usageTracking,
       });
 
-      telemetryClient.dangerouslyLogEventWithMetadata('mlflow.gateway.endpoint.create', 'onSubmitSuccess', {
-        secretMode: values.secretMode,
-        provider: values.provider,
-        model: values.modelName,
-        usageTracking: String(values.usageTracking),
-      });
+      telemetryClient.logEventWithMetadata_I_CONFIRM_THERE_IS_NO_PII(
+        'mlflow.gateway.endpoint.create',
+        'onSubmitSuccess',
+        {
+          secretMode: values.secretMode,
+          provider: values.provider,
+          model: values.modelName,
+          usageTracking: String(values.usageTracking),
+        },
+      );
 
       onSuccess?.(endpointResponse.endpoint);
     } catch {
