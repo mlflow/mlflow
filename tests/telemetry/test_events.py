@@ -48,6 +48,7 @@ from mlflow.telemetry.events import (
     TraceAttachmentsEvent,
     UpdateIssueEvent,
 )
+from mlflow.tracing.attachments import Attachment
 
 
 @pytest.mark.parametrize(
@@ -832,14 +833,22 @@ def test_genai_evaluate_event_parse_eval_data_type(arguments, expected_eval_data
     assert result.get("eval_data_type") == expected_eval_data_type
 
 
-def test_trace_attachments_event_parse():
-    att1 = Mock(content_type="image/png")
-    att2 = Mock(content_type="audio/wav")
-    att3 = Mock(content_type="image/png")
-    result = TraceAttachmentsEvent.parse({"attachments": {"a": att1, "b": att2, "c": att3}})
-    assert result == {"content_types": {"image/png": 2, "audio/wav": 1}}
-
-
-def test_trace_attachments_event_parse_empty():
-    assert TraceAttachmentsEvent.parse({"attachments": {}}) is None
-    assert TraceAttachmentsEvent.parse({}) is None
+@pytest.mark.parametrize(
+    ("arguments", "expected"),
+    [
+        (
+            {
+                "attachments": {
+                    "a": Attachment(content_type="image/png", content_bytes=b"img1"),
+                    "b": Attachment(content_type="audio/wav", content_bytes=b"audio"),
+                    "c": Attachment(content_type="image/png", content_bytes=b"img2"),
+                }
+            },
+            {"content_types": {"image/png": 2, "audio/wav": 1}},
+        ),
+        ({"attachments": {}}, None),
+        ({}, None),
+    ],
+)
+def test_trace_attachments_event_parse(arguments, expected):
+    assert TraceAttachmentsEvent.parse(arguments) == expected
