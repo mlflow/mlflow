@@ -128,11 +128,13 @@ export function useAttachmentUrl(uri: string | null): {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uri]);
 
-  const triggerDownload = useCallback(
-    () => fetchAndDownload(parsed!.traceId, parsed!.attachmentId, parsed!.contentType),
+  const triggerDownload = useCallback(() => {
+    if (parsed) {
+      return fetchAndDownload(parsed.traceId, parsed.attachmentId, parsed.contentType);
+    }
+    return Promise.resolve();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [uri],
-  );
+  }, [uri]);
 
   return {
     url,
