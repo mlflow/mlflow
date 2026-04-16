@@ -105,10 +105,11 @@ const ShowArtifactImageView = ({
 const classNames = {
   imageOuterContainer: {
     padding: '10px',
-    overflow: 'scroll',
+    overflow: 'auto',
     // Let's keep images (esp. transparent PNGs) on the white background regardless of the theme
     background: 'white',
-    minHeight: '100%',
+    flex: 1,
+    minHeight: 0,
   },
   imageWrapper: { display: 'inline-block' },
   image: {

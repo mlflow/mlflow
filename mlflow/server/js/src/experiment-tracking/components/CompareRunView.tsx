@@ -306,8 +306,8 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     );
   }
 
-  renderArtifactTable(colWidth: any) {
-    return <CompareRunArtifactView runUuids={this.props.runUuids} runInfos={this.props.runInfos} colWidth={colWidth} />;
+  renderArtifactTable() {
+    return <CompareRunArtifactView runUuids={this.props.runUuids} runInfos={this.props.runInfos} />;
   }
 
   renderTagTable(colWidth: any) {
@@ -612,7 +612,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
           <Spacer size="lg" />
           {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
-        <CollapsibleSection title={artifactsLabel}>{this.renderArtifactTable(colWidth)}</CollapsibleSection>
+        <CollapsibleSection title={artifactsLabel}>{this.renderArtifactTable()}</CollapsibleSection>
         <CollapsibleSection title={tagsLabel}>
           <Switch
             componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_592"
