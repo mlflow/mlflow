@@ -360,7 +360,7 @@ export const GuardrailsTabContent = ({ endpointName, endpointId, experimentId }:
             <GuardrailRow
               key={g.guardrail_id}
               guardrail={g}
-              isSelected={!!rowSelection[g.guardrail_id]}
+              isSelected={Boolean(rowSelection[g.guardrail_id])}
               onSelectChange={() => handleSelectRow(g.guardrail_id)}
               onView={setDetailGuardrail}
             />

@@ -123,13 +123,14 @@ describe('GuardrailsTabContent', () => {
     expect(screen.getByText(/Delete.*guardrail/i)).toBeInTheDocument();
   });
 
-  test('clicking a guardrail name opens the detail modal', async () => {
+  test('clicking a guardrail name renders the row', async () => {
     setup();
     renderWithDesignSystem(<GuardrailsTabContent {...defaultProps} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Safety' }));
-
-    // GuardrailDetailModal is mocked to null, but setting detailGuardrail state is sufficient
-    // — no error means the click handler fired correctly
+    const nameButton = screen.getByRole('button', { name: 'Safety' });
+    expect(nameButton).toBeInTheDocument();
+    await userEvent.click(nameButton);
+    // Row remains visible after click (modal is mocked out)
+    expect(screen.getByRole('button', { name: 'Safety' })).toBeInTheDocument();
   });
 });
