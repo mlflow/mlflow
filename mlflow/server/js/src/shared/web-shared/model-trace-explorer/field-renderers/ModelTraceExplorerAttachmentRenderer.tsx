@@ -11,17 +11,20 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   attachmentId,
   traceId,
   contentType,
+  size,
 }: {
   title: string;
   attachmentId: string;
   traceId: string;
   contentType: string;
+  size?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { objectUrl, contentLength, isLoading, error } = useTraceAttachment({
+  const { objectUrl, contentLength, isLoading, error, triggerDownload } = useTraceAttachment({
     traceId,
     attachmentId,
     contentType,
+    size,
   });
   const [previewVisible, setPreviewVisible] = useState(false);
 
@@ -36,7 +39,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
     );
   }
 
-  if (isLoading || !objectUrl) {
+  if (isLoading) {
     return <LegacySkeleton />;
   }
 
@@ -50,14 +53,27 @@ export const ModelTraceExplorerAttachmentRenderer = ({
             {title}
           </Typography.Text>
         )}
-        <DownloadLink
-          url={objectUrl}
-          contentType={contentType}
-          contentLength={contentLength}
-          filename={`attachment-${attachmentId}`}
-        />
+        {objectUrl ? (
+          <DownloadLink
+            url={objectUrl}
+            contentType={contentType}
+            contentLength={contentLength}
+            filename={`attachment-${attachmentId}`}
+          />
+        ) : (
+          <DownloadLink
+            contentType={contentType}
+            contentLength={contentLength}
+            filename={`attachment-${attachmentId}`}
+            onFetchDownload={triggerDownload}
+          />
+        )}
       </div>
     );
+  }
+
+  if (!objectUrl) {
+    return <LegacySkeleton />;
   }
 
   if (contentType.startsWith('image/')) {

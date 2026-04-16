@@ -45,6 +45,11 @@ export function formatFileSize(bytes: number): string {
 
 /**
  * Download link shown when media content exceeds the rendering size limit.
+ *
+ * When `url` is provided, renders a standard `<a>` download link.
+ * When `onFetchDownload` is provided instead, renders a clickable link that
+ * fetches the content on demand — used when the blob wasn't pre-fetched
+ * because the URI's size param indicated it exceeded the render limit.
  */
 export function DownloadLink({
   url,
@@ -52,20 +57,44 @@ export function DownloadLink({
   contentLength,
   filename,
   onClick,
+  onFetchDownload,
 }: {
-  url: string;
+  url?: string | null;
   contentType: string;
   contentLength: number;
   filename?: string;
   onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  onFetchDownload?: () => Promise<void>;
 }) {
-  return (
-    <a href={url} download={filename} onClick={onClick}>
-      <FormattedMessage
-        defaultMessage="Download {contentType} ({size})"
-        description="Download link for media content that exceeds the rendering size limit"
-        values={{ contentType, size: formatFileSize(contentLength) }}
-      />
-    </a>
+  const label = (
+    <FormattedMessage
+      defaultMessage="Download {contentType} ({size})"
+      description="Download link for media content that exceeds the rendering size limit"
+      values={{ contentType, size: formatFileSize(contentLength) }}
+    />
   );
+
+  if (url) {
+    return (
+      <a href={url} download={filename} onClick={onClick}>
+        {label}
+      </a>
+    );
+  }
+
+  if (onFetchDownload) {
+    return (
+      <a
+        href="#"
+        onClick={(e) => {
+          e.preventDefault();
+          onFetchDownload();
+        }}
+      >
+        {label}
+      </a>
+    );
+  }
+
+  return <span>{label}</span>;
 }

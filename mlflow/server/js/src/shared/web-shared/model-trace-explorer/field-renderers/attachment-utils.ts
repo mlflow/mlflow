@@ -2,7 +2,9 @@
  * Parses an mlflow-attachment:// URI into its component parts.
  * Returns null if the URI is not a valid attachment URI.
  */
-export function parseAttachmentUri(uri: string): { attachmentId: string; traceId: string; contentType: string } | null {
+export function parseAttachmentUri(
+  uri: string,
+): { attachmentId: string; traceId: string; contentType: string; size?: number } | null {
   try {
     const parsed = new URL(uri);
     if (parsed.protocol !== 'mlflow-attachment:') {
@@ -14,7 +16,9 @@ export function parseAttachmentUri(uri: string): { attachmentId: string; traceId
     if (!attachmentId || !contentType || !traceId) {
       return null;
     }
-    return { attachmentId, contentType, traceId };
+    const sizeStr = parsed.searchParams.get('size');
+    const size = sizeStr ? Number(sizeStr) : undefined;
+    return { attachmentId, contentType, traceId, ...(size !== undefined && !Number.isNaN(size) ? { size } : {}) };
   } catch {
     return null;
   }
