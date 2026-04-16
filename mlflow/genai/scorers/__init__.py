@@ -27,7 +27,9 @@ FRAMEWORK_METADATA_KEY = "mlflow.scorer.framework"
 
 # Define the attributes that should be lazily loaded
 _LAZY_IMPORTS = {
+    "AgentPlanQuality",
     "Completeness",
+    "ConversationalCoherence",
     "ConversationalGuidelines",
     "ConversationalRoleAdherence",
     "ConversationalSafety",
@@ -80,7 +82,9 @@ def __dir__():
 # This gives us the best of both worlds: type hints without circular imports.
 if TYPE_CHECKING:
     from mlflow.genai.scorers.builtin_scorers import (
+        AgentPlanQuality,
         Completeness,
+        ConversationalCoherence,
         ConversationalGuidelines,
         ConversationalRoleAdherence,
         ConversationalSafety,
@@ -105,7 +109,9 @@ if TYPE_CHECKING:
     )
 
 __all__ = [
+    "AgentPlanQuality",
     "Completeness",
+    "ConversationalCoherence",
     "ConversationalGuidelines",
     "ConversationalRoleAdherence",
     "ConversationalSafety",

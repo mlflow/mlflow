@@ -24,6 +24,10 @@ from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.judges.prompts.agent_plan_quality import (
+    AGENT_PLAN_QUALITY_ASSESSMENT_NAME,
+    AGENT_PLAN_QUALITY_PROMPT,
+)
 from mlflow.genai.judges.prompts.completeness import (
     COMPLETENESS_ASSESSMENT_NAME,
     COMPLETENESS_PROMPT,
@@ -34,6 +38,10 @@ from mlflow.genai.judges.prompts.context_sufficiency import (
 from mlflow.genai.judges.prompts.conversation_completeness import (
     CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
     CONVERSATION_COMPLETENESS_PROMPT,
+)
+from mlflow.genai.judges.prompts.conversational_coherence import (
+    CONVERSATIONAL_COHERENCE_ASSESSMENT_NAME,
+    CONVERSATIONAL_COHERENCE_PROMPT,
 )
 from mlflow.genai.judges.prompts.conversational_guidelines import (
     CONVERSATIONAL_GUIDELINES_ASSESSMENT_NAME,
@@ -2729,6 +2737,161 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
             guidelines = [guidelines]
         formatted_guidelines = "\n".join(f"<guideline>{g}</guideline>" for g in guidelines)
         return CONVERSATIONAL_GUIDELINES_PROMPT.replace("{{ guidelines }}", formatted_guidelines)
+
+
+@experimental(version="3.12.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationalCoherence(BuiltInSessionLevelScorer):
+    """
+    Conversational coherence evaluates whether the assistant's responses maintain logical flow
+    and consistency across a multi-turn conversation.
+
+    This scorer analyzes the complete conversation to identify coherence failures such as
+    self-contradictions, unresolved references, abrupt topic switches, forgotten context, or
+    responses that do not follow logically from prior turns.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversational_coherence".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalCoherence
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = ConversationalCoherence()(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalCoherence
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalCoherence()])
+    """
+
+    name: str = CONVERSATIONAL_COHERENCE_ASSESSMENT_NAME
+    model: str | None = None
+    description: str = (
+        "Evaluate whether the assistant's responses maintain logical flow and consistency "
+        "across a multi-turn conversation."
+    )
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    def _create_judge(self) -> Judge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=self.feedback_value_type,
+            generate_rationale_first=True,
+            inference_params=self.inference_params,
+        )
+
+    @property
+    def instructions(self) -> str:
+        return CONVERSATIONAL_COHERENCE_PROMPT
+
+
+@experimental(version="3.12.0")
+@format_docstring(_MODEL_API_DOC)
+class AgentPlanQuality(BuiltInSessionLevelScorer):
+    """
+    Agent plan quality evaluates whether an agent's action planning and reasoning are sound
+    across a multi-turn session, including tool calls and intermediate steps.
+
+    This scorer analyzes the agent's trajectory to judge goal decomposition, step ordering,
+    step relevance, adaptation to tool failures or unexpected results, and termination
+    behavior. It is designed for agentic systems that decompose tasks into multiple steps.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "agent_plan_quality".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import AgentPlanQuality
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = AgentPlanQuality()(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import AgentPlanQuality
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[AgentPlanQuality()])
+    """
+
+    name: str = AGENT_PLAN_QUALITY_ASSESSMENT_NAME
+    model: str | None = None
+    description: str = (
+        "Evaluate the quality of the agent's action planning and reasoning across a "
+        "multi-turn session, including tool calls and intermediate steps."
+    )
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    def _create_judge(self) -> Judge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=self.feedback_value_type,
+            generate_rationale_first=True,
+            include_tool_calls_in_conversation=True,
+            inference_params=self.inference_params,
+        )
+
+    @property
+    def instructions(self) -> str:
+        return AGENT_PLAN_QUALITY_PROMPT
 
 
 # Internal implementation detail for KnowledgeRetention - not part of public API

@@ -14,7 +14,9 @@ from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
+    AgentPlanQuality,
     Completeness,
+    ConversationalCoherence,
     ConversationalGuidelines,
     ConversationalRoleAdherence,
     ConversationalSafety,
@@ -630,6 +632,8 @@ def test_get_all_scorers():
         "ConversationalSafety",
         "ConversationalToolCallEfficiency",
         "ConversationalRoleAdherence",
+        "ConversationalCoherence",
+        "AgentPlanQuality",
         "KnowledgeRetention",
         "ToolCallEfficiency",
         "ToolCallCorrectness",
@@ -1998,6 +2002,196 @@ def test_conversational_role_adherence_instructions():
     instructions = scorer.instructions
     assert "role" in instructions.lower()
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
+
+
+def test_conversational_coherence_with_session():
+    session_id = "test_session_coherence"
+    traces = []
+    for i, (question, answer) in enumerate([
+        ("What's the capital of France?", "The capital of France is Paris."),
+        ("And what's its population?", "Paris has about 2.1 million residents."),
+        ("What language do they speak there?", "French is the primary language in Paris."),
+    ]):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="conversational_coherence",
+            value="yes",
+            rationale="Responses follow logically and maintain context across turns",
+        ),
+    ) as mock_invoke_judge:
+        scorer = ConversationalCoherence()
+        result = scorer(session=traces)
+
+        assert result.name == "conversational_coherence"
+        assert result.value == "yes"
+        assert result.rationale == "Responses follow logically and maintain context across turns"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name"),
+    [
+        (None, None, "conversational_coherence"),
+        ("custom_coherence_check", "openai:/gpt-4", "custom_coherence_check"),
+    ],
+)
+def test_conversational_coherence_with_custom_name_and_model(name, model, expected_name):
+    session_id = "test_session_coherence_custom"
+    traces = []
+    with mlflow.start_span(name="single_turn") as span:
+        span.set_inputs({"question": "Test question"})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale="Coherent"),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = ConversationalCoherence(**kwargs)
+        result = scorer(session=traces)
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == "Coherent"
+        mock_invoke_judge.assert_called_once()
+
+
+def test_conversational_coherence_get_input_fields():
+    scorer = ConversationalCoherence()
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_conversational_coherence_instructions():
+    scorer = ConversationalCoherence()
+    instructions = scorer.instructions
+    assert "conversation" in instructions.lower()
+    assert "coheren" in instructions.lower() or "logical" in instructions.lower()
+    assert "consisten" in instructions.lower()
+
+
+def test_conversational_coherence_rejects_unexpected_kwargs():
+    scorer = ConversationalCoherence()
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
+        scorer(trace="dummy")
+
+
+def test_agent_plan_quality_with_session():
+    session_id = "test_session_plan_quality"
+    traces = []
+    for i, (question, tool_name, tool_input, tool_output, answer) in enumerate([
+        (
+            "Book a flight to Tokyo next Friday",
+            "search_flights",
+            {"destination": "Tokyo", "date": "next Friday"},
+            "3 flights available",
+            "I found 3 flights to Tokyo next Friday.",
+        ),
+        (
+            "Pick the cheapest one and reserve it",
+            "reserve_flight",
+            {"flight_id": "F1"},
+            "Reservation confirmed: F1",
+            "Reserved the cheapest flight (F1).",
+        ),
+    ]):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+
+            with mlflow.start_span(name=tool_name, span_type=SpanType.TOOL) as tool_span:
+                tool_span.set_inputs(tool_input)
+                tool_span.set_outputs(tool_output)
+
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    mock_feedback = Feedback(
+        name="agent_plan_quality",
+        value=CategoricalRating.YES,
+        rationale="Agent decomposed the task into sensible steps and adapted to user follow-up",
+    )
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=mock_feedback,
+    ) as mock_invoke_judge:
+        scorer = AgentPlanQuality()
+        result = scorer(session=traces)
+
+        assert result.name == "agent_plan_quality"
+        assert result.value == CategoricalRating.YES
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name"),
+    [
+        (None, None, "agent_plan_quality"),
+        ("custom_plan_judge", "openai:/gpt-4", "custom_plan_judge"),
+    ],
+)
+def test_agent_plan_quality_with_custom_name_and_model(name, model, expected_name):
+    session_id = "test_session_plan_quality_custom"
+    traces = []
+    with mlflow.start_span(name="agent_turn") as span:
+        span.set_inputs({"question": "Test task"})
+        span.set_outputs("Test plan")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale="Sound plan"),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = AgentPlanQuality(**kwargs)
+        result = scorer(session=traces)
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == "Sound plan"
+        mock_invoke_judge.assert_called_once()
+
+
+def test_agent_plan_quality_get_input_fields():
+    scorer = AgentPlanQuality()
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_agent_plan_quality_instructions():
+    scorer = AgentPlanQuality()
+    instructions = scorer.instructions
+    assert "plan" in instructions.lower()
+    assert "goal" in instructions.lower() or "decomposition" in instructions.lower()
+    assert "tool" in instructions.lower()
+
+
+def test_agent_plan_quality_judge_includes_tool_calls():
+    """Plan quality must see tool-call context to evaluate ordering, relevance, and recovery."""
+    scorer = AgentPlanQuality()
+    judge = scorer._create_judge()
+    assert judge._include_tool_calls_in_conversation is True
 
 
 @pytest.mark.parametrize(
