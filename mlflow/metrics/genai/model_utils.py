@@ -485,7 +485,10 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         )
         return VertexAIProvider(_get_route_config(config))
 
-    raise MlflowException(f"Provider '{provider}' is not supported for evaluation.")
+    raise MlflowException(
+        f"Provider '{provider}' is not supported for evaluation.",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 def _send_request(

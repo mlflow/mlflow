@@ -146,12 +146,14 @@ class DspyModelWrapper(PythonModel):
         if self.output_schema is None:
             raise MlflowException(
                 "Output schema of the DSPy model is not set. Please log your DSPy "
-                "model with `signature` or `input_example` to use streaming API."
+                "model with `signature` or `input_example` to use streaming API.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         if any(spec.type != DataType.string for spec in self.output_schema):
             raise MlflowException(
-                f"All output fields must be string to use streaming API. Got {self.output_schema}."
+                f"All output fields must be string to use streaming API. Got {self.output_schema}.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
 
