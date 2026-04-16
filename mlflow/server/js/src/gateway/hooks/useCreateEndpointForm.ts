@@ -150,7 +150,7 @@ export function useCreateEndpointForm({
         usage_tracking: values.usageTracking,
       });
 
-      telemetryClient.dangerouslyLogEventWithMetadata('mlflow.gateway.endpoint.create', 'onSubmit', {
+      telemetryClient.dangerouslyLogEventWithMetadata('mlflow.gateway.endpoint.create', 'onSubmitSuccess', {
         secretMode: values.secretMode,
         provider: values.provider,
         model: values.modelName,
