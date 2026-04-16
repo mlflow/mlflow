@@ -68,7 +68,7 @@ function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
   if (loading) {
     return <Spinner size="small" />;
   }
-  if (contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+  if ((url || triggerDownload) && contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
     return (
       <DownloadLink
         url={url}
@@ -260,7 +260,7 @@ function AttachmentAudioPlayer({ uri }: { uri: string }) {
   if (loading) {
     return <Spinner size="small" />;
   }
-  if (contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+  if ((url || triggerDownload) && contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
     return (
       <DownloadLink
         url={url}

@@ -59,9 +59,13 @@ class Attachment:
         if not attachment_id or not content_type or not trace_id:
             return None
         size_str = params.get("size", [None])[0]
+        try:
+            size = int(size_str) if size_str else None
+        except ValueError:
+            size = None
         return {
             "attachment_id": attachment_id,
             "content_type": content_type,
             "trace_id": trace_id,
-            "size": int(size_str) if size_str else None,
+            "size": size,
         }

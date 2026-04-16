@@ -106,3 +106,10 @@ def test_ref_size_reflects_content_length():
     ref = att.ref("tr-001")
     parsed = Attachment.parse_ref(ref)
     assert parsed["size"] == 1024
+
+
+def test_parse_ref_malformed_size():
+    uri = "mlflow-attachment://abc-123?content_type=image%2Fpng&trace_id=tr-456&size=abc"
+    parsed = Attachment.parse_ref(uri)
+    assert parsed is not None
+    assert parsed["size"] is None

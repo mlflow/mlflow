@@ -88,7 +88,7 @@ export function DownloadLink({
         href="#"
         onClick={(e) => {
           e.preventDefault();
-          onFetchDownload();
+          void onFetchDownload().catch(() => undefined);
         }}
       >
         {label}

@@ -17,8 +17,12 @@ export function parseAttachmentUri(
       return null;
     }
     const sizeStr = parsed.searchParams.get('size');
-    const size = sizeStr ? Number(sizeStr) : undefined;
-    return { attachmentId, contentType, traceId, ...(size !== undefined && !Number.isNaN(size) ? { size } : {}) };
+    const parsedSize = sizeStr ? Number(sizeStr) : undefined;
+    const size =
+      parsedSize !== undefined && Number.isFinite(parsedSize) && Number.isInteger(parsedSize) && parsedSize >= 0
+        ? parsedSize
+        : undefined;
+    return { attachmentId, contentType, traceId, ...(size !== undefined ? { size } : {}) };
   } catch {
     return null;
   }
