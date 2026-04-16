@@ -23,6 +23,15 @@ const VIEW_EVENT_ALLOWLIST: ReadonlySet<string> = new Set([
   'mlflow.issue-detection.completed',
 ]);
 
+/**
+ * Allowlist of metadata keys that may be attached to custom telemetry events.
+ * Every value MUST be a static/enumerated string — never user-generated content.
+ * To add a new key, update this type and get review approval.
+ */
+type AllowedTelemetryMetadataKey = 'secretMode' | 'provider' | 'model' | 'usageTracking';
+
+export type AllowedTelemetryMetadata = Partial<Record<AllowedTelemetryMetadataKey, string | null | undefined>>;
+
 class TelemetryClient {
   private installationId: string = this.getInstallationId();
   private port: MessagePort | null = null;
@@ -137,14 +146,20 @@ class TelemetryClient {
   }
 
   /**
-   * Log a custom telemetry event with arbitrary params.
-   * Use this to attach user decisions or context to critical UI actions
-   * (e.g., form submissions) that can't be captured by Design System component events alone.
+   * ⚠️ DANGEROUS: Log a telemetry event with custom metadata.
+   *
+   * This bypasses the Design System's valueHasNoPii guardrails.
+   * ALL metadata values MUST be:
+   *   - Static/enumerated values (e.g., "new" | "existing"), NOT user-generated strings
+   *   - Free of PII, secrets, tokens, or any user-identifiable information
+   *
+   * Adding a new metadata key requires updating `AllowedTelemetryMetadata` in this file.
+   * Do NOT pass user input, free-text fields, names, or IDs that could identify a user.
    */
-  public async logCustomEvent(
+  public async dangerouslyLogEventWithMetadata(
     componentId: string,
     eventType: string,
-    params: Record<string, string | null | undefined>,
+    metadata: AllowedTelemetryMetadata,
   ): Promise<void> {
     const isReady = await this.ready;
     if (!isReady || !this.port) {
@@ -156,15 +171,16 @@ class TelemetryClient {
       event_name: 'ui_event',
       timestamp_ns: Date.now() * 1e6,
       params: {
+        ...metadata,
+        // Spread metadata first so componentId/eventType cannot be overridden
         componentId,
         eventType,
-        ...params,
       },
     };
 
     if (process.env['NODE_ENV'] === 'development' && isTelemetryDevLoggingEnabled()) {
       // eslint-disable-next-line no-console
-      console.log(`[TelemetryClient] Custom event "${eventType}" on "${componentId}", payload:`, payload);
+      console.log(`[TelemetryClient] Custom event "${eventType}" on "${componentId}", metadata:`, payload);
     }
 
     this.port?.postMessage({
