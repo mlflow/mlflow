@@ -71,7 +71,7 @@ def test_tracer_provider_initialized_once(mock_setup_tracer_provider):
     assert mock_setup_tracer_provider.call_count == 1
 
     # Thread safety
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-tracing-provider") as executor:
         executor.map(start_span_in_context, ["test_4", "test_5"])
     assert mock_setup_tracer_provider.call_count == 1
 

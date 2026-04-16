@@ -2511,7 +2511,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
-            return self._resolve_endpoint_in_scorer(entity)
+            return self.resolve_endpoint_in_scorer(entity)
 
     def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
@@ -2648,7 +2648,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
-            return self._resolve_endpoint_in_scorer(entity)
+            return self.resolve_endpoint_in_scorer(entity)
 
     def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
@@ -3042,8 +3042,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 try:
                     col = getattr(SqlLoggedModel, name)
                 except AttributeError:
+                    # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
                     raise MlflowException.invalid_parameter_value(
-                        f"Invalid order by field name: {field_name}"
+                        f"Invalid order by field name: {field_name}",
+                        error_class="ATTRIBUTE_NOT_FOUND",
                     )
                 # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
                 order_by_clauses.extend([
@@ -6381,7 +6383,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
         return obj
 
-    def _resolve_endpoint_in_scorer(self, scorer_version: ScorerVersion) -> ScorerVersion:
+    def resolve_endpoint_in_scorer(self, scorer_version: ScorerVersion) -> ScorerVersion:
         """
         Resolve gateway endpoint ID to name in a scorer version.
 

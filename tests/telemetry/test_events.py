@@ -29,11 +29,15 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
+    GatewayCreateGuardrailEvent,
+    GatewayCreateModelDefinitionEvent,
     GatewayCreateSecretEvent,
+    GatewayDeleteGuardrailEvent,
     GatewayListBudgetPoliciesEvent,
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
     GatewayUpdateEndpointEvent,
+    GatewayUpdateGuardrailEvent,
     GenAIEvaluateEvent,
     LogAssessmentEvent,
     MakeJudgeEvent,
@@ -144,6 +148,10 @@ def test_event_name():
     assert SimulateConversationEvent.name == "simulate_conversation"
     assert DiscoverIssuesEvent.name == "discover_issues"
     assert UpdateIssueEvent.name == "update_issue"
+    assert GatewayCreateGuardrailEvent.name == "gateway_create_guardrail"
+    assert GatewayUpdateGuardrailEvent.name == "gateway_update_guardrail"
+    assert GatewayDeleteGuardrailEvent.name == "gateway_delete_guardrail"
+    assert GatewayCreateModelDefinitionEvent.name == "gateway_create_model_definition"
 
 
 def test_start_trace_parse_format_native():
@@ -480,6 +488,25 @@ def test_gateway_create_secret_parse_params(arguments, expected_params):
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [
+        (
+            {"model_name": "gpt-4o", "provider": "openai"},
+            {"model_name": "gpt-4o", "provider": "openai"},
+        ),
+        (
+            {"model_name": "claude-3-5-sonnet", "provider": "anthropic"},
+            {"model_name": "claude-3-5-sonnet", "provider": "anthropic"},
+        ),
+        ({"model_name": None, "provider": None}, {"model_name": None, "provider": None}),
+        ({}, {"model_name": None, "provider": None}),
+    ],
+)
+def test_gateway_create_model_definition_parse_params(arguments, expected_params):
+    assert GatewayCreateModelDefinitionEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
         ({"provider": "openai"}, {"filter_by_provider": True}),
         ({"provider": "anthropic"}, {"filter_by_provider": True}),
         ({"provider": None}, {"filter_by_provider": False}),
@@ -534,6 +561,45 @@ def test_gateway_list_secrets_parse_params(arguments, expected_params):
 )
 def test_gateway_create_budget_policy_parse_params(arguments, expected_params):
     assert GatewayCreateBudgetPolicyEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {"stage": "BEFORE", "action": "VALIDATION"},
+            {"stage": "BEFORE", "action": "VALIDATION"},
+        ),
+        (
+            {"stage": "AFTER", "action": "SANITIZATION", "action_endpoint_id": "e-123"},
+            {"stage": "AFTER", "action": "SANITIZATION"},
+        ),
+        (
+            {},
+            {"stage": None, "action": None},
+        ),
+    ],
+)
+def test_gateway_create_guardrail_parse_params(arguments, expected_params):
+    assert GatewayCreateGuardrailEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {"stage": "BEFORE", "action": "VALIDATION"},
+            {"stage": "BEFORE", "action": "VALIDATION"},
+        ),
+        (
+            {"stage": "AFTER", "action": "SANITIZATION", "execution_order": 2},
+            {"stage": "AFTER", "action": "SANITIZATION"},
+        ),
+        ({}, {"stage": None, "action": None}),
+    ],
+)
+def test_gateway_update_guardrail_parse_params(arguments, expected_params):
+    assert GatewayUpdateGuardrailEvent.parse(arguments) == expected_params
 
 
 def test_gateway_list_budget_policies_parse_params():

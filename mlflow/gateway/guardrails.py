@@ -38,7 +38,12 @@ _ALLOWED_AUTH_HEADERS = frozenset({"authorization"})
 
 _SANITIZE_SYSTEM_PROMPT = """\
 You are a content sanitizer. You will receive a JSON payload and an issue description.
-Rewrite the payload to address the issue while preserving the structure and intent.
+Fix the issue by modifying the content using the following rules:
+- Replace content that cannot be safely rephrased (e.g. sensitive data, PII, credentials)
+  with [REDACTED].
+- Rewrite content that can be made acceptable (e.g. soften hostile tone, remove bias,
+  generalize specifics).
+Preserve the payload structure and overall intent. Do not add new fields or change the schema.
 Return ONLY a valid JSON object with the same schema as the input payload.
 
 Issue: {rationale}

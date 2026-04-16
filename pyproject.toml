@@ -456,12 +456,8 @@ example-rules = [
 ]
 
 [tool.clint.per-file-ignores]
-# Rules that should only be enabled for files in the root mlflow directory
-"^(?!mlflow/).*$" = [
-  "forbidden-set-active-model-usage",
-  "unnamed-thread",
-  "unnamed-thread-pool",
-]
+"^(?!mlflow/).*$" = ["forbidden-set-active-model-usage"]
+"^(?!mlflow/|tests/).*$" = ["unnamed-thread", "unnamed-thread-pool"]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
 

@@ -1379,7 +1379,7 @@
           },
           "priority": {
             "input_per_million_tokens": 5.0,
-            "output_per_million_tokens": 22.5,
+            "output_per_million_tokens": 30.0,
             "cache_read_per_million_tokens": 0.5
           }
         },
@@ -1423,7 +1423,7 @@
           },
           "priority": {
             "input_per_million_tokens": 5.0,
-            "output_per_million_tokens": 22.5,
+            "output_per_million_tokens": 30.0,
             "cache_read_per_million_tokens": 0.5
           }
         },
@@ -1459,12 +1459,17 @@
           "batch": {
             "input_per_million_tokens": 0.375,
             "output_per_million_tokens": 2.25,
-            "cache_read_per_million_tokens": 0.038
+            "cache_read_per_million_tokens": 0.0375
           },
           "flex": {
             "input_per_million_tokens": 0.375,
             "output_per_million_tokens": 2.25,
-            "cache_read_per_million_tokens": 0.01
+            "cache_read_per_million_tokens": 0.0375
+          },
+          "priority": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 9.0,
+            "cache_read_per_million_tokens": 0.15
           }
         }
       },

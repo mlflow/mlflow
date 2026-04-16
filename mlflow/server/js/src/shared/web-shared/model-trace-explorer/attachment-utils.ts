@@ -36,15 +36,23 @@ export function parseAttachmentUri(uri: string): { attachmentId: string; traceId
  * Hook that fetches an attachment by URI and returns a blob URL for rendering.
  * Handles cleanup of blob URLs on unmount or when the URI changes.
  */
-export function useAttachmentUrl(uri: string | null): { url: string | null; loading: boolean; error: boolean } {
+export function useAttachmentUrl(uri: string | null): {
+  url: string | null;
+  contentLength: number;
+  contentType: string | null;
+  loading: boolean;
+  error: boolean;
+} {
   const parsed = uri ? parseAttachmentUri(uri) : null;
   const [url, setUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!!parsed);
+  const [contentLength, setContentLength] = useState(0);
+  const [loading, setLoading] = useState(Boolean(parsed));
   const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!parsed) {
       setUrl(null);
+      setContentLength(0);
       setLoading(false);
       setError(false);
       return;
@@ -62,9 +70,11 @@ export function useAttachmentUrl(uri: string | null): { url: string | null; load
           return;
         }
         if (data) {
-          const blobUrl = URL.createObjectURL(new Blob([data], { type: parsed.contentType }));
+          const blob = new Blob([data], { type: parsed.contentType });
+          const blobUrl = URL.createObjectURL(blob);
           localUrl = blobUrl;
           setUrl(blobUrl);
+          setContentLength(blob.size);
         } else {
           setError(true);
         }
@@ -87,7 +97,7 @@ export function useAttachmentUrl(uri: string | null): { url: string | null; load
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uri]);
 
-  return { url, loading, error };
+  return { url, loading, error, contentLength, contentType: parsed?.contentType ?? null };
 }
 
 export function isAttachmentUri(value: string): boolean {

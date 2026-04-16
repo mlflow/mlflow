@@ -586,7 +586,9 @@ def test_start_job_is_atomic(tmp_path: Path, workspaces_enabled):
         except MlflowException:
             return "failed"
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=5, thread_name_prefix="test-concurrent-jobs"
+    ) as executor:
         futures = [executor.submit(try_start_job) for _ in range(5)]
         results = [f.result() for f in concurrent.futures.as_completed(futures)]
 

@@ -60,7 +60,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
 
   const currentPageIndex = pageTokenHistory.length + 1;
   const hasPreviousPage = pageTokenHistory.length > 0;
-  const hasNextPage = !!nextPageToken;
+  const hasNextPage = Boolean(nextPageToken);
 
   if (isLoading) {
     return (
