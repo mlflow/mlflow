@@ -40,6 +40,22 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 
 _logger = logging.getLogger(__name__)
 
+# Allowlist of known OTEL client service names.
+# Only service names on this list are stored and propagated to root spans.
+# This prevents storing arbitrary free-form text from untrusted clients.
+_KNOWN_SERVICE_NAMES = frozenset({
+    # Claude Code
+    "claude-code",
+    # Codex CLI (Rust)
+    "codex_cli_rs",
+    # Codex VS Code extension
+    "codex_vscode",
+    # Gemini CLI
+    "gemini-cli",
+    # Qwen Code
+    "qwen-code",
+})
+
 # Create FastAPI router for OTel endpoints
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 
@@ -118,7 +134,7 @@ async def export_traces(
         for attr in resource_span.resource.attributes:
             if attr.key == "service.name":
                 value = _decode_otel_proto_anyvalue(attr.value)
-                if value is not None:
+                if value is not None and str(value) in _KNOWN_SERVICE_NAMES:
                     resource_service_name = str(value)
                     service_names.add(resource_service_name)
                 break

@@ -741,16 +741,20 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
 
 
 @pytest.mark.parametrize(
-    ("service_name", "expected_service_names"),
+    ("service_name", "expected_source", "expected_service_names"),
     [
-        ("codex_cli_rs", ["codex_cli_rs"]),
-        ("gemini-cli", ["gemini-cli"]),
-        ("qwen-code", ["qwen-code"]),
-        ("my-custom-app", ["my-custom-app"]),
+        ("codex_cli_rs", TraceSource.EXTERNAL_OTEL_CLIENT, ["codex_cli_rs"]),
+        ("gemini-cli", TraceSource.EXTERNAL_OTEL_CLIENT, ["gemini-cli"]),
+        ("qwen-code", TraceSource.EXTERNAL_OTEL_CLIENT, ["qwen-code"]),
+        # Unknown service names are not on the allowlist — source falls back to UNKNOWN
+        ("my-custom-app", TraceSource.UNKNOWN, None),
     ],
 )
 def test_otel_trace_received_telemetry_from_external_otel_client_with_service_name(
-    mlflow_server: str, service_name: str, expected_service_names: list[str]
+    mlflow_server: str,
+    service_name: str,
+    expected_source: TraceSource,
+    expected_service_names: list[str] | None,
 ):
     mlflow.set_tracking_uri(mlflow_server)
     experiment = mlflow.set_experiment("otel-telemetry-service-name-test")
@@ -804,9 +808,12 @@ def test_otel_trace_received_telemetry_from_external_otel_client_with_service_na
         record = mock_client.add_record.call_args[0][0]
 
         assert record.event_name == TracesReceivedByServerEvent.name
-        assert record.params["source"] == TraceSource.EXTERNAL_OTEL_CLIENT.value
+        assert record.params["source"] == expected_source.value
         assert record.params["count"] == 1
-        assert record.params["service_names"] == expected_service_names
+        if expected_service_names is not None:
+            assert record.params["service_names"] == expected_service_names
+        else:
+            assert "service_names" not in record.params
 
 
 def test_service_name_propagated_to_root_span(mlflow_server: str):
