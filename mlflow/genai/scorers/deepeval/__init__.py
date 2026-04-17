@@ -62,6 +62,8 @@ class DeepEvalScorer(Scorer):
     """
 
     _metric: Any = PrivateAttr()
+    _metric_kwargs: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _metric_name: str = PrivateAttr(default="")
 
     def __init__(
         self,
@@ -79,6 +81,12 @@ class DeepEvalScorer(Scorer):
         metric_class = get_metric_class(metric_name)
 
         self._is_deterministic = is_deterministic_metric(metric_name)
+        # Preserve the intrinsic DeepEval metric identifier separately from `self.name`,
+        # which users can rebind at register-time via `register(name=...)`.
+        self._metric_name = metric_name
+        # Snapshot the user-supplied metric kwargs so we can round-trip them through
+        # register() -> serialize -> model_validate without re-wrapping the LLM.
+        self._metric_kwargs = dict(metric_kwargs)
 
         if self._is_deterministic:
             # Deterministic metrics don't need a model
@@ -99,24 +107,15 @@ class DeepEvalScorer(Scorer):
     def kind(self) -> ScorerKind:
         return ScorerKind.THIRD_PARTY
 
-    def _raise_registration_not_supported(self, method_name: str):
-        raise MlflowException.invalid_parameter_value(
-            f"'{method_name}()' is not supported for third-party scorers like DeepEval. "
-            f"Third-party scorers cannot be registered, started, updated, or stopped. "
-            f"Use them directly in mlflow.genai.evaluate() instead."
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        return self._build_third_party_dump(
+            metric_name=self._metric_name,
+            model=self._model_uri if self._third_party_accepts_model() else None,
+            metric_kwargs=self._metric_kwargs,
         )
 
-    def register(self, **kwargs):
-        self._raise_registration_not_supported("register")
-
-    def start(self, **kwargs):
-        self._raise_registration_not_supported("start")
-
-    def update(self, **kwargs):
-        self._raise_registration_not_supported("update")
-
-    def stop(self, **kwargs):
-        self._raise_registration_not_supported("stop")
+    def _third_party_accepts_model(self) -> bool:
+        return not self._is_deterministic
 
     def align(self, **kwargs):
         raise MlflowException.invalid_parameter_value(

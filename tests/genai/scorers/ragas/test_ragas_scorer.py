@@ -224,13 +224,65 @@ def test_ragas_scorer_kind_property():
     assert scorer.kind == ScorerKind.THIRD_PARTY
 
 
-@pytest.mark.parametrize("method_name", ["register", "start", "update", "stop"])
-def test_ragas_scorer_registration_methods_not_supported(method_name):
+def test_ragas_scorer_register_blocked_on_databricks(tmp_path):
     scorer = get_scorer("ExactMatch")
-    method = getattr(scorer, method_name)
+    with patch(
+        "mlflow.genai.scorers.base.is_databricks_uri",
+        return_value=True,
+    ) as mock_is_dbx:
+        with pytest.raises(MlflowException, match="Third-party scorer registration"):
+            scorer.register(name="exact_match")
+        mock_is_dbx.assert_called()
 
-    with pytest.raises(MlflowException, match=f"'{method_name}\\(\\)' is not supported"):
-        method()
+
+def test_ragas_scorer_serialization_round_trip():
+    scorer = ExactMatch()
+    dump = scorer.model_dump()
+    assert dump["third_party_scorer_data"] == {
+        "module": ExactMatch.__module__,
+        "class": "ExactMatch",
+        "metric_name": "ExactMatch",
+        "model": None,
+        "kwargs": {},
+    }
+    from mlflow.genai.scorers.base import Scorer
+
+    restored = Scorer.model_validate(dump)
+    assert isinstance(restored, ExactMatch)
+    assert restored.name == "ExactMatch"
+    assert restored.kind == ScorerKind.THIRD_PARTY
+
+    fb = restored(outputs="Paris", expectations={"expected_output": "Paris"})
+    assert fb.value == 1.0
+
+
+def test_ragas_scorer_serialization_round_trip_preserves_register_name():
+    scorer = ExactMatch()
+    # Simulate what `register(name=...)` does: renames before serialization.
+    renamed = scorer._rebuild_third_party_copy()
+    renamed.name = "exact_match_v1"
+    dump = renamed.model_dump()
+    # `metric_name` must remain the underlying RAGAS class name, not the rename.
+    assert dump["third_party_scorer_data"]["metric_name"] == "ExactMatch"
+
+    from mlflow.genai.scorers.base import Scorer
+
+    restored = Scorer.model_validate(dump)
+    assert restored.name == "exact_match_v1"
+    assert isinstance(restored, ExactMatch)
+
+
+def test_ragas_scorer_llm_metric_serialization_round_trip():
+    scorer = Faithfulness(model="openai:/gpt-4o")
+    dump = scorer.model_dump()
+    assert dump["third_party_scorer_data"]["metric_name"] == "Faithfulness"
+    assert dump["third_party_scorer_data"]["model"] == "openai:/gpt-4o"
+
+    from mlflow.genai.scorers.base import Scorer
+
+    restored = Scorer.model_validate(dump)
+    assert isinstance(restored, Faithfulness)
+    assert restored._model == "openai:/gpt-4o"
 
 
 def test_ragas_scorer_align_not_supported():

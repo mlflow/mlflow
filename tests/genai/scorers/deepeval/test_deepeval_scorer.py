@@ -258,15 +258,32 @@ def test_deepeval_scorer_kind_property():
     assert scorer.kind == ScorerKind.THIRD_PARTY
 
 
-@pytest.mark.parametrize("method_name", ["register", "start", "update", "stop"])
-def test_deepeval_scorer_registration_methods_not_supported(method_name):
+def test_deepeval_scorer_register_blocked_on_databricks():
     from mlflow.exceptions import MlflowException
 
     scorer = get_scorer("ExactMatch")
-    method = getattr(scorer, method_name)
+    with patch(
+        "mlflow.genai.scorers.base.is_databricks_uri",
+        return_value=True,
+    ) as mock_is_dbx:
+        with pytest.raises(MlflowException, match="Third-party scorer registration"):
+            scorer.register(name="exact_match")
+        mock_is_dbx.assert_called()
 
-    with pytest.raises(MlflowException, match=f"'{method_name}\\(\\)' is not supported"):
-        method()
+
+def test_deepeval_scorer_serialization_round_trip():
+    from mlflow.genai.scorers.base import Scorer
+
+    scorer = ExactMatch()
+    dump = scorer.model_dump()
+    assert dump["third_party_scorer_data"]["class"] == "ExactMatch"
+    assert dump["third_party_scorer_data"]["metric_name"] == "ExactMatch"
+    assert dump["third_party_scorer_data"]["model"] is None
+
+    restored = Scorer.model_validate(dump)
+    assert isinstance(restored, ExactMatch)
+    assert restored.name == "ExactMatch"
+    assert restored.kind == ScorerKind.THIRD_PARTY
 
 
 def test_deepeval_scorer_align_not_supported():

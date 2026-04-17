@@ -27,7 +27,7 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.phoenix.models import create_phoenix_model
 from mlflow.genai.scorers.phoenix.registry import get_evaluator_class
 from mlflow.genai.scorers.phoenix.utils import map_scorer_inputs_to_phoenix_record
@@ -50,6 +50,8 @@ class PhoenixScorer(Scorer):
 
     _evaluator: Any = PrivateAttr()
     _model: str = PrivateAttr()
+    _metric_kwargs: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _metric_name: str = PrivateAttr(default="")
 
     def __init__(
         self,
@@ -62,9 +64,26 @@ class PhoenixScorer(Scorer):
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
+        # Preserve the intrinsic Phoenix metric identifier separately from `self.name`,
+        # which users can rebind at register-time via `register(name=...)`.
+        self._metric_name = metric_name
+        # Snapshot the user-supplied evaluator kwargs so we can round-trip them through
+        # register() -> serialize -> model_validate without re-wrapping the LLM.
+        self._metric_kwargs = dict(evaluator_kwargs)
         phoenix_model = create_phoenix_model(model)
         evaluator_class = get_evaluator_class(metric_name)
         self._evaluator = evaluator_class(model=phoenix_model, **evaluator_kwargs)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        return self._build_third_party_dump(
+            metric_name=self._metric_name,
+            model=self._model,
+            metric_kwargs=self._metric_kwargs,
+        )
 
     def __call__(
         self,
@@ -274,4 +293,5 @@ __all__ = [
     "Toxicity",
     "QA",
     "Summarization",
+    "ScorerKind",
 ]

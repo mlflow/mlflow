@@ -666,3 +666,59 @@ def test_builtin_scorer_instructions_preserved_through_serialization():
     assert deserialized.instructions == original_instructions
     assert deserialized.name == "test_guidelines"
     assert deserialized.guidelines == ["Be helpful"]
+
+
+# ============================================================================
+# THIRD-PARTY SCORER (de)serialization
+# ============================================================================
+
+
+def test_third_party_scorer_module_allow_list_enforced():
+    from mlflow.genai.scorers.base import SerializedScorer
+
+    payload = SerializedScorer(
+        name="evil",
+        third_party_scorer_data={
+            "module": "os",
+            "class": "system",
+            "metric_name": "system",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with pytest.raises(MlflowException, match="not in the allow-list"):
+        Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_missing_required_fields_rejected():
+    from mlflow.genai.scorers.base import SerializedScorer
+
+    payload = SerializedScorer(
+        name="nope",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "",
+            "metric_name": "",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with pytest.raises(MlflowException, match="missing required fields"):
+        Scorer.model_validate(payload)
+
+
+def test_serialized_scorer_rejects_multiple_scorer_field_types():
+    from mlflow.genai.scorers.base import SerializedScorer
+
+    with pytest.raises(ValueError, match="cannot have multiple types"):
+        SerializedScorer(
+            name="oops",
+            builtin_scorer_class="Safety",
+            third_party_scorer_data={
+                "module": "mlflow.genai.scorers.ragas",
+                "class": "ExactMatch",
+                "metric_name": "ExactMatch",
+                "model": None,
+                "kwargs": {},
+            },
+        )
