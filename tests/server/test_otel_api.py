@@ -163,7 +163,7 @@ def test_otlp_invalid_content_type(monkeypatch):
 
     client = _make_test_client()
 
-    # Test with unsupported content type (application/json is now valid)
+    # Test with unsupported content type
     response = client.post(
         OTLP_TRACES_PATH,
         data=_build_otlp_payload(),

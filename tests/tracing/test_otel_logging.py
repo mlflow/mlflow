@@ -301,7 +301,7 @@ def test_invalid_content_type_returns_400(mlflow_server: str):
     request = ExportTraceServiceRequest()
     request.resource_spans.append(resource_spans)
 
-    # Send request with unsupported Content-Type (application/json is now valid)
+    # Send request with unsupported Content-Type
     response = requests.post(
         f"{mlflow_server}/v1/traces",
         data=request.SerializeToString(),
