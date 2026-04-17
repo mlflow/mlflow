@@ -21,9 +21,9 @@ Traces are created after each conversation turn.
 
 ### Requirements
 
-- MLflow >= 3.12 tracking server running
+- MLflow tracking server running
 - [Qwen Code](https://github.com/QwenLM/qwen-code) installed (`npm install -g @qwen-code/qwen-code`)
-- Node.js 20+
+- Node.js 18+
 - The `@mlflow/qwen-code` npm package
 
 ### Step 1: Install the Tracing Plugin
@@ -54,7 +54,6 @@ Add the hook configuration to your Qwen Code settings. This can be in either `~/
     ]
   },
   "env": {
-    "MLFLOW_QWEN_TRACING_ENABLED": "true",
     "MLFLOW_TRACKING_URI": "http://localhost:5000",
     "MLFLOW_EXPERIMENT_ID": "0"
   }
@@ -88,7 +87,6 @@ mlflow server
 // Local MLflow server
 {
   "env": {
-    "MLFLOW_QWEN_TRACING_ENABLED": "true",
     "MLFLOW_TRACKING_URI": "http://localhost:5000",
     "MLFLOW_EXPERIMENT_ID": "0"
   }
@@ -97,7 +95,6 @@ mlflow server
 // Databricks MLflow
 {
   "env": {
-    "MLFLOW_QWEN_TRACING_ENABLED": "true",
     "MLFLOW_TRACKING_URI": "databricks",
     "MLFLOW_EXPERIMENT_ID": "123456789"
   }
@@ -116,8 +113,8 @@ MLflow automatically tracks token usage for each LLM call within Qwen Code conve
 
 - Verify `hooksConfig.enabled` is set to `true` in settings.json — Qwen Code's hook system is disabled by default
 - Check that the Stop hook command points to the correct `bundle/stop.js` path
-- Verify Node.js 20+ is being used (required by Qwen Code CLI and for `fetch` support)
-- Check that the `env` section contains `MLFLOW_QWEN_TRACING_ENABLED`, `MLFLOW_TRACKING_URI`, and `MLFLOW_EXPERIMENT_ID`
+- Verify Node.js 18+ is being used (required for `fetch` support)
+- Check that the `env` section contains `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID`
 
 **Missing traces:**
 
@@ -131,14 +128,4 @@ MLflow automatically tracks token usage for each LLM call within Qwen Code conve
 
 ### Disable Tracing
 
-Remove the `hooks` section from settings.json, or set:
-
-```json
-{
-  "env": {
-    "MLFLOW_QWEN_TRACING_ENABLED": "false"
-  }
-}
-```
-
-Existing traces are preserved.
+Remove the `hooks` section from settings.json, or set `hooksConfig.enabled` to `false`. Existing traces are preserved.

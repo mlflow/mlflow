@@ -21,7 +21,7 @@ Gemini CLI traces are ingested via its native OTLP telemetry --- no MLflow CLI c
 
 ### Requirements
 
-- MLflow >= 3.12 (with the OTLP endpoint enabled)
+- MLflow tracking server (with the OTLP endpoint enabled)
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli) installed (`npm install -g @google/gemini-cli`)
 - Node.js 22+
 
@@ -75,6 +75,7 @@ export GEMINI_TELEMETRY_OTLP_PROTOCOL=http
 export OTEL_EXPORTER_OTLP_HEADERS=x-mlflow-experiment-id=0
 
 # Databricks-hosted MLflow
+# See Databricks documentation for required authentication headers
 export GEMINI_TELEMETRY_ENABLED=true
 export GEMINI_TELEMETRY_TARGET=local
 export GEMINI_TELEMETRY_OTLP_ENDPOINT=https://your-workspace.databricks.com

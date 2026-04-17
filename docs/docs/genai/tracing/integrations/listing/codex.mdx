@@ -21,7 +21,7 @@ Traces are created after each conversation turn — no need to wait for the sess
 
 ### Requirements
 
-- MLflow >= 3.12 tracking server running
+- MLflow tracking server running
 - [Codex CLI](https://github.com/openai/codex) installed
 - Node.js 18+
 - The `@mlflow/codex` npm package
@@ -47,7 +47,6 @@ Set these in your shell before launching Codex:
 ```bash
 export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=0
-export MLFLOW_CODEX_TRACING_ENABLED=true
 ```
 
 ### Step 4: Use Codex Normally
@@ -73,15 +72,13 @@ mlflow server
 # Local MLflow server
 export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=0
-export MLFLOW_CODEX_TRACING_ENABLED=true
 
 # Databricks MLflow
 export MLFLOW_TRACKING_URI=databricks
 export MLFLOW_EXPERIMENT_ID=123456789
-export MLFLOW_CODEX_TRACING_ENABLED=true
 ```
 
-## OTLP Tracing (Advanced)
+## OTLP Tracing (Suitable for Operational Monitoring)
 
 Codex CLI also supports native OpenTelemetry tracing via its `config.toml`:
 
@@ -104,6 +101,10 @@ The OTLP traces can be useful for debugging Codex internals or monitoring perfor
 
 MLflow automatically tracks token usage for each LLM call within Codex conversations. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details.
 
+:::note
+Cost is computed based on API pricing. If you are using Codex with a subscription plan rather than per-API-call billing, the computed cost may not reflect your actual spend.
+:::
+
 ## Troubleshooting
 
 ### Common Issues
@@ -112,7 +113,7 @@ MLflow automatically tracks token usage for each LLM call within Codex conversat
 
 - Verify the `notify` entry is in `~/.codex/config.toml`
 - Check that Node.js 18+ is being used (the `node` in the notify command must support `fetch`)
-- Verify environment variables are set: `MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_ID`, `MLFLOW_CODEX_TRACING_ENABLED`
+- Verify environment variables are set: `MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_ID`
 - Check the MLflow tracking server is accessible
 
 **Missing traces:**
@@ -122,10 +123,4 @@ MLflow automatically tracks token usage for each LLM call within Codex conversat
 
 ### Disable Tracing
 
-Remove the `notify` line from `~/.codex/config.toml`, or set:
-
-```bash
-export MLFLOW_CODEX_TRACING_ENABLED=false
-```
-
-Existing traces are preserved.
+Remove the `notify` line from `~/.codex/config.toml`. Existing traces are preserved.
