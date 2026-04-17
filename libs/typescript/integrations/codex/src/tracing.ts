@@ -29,6 +29,7 @@ import {
 
 import type { NotifyPayload, RolloutLine, ResponseItemPayload } from './types.js';
 import {
+  NANOSECONDS_PER_MS,
   parseTimestampToNs,
   extractTextFromContent,
   getTokenUsage,
@@ -38,8 +39,6 @@ import {
   getLastTurnRecords,
   readTranscript,
 } from './transcript.js';
-
-const NANOSECONDS_PER_MS = 1e6;
 const MAX_PREVIEW_LENGTH = 1000;
 
 /**
@@ -106,7 +105,11 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     });
   }
 
-  // Set trace previews and metadata
+  // Set trace previews and metadata.
+  // We use InMemoryTraceManager directly because `updateCurrentTrace()` requires
+  // an active OTel span context, which hook-based integrations don't have —
+  // spans are created via `startSpan()` without OTel context propagation.
+  // This is the same pattern used by the opencode integration.
   const traceId = rootSpan.traceId;
   if (traceId) {
     const traceManager = InMemoryTraceManager.getInstance();

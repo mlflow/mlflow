@@ -8,12 +8,18 @@
  *   notify = ["node", "/path/to/bundle/stop.js"]
  */
 
-import { isTracingEnabled, ensureInitialized } from '../config.js';
+import { ensureInitialized } from '../config.js';
 import { processNotify } from '../tracing.js';
 import type { NotifyPayload } from '../types.js';
 
 async function main(): Promise<void> {
   try {
+    // Initialize early to fail fast if MLFLOW_TRACKING_URI is not set,
+    // before spending time parsing the payload.
+    if (!ensureInitialized()) {
+      return;
+    }
+
     const arg = process.argv[2];
     if (!arg) {
       return;
@@ -21,13 +27,6 @@ async function main(): Promise<void> {
 
     const payload = JSON.parse(arg) as NotifyPayload;
     if (payload.type !== 'agent-turn-complete') {
-      return;
-    }
-
-    if (!isTracingEnabled()) {
-      return;
-    }
-    if (!ensureInitialized()) {
       return;
     }
 

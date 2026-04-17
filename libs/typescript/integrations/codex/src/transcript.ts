@@ -24,7 +24,7 @@ import type {
   ContentBlock,
 } from './types.js';
 
-const NANOSECONDS_PER_MS = 1e6;
+export const NANOSECONDS_PER_MS = 1e6;
 
 /**
  * Read and parse a Codex JSONL transcript file.
@@ -208,16 +208,40 @@ export function findTranscriptForThread(threadId: string): string | null {
       return null;
     }
 
-    // Walk year/month/day directories in reverse to find the most recent
+    // Fast path: check today's directory first since the hook fires
+    // right after a turn completes — the transcript is almost always
+    // from the current date.
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayDir = join(sessionsDir, year, month, day);
+
+    if (existsSync(todayDir)) {
+      const files = readdirSync(todayDir).filter(
+        (f) => f.endsWith('.jsonl') && f.includes(threadId),
+      );
+      if (files.length > 0) {
+        return join(todayDir, files[0]);
+      }
+    }
+
+    // Slow path: walk year/month/day directories in reverse order.
+    // Only needed if the session started before midnight and the hook
+    // fires after, or the clock is off.
     const years = readdirSync(sessionsDir).sort().reverse();
-    for (const year of years) {
-      const yearDir = join(sessionsDir, year);
+    for (const y of years) {
+      const yearDir = join(sessionsDir, y);
       const months = readdirSync(yearDir).sort().reverse();
-      for (const month of months) {
-        const monthDir = join(yearDir, month);
+      for (const m of months) {
+        const monthDir = join(yearDir, m);
         const days = readdirSync(monthDir).sort().reverse();
-        for (const day of days) {
-          const dayDir = join(monthDir, day);
+        for (const d of days) {
+          // Skip today's dir — already checked above
+          if (y === year && m === month && d === day) {
+            continue;
+          }
+          const dayDir = join(monthDir, d);
           const files = readdirSync(dayDir).filter(
             (f) => f.endsWith('.jsonl') && f.includes(threadId),
           );
