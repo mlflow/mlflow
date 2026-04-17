@@ -1036,6 +1036,29 @@ class SqlAlchemyStore(AbstractStore):
         ]
         return version
 
+    def _batch_populate_model_version_aliases(
+        self, session, sql_model_versions: list[SqlModelVersion], model_version_entities: list
+    ) -> None:
+        """
+        Batch-fetch aliases for a list of model version entities to avoid N+1 queries.
+        Mutates each entity in ``model_version_entities`` in-place by setting its ``aliases``
+        field.
+        """
+        model_names = list({mv.name for mv in sql_model_versions})
+        if not model_names:
+            return
+        aliases = (
+            session.query(SqlRegisteredModelAlias)
+            .filter(SqlRegisteredModelAlias.name.in_(model_names))
+            .all()
+        )
+        alias_map: dict[tuple[str, int], list[str]] = {}
+        for alias in aliases:
+            key = (alias.name, alias.version)
+            alias_map.setdefault(key, []).append(alias.alias)
+        for sql_mv, entity in zip(sql_model_versions, model_version_entities):
+            entity.aliases = alias_map.get((sql_mv.name, sql_mv.version), [])
+
     def _get_model_version_from_db(self, session, name, version, conditions, query_options=None):
         if query_options is None:
             query_options = []
@@ -1308,7 +1331,9 @@ class SqlAlchemyStore(AbstractStore):
             next_page_token = self._compute_next_token(
                 max_results_for_query, len(sql_model_versions), offset, max_results
             )
-            model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions][:max_results]
+            sql_results = sql_model_versions[:max_results]
+            model_versions = [mv.to_mlflow_entity() for mv in sql_results]
+            self._batch_populate_model_version_aliases(session, sql_results, model_versions)
             return PagedList(model_versions, next_page_token)
 
     @classmethod

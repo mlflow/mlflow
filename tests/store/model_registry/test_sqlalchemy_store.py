@@ -1760,6 +1760,30 @@ def test_delete_model_deletes_alias(store):
         store.get_model_version_by_alias(model_name, "test_alias")
 
 
+def test_search_model_versions_returns_aliases(store):
+    # Regression test for https://github.com/mlflow/mlflow/issues/16734
+    # search_model_versions() must return populated aliases, not empty lists.
+    model_name = "SearchMV_Aliases_TestMod"
+    _setup_and_test_aliases(store, model_name)
+
+    results = store.search_model_versions(f"name='{model_name}'")
+    version_to_aliases = {mv.version: mv.aliases for mv in results}
+
+    assert version_to_aliases[1] == []
+    assert version_to_aliases[2] == ["test_alias"]
+
+
+def test_search_registered_models_returns_aliases(store):
+    # Regression test for https://github.com/mlflow/mlflow/issues/16734
+    # search_registered_models() must return populated aliases, not empty dicts.
+    model_name = "SearchRM_Aliases_TestMod"
+    _setup_and_test_aliases(store, model_name)
+
+    results = store.search_registered_models(f"name='{model_name}'")
+    assert len(results) == 1
+    assert results[0].aliases == {"test_alias": 2}
+
+
 @pytest.mark.parametrize("copy_to_same_model", [False, True])
 def test_copy_model_version(store, copy_to_same_model):
     name1 = "test_for_copy_MV1"
