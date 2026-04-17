@@ -1,8 +1,10 @@
 import os
+from unittest import mock
 
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.jobs.utils import _load_function, _validate_function_parameters
 
 pytestmark = pytest.mark.skipif(
@@ -134,3 +136,43 @@ def test_compute_exclusive_lock_key():
     # Key format is job_name:hash
     assert key1.startswith("job_name:")
     assert key5.startswith("other_job:")
+
+
+def test_get_or_init_huey_instance_uses_sqlite_backend_by_default(monkeypatch, tmp_path):
+    from mlflow.server.jobs import utils as job_utils
+
+    job_utils._huey_instance_map.clear()
+    monkeypatch.delenv("MLFLOW_SERVER_JOB_HUEY_STORAGE_URL", raising=False)
+    monkeypatch.setenv(HUEY_STORAGE_PATH_ENV_VAR, str(tmp_path))
+
+    with mock.patch("huey.SqliteHuey") as mock_sqlite_huey, mock.patch("huey.RedisHuey"):
+        mock_huey_instance = mock.Mock()
+        mock_huey_instance.task.return_value = lambda fn: fn
+        mock_sqlite_huey.return_value = mock_huey_instance
+
+        job_utils._get_or_init_huey_instance("test.instance")
+
+        assert mock_sqlite_huey.call_count == 1
+        sqlite_kwargs = mock_sqlite_huey.call_args.kwargs
+        assert sqlite_kwargs["filename"] == str(tmp_path / "test.instance.mlflow-huey-store")
+        assert sqlite_kwargs["results"] is False
+
+
+def test_get_or_init_huey_instance_uses_redis_backend_when_configured(monkeypatch):
+    from mlflow.server.jobs import utils as job_utils
+
+    job_utils._huey_instance_map.clear()
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_HUEY_STORAGE_URL", "redis://localhost:6379/0")
+    monkeypatch.delenv(HUEY_STORAGE_PATH_ENV_VAR, raising=False)
+
+    with mock.patch("huey.RedisHuey") as mock_redis_huey, mock.patch("huey.SqliteHuey"):
+        mock_huey_instance = mock.Mock()
+        mock_huey_instance.task.return_value = lambda fn: fn
+        mock_redis_huey.return_value = mock_huey_instance
+
+        job_utils._get_or_init_huey_instance("test.instance")
+
+        assert mock_redis_huey.call_count == 1
+        redis_kwargs = mock_redis_huey.call_args.kwargs
+        assert redis_kwargs["url"] == "redis://localhost:6379/0"
+        assert redis_kwargs["results"] is False

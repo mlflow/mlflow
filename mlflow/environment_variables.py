@@ -1363,6 +1363,13 @@ MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
 )
 
+#: Specifies optional Huey storage backend URL for MLflow server job execution.
+#: When set, MLflow uses Redis-backed Huey storage instead of local SQLite files.
+#: (default: ``None``)
+MLFLOW_SERVER_JOB_HUEY_STORAGE_URL = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_HUEY_STORAGE_URL", str, None
+)
+
 #: Specifies MLflow server job maximum allowed retries for transient errors.
 #: (default: ``3``)
 MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES = _EnvironmentVariable(
