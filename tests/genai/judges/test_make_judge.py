@@ -1650,6 +1650,22 @@ def test_judge_accepts_valid_dict_inputs(mock_invoke_judge_model):
     assert isinstance(result, Feedback)
 
 
+def test_judge_preserves_non_ascii_template_values(mock_invoke_judge_model):
+    judge = make_judge(
+        name="unicode_judge",
+        instructions="Judge this output: {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    judge(outputs={"text": "éÉàç"})
+
+    captured_messages = mock_invoke_judge_model.captured_args["prompt"]
+    user_msg = captured_messages[1]
+    assert "éÉàç" in user_msg.content
+    assert "\\u00e9" not in user_msg.content
+
+
 def test_judge_rejects_invalid_trace():
     judge = make_judge(
         name="test_judge",
