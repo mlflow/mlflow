@@ -989,11 +989,13 @@ class SqlAlchemyStore(AbstractStore):
 
         """
 
-        def next_version(sql_registered_model):
-            if sql_registered_model.model_versions:
-                return max(mv.version for mv in sql_registered_model.model_versions) + 1
-            else:
-                return 1
+        def next_version(session, name):
+            max_version = (
+                session.query(sqlalchemy.func.max(SqlModelVersion.version))
+                .filter(SqlModelVersion.name == name, *self._get_workspace_clauses(SqlModelVersion))
+                .scalar()
+            )
+            return (max_version or 0) + 1
 
         _validate_model_name(name)
         for tag in tags or []:
@@ -1029,7 +1031,7 @@ class SqlAlchemyStore(AbstractStore):
                 try:
                     sql_registered_model = self._get_registered_model(session, name)
                     sql_registered_model.last_updated_time = creation_time
-                    version = next_version(sql_registered_model)
+                    version = next_version(session, name)
                     model_version = self._with_workspace_field(
                         SqlModelVersion(
                             name=name,
@@ -1058,6 +1060,7 @@ class SqlAlchemyStore(AbstractStore):
                         session, name, model_version.to_mlflow_entity()
                     )
                 except sqlalchemy.exc.IntegrityError:
+                    session.rollback()
                     more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
                     _logger.info(
                         "Model Version creation error (name=%s) Retrying %s more time%s.",
