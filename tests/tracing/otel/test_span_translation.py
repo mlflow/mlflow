@@ -124,6 +124,19 @@ def test_gemini_cli_translator_wraps_input():
     assert '"contents"' in result
 
 
+def test_gemini_cli_translator_rewrites_system_prompt_role():
+    translator = GeminiCliTranslator()
+    messages = json.dumps([{"role": "user", "parts": [{"text": "You are helpful"}]}])
+    attrs = {
+        "gen_ai.agent.name": "gemini-cli",
+        "gen_ai.operation.name": "system_prompt",
+        "gen_ai.input.messages": messages,
+    }
+    result = translator.get_input_value(attrs)
+    parsed = json.loads(result)
+    assert parsed["contents"][0]["role"] == "system"
+
+
 def test_gemini_cli_translator_wraps_output():
     translator = GeminiCliTranslator()
     attrs = {

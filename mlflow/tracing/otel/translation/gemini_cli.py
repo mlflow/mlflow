@@ -88,11 +88,15 @@ class GeminiCliTranslator(GenAiTranslator):
 
         The MLflow UI Gemini renderer (gemini.ts normalizeGeminiChatInput)
         expects {contents: [GeminiContent, ...]} or {contents: "string"}.
+
+        For system_prompt spans, we rewrite role "user" → "system" so the
+        Chat UI renders them with the correct role badge.
         """
         if not self._is_gemini_cli(attributes):
             return None
         if value := super().get_input_value(attributes):
-            return self._try_wrap_input(value)
+            operation = attributes.get(self.SPAN_KIND_ATTRIBUTE_KEY)
+            return self._try_wrap_input(value, operation=operation)
         return None
 
     def get_output_value(self, attributes: dict[str, Any]) -> Any:
@@ -111,11 +115,21 @@ class GeminiCliTranslator(GenAiTranslator):
         return None
 
     @staticmethod
-    def _try_wrap_input(value: Any) -> Any:
+    def _try_wrap_input(value: Any, operation: str | None = None) -> Any:
         decoded = try_json_loads(value)
         # Already wrapped
         if isinstance(decoded, dict) and "contents" in decoded:
             return value
+        # For system_prompt spans, Gemini CLI sets role="user" on the content
+        # but the Chat UI should render it as "system". Rewrite the role so
+        # the system prompt gets the correct role badge.
+        if operation == "system_prompt" and isinstance(decoded, list):
+            decoded = [
+                {**item, "role": "system"}
+                if isinstance(item, dict) and item.get("role") == "user"
+                else item
+                for item in decoded
+            ]
         # List of GeminiContent or a plain string → wrap
         if isinstance(decoded, (list, str)):
             return json.dumps({"contents": decoded})
