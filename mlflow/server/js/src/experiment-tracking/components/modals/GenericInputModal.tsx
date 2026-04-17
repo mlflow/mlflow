@@ -18,6 +18,7 @@ type Props = {
   onCancel?: () => void;
   className?: string;
   footer?: React.ReactNode;
+  okButtonProps?: Record<string, unknown>;
   handleSubmit: (...args: any[]) => any;
   title: React.ReactNode;
 };
@@ -71,7 +72,7 @@ export class GenericInputModal extends Component<Props, State> {
 
   render() {
     const { isSubmitting } = this.state;
-    const { okText, cancelText, isOpen, footer, children } = this.props;
+    const { okText, cancelText, isOpen, footer, okButtonProps, children } = this.props;
 
     // add props (ref) to passed component
     const displayForm = React.Children.map(children, (child) => {
@@ -93,6 +94,7 @@ export class GenericInputModal extends Component<Props, State> {
         visible={isOpen}
         onOk={this.onSubmit}
         okText={okText}
+        okButtonProps={okButtonProps}
         cancelText={cancelText}
         confirmLoading={isSubmitting}
         onCancel={this.handleCancel}

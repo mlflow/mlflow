@@ -39,7 +39,15 @@ describe('CreateExperimentModal', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
     expect(wrapper.find(GenericInputModal).length).toBe(1);
+    expect(wrapper.find(GenericInputModal).prop('okButtonProps')).toEqual({ disabled: true });
     expect(wrapper.length).toBe(1);
+  });
+
+  test('enables create button when experiment name is provided', () => {
+    instance = wrapper.instance();
+    instance.handleValuesChange({}, { experimentName: 'new-exp' });
+    wrapper.update();
+    expect(wrapper.find(GenericInputModal).prop('okButtonProps')).toEqual({ disabled: false });
   });
   test('handleCreateExperiment redirects user to newly-created experiment page', async () => {
     instance = wrapper.instance();

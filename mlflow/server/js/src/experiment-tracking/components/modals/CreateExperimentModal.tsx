@@ -29,6 +29,10 @@ type CreateExperimentModalImplProps = {
 };
 
 export class CreateExperimentModalImpl extends Component<CreateExperimentModalImplProps> {
+  state = {
+    isCreateDisabled: true,
+  };
+
   handleCreateExperiment = async (values: any) => {
     // get values of input fields
     const experimentName = values[EXP_NAME_FIELD];
@@ -53,6 +57,11 @@ export class CreateExperimentModalImpl extends Component<CreateExperimentModalIm
     400,
   );
 
+  handleValuesChange = (_: any, allValues: any) => {
+    const experimentName = allValues?.[EXP_NAME_FIELD];
+    this.setState({ isCreateDisabled: !experimentName?.trim() });
+  };
+
   render() {
     const { isOpen } = this.props;
     return (
@@ -61,10 +70,14 @@ export class CreateExperimentModalImpl extends Component<CreateExperimentModalIm
         okText="Create"
         isOpen={isOpen}
         handleSubmit={this.handleCreateExperiment}
+        okButtonProps={{ disabled: this.state.isCreateDisabled }}
         onClose={this.props.onClose}
       >
         {/* @ts-expect-error TS(2322): Type '{ validator: ((rule: any, value: any, callba... Remove this comment to see the full error message */}
-        <CreateExperimentForm validator={this.debouncedExperimentNameValidator} />
+        <CreateExperimentForm
+          validator={this.debouncedExperimentNameValidator}
+          onValuesChange={this.handleValuesChange}
+        />
       </GenericInputModal>
     );
   }
