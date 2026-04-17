@@ -1,5 +1,5 @@
 export { processTranscript } from './tracing.js';
-export { isTracingEnabled, ensureInitialized } from './config.js';
+export { ensureInitialized } from './config.js';
 export {
   readTranscript,
   parseTimestampToNs,

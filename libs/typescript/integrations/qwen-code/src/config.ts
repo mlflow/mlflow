@@ -3,14 +3,6 @@ import { init } from '@mlflow/core';
 let initialized = false;
 
 /**
- * Check if MLflow Qwen Code tracing is enabled via environment variable.
- */
-export function isTracingEnabled(): boolean {
-  const value = (process.env.MLFLOW_QWEN_TRACING_ENABLED ?? '').toLowerCase();
-  return value === 'true' || value === '1' || value === 'yes';
-}
-
-/**
  * Initialize the MLflow SDK with tracking URI and experiment settings.
  */
 export function ensureInitialized(): boolean {

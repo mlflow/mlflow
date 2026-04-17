@@ -75,7 +75,10 @@ export async function processTranscript(
   // Create child spans by walking the tree from the user record
   const finalResponse = createChildSpans(rootSpan, userRecord.uuid, byUuid, children, model);
 
-  // Set trace previews and metadata
+  // Set trace previews and metadata.
+  // We use InMemoryTraceManager directly because `updateCurrentTrace()` requires
+  // an active OTel span context, which hook-based integrations don't have —
+  // spans are created via `startSpan()` without OTel context propagation.
   const traceId = rootSpan.traceId;
   if (traceId) {
     const traceManager = InMemoryTraceManager.getInstance();
