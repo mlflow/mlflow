@@ -6520,6 +6520,177 @@ def test_search_traces_session_scoped_assessment_expands_to_all_session_traces(
     assert trace_ids == {"sb-t1", "sb-t2", "sb-t3"}
 
 
+@pytest.fixture
+def store_with_sessions(store: SqlAlchemyStore) -> SqlAlchemyStore:
+    exp_id = store.create_experiment("sessions_exp")
+    # Session A: 3 traces (first = sa-t1 at timestamp 10).
+    _create_trace(
+        store,
+        "sa-t1",
+        exp_id,
+        request_time=10,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+        tags={"fruit": "apple"},
+    )
+    _create_trace(
+        store,
+        "sa-t2",
+        exp_id,
+        request_time=20,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+        tags={"fruit": "orange"},
+    )
+    _create_trace(
+        store,
+        "sa-t3",
+        exp_id,
+        request_time=30,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    # Session B: 2 traces (first = sb-t1 at timestamp 15).
+    _create_trace(
+        store,
+        "sb-t1",
+        exp_id,
+        request_time=15,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+        tags={"fruit": "banana"},
+    )
+    _create_trace(
+        store,
+        "sb-t2",
+        exp_id,
+        request_time=25,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+    )
+    # Session C: 1 trace (first = sc-t1 at timestamp 5).
+    _create_trace(
+        store,
+        "sc-t1",
+        exp_id,
+        request_time=5,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
+        tags={"fruit": "apple"},
+    )
+    # Loose trace with no session metadata — must be excluded.
+    _create_trace(store, "loose", exp_id, request_time=50)
+    return store
+
+
+def test_search_sessions_returns_first_trace_per_session(store_with_sessions: SqlAlchemyStore):
+    exp_id = store_with_sessions.get_experiment_by_name("sessions_exp").experiment_id
+    sessions, token = store_with_sessions.search_sessions(locations=[exp_id])
+    assert token is None
+    # Default ordering is timestamp DESC: sb-t1 (15), sa-t1 (10), sc-t1 (5).
+    assert [t.trace_id for t, _ in sessions] == ["sb-t1", "sa-t1", "sc-t1"]
+    # Every returned trace carries the session metadata key.
+    assert all(TraceMetadataKey.TRACE_SESSION in t.trace_metadata for t, _ in sessions)
+
+
+def test_search_sessions_returns_total_trace_count(store_with_sessions: SqlAlchemyStore):
+    exp_id = store_with_sessions.get_experiment_by_name("sessions_exp").experiment_id
+    sessions, _ = store_with_sessions.search_sessions(locations=[exp_id])
+    counts_by_trace = {t.trace_id: count for t, count in sessions}
+    # Session A has 3 traces, session B has 2, session C has 1.
+    assert counts_by_trace == {"sb-t1": 2, "sa-t1": 3, "sc-t1": 1}
+
+
+def test_search_sessions_excludes_traces_without_session_metadata(
+    store_with_sessions: SqlAlchemyStore,
+):
+    exp_id = store_with_sessions.get_experiment_by_name("sessions_exp").experiment_id
+    sessions, _ = store_with_sessions.search_sessions(locations=[exp_id])
+    assert "loose" not in {t.trace_id for t, _ in sessions}
+
+
+def test_search_sessions_empty_result_has_no_token(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("no_sessions")
+    sessions, token = store.search_sessions(locations=[exp_id])
+    assert sessions == []
+    assert token is None
+
+
+def test_search_sessions_filter_applies_to_first_trace_only(
+    store_with_sessions: SqlAlchemyStore,
+):
+    exp_id = store_with_sessions.get_experiment_by_name("sessions_exp").experiment_id
+
+    # Session A's first trace (sa-t1) has fruit=apple; a later trace in the same
+    # session (sa-t2) has fruit=orange. A filter on fruit=orange should exclude
+    # session A because the filter is evaluated against the FIRST trace only.
+    sessions, _ = store_with_sessions.search_sessions(
+        locations=[exp_id], filter_string="tag.fruit = 'orange'"
+    )
+    assert sessions == []
+
+    # fruit=apple matches the first trace of sessions A and C.
+    sessions, _ = store_with_sessions.search_sessions(
+        locations=[exp_id], filter_string="tag.fruit = 'apple'"
+    )
+    assert {t.trace_id for t, _ in sessions} == {"sa-t1", "sc-t1"}
+
+
+def test_search_sessions_order_by(store_with_sessions: SqlAlchemyStore):
+    exp_id = store_with_sessions.get_experiment_by_name("sessions_exp").experiment_id
+
+    sessions, _ = store_with_sessions.search_sessions(
+        locations=[exp_id], order_by=["timestamp ASC"]
+    )
+    assert [t.trace_id for t, _ in sessions] == ["sc-t1", "sa-t1", "sb-t1"]
+
+    sessions, _ = store_with_sessions.search_sessions(
+        locations=[exp_id], order_by=["timestamp DESC"]
+    )
+    assert [t.trace_id for t, _ in sessions] == ["sb-t1", "sa-t1", "sc-t1"]
+
+
+def test_search_sessions_pagination(store_with_sessions: SqlAlchemyStore):
+    exp_id = store_with_sessions.get_experiment_by_name("sessions_exp").experiment_id
+
+    sessions, token = store_with_sessions.search_sessions(locations=[exp_id], max_results=2)
+    assert [t.trace_id for t, _ in sessions] == ["sb-t1", "sa-t1"]
+    assert token is not None
+
+    sessions, token = store_with_sessions.search_sessions(
+        locations=[exp_id], max_results=2, page_token=token
+    )
+    assert [t.trace_id for t, _ in sessions] == ["sc-t1"]
+    assert token is None
+
+
+def test_search_sessions_pagination_stable_on_timestamp_ties(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("tied_sessions")
+    # Five sessions whose first traces all share the same timestamp. With a
+    # deterministic tiebreak, paginating through all of them must return a
+    # union equal to the full set with no duplicates.
+    for i in range(5):
+        _create_trace(
+            store,
+            f"s{i}-t1",
+            exp_id,
+            request_time=100,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: f"session-{i}"},
+        )
+        _create_trace(
+            store,
+            f"s{i}-t2",
+            exp_id,
+            request_time=200,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: f"session-{i}"},
+        )
+
+    seen: list[str] = []
+    token: str | None = None
+    while True:
+        page, token = store.search_sessions(locations=[exp_id], max_results=2, page_token=token)
+        seen.extend(t.trace_id for t, _ in page)
+        if token is None:
+            break
+
+    assert sorted(seen) == [f"s{i}-t1" for i in range(5)]
+    assert len(seen) == len(set(seen))
+
+
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_expectation_like")
 
