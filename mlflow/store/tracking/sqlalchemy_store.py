@@ -3576,6 +3576,113 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return trace_infos, next_token
 
+    def search_sessions(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        locations: list[str] | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
+        """
+        Return distinct sessions within the given experiments, represented by the
+        first trace (by ``timestamp_ms``) of each session. Traces without an
+        ``mlflow.trace.session`` metadata key are excluded. ``filter_string`` and
+        ``order_by`` are evaluated against the first trace of each session.
+        """
+        locations = _resolve_experiment_ids_and_locations(experiment_ids, locations)
+        self._validate_max_results_param(max_results)
+
+        with self.ManagedSessionMaker() as session:
+            locations = self._filter_experiment_ids(session, locations)
+            locations = [int(e) for e in locations]
+
+            # Subquery: (session_id, MIN(timestamp_ms)) for each session in scope.
+            min_ts_metadata = aliased(SqlTraceMetadata)
+            min_ts_subq = (
+                select(
+                    min_ts_metadata.value.label("session_id"),
+                    func.min(SqlTraceInfo.timestamp_ms).label("first_ts"),
+                )
+                .join(SqlTraceInfo, SqlTraceInfo.request_id == min_ts_metadata.request_id)
+                .where(
+                    min_ts_metadata.key == TraceMetadataKey.TRACE_SESSION,
+                    SqlTraceInfo.experiment_id.in_(locations),
+                )
+                .group_by(min_ts_metadata.value)
+                .subquery()
+            )
+
+            # Subquery: pick a single representative request_id per session. When
+            # multiple traces share the min timestamp the tie is broken on
+            # request_id so the result is deterministic.
+            pick_metadata = aliased(SqlTraceMetadata)
+            first_trace_subq = (
+                select(
+                    pick_metadata.value.label("session_id"),
+                    func.min(SqlTraceInfo.request_id).label("request_id"),
+                )
+                .join(SqlTraceInfo, SqlTraceInfo.request_id == pick_metadata.request_id)
+                .join(
+                    min_ts_subq,
+                    (pick_metadata.value == min_ts_subq.c.session_id)
+                    & (SqlTraceInfo.timestamp_ms == min_ts_subq.c.first_ts),
+                )
+                .where(
+                    pick_metadata.key == TraceMetadataKey.TRACE_SESSION,
+                    SqlTraceInfo.experiment_id.in_(locations),
+                )
+                .group_by(pick_metadata.value)
+                .subquery()
+            )
+
+            cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses_for_search_traces(
+                order_by or [], session
+            )
+            stmt = (
+                select(SqlTraceInfo, *cases_orderby)
+                .options(
+                    selectinload(SqlTraceInfo.tags),
+                    selectinload(SqlTraceInfo.request_metadata),
+                    selectinload(SqlTraceInfo.assessments),
+                )
+                .join(
+                    first_trace_subq,
+                    SqlTraceInfo.request_id == first_trace_subq.c.request_id,
+                )
+            )
+
+            attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
+                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+            )
+            stmt = self._apply_trace_filter_clauses(
+                stmt, attribute_filters, non_attribute_filters, span_filters, run_id_filter
+            )
+
+            for j in sorting_joins:
+                stmt = stmt.outerjoin(j)
+
+            offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
+
+            stmt = (
+                stmt
+                .filter(SqlTraceInfo.experiment_id.in_(locations))
+                .order_by(*parsed_orderby)
+                .offset(offset)
+                .limit(max_results)
+            )
+
+            queried_traces = session.execute(stmt).scalars(SqlTraceInfo).all()
+            trace_infos = [t.to_mlflow_entity() for t in queried_traces]
+
+            if max_results == len(trace_infos):
+                next_token = SearchTraceUtils.create_page_token(offset + max_results)
+            else:
+                next_token = None
+
+            return trace_infos, next_token
+
     def find_completed_sessions(
         self,
         experiment_id: str,
