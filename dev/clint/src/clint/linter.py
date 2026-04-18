@@ -3,14 +3,14 @@ import fnmatch
 import json
 import re
 import textwrap
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Iterable, Iterator, TypeAlias
 
 from typing_extensions import Self
 
 from clint import rules
-from clint.comments import Noqa, iter_comments
+from clint.comments import Comment, Noqa, iter_comments
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.resolver import Resolver
@@ -24,10 +24,21 @@ MARKDOWN_LINK_RE = re.compile(r"\[.+\]\(.+\)")
 
 @dataclass
 class DisableComment:
-    rule: str
+    rules: set[str]
     line: int
     column: int
     comment_line: int
+
+    @classmethod
+    def from_comment(cls, comment: Comment) -> Self | None:
+        if not (m := DISABLE_COMMENT_REGEX.search(comment.string)):
+            return None
+        is_next = m.group(1) is not None
+        comment_line = comment.start.line - 1
+        target_line = comment_line + 1 if is_next else comment_line
+        col = comment.start.column + m.start()
+        rules = {rule.strip() for rule in m.group(2).split(",")}
+        return cls(rules=rules, line=target_line, column=col, comment_line=comment_line)
 
 
 def parse_comments(code: str) -> tuple[list[DisableComment], list[Noqa]]:
@@ -35,17 +46,8 @@ def parse_comments(code: str) -> tuple[list[DisableComment], list[Noqa]]:
     disables: list[DisableComment] = []
     noqas: list[Noqa] = []
     for comment in iter_comments(code):
-        if m := DISABLE_COMMENT_REGEX.search(comment.string):
-            is_next = m.group(1) is not None
-            comment_line = comment.start.line - 1
-            target_line = comment_line + 1 if is_next else comment_line
-            col = comment.start.column + m.start()
-            disables.extend(
-                DisableComment(
-                    rule=rule.strip(), line=target_line, column=col, comment_line=comment_line
-                )
-                for rule in m.group(2).split(",")
-            )
+        if disable := DisableComment.from_comment(comment):
+            disables.append(disable)
         if noqa := Noqa.from_comment(comment):
             noqas.append(noqa)
     return disables, noqas
@@ -384,7 +386,8 @@ class Linter(ast.NodeVisitor):
         self.disable_comments = disable_comments
         self.ignore: dict[str, set[int]] = {}
         for dc in disable_comments:
-            self.ignore.setdefault(dc.rule, set()).add(dc.line)
+            for rule in dc.rules:
+                self.ignore.setdefault(rule, set()).add(dc.line)
         self.cell = cell
         self.violations: list[Violation] = []
         self.in_TYPE_CHECKING = False
@@ -533,7 +536,12 @@ class Linter(ast.NodeVisitor):
 
         disable_comments, noqas = parse_comments(example.code)
         # Only track disable comments for rules checked in examples
-        disable_comments = [dc for dc in disable_comments if dc.rule in config.example_rules]
+        example_rules = set(config.example_rules)
+        disable_comments = [
+            replace(dc, rules=matched)
+            for dc in disable_comments
+            if (matched := dc.rules & example_rules)
+        ]
         linter = cls(
             path=path,
             config=config,
@@ -919,11 +927,12 @@ class Linter(ast.NodeVisitor):
                     self._check(range, rules.LazyModule())
 
         for dc in self.disable_comments:
-            if (dc.rule, dc.line) not in self.used_disables:
-                self._check(
-                    Range(Position(dc.comment_line, dc.column)),
-                    rules.UnusedDisableComment(dc.rule),
-                )
+            for rule in dc.rules:
+                if (rule, dc.line) not in self.used_disables:
+                    self._check(
+                        Range(Position(dc.comment_line, dc.column)),
+                        rules.UnusedDisableComment(rule),
+                    )
 
     def visit_noqas(self, noqas: Iterable[Noqa]) -> None:
         for noqa in noqas:
