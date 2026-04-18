@@ -880,6 +880,27 @@ service MlflowService {
     };
   }
 
+  // Search for distinct sessions across trace locations. Returns the first
+  // trace (by ``timestamp_ms``) of each session; ``filter`` and ``order_by``
+  // apply to that first trace. Traces without an ``mlflow.trace.session``
+  // metadata key are excluded.
+  rpc searchSessionsV3(SearchSessionsV3) returns (SearchSessionsV3.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/sessions/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search Sessions V3"
+    };
+  }
+
   // Create a trace using the V3 API format
   rpc startTraceV3(StartTraceV3) returns (StartTraceV3.Response) {
     option (rpc) = {
@@ -4466,6 +4487,51 @@ message SearchTracesV3 {
   message Response {
     // Information about traces that match the search criteria.
     repeated TraceInfoV3 traces = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+// A session grouped from traces sharing an ``mlflow.trace.session`` metadata
+// value. Returned by ``SearchSessionsV3``.
+message SessionInfo {
+  // The first trace (by ``timestamp_ms``) of the session. Carries the
+  // ``mlflow.trace.session`` metadata plus any request/response previews,
+  // tags, and assessments needed to render a session header row.
+  optional TraceInfoV3 first_trace = 1;
+
+  // Total number of traces in this session across all pages — authoritative,
+  // not page-bound.
+  optional int64 total_trace_count = 2;
+}
+
+// Search for distinct sessions across trace locations. Each result is the
+// first trace (by ``timestamp_ms``) of a session plus session-level stats.
+// The ``filter`` and ``order_by`` are evaluated against the first trace of
+// each session; traces without an ``mlflow.trace.session`` metadata key are
+// excluded.
+message SearchSessionsV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // A list of MLflow experiments to search over.
+  repeated TraceLocation locations = 1;
+
+  // A filter expression evaluated against the first trace of each session.
+  // Syntax matches ``SearchTracesV3.filter``.
+  optional string filter = 2;
+
+  // Maximum number of sessions desired. Max threshold is 500.
+  optional int32 max_results = 3 [default = 100];
+
+  // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
+  // Applied to the first trace of each session.
+  repeated string order_by = 4;
+
+  // Token indicating the page of sessions to fetch.
+  optional string page_token = 5;
+
+  message Response {
+    // Sessions matching the search criteria.
+    repeated SessionInfo sessions = 1;
     optional string next_page_token = 2;
   }
 }

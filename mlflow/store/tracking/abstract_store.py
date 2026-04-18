@@ -443,6 +443,36 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise NotImplementedError
 
+    def search_sessions(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        locations: list[str] | None = None,
+    ) -> tuple[list[tuple[TraceInfo, int]], str | None]:
+        """
+        Return distinct sessions within the given experiments. Each result is
+        the first trace (by ``timestamp_ms``) of a session paired with the
+        total number of traces in that session. Traces without an
+        ``mlflow.trace.session`` metadata key are excluded. The ``filter_string``
+        and ``order_by`` are evaluated against the first trace of each session.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string applied to the first trace of each session.
+            max_results: Maximum number of sessions desired.
+            order_by: List of order_by clauses applied to the first trace of each session.
+            page_token: Token specifying the next page of results.
+            locations: A list of locations to search over.
+
+        Returns:
+            A tuple of (list of ``(first_trace, total_trace_count)`` pairs,
+            next page token).
+        """
+        raise NotImplementedError
+
     def find_completed_sessions(
         self,
         experiment_id: str,
