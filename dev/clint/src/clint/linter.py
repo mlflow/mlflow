@@ -6,7 +6,7 @@ import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, TypeAlias
+from typing import Any, Iterator, Sequence, TypeAlias
 
 from typing_extensions import Self
 
@@ -31,13 +31,10 @@ class DisableComment:
     comment_line: int
 
 
-def parse_disable_comments(code: str) -> list[DisableComment]:
-    """Parses all `# clint: disable=` and `# clint: disable-next=` comments from source code."""
+def parse_disable_comments(comments: Sequence[tokenize.TokenInfo]) -> list[DisableComment]:
+    """Parses all `# clint: disable=` and `# clint: disable-next=` comments from a token list."""
     result: list[DisableComment] = []
-    readline = iter(code.splitlines(True)).__next__
-    for tok in tokenize.generate_tokens(readline):
-        if tok.type != tokenize.COMMENT:
-            continue
+    for tok in comments:
         if m := DISABLE_COMMENT_REGEX.search(tok.string):
             is_next = m.group(1) is not None
             comment_line = tok.start[0] - 1
@@ -532,7 +529,8 @@ class Linter(ast.NodeVisitor):
         except SyntaxError:
             return [Violation(rules.ExampleSyntaxError(), path, example.range)]
 
-        disable_comments = parse_disable_comments(example.code)
+        comments = list(iter_comments(example.code))
+        disable_comments = parse_disable_comments(comments)
         # Only track disable comments for rules checked in examples
         disable_comments = [dc for dc in disable_comments if dc.rule in config.example_rules]
         linter = cls(
@@ -543,7 +541,7 @@ class Linter(ast.NodeVisitor):
             offset=example.range.start,
         )
         linter.visit(tree)
-        linter.visit_comments(example.code)
+        linter.visit_comments(comments)
         if index:
             v = ExampleVisitor(linter, index)
             v.visit(tree)
@@ -926,8 +924,8 @@ class Linter(ast.NodeVisitor):
                     rules.UnusedDisableComment(dc.rule),
                 )
 
-    def visit_comments(self, src: str) -> None:
-        for comment in iter_comments(src):
+    def visit_comments(self, comments: Sequence[tokenize.TokenInfo]) -> None:
+        for comment in comments:
             if noqa := Noqa.from_token(comment):
                 self.visit_noqa(noqa)
 
@@ -988,15 +986,16 @@ def _lint_cell(
         # Ignore non-python cells such as `!pip install ...`
         return violations
 
+    comments = list(iter_comments(src))
     linter = Linter(
         path=path,
         config=config,
-        disable_comments=parse_disable_comments(src),
+        disable_comments=parse_disable_comments(comments),
         index=index,
         cell=cell_index,
     )
     linter.visit(tree)
-    linter.visit_comments(src)
+    linter.visit_comments(comments)
     linter.post_visit()
     violations.extend(linter.violations)
 
@@ -1055,15 +1054,16 @@ def lint_file(path: Path, code: str, config: Config, index: SymbolIndex) -> list
             violations.extend(Linter.visit_example(path, config, code_block, index))
         return violations
     else:
+        comments = list(iter_comments(code))
         linter = Linter(
             path=path,
             config=config,
-            disable_comments=parse_disable_comments(code),
+            disable_comments=parse_disable_comments(comments),
             index=index,
         )
         module = ast.parse(code)
         linter.visit(module)
-        linter.visit_comments(code)
+        linter.visit_comments(comments)
         linter.visit_file_content(code)
         linter.post_visit()
         return linter.violations
