@@ -1,9 +1,9 @@
-from clint.comments import iter_comments
-from clint.linter import DisableComment, parse_disable_comments
+from clint.linter import DisableComment, parse_comments
 
 
 def _parse(code: str) -> list[DisableComment]:
-    return parse_disable_comments(list(iter_comments(code)))
+    disables, _ = parse_comments(code)
+    return disables
 
 
 def test_single_rule() -> None:
