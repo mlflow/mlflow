@@ -50,8 +50,7 @@ def parse_comments(code: str) -> tuple[list[DisableComment], list[Noqa]]:
     noqas: list[Noqa] = []
     for token in iter_comments(code):
         disables.extend(DisableComment.from_token(token))
-        if noqa := Noqa.from_token(token):
-            noqas.append(noqa)
+        noqas.extend(Noqa.from_token(token))
     return disables, noqas
 
 

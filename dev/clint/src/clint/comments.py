@@ -19,15 +19,15 @@ class Noqa:
     rules: set[str]
 
     @classmethod
-    def from_token(cls, token: tokenize.TokenInfo) -> Self | None:
+    def from_token(cls, token: tokenize.TokenInfo) -> list[Self]:
         from clint.linter import Position
 
-        if match := NOQA_REGEX.match(token.string):
-            rules = {r.strip() for r in match.group(1).upper().split(",")}
-            start = Position(token.start[0], token.start[1])
-            end = Position(token.end[0], token.end[1])
-            return cls(start=start, end=end, rules=rules)
-        return None
+        if not (match := NOQA_REGEX.match(token.string)):
+            return []
+        rules = {r.strip() for r in match.group(1).upper().split(",")}
+        start = Position(token.start[0], token.start[1])
+        end = Position(token.end[0], token.end[1])
+        return [cls(start=start, end=end, rules=rules)]
 
 
 def iter_comments(code: str) -> Iterator[tokenize.TokenInfo]:
