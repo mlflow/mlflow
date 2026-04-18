@@ -1580,6 +1580,27 @@ class SearchTracesV3(_message.Message):
     page_token: str
     def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class SearchSessionsV3(_message.Message):
+    __slots__ = ("locations", "filter", "max_results", "order_by", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("traces", "next_page_token")
+        TRACES_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        traces: _containers.RepeatedCompositeFieldContainer[TraceInfoV3]
+        next_page_token: str
+        def __init__(self, traces: _Optional[_Iterable[_Union[TraceInfoV3, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    LOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    FILTER_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    locations: _containers.RepeatedCompositeFieldContainer[TraceLocation]
+    filter: str
+    max_results: int
+    order_by: _containers.RepeatedScalarFieldContainer[str]
+    page_token: str
+    def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., page_token: _Optional[str] = ...) -> None: ...
+
 class CreateDataset(_message.Message):
     __slots__ = ("name", "experiment_ids", "source_type", "source", "schema", "profile", "created_by", "tags")
     class Response(_message.Message):
