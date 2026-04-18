@@ -112,6 +112,7 @@ from mlflow.protos.service_pb2 import (
     SearchExperiments,
     SearchLoggedModels,
     SearchRuns,
+    SearchSessionsV3,
     SearchTraces,
     SearchTracesV3,
     SetTraceTag,
@@ -189,6 +190,7 @@ from mlflow.server.handlers import (
     _search_model_versions,
     _search_registered_models,
     _search_runs,
+    _search_sessions_v3,
     _search_traces_v3,
     _set_dataset_tags_handler,
     _set_model_version_tag,
@@ -228,7 +230,7 @@ from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
-from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -2448,6 +2450,60 @@ def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracki
     call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+def test_search_sessions_v3_handler(mock_get_request_message, mock_tracking_store):
+    search_sessions_proto = SearchSessionsV3()
+    location = TraceLocation()
+    location.mlflow_experiment.experiment_id = "1"
+    search_sessions_proto.locations.append(location)
+    search_sessions_proto.max_results = 10
+    search_sessions_proto.filter = "tag.fruit = 'apple'"
+    search_sessions_proto.order_by.append("timestamp_ms DESC")
+
+    # Proto default page_token is empty string; the handler must translate that
+    # to None before calling the store.
+    assert search_sessions_proto.page_token == ""
+
+    first_trace_a = TraceInfo(
+        trace_id="tr-a",
+        trace_location=EntityTraceLocation.from_experiment_id("1"),
+        request_time=100,
+        execution_duration=5,
+        state=TraceState.OK,
+    )
+    first_trace_b = TraceInfo(
+        trace_id="tr-b",
+        trace_location=EntityTraceLocation.from_experiment_id("1"),
+        request_time=200,
+        execution_duration=6,
+        state=TraceState.OK,
+    )
+    mock_get_request_message.return_value = search_sessions_proto
+    mock_tracking_store.search_sessions.return_value = (
+        [(first_trace_a, 3), (first_trace_b, 1)],
+        "next-page",
+    )
+
+    flask_response = _search_sessions_v3()
+
+    mock_tracking_store.search_sessions.assert_called_once()
+    call_kwargs = mock_tracking_store.search_sessions.call_args.kwargs
+    assert call_kwargs.get("locations") == ["1"]
+    assert call_kwargs.get("filter_string") == "tag.fruit = 'apple'"
+    assert call_kwargs.get("max_results") == 10
+    assert list(call_kwargs.get("order_by")) == ["timestamp_ms DESC"]
+    assert call_kwargs.get("page_token") is None
+
+    # Verify the response proto packages each store tuple as a SessionInfo.
+    response = SearchSessionsV3.Response()
+    parse_dict(json.loads(flask_response.get_data()), response)
+    assert response.next_page_token == "next-page"
+    assert len(response.sessions) == 2
+    assert response.sessions[0].first_trace.trace_id == "tr-a"
+    assert response.sessions[0].total_trace_count == 3
+    assert response.sessions[1].first_trace.trace_id == "tr-b"
+    assert response.sessions[1].total_trace_count == 1
 
 
 def test_deprecated_search_traces_v2_empty_page_token(

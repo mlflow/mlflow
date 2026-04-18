@@ -248,8 +248,10 @@ from mlflow.protos.service_pb2 import (
     SearchLoggedModels,
     SearchPromptOptimizationJobs,
     SearchRuns,
+    SearchSessionsV3,
     SearchTraces,
     SearchTracesV3,
+    SessionInfo,
     SetDatasetTags,
     SetExperimentTag,
     SetGatewayEndpointTag,
@@ -3707,6 +3709,51 @@ def _search_traces_v3():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _search_sessions_v3():
+    """
+    A request handler for `POST /mlflow/traces/sessions/search` that returns the
+    first trace of each distinct session plus the total trace count, filtered
+    and paginated like `_search_traces_v3`.
+    """
+    request_message = _get_request_message(
+        SearchSessionsV3(),
+        schema={
+            "locations": [_assert_array, _assert_required],
+            "filter": [_assert_string],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), 500),
+            ],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "page_token": [_assert_string],
+        },
+    )
+    experiment_ids = [
+        location.mlflow_experiment.experiment_id
+        for location in request_message.locations
+        if location.HasField("mlflow_experiment")
+    ]
+
+    sessions, token = _get_tracking_store().search_sessions(
+        locations=experiment_ids,
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token or None,
+    )
+    response_message = SearchSessionsV3.Response()
+    for first_trace, total_trace_count in sessions:
+        session_proto = SessionInfo()
+        session_proto.first_trace.CopyFrom(first_trace.to_proto())
+        session_proto.total_trace_count = total_trace_count
+        response_message.sessions.append(session_proto)
+    if token:
+        response_message.next_page_token = token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _delete_traces():
     """
     A request handler for `POST /mlflow/traces/delete-traces` to delete TraceInfo records
@@ -6936,6 +6983,7 @@ HANDLERS = {
     StartTraceV3: _start_trace_v3,
     GetTraceInfoV3: _get_trace_info_v3,
     SearchTracesV3: _search_traces_v3,
+    SearchSessionsV3: _search_sessions_v3,
     DeleteTracesV3: _delete_traces,
     CalculateTraceFilterCorrelation: _calculate_trace_filter_correlation,
     SetTraceTagV3: _set_trace_tag_v3,
