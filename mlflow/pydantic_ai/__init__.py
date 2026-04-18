@@ -36,9 +36,13 @@ def _returns_sync_streamed_result(func) -> bool:
     if return_annotation is inspect.Signature.empty:
         return False
 
-    # pydantic-ai uses `from __future__ import annotations`, so the annotation
-    # is a string. Match by class name to avoid resolving forward references
-    # (e.g. `AgentSpec` in other parameters) that may not be importable.
+    # pydantic-ai uses `from __future__ import annotations`, so the return
+    # annotation is a raw string rather than a resolved type. We match by class
+    # name to avoid calling `get_type_hints()`, which would try to resolve *all*
+    # parameter annotations (e.g. `AgentSpec` added in 1.71.0) and raise
+    # NameError for any forward reference that isn't importable at call time.
+    # `StreamedRunResultSync` is a unique pydantic-ai class name; substring
+    # matching is sufficient and avoids fragile import-time resolution.
     if isinstance(return_annotation, str):
         return "StreamedRunResultSync" in return_annotation
 
