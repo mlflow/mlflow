@@ -22,8 +22,8 @@ RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
 DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable(-next)?=([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)")
 MARKDOWN_LINK_RE = re.compile(r"\[.+\]\(.+\)")
 # Pre-screen used to skip Python tokenization when no suppression markers are present anywhere in
-# the source. False positives (matches inside string literals) are acceptable — they only cause a
-# fallthrough to the accurate tokenizer-based path.
+# the source. False positives (matches inside string literals) are acceptable because they only
+# cause a fallthrough to the accurate tokenizer-based path.
 _COMMENT_MARKER_PRESCREEN = re.compile(r"clint:\s*disable|noqa\s*:", re.IGNORECASE)
 
 
