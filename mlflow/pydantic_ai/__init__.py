@@ -29,16 +29,21 @@ def _returns_sync_streamed_result(func) -> bool:
         return False
 
     try:
-        hints = typing.get_type_hints(func)
-        return_type = hints.get("return")
-        if return_type is None:
-            return False
-
-        origin = typing.get_origin(return_type) or return_type
-
-        return hasattr(origin, "stream_text") and hasattr(origin, "stream_output")
-    except Exception:
+        return_annotation = inspect.signature(func).return_annotation
+    except (ValueError, TypeError):
         return False
+
+    if return_annotation is inspect.Signature.empty:
+        return False
+
+    # pydantic-ai uses `from __future__ import annotations`, so the annotation
+    # is a string. Match by class name to avoid resolving forward references
+    # (e.g. `AgentSpec` in other parameters) that may not be importable.
+    if isinstance(return_annotation, str):
+        return "StreamedRunResultSync" in return_annotation
+
+    origin = typing.get_origin(return_annotation) or return_annotation
+    return hasattr(origin, "stream_text") and hasattr(origin, "stream_output")
 
 
 def _patch_streaming_method(cls, method_name, wrapper_func):
