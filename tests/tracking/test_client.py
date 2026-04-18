@@ -423,6 +423,52 @@ def test_client_search_traces_with_get_traces(
     mock_store.get_trace_info.assert_not_called()
 
 
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_sessions(mock_store, mock_artifact_repo, include_spans):
+    mock_trace_infos = [
+        TraceInfo(
+            trace_id=f"trace:/catalog.schema/{i}",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: f"session-{i}"},
+        )
+        for i in range(3)
+    ]
+    mock_store.search_sessions.return_value = (mock_trace_infos, "next-token")
+    mock_store.batch_get_traces.return_value = [
+        Trace(info=info, data=TraceData(spans=[])) for info in mock_trace_infos
+    ]
+
+    results = MlflowClient().search_sessions(
+        locations=["catalog.schema"],
+        filter_string="tag.fruit = 'apple'",
+        order_by=["timestamp_ms DESC"],
+        max_results=3,
+        include_spans=include_spans,
+    )
+
+    mock_store.search_sessions.assert_called_once_with(
+        experiment_ids=None,
+        filter_string="tag.fruit = 'apple'",
+        max_results=3,
+        order_by=["timestamp_ms DESC"],
+        page_token=None,
+        locations=["catalog.schema"],
+    )
+    assert len(results) == 3
+    assert results.token == "next-token"
+
+    if include_spans:
+        mock_store.batch_get_traces.assert_called_once()
+    else:
+        mock_store.batch_get_traces.assert_not_called()
+
+
 def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo):
     mock_trace_infos = [
         TraceInfo(

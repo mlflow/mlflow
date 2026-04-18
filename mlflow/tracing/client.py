@@ -358,6 +358,56 @@ class TracingClient:
 
         return PagedList(traces, next_token)
 
+    def search_sessions(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        include_spans: bool = True,
+        locations: list[str] | None = None,
+    ) -> PagedList[Trace]:
+        """
+        Return distinct sessions within the experiments, represented by the
+        first trace (by ``timestamp_ms``) of each session. ``filter_string``
+        and ``order_by`` are evaluated against the first trace of each session.
+        Traces without an ``mlflow.trace.session`` metadata key are excluded.
+        """
+        traces: list[Trace] = []
+        next_max_results = max_results
+        next_token = page_token
+
+        max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
+        executor = (
+            ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="MlflowSessionSearch")
+            if include_spans
+            else nullcontext()
+        )
+        with executor:
+            while len(traces) < max_results:
+                trace_infos, next_token = self.store.search_sessions(
+                    experiment_ids=experiment_ids,
+                    filter_string=filter_string,
+                    max_results=next_max_results,
+                    order_by=order_by,
+                    page_token=next_token,
+                    locations=locations,
+                )
+
+                if include_spans:
+                    trace_infos_by_location = self._group_trace_infos_by_location(trace_infos)
+                    traces.extend(self._load_traces_by_location(trace_infos_by_location, executor))
+                else:
+                    traces.extend(Trace(t, TraceData(spans=[])) for t in trace_infos)
+
+                if not next_token:
+                    break
+
+                next_max_results = max_results - len(traces)
+
+        return PagedList(traces, next_token)
+
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
         Retrieve multiple traces by their IDs.

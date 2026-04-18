@@ -1452,6 +1452,61 @@ class MlflowClient:
             locations=locations,
         )
 
+    def search_sessions(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        include_spans: bool = True,
+        locations: list[str] | None = None,
+        flush: bool = False,
+    ) -> PagedList[Trace]:
+        """
+        Return distinct sessions within the given experiments. Each result is
+        the first trace (by ``timestamp_ms``) of a session; the session_id is
+        carried on the trace's ``mlflow.trace.session`` metadata. ``filter_string``
+        and ``order_by`` are evaluated against that first trace. Traces without
+        an ``mlflow.trace.session`` metadata key are excluded.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+                Deprecated, use ``locations`` instead.
+            filter_string: A search filter string applied to the first trace
+                of each session.
+            max_results: Maximum number of sessions desired.
+            order_by: List of order_by clauses applied to the first trace of
+                each session.
+            page_token: Token specifying the next page of results.
+            include_spans: If ``True``, include spans on the returned first-
+                trace ``Trace`` objects. Otherwise only trace metadata is
+                populated.
+            locations: A list of locations to search over.
+            flush: If ``True``, flush any pending async trace writes before
+                searching. Useful in tests to ensure recent traces are visible.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Trace <mlflow.entities.Trace>` objects — one per
+            distinct session.
+        """
+        _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
+        _validate_list_param("locations", locations, allow_none=True)
+
+        if flush:
+            _flush_pending_async_trace_writes()
+
+        return self._tracing_client.search_sessions(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            include_spans=include_spans,
+            locations=locations,
+        )
+
     def start_trace(
         self,
         name: str,
