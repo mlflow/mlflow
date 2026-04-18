@@ -3,7 +3,6 @@ import fnmatch
 import json
 import re
 import textwrap
-import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Sequence, TypeAlias
@@ -11,7 +10,7 @@ from typing import Any, Iterator, Sequence, TypeAlias
 from typing_extensions import Self
 
 from clint import rules
-from clint.comments import Noqa, iter_comments
+from clint.comments import Comment, Noqa, iter_comments
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.resolver import Resolver
@@ -31,15 +30,15 @@ class DisableComment:
     comment_line: int
 
 
-def parse_disable_comments(comments: Sequence[tokenize.TokenInfo]) -> list[DisableComment]:
-    """Parses all `# clint: disable=` and `# clint: disable-next=` comments from a token list."""
+def parse_disable_comments(comments: Sequence[Comment]) -> list[DisableComment]:
+    """Parses all `# clint: disable=` and `# clint: disable-next=` comments from a comment list."""
     result: list[DisableComment] = []
     for tok in comments:
         if m := DISABLE_COMMENT_REGEX.search(tok.string):
             is_next = m.group(1) is not None
-            comment_line = tok.start[0] - 1
+            comment_line = tok.start.line - 1
             target_line = comment_line + 1 if is_next else comment_line
-            col = tok.start[1] + m.start()
+            col = tok.start.column + m.start()
             result.extend(
                 DisableComment(
                     rule=rule.strip(), line=target_line, column=col, comment_line=comment_line
@@ -924,9 +923,9 @@ class Linter(ast.NodeVisitor):
                     rules.UnusedDisableComment(dc.rule),
                 )
 
-    def visit_comments(self, comments: Sequence[tokenize.TokenInfo]) -> None:
+    def visit_comments(self, comments: Sequence[Comment]) -> None:
         for comment in comments:
-            if noqa := Noqa.from_token(comment):
+            if noqa := Noqa.from_comment(comment):
                 self.visit_noqa(noqa)
 
     def visit_noqa(self, noqa: Noqa) -> None:
