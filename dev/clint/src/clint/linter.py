@@ -1022,6 +1022,8 @@ def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
 
 
 def lint_file(path: Path, code: str, config: Config, index_path: Path) -> list[Violation]:
+    if path.is_absolute():
+        raise ValueError(f"Path must be relative: {path}")
     return _lint_file(path, code, config, SymbolIndex.load(index_path))
 
 

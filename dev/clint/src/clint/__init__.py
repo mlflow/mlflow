@@ -27,9 +27,10 @@ def _init_worker(index_path: Path, config: Config) -> None:
 
 
 def _worker_lint(path: Path, code: str) -> list[Violation]:
-    assert _WORKER_INDEX is not None and _WORKER_CONFIG is not None, (
-        "Worker not initialized; _init_worker must be called before _worker_lint"
-    )
+    if _WORKER_INDEX is None or _WORKER_CONFIG is None:
+        raise RuntimeError(
+            "Worker not initialized; _init_worker must be called before _worker_lint"
+        )
     return _lint_file(path, code, _WORKER_CONFIG, _WORKER_INDEX)
 
 
