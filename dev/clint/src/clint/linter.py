@@ -3,6 +3,7 @@ import fnmatch
 import json
 import re
 import textwrap
+import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator, TypeAlias
@@ -10,7 +11,7 @@ from typing import Any, Iterable, Iterator, TypeAlias
 from typing_extensions import Self
 
 from clint import rules
-from clint.comments import Comment, Noqa, iter_comments
+from clint.comments import Noqa, iter_comments
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.resolver import Resolver
@@ -30,13 +31,13 @@ class DisableComment:
     comment_line: int
 
     @classmethod
-    def from_comment(cls, comment: Comment) -> list[Self]:
-        if not (m := DISABLE_COMMENT_REGEX.search(comment.string)):
+    def from_token(cls, token: tokenize.TokenInfo) -> list[Self]:
+        if not (m := DISABLE_COMMENT_REGEX.search(token.string)):
             return []
         is_next = m.group(1) is not None
-        comment_line = comment.start.line - 1
+        comment_line = token.start[0] - 1
         target_line = comment_line + 1 if is_next else comment_line
-        col = comment.start.column + m.start()
+        col = token.start[1] + m.start()
         return [
             cls(rule=rule.strip(), line=target_line, column=col, comment_line=comment_line)
             for rule in m.group(2).split(",")
@@ -47,9 +48,9 @@ def parse_comments(code: str) -> tuple[list[DisableComment], list[Noqa]]:
     """Tokenize code once and return all `# clint: disable=` and `# noqa:` comments."""
     disables: list[DisableComment] = []
     noqas: list[Noqa] = []
-    for comment in iter_comments(code):
-        disables.extend(DisableComment.from_comment(comment))
-        if noqa := Noqa.from_comment(comment):
+    for token in iter_comments(code):
+        disables.extend(DisableComment.from_token(token))
+        if noqa := Noqa.from_token(token):
             noqas.append(noqa)
     return disables, noqas
 
