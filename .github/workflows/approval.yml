@@ -1,4 +1,4 @@
-name: Maintainer approval
+name: Approval
 
 on:
   pull_request_target:
