@@ -13,7 +13,7 @@ from typing_extensions import Self
 
 from clint.config import Config
 from clint.index import SymbolIndex
-from clint.linter import Violation, _lint_file
+from clint.linter import Violation, lint_file
 from clint.utils import get_repo_root, resolve_paths
 
 _WORKER_INDEX: SymbolIndex | None = None
@@ -31,7 +31,7 @@ def _worker_lint(path: Path, code: str) -> list[Violation]:
         raise RuntimeError(
             "Worker not initialized; _init_worker must be called before _worker_lint"
         )
-    return _lint_file(path, code, _WORKER_CONFIG, _WORKER_INDEX)
+    return lint_file(path, code, _WORKER_CONFIG, _WORKER_INDEX)
 
 
 @dataclass
