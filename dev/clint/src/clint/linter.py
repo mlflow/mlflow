@@ -365,7 +365,7 @@ class Linter(ast.NodeVisitor):
         *,
         path: Path,
         config: Config,
-        disable_comments: list[DisableComment],
+        disables: list[DisableComment],
         index: SymbolIndex,
         cell: int | None = None,
         offset: Position | None = None,
@@ -376,7 +376,7 @@ class Linter(ast.NodeVisitor):
         Args:
             path: Path to the file being linted.
             config: Linter configuration declared within the pyproject.toml file.
-            disable_comments: All disable comments found in the source code.
+            disables: All disable comments found in the source code.
             index: Symbol index for resolving function signatures.
             cell: Index of the cell being linted in a Jupyter notebook.
             offset: Position offset to apply to the line and column numbers of the violations.
@@ -384,9 +384,9 @@ class Linter(ast.NodeVisitor):
         self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef] = []
         self.path = path
         self.config = config
-        self.disable_comments = disable_comments
+        self.disables = disables
         self.ignore: dict[str, set[int]] = {}
-        for dc in disable_comments:
+        for dc in disables:
             self.ignore.setdefault(dc.rule, set()).add(dc.line)
         self.cell = cell
         self.violations: list[Violation] = []
@@ -534,13 +534,13 @@ class Linter(ast.NodeVisitor):
         except SyntaxError:
             return [Violation(rules.ExampleSyntaxError(), path, example.range)]
 
-        disable_comments, noqas = parse_comments(example.code)
+        disables, noqas = parse_comments(example.code)
         # Only track disable comments for rules checked in examples
-        disable_comments = [dc for dc in disable_comments if dc.rule in config.example_rules]
+        disables = [dc for dc in disables if dc.rule in config.example_rules]
         linter = cls(
             path=path,
             config=config,
-            disable_comments=disable_comments,
+            disables=disables,
             index=index,
             offset=example.range.start,
         )
@@ -921,7 +921,7 @@ class Linter(ast.NodeVisitor):
                 if range := self.lazy_modules.get(mod):
                     self._check(range, rules.LazyModule())
 
-        for dc in self.disable_comments:
+        for dc in self.disables:
             if (dc.rule, dc.line) not in self.used_disables:
                 self._check(
                     Range(Position(dc.comment_line, dc.column)),
@@ -989,11 +989,11 @@ def _lint_cell(
         # Ignore non-python cells such as `!pip install ...`
         return violations
 
-    disable_comments, noqas = parse_comments(src)
+    disables, noqas = parse_comments(src)
     linter = Linter(
         path=path,
         config=config,
-        disable_comments=disable_comments,
+        disables=disables,
         index=index,
         cell=cell_index,
     )
@@ -1057,11 +1057,11 @@ def lint_file(path: Path, code: str, config: Config, index: SymbolIndex) -> list
             violations.extend(Linter.visit_example(path, config, code_block, index))
         return violations
     else:
-        disable_comments, noqas = parse_comments(code)
+        disables, noqas = parse_comments(code)
         linter = Linter(
             path=path,
             config=config,
-            disable_comments=disable_comments,
+            disables=disables,
             index=index,
         )
         module = ast.parse(code)
