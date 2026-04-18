@@ -117,6 +117,7 @@ from mlflow.protos.service_pb2 import (
     SearchExperiments,
     SearchLoggedModels,
     SearchRuns,
+    SearchSessionsV3,
     SearchTraces,
     SearchTracesV3,
     SetDatasetTags,
@@ -624,6 +625,41 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 response_proto = self._call_endpoint(SearchTraces, v2_req_body)
             else:
                 raise
+
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+        return trace_infos, response_proto.next_page_token or None
+
+    def search_sessions(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        locations: list[str] | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
+        locations = _resolve_experiment_ids_and_locations(experiment_ids, locations)
+
+        trace_locations = []
+        for exp_id in locations:
+            try:
+                location = TraceLocation.from_experiment_id(exp_id)
+                trace_locations.append(location.to_proto())
+            except Exception as e:
+                raise MlflowException(
+                    f"Invalid experiment ID format: {exp_id}. Error: {e!s}"
+                ) from e
+
+        request = SearchSessionsV3(
+            locations=trace_locations,
+            filter=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+        req_body = message_to_json(request)
+        endpoint = f"{_V3_TRACE_REST_API_PATH_PREFIX}/sessions/search"
+        response_proto = self._call_endpoint(SearchSessionsV3, req_body, endpoint)
 
         trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None

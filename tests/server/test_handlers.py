@@ -112,6 +112,7 @@ from mlflow.protos.service_pb2 import (
     SearchExperiments,
     SearchLoggedModels,
     SearchRuns,
+    SearchSessionsV3,
     SearchTraces,
     SearchTracesV3,
     SetTraceTag,
@@ -189,6 +190,7 @@ from mlflow.server.handlers import (
     _search_model_versions,
     _search_registered_models,
     _search_runs,
+    _search_sessions_v3,
     _search_traces_v3,
     _set_dataset_tags_handler,
     _set_model_version_tag,
@@ -2448,6 +2450,33 @@ def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracki
     call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+def test_search_sessions_v3_handler(mock_get_request_message, mock_tracking_store):
+    search_sessions_proto = SearchSessionsV3()
+    location = TraceLocation()
+    location.mlflow_experiment.experiment_id = "1"
+    search_sessions_proto.locations.append(location)
+    search_sessions_proto.max_results = 10
+    search_sessions_proto.filter = "tag.fruit = 'apple'"
+    search_sessions_proto.order_by.append("timestamp_ms DESC")
+
+    # Proto default page_token is empty string; the handler must translate that
+    # to None before calling the store.
+    assert search_sessions_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_sessions_proto
+    mock_tracking_store.search_sessions.return_value = ([], None)
+
+    _search_sessions_v3()
+
+    mock_tracking_store.search_sessions.assert_called_once()
+    call_kwargs = mock_tracking_store.search_sessions.call_args.kwargs
+    assert call_kwargs.get("locations") == ["1"]
+    assert call_kwargs.get("filter_string") == "tag.fruit = 'apple'"
+    assert call_kwargs.get("max_results") == 10
+    assert list(call_kwargs.get("order_by")) == ["timestamp_ms DESC"]
+    assert call_kwargs.get("page_token") is None
 
 
 def test_deprecated_search_traces_v2_empty_page_token(
