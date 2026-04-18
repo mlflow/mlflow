@@ -45,7 +45,6 @@ class DisableComment:
 
 
 def parse_comments(code: str) -> tuple[list[DisableComment], list[Noqa]]:
-    """Tokenize code once and return all `# clint: disable=` and `# noqa:` comments."""
     disables: list[DisableComment] = []
     noqas: list[Noqa] = []
     for token in iter_comments(code):
