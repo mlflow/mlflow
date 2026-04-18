@@ -21,6 +21,10 @@ PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
 DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable(-next)?=([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)")
 MARKDOWN_LINK_RE = re.compile(r"\[.+\]\(.+\)")
+# Pre-screen used to skip Python tokenization when no suppression markers are present anywhere in
+# the source. False positives (matches inside string literals) are acceptable — they only cause a
+# fallthrough to the accurate tokenizer-based path.
+_COMMENT_MARKER_PRESCREEN = re.compile(r"clint:\s*disable|noqa\s*:", re.IGNORECASE)
 
 
 @dataclass
@@ -47,6 +51,10 @@ class DisableComment:
 def parse_comments(code: str) -> tuple[list[DisableComment], list[Noqa]]:
     disables: list[DisableComment] = []
     noqas: list[Noqa] = []
+    # Fast path: most files contain no suppression markers. A cheap regex scan over the raw source
+    # avoids the expensive Python tokenizer in that common case.
+    if not _COMMENT_MARKER_PRESCREEN.search(code):
+        return disables, noqas
     for token in iter_comments(code):
         disables.extend(DisableComment.from_token(token))
         if noqa := Noqa.from_token(token):
