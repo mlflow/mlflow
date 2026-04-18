@@ -192,6 +192,8 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     }
     # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
     span.outputs.pop("container", None)
+    # Remove 'stop_details' key added in anthropic v0.88.0
+    span.outputs.pop("stop_details", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -381,6 +383,8 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     }
     # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
     span.outputs.pop("container", None)
+    # Remove 'stop_details' key added in anthropic v0.88.0
+    span.outputs.pop("stop_details", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
