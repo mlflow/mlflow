@@ -70,7 +70,10 @@ module.exports = async ({ github, context, core }) => {
     pull_number: context.issue.number,
   });
   const maintainerApproved = reviews.some(
-    ({ state, user: { login } }) => state === "APPROVED" && maintainers.includes(login)
+    ({ state, user }) =>
+      state === "APPROVED" &&
+      (maintainers.includes(user.login) ||
+        (user.type.toLowerCase() === "bot" && user.login === "mlflow-app[bot]"))
   );
 
   const { pull_request: pr } = context.payload;
