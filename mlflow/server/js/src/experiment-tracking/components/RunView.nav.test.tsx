@@ -88,7 +88,7 @@ describe('RunView navigation integration test', () => {
       expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('link', { name: 'Model metrics' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Model metrics' }));
     await waitFor(() => {
       expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
       expect(screen.queryByText('model metric charts')).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe('RunView navigation integration test', () => {
       expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('link', { name: 'System metrics' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'System metrics' }));
     await waitFor(() => {
       expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
       expect(screen.queryByText('model metric charts')).not.toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('RunView navigation integration test', () => {
       expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('link', { name: 'Artifacts' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Artifacts' }));
     await waitFor(() => {
       expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
       expect(screen.queryByText('model metrics')).not.toBeInTheDocument();

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { CheckCircleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import {
@@ -157,7 +157,6 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
   );
 
   const hasData = timeSeriesChartData.length > 0 || distributionChartData.length > 0;
-  const reversedDistributionData = useMemo(() => [...distributionChartData].reverse(), [distributionChartData]);
 
   if (!hasData) {
     return (
@@ -191,7 +190,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
           }
         >
           <BarChart
-            data={reversedDistributionData}
+            data={distributionChartData}
             layout="vertical"
             barCategoryGap="28%"
             margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
@@ -210,7 +209,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
             />
             <Legend {...scrollableLegendProps} />
             <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]}>
-              {reversedDistributionData.map((entry) => (
+              {distributionChartData.map((entry) => (
                 // eslint-disable-next-line import/no-deprecated
                 <Cell key={entry.name} fill={getBarColor(entry.name)} />
               ))}

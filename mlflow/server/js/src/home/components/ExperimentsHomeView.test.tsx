@@ -5,7 +5,6 @@ import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/
 import type { ExperimentEntity } from '../../experiment-tracking/types';
 import { ExperimentsHomeView } from './ExperimentsHomeView';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { beforeEach } from '@jest/globals';
 
 const mockShowEditExperimentTagsModal = jest.fn();
 

@@ -118,6 +118,14 @@ describe('TraceTokenUsageChart', () => {
         if (metricNames.includes(TraceMetricKey.INPUT_TOKENS) && metricNames.includes(TraceMetricKey.OUTPUT_TOKENS)) {
           return res(ctx.json({ data_points: [...inputDataPoints, ...outputDataPoints] }));
         }
+        // Cache read tokens (metricName may be auto-promoted to metric_names when batching is enabled)
+        if (metricName === TraceMetricKey.CACHE_READ_INPUT_TOKENS || metricNames.includes(TraceMetricKey.CACHE_READ_INPUT_TOKENS)) {
+          return res(ctx.json({ data_points: cacheReadDataPoints }));
+        }
+        // Cache creation tokens (metricName may be auto-promoted to metric_names when batching is enabled)
+        if (metricName === TraceMetricKey.CACHE_CREATION_INPUT_TOKENS || metricNames.includes(TraceMetricKey.CACHE_CREATION_INPUT_TOKENS)) {
+          return res(ctx.json({ data_points: cacheCreationDataPoints }));
+        }
         // Single-metric queries (non-batched path or total_tokens)
         if (metricName === TraceMetricKey.INPUT_TOKENS || metricNames.includes(TraceMetricKey.INPUT_TOKENS)) {
           return res(ctx.json({ data_points: inputDataPoints }));
@@ -127,10 +135,6 @@ describe('TraceTokenUsageChart', () => {
         }
         if (metricName === TraceMetricKey.TOTAL_TOKENS || metricNames.includes(TraceMetricKey.TOTAL_TOKENS)) {
           return res(ctx.json({ data_points: totalDataPoints }));
-        } else if (metricName === TraceMetricKey.CACHE_READ_INPUT_TOKENS) {
-          return res(ctx.json({ data_points: cacheReadDataPoints }));
-        } else if (metricName === TraceMetricKey.CACHE_CREATION_INPUT_TOKENS) {
-          return res(ctx.json({ data_points: cacheCreationDataPoints }));
         }
         return res(ctx.json({ data_points: [] }));
       }),
@@ -599,7 +603,7 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('composed-chart')).toBeInTheDocument();
       });
 
       // Verify total tokens displays correctly

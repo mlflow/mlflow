@@ -165,7 +165,7 @@ const TracesV3LogsImpl = React.memo(
     );
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
-    const enableTraceInsights = shouldEnableTraceInsights();
+    const enableTraceInsights = false;
     const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
 

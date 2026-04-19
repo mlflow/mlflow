@@ -21,6 +21,7 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
 
 // Mock FeatureUtils
 jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableIssueDetection: jest.fn(),
 }));
 
