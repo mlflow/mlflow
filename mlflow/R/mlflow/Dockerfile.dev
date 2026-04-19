@@ -20,4 +20,8 @@ RUN TEMP_DEB=$(mktemp) && \
 COPY DESCRIPTION .
 COPY .install-deps.R .
 COPY .Rprofile .
+# `fs` >= 2.0.0 dynamically links against system libuv on Linux when the
+# headers are present, but this image doesn't ship `libuv.so.1` at runtime.
+# Force `fs` to bundle libuv statically (its documented escape hatch).
+ENV USE_BUNDLED_LIBUV=1
 RUN Rscript -e 'source(".install-deps.R", echo = TRUE)'
