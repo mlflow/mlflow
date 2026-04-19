@@ -44,7 +44,6 @@ const createCacheCreationTokensDataPoint = (timeBucket: string, sum: number) => 
   values: { [AggregationType.SUM]: sum },
 });
 
-
 // Helper to create a total tokens data point (no time bucket).
 // Includes both SUM and AVG to match the combined aggregations query.
 const createTotalTokensDataPoint = (sum: number) => ({

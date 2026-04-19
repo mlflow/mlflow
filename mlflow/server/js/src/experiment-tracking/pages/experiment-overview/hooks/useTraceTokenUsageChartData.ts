@@ -96,7 +96,6 @@ export function useTraceTokenUsageChartData({
     enabled,
   });
 
-
   // Fetch total tokens (without time bucketing) for the header.
   // Uses [SUM, AVG] so React Query deduplicates with the identical call
   // in useTraceTokenStatsChartData.

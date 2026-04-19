@@ -46,7 +46,6 @@ jest.mock('../../hooks/useExperimentQuery', () => ({
   useGetExperimentQuery: (params: any) => mockUseGetExperimentQuery(params),
 }));
 
-
 const mockFetchOrFail = jest.mocked(fetchOrFail);
 const mockShouldEnableIssueDetection = jest.mocked(shouldEnableIssueDetection);
 

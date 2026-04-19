@@ -87,7 +87,6 @@ jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
   useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
 }));
 
-
 jest.mock('../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal', () => ({
   ExportTracesToDatasetModal: jest.fn(() => null),
 }));

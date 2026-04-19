@@ -19,7 +19,6 @@ import {
 } from '../../model-trace-explorer/constants';
 import { isFeedbackAssessment } from '../../model-trace-explorer/assessments-pane/utils';
 
-
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { StackedComponents } from './StackedComponents';

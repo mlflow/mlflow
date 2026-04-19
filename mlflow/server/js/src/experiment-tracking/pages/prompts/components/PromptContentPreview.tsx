@@ -366,7 +366,6 @@ def run_prompt(${variables.map((name) => `${name}`).join(', ')}):
     return response.choices[0].message.content
 
 print(run_prompt(${variables.map((name) => `${name}="<${name}>"`).join(', ')}))`;
-
   } else {
     codeSnippetContent += `
 

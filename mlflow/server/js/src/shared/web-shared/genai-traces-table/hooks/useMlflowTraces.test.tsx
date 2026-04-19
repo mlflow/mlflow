@@ -2104,7 +2104,6 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toBe('tags.`my.tag` IS NULL');
   });
 
-
   test('creates correct filter string for session ID equals', () => {
     const networkFilters = [
       {
