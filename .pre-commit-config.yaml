@@ -197,31 +197,12 @@ repos:
 
       - id: typos
         name: typos
-        entry: |
-          bash -c '
-            # In CI, walk the repo so typos can parallelize internally (it runs
-            # single threaded when given an explicit file list). Locally, walking
-            # the whole repo on every commit is slow, so pass the changed files.
-            if [ -n "$CI" ]; then
-              status=0
-              out=$(bin/typos --format brief --force-exclude --color never .) || status=$?
-              if [ "$status" -ne 0 ] && [ "$status" -ne 2 ]; then
-                printf "%s\n" "$out" >&2
-                exit "$status"
-              fi
-              filtered=$(printf "%s\n" "$out" | grep -E "\.(py|mdx?):")
-              if [ -n "$filtered" ]; then
-                printf "%s\n" "$filtered"
-                exit 1
-              fi
-            else
-              bin/typos --format brief --force-exclude --color never "$@"
-            fi
-          ' --
+        entry: bin/typos --format brief --force-exclude --color never
         files: '\.(py$|mdx?$)'
         language: system
         stages: [pre-commit]
         require_serial: true
+        pass_filenames: false
 
       - id: conftest
         name: conftest
