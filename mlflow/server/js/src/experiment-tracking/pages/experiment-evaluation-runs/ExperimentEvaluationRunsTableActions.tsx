@@ -1,4 +1,5 @@
 import { Button, ChevronDownIcon, DropdownMenu, Modal } from '@databricks/design-system';
+import { useIntl } from '@databricks/i18n';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -24,6 +25,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   enableImprovedComparison?: boolean;
   setIsComparisonMode?: (isComparisonMode: boolean) => void;
 }) => {
+  const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const selectedRunUuids = useMemo(

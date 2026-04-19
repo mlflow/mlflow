@@ -21,7 +21,11 @@ import {
 import { useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
-export const TraceErrorsChart: React.FC = () => {
+interface TraceErrorsChartProps {
+  enableTraceNavigation?: boolean;
+}
+
+export const TraceErrorsChart: React.FC<TraceErrorsChartProps> = ({ enableTraceNavigation = true }) => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
@@ -88,10 +92,14 @@ export const TraceErrorsChart: React.FC = () => {
                 content={
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
-                    componentId="mlflow.overview.usage.errors.view_traces_link"
-                    linkConfig={{
-                      onLinkClick: handleViewTraces,
-                    }}
+                    linkConfig={
+                      enableTraceNavigation
+                        ? {
+                            componentId: 'mlflow.overview.usage.errors.view_traces_link',
+                            onLinkClick: handleViewTraces,
+                          }
+                        : undefined
+                    }
                   />
                 }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}

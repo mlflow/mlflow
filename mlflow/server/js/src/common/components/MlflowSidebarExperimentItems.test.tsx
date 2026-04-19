@@ -1,3 +1,4 @@
+/* eslint-disable jest/no-standalone-expect */
 import { describe, jest, test, expect, beforeEach } from '@jest/globals';
 import { screen } from '@testing-library/react';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';

@@ -70,7 +70,6 @@ jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
   ),
   shouldEnableTagGrouping: jest.fn().mockReturnValue(true),
 }));
-
 jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
   MlflowService: {
     getExperimentTraceInfoV3: jest.fn(),
@@ -87,6 +86,7 @@ jest.mock('./TracesV3EmptyState', () => ({
 jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
   useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
 }));
+
 
 jest.mock('../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal', () => ({
   ExportTracesToDatasetModal: jest.fn(() => null),

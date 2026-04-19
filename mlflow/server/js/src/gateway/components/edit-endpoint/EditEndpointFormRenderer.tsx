@@ -364,6 +364,91 @@ export const EditEndpointFormRenderer = ({
                     provider={getStarterCodeProvider(endpoint.model_mappings)}
                   />
                 )}
+
+                <div
+                  css={{
+                    padding: theme.spacing.md,
+                    border: `1px solid ${theme.colors.border}`,
+                    borderRadius: theme.borders.borderRadiusMd,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                  }}
+                >
+                  <Typography.Title level={3}>
+                    <FormattedMessage
+                      defaultMessage="Priority 2 (Fallback)"
+                      description="Section title for fallback models"
+                    />
+                  </Typography.Title>
+                  <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+                    <FormattedMessage
+                      defaultMessage="Models in this priority will be tested second, after models in Priority 1 have failed. Models will be attempted in order from top to bottom."
+                      description="Fallback models description"
+                    />
+                  </Typography.Text>
+
+                  <div css={{ marginTop: theme.spacing.lg }}>
+                    <Controller
+                      control={form.control}
+                      name="fallbackModels"
+                      render={({ field }) => (
+                        <FallbackModelsConfigurator
+                          value={field.value}
+                          onChange={field.onChange}
+                          componentIdPrefix="mlflow.gateway.edit-endpoint.fallback"
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* Usage Tracking section with experiment selector */}
+                <div
+                  css={{
+                    padding: theme.spacing.md,
+                    border: `1px solid ${theme.colors.border}`,
+                    borderRadius: theme.borders.borderRadiusMd,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                  }}
+                >
+                  <Typography.Title level={3}>
+                    <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
+                  </Typography.Title>
+
+                  <div css={{ marginTop: theme.spacing.md }}>
+                    <Controller
+                      control={form.control}
+                      name="usageTracking"
+                      render={({ field }) => (
+                        <UsageTrackingConfigurator
+                          componentId="mlflow.gateway.edit-endpoint.usage-tracking.toggle"
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* Rate Limiting placeholder */}
+                <div
+                  css={{
+                    padding: theme.spacing.md,
+                    border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                    borderRadius: theme.borders.borderRadiusMd,
+                    backgroundColor: theme.colors.backgroundPrimary,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography.Text bold>
+                    <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
+                  </Typography.Text>
+                  <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                    <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+                  </Typography.Text>
+                </div>
               </div>
             </Tabs.Content>
 

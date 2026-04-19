@@ -20,7 +20,6 @@ interface EvaluationImageCellRendererProps extends ICellRendererParams {
 /**
  * Component used to render a single text cell in the evaluation artifacts comparison table.
  */
-/* eslint-disable complexity */
 export const EvaluationImageCellRenderer = ({ value }: EvaluationImageCellRendererProps) => {
   const { theme } = useDesignSystemTheme();
 

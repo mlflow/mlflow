@@ -1,4 +1,5 @@
-import { afterAll, afterEach, beforeAll, describe, expect, jest, test } from '@jest/globals';
+import { jest, describe, beforeAll, test, expect } from '@jest/globals';
+
 import { DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
@@ -14,6 +15,8 @@ import { ExperimentLoggedModelDetailsArtifacts } from './ExperimentLoggedModelDe
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { setActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { getWorkspacesEnabledSync } from '../../hooks/useServerInfo';
+import { afterAll } from '@jest/globals';
+import { afterEach } from '@jest/globals';
 
 jest.mock('../../hooks/useServerInfo', () => ({
   ...jest.requireActual<typeof import('../../hooks/useServerInfo')>('../../hooks/useServerInfo'),

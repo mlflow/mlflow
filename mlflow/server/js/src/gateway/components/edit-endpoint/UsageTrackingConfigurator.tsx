@@ -1,26 +1,20 @@
 import { Switch, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
-type ComponentIds = 'mlflow.gateway.edit-endpoint.usage-tracking' | 'mlflow.gateway.create-endpoint.usage-tracking';
-
 export interface UsageTrackingConfiguratorProps {
   value: boolean;
   onChange: (value: boolean) => void;
-  componentId?: ComponentIds;
+  componentId: string;
 }
 
-export const UsageTrackingConfigurator = ({
-  value,
-  onChange,
-  componentId = 'mlflow.gateway.edit-endpoint.usage-tracking',
-}: UsageTrackingConfiguratorProps) => {
+export const UsageTrackingConfigurator = ({ value, onChange, componentId }: UsageTrackingConfiguratorProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Switch
-          componentId={`${componentId}.toggle`}
+          componentId={componentId}
           checked={value}
           onChange={(checked) => onChange(checked)}
           aria-label="Enable usage tracking"

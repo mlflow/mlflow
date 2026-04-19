@@ -23,7 +23,6 @@ import {
   generatePath,
   Navigate,
   Route,
-  NavLink as NavLinkDirect,
   Outlet as OutletDirect,
   Link as LinkDirect,
   useNavigate as useNavigateDirect,
@@ -247,26 +246,7 @@ const useSearchParams = useSearchParamsDirect;
 
 const useParams = useParamsDirect;
 
-type UseNavigateOptions = {
-  bypassWorkspacePrefix?: boolean;
-};
-
-const useNavigate = (options: UseNavigateOptions = { bypassWorkspacePrefix: false }): NavigateFunction => {
-  const { bypassWorkspacePrefix } = options;
-  const navigate = useNavigateDirect();
-  const wrappedNavigate = useCallback(
-    (to: To | number, options?: NavigateOptions) => {
-      if (typeof to === 'number') {
-        navigate(to);
-        return;
-      }
-      navigate(bypassWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to), options);
-    },
-    [navigate, bypassWorkspacePrefix],
-  );
-
-  return wrappedNavigate as NavigateFunction;
-};
+const useNavigate = useNavigateDirect;
 
 const Outlet = OutletDirect;
 
@@ -294,22 +274,12 @@ const Link = React.forwardRef<
   return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
 });
 
-const NavLink = React.forwardRef<
-  HTMLAnchorElement,
-  ComponentProps<typeof NavLinkDirect> & { disableWorkspacePrefix?: boolean }
->(function NavLink(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
-  const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <NavLinkDirect ref={ref} to={finalTo} {...rest} />;
-});
-
 export {
   // React Router V6 API exports
   BrowserRouter,
   MemoryRouter,
   HashRouter,
   Link,
-  NavLink,
   useNavigate,
   useLocation,
   useParams,

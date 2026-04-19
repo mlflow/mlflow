@@ -195,9 +195,11 @@ const WorkspaceAwareRootRoute = ({ workspacesEnabled }: { workspacesEnabled: boo
 );
 
 export const MlflowRouter = () => {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { workspacesEnabled, loading: featuresLoading } = useWorkspacesEnabled();
 
   // Routes are the same regardless of workspace mode - workspace context comes from query param
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const routes = useMemo<MlflowRouteDef[]>(
     () => [
       ...getExperimentTrackingRouteDefs(),
@@ -208,6 +210,7 @@ export const MlflowRouter = () => {
     [],
   );
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const hashRouter = useMemo(
     () =>
       // Don't create router while still loading features

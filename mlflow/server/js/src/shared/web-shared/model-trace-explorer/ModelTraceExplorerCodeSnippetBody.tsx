@@ -6,9 +6,9 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import type { SearchMatch } from './ModelTrace.types';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
+import { CollapsibleJsonViewer } from './CollapsibleJsonViewer';
 import { ModelTraceExplorerHighlightedCodeSnippet } from './ModelTraceExplorerHighlightedCodeSnippet';
 import { GenAIMarkdownRenderer } from '../genai-markdown-renderer/GenAIMarkdownRenderer';
-// eslint-disable-next-line import/no-deprecated
 import { CodeSnippet } from '../snippet/CodeSnippet';
 import { SnippetCopyAction } from '../snippet/actions/SnippetCopyAction';
 
@@ -16,6 +16,8 @@ const MAX_LINES_FOR_PREVIEW = 4;
 // the `isContentLong` check does not work for
 // markdown rendering, since the content is wrapped
 const MAX_CHARS_FOR_PREVIEW = 300;
+const JSON_PREVIEW_HEIGHT = 110;
+const TABLE_PREVIEW_HEIGHT = 130;
 
 export function ModelTraceExplorerCodeSnippetBody({
   data,
@@ -34,13 +36,13 @@ export function ModelTraceExplorerCodeSnippetBody({
 }) {
   const containsMatches = Boolean(searchFilter) && !isNil(activeMatch) && data.toLowerCase().includes(searchFilter);
   const { theme } = useDesignSystemTheme();
-  const [isContentLong, setIsContentLong] = useState(renderMode === 'json');
+  const [isContentLong, setIsContentLong] = useState(false);
   const [expanded, setExpanded] = useState(initialExpanded || containsMatches);
   const snippetRef = useRef<HTMLPreElement>(null);
   // if the data is rendered in text / markdown mode, then
   // we need to parse it so that the newlines are unescaped
   const dataToTruncate: string = useMemo(() => {
-    if (renderMode === 'json') {
+    if (renderMode === 'json' || renderMode === 'table') {
       return data;
     }
 
@@ -89,6 +91,69 @@ export function ModelTraceExplorerCodeSnippetBody({
     );
   }
 
+  if (renderMode === 'json' || renderMode === 'table') {
+    return (
+      <div css={{ position: 'relative' }}>
+        <SnippetCopyAction
+          key="copy-snippet"
+          componentId="shared.model-trace-explorer.copy-snippet"
+          copyText={data}
+          size="small"
+          css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs, zIndex: 1 }}
+        />
+        <div
+          css={{
+            maxHeight:
+              expandable && !expanded ? (renderMode === 'json' ? JSON_PREVIEW_HEIGHT : TABLE_PREVIEW_HEIGHT) : 'none',
+            overflow: expandable && !expanded ? 'hidden' : 'visible',
+            position: 'relative',
+          }}
+        >
+          <CollapsibleJsonViewer data={data} initialExpanded renderMode={renderMode} />
+          {expandable && !expanded && (
+            <div
+              css={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '40px',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+        </div>
+        {expandable && (
+          <div css={{ backgroundColor: theme.colors.backgroundSecondary }}>
+            <Button
+              css={{ width: '100%', padding: 0 }}
+              componentId={
+                expanded
+                  ? 'shared.model-trace-explorer.snippet-see-less'
+                  : 'shared.model-trace-explorer.snippet-see-more'
+              }
+              icon={expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+              type="tertiary"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? (
+                <FormattedMessage
+                  defaultMessage="See less"
+                  description="Model trace explorer > selected span > code snippet > see less button"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="See more"
+                  description="Model trace explorer > selected span > code snippet > see more button"
+                />
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div css={{ position: 'relative' }}>
       {renderMode === 'markdown' ? (
@@ -110,7 +175,7 @@ export function ModelTraceExplorerCodeSnippetBody({
             size="small"
             css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs, zIndex: 1 }}
           />
-          {/* eslint-disable-next-line import/no-deprecated */}
+          {}
           <CodeSnippet
             PreTag={PreWithRef}
             showLineNumbers
