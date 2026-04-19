@@ -119,11 +119,17 @@ describe('TraceTokenUsageChart', () => {
           return res(ctx.json({ data_points: [...inputDataPoints, ...outputDataPoints] }));
         }
         // Cache read tokens (metricName may be auto-promoted to metric_names when batching is enabled)
-        if (metricName === TraceMetricKey.CACHE_READ_INPUT_TOKENS || metricNames.includes(TraceMetricKey.CACHE_READ_INPUT_TOKENS)) {
+        if (
+          metricName === TraceMetricKey.CACHE_READ_INPUT_TOKENS ||
+          metricNames.includes(TraceMetricKey.CACHE_READ_INPUT_TOKENS)
+        ) {
           return res(ctx.json({ data_points: cacheReadDataPoints }));
         }
         // Cache creation tokens (metricName may be auto-promoted to metric_names when batching is enabled)
-        if (metricName === TraceMetricKey.CACHE_CREATION_INPUT_TOKENS || metricNames.includes(TraceMetricKey.CACHE_CREATION_INPUT_TOKENS)) {
+        if (
+          metricName === TraceMetricKey.CACHE_CREATION_INPUT_TOKENS ||
+          metricNames.includes(TraceMetricKey.CACHE_CREATION_INPUT_TOKENS)
+        ) {
           return res(ctx.json({ data_points: cacheCreationDataPoints }));
         }
         // Single-metric queries (non-batched path or total_tokens)
