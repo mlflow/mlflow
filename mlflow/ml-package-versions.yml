@@ -641,6 +641,10 @@ langchain:
           # required for testing legacy modules
           "langchain-classic",
         ]
+      # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain == 1.0.*`
+      # pins `langgraph < 1.1.0`, so hold `langgraph-prebuilt` back to a compatible version.
+      "== 1.0.*": ["langgraph-prebuilt<1.0.9"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
@@ -670,6 +674,10 @@ langchain:
           "langchain-openai>=0.2.0",
         ]
       ">= 1.0.0": ["langchain-classic"]
+      # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain == 1.0.*`
+      # pins `langgraph < 1.1.0`, so hold `langgraph-prebuilt` back to a compatible version.
+      "== 1.0.*": ["langgraph-prebuilt<1.0.9"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
@@ -703,6 +711,9 @@ langgraph:
       ">= 0.3.0": ["langgraph-prebuilt"]
       # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
       "== 0.4.*": ["langgraph-prebuilt<0.5"]
+      # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`.
+      "< 1.1.5": ["langgraph-prebuilt<1.0.9"]
     run: |
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
@@ -720,6 +731,9 @@ langgraph:
       ">= 0.3.0": ["langgraph-prebuilt"]
       # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
       "== 0.4.*": ["langgraph-prebuilt<0.5"]
+      # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`.
+      "< 1.1.5": ["langgraph-prebuilt<1.0.9"]
     run: |
       pytest tests/langgraph/test_langgraph_autolog.py
     test_tracing_sdk: true
