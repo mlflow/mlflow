@@ -226,7 +226,10 @@ describe('useGetTrace', () => {
       };
 
       const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithExtraSpans);
-      const { result } = renderHook(() => useGetTrace(mockGetTrace, traceWithExtraSpans.info, true), { wrapper });
+      const { result } = renderHook(
+        () => useGetTrace({ getTrace: mockGetTrace, traceInfo: traceWithExtraSpans.info, enablePolling: true }),
+        { wrapper },
+      );
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);

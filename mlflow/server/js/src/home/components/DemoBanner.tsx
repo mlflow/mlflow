@@ -5,9 +5,8 @@ import { useNavigate } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
 import { fetchAPI, getAjaxUrl } from '../../common/utils/FetchUtils';
 import { WorkflowType, useWorkflowType } from '../../common/contexts/WorkflowTypeContext';
-import { useLocalStorage } from '@databricks/web-shared/hooks';
 
-const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed';
+const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed_v0';
 
 export const DemoBanner = () => {
   const navigate = useNavigate();
