@@ -642,9 +642,9 @@ langchain:
           "langchain-classic",
         ]
       # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
-      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain == 1.0.*`
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain < 1.2`
       # pins `langgraph < 1.1.0`, so hold `langgraph-prebuilt` back to a compatible version.
-      "== 1.0.*": ["langgraph-prebuilt<1.0.9"]
+      "< 1.2": ["langgraph-prebuilt<1.0.9"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
@@ -675,9 +675,9 @@ langchain:
         ]
       ">= 1.0.0": ["langchain-classic"]
       # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
-      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain == 1.0.*`
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain < 1.2`
       # pins `langgraph < 1.1.0`, so hold `langgraph-prebuilt` back to a compatible version.
-      "== 1.0.*": ["langgraph-prebuilt<1.0.9"]
+      "< 1.2": ["langgraph-prebuilt<1.0.9"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
