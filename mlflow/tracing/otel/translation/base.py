@@ -25,6 +25,8 @@ class OtelSchemaTranslator:
     INPUT_TOKEN_KEY: str | None = None
     OUTPUT_TOKEN_KEY: str | None = None
     TOTAL_TOKEN_KEY: str | None = None
+    CACHE_READ_INPUT_TOKEN_KEY: str | None = None
+    CACHE_CREATION_INPUT_TOKEN_KEY: str | None = None
     INPUT_VALUE_KEYS: list[str] | None = None
     OUTPUT_VALUE_KEYS: list[str] | None = None
     MODEL_NAME_KEYS: list[str] | None = None
@@ -111,6 +113,32 @@ class OtelSchemaTranslator:
         """
         if self.TOTAL_TOKEN_KEY:
             return attributes.get(self.TOTAL_TOKEN_KEY)
+
+    def get_cache_read_input_tokens(self, attributes: dict[str, Any]) -> int | None:
+        """
+        Get cache-read input token count from OTEL attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Cache-read input token count or None if not found
+        """
+        if self.CACHE_READ_INPUT_TOKEN_KEY:
+            return attributes.get(self.CACHE_READ_INPUT_TOKEN_KEY)
+
+    def get_cache_creation_input_tokens(self, attributes: dict[str, Any]) -> int | None:
+        """
+        Get cache-creation input token count from OTEL attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Cache-creation input token count or None if not found
+        """
+        if self.CACHE_CREATION_INPUT_TOKEN_KEY:
+            return attributes.get(self.CACHE_CREATION_INPUT_TOKEN_KEY)
 
     def get_model_name(self, attributes: dict[str, Any]) -> str | None:
         """

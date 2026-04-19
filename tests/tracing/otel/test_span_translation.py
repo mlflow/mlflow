@@ -233,6 +233,122 @@ def test_translate_token_usage_edge_cases(
     assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
 
 
+def test_translate_token_usage_from_otel_genai_with_cache():
+    """GenAI cache tokens surface in mlflow.chat.tokenUsage when OTLP spans set them."""
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            GenAiTranslator.INPUT_TOKEN_KEY: 100,
+            GenAiTranslator.OUTPUT_TOKEN_KEY: 50,
+            GenAiTranslator.CACHE_READ_INPUT_TOKEN_KEY: 80,
+            GenAiTranslator.CACHE_CREATION_INPUT_TOKEN_KEY: 20,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    assert SpanAttributeKey.CHAT_USAGE in result["attributes"]
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 100
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 20
+
+
+def test_translate_token_usage_from_otel_genai_without_cache_unchanged():
+    """GenAI spans without cache attrs produce the legacy 3-key usage dict."""
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            GenAiTranslator.INPUT_TOKEN_KEY: 100,
+            GenAiTranslator.OUTPUT_TOKEN_KEY: 50,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 150,
+    }
+    assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
+
+
+def test_translate_token_usage_preserves_zero_values():
+    """Zero-valued tokens survive rather than being silently dropped.
+
+    Guards two bundled gate fixes: the pre-existing truthy check at
+    _get_token_usage that dropped the whole usage dict when any of
+    input/output/total was 0 (safety-filtered refusals, streaming fragments),
+    and the matching cache-field guard that dropped cache_read_input_tokens=0.
+    Both are addressed by `is not None` checks.
+    """
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            GenAiTranslator.INPUT_TOKEN_KEY: 0,
+            GenAiTranslator.OUTPUT_TOKEN_KEY: 20,
+            GenAiTranslator.CACHE_READ_INPUT_TOKEN_KEY: 0,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    assert SpanAttributeKey.CHAT_USAGE in result["attributes"]
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 0
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 20
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 20
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 0
+
+
+@pytest.mark.parametrize(
+    ("cache_read", "cache_creation"),
+    [
+        (80, None),
+        (None, 40),
+    ],
+)
+def test_translate_token_usage_handles_partial_cache_fields(
+    cache_read: int | None, cache_creation: int | None
+):
+    """Cache fields are independent — either one may appear without the other."""
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    attributes = {
+        GenAiTranslator.INPUT_TOKEN_KEY: 100,
+        GenAiTranslator.OUTPUT_TOKEN_KEY: 50,
+    }
+    if cache_read is not None:
+        attributes[GenAiTranslator.CACHE_READ_INPUT_TOKEN_KEY] = cache_read
+    if cache_creation is not None:
+        attributes[GenAiTranslator.CACHE_CREATION_INPUT_TOKEN_KEY] = cache_creation
+    span_dict = {"attributes": attributes}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    if cache_read is not None:
+        assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == cache_read
+    else:
+        assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage
+    if cache_creation is not None:
+        assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == cache_creation
+    else:
+        assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
+
+
 @pytest.mark.parametrize(
     "translator",
     [

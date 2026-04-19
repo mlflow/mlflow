@@ -173,7 +173,7 @@ def _parse_int_attribute(value: Any) -> int | None:
     return None
 
 
-def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
+def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any] | None:
     """
     Get token usage from various OTEL semantic conventions.
     """
@@ -182,16 +182,31 @@ def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
         output_tokens = _parse_int_attribute(translator.get_output_tokens(attributes))
         total_tokens = _parse_int_attribute(translator.get_total_tokens(attributes))
 
-        # Calculate total tokens if not provided but input/output are available
-        if input_tokens and output_tokens and (total_tokens is None):
+        # Derive total_tokens when the semantic convention does not surface it
+        # (OTel GenAI, for example, defines input and output but not total).
+        if input_tokens is not None and output_tokens is not None and total_tokens is None:
             total_tokens = input_tokens + output_tokens
 
-        if input_tokens and output_tokens and total_tokens:
-            return {
+        # Zero is a legitimate value (safety-filtered prompts, streaming fragments,
+        # cache-only responses). Use `is not None` rather than truthy checks so zero-
+        # valued tokens still produce a usage dict. `total_tokens` is guaranteed to
+        # be populated by the derivation above whenever input and output are set.
+        if input_tokens is not None and output_tokens is not None:
+            usage = {
                 TokenUsageKey.INPUT_TOKENS: input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: output_tokens,
                 TokenUsageKey.TOTAL_TOKENS: total_tokens,
             }
+            cache_read = _parse_int_attribute(translator.get_cache_read_input_tokens(attributes))
+            cache_creation = _parse_int_attribute(
+                translator.get_cache_creation_input_tokens(attributes)
+            )
+            if cache_read is not None:
+                usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+            if cache_creation is not None:
+                usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+            return usage
+    return None
 
 
 def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | None = None) -> Any:

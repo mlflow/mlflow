@@ -677,6 +677,36 @@ def test_builtin_cost_fallback_with_cache_tokens():
     assert result["input_cost"] == pytest.approx(0.00225)
 
 
+def test_cost_applies_cache_discount_when_cache_read_present():
+    """Cost calculator applies the cache-read discount: given identical
+    input/output token counts, a usage dict that includes
+    cache_read_input_tokens yields a strictly lower input_cost (and total_cost)
+    than one without. Output cost is unaffected.
+    """
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        uncached = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {
+                TokenUsageKey.INPUT_TOKENS: 1000,
+                TokenUsageKey.OUTPUT_TOKENS: 500,
+            },
+        )
+        cached = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {
+                TokenUsageKey.INPUT_TOKENS: 1000,
+                TokenUsageKey.OUTPUT_TOKENS: 500,
+                TokenUsageKey.CACHE_READ_INPUT_TOKENS: 500,
+            },
+        )
+    assert uncached is not None
+    assert cached is not None
+    assert cached["input_cost"] < uncached["input_cost"]
+    assert cached["total_cost"] < uncached["total_cost"]
+    # Discount applies to input only; output cost is unchanged.
+    assert cached["output_cost"] == uncached["output_cost"]
+
+
 def test_builtin_cost_fallback_with_provider():
     with mock.patch.dict("sys.modules", {"litellm": None}):
         result = calculate_cost_by_model_and_token_usage(
