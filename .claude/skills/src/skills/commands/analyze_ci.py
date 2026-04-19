@@ -14,7 +14,6 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
-import tiktoken
 from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
@@ -26,6 +25,7 @@ from claude_agent_sdk import (
 from skills.github import GitHubClient, Job, JobStep, get_github_token
 
 MAX_LOG_TOKENS = 100_000
+CHARS_PER_TOKEN = 2
 
 
 @dataclass
@@ -111,21 +111,17 @@ async def compact_logs(lines: AsyncIterator[str]) -> str:
             result.append(line)
 
     logs = "\n".join(result)
-    tokens = tiktoken.get_encoding("p50k_base").encode(logs)
-    log(f"Compacted logs: {len(tokens):,} tokens")
+    log(f"Compacted logs: {len(logs) // CHARS_PER_TOKEN:,} tokens")
     return logs
 
 
 def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
     """Truncate logs to fit within token limit, keeping the end (where errors are)."""
-    # Note: tiktoken token count is an estimation and may differ slightly from
-    # the official token count API
-    tokenizer = tiktoken.get_encoding("p50k_base")
-    tokens = tokenizer.encode(logs)
-    if len(tokens) <= max_tokens:
+    estimated_tokens = len(logs) // CHARS_PER_TOKEN
+    if estimated_tokens <= max_tokens:
         return logs
-    log(f"Truncating logs from {len(tokens):,} to {max_tokens:,} tokens")
-    truncated = tokenizer.decode(tokens[-max_tokens:])
+    log(f"Truncating logs from {estimated_tokens:,} to {max_tokens:,} tokens")
+    truncated = logs[-(max_tokens * CHARS_PER_TOKEN) :]
     return f"(showing last {max_tokens:,} tokens)\n{truncated}"
 
 
