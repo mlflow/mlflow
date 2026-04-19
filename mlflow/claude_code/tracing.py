@@ -383,6 +383,31 @@ def _get_input_messages(transcript: list[dict[str, Any]], current_idx: int) -> l
     return messages
 
 
+def _build_usage_dict(usage: dict[str, Any]) -> dict[str, int]:
+    """Normalize a Claude Code usage payload into the CHAT_USAGE schema.
+
+    Stores fields as the Anthropic API reports them, matching
+    ``mlflow.anthropic.autolog``: ``input_tokens`` is the non-cached input,
+    cache tokens are exposed as separate optional keys so consumers can
+    compute cache hit rate, and ``total_tokens`` follows the
+    ``mlflow.anthropic`` convention of ``input_tokens + output_tokens``
+    (cache tokens excluded).
+    """
+    input_tokens = usage.get("input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+
+    usage_dict: dict[str, int] = {
+        TokenUsageKey.INPUT_TOKENS: input_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+    }
+    if (cached := usage.get("cache_read_input_tokens")) is not None:
+        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+    if (created := usage.get("cache_creation_input_tokens")) is not None:
+        usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+    return usage_dict
+
+
 def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     """Set token usage on a span using the standardized CHAT_USAGE attribute.
 
@@ -393,18 +418,7 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     if not usage:
         return
 
-    # Include cache_creation_input_tokens (similar cost to input tokens) but not
-    # cache_read_input_tokens (much cheaper, would inflate cost estimates)
-    input_tokens = usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)
-    output_tokens = usage.get("output_tokens", 0)
-
-    usage_dict = {
-        TokenUsageKey.INPUT_TOKENS: input_tokens,
-        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
-    }
-
-    span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+    span.set_attribute(SpanAttributeKey.CHAT_USAGE, _build_usage_dict(usage))
 
 
 def _create_llm_and_tool_spans(
@@ -517,15 +531,7 @@ def _finalize_trace(
             # Set token usage directly on trace metadata so it survives
             # even if span-level aggregation doesn't pick it up
             if usage:
-                input_tokens = usage.get("input_tokens", 0) + usage.get(
-                    "cache_creation_input_tokens", 0
-                )
-                output_tokens = usage.get("output_tokens", 0)
-                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps({
-                    TokenUsageKey.INPUT_TOKENS: input_tokens,
-                    TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-                    TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
-                })
+                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(_build_usage_dict(usage))
 
             in_memory_trace.info.trace_metadata = {
                 **in_memory_trace.info.trace_metadata,
