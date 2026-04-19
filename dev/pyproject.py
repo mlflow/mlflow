@@ -380,6 +380,7 @@ def build(package_type: PackageType) -> None:
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "kubernetes": ["kubernetes"],
                 "langchain": langchain_requirements,
+                "opensearch": ["opensearch-py>=2.4.0"],
                 "auth": ["Flask-WTF<2"],
             }
             # Tracing SDK does not support extras
@@ -408,6 +409,14 @@ def build(package_type: PackageType) -> None:
                     "http": "mlflow.deployments.mlflow",
                     "https": "mlflow.deployments.mlflow",
                     "openai": "mlflow.deployments.openai",
+                },
+                "mlflow.tracking_store": {
+                    "opensearch": (
+                        "mlflow.store.tracking.opensearch_store:OpenSearchTrackingStore"
+                    ),
+                    "opensearch+https": (
+                        "mlflow.store.tracking.opensearch_store:OpenSearchTrackingStore"
+                    ),
                 },
             }
             if package_type != PackageType.TRACING

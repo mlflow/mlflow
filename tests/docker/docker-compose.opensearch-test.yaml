@@ -1,0 +1,44 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    container_name: mlflow-opensearch-test
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=M1flow_OpenSearch!
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    expose:
+      - 9200
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'curl -s http://localhost:9200/_cluster/health | grep -qE ''"status":"(green|yellow)"''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  mlflow:
+    container_name: mlflow-opensearch-test-server
+    image: mlflow-integration-test
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.full.dev
+    command: >
+      mlflow server
+        --backend-store-uri=opensearch://opensearch:9200
+        --host=0.0.0.0
+        --port=5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      opensearch:
+        condition: service_healthy
