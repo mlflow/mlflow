@@ -197,7 +197,22 @@ repos:
 
       - id: typos
         name: typos
-        entry: bin/typos --format brief --force-exclude --color never
+        entry: |
+          bash -c '
+            # In CI, walk the repo so typos can parallelize internally (it runs
+            # single threaded when given an explicit file list). Locally, walking
+            # the whole repo on every commit is slow, so pass the changed files.
+            if [ -n "$CI" ]; then
+              out=$(bin/typos --format brief --force-exclude --color never .)
+              filtered=$(printf "%s\n" "$out" | grep -E "\.(py|mdx?):")
+              if [ -n "$filtered" ]; then
+                printf "%s\n" "$filtered"
+                exit 1
+              fi
+            else
+              bin/typos --format brief --force-exclude --color never "$@"
+            fi
+          ' --
         files: '\.(py$|mdx?$)'
         language: system
         stages: [pre-commit]
