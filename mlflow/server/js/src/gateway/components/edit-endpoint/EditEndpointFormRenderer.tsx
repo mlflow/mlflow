@@ -30,6 +30,7 @@ import { TracesV3Logs } from '../../../experiment-tracking/components/experiment
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+import { UsageTrackingConfigurator } from './UsageTrackingConfigurator';
 
 /**
  * Returns the provider string to pass to StarterCodeCard.

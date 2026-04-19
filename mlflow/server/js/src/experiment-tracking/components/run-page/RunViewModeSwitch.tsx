@@ -117,6 +117,9 @@ export const RunViewModeSwitch = ({
     },
   ];
 
+  const removeTabMargin = TABS_WITHOUT_MARGIN.includes(currentTab as RunPageTabName);
+
+  const onTabChanged = (newTabKey: RunPageTabName) => {
     const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
     const withSearchParams = (route: string) => (timeRangeSearch ? `${route}${timeRangeSearch}` : route);
 

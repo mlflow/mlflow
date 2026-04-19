@@ -1,7 +1,7 @@
 import { uniqBy } from 'lodash';
 import { useMemo } from 'react';
 
-import { Button, CloseIcon, Spacer, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, CloseIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ASSESSMENT_PANE_MIN_WIDTH } from './AssessmentsPane.utils';

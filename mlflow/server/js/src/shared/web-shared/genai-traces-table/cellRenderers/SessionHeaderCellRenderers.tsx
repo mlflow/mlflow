@@ -28,6 +28,7 @@ import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { RunColorCircle } from '../components/RunColorCircle';
 import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
+import { ExecutionDurationTag } from './ExecutionDurationTag';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
