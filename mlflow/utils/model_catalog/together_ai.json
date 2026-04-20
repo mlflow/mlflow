@@ -441,7 +441,9 @@
     "openai/gpt-oss-120b": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000
+        "max_input": 131072,
+        "max_output": 131072,
+        "max_tokens": 131072
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -450,7 +452,7 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       }

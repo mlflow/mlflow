@@ -105,13 +105,16 @@ export const IssueDetectionModelSelection = forwardRef<
   const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>();
   const [hasInitializedMode, setHasInitializedMode] = useState(false);
 
-  // Set initial mode based on whether endpoints are available
+  // Set initial mode based on whether endpoints are available, and auto-select first endpoint
   useEffect(() => {
     if (!isLoadingEndpoints && !hasInitializedMode) {
       setMode(hasEndpoints ? 'endpoint' : 'direct');
+      if (hasEndpoints && endpoints.length > 0) {
+        setSelectedEndpointName(endpoints[0].name);
+      }
       setHasInitializedMode(true);
     }
-  }, [isLoadingEndpoints, hasEndpoints, hasInitializedMode]);
+  }, [isLoadingEndpoints, hasEndpoints, hasInitializedMode, endpoints]);
 
   const [provider, setProvider] = useState(DEFAULT_PROVIDER);
   const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
@@ -169,18 +172,18 @@ export const IssueDetectionModelSelection = forwardRef<
     }
   }, []);
 
-  // Update API key mode to 'existing' when secrets become available for the selected provider
+  // Update API key mode to 'existing' and auto-select first secret when secrets become available
   useEffect(() => {
     if (provider && existingSecrets.length > 0) {
       setApiKeyConfig((prev) => {
         // Only update if currently in 'new' mode with no fields filled
         if (prev.mode === 'new' && Object.keys(prev.newSecret.secretFields).length === 0) {
-          return { ...prev, mode: 'existing' };
+          return { ...prev, mode: 'existing', existingSecretId: existingSecrets[0].secret_id };
         }
         return prev;
       });
     }
-  }, [provider, existingSecrets.length]);
+  }, [provider, existingSecrets]);
 
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);

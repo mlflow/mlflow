@@ -9231,10 +9231,6 @@
     "defaultMessage": "Evaluation criteria",
     "description": "Accordion section header for evaluation criteria (judge type, guidelines/instructions, and output type)"
   },
-  "trW0O+": {
-    "defaultMessage": "Back to providers",
-    "description": "Navigation back to main provider list"
-  },
   "tsYxhE": {
     "defaultMessage": "Search judges",
     "description": "Placeholder for scorer search input"
