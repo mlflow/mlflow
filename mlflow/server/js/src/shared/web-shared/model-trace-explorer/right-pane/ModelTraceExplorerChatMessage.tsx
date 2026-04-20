@@ -7,12 +7,14 @@ import {
   ChevronRightIcon,
   ChevronUpIcon,
   LightbulbIcon,
+  Modal,
   Spinner,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
 import {
   attachmentAwareUrlTransform,
   isAttachmentUri,
@@ -32,15 +34,47 @@ import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInput
 import { MARKDOWN_RENDER_SIZE_LIMIT } from '../constants';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
+function ClickToExpandImage({ src, alt }: { src: string; alt?: string }) {
+  const { theme } = useDesignSystemTheme();
+  const [previewVisible, setPreviewVisible] = useState(false);
+  return (
+    <>
+      <img
+        src={src}
+        alt={alt}
+        css={{
+          maxWidth: '100%',
+          maxHeight: 200,
+          cursor: 'pointer',
+          '&:hover': { boxShadow: `0 0 4px ${theme.colors.border}` },
+        }}
+        onClick={() => setPreviewVisible(true)}
+      />
+      <Modal
+        componentId="shared.model-trace-explorer.image-preview"
+        title=""
+        visible={previewVisible}
+        onCancel={() => setPreviewVisible(false)}
+        onOk={() => setPreviewVisible(false)}
+      >
+        <img src={src} alt={alt} css={{ maxWidth: '100%', maxHeight: '70vh', display: 'block' }} />
+      </Modal>
+    </>
+  );
+}
+
 function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
-  const { url, loading, error } = useAttachmentUrl(src ?? null);
+  const { url, contentLength, contentType, loading, error } = useAttachmentUrl(src ?? null);
   if (loading) {
     return <Spinner size="small" />;
   }
   if (error || !url) {
     return <span>{`[${alt ?? 'Failed to load image'}]`}</span>;
   }
-  return <img src={url} alt={alt} css={{ maxWidth: '100%' }} />;
+  if (contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return <DownloadLink url={url} contentType={contentType} contentLength={contentLength} />;
+  }
+  return <ClickToExpandImage src={url} alt={alt} />;
 }
 
 const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }) => {
@@ -58,6 +92,9 @@ const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }
       );
     }
     return <AttachmentImage src={src} alt={alt} />;
+  }
+  if (src) {
+    return <ClickToExpandImage src={src} alt={alt} />;
   }
   return <img src={src} alt={alt} css={{ maxWidth: '100%' }} />;
 };
@@ -211,7 +248,7 @@ function getAudioMimeType(format: string): string {
 }
 
 function AttachmentAudioPlayer({ uri }: { uri: string }) {
-  const { url, loading, error } = useAttachmentUrl(uri);
+  const { url, contentLength, contentType, loading, error } = useAttachmentUrl(uri);
   if (loading) {
     return <Spinner size="small" />;
   }
@@ -224,6 +261,9 @@ function AttachmentAudioPlayer({ uri }: { uri: string }) {
         />
       </Typography.Text>
     );
+  }
+  if (contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return <DownloadLink url={url} contentType={contentType} contentLength={contentLength} />;
   }
   // eslint-disable-next-line jsx-a11y/media-has-caption
   return <audio controls css={{ width: '100%', maxWidth: 500 }} src={url} />;

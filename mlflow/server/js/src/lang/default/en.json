@@ -715,6 +715,10 @@
     "defaultMessage": "Prompt created",
     "description": "Webhook event label"
   },
+  "2WOke0": {
+    "defaultMessage": "Stage",
+    "description": "Guardrail stage column header"
+  },
   "2XH9oW": {
     "defaultMessage": "Back",
     "description": "Back button"
@@ -1081,10 +1085,6 @@
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
-  },
-  "5DWDg/": {
-    "defaultMessage": "Placement",
-    "description": "Guardrail placement label"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -2198,6 +2198,10 @@
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
   },
+  "Bg/LgH": {
+    "defaultMessage": "Instructions",
+    "description": "Label for guardrail judge instructions"
+  },
   "BkDhmT": {
     "defaultMessage": "Chat",
     "description": "Label for the chat tab of the model trace explorer."
@@ -2342,6 +2346,10 @@
     "defaultMessage": "Version",
     "description": "Column header for model versions in the evaluation runs table"
   },
+  "CaIW+m": {
+    "defaultMessage": "Search guardrails",
+    "description": "Search guardrails placeholder"
+  },
   "CamReV": {
     "defaultMessage": "Does the response follow per-example guidelines from expectations?",
     "description": "Hint for ExpectationsGuidelines template"
@@ -2466,6 +2474,10 @@
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button on the registered prompt details page\""
   },
+  "DJsLPv": {
+    "defaultMessage": "Delete {count, plural, one {guardrail} other {# guardrails}}",
+    "description": "Bulk delete guardrails modal title"
+  },
   "DLGEdG": {
     "defaultMessage": "Thank you for exploring the new Model Registry UI. We are dedicated to providing the best experience, and your feedback is invaluable. Please share your thoughts with us <link>here</link>.",
     "description": "Model registry > Switcher for the new model registry UI containing aliases > disable confirmation modal content"
@@ -2505,6 +2517,10 @@
   "DcGPfO": {
     "defaultMessage": "Row height",
     "description": "Label for the row height radio group"
+  },
+  "Df9GMB": {
+    "defaultMessage": "Delete",
+    "description": "Delete guardrail button"
   },
   "Dhn7Mb": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -3094,10 +3110,6 @@
     "defaultMessage": "Assistant",
     "description": "Display text for the 'assistant' role in a GenAI chat message."
   },
-  "Hx3CSc": {
-    "defaultMessage": "Output Guardrails",
-    "description": "Pipeline AFTER stage label"
-  },
   "HyBP+D": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section under details tab on the model view\n                   page"
@@ -3166,10 +3178,6 @@
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected"
   },
-  "IRZcTi": {
-    "defaultMessage": "Add Guardrail",
-    "description": "Add guardrail button"
-  },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
     "description": "Text shown when there are no common artifacts between the runs"
@@ -3209,6 +3217,10 @@
   "Ik96R6": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
+  },
+  "Ikj6rr": {
+    "defaultMessage": "Quick start",
+    "description": "Gateway > Endpoints > Compact quick start section label"
   },
   "IlYdrX": {
     "defaultMessage": "Tokens per Trace",
@@ -3478,6 +3490,10 @@
     "defaultMessage": "Assessments",
     "description": "Label for the read-only assessments tab of the model trace explorer."
   },
+  "Kg1HbP": {
+    "defaultMessage": "Delete",
+    "description": "Confirm delete button"
+  },
   "Kkr/RI": {
     "defaultMessage": "Configure charts",
     "description": "Experiment page > view controls > global settings for line chart view > dropdown button label"
@@ -3645,6 +3661,10 @@
   "Ls2ris": {
     "defaultMessage": "Mark as reviewed",
     "description": "Evaluation review > assessments > mark as reviewed button"
+  },
+  "Lvcsl4": {
+    "defaultMessage": "Review and edit the guardrail details, choose placement and action.",
+    "description": "Detail modal subtitle"
   },
   "Lw+dTL": {
     "defaultMessage": "Please configure at least one model in traffic split",
@@ -4305,6 +4325,14 @@
     "defaultMessage": "Actions{count}",
     "description": "Trace actions dropdown button"
   },
+  "Px7S/2": {
+    "defaultMessage": "Close",
+    "description": "Close button"
+  },
+  "Q/QcTS": {
+    "defaultMessage": "Save",
+    "description": "Save guardrail changes button"
+  },
   "Q/evEc": {
     "defaultMessage": "Parameters ({length})",
     "description": "Run page > Overview > Parameters table > Section title"
@@ -4629,6 +4657,10 @@
     "defaultMessage": "Only run on traces matching this filter; leave blank to run on all. Uses MLflow {link}.",
     "description": "Hint text for filter string input"
   },
+  "SAXxAc": {
+    "defaultMessage": "Stage",
+    "description": "Guardrail stage label"
+  },
   "SAxj6I": {
     "defaultMessage": "Create budget policy",
     "description": "Gateway > Budgets page > Create budget policy button"
@@ -4728,6 +4760,10 @@
   "SojbzO": {
     "defaultMessage": "Evaluate entire sessions for conversation quality and outcomes.",
     "description": "Hint for the scorer evaluation scope selection for sessions"
+  },
+  "SqmrRR": {
+    "defaultMessage": "Guardrail Details",
+    "description": "Edit modal section title"
   },
   "SrV58C": {
     "defaultMessage": "Settings",
@@ -5064,6 +5100,10 @@
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
   },
+  "V3RNMD": {
+    "defaultMessage": "After Guardrails",
+    "description": "Pipeline AFTER stage label"
+  },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
     "description": "Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
@@ -5183,6 +5223,10 @@
   "ViqP7B": {
     "defaultMessage": "Traces",
     "description": "Label for the traces tab in the MLflow experiment navbar"
+  },
+  "Vjha2S": {
+    "defaultMessage": "Guardrails",
+    "description": "Tab label for endpoint guardrails"
   },
   "Vk+30L": {
     "defaultMessage": "Edit tags",
@@ -5606,10 +5650,6 @@
   "YLMjFk": {
     "defaultMessage": "Reasoning",
     "description": "Filter option for reasoning support"
-  },
-  "YOG1vG": {
-    "defaultMessage": "Reject the request or response entirely and return an error.",
-    "description": "Block action description"
   },
   "YOp3/x": {
     "defaultMessage": "Unavailable when runs are grouped",
@@ -6063,6 +6103,10 @@
     "defaultMessage": "Run details",
     "description": "Run page > Overview > Run details section heading"
   },
+  "b5Aw4a": {
+    "defaultMessage": "Delete{count, select, 0 {} other { ({count})}}",
+    "description": "Delete guardrails button with optional count"
+  },
   "b6VGsd": {
     "defaultMessage": "Pre-built LLM-as-a-judge | Session level",
     "description": "Label indicating a pre-built session-level LLM-as-a-judge template"
@@ -6078,6 +6122,10 @@
   "bCdY2j": {
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
+  },
+  "bFG2sC": {
+    "defaultMessage": "Before Guardrails",
+    "description": "Pipeline BEFORE stage label"
   },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
@@ -6146,6 +6194,10 @@
   "ba7/ni": {
     "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
     "description": "Tooltip explaining the demo experiment in the experiments list"
+  },
+  "bcFuUb": {
+    "defaultMessage": "Are you sure you want to remove {count, plural, one {this guardrail} other {these # guardrails}}?",
+    "description": "Bulk remove guardrails confirmation message"
   },
   "bcw06n": {
     "defaultMessage": "Is the output semantically equivalent to the expected output?",
@@ -7047,6 +7099,10 @@
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
   },
+  "h1VO0z": {
+    "defaultMessage": "Failed to remove one or more guardrails. Please try again.",
+    "description": "Error when bulk guardrail removal fails"
+  },
   "h2398a": {
     "defaultMessage": "documentation",
     "description": "Documentation link text"
@@ -7590,6 +7646,10 @@
   "kCsAho": {
     "defaultMessage": "Correctness",
     "description": "LLM template option"
+  },
+  "kDCMl+": {
+    "defaultMessage": "Click on a stage to choose where this guardrail runs.",
+    "description": "Stage help text"
   },
   "kHDQiE": {
     "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
@@ -8443,6 +8503,10 @@
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
   },
+  "pMb1cg": {
+    "defaultMessage": "Download {contentType} ({size})",
+    "description": "Download link for media content that exceeds the rendering size limit"
+  },
   "pOqgMC": {
     "defaultMessage": "Weight",
     "description": "Label for traffic split weight input"
@@ -8642,10 +8706,6 @@
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
     "description": "Tooltip message when no sessions are selected"
-  },
-  "qfxutt": {
-    "defaultMessage": "Input Guardrails",
-    "description": "Pipeline BEFORE stage label"
   },
   "qhOwHa": {
     "defaultMessage": "Endpoints",
@@ -8863,6 +8923,10 @@
     "defaultMessage": "Max Tokens",
     "description": "Label for max tokens input"
   },
+  "rt9clc": {
+    "defaultMessage": "Return a 400 error with the guardrail name and reason. The original request or response is not passed through.",
+    "description": "Block action description"
+  },
   "rvRhzv": {
     "defaultMessage": "Masked Key:",
     "description": "Masked API key label"
@@ -8938,6 +9002,10 @@
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Home page hero title"
+  },
+  "sHvLH2": {
+    "defaultMessage": "Browse all providers →",
+    "description": "Gateway > Endpoints > Compact quick start browse all providers link"
   },
   "sIC5K3": {
     "defaultMessage": "Time (relative)",
@@ -9159,10 +9227,6 @@
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
   },
-  "tnykaX": {
-    "defaultMessage": "Click on a pipeline stage to choose where this guardrail runs.",
-    "description": "Placement help text"
-  },
   "tqw27y": {
     "defaultMessage": "Evaluation criteria",
     "description": "Accordion section header for evaluation criteria (judge type, guidelines/instructions, and output type)"
@@ -9226,6 +9290,10 @@
   "uIY1qq": {
     "defaultMessage": "Learn More",
     "description": "Link to MLflow documentation for more information on MLflow tracing"
+  },
+  "uPG7mJ": {
+    "defaultMessage": "Guardrail: {name}",
+    "description": "Title for guardrail detail modal"
   },
   "uSVfB9": {
     "defaultMessage": "Not grounded",
@@ -9662,10 +9730,6 @@
   "x7NsCC": {
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
-  },
-  "x9kyZm": {
-    "defaultMessage": "Placement",
-    "description": "Guardrail placement column header"
   },
   "xBVMQz": {
     "defaultMessage": "LLM",

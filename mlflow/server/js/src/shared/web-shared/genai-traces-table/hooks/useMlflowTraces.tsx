@@ -752,8 +752,14 @@ export const createMlflowSearchFilter = (
     filter.push(`attributes.run_id = '${runUuid}'`);
   }
   if (searchQuery) {
-    const searchQueryField = 'trace.text';
-    filter.push(`${searchQueryField} ILIKE '%${searchQuery}%'`);
+    filter.push(
+      // If the query is a trace ID, use a direct indexed lookup on request_id
+      // instead of trace.text ILIKE which scans the spans.content column.
+      // See: https://github.com/mlflow/mlflow/discussions/21193
+      /^tr-[0-9a-f]{32}$/i.test(searchQuery)
+        ? `attributes.request_id = '${searchQuery.toLowerCase()}'`
+        : `trace.text ILIKE '%${searchQuery}%'`,
+    );
   }
   if (timeRange) {
     const timestampField = 'attributes.timestamp_ms';

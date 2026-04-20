@@ -198,6 +198,17 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
     }
   }, [open]);
 
+  const handleStageChange = useCallback((newStage: GuardrailStage) => {
+    setInstructions((prev) => {
+      if (newStage === 'AFTER') {
+        return prev.replace(/\{\{\s*inputs\s*\}\}/g, '{{ outputs }}');
+      } else {
+        return prev.replace(/\{\{\s*outputs\s*\}\}/g, '{{ inputs }}');
+      }
+    });
+    setStage(newStage);
+  }, []);
+
   const handleSelectType = useCallback((type: GuardrailType) => {
     if (type.builtin) {
       setName(type.name);
@@ -356,7 +367,11 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
                 })}
               />
             </div>
+          </div>
 
+          <PipelineStagePicker stage={stage} onChange={handleStageChange} />
+
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <div>
               <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
                 <FormattedMessage defaultMessage="Instructions" description="Guardrail instructions label" />
@@ -400,8 +415,6 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
               />
             </div>
           </div>
-
-          <PipelineStagePicker stage={stage} onChange={setStage} />
 
           <ActionPicker action={action} onActionChange={setAction} />
 

@@ -17,7 +17,9 @@ jest.mock('../../hooks/useExperimentQuery', () => ({
 }));
 
 jest.mock('@databricks/web-shared/genai-traces-table', () => ({
-  ...(jest.requireActual('@databricks/web-shared/genai-traces-table') as Record<string, unknown>),
+  ...(jest.requireActual<typeof import('@databricks/web-shared/genai-traces-table')>(
+    '@databricks/web-shared/genai-traces-table',
+  ) as Record<string, unknown>),
   invalidateMlflowSearchTracesCache: jest.fn(),
 }));
 
