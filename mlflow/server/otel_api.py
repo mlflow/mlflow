@@ -26,9 +26,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
     OTLP_TRACES_PATH,
+    _decode_otel_proto_anyvalue,
     decompress_otlp_body,
 )
 from mlflow.tracking.request_header.default_request_header_provider import (
@@ -37,6 +39,22 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 )
 
 _logger = logging.getLogger(__name__)
+
+# Allowlist of known OTEL client service names.
+# Only service names on this list are stored and propagated to root spans.
+# This prevents storing arbitrary free-form text from untrusted clients.
+_KNOWN_SERVICE_NAMES = frozenset({
+    # Claude Code
+    "claude-code",
+    # Codex CLI (Rust)
+    "codex_cli_rs",
+    # Codex VS Code extension
+    "codex_vscode",
+    # Gemini CLI
+    "gemini-cli",
+    # Qwen Code
+    "qwen-code",
+})
 
 # Create FastAPI router for OTel endpoints
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
@@ -109,14 +127,35 @@ async def export_traces(
 
     all_spans = []
     completed_trace_ids = set()
+    service_names = set()
     for resource_span in parsed_request.resource_spans:
+        # Extract service.name from resource attributes for telemetry and root span propagation
+        resource_service_name = None
+        for attr in resource_span.resource.attributes:
+            if attr.key == "service.name":
+                value = _decode_otel_proto_anyvalue(attr.value)
+                if value is not None and str(value) in _KNOWN_SERVICE_NAMES:
+                    resource_service_name = str(value)
+                    service_names.add(resource_service_name)
+                break
+
         for scope_span in resource_span.scope_spans:
             for otel_proto_span in scope_span.spans:
                 try:
                     mlflow_span = Span.from_otel_proto(otel_proto_span)
-                    all_spans.append(mlflow_span)
+
+                    # Propagate service.name onto root spans so it's visible
+                    # in the UI. Per the OTel resource spec, resource attrs
+                    # describe the entity producing telemetry:
+                    # https://opentelemetry.io/docs/specs/otel/resource/sdk/
                     if mlflow_span.parent_id is None:
                         completed_trace_ids.add(mlflow_span.trace_id)
+                        if resource_service_name:
+                            mlflow_span._span._attributes["service.name"] = (
+                                dump_span_attribute_value(resource_service_name)
+                            )
+
+                    all_spans.append(mlflow_span)
                 except Exception:
                     raise HTTPException(
                         status_code=422,
@@ -148,19 +187,21 @@ async def export_traces(
             )
 
         if completed_trace_ids:
-            trace_source = (
-                TraceSource.MLFLOW_PYTHON_CLIENT
-                if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX)
-                else TraceSource.UNKNOWN
-            )
+            if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX):
+                trace_source = TraceSource.MLFLOW_PYTHON_CLIENT
+            elif service_names:
+                trace_source = TraceSource.EXTERNAL_OTEL_CLIENT
+            else:
+                trace_source = TraceSource.UNKNOWN
 
-            _record_event(
-                TracesReceivedByServerEvent,
-                {
-                    "source": trace_source,
-                    "count": len(completed_trace_ids),
-                },
-            )
+            event_params: dict[str, object] = {
+                "source": trace_source,
+                "count": len(completed_trace_ids),
+            }
+            if service_names:
+                event_params["service_names"] = sorted(service_names)
+
+            _record_event(TracesReceivedByServerEvent, event_params)
 
     # Return protobuf response as per OTLP specification
     response_message = ExportTraceServiceResponse()
