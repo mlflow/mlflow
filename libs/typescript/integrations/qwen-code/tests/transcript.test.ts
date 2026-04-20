@@ -1,13 +1,19 @@
 import { resolve } from 'path';
 
 import {
-  readTranscript,
-  parseTimestampToNs,
-  getMessageText,
+  buildToolResultMap,
   findLastUserRecord,
-  buildRecordTree,
+  formatResultDisplay,
+  getFunctionCalls,
+  getLastTurnRecords,
+  getMessageText,
   getTokenUsage,
+  isFunctionCallPart,
+  isTextPart,
+  parseTimestampToNs,
+  readTranscript,
 } from '../src/transcript';
+import type { ChatRecord, GeminiPart } from '../src/types';
 
 const FIXTURES_DIR = resolve(__dirname, 'fixtures');
 
@@ -18,7 +24,7 @@ describe('parseTimestampToNs', () => {
     expect(typeof result).toBe('number');
   });
 
-  it('returns null for empty input', () => {
+  it('returns null for missing/empty input', () => {
     expect(parseTimestampToNs(null)).toBeNull();
     expect(parseTimestampToNs(undefined)).toBeNull();
     expect(parseTimestampToNs('')).toBeNull();
@@ -26,56 +32,161 @@ describe('parseTimestampToNs', () => {
 });
 
 describe('getMessageText', () => {
-  it('extracts text from Gemini-style parts', () => {
-    const record = {
-      uuid: '1',
+  function rec(message: ChatRecord['message']): ChatRecord {
+    return {
+      uuid: 'u',
       parentUuid: null,
       sessionId: 's',
       timestamp: '',
-      type: 'user' as const,
-      message: { role: 'user', parts: [{ text: 'hello' }, { text: 'world' }] },
+      type: 'assistant',
+      message,
     };
-    expect(getMessageText(record)).toBe('hello\nworld');
+  }
+
+  it('joins non-thought text parts', () => {
+    expect(
+      getMessageText(rec({ role: 'model', parts: [{ text: 'hello' }, { text: 'world' }] })),
+    ).toBe('hello\nworld');
   });
 
-  it('returns plain string message', () => {
-    const record = {
-      uuid: '1',
-      parentUuid: null,
-      sessionId: 's',
-      timestamp: '',
-      type: 'user' as const,
-      message: 'plain text',
+  it('excludes thought parts by default', () => {
+    const msg = {
+      role: 'model',
+      parts: [{ text: 'internal', thought: true }, { text: 'visible' }],
     };
-    expect(getMessageText(record)).toBe('plain text');
+    expect(getMessageText(rec(msg))).toBe('visible');
+  });
+
+  it('includes thought parts when includeThoughts is true', () => {
+    const msg = {
+      role: 'model',
+      parts: [{ text: 'internal', thought: true }, { text: 'visible' }],
+    };
+    expect(getMessageText(rec(msg), true)).toBe('internal\nvisible');
+  });
+
+  it('accepts plain string messages', () => {
+    expect(getMessageText(rec('plain text'))).toBe('plain text');
+  });
+
+  it('skips functionCall and functionResponse parts (they contribute no text)', () => {
+    const msg = {
+      role: 'model',
+      parts: [{ functionCall: { id: 'c1', name: 'ls' } }, { text: 'hello' }] as GeminiPart[],
+    };
+    expect(getMessageText(rec(msg))).toBe('hello');
   });
 });
 
-describe('readTranscript + parsing', () => {
+describe('getFunctionCalls', () => {
+  it('extracts all functionCall parts from an assistant message', () => {
+    const record: ChatRecord = {
+      uuid: 'u',
+      parentUuid: null,
+      sessionId: 's',
+      timestamp: '',
+      type: 'assistant',
+      message: {
+        role: 'model',
+        parts: [
+          { text: 'thinking', thought: true },
+          { functionCall: { id: 'c1', name: 'ls', args: { path: '.' } } },
+          { functionCall: { id: 'c2', name: 'stat', args: { path: 'a.txt' } } },
+        ] as GeminiPart[],
+      },
+    };
+    const calls = getFunctionCalls(record);
+    expect(calls.map((c) => c.name)).toEqual(['ls', 'stat']);
+    expect(calls[0].args).toEqual({ path: '.' });
+  });
+
+  it('returns [] for records with no message or no function calls', () => {
+    expect(
+      getFunctionCalls({
+        uuid: 'u',
+        parentUuid: null,
+        sessionId: 's',
+        timestamp: '',
+        type: 'system',
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('part type guards', () => {
+  it('isTextPart recognizes text parts', () => {
+    expect(isTextPart({ text: 'x' })).toBe(true);
+    expect(isTextPart({ functionCall: { id: 'c', name: 'n' } } as GeminiPart)).toBe(false);
+  });
+  it('isFunctionCallPart recognizes functionCall parts', () => {
+    expect(isFunctionCallPart({ functionCall: { id: 'c', name: 'n' } })).toBe(true);
+    expect(isFunctionCallPart({ text: 'x' } as GeminiPart)).toBe(false);
+  });
+});
+
+describe('buildToolResultMap', () => {
+  it('indexes tool_result records by callId', () => {
+    const records: ChatRecord[] = [
+      {
+        uuid: 't',
+        parentUuid: null,
+        sessionId: 's',
+        timestamp: '',
+        type: 'tool_result',
+        toolCallResult: { callId: 'c1', status: 'success', resultDisplay: 'ok' },
+      },
+      {
+        uuid: 'u',
+        parentUuid: null,
+        sessionId: 's',
+        timestamp: '',
+        type: 'user',
+        message: { role: 'user', parts: [{ text: 'q' }] },
+      },
+    ];
+    const map = buildToolResultMap(records);
+    expect(map.size).toBe(1);
+    expect(map.get('c1')?.toolCallResult?.status).toBe('success');
+  });
+});
+
+describe('formatResultDisplay', () => {
+  it('passes through strings unchanged', () => {
+    expect(formatResultDisplay('hello')).toBe('hello');
+  });
+  it('JSON-stringifies objects', () => {
+    expect(formatResultDisplay({ a: 1 })).toBe('{"a":1}');
+  });
+  it('returns empty string for null/undefined', () => {
+    expect(formatResultDisplay(null)).toBe('');
+    expect(formatResultDisplay(undefined)).toBe('');
+  });
+});
+
+describe('readTranscript + turn slicing', () => {
   const basicRecords = readTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'));
   const toolRecords = readTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'));
 
-  it('reads basic transcript', () => {
-    expect(basicRecords.length).toBe(2);
+  it('reads basic transcript (user → system → assistant)', () => {
+    expect(basicRecords.length).toBe(3);
   });
 
-  it('reads tool call transcript', () => {
-    expect(toolRecords.length).toBe(3);
+  it('reads tool-call transcript', () => {
+    expect(toolRecords.length).toBeGreaterThan(3);
   });
 
-  it('finds last user record', () => {
+  it('finds the last user record (skipping any system framing)', () => {
     const record = findLastUserRecord(basicRecords);
     expect(record).not.toBeNull();
     expect(getMessageText(record!)).toBe('what is 2+2');
   });
 
-  it('builds record tree', () => {
-    const { byUuid, children } = buildRecordTree(basicRecords);
-    expect(byUuid.size).toBe(2);
-    expect(children.get('user-001')).toContain('assistant-001');
+  it('getLastTurnRecords starts at the last user record', () => {
+    const turn = getLastTurnRecords(toolRecords);
+    expect(turn[0].type).toBe('user');
   });
 
-  it('gets token usage', () => {
+  it('gets token usage from assistant record', () => {
     const assistant = basicRecords.find((r) => r.type === 'assistant');
     const usage = getTokenUsage(assistant?.usageMetadata);
     expect(usage).not.toBeNull();
@@ -86,13 +197,5 @@ describe('readTranscript + parsing', () => {
 
   it('returns null for missing usage', () => {
     expect(getTokenUsage(undefined)).toBeNull();
-  });
-
-  it('finds tool call result in tree', () => {
-    const { children } = buildRecordTree(toolRecords);
-    // user-001 should have tool-001 and assistant-001 as children
-    const userChildren = children.get('user-001');
-    expect(userChildren).toContain('tool-001');
-    expect(userChildren).toContain('assistant-001');
   });
 });

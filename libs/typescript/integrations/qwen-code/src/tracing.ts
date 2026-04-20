@@ -1,19 +1,28 @@
 /**
  * MLflow tracing integration for Qwen Code.
  *
- * Parses Qwen Code JSONL transcripts (tree-structured ChatRecords)
- * and creates MLflow traces with AGENT → LLM/TOOL span hierarchies.
+ * Parses the current turn from a Qwen Code JSONL transcript and emits an
+ * MLflow trace shaped like the opencode/Claude Code integration:
  *
- * Qwen Code fires a Stop hook via stdin with {session_id, transcript_path}.
- * Requires hooksConfig.enabled=true in .qwen/settings.json.
+ *   AGENT qwen_code_conversation
+ *   ├─ LLM  llm_call  (one per assistant record; messages + tool_calls in OpenAI chat format)
+ *   └─ TOOL tool_<name>  (one per functionCall; paired with tool_result by callId)
  *
- * Reference: github.com/QwenLM/qwen-code
+ * Qwen-specific semantics:
+ * - An assistant record may emit both `thought` text (internal reasoning,
+ *   excluded from Chat rendering) and user-facing text in the same parts
+ *   list, plus zero or more functionCall parts.
+ * - Tool results appear as standalone `tool_result` records with a
+ *   `toolCallResult: {callId, status, resultDisplay}` block. Status values
+ *   observed in real transcripts are `success` and `cancelled`; we treat
+ *   anything other than `success` as a failure.
  */
 
 import {
   startSpan,
   flushTraces,
   InMemoryTraceManager,
+  SpanStatusCode,
   SpanType,
   SpanAttributeKey,
   TraceMetadataKey,
@@ -21,21 +30,22 @@ import {
   type LiveSpan,
 } from '@mlflow/core';
 
-import type { ChatRecord } from './types.js';
+import type { ChatMessage, ChatRecord, FunctionCall, ToolCall } from './types.js';
 import {
-  readTranscript,
-  parseTimestampToNs,
+  buildToolResultMap,
+  formatResultDisplay,
+  getFunctionCalls,
+  getLastTurnRecords,
   getMessageText,
-  findLastUserRecord,
-  buildRecordTree,
   getTokenUsage,
+  parseTimestampToNs,
+  readTranscript,
 } from './transcript.js';
 
-const NANOSECONDS_PER_MS = 1e6;
-const MAX_PREVIEW_LENGTH = 1000;
+const SUCCESS_STATUS = 'success';
 
 /**
- * Process a Qwen Code transcript and create an MLflow trace.
+ * Process a Qwen Code transcript and create an MLflow trace for the last turn.
  */
 export async function processTranscript(
   transcriptPath: string | null,
@@ -50,44 +60,56 @@ export async function processTranscript(
     return;
   }
 
-  const userRecord = findLastUserRecord(records);
-  if (!userRecord) {
+  const turn = getLastTurnRecords(records);
+  if (turn.length === 0) {
     return;
   }
 
-  const userPrompt = getMessageText(userRecord);
+  // Map tool_result records by callId so we can pair tool calls with results
+  const toolResults = buildToolResultMap(turn);
+
+  const userRecord = turn[0];
+  const userPrompt = getMessageText(userRecord, true);
   const resolvedSessionId = sessionId ?? userRecord.sessionId ?? `qwen-${Date.now()}`;
-  const model = records.find((r) => r.model)?.model ?? 'unknown';
+  const model = firstAssistantModel(turn) ?? 'unknown';
 
-  const { byUuid, children } = buildRecordTree(records);
+  const turnStartNs = parseTimestampToNs(userRecord.timestamp);
+  const turnEndNs = parseTimestampToNs(turn[turn.length - 1].timestamp);
 
-  const startNs = parseTimestampToNs(userRecord.timestamp);
+  // Compute the final assistant response upfront so it can feed both the
+  // root span output and trace preview.
+  const finalResponse = findFinalAssistantText(turn);
 
-  // Create root AGENT span
+  // Create root AGENT span. Pass the user prompt as a raw string so MLflow
+  // auto-generates a clean request preview; opencode-style `{prompt: ...}`
+  // wrapping doesn't render cleanly in the session view.
   const rootSpan = startSpan({
     name: 'qwen_code_conversation',
     spanType: SpanType.AGENT,
-    startTimeNs: startNs ?? undefined,
-    inputs: { prompt: userPrompt },
+    inputs: userPrompt,
     attributes: { model },
+    ...(turnStartNs != null ? { startTimeNs: turnStartNs } : {}),
   });
 
-  // Create child spans by walking the tree from the user record
-  const finalResponse = createChildSpans(rootSpan, userRecord.uuid, byUuid, children, model);
+  createChildSpans(rootSpan, turn, model, toolResults);
 
-  // Set trace previews and metadata.
-  // We use InMemoryTraceManager directly because `updateCurrentTrace()` requires
-  // an active OTel span context, which hook-based integrations don't have —
-  // spans are created via `startSpan()` without OTel context propagation.
+  const tokenUsage = aggregateTokenUsage(turn);
+  if (tokenUsage) {
+    rootSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
+      [TokenUsageKey.INPUT_TOKENS]: tokenUsage.input,
+      [TokenUsageKey.OUTPUT_TOKENS]: tokenUsage.output,
+      [TokenUsageKey.TOTAL_TOKENS]: tokenUsage.total,
+    });
+  }
+
+  // Attach session/user metadata. updateCurrentTrace() requires an active
+  // OTel span context which hook-based integrations don't have, so we go
+  // through InMemoryTraceManager directly — same pattern as codex/opencode.
   const traceId = rootSpan.traceId;
   if (traceId) {
     const traceManager = InMemoryTraceManager.getInstance();
     const trace = traceManager.getTrace(traceId);
     if (trace) {
-      trace.info.requestPreview = userPrompt.slice(0, MAX_PREVIEW_LENGTH);
-      if (finalResponse) {
-        trace.info.responsePreview = finalResponse.slice(0, MAX_PREVIEW_LENGTH);
-      }
       trace.info.traceMetadata = {
         ...trace.info.traceMetadata,
         [TraceMetadataKey.TRACE_SESSION]: resolvedSessionId,
@@ -96,113 +118,244 @@ export async function processTranscript(
     }
   }
 
-  // Calculate end time from last record
-  const lastRecord = records[records.length - 1];
-  const endNs = parseTimestampToNs(lastRecord.timestamp);
-  const endTimeNs =
-    endNs != null && startNs != null && endNs > startNs ? endNs : Date.now() * NANOSECONDS_PER_MS;
-
   rootSpan.end({
-    outputs: {
-      status: 'completed',
-      ...(finalResponse ? { response: finalResponse } : {}),
-    },
-    endTimeNs,
+    outputs: finalResponse ?? '',
+    ...(turnEndNs != null ? { endTimeNs: turnEndNs } : {}),
   });
 
   await flushTraces();
 }
 
 /**
- * Recursively create child spans from the ChatRecord tree.
- * Returns the last assistant text response for trace preview.
+ * Create LLM and TOOL child spans by walking the turn chronologically.
+ *
+ * Timing model (mirrors the codex integration):
+ * - LLM span: [previous boundary] → [assistant record timestamp]
+ *   where the previous boundary is the turn's first record or the most
+ *   recent `tool_result` — i.e. the point at which the LLM had all the
+ *   context it needed to produce this response.
+ * - TOOL span: [assistant record timestamp] → [matching tool_result
+ *   timestamp], looked up by callId. Falls back to the assistant
+ *   timestamp if the tool_result is missing (tool still in-flight).
  */
-function createChildSpans(
+export function createChildSpans(
   parentSpan: LiveSpan,
-  recordUuid: string,
-  byUuid: Map<string, ChatRecord>,
-  childrenMap: Map<string, string[]>,
-  model: string,
-): string | null {
-  let finalResponse: string | null = null;
-  const childUuids = childrenMap.get(recordUuid) ?? [];
+  turn: ChatRecord[],
+  fallbackModel: string,
+  toolResults: Map<string, ChatRecord>,
+): void {
+  let prevBoundaryNs: number | null = parseTimestampToNs(turn[0]?.timestamp);
 
-  for (let i = 0; i < childUuids.length; i++) {
-    const child = byUuid.get(childUuids[i]);
-    if (!child) {
-      continue;
-    }
-
-    const timestampNs = parseTimestampToNs(child.timestamp);
+  for (let i = 0; i < turn.length; i++) {
+    const record = turn[i];
+    const timestampNs = parseTimestampToNs(record.timestamp);
     if (timestampNs == null) {
       continue;
     }
 
-    // Derive end time from next sibling or default
-    let endTimeNs: number | null = null;
-    for (let j = i + 1; j < childUuids.length; j++) {
-      const nextChild = byUuid.get(childUuids[j]);
-      if (nextChild) {
-        const nextTs = parseTimestampToNs(nextChild.timestamp);
-        if (nextTs != null && nextTs > timestampNs) {
-          endTimeNs = nextTs;
-          break;
-        }
-      }
-    }
-    if (endTimeNs == null) {
-      endTimeNs = timestampNs + 1000 * NANOSECONDS_PER_MS;
+    if (record.type === 'tool_result') {
+      // Tool results are not spans themselves; they end the preceding
+      // TOOL span and form a new boundary for the next LLM span.
+      prevBoundaryNs = timestampNs;
+      continue;
     }
 
-    // Tool call result → TOOL span
-    if (child.toolCallResult) {
-      const toolName = child.toolCallResult.name ?? 'unknown';
-      const toolSpan = startSpan({
-        name: `tool_${toolName}`,
-        parent: parentSpan,
-        spanType: SpanType.TOOL,
-        startTimeNs: timestampNs,
-        inputs: child.toolCallResult.input ?? {},
-        attributes: { tool_name: toolName },
-      });
-      toolSpan.end({
-        outputs: { result: child.toolCallResult.output ?? '' },
-        endTimeNs,
-      });
-    }
-    // Assistant text → LLM span
-    else if (child.type === 'assistant') {
-      const text = getMessageText(child);
-      if (text.trim()) {
-        finalResponse = text;
-        const llmSpan = startSpan({
-          name: 'llm',
-          parent: parentSpan,
-          spanType: SpanType.LLM,
-          startTimeNs: timestampNs,
-          inputs: { model: child.model ?? model },
-          attributes: { model: child.model ?? model },
-        });
-
-        const tokenUsage = getTokenUsage(child.usageMetadata);
-        if (tokenUsage) {
-          llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
-            [TokenUsageKey.INPUT_TOKENS]: tokenUsage.input,
-            [TokenUsageKey.OUTPUT_TOKENS]: tokenUsage.output,
-            [TokenUsageKey.TOTAL_TOKENS]: tokenUsage.total,
-          });
-        }
-
-        llmSpan.end({ outputs: { content: text }, endTimeNs });
-      }
+    if (record.type !== 'assistant') {
+      // Skip user (already represented by root inputs) and system records
+      // (internal framing — not visible to end users).
+      continue;
     }
 
-    // Recurse into children
-    const childText = createChildSpans(parentSpan, child.uuid, byUuid, childrenMap, model);
-    if (childText) {
-      finalResponse = childText;
+    const model = record.model ?? fallbackModel;
+    const text = getMessageText(record);
+    const functionCalls = getFunctionCalls(record);
+
+    // Assistant records with no text AND no functionCalls represent purely
+    // internal state (unlikely but defensive) — skip them entirely.
+    if (!text.trim() && functionCalls.length === 0) {
+      continue;
     }
+
+    createLlmSpan(parentSpan, turn, i, prevBoundaryNs, timestampNs, model, text, functionCalls);
+
+    for (const call of functionCalls) {
+      createToolSpan(parentSpan, call, timestampNs, toolResults);
+    }
+
+    prevBoundaryNs = timestampNs;
+  }
+}
+
+function createLlmSpan(
+  parentSpan: LiveSpan,
+  turn: ChatRecord[],
+  assistantIndex: number,
+  prevBoundaryNs: number | null,
+  assistantTimestampNs: number,
+  model: string,
+  text: string,
+  functionCalls: FunctionCall[],
+): void {
+  const messages = reconstructMessages(turn, assistantIndex);
+
+  const toolCalls: ToolCall[] = functionCalls.map((call) => ({
+    id: call.id,
+    type: 'function',
+    function: {
+      name: call.name,
+      arguments: JSON.stringify(call.args ?? {}),
+    },
+  }));
+
+  const assistantOutput: ChatMessage = {
+    role: 'assistant',
+    content: text.trim() ? text : null,
+    ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+  };
+
+  const llmSpan = startSpan({
+    name: 'llm_call',
+    parent: parentSpan,
+    spanType: SpanType.LLM,
+    startTimeNs: prevBoundaryNs ?? assistantTimestampNs,
+    inputs: { model, messages },
+    attributes: { model },
+  });
+
+  const record = turn[assistantIndex];
+  const tokenUsage = getTokenUsage(record.usageMetadata);
+  if (tokenUsage) {
+    llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
+      [TokenUsageKey.INPUT_TOKENS]: tokenUsage.input,
+      [TokenUsageKey.OUTPUT_TOKENS]: tokenUsage.output,
+      [TokenUsageKey.TOTAL_TOKENS]: tokenUsage.total,
+    });
   }
 
-  return finalResponse;
+  llmSpan.end({
+    outputs: { choices: [{ message: assistantOutput }] },
+    endTimeNs: assistantTimestampNs,
+  });
+}
+
+function createToolSpan(
+  parentSpan: LiveSpan,
+  call: FunctionCall,
+  callTimestampNs: number,
+  toolResults: Map<string, ChatRecord>,
+): void {
+  const resultRecord = toolResults.get(call.id);
+  const endTimeNs = resultRecord ? parseTimestampToNs(resultRecord.timestamp) : null;
+
+  const toolSpan = startSpan({
+    name: `tool_${call.name}`,
+    parent: parentSpan,
+    spanType: SpanType.TOOL,
+    startTimeNs: callTimestampNs,
+    inputs: call.args ?? {},
+    attributes: { tool_name: call.name, tool_id: call.id },
+  });
+
+  // Reflect tool failure in the span status so failed calls are visible
+  // in the trace UI. Qwen's `tool_result.status` is `'success'` on success
+  // and `'cancelled'` when the user declines a permission prompt; any
+  // other non-success value is treated as a failure defensively.
+  const status = resultRecord?.toolCallResult?.status;
+  if (status != null && status !== SUCCESS_STATUS) {
+    toolSpan.setStatus(SpanStatusCode.ERROR, `Tool call ${status}`);
+  }
+
+  const output = formatResultDisplay(resultRecord?.toolCallResult?.resultDisplay);
+  toolSpan.end({
+    outputs: { result: output },
+    endTimeNs: endTimeNs ?? callTimestampNs,
+  });
+}
+
+/**
+ * Reconstruct the OpenAI-format conversation history leading up to the
+ * assistant record at `uptoIndex` (exclusive). This is what the LLM "saw"
+ * when it produced the assistant response at that index.
+ */
+export function reconstructMessages(turn: ChatRecord[], uptoIndex: number): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+  for (let i = 0; i < uptoIndex; i++) {
+    const record = turn[i];
+
+    if (record.type === 'user') {
+      const content = getMessageText(record).trim();
+      if (content) {
+        messages.push({ role: 'user', content });
+      }
+    } else if (record.type === 'assistant') {
+      const text = getMessageText(record);
+      const calls = getFunctionCalls(record);
+      const toolCalls: ToolCall[] = calls.map((c) => ({
+        id: c.id,
+        type: 'function',
+        function: { name: c.name, arguments: JSON.stringify(c.args ?? {}) },
+      }));
+      if (text.trim() || toolCalls.length > 0) {
+        messages.push({
+          role: 'assistant',
+          content: text.trim() ? text : null,
+          ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+        });
+      }
+    } else if (record.type === 'tool_result' && record.toolCallResult) {
+      messages.push({
+        role: 'tool',
+        tool_call_id: record.toolCallResult.callId,
+        content: formatResultDisplay(record.toolCallResult.resultDisplay),
+      });
+    }
+    // `system` records are internal framing — skipped.
+  }
+  return messages;
+}
+
+/** Return the first assistant record's model, if any. */
+function firstAssistantModel(turn: ChatRecord[]): string | null {
+  for (const record of turn) {
+    if (record.type === 'assistant' && record.model) {
+      return record.model;
+    }
+  }
+  return null;
+}
+
+/** Walk the turn backward for the last piece of user-facing assistant text. */
+function findFinalAssistantText(turn: ChatRecord[]): string | null {
+  for (let i = turn.length - 1; i >= 0; i--) {
+    if (turn[i].type === 'assistant') {
+      const text = getMessageText(turn[i]);
+      if (text.trim()) {
+        return text;
+      }
+    }
+  }
+  return null;
+}
+
+/** Sum token usage across all assistant records in the turn. */
+function aggregateTokenUsage(
+  turn: ChatRecord[],
+): { input: number; output: number; total: number } | null {
+  let input = 0;
+  let output = 0;
+  let total = 0;
+  let any = false;
+  for (const record of turn) {
+    if (record.type !== 'assistant') {
+      continue;
+    }
+    const usage = getTokenUsage(record.usageMetadata);
+    if (usage) {
+      input += usage.input;
+      output += usage.output;
+      total += usage.total;
+      any = true;
+    }
+  }
+  return any ? { input, output, total } : null;
 }
