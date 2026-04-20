@@ -254,7 +254,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
-        "output_per_million_tokens": 1.0
+        "output_per_million_tokens": 1.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.005,
+            "search_context_size_medium": 0.008
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -272,7 +279,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 8.0
+        "output_per_million_tokens": 8.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.005,
+            "search_context_size_low": 0.005,
+            "search_context_size_medium": 0.005
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -329,7 +343,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0
+        "output_per_million_tokens": 15.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.014,
+            "search_context_size_low": 0.006,
+            "search_context_size_medium": 0.01
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -347,7 +368,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
-        "output_per_million_tokens": 5.0
+        "output_per_million_tokens": 5.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.014,
+            "search_context_size_low": 0.005,
+            "search_context_size_medium": 0.008
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -365,7 +393,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 8.0
+        "output_per_million_tokens": 8.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.014,
+            "search_context_size_low": 0.006,
+            "search_context_size_medium": 0.01
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,

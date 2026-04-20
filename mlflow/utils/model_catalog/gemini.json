@@ -65,7 +65,7 @@
         "cache_read_per_million_tokens": 0.025,
         "modality": {
           "audio": {
-            "input_per_million_tokens": 1.0
+            "input_per_million_tokens": 0.7
           }
         }
       },
@@ -701,12 +701,7 @@
             "input_per_million_tokens": 0,
             "output_per_million_tokens": 0
           }
-        ],
-        "modality": {
-          "audio": {
-            "input_per_million_tokens": 1.0
-          }
-        }
+        ]
       },
       "capabilities": {
         "function_calling": true,

@@ -1176,7 +1176,10 @@
             "cache_write_per_million_tokens": 7.5,
             "cache_read_per_million_tokens": 0.6
           }
-        ]
+        ],
+        "tooling": {
+          "tool_use_system_prompt_tokens": 159
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3297,7 +3300,10 @@
         "input_per_million_tokens": 1.2,
         "output_per_million_tokens": 6.0,
         "cache_read_per_million_tokens": 0.12,
-        "cache_write_per_million_tokens": 1.5
+        "cache_write_per_million_tokens": 1.5,
+        "tooling": {
+          "tool_use_system_prompt_tokens": 346
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3573,7 +3579,10 @@
         "input_per_million_tokens": 1.2,
         "output_per_million_tokens": 6.0,
         "cache_read_per_million_tokens": 0.12,
-        "cache_write_per_million_tokens": 1.5
+        "cache_write_per_million_tokens": 1.5,
+        "tooling": {
+          "tool_use_system_prompt_tokens": 346
+        }
       },
       "capabilities": {
         "function_calling": true,

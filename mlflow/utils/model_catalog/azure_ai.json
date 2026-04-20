@@ -464,7 +464,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.08,
-        "output_per_million_tokens": 0.32
+        "output_per_million_tokens": 0.32,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 4.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -567,7 +572,15 @@
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
-        "cache_write_per_million_tokens": 6.25
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          },
+          "tool_use_system_prompt_tokens": 159
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -588,7 +601,15 @@
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
-        "cache_write_per_million_tokens": 6.25
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          },
+          "tool_use_system_prompt_tokens": 159
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -630,7 +651,10 @@
         "input_per_million_tokens": 3.0,
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
-        "cache_write_per_million_tokens": 3.75
+        "cache_write_per_million_tokens": 3.75,
+        "tooling": {
+          "tool_use_system_prompt_tokens": 346
+        }
       },
       "capabilities": {
         "function_calling": true,

@@ -139,7 +139,14 @@
       "pricing": {
         "input_per_million_tokens": 0.66,
         "output_per_million_tokens": 2.64,
-        "cache_read_per_million_tokens": 0.33
+        "cache_read_per_million_tokens": 0.33,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 0.33,
+            "input_per_million_tokens": 11.0,
+            "output_per_million_tokens": 22.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -159,7 +166,14 @@
       "pricing": {
         "input_per_million_tokens": 5.5,
         "output_per_million_tokens": 22.0,
-        "cache_read_per_million_tokens": 2.75
+        "cache_read_per_million_tokens": 2.75,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 22.0,
+            "input_per_million_tokens": 110.0,
+            "output_per_million_tokens": 220.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -179,7 +193,14 @@
       "pricing": {
         "input_per_million_tokens": 5.5,
         "output_per_million_tokens": 22.0,
-        "cache_read_per_million_tokens": 2.75
+        "cache_read_per_million_tokens": 2.75,
+        "modality": {
+          "audio": {
+            "cache_read_per_million_tokens": 2.5,
+            "input_per_million_tokens": 44.0,
+            "output_per_million_tokens": 80.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1106,7 +1127,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
-        "output_per_million_tokens": 10.0
+        "output_per_million_tokens": 10.0,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 40.0,
+            "output_per_million_tokens": 80.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1165,7 +1192,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
-        "output_per_million_tokens": 10.0
+        "output_per_million_tokens": 10.0,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 40.0,
+            "output_per_million_tokens": 80.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1185,7 +1218,14 @@
       "pricing": {
         "input_per_million_tokens": 0.6,
         "output_per_million_tokens": 2.4,
-        "cache_read_per_million_tokens": 0.3
+        "cache_read_per_million_tokens": 0.3,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 0.3,
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 20.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1205,7 +1245,14 @@
       "pricing": {
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 20.0,
-        "cache_read_per_million_tokens": 2.5
+        "cache_read_per_million_tokens": 2.5,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 20.0,
+            "input_per_million_tokens": 100.0,
+            "output_per_million_tokens": 200.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1225,7 +1272,13 @@
       "pricing": {
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 20.0,
-        "cache_read_per_million_tokens": 2.5
+        "cache_read_per_million_tokens": 2.5,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 40.0,
+            "output_per_million_tokens": 80.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1736,7 +1789,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
-        "output_per_million_tokens": 10.0
+        "output_per_million_tokens": 10.0,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 40.0,
+            "output_per_million_tokens": 80.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1755,7 +1814,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
-        "output_per_million_tokens": 10.0
+        "output_per_million_tokens": 10.0,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 40.0,
+            "output_per_million_tokens": 80.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1774,7 +1839,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
-        "output_per_million_tokens": 2.4
+        "output_per_million_tokens": 2.4,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 20.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1794,7 +1865,14 @@
       "pricing": {
         "input_per_million_tokens": 4.0,
         "output_per_million_tokens": 16.0,
-        "cache_read_per_million_tokens": 4.0
+        "cache_read_per_million_tokens": 4.0,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 4.0,
+            "input_per_million_tokens": 32.0,
+            "output_per_million_tokens": 64.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1814,7 +1892,14 @@
       "pricing": {
         "input_per_million_tokens": 4.0,
         "output_per_million_tokens": 16.0,
-        "cache_read_per_million_tokens": 4.0
+        "cache_read_per_million_tokens": 4.0,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 4.0,
+            "input_per_million_tokens": 32.0,
+            "output_per_million_tokens": 64.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1834,7 +1919,14 @@
       "pricing": {
         "input_per_million_tokens": 0.6,
         "output_per_million_tokens": 2.4,
-        "cache_read_per_million_tokens": 0.06
+        "cache_read_per_million_tokens": 0.06,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 0.3,
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 20.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2329,7 +2421,14 @@
       "pricing": {
         "input_per_million_tokens": 0.66,
         "output_per_million_tokens": 2.64,
-        "cache_read_per_million_tokens": 0.33
+        "cache_read_per_million_tokens": 0.33,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 0.33,
+            "input_per_million_tokens": 11.0,
+            "output_per_million_tokens": 22.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2349,7 +2448,14 @@
       "pricing": {
         "input_per_million_tokens": 5.5,
         "output_per_million_tokens": 22.0,
-        "cache_read_per_million_tokens": 2.75
+        "cache_read_per_million_tokens": 2.75,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 22.0,
+            "input_per_million_tokens": 110.0,
+            "output_per_million_tokens": 220.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2369,7 +2475,14 @@
       "pricing": {
         "input_per_million_tokens": 5.5,
         "output_per_million_tokens": 22.0,
-        "cache_read_per_million_tokens": 2.75
+        "cache_read_per_million_tokens": 2.75,
+        "modality": {
+          "audio": {
+            "cache_read_per_million_tokens": 2.5,
+            "input_per_million_tokens": 44.0,
+            "output_per_million_tokens": 80.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
