@@ -64,9 +64,14 @@ jest.mock('@mlflow/core', () => {
   };
 });
 
-import { processNotify } from '../src/tracing';
+import { resolve } from 'path';
+
+import { createChildSpans, processNotify, reconstructMessages } from '../src/tracing';
+import { readTranscript, getLastTurnRecords } from '../src/transcript';
 import { flushTraces } from '@mlflow/core';
-import type { NotifyPayload } from '../src/types';
+import type { NotifyPayload, RolloutLine } from '../src/types';
+
+const FIXTURES_DIR = resolve(__dirname, 'fixtures');
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getSpans(): any[] {
@@ -164,5 +169,252 @@ describe('processNotify', () => {
     expect(root.end).toHaveBeenCalled();
     const endCall = (root.end as jest.Mock).mock.calls[0][0];
     expect(endCall.outputs).toBe('4');
+  });
+
+  it('uses OpenAI chat format for the fallback LLM span', async () => {
+    await processNotify(makeNotifyPayload());
+
+    const [llm] = getSpansByType('LLM');
+    expect(llm.name).toBe('llm_call');
+    expect(llm.inputs).toEqual({
+      model: 'unknown',
+      messages: [{ role: 'user', content: 'what is 2+2' }],
+    });
+
+    const endCall = (llm.end as jest.Mock).mock.calls[0][0];
+    expect(endCall.outputs).toEqual({
+      choices: [{ message: { role: 'assistant', content: '4' } }],
+    });
+  });
+});
+
+describe('reconstructMessages', () => {
+  function responseItem(payload: Record<string, unknown>): RolloutLine {
+    return {
+      timestamp: '2026-04-05T10:00:00Z',
+      type: 'response_item',
+      payload: payload as RolloutLine['payload'],
+    };
+  }
+
+  it('maps user and assistant messages to chat format', () => {
+    const items = [
+      responseItem({
+        type: 'message',
+        role: 'user',
+        content: [{ type: 'input_text', text: 'hi' }],
+      }),
+      responseItem({
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'output_text', text: 'hello' }],
+      }),
+    ];
+    expect(reconstructMessages(items, items.length)).toEqual([
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'hello' },
+    ]);
+  });
+
+  it('maps developer messages to system role', () => {
+    const items = [
+      responseItem({
+        type: 'message',
+        role: 'developer',
+        content: [{ type: 'input_text', text: 'you are a helpful assistant' }],
+      }),
+    ];
+    expect(reconstructMessages(items, items.length)).toEqual([
+      { role: 'system', content: 'you are a helpful assistant' },
+    ]);
+  });
+
+  it('maps function_call to assistant message with tool_calls', () => {
+    const items = [
+      responseItem({
+        type: 'function_call',
+        name: 'exec_command',
+        call_id: 'call_1',
+        arguments: '{"cmd":"ls"}',
+      }),
+    ];
+    expect(reconstructMessages(items, items.length)).toEqual([
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          {
+            id: 'call_1',
+            type: 'function',
+            function: { name: 'exec_command', arguments: '{"cmd":"ls"}' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('maps function_call_output to tool message', () => {
+    const items = [
+      responseItem({
+        type: 'function_call_output',
+        call_id: 'call_1',
+        output: 'file1.txt\nfile2.txt',
+      }),
+    ];
+    expect(reconstructMessages(items, items.length)).toEqual([
+      { role: 'tool', tool_call_id: 'call_1', content: 'file1.txt\nfile2.txt' },
+    ]);
+  });
+
+  it('stops at uptoIndex and preserves order across a tool-use turn', () => {
+    const items = [
+      responseItem({
+        type: 'message',
+        role: 'user',
+        content: [{ type: 'input_text', text: 'list files' }],
+      }),
+      responseItem({
+        type: 'function_call',
+        name: 'exec',
+        call_id: 'c1',
+        arguments: '{"cmd":"ls"}',
+      }),
+      responseItem({
+        type: 'function_call_output',
+        call_id: 'c1',
+        output: 'a.txt',
+      }),
+      responseItem({
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'output_text', text: 'there is one file' }],
+      }),
+    ];
+    // uptoIndex=3 stops before the final assistant message
+    expect(reconstructMessages(items, 3)).toEqual([
+      { role: 'user', content: 'list files' },
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          {
+            id: 'c1',
+            type: 'function',
+            function: { name: 'exec', arguments: '{"cmd":"ls"}' },
+          },
+        ],
+      },
+      { role: 'tool', tool_call_id: 'c1', content: 'a.txt' },
+    ]);
+  });
+
+  it('skips empty-text messages', () => {
+    const items = [
+      responseItem({
+        type: 'message',
+        role: 'user',
+        content: [{ type: 'input_text', text: '   ' }],
+      }),
+    ];
+    expect(reconstructMessages(items, items.length)).toEqual([]);
+  });
+});
+
+describe('createChildSpans (integration with real transcript fixture)', () => {
+  // Reset the mock span tracking between tests to avoid pollution from
+  // processNotify tests in the same file.
+  beforeEach(() => {
+    spanCounter = 0;
+    Object.keys(mockSpans).forEach((key) => delete mockSpans[key]);
+    jest.clearAllMocks();
+  });
+
+  it('creates the expected span tree from the tool-call fixture', () => {
+    // Fixture conversation:
+    //   user "list files in current directory"
+    //   assistant "I'll list the files for you."
+    //   function_call exec_command({"cmd":"ls"})  -> call_abc123
+    //   function_call_output "file1.txt\nfile2.txt\nfile3.txt"
+    //   assistant "There are 3 files: ..."
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'));
+    const turn = getLastTurnRecords(records);
+
+    // Build a fake parent span that startSpan() can parent children to
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = { spanId: 'root' } as any;
+
+    createChildSpans(parent, turn, 'gpt-4');
+
+    const llmSpans = getSpansByType('LLM');
+    const toolSpans = getSpansByType('TOOL');
+
+    // 2 assistant messages -> 2 LLM spans; 1 function_call -> 1 TOOL span
+    expect(llmSpans.length).toBe(2);
+    expect(toolSpans.length).toBe(1);
+
+    // All children parented to the fake root
+    for (const span of [...llmSpans, ...toolSpans]) {
+      expect(span.parentId).toBe('root');
+    }
+
+    // First LLM span: only the user message is in scope, no tool_calls yet
+    expect(llmSpans[0].name).toBe('llm_call');
+    expect(llmSpans[0].inputs).toEqual({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: 'list files in current directory' }],
+    });
+    const firstLlmEnd = (llmSpans[0].end as jest.Mock).mock.calls[0][0];
+    expect(firstLlmEnd.outputs).toEqual({
+      choices: [{ message: { role: 'assistant', content: "I'll list the files for you." } }],
+    });
+
+    // TOOL span
+    expect(toolSpans[0].name).toBe('tool_exec_command');
+    expect(toolSpans[0].inputs).toEqual({ cmd: 'ls' });
+    expect(toolSpans[0].attributes).toEqual({
+      tool_name: 'exec_command',
+      tool_id: 'call_abc123',
+    });
+    const toolEnd = (toolSpans[0].end as jest.Mock).mock.calls[0][0];
+    expect(toolEnd.outputs).toEqual({
+      result: 'file1.txt\nfile2.txt\nfile3.txt',
+    });
+
+    // Second LLM span: full conversation history including the tool-call and
+    // tool-result should be reconstructed in inputs.messages
+    expect(llmSpans[1].inputs).toEqual({
+      model: 'gpt-4',
+      messages: [
+        { role: 'user', content: 'list files in current directory' },
+        { role: 'assistant', content: "I'll list the files for you." },
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: [
+            {
+              id: 'call_abc123',
+              type: 'function',
+              function: { name: 'exec_command', arguments: '{"cmd":"ls"}' },
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          tool_call_id: 'call_abc123',
+          content: 'file1.txt\nfile2.txt\nfile3.txt',
+        },
+      ],
+    });
+    const secondLlmEnd = (llmSpans[1].end as jest.Mock).mock.calls[0][0];
+    expect(secondLlmEnd.outputs).toEqual({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'There are 3 files: file1.txt, file2.txt, file3.txt',
+          },
+        },
+      ],
+    });
   });
 });

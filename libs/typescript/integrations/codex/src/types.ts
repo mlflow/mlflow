@@ -81,3 +81,26 @@ export interface TokenUsage {
   cached_input_tokens?: number;
   reasoning_output_tokens?: number;
 }
+
+/**
+ * OpenAI chat-format tool call, used on assistant messages.
+ */
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+/**
+ * OpenAI chat-format message used in LLM span inputs. Matches the message
+ * structure the MLflow UI Chat view renders.
+ */
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string | null;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
+}

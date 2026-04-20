@@ -27,7 +27,7 @@ import {
   type LiveSpan,
 } from '@mlflow/core';
 
-import type { NotifyPayload, RolloutLine, ResponseItemPayload } from './types.js';
+import type { ChatMessage, NotifyPayload, RolloutLine, ResponseItemPayload } from './types.js';
 import {
   NANOSECONDS_PER_MS,
   parseTimestampToNs,
@@ -94,15 +94,22 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
       });
     }
   } else {
-    // Fallback: create a simple LLM span from the notify data
+    // Fallback: create a simple LLM span from the notify data using the same
+    // OpenAI chat format the transcript path produces.
     const llmSpan = startSpan({
-      name: 'llm',
+      name: 'llm_call',
       parent: rootSpan,
       spanType: SpanType.LLM,
-      inputs: { prompt: userPrompt },
+      inputs: {
+        model,
+        messages: [{ role: 'user', content: userPrompt }],
+      },
+      attributes: { model },
     });
     llmSpan.end({
-      outputs: { content: assistantResponse },
+      outputs: {
+        choices: [{ message: { role: 'assistant', content: assistantResponse } }],
+      },
     });
   }
 
@@ -129,9 +136,68 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
 }
 
 /**
+ * Reconstruct OpenAI chat-format message history from response_items preceding
+ * the current index. Used to populate LLM span inputs so the MLflow Chat view
+ * shows the full conversation context that led up to each assistant call.
+ *
+ * Maps Codex's Responses-API-style records to standard chat messages:
+ * - `message` (user/assistant/system) → `{role, content}`
+ * - `function_call` → assistant message with `tool_calls: [{id, type, function}]`
+ * - `function_call_output` → `{role: 'tool', tool_call_id, content}`
+ */
+export function reconstructMessages(
+  responseItems: RolloutLine[],
+  uptoIndex: number,
+): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+  for (let i = 0; i < uptoIndex; i++) {
+    const payload = responseItems[i].payload as ResponseItemPayload;
+
+    if (payload.type === 'message') {
+      const text = extractTextFromContent(payload.content);
+      if (!text.trim()) {
+        continue;
+      }
+      if (payload.role === 'user' || payload.role === 'assistant') {
+        messages.push({ role: payload.role, content: text });
+      } else if (payload.role === 'developer') {
+        // Codex uses "developer" for system-style instructions; render as system
+        messages.push({ role: 'system', content: text });
+      }
+    } else if (payload.type === 'function_call') {
+      messages.push({
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          {
+            id: payload.call_id ?? '',
+            type: 'function',
+            function: {
+              name: payload.name ?? 'unknown',
+              arguments: payload.arguments ?? '{}',
+            },
+          },
+        ],
+      });
+    } else if (payload.type === 'function_call_output') {
+      messages.push({
+        role: 'tool',
+        tool_call_id: payload.call_id ?? '',
+        content: payload.output ?? '',
+      });
+    }
+  }
+  return messages;
+}
+
+/**
  * Create LLM and TOOL child spans from transcript turn records.
  */
-function createChildSpans(parentSpan: LiveSpan, turnRecords: RolloutLine[], model: string): void {
+export function createChildSpans(
+  parentSpan: LiveSpan,
+  turnRecords: RolloutLine[],
+  model: string,
+): void {
   const toolResults = buildToolResultMap(turnRecords);
 
   const responseItems = turnRecords.filter((record) => record.type === 'response_item');
@@ -160,15 +226,21 @@ function createChildSpans(parentSpan: LiveSpan, turnRecords: RolloutLine[], mode
     if (payload.type === 'message' && payload.role === 'assistant') {
       const text = extractTextFromContent(payload.content);
       if (text.trim()) {
+        const messages = reconstructMessages(responseItems, i);
         const llmSpan = startSpan({
-          name: 'llm',
+          name: 'llm_call',
           parent: parentSpan,
           spanType: SpanType.LLM,
           startTimeNs: timestampNs,
-          inputs: { model },
+          inputs: { model, messages },
           attributes: { model },
         });
-        llmSpan.end({ outputs: { content: text }, endTimeNs });
+        llmSpan.end({
+          outputs: {
+            choices: [{ message: { role: 'assistant', content: text } }],
+          },
+          endTimeNs,
+        });
       }
     } else if (payload.type === 'function_call') {
       const callId = payload.call_id ?? '';
