@@ -1027,6 +1027,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'governance/ai-gateway/guardrails',
+          label: 'Guardrails',
+        },
+        {
+          type: 'doc',
           id: 'governance/ai-gateway/benchmarks',
           label: 'Performance & Benchmarks',
         },

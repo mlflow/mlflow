@@ -7,9 +7,13 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   GenericSkeleton,
+  LinkIcon,
   Modal,
+  Notification,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
 import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorer';
 import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawer';
@@ -338,6 +342,13 @@ const ModalWrapper = ({
 }) => {
   const { theme, classNamePrefix } = useDesignSystemTheme();
   const useRadixModal = false;
+  const [showCopiedNotification, setShowCopiedNotification] = useState(false);
+
+  const handleShareClick = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href);
+    setShowCopiedNotification(true);
+    setTimeout(() => setShowCopiedNotification(false), 2000);
+  }, []);
 
   return (
     <div
@@ -352,7 +363,31 @@ const ModalWrapper = ({
       <Modal
         componentId="mlflow.evaluations_review.modal"
         visible
-        title={renderModalTitle()}
+        title={
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            <Tooltip
+              componentId="mlflow.evaluations_review.modal.share-tooltip"
+              content={
+                <FormattedMessage
+                  defaultMessage="Copy link to trace"
+                  description="Tooltip for the share trace button"
+                />
+              }
+            >
+              <Button
+                componentId="mlflow.evaluations_review.modal.share-button"
+                icon={<LinkIcon />}
+                size="small"
+                type="tertiary"
+                onClick={handleShareClick}
+                css={{ flexShrink: 0 }}
+              >
+                <FormattedMessage defaultMessage="Share" description="Label for the share trace button" />
+              </Button>
+            </Tooltip>
+          </div>
+        }
         onCancel={handleClose}
         size="wide"
         verticalSizing="maxed_out"
@@ -431,6 +466,19 @@ const ModalWrapper = ({
           </div>
         </div>
       </Modal>
+      {showCopiedNotification && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.evaluations_review.modal.share-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Copied to clipboard"
+                description="Success message after copying trace link"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
     </div>
   );
 };

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { exceedsRenderSizeLimit } from '../media-rendering-utils';
 import { fetchOrFail, getAjaxUrl } from './ModelTraceExplorer.request.utils';
 
 async function getTraceAttachment(requestId: string, attachmentId: string): Promise<ArrayBuffer | undefined> {
@@ -14,7 +15,29 @@ async function getTraceAttachment(requestId: string, attachmentId: string): Prom
   }
 }
 
-export function parseAttachmentUri(uri: string): { attachmentId: string; traceId: string; contentType: string } | null {
+/**
+ * Programmatically fetches a blob and triggers a browser download.
+ */
+export async function fetchAndDownload(traceId: string, attachmentId: string, contentType: string) {
+  const url = getAjaxUrl(
+    `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(traceId)}&path=${encodeURIComponent(attachmentId)}`,
+  );
+  const response = await fetchOrFail(url);
+  const arrayBuffer = await response.arrayBuffer();
+  const blob = new Blob([arrayBuffer], { type: contentType });
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = `attachment-${attachmentId}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
+}
+
+export function parseAttachmentUri(
+  uri: string,
+): { attachmentId: string; traceId: string; contentType: string; size?: number } | null {
   try {
     const parsed = new URL(uri);
     if (parsed.protocol !== 'mlflow-attachment:') {
@@ -26,7 +49,13 @@ export function parseAttachmentUri(uri: string): { attachmentId: string; traceId
     if (!attachmentId || !contentType || !traceId) {
       return null;
     }
-    return { attachmentId, contentType, traceId };
+    const sizeStr = parsed.searchParams.get('size');
+    const parsedSize = sizeStr ? Number(sizeStr) : undefined;
+    const size =
+      parsedSize !== undefined && Number.isFinite(parsedSize) && Number.isInteger(parsedSize) && parsedSize > 0
+        ? parsedSize
+        : undefined;
+    return { attachmentId, contentType, traceId, ...(size !== undefined ? { size } : {}) };
   } catch {
     return null;
   }
@@ -42,17 +71,23 @@ export function useAttachmentUrl(uri: string | null): {
   contentType: string | null;
   loading: boolean;
   error: boolean;
+  triggerDownload?: () => Promise<void>;
 } {
   const parsed = uri ? parseAttachmentUri(uri) : null;
+
+  // If the URI encodes a size that exceeds the render limit, skip the fetch entirely
+  // and let callers show a download link immediately.
+  const skipFetch = Boolean(parsed?.size !== undefined && exceedsRenderSizeLimit(parsed.contentType, parsed.size));
+
   const [url, setUrl] = useState<string | null>(null);
-  const [contentLength, setContentLength] = useState(0);
-  const [loading, setLoading] = useState(Boolean(parsed));
+  const [contentLength, setContentLength] = useState(skipFetch && parsed?.size ? parsed.size : 0);
+  const [loading, setLoading] = useState(Boolean(parsed) && !skipFetch);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!parsed) {
+    if (!parsed || skipFetch) {
       setUrl(null);
-      setContentLength(0);
+      setContentLength(skipFetch && parsed?.size ? parsed.size : 0);
       setLoading(false);
       setError(false);
       return;
@@ -97,7 +132,22 @@ export function useAttachmentUrl(uri: string | null): {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uri]);
 
-  return { url, loading, error, contentLength, contentType: parsed?.contentType ?? null };
+  const triggerDownload = useCallback(() => {
+    if (parsed) {
+      return fetchAndDownload(parsed.traceId, parsed.attachmentId, parsed.contentType);
+    }
+    return Promise.resolve();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uri]);
+
+  return {
+    url,
+    loading,
+    error,
+    contentLength,
+    contentType: parsed?.contentType ?? null,
+    triggerDownload: skipFetch ? triggerDownload : undefined,
+  };
 }
 
 export function isAttachmentUri(value: string): boolean {
