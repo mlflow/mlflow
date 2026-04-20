@@ -399,6 +399,9 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
 
     assert result == {"result": "ok"}
 
+    # Flush to ensure all spans are written (batch processor may be active)
+    mlflow.flush_trace_async_logging(terminate=True)
+
     # Gateway trace should exist in the gateway experiment
     gateway_traces = TracingClient().search_traces(locations=[gateway_experiment_id])
     assert len(gateway_traces) == 1
@@ -408,7 +411,6 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
     assert gateway_trace_id != agent_trace_id
 
     # Agent trace should contain two distributed spans (gateway + provider)
-    mlflow.flush_trace_async_logging()
     agent_trace = mlflow.get_trace(agent_trace_id)
     assert agent_trace is not None
 
@@ -489,6 +491,9 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
 
     assert len(chunks) == 2
 
+    # Flush to ensure all spans are written (batch processor may be active)
+    mlflow.flush_trace_async_logging(terminate=True)
+
     # Gateway trace should exist
     gateway_traces = TracingClient().search_traces(locations=[gateway_experiment_id])
     assert len(gateway_traces) == 1
@@ -496,7 +501,6 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
     assert gateway_trace_id != agent_trace_id
 
     # Agent trace should contain two distributed spans (gateway + provider)
-    mlflow.flush_trace_async_logging()
     agent_trace = mlflow.get_trace(agent_trace_id)
     assert agent_trace is not None
 

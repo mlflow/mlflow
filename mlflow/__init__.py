@@ -78,7 +78,6 @@ langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
-llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
@@ -133,7 +132,6 @@ if TYPE_CHECKING:
         lightgbm,
         litellm,
         llama_index,
-        llm,
         metrics,
         mistral,
         onnx,

@@ -331,6 +331,191 @@ def test_extracts_b64_json_multiple():
     assert len(span._attachments) == 2
 
 
+# --- Bedrock image pattern ---
+
+
+def test_extracts_bedrock_image():
+    span = _make_live_span()
+    img_b64 = base64.b64encode(PNG_BYTES).decode()
+    span.set_outputs({
+        "output": {
+            "message": {
+                "content": [
+                    {"text": "Here is the image."},
+                    {
+                        "image": {
+                            "format": "png",
+                            "source": {"bytes": img_b64},
+                        }
+                    },
+                ]
+            }
+        }
+    })
+
+    content = span.outputs["output"]["message"]["content"]
+    assert content[0] == {"text": "Here is the image."}
+    img_block = content[1]
+    assert img_block["image"]["format"] == "png"
+    assert img_block["image"]["source"]["bytes"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
+def test_bedrock_image_with_invalid_base64():
+    span = _make_live_span()
+    span.set_outputs({
+        "content": [
+            {
+                "image": {
+                    "format": "png",
+                    "source": {"bytes": "!!!bad!!!"},
+                }
+            }
+        ]
+    })
+    img_block = span.outputs["content"][0]
+    assert img_block["image"]["source"]["bytes"] == "!!!bad!!!"
+    assert len(span._attachments) == 0
+
+
+# --- Gemini inline_data pattern ---
+
+
+def test_extracts_gemini_inline_data():
+    span = _make_live_span()
+    img_b64 = base64.b64encode(PNG_BYTES).decode()
+    span.set_outputs({
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": "Here is what I see."},
+                        {
+                            "inline_data": {
+                                "mime_type": "image/png",
+                                "data": img_b64,
+                            }
+                        },
+                    ]
+                }
+            }
+        ]
+    })
+
+    parts = span.outputs["candidates"][0]["content"]["parts"]
+    assert parts[0] == {"text": "Here is what I see."}
+    inline = parts[1]
+    assert inline["inline_data"]["mime_type"] == "image/png"
+    assert inline["inline_data"]["data"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
+def test_extracts_gemini_inline_data_bytes_repr():
+    # Gemini SDK Pydantic serialization produces repr(bytes) instead of base64
+    span = _make_live_span()
+    bytes_repr = repr(PNG_BYTES)
+    span.set_outputs({
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": "A small image."},
+                        {
+                            "inline_data": {
+                                "mime_type": "image/png",
+                                "data": bytes_repr,
+                            }
+                        },
+                    ]
+                }
+            }
+        ]
+    })
+
+    parts = span.outputs["candidates"][0]["content"]["parts"]
+    assert parts[0] == {"text": "A small image."}
+    inline = parts[1]
+    assert inline["inline_data"]["data"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
+def test_gemini_inline_data_with_invalid_base64():
+    span = _make_live_span()
+    span.set_outputs({
+        "parts": [
+            {
+                "inline_data": {
+                    "mime_type": "image/jpeg",
+                    "data": "!!!bad!!!",
+                }
+            }
+        ]
+    })
+    inline = span.outputs["parts"][0]
+    assert inline["inline_data"]["data"] == "!!!bad!!!"
+    assert len(span._attachments) == 0
+
+
+# --- Responses API image_generation_call pattern ---
+
+
+def test_extracts_responses_api_image_generation():
+    span = _make_live_span()
+    img_b64 = base64.b64encode(PNG_BYTES).decode()
+    span.set_outputs({
+        "output": [
+            {
+                "type": "image_generation_call",
+                "result": img_b64,
+                "output_format": "png",
+                "revised_prompt": "a blue square",
+            },
+            {
+                "type": "message",
+                "content": [{"type": "output_text", "text": "Here is the image."}],
+            },
+        ]
+    })
+
+    outputs = span.outputs
+    img_call = outputs["output"][0]
+    assert img_call["type"] == "image_generation_call"
+    assert img_call["result"].startswith("mlflow-attachment://")
+    assert img_call["revised_prompt"] == "a blue square"
+    assert img_call["output_format"] == "png"
+    msg = outputs["output"][1]
+    assert msg["type"] == "message"
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
+def test_responses_api_image_generation_with_invalid_base64():
+    span = _make_live_span()
+    span.set_outputs({
+        "output": [
+            {
+                "type": "image_generation_call",
+                "result": "!!!bad!!!",
+                "output_format": "png",
+            }
+        ]
+    })
+    img_call = span.outputs["output"][0]
+    assert img_call["result"] == "!!!bad!!!"
+    assert len(span._attachments) == 0
+
+
 # --- Two-pass serialization extraction ---
 
 

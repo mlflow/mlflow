@@ -512,6 +512,29 @@ service MlflowService {
     option (graphql) = {};
   }
 
+  // Generate a presigned URL for uploading an artifact directly to cloud storage.
+  // The server uses its own credentials to sign the URL, enabling clients to upload
+  // artifacts without needing direct cloud storage write permissions.
+  //
+  // Consumed by external artifact repository plugins
+  // (e.g. https://github.com/aws/sagemaker-mlflow).
+  rpc createPresignedUploadUrl(CreatePresignedUploadUrl) returns (CreatePresignedUploadUrl.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/artifacts/presigned-upload-url"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Presigned Upload URL"
+    };
+  }
+
   // Get a list of all values for the specified metric for a given run.
   //
   rpc getMetricHistory(GetMetricHistory) returns (GetMetricHistory.Response) {
@@ -2316,6 +2339,149 @@ service MlflowService {
     };
   }
 
+  // Create a new guardrail backed by a scorer
+  rpc createGatewayGuardrail(CreateGatewayGuardrail) returns (CreateGatewayGuardrail.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/guardrails/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Guardrail"
+    };
+  }
+
+  // Get a guardrail by ID
+  rpc getGatewayGuardrail(GetGatewayGuardrail) returns (GetGatewayGuardrail.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/guardrails/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Guardrail"
+    };
+  }
+
+  // Delete a guardrail
+  rpc deleteGatewayGuardrail(DeleteGatewayGuardrail) returns (DeleteGatewayGuardrail.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/guardrails/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Guardrail"
+    };
+  }
+
+  // List guardrails
+  rpc listGatewayGuardrails(ListGatewayGuardrails) returns (ListGatewayGuardrails.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/guardrails/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Guardrails"
+    };
+  }
+
+  // Add a guardrail to a gateway endpoint
+  rpc addGuardrailToEndpoint(AddGuardrailToEndpoint) returns (AddGuardrailToEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/guardrails/add-to-endpoint"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Add Guardrail to Endpoint"
+    };
+  }
+
+  // Remove a guardrail from a gateway endpoint
+  rpc removeGuardrailFromEndpoint(RemoveGuardrailFromEndpoint) returns (RemoveGuardrailFromEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/guardrails/remove-from-endpoint"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Remove Guardrail from Endpoint"
+    };
+  }
+
+  // List guardrail configs for an endpoint
+  rpc listEndpointGuardrailConfigs(ListEndpointGuardrailConfigs) returns (ListEndpointGuardrailConfigs.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/guardrails/list-for-endpoint"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Endpoint Guardrail Configs"
+    };
+  }
+
+  rpc updateEndpointGuardrailConfig(UpdateEndpointGuardrailConfig) returns (UpdateEndpointGuardrailConfig.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/gateway/guardrails/update-config"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Endpoint Guardrail Config"
+    };
+  }
+
   // Create a new prompt optimization job.
   // This endpoint initiates an optimization run with the specified configuration.
   // The optimization process runs asynchronously and can be monitored via getPromptOptimizationJob.
@@ -3101,6 +3267,28 @@ message ListArtifacts {
 
     // Token that can be used to retrieve the next page of artifact results
     optional string next_page_token = 3;
+  }
+}
+
+message CreatePresignedUploadUrl {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Run ID that owns the artifact. Must be provided.
+  optional string run_id = 1;
+
+  // Relative path within the run's artifact directory (e.g. "models/model.pkl").
+  // Must be provided.
+  optional string path = 2;
+
+  // URL expiration time in seconds (default: 900).
+  optional int64 expiration = 3;
+
+  message Response {
+    // Presigned URL for direct artifact upload.
+    optional string presigned_url = 1;
+
+    // Required headers for the upload request (e.g. Content-Type).
+    map<string, string> headers = 2;
   }
 }
 
@@ -4940,6 +5128,20 @@ enum BudgetUnit {
   USD = 1;
 }
 
+// Whether a guardrail runs before or after LLM invocation
+enum GuardrailStage {
+  GUARDRAIL_STAGE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  BEFORE = 1;
+  AFTER = 2;
+}
+
+// Whether a guardrail blocks or modifies the request/response
+enum GuardrailAction {
+  GUARDRAIL_ACTION_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  VALIDATION = 1;
+  SANITIZATION = 2;
+}
+
 // Fixed window duration: a (unit, value) pair that defines how long a budget window is
 message BudgetDuration {
   // Unit of time (MINUTES, HOURS, DAYS, WEEKS, MONTHS)
@@ -5228,6 +5430,150 @@ message ListGatewayBudgetWindows {
 
   message Response {
     repeated BudgetWindow windows = 1;
+  }
+}
+
+// ========== Gateway Guardrails API Messages ==========
+
+message GatewayGuardrail {
+  optional string guardrail_id = 1;
+
+  optional string name = 2;
+
+  optional Scorer scorer = 3;
+
+  optional GuardrailStage stage = 4;
+
+  optional GuardrailAction action = 5;
+
+  // Optional gateway endpoint ID for the LLM used by the action (e.g. sanitization).
+  optional string action_endpoint_id = 6;
+
+  optional string created_by = 7;
+
+  optional int64 created_at = 8;
+
+  optional string last_updated_by = 9;
+
+  optional int64 last_updated_at = 10;
+}
+
+message GatewayGuardrailConfig {
+  optional string endpoint_id = 1;
+
+  optional string guardrail_id = 2;
+
+  optional int64 execution_order = 3;
+
+  optional string created_by = 4;
+
+  optional int64 created_at = 5;
+
+  // The full guardrail entity, populated when listing configs.
+  optional GatewayGuardrail guardrail = 6;
+}
+
+message CreateGatewayGuardrail {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string name = 1;
+
+  optional string scorer_id = 2;
+
+  optional int64 scorer_version = 3;
+
+  optional GuardrailStage stage = 4;
+
+  optional GuardrailAction action = 5;
+
+  // Optional gateway endpoint ID for the LLM used by the action.
+  optional string action_endpoint_id = 6;
+
+  message Response {
+    optional GatewayGuardrail guardrail = 1;
+  }
+}
+
+message GetGatewayGuardrail {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string guardrail_id = 1;
+
+  message Response {
+    optional GatewayGuardrail guardrail = 1;
+  }
+}
+
+message DeleteGatewayGuardrail {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string guardrail_id = 1;
+
+  message Response {}
+}
+
+message ListGatewayGuardrails {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional int64 max_results = 1;
+
+  optional string page_token = 2;
+
+  message Response {
+    repeated GatewayGuardrail guardrails = 1;
+
+    optional string next_page_token = 2;
+  }
+}
+
+message AddGuardrailToEndpoint {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string endpoint_id = 1;
+
+  optional string guardrail_id = 2;
+
+  optional int64 execution_order = 3;
+
+  message Response {
+    optional GatewayGuardrailConfig config = 1;
+  }
+}
+
+message RemoveGuardrailFromEndpoint {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string endpoint_id = 1;
+
+  optional string guardrail_id = 2;
+
+  message Response {}
+}
+
+message ListEndpointGuardrailConfigs {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string endpoint_id = 1;
+
+  message Response {
+    repeated GatewayGuardrailConfig configs = 1;
+  }
+}
+
+message UpdateEndpointGuardrailConfig {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The endpoint ID.
+  optional string endpoint_id = 1;
+
+  // The guardrail ID.
+  optional string guardrail_id = 2;
+
+  // The new execution order.
+  optional int64 execution_order = 3;
+
+  message Response {
+    optional GatewayGuardrailConfig config = 1;
   }
 }
 

@@ -318,6 +318,12 @@ def _assert_any_call_at_least(mobj, *args, **kwargs):
         raise AssertionError(f"No valid call to {mobj=} with {args=} and {kwargs=}")
 
 
+def test_get_provider_name():
+    provider = AmazonBedrockProvider.__new__(AmazonBedrockProvider)
+    assert provider.DISPLAY_NAME == "Amazon Bedrock"
+    assert provider.get_provider_name() == "bedrock"
+
+
 @pytest.mark.parametrize(("aws_config", "expected"), bedrock_aws_configs)
 def test_bedrock_aws_config(aws_config, expected):
     assert isinstance(

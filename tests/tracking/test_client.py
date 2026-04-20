@@ -785,7 +785,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    trace_id = mlflow.get_trace(mlflow.get_last_active_trace_id()).info.trace_id
+    trace_id = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True).info.trace_id
 
     # Validate that trace is logged to the backend
     trace = client.get_trace(trace_id)
@@ -851,7 +851,7 @@ def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
     client.end_span(trace_id=root.trace_id, span_id=span.span_id, outputs=False)
     client.end_trace(trace_id=root.trace_id, outputs="")
 
-    trace = client.get_trace(root.trace_id)
+    trace = client.get_trace(root.trace_id, flush=True)
     assert trace.data.spans[0].inputs == []
     assert trace.data.spans[0].outputs == ""
     assert trace.data.spans[1].inputs == 0
@@ -1125,17 +1125,17 @@ def test_log_trace(tracking_uri):
     )
     client.end_trace(span.trace_id, status="OK")
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
 
     # Purge all traces in the backend once
     client.delete_traces(experiment_id=experiment_id, trace_ids=[trace.info.trace_id])
     assert client.search_traces(locations=[experiment_id]) == []
 
-    # Log the trace manually
+    # Log the trace manually — _log_trace triggers async export via span processor
     new_trace_id = client._log_trace(trace)
 
-    # Validate the trace is added to the backend
-    backend_traces = client.search_traces(locations=[experiment_id])
+    # Validate the trace is added to the backend (flush=True waits for async writes)
+    backend_traces = client.search_traces(locations=[experiment_id], flush=True)
     assert len(backend_traces) == 1
     assert backend_traces[0].info.trace_id == new_trace_id  # new request ID is assigned
     assert backend_traces[0].info.experiment_id == experiment_id
@@ -1149,7 +1149,7 @@ def test_log_trace(tracking_uri):
     # If the experiment ID is None in the given trace, it should be set to the default experiment
     trace.info.experiment_id = None
     new_trace_id = client._log_trace(trace)
-    backend_traces = client.search_traces(locations=[DEFAULT_EXPERIMENT_ID])
+    backend_traces = client.search_traces(locations=[DEFAULT_EXPERIMENT_ID], flush=True)
     assert len(backend_traces) == 1
 
 
@@ -1211,7 +1211,7 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
     client.set_trace_tag(trace_id, "foo", "bar")
     client.end_trace(trace_id)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert trace.info.tags["foo"] == "bar"
 
 
@@ -1234,7 +1234,7 @@ def test_delete_trace_tag_on_active_trace(monkeypatch):
     client.delete_trace_tag(trace_id, "foo")
     client.end_trace(trace_id)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert "baz" in trace.info.tags
     assert "foo" not in trace.info.tags
 
@@ -2054,8 +2054,8 @@ def test_file_store_download_upload_trace_data(tmp_path):
         client = MlflowClient()
         span = client.start_trace("test", inputs={"test": 1})
         client.end_trace(span.trace_id, outputs={"result": 2})
-        trace = mlflow.get_trace(span.trace_id)
-        trace_data = client.get_trace(span.trace_id).data
+        trace = mlflow.get_trace(span.trace_id, flush=True)
+        trace_data = client.get_trace(span.trace_id, flush=True).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
 
@@ -3634,6 +3634,7 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
             pass
 
         trace_id = span.trace_id
+        mlflow.flush_trace_async_logging()
         sql_alchemy_store_module = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
         with (
             mock.patch(f"{sql_alchemy_store_module}.get_trace") as mock_get_trace,

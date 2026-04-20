@@ -7,6 +7,7 @@ import type {
   TraceActions,
   GetTraceFunction,
   TableFilter,
+  TraceTablePageSource,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   shouldUseTracesV4API,
@@ -29,7 +30,6 @@ import {
   TracesTableColumnType,
   useSearchMlflowTraces,
   useSelectedColumns,
-  getEvalTabTotalTracesLimit,
   GenAITracesTableProvider,
   useFilters,
   getTracesTagKeys,
@@ -68,6 +68,8 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
+import { useCountInfo } from './hooks/useCountInfo';
+import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
 
 const JudgeContextProvider = ({
   children,
@@ -116,7 +118,7 @@ const TracesV3LogsImpl = React.memo(
     forceGroupBySession = false,
     initialGroupBySession = false,
     columnStorageKeyPrefix,
-    detectIssuesButtonComponentId,
+    pageSource = 'experiment-traces',
     additionalFilters,
     disableActions = false,
     customDefaultSelectedColumns,
@@ -140,10 +142,10 @@ const TracesV3LogsImpl = React.memo(
      */
     columnStorageKeyPrefix?: string;
     /**
-     * Optional component ID for the detect issues button.
-     * Use this to differentiate between traces and sessions contexts.
+     * Optional param to differentiate the context of the traces table
+     * Currently used to log different componentIds for the detect issues button
      */
-    detectIssuesButtonComponentId?: string;
+    pageSource?: TraceTablePageSource;
     additionalFilters?: TableFilter[];
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
@@ -285,6 +287,9 @@ const TracesV3LogsImpl = React.memo(
       isLoading: traceInfosLoading,
       isFetching: traceInfosFetching,
       error: traceInfosError,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage,
     } = useSearchMlflowTraces({
       locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
@@ -354,14 +359,20 @@ const TracesV3LogsImpl = React.memo(
       RunJudgesModal,
     ]);
 
-    const countInfo = useMemo(() => {
-      return {
-        currentCount: traceInfos?.length,
-        logCountLoading: traceInfosLoading,
-        totalCount: totalCount,
-        maxAllowedCount: getEvalTabTotalTracesLimit(),
-      };
-    }, [traceInfos, totalCount, traceInfosLoading]);
+    const countInfo = useCountInfo({
+      experimentIds,
+      timeRange,
+      traceInfosCount: traceInfos?.length,
+      traceInfosLoading,
+      metadataTotalCount: totalCount,
+      disabled: isQueryDisabled,
+    });
+
+    const assessmentCountMetrics = useAssessmentCountMetrics({
+      experimentIds,
+      timeRange,
+      disabled: isQueryDisabled,
+    });
 
     // Loading state:
     // - Show skeleton only during initial metadata loading (or initial time filter loading for empty check)
@@ -372,7 +383,9 @@ const TracesV3LogsImpl = React.memo(
 
     const tableError = traceInfosError || metadataError;
     const isTableEmpty = isEmpty && !showInitialSkeleton && !traceInfosLoading && !traceInfosFetching && !tableError;
-    const isTableLoading = !showInitialSkeleton && (traceInfosLoading || traceInfosFetching);
+    // When fetching the next page of infinite results, keep the existing rows visible
+    // and preserve scroll position instead of showing the loading skeleton.
+    const isTableLoading = !showInitialSkeleton && (traceInfosLoading || (traceInfosFetching && !isFetchingNextPage));
 
     // Helper function to render the main content based on current state
     const renderMainContent = () => {
@@ -404,6 +417,10 @@ const TracesV3LogsImpl = React.memo(
                 isTableLoading={isTableLoading}
                 isGroupedBySession={forceGroupBySession || isGroupedBySession}
                 searchQuery={searchQuery}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+                assessmentCountMetrics={assessmentCountMetrics}
               />
             </div>
           </>
@@ -467,6 +484,10 @@ const TracesV3LogsImpl = React.memo(
                   isTableLoading={isTableLoading}
                   isGroupedBySession={forceGroupBySession || isGroupedBySession}
                   searchQuery={searchQuery}
+                  fetchNextPage={fetchNextPage}
+                  hasNextPage={hasNextPage}
+                  isFetchingNextPage={isFetchingNextPage}
+                  assessmentCountMetrics={assessmentCountMetrics}
                 />
               </ContextProviders>
             )}
@@ -495,7 +516,7 @@ const TracesV3LogsImpl = React.memo(
             }}
           >
             <GenAITracesTableToolbar
-              detectIssuesButtonComponentId={detectIssuesButtonComponentId}
+              pageSource={pageSource}
               experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}

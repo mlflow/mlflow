@@ -74,11 +74,10 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('renders page title and subtitle', () => {
+    test('renders page title', () => {
       renderComponent();
 
-      expect(screen.getByText('Gateway Usage')).toBeInTheDocument();
-      expect(screen.getByText('Monitor usage and performance across all endpoints')).toBeInTheDocument();
+      expect(screen.getAllByText('Usage').length).toBeGreaterThanOrEqual(1);
     });
 
     test('renders endpoint selector with "All endpoints" option', () => {
@@ -173,12 +172,18 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('renders empty state', () => {
+    test('renders page header and breadcrumb', () => {
+      renderComponent();
+
+      expect(screen.getAllByText('Usage').length).toBeGreaterThanOrEqual(1);
+    });
+
+    test('renders empty state with correct message', () => {
       renderComponent();
 
       expect(screen.getByText('No usage data available')).toBeInTheDocument();
       expect(
-        screen.getByText('Enable usage tracking on your endpoints to see usage metrics here.'),
+        screen.getByText('Once you have endpoints with usage tracking enabled, usage metrics will appear here.'),
       ).toBeInTheDocument();
     });
 
@@ -186,6 +191,13 @@ describe('GatewayUsagePage', () => {
       renderComponent();
 
       expect(screen.getByText('Go to Endpoints')).toBeInTheDocument();
+    });
+
+    test('does not render endpoint or user filters', () => {
+      renderComponent();
+
+      expect(screen.queryByText('Endpoint:')).not.toBeInTheDocument();
+      expect(screen.queryByText('User:')).not.toBeInTheDocument();
     });
 
     test('does not render charts', () => {
@@ -204,18 +216,16 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('shows loading spinner', () => {
+    test('does not show empty state while loading', () => {
       renderComponent();
 
-      // The spinner should be in the controls section
-      expect(screen.getByText('Endpoint:')).toBeInTheDocument();
+      expect(screen.queryByText('No usage data available')).not.toBeInTheDocument();
     });
 
-    test('disables endpoint selector while loading', () => {
+    test('renders charts panel while loading', () => {
       renderComponent();
 
-      const selectors = screen.getAllByRole('combobox');
-      expect(selectors[0]).toBeDisabled();
+      expect(screen.getByTestId('gateway-charts-panel')).toBeInTheDocument();
     });
   });
 
@@ -227,10 +237,18 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('renders empty state', () => {
+    test('renders page header with empty state', () => {
       renderComponent();
 
+      expect(screen.getAllByText('Usage').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('No usage data available')).toBeInTheDocument();
+    });
+
+    test('does not render endpoint or user filters', () => {
+      renderComponent();
+
+      expect(screen.queryByText('Endpoint:')).not.toBeInTheDocument();
+      expect(screen.queryByText('User:')).not.toBeInTheDocument();
     });
   });
 });

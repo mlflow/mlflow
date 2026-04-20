@@ -19,11 +19,7 @@ export const useTraceAttachment = ({
   attachmentId: string;
   contentType: string;
 }) => {
-  const {
-    data: objectUrl,
-    isLoading,
-    error,
-  } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: [TRACE_ATTACHMENT_QUERY_KEY, traceId, attachmentId],
     queryFn: async () => {
       const url = getAjaxUrl(
@@ -31,18 +27,26 @@ export const useTraceAttachment = ({
       );
       const response = await fetchOrFail(url);
       const blob = await response.blob();
-      return URL.createObjectURL(new Blob([blob], { type: contentType }));
+      return {
+        objectUrl: URL.createObjectURL(new Blob([blob], { type: contentType })),
+        contentLength: blob.size,
+      };
     },
     refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
     return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
+      if (data?.objectUrl) {
+        URL.revokeObjectURL(data.objectUrl);
       }
     };
-  }, [objectUrl]);
+  }, [data?.objectUrl]);
 
-  return { objectUrl: objectUrl ?? null, isLoading, error };
+  return {
+    objectUrl: data?.objectUrl ?? null,
+    contentLength: data?.contentLength ?? 0,
+    isLoading,
+    error,
+  };
 };

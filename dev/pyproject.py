@@ -485,7 +485,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
         package_data["mlflow"] += [
             "models/container/**/*",
             "server/js/build/**/*",
-            "utils/model_prices_and_context_window.json",
+            "utils/model_catalog/*.json",
         ]
 
     return package_data

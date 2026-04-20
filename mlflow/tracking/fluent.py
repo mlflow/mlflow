@@ -983,16 +983,25 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
+    # Flush ALL batch span processors and their exporters' async queues.
+    # When set_destination() is called multiple times, each call creates a new
+    # tracer provider, processor, and exporter. The registry tracks all of them
+    # so we drain both layers: span queue → exporter → async DB write queue.
+    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
+
     try:
-        trace_exporter = _get_trace_exporter()
+        flush_all_batch_processors(terminate=terminate)
     except Exception as e:
-        _logger.debug(f"Failed to get trace exporter: {e}", exc_info=True)
-        return
+        _logger.debug(f"Failed to flush batch processors: {e}", exc_info=True)
+
+    # When batch processor is disabled (no registry entries), the current exporter
+    # may still have an _async_queue that needs draining (SimpleSpanProcessor path).
     try:
-        if hasattr(trace_exporter, "_async_queue"):
-            trace_exporter._async_queue.flush(terminate=terminate)
+        if trace_exporter := _get_trace_exporter():
+            if hasattr(trace_exporter, "_async_queue"):
+                trace_exporter._async_queue.flush(terminate=terminate)
     except Exception as e:
-        _logger.error(f"Failed to flush trace async logging: {e}")
+        _logger.debug(f"Failed to flush trace exporter async queue: {e}", exc_info=True)
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
@@ -3873,7 +3882,9 @@ def set_active_model(*, name: str | None = None, model_id: str | None = None) ->
 
 
         predict("abc")
-        traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
+        traces = mlflow.search_traces(
+            model_id=mlflow.get_active_model_id(), return_type="list", flush=True
+        )
         assert len(traces) == 1
     """
     return _set_active_model(name=name, model_id=model_id, set_by_user=True)

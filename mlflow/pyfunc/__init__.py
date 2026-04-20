@@ -426,6 +426,7 @@ import mlflow.pyfunc.model
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
+    _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
     _MLFLOW_TESTING,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
@@ -738,7 +739,10 @@ def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_s
                     f"with schema '{input_schema}'. "
                     f"Error: {e}"
                 )
-            raise MlflowException.invalid_parameter_value(message)
+            # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
+            raise MlflowException.invalid_parameter_value(
+                message, error_class="SCHEMA_ENFORCEMENT_FAILED"
+            )
     params = _enforce_params_schema(params, params_schema)
     if HAS_PYSPARK and isinstance(data, SparkDataFrame):
         _logger.warning(
@@ -2260,10 +2264,19 @@ def spark_udf(
         )
 
     # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.
-    # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
-    # Note for Databricks Serverless runtime (notebook REPL), it runs on Servereless VM that
-    # can't access NFS, so it needs to use `spark.addArtifact`.
-    use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
+    # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it.
+    # For Databricks Serverless runtime (notebook REPL), spark.addArtifact may not reliably
+    # make archives available to UDF executor sandboxes. As a temporary workaround, set
+    # _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT=true to skip the addArtifact path
+    # and let each executor fetch the model directly from the MLflow artifact store instead.
+    use_dbconnect_artifact = (
+        is_dbconnect_mode
+        and not is_in_databricks_shared_cluster_runtime()
+        and not (
+            is_in_databricks_serverless_runtime()
+            and _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT.get()
+        )
+    )
 
     if use_dbconnect_artifact:
         udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)

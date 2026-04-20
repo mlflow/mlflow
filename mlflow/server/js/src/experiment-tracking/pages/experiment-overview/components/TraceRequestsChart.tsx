@@ -40,10 +40,10 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ title })
     () => (
       <ScrollableTooltip
         formatter={tooltipFormatter}
+        componentId="mlflow.overview.usage.traces.view_traces_link"
         linkConfig={{
           experimentId: experimentIds[0],
           timeIntervalSeconds,
-          componentId: 'mlflow.overview.usage.traces.view_traces_link',
         }}
       />
     ),

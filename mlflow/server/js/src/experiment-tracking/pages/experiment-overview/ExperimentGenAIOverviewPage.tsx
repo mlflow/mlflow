@@ -198,10 +198,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
            * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
            * TODO: remove this once this is supported in backend
            */}
-          <TracesV3DateSelector
-            excludeOptions={['ALL']}
-            refreshButtonComponentId="mlflow.experiment.overview.refresh-button"
-          />
+          <TracesV3DateSelector excludeOptions={['ALL']} componentId="mlflow.experiment.overview" />
 
           {shouldEnableIssueDetection() && (
             <div css={{ marginLeft: 'auto' }}>

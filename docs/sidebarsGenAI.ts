@@ -114,7 +114,7 @@ const sidebarsGenAI: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'tracing/observe-with-traces/multimodal',
-                  label: 'Multimodal Content',
+                  label: 'Multimodal Content & Attachments',
                 },
               ],
             },
@@ -1026,29 +1026,9 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Budget Alerts & Limits',
         },
         {
-          type: 'category',
-          label: 'Gateway Server (Legacy)',
-          items: [
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/legacy/setup',
-              label: 'Setup',
-            },
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/legacy/configuration',
-              label: 'Configuration',
-            },
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/legacy/usage',
-              label: 'Usage',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'governance/ai-gateway/legacy/index',
-          },
+          type: 'doc',
+          id: 'governance/ai-gateway/benchmarks',
+          label: 'Performance & Benchmarks',
         },
       ],
       link: {

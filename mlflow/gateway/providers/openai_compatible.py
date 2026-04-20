@@ -4,7 +4,7 @@ Base provider for OpenAI-compatible APIs.
 Many LLM providers (Groq, DeepSeek, xAI, etc.) expose APIs that follow the
 OpenAI chat/completions/embeddings format. This module provides a reusable
 base class so that adding a new such provider requires only a config class,
-a NAME, and a default base URL.
+a DISPLAY_NAME, and a default base URL.
 """
 
 from typing import Any, AsyncIterable
@@ -171,7 +171,7 @@ class OpenAICompatibleProvider(BaseProvider):
     Base provider for APIs that follow the OpenAI format.
 
     Subclasses must set:
-        - NAME: Provider display name (e.g., "Groq")
+        - DISPLAY_NAME: Provider display name (e.g., "Groq")
         - CONFIG_TYPE: The provider's config class
         - DEFAULT_API_BASE: Default base URL for the API (e.g., "https://api.groq.com/openai/v1")
 

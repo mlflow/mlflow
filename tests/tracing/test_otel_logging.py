@@ -58,6 +58,11 @@ def mlflow_server(tmp_path: Path, db_uri: str) -> Iterator[str]:
     # Start the FastAPI app in a background thread and yield its URL.
     with ServerThread(mlflow_app, get_safe_port()) as url:
         yield url
+        # Drain any pending async trace exports while the server is still up.
+        # The autouse `enable_async_trace_logging` fixture in tests/tracing/conftest.py
+        # also calls flush on teardown, but by that time this ServerThread has
+        # already exited, causing the worker to retry against a dead server.
+        mlflow.flush_trace_async_logging()
 
 
 def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypatch):
@@ -607,7 +612,12 @@ def test_error_logging_spans(mlflow_server: str):
         locations=[experiment_id], include_spans=False, return_type="list"
     )
 
-    assert len(traces) == 1
+    # The OTLP endpoint now calls log_spans once for all spans in the batch.
+    # If that call fails, all spans in the batch are dropped together (HTTP 422 is
+    # non-retryable for the OTel OTLP exporter). Previously, per-trace calls meant
+    # the second trace could still succeed. With the unified log_spans call, the
+    # result is 0 stored traces.
+    assert len(traces) == 0
 
 
 def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):

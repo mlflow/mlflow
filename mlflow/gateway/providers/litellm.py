@@ -51,7 +51,7 @@ class LiteLLMProvider(BaseProvider):
     This serves as a fallback for providers not natively supported.
     """
 
-    NAME = "LiteLLM"
+    DISPLAY_NAME = "LiteLLM"
     CONFIG_TYPE = LiteLLMConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {
@@ -83,7 +83,7 @@ class LiteLLMProvider(BaseProvider):
         """
         if self.litellm_config.litellm_provider:
             return self.litellm_config.litellm_provider
-        return self.NAME
+        return self.DISPLAY_NAME
 
     @property
     def adapter_class(self):

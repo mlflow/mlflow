@@ -336,4 +336,28 @@ describe('ExperimentViewRunsTable', () => {
     // Assert "show more columns" CTA button not being displayed anymore
     expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(0);
   });
+
+  test('should hide column CTA when runs are selected', () => {
+    // Expect CTA to be displayed when no runs are selected
+    const wrapper = createWrapper();
+    expect(wrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(1);
+
+    // Select a run
+    wrapper.setProps({
+      viewState: Object.assign(new ExperimentPageViewState(), {
+        runsSelected: { experiment123456789_run1: true },
+      }),
+    });
+
+    // Expect CTA to be hidden when a run is selected
+    expect(wrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(0);
+
+    // Unselect the run
+    wrapper.setProps({
+      viewState: new ExperimentPageViewState(),
+    });
+
+    // Expect CTA to be displayed after unselecting
+    expect(wrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(1);
+  });
 });

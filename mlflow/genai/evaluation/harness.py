@@ -50,7 +50,12 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT,
 )
 from mlflow.genai.evaluation import context
-from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
+from mlflow.genai.evaluation.entities import (
+    EvalItem,
+    EvalResult,
+    EvaluationResult,
+    ScorerStat,
+)
 from mlflow.genai.evaluation.rate_limiter import (
     NoOpRateLimiter,
     RateLimiter,
@@ -61,7 +66,6 @@ from mlflow.genai.evaluation.rate_limiter import (
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
     evaluate_session_level_scorers,
-    get_first_trace_in_session,
     group_traces_by_session,
 )
 from mlflow.genai.evaluation.telemetry import emit_metric_usage_event
@@ -91,6 +95,13 @@ _logger = logging.getLogger(__name__)
 
 
 AUTO_INITIAL_RPS = 10.0
+
+
+def _merge_scorer_stats_dicts(target: dict[str, ScorerStat], source: dict[str, ScorerStat]) -> None:
+    for scorer_name, stat in source.items():
+        if scorer_name not in target:
+            target[scorer_name] = ScorerStat()
+        target[scorer_name].merge(stat)
 
 
 def _parse_rate_limit(raw: str | None) -> tuple[float | None, bool]:
@@ -455,29 +466,24 @@ class _ScoreSubmitter:
         idx = self._score_futures_to_eval_id.pop(future)
         return idx, future.result()
 
-    def _timed_multi_turn_score(self, **kwargs) -> dict[str, list[Feedback]]:
+    def _timed_multi_turn_score(self, **kwargs) -> EvalResult:
         start = time.monotonic()
-        result = evaluate_session_level_scorers(**kwargs)
+        eval_result = evaluate_session_level_scorers(**kwargs)
         # Log assessments to traces from the worker thread (like single-turn _run_score).
-        session_items = kwargs["session_items"]
-        first_item = get_first_trace_in_session(session_items)
-        for feedbacks in result.values():
-            try:
-                _log_assessments(
-                    run_id=self._run_id,
-                    trace=first_item.trace,
-                    assessments=feedbacks,
-                )
-            except Exception as e:
-                trace_id = first_item.trace.info.trace_id
-                _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
+        try:
+            _log_assessments(
+                run_id=self._run_id,
+                trace=eval_result.eval_item.trace,
+                assessments=eval_result.assessments,
+            )
+        except Exception as e:
+            trace_id = eval_result.eval_item.trace.info.trace_id
+            _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
         with self._time_lock:
             self._times.append(time.monotonic() - start)
-        return result
+        return eval_result
 
-    def run_multi_turn(
-        self, multi_turn_assessments: dict[str, list[Feedback]], progress_bar
-    ) -> None:
+    def run_multi_turn(self, multi_turn_eval_results: dict[str, EvalResult], progress_bar) -> None:
         if not self._multi_turn_scorers or not self._session_groups:
             return
         futures = [
@@ -492,7 +498,9 @@ class _ScoreSubmitter:
             for session_id, session_items in self._session_groups.items()
         ]
         for future in as_completed(futures):
-            multi_turn_assessments.update(future.result())
+            eval_result = future.result()
+            trace_id = eval_result.eval_item.trace.info.trace_id
+            multi_turn_eval_results[trace_id] = eval_result
             if progress_bar:
                 progress_bar.update(1)
 
@@ -506,7 +514,7 @@ def _run_pipeline(
     session_groups: dict[str, list[EvalItem]],
     run_id: str | None,
     progress_bar,
-    multi_turn_assessments: dict[str, list[Feedback]],
+    multi_turn_eval_results: dict[str, EvalResult],
     experiment_id: str | None,
 ) -> tuple[list[float], list[float]]:
     """Run the predict→score pipeline and multi-turn scoring.
@@ -602,7 +610,7 @@ def _run_pipeline(
         # is provided (simulation mode), single-turn scoring creates the traces that
         # multi-turn scorers consume. The traces must exist before they can be grouped
         # into sessions, so the two phases cannot overlap.
-        scorer_submitter.run_multi_turn(multi_turn_assessments, progress_bar)
+        scorer_submitter.run_multi_turn(multi_turn_eval_results, progress_bar)
 
         return predictor.predict_times, scorer_submitter.score_times
     finally:
@@ -647,7 +655,8 @@ def run(
     )
 
     eval_results = [None] * len(eval_items)
-    multi_turn_assessments = {}
+    multi_turn_eval_results: dict[str, EvalResult] = {}
+    scorer_stats: dict[str, ScorerStat] = {}
     predict_times: list[float] = []
     score_times: list[float] = []
 
@@ -661,7 +670,7 @@ def run(
             session_groups=session_groups,
             run_id=run_id,
             progress_bar=progress_bar,
-            multi_turn_assessments=multi_turn_assessments,
+            multi_turn_eval_results=multi_turn_eval_results,
             experiment_id=experiment_id,
         )
     finally:
@@ -683,8 +692,8 @@ def run(
         if result.eval_item.trace is None:
             continue
         trace_id = result.eval_item.trace.info.trace_id
-        if trace_id in multi_turn_assessments:
-            result.assessments.extend(multi_turn_assessments[trace_id])
+        if trace_id in multi_turn_eval_results:
+            result.assessments.extend(multi_turn_eval_results[trace_id].assessments)
 
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
@@ -692,6 +701,19 @@ def run(
     # Refresh traces on eval_results to include all logged assessments.
     # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
     _refresh_eval_result_traces(eval_results)
+
+    # Aggregate scorer stats from single-turn results
+    for result in eval_results:
+        if result is not None:
+            _merge_scorer_stats_dicts(scorer_stats, result.scorer_stats)
+    # Aggregate scorer stats from multi-turn results.
+    # Use EvalResult.scorer_stats so that we count one invocation per scorer call/session
+    # rather than one per emitted feedback assessment.
+    for mt_result in multi_turn_eval_results.values():
+        _merge_scorer_stats_dicts(scorer_stats, mt_result.scorer_stats)
+
+    # Check for scorer failures and log a summary warning
+    _log_scorer_failure_summary(scorer_stats)
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
@@ -785,14 +807,13 @@ def _run_score(
         ctx.set_mlflow_run_id(run_id)
 
     with eval_retry_context():
-        assessments = _compute_eval_scores(
+        eval_result = _compute_eval_scores(
             eval_item=eval_item,
             scorers=scorers,
             rate_limiter=scorer_rate_limiter,
             max_retries=max_retries,
         )
-    assessments.extend(_get_new_expectations(eval_item))
-    eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
+    eval_result.assessments.extend(_get_new_expectations(eval_item))
 
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
@@ -830,9 +851,9 @@ def _compute_eval_scores(
     scorers: list[Scorer],
     rate_limiter: RateLimiter = NoOpRateLimiter(),
     max_retries: int = 0,
-) -> list[Feedback]:
+) -> EvalResult:
     if not scorers:
-        return []
+        return EvalResult(eval_item=eval_item, assessments=[], scorer_stats={})
 
     should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
 
@@ -885,17 +906,29 @@ def _compute_eval_scores(
         max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
-        futures = [executor.submit(run_scorer, scorer) for scorer in scorers]
+        futures = {executor.submit(run_scorer, scorer): scorer for scorer in scorers}
 
         try:
-            results = [future.result() for future in as_completed(futures)]
+            results = []
+            for future in as_completed(futures):
+                scorer = futures[future]
+                results.append((scorer, future.result()))
         except KeyboardInterrupt:
             # Cancel pending futures
             executor.shutdown(cancel_futures=True)
             raise
 
-    # Flatten list[list[Assessment]] into a single list[Assessment]
-    return [assessment for sublist in results for assessment in sublist]
+    # Track scorer stats and collect assessments
+    scorer_stats: dict[str, ScorerStat] = {}
+    assessments = []
+    for scorer, feedbacks in results:
+        scorer_name = scorer.name
+        if scorer_name not in scorer_stats:
+            scorer_stats[scorer_name] = ScorerStat()
+        failed = len(feedbacks) == 1 and feedbacks[0].error is not None
+        scorer_stats[scorer_name].record_invocation(failed=failed)
+        assessments.extend(feedbacks)
+    return EvalResult(eval_item=eval_item, assessments=assessments, scorer_stats=scorer_stats)
 
 
 def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
@@ -990,3 +1023,27 @@ def _should_clone_trace(
         trace=trace,
         run_id=run_id,
     )
+
+
+def _log_scorer_failure_summary(scorer_stats: dict[str, ScorerStat]) -> None:
+    """
+    Log a summary of scorer failures after evaluation completes.
+
+    Args:
+        scorer_stats: Aggregated stats from all scorers (single-turn and multi-turn).
+    """
+    # Format failure details for scorers that had failures
+    failure_details = [
+        f"'{scorer_name}': {stat.failure_count}/{stat.total_count} failed"
+        for scorer_name, stat in sorted(scorer_stats.items())
+        if stat.has_failures
+    ]
+
+    # Log warning if any failures occurred
+    if failure_details:
+        warning_msg = (
+            f"Some scorer invocations failed during evaluation. "
+            f"Failure summary: {', '.join(failure_details)}. "
+            f"Check individual trace assessments for detailed error messages."
+        )
+        _logger.warning(warning_msg)

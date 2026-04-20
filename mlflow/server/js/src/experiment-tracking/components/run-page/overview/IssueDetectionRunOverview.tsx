@@ -11,6 +11,7 @@ import { RunViewUserLinkBox } from './RunViewUserLinkBox';
 import { IssueDetectionProgress, type IssueJobResult } from './IssueDetectionProgress';
 import { useFetchJobStatus, isJobComplete, JobStatus } from '../hooks/useFetchJobStatus';
 import Routes from '../../../routes';
+import GatewayRoutes from '../../../../gateway/routes';
 import type { RunInfoEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
@@ -20,6 +21,7 @@ import {
   MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG,
   MLFLOW_ISSUE_DETECTION_RESULT_SUMMARY_TAG,
 } from '../../../constants';
+import { useEndpointByNameQuery } from '../../../../gateway/hooks/useEndpointByNameQuery';
 
 export interface IssueDetectionRunOverviewProps {
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
@@ -47,7 +49,7 @@ export const IssueDetectionRunOverview = ({
     error: jobStatusError,
   } = useFetchJobStatus({
     jobId,
-    enabled: !!jobId,
+    enabled: Boolean(jobId),
   });
 
   // Parse issue-specific result format from job if available
@@ -79,7 +81,12 @@ export const IssueDetectionRunOverview = ({
   // Derive job status from run status if no job exists
   const effectiveJobStatus = jobStatus || (!jobId && runInfo.status ? runStatusToJobStatus(runInfo.status) : undefined);
 
+  const endpointName = tags['endpoint_name']?.value;
   const model = tags['model']?.value;
+
+  // Fetch endpoint details by name to get the endpoint_id for linking
+  const { data: endpointData } = useEndpointByNameQuery(endpointName);
+  const endpointId = endpointData?.endpoint?.endpoint_id;
   const categoriesStr = tags['categories']?.value;
   const categories = categoriesStr ? categoriesStr.split(',').map((c) => c.trim()) : undefined;
   // Use total_traces_analyzed from result if available, otherwise fall back to total_traces tag
@@ -87,7 +94,7 @@ export const IssueDetectionRunOverview = ({
     result?.total_traces_analyzed ??
     (tags['total_traces']?.value ? parseInt(tags['total_traces'].value, 10) : undefined);
 
-  const jobComplete = isJobComplete(effectiveJobStatus) || !!jobStatusError;
+  const jobComplete = isJobComplete(effectiveJobStatus) || Boolean(jobStatusError);
   const prevJobCompleteRef = useRef(jobComplete);
 
   useEffect(() => {
@@ -119,14 +126,35 @@ export const IssueDetectionRunOverview = ({
           })}
           value={<RunViewUserLinkBox runInfo={runInfo} tags={tags} />}
         />
-        {model && (
+        {endpointName ? (
           <KeyValueProperty
             keyValue={intl.formatMessage({
-              defaultMessage: 'Model',
-              description: 'Run page > Overview > Model used for issue detection',
+              defaultMessage: 'Endpoint',
+              description: 'Run page > Overview > Endpoint used for issue detection',
             })}
-            value={model}
+            value={
+              endpointId ? (
+                <Link
+                  componentId="mlflow.issue-detection.endpoint-link"
+                  to={GatewayRoutes.getEndpointDetailsRoute(endpointId)}
+                >
+                  {endpointName}
+                </Link>
+              ) : (
+                endpointName
+              )
+            }
           />
+        ) : (
+          model && (
+            <KeyValueProperty
+              keyValue={intl.formatMessage({
+                defaultMessage: 'Model',
+                description: 'Run page > Overview > Model used for issue detection',
+              })}
+              value={model}
+            />
+          )
         )}
         {categories && categories.length > 0 && (
           <KeyValueProperty

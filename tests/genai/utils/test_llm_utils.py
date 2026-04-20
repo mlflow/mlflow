@@ -427,30 +427,25 @@ def test_token_counter_does_not_resolve_non_gateway_model():
 
 
 @pytest.mark.parametrize(
-    ("cost_map", "provider", "model_name", "expected_cost"),
+    ("model_info", "provider", "model_name", "expected_cost"),
     [
         (
-            {
-                ("openai", "gpt-4o"): {
-                    "input_cost_per_token": 0.00001,
-                    "output_cost_per_token": 0.00003,
-                }
-            },
+            {"input_cost_per_token": 0.00001, "output_cost_per_token": 0.00003},
             "openai",
             "gpt-4o",
             _ModelCost(input_cost_per_token=0.00001, output_cost_per_token=0.00003),
         ),
-        ({}, "openai", "unknown-model", None),
+        (None, "openai", "unknown-model", None),
     ],
 )
-def test_fetch_model_cost(cost_map, provider, model_name, expected_cost):
+def test_fetch_model_cost(model_info, provider, model_name, expected_cost):
     with mock.patch(
-        "mlflow.utils.providers._get_model_cost", return_value=cost_map
-    ) as mock_get_cost:
+        "mlflow.utils.providers._lookup_model_info", return_value=model_info
+    ) as mock_lookup:
         _fetch_model_cost.cache_clear()
         result = _fetch_model_cost(provider, model_name)
 
-    mock_get_cost.assert_called_once()
+    mock_lookup.assert_called_once_with(model_name, custom_llm_provider=provider)
     assert result == expected_cost
 
 

@@ -1,0 +1,949 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "gemini-1.5-flash": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_token": 7.5e-8,
+        "output_per_token": 0,
+        "long_context": [
+          {
+            "threshold_tokens": 128000,
+            "input_per_token": 1.5e-7
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2025-09-29"
+    },
+    "gemini-2.0-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.025,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.7
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-06-01"
+    },
+    "gemini-2.0-flash-001": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.025,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-06-01"
+    },
+    "gemini-2.0-flash-lite": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.075,
+        "output_per_million_tokens": 0.3,
+        "cache_read_per_million_tokens": 0.01875,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.075
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-06-01"
+    },
+    "gemini-2.0-flash-lite-001": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.075,
+        "output_per_million_tokens": 0.3,
+        "cache_read_per_million_tokens": 0.01875,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.075
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-06-01"
+    },
+    "gemini-2.5-computer-use-preview-10-2025": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 15.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemini-2.5-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.03,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-2.5-flash-lite": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.01,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.3
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-2.5-flash-lite-preview-06-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_token": 1e-7,
+        "output_per_token": 4e-7,
+        "cache_read_per_token": 2.5e-8,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.5
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2025-11-18"
+    },
+    "gemini-2.5-flash-lite-preview-09-2025": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.01,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.3
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-2.5-flash-native-audio-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemini-2.5-flash-native-audio-preview-09-2025": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemini-2.5-flash-native-audio-preview-12-2025": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemini-2.5-flash-preview-09-2025": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.075,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-2.5-pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.25,
+            "output_per_million_tokens": 10.0
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.25,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 15.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-2.5-pro-preview-tts": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.25,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 15.0
+          }
+        ],
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.7
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-3-flash-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.05,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.9,
+            "output_per_million_tokens": 5.4,
+            "cache_read_per_million_tokens": 0.09
+          }
+        },
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-3-pro-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_token": 2e-6,
+        "output_per_token": 1.2e-5,
+        "cache_read_per_token": 2e-7,
+        "service_tiers": {
+          "batch": {
+            "input_per_token": 1e-6,
+            "output_per_token": 6e-6
+          },
+          "priority": {
+            "input_per_token": 3.6e-6,
+            "output_per_token": 2.16e-5,
+            "cache_read_per_token": 3.6e-7
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_token": 4e-7,
+            "input_per_token": 4e-6,
+            "output_per_token": 1.8e-5
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-03-09"
+    },
+    "gemini-3.1-flash-lite-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.025,
+        "modality": {
+          "audio": {
+            "cache_read_per_million_tokens": 0.05,
+            "input_per_million_tokens": 0.5
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-3.1-flash-live-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.75,
+        "output_per_million_tokens": 4.5,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 3.0,
+            "output_per_million_tokens": 12.0
+          },
+          "image": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemini-3.1-pro-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.2,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 6.0
+          },
+          "priority": {
+            "input_per_million_tokens": 3.6,
+            "output_per_million_tokens": 21.6,
+            "cache_read_per_million_tokens": 0.36
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.4,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 18.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-3.1-pro-preview-customtools": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.2,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 6.0
+          },
+          "priority": {
+            "input_per_million_tokens": 3.6,
+            "output_per_million_tokens": 21.6,
+            "cache_read_per_million_tokens": 0.36
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.4,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 18.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-embedding-001": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 2048,
+        "max_tokens": 2048
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemini-embedding-2-preview": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemini-exp-1114": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0,
+        "output_per_million_tokens": 0,
+        "long_context": [
+          {
+            "threshold_tokens": 128000,
+            "input_per_million_tokens": 0,
+            "output_per_million_tokens": 0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "gemini-exp-1206": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2097152,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0,
+        "output_per_million_tokens": 0,
+        "long_context": [
+          {
+            "threshold_tokens": 128000,
+            "input_per_million_tokens": 0,
+            "output_per_million_tokens": 0
+          }
+        ],
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "gemini-flash-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.075,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-flash-lite-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.025,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.3
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-gemma-2-27b-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.35,
+        "output_per_million_tokens": 1.05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemini-gemma-2-9b-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.35,
+        "output_per_million_tokens": 1.05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "gemini-pro-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.25,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 15.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      }
+    },
+    "gemini-robotics-er-1.5-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "gemma-3-27b-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0,
+        "output_per_million_tokens": 0,
+        "long_context": [
+          {
+            "threshold_tokens": 128000,
+            "input_per_million_tokens": 0,
+            "output_per_million_tokens": 0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "learnlm-1.5-pro-experimental": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32767,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0,
+        "output_per_million_tokens": 0,
+        "long_context": [
+          {
+            "threshold_tokens": 128000,
+            "input_per_million_tokens": 0,
+            "output_per_million_tokens": 0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      }
+    },
+    "lyria-3-clip-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0,
+        "output_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    },
+    "lyria-3-pro-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0,
+        "output_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      }
+    }
+  }
+}

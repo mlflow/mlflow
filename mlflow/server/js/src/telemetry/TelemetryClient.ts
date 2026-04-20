@@ -18,7 +18,10 @@ import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage'
 const LOCAL_STORAGE_INSTALLATION_ID_KEY = 'mlflow-telemetry-installation-id';
 
 // Components whose onView events should be tracked (intentional impressions, not noise)
-const VIEW_EVENT_ALLOWLIST: ReadonlySet<string> = new Set(['mlflow.gateway.setup_guide']);
+const VIEW_EVENT_ALLOWLIST: ReadonlySet<string> = new Set([
+  'mlflow.gateway.setup_guide',
+  'mlflow.issue-detection.completed',
+]);
 
 class TelemetryClient {
   private installationId: string = this.getInstallationId();
@@ -27,10 +30,12 @@ class TelemetryClient {
 
   private getInstallationId(): string {
     // not using `getLocalStorageItem` because this key is not used in react
+    // eslint-disable-next-line @databricks/no-direct-storage
     const localStorageInstallationId = localStorage.getItem(LOCAL_STORAGE_INSTALLATION_ID_KEY);
 
     if (!localStorageInstallationId) {
       const installationId = uuidv4();
+      // eslint-disable-next-line @databricks/no-direct-storage
       localStorage.setItem(LOCAL_STORAGE_INSTALLATION_ID_KEY, installationId);
       return installationId;
     } else {
@@ -45,6 +50,7 @@ class TelemetryClient {
     const telemetryEnabled = getLocalStorageItem(
       TELEMETRY_ENABLED_STORAGE_KEY,
       TELEMETRY_ENABLED_STORAGE_VERSION,
+      false,
       // default to true as the feature is opt-out
       true,
     );
