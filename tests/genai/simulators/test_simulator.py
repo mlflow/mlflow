@@ -611,7 +611,7 @@ def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn, si
     assert captured_contexts[1].is_first_turn is False
 
 
-def test_conversation_simulator_sets_simulation_tags(mock_predict_fn_with_context):
+def test_conversation_simulator_sets_simulation_metadata(mock_predict_fn_with_context):
     long_goal = "A" * 500
     long_persona = "B" * 500
     context = {"user_id": "U001", "session_id": "S001"}
@@ -635,15 +635,11 @@ def test_conversation_simulator_sets_simulation_tags(mock_predict_fn_with_contex
         assert len(first_test_case_traces) == 2
 
         for trace in first_test_case_traces:
-            tags = trace.info.tags
             metadata = trace.info.trace_metadata
 
-            # Session ID should be in metadata (immutable), not tags
             assert TraceMetadataKey.TRACE_SESSION in metadata
-
-            # Simulation info should be in tags
-            assert tags["mlflow.simulation.goal"] == long_goal[:_MAX_METADATA_LENGTH]
-            assert tags["mlflow.simulation.persona"] == long_persona[:_MAX_METADATA_LENGTH]
+            assert metadata["mlflow.simulation.goal"] == long_goal[:_MAX_METADATA_LENGTH]
+            assert metadata["mlflow.simulation.persona"] == long_persona[:_MAX_METADATA_LENGTH]
 
 
 def test_conversation_simulator_uses_default_persona(mock_predict_fn):
@@ -661,11 +657,10 @@ def test_conversation_simulator_uses_default_persona(mock_predict_fn):
         all_traces = simulator.simulate(mock_predict_fn)
 
         trace = all_traces[0][0]
-        tags = trace.info.tags
         metadata = trace.info.trace_metadata
 
-        assert tags["mlflow.simulation.goal"] == "Test goal"
-        assert tags["mlflow.simulation.persona"] == DEFAULT_PERSONA
+        assert metadata["mlflow.simulation.goal"] == "Test goal"
+        assert metadata["mlflow.simulation.persona"] == DEFAULT_PERSONA
         assert TraceMetadataKey.TRACE_SESSION in metadata
 
 
@@ -1014,13 +1009,11 @@ def test_conversation_simulator_with_simulation_guidelines(mock_predict_fn):
         prompt = generate_call.kwargs["messages"][0].content
         assert "Ask clarifying questions before proceeding" in prompt
 
-        # Verify simulation_guidelines are in trace tags and session ID in metadata
         trace = all_traces[0][0]
-        tags = trace.info.tags
         metadata = trace.info.trace_metadata
-        assert "mlflow.simulation.simulation_guidelines" in tags
+        assert "mlflow.simulation.simulation_guidelines" in metadata
         assert (
-            tags["mlflow.simulation.simulation_guidelines"]
+            metadata["mlflow.simulation.simulation_guidelines"]
             == "Ask clarifying questions before proceeding"
         )
         assert TraceMetadataKey.TRACE_SESSION in metadata

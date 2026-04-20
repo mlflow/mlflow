@@ -772,8 +772,7 @@ class ConversationSimulator:
             **context,
         }
 
-        # Build tags for simulation metadata
-        trace_tags = {
+        trace_metadata = {
             "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
             "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[:_MAX_METADATA_LENGTH],
             "mlflow.simulation.turn": str(turn),
@@ -784,15 +783,13 @@ class ConversationSimulator:
                 if isinstance(simulation_guidelines, list)
                 else simulation_guidelines
             )
-            trace_tags["mlflow.simulation.simulation_guidelines"] = guidelines_str[
+            trace_metadata["mlflow.simulation.simulation_guidelines"] = guidelines_str[
                 :_MAX_METADATA_LENGTH
             ]
 
-        # Inject session ID as metadata (immutable) and simulation info as tags,
-        # without creating a wrapper span.
         with mlflow.tracing.context(
             session_id=trace_session_id,
-            tags=trace_tags,
+            metadata=trace_metadata,
         ):
             prev_trace_id = mlflow.get_last_active_trace_id(thread_local=True)
             response = predict_fn(**predict_kwargs)
@@ -805,7 +802,7 @@ class ConversationSimulator:
                     name=getattr(predict_fn, "__name__", "predict"),
                     span_type="CHAIN",
                 ) as span:
-                    span.set_inputs({input_key: input_messages})
+                    span.set_inputs(predict_kwargs)
                     span.set_outputs(response)
                 trace_id = mlflow.get_last_active_trace_id(thread_local=True)
 
