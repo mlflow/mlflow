@@ -11,6 +11,7 @@ import {
   AssessmentFilterKey,
   AssessmentTypeValue,
   AssessmentDimensionKey,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
@@ -145,6 +146,43 @@ describe('AssessmentChartsSection', () => {
       });
     });
 
+    it('should treat only internal issue discovery judge as no assessments', async () => {
+      setupTraceMetricsHandler(
+        [createCountDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 50)],
+        [createAvgDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 1)],
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('No assessments available')).toBeInTheDocument();
+        expect(screen.getByText('Monitor quality metrics from scorers')).toBeInTheDocument();
+      });
+    });
+
+    it('should not suggest widening time range when only hidden judge exists outside the range', async () => {
+      server.use(
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
+          const body = await req.json();
+          const hasNoTimeRange = !('start_time_ms' in body) || body.start_time_ms === null;
+          if (hasNoTimeRange && body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
+            return res(
+              ctx.json({ data_points: [createCountDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 10)] }),
+            );
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('No assessments available')).toBeInTheDocument();
+        expect(screen.getByText('Monitor quality metrics from scorers')).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/Try selecting a longer time range/)).not.toBeInTheDocument();
+    });
+
     it('should render time range message when assessments exist outside the current time range', async () => {
       // Setup handler that returns empty for time-filtered queries but data for non-time-filtered queries
       server.use(
@@ -262,6 +300,22 @@ describe('AssessmentChartsSection', () => {
         // Both assessments should be rendered
         expect(screen.getByTestId('assessment-chart-StringAssessment')).toBeInTheDocument();
         expect(screen.getByTestId('assessment-chart-NumericAssessment')).toBeInTheDocument();
+      });
+    });
+
+    it('should hide internal issue discovery judge from quality charts', async () => {
+      setupTraceMetricsHandler(
+        [createCountDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 99), createCountDataPoint('UserJudge', 10)],
+        [createAvgDataPoint('UserJudge', 0.5)],
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('assessment-chart-UserJudge')).toBeInTheDocument();
+        expect(
+          screen.queryByTestId(`assessment-chart-${INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE}`),
+        ).not.toBeInTheDocument();
       });
     });
   });

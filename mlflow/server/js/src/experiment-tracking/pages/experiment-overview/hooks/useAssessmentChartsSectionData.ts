@@ -7,6 +7,7 @@ import {
   AssessmentTypeValue,
   AssessmentDimensionKey,
   createAssessmentFilter,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -80,7 +81,7 @@ export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionData
     for (const dp of countData.data_points) {
       const name = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME];
       const count = dp.values?.[AggregationType.COUNT];
-      if (name && count !== undefined) {
+      if (name && name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE && count !== undefined) {
         names.add(name);
         counts.set(name, count);
       }
@@ -96,7 +97,7 @@ export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionData
     for (const dp of avgData.data_points) {
       const name = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME];
       const avgValue = dp.values?.[AggregationType.AVG];
-      if (name && avgValue !== undefined) {
+      if (name && name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE && avgValue !== undefined) {
         avgValues.set(name, avgValue);
       }
     }
