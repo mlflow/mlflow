@@ -9,19 +9,22 @@
 import type {
   OpenClawPluginApi,
   OpenClawPluginService,
-  DiagnosticEventPayload,
-} from 'openclaw/plugin-sdk';
-import { onDiagnosticEvent } from 'openclaw/plugin-sdk';
-import {
-  init,
-  startSpan,
-  flushTraces,
-  tracingContext,
-  SpanType,
-  SpanStatusCode,
-  SpanAttributeKey,
-  TraceMetadataKey,
-} from '@mlflow/core';
+} from 'openclaw/plugin-sdk/plugin-entry';
+import type { DiagnosticEventPayload } from 'openclaw/plugin-sdk/diagnostics-otel';
+import { onDiagnosticEvent } from 'openclaw/plugin-sdk/diagnostics-otel';
+import { init, startSpan, flushTraces, SpanStatusCode } from '@mlflow/core';
+
+// Inline constants that fail to import via OpenClaw's CJS/ESM loader
+// (they're re-exported via __exportStar which the loader can't resolve).
+const SpanType = { LLM: 'LLM' as any, TOOL: 'TOOL' as any, AGENT: 'AGENT' as any };
+const SpanAttributeKey = {
+  TOKEN_USAGE: 'mlflow.chat.tokenUsage',
+  MESSAGE_FORMAT: 'mlflow.message.format',
+} as const;
+const TraceMetadataKey = {
+  TRACE_SESSION: 'mlflow.trace.session',
+  TRACE_USER: 'mlflow.trace.user',
+} as const;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -233,15 +236,19 @@ async function finalizeTrace(
 // Service factory
 // ---------------------------------------------------------------------------
 
-export function createMLflowService(api: OpenClawPluginApi): OpenClawPluginService {
+export function createMLflowService(
+  api: OpenClawPluginApi,
+  pluginConfig: Record<string, unknown> = {},
+): OpenClawPluginService & { registerHooks: () => void } {
   const activeTraces = new Map<string, ActiveTrace>();
   const sessionByAgentId = new Map<string, string>();
   let lastActiveSessionKey: string | undefined;
   let warnedMissingAfterToolSessionKey = false;
   let cleanup: (() => void) | null = null;
+  let hooksRegistered = false;
   let log: { info: (msg: string) => void; warn: (msg: string) => void } = {
-    info: () => undefined,
-    warn: () => undefined,
+    info: console.log,
+    warn: console.warn,
   };
 
   // Exporter metrics
@@ -318,23 +325,16 @@ export function createMLflowService(api: OpenClawPluginApi): OpenClawPluginServi
 
     const cleanPrompt = sanitizeOpenClawText(prompt);
 
-    const rootSpan = tracingContext(
-      {
-        metadata: {
-          [TraceMetadataKey.TRACE_SESSION]: sessionKey,
-          [TraceMetadataKey.TRACE_USER]: process.env.USER || '',
-        },
+    const rootSpan = startSpan({
+      name: 'openclaw_agent',
+      inputs: {
+        messages: [{ role: 'user', content: cleanPrompt }],
       },
-      () =>
-        startSpan({
-          name: 'openclaw_agent',
-          inputs: {
-            messages: [{ role: 'user', content: cleanPrompt }],
-          },
-          spanType: SpanType.AGENT,
-        }),
-    );
+      spanType: SpanType.AGENT,
+    });
     rootSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
+    rootSpan.setAttribute(TraceMetadataKey.TRACE_SESSION, sessionKey);
+    rootSpan.setAttribute(TraceMetadataKey.TRACE_USER, process.env.USER || '');
 
     const trace: ActiveTrace = {
       rootSpan,
@@ -377,351 +377,326 @@ export function createMLflowService(api: OpenClawPluginApi): OpenClawPluginServi
     }
   }
 
+  // =====================================================================
+  // registerHooks — MUST be called during register(), not start().
+  // OpenClaw only accepts api.on() subscriptions during the register phase.
+  // Hooks guard on `initialized` so events before SDK init are silently skipped.
+  // =====================================================================
+  function registerHooks(): void {
+    if (hooksRegistered) return;
+    hooksRegistered = true;
+
+    const trackingUri =
+      (typeof pluginConfig.trackingUri === 'string' ? pluginConfig.trackingUri : '') ||
+      process.env.MLFLOW_TRACKING_URI;
+    const experimentId =
+      (typeof pluginConfig.experimentId === 'string' ? pluginConfig.experimentId : '') ||
+      process.env.MLFLOW_EXPERIMENT_ID;
+
+    if (!trackingUri || !experimentId) return;
+
+    try {
+      init({ trackingUri, experimentId });
+    } catch {
+      return;
+    }
+
+    api.on('llm_input', (event: unknown, agentCtx: unknown) => {
+
+      const ctx = agentCtx as Record<string, unknown>;
+      const evt = event as Record<string, unknown>;
+      const sessionKey = ctx.sessionKey as string | undefined;
+      if (!sessionKey) return;
+      rememberSession(sessionKey, ctx.agentId);
+
+      const prompt = (evt.prompt as string) ?? '';
+      const historyMessages = evt.historyMessages as unknown[] | undefined;
+      const trace = getOrCreateTrace(sessionKey, prompt);
+
+      const channelId = asNonEmptyString(ctx.channelId) ?? asNonEmptyString(ctx.messageProvider);
+      if (channelId) trace.channelId = channelId;
+      const trigger = asNonEmptyString(ctx.trigger);
+      if (trigger) trace.trigger = trigger;
+
+      if (trace.pendingLlm) {
+        trace.pendingLlm.span.end();
+      }
+
+      const rawProvider = evt.provider as string | undefined;
+      const provider = normalizeProvider(rawProvider) ?? rawProvider;
+      const model = evt.model as string | undefined;
+      const modelLabel = provider && model ? `${provider}/${model}` : model || 'unknown';
+
+      if (model) trace.model = model;
+      if (provider) trace.provider = provider;
+
+      const messages: { role: string; content: string }[] = [];
+      if (evt.systemPrompt) {
+        messages.push({ role: 'system', content: evt.systemPrompt as string });
+      }
+      if (historyMessages?.length) {
+        for (const msg of historyMessages) {
+          const m = msg as { role?: string; content?: unknown };
+          if (!m.role) continue;
+          const role = m.role === 'toolResult' ? 'tool' : m.role;
+          const content =
+            typeof m.content === 'string'
+              ? m.content
+              : Array.isArray(m.content)
+                ? m.content.map((p: { text?: string }) => p.text ?? '').join('\n')
+                : m.content != null
+                  ? JSON.stringify(m.content)
+                  : '';
+          messages.push({ role, content });
+        }
+      }
+      messages.push({ role: 'user', content: prompt });
+      const llmInputs = sanitizeValue({
+        messages,
+        model: modelLabel,
+      }) as Record<string, unknown>;
+
+      const llmSpan = startSpan({
+        name: 'llm_call',
+        parent: trace.rootSpan,
+        spanType: SpanType.LLM,
+        inputs: llmInputs,
+        attributes: {
+          ...(model ? { 'mlflow.llm.model': model } : {}),
+          ...(provider ? { 'mlflow.llm.provider': provider } : {}),
+        },
+      });
+      llmSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
+
+      trace.pendingLlm = { span: llmSpan, name: 'llm_call' };
+    });
+
+    api.on('llm_output', (event: unknown, agentCtx: unknown) => {
+
+      const ctx = agentCtx as Record<string, unknown>;
+      const evt = event as Record<string, unknown>;
+      const sessionKey = ctx.sessionKey as string | undefined;
+      if (!sessionKey) return;
+      rememberSession(sessionKey, ctx.agentId);
+
+      const trace = activeTraces.get(sessionKey);
+      if (!trace) return;
+
+      trace.lastActivityMs = Date.now();
+      const assistantTexts = (evt.assistantTexts as string[] | undefined) ?? [];
+      const lastAssistant = evt.lastAssistant as Record<string, unknown> | undefined;
+      const rawResponse =
+        assistantTexts.length > 0 ? assistantTexts.join('\n') : (evt.response as string) || '';
+      const response = sanitizeOpenClawText(rawResponse);
+      trace.lastResponse = response;
+
+      const rawProvider = evt.provider as string | undefined;
+      if (rawProvider) trace.provider = normalizeProvider(rawProvider) ?? rawProvider;
+      if (evt.model) trace.model = evt.model as string;
+
+      if (trace.pendingLlm) {
+        type UsageLike = {
+          input?: number;
+          output?: number;
+          total?: number;
+          totalTokens?: number;
+          cacheRead?: number;
+          cacheWrite?: number;
+        };
+        const evtUsage = evt.usage as UsageLike | undefined;
+        const assistantUsage = lastAssistant?.usage as UsageLike | undefined;
+        const usage = evtUsage ?? assistantUsage;
+        if (usage && (usage.input || usage.output || usage.total || usage.totalTokens)) {
+          const inputTokens = usage.input ?? 0;
+          const outputTokens = usage.output ?? 0;
+          const cacheRead = usage.cacheRead ?? 0;
+          const cacheWrite = usage.cacheWrite ?? 0;
+          trace.pendingLlm.span.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
+            total_tokens: inputTokens + outputTokens + cacheRead + cacheWrite,
+            ...(cacheRead ? { cache_read_input_tokens: cacheRead } : {}),
+            ...(cacheWrite ? { cache_creation_input_tokens: cacheWrite } : {}),
+          });
+        }
+        trace.pendingLlm.span.setOutputs({
+          choices: [{ message: { role: 'assistant', content: response } }],
+        });
+        trace.pendingLlm.span.end();
+        trace.pendingLlm = null;
+      }
+    });
+
+    api.on('before_tool_call', (event: unknown, agentCtx: unknown) => {
+
+      const ctx = agentCtx as Record<string, unknown>;
+      const evt = event as Record<string, unknown>;
+      const sessionKey = ctx.sessionKey as string | undefined;
+      if (!sessionKey) return;
+      rememberSession(sessionKey, ctx.agentId);
+
+      const trace = activeTraces.get(sessionKey);
+      if (!trace) return;
+
+      trace.lastActivityMs = Date.now();
+      const toolName = evt.toolName as string;
+      const toolCallId = evt.toolCallId as string | undefined;
+      const key = toolKey(toolName, toolCallId);
+
+      const toolSpan = startSpan({
+        name: toolName,
+        parent: trace.rootSpan,
+        spanType: SpanType.TOOL,
+        inputs: sanitizeValue((evt.params as Record<string, unknown>) || {}) as Record<
+          string,
+          unknown
+        >,
+        attributes: {
+          tool_name: toolName,
+          ...(toolCallId ? { tool_id: toolCallId } : {}),
+        },
+      });
+
+      trace.pendingTools.set(key, { span: toolSpan, name: toolName });
+    });
+
+    api.on('after_tool_call', (event: unknown, agentCtx: unknown) => {
+
+      const ctx = agentCtx as Record<string, unknown>;
+      const evt = event as Record<string, unknown>;
+
+      const sessionKey = resolveAfterToolSessionKey(ctx);
+      if (!sessionKey) return;
+      rememberSession(sessionKey, ctx.agentId);
+
+      const trace = activeTraces.get(sessionKey);
+      if (!trace) return;
+
+      trace.lastActivityMs = Date.now();
+      const toolName = evt.toolName as string;
+      const toolCallId = evt.toolCallId as string | undefined;
+      const key = toolKey(toolName, toolCallId);
+      const pending = trace.pendingTools.get(key);
+
+      if (pending) {
+        if (evt.error) {
+          pending.span.setOutputs({ error: evt.error });
+        } else {
+          pending.span.setOutputs({
+            result: (evt.result as string) || '',
+          });
+        }
+        pending.span.end();
+        trace.pendingTools.delete(key);
+      }
+    });
+
+    api.on('subagent_spawning', (event: unknown, agentCtx: unknown) => {
+
+      const ctx = agentCtx as Record<string, unknown>;
+      const evt = event as Record<string, unknown>;
+      const sessionKey = ctx.sessionKey as string | undefined;
+      if (!sessionKey) return;
+
+      const trace = activeTraces.get(sessionKey);
+      if (!trace) return;
+
+      trace.lastActivityMs = Date.now();
+      const agentId = evt.agentId as string;
+      const label = evt.label as string | undefined;
+
+      const subSpan = startSpan({
+        name: `subagent_${label || agentId}`,
+        parent: trace.rootSpan,
+        spanType: SpanType.AGENT,
+        inputs: {
+          agent_id: agentId,
+          ...(label ? { label } : {}),
+        },
+      });
+
+      trace.pendingSubagents.set(agentId, { span: subSpan, name: agentId });
+    });
+
+    api.on('subagent_ended', (event: unknown, agentCtx: unknown) => {
+
+      const ctx = agentCtx as Record<string, unknown>;
+      const evt = event as Record<string, unknown>;
+      const sessionKey = ctx.sessionKey as string | undefined;
+      if (!sessionKey) return;
+
+      const trace = activeTraces.get(sessionKey);
+      if (!trace) return;
+
+      trace.lastActivityMs = Date.now();
+      const agentId = evt.agentId as string;
+      const pending = trace.pendingSubagents.get(agentId);
+
+      if (pending) {
+        if (evt.error) {
+          pending.span.setOutputs({ error: evt.error });
+        } else {
+          pending.span.setOutputs({
+            result: (evt.result as string) || '',
+          });
+        }
+        pending.span.end();
+        trace.pendingSubagents.delete(agentId);
+      }
+    });
+
+    api.on('agent_end', (event: unknown, agentCtx: unknown) => {
+
+      const ctx = agentCtx as Record<string, unknown>;
+      const evt = event as Record<string, unknown>;
+      const sessionKey = ctx.sessionKey as string | undefined;
+      if (!sessionKey) return;
+      rememberSession(sessionKey, ctx.agentId);
+
+      const trace = activeTraces.get(sessionKey);
+      if (!trace) return;
+
+      const channelId = asNonEmptyString(ctx.channelId) ?? asNonEmptyString(ctx.messageProvider);
+      if (channelId && !trace.channelId) trace.channelId = channelId;
+      const trigger = asNonEmptyString(ctx.trigger);
+      if (trigger && !trace.trigger) trace.trigger = trigger;
+
+      trace.agentEndData = {
+        success: evt.success as boolean | undefined,
+        error: evt.error as string | undefined,
+        durationMs: evt.durationMs as number | undefined,
+        messages: evt.messages as unknown[] | undefined,
+      };
+
+      const userId = ctx.userId as string | undefined;
+
+      queueMicrotask(async () => {
+        try {
+          const t = activeTraces.get(sessionKey);
+          if (t) {
+            activeTraces.delete(sessionKey);
+            forgetSession(sessionKey);
+            await finalizeTrace(sessionKey, t, userId);
+          }
+        } catch {
+          // Silently ignore finalization errors
+        }
+      });
+    });
+  }
+
   return {
     id: 'mlflow-tracing',
+    registerHooks,
 
     async start(ctx) {
       log = { info: ctx.logger.info.bind(ctx.logger), warn: ctx.logger.warn.bind(ctx.logger) };
+      registerHooks();
 
-      const pluginCfg = (api.pluginConfig ?? {}) as Record<string, unknown>;
-      const runtimeCfg = (ctx.config ?? {}) as Record<string, unknown>;
-      const trackingUri =
-        (typeof pluginCfg.trackingUri === 'string' ? pluginCfg.trackingUri : '') ||
-        (typeof runtimeCfg.trackingUri === 'string' ? runtimeCfg.trackingUri : '') ||
-        process.env.MLFLOW_TRACKING_URI;
-      const experimentId =
-        (typeof pluginCfg.experimentId === 'string' ? pluginCfg.experimentId : '') ||
-        (typeof runtimeCfg.experimentId === 'string' ? runtimeCfg.experimentId : '') ||
-        process.env.MLFLOW_EXPERIMENT_ID;
-
-      if (!trackingUri) {
-        ctx.logger.warn('mlflow: MLFLOW_TRACKING_URI not set, skipping initialization');
-        return;
-      }
-
-      if (!experimentId) {
-        ctx.logger.warn('mlflow: MLFLOW_EXPERIMENT_ID not set, skipping initialization');
-        return;
-      }
-
-      try {
-        init({ trackingUri, experimentId });
-      } catch (error) {
-        ctx.logger.warn(`mlflow: failed to initialize SDK: ${error}`);
-        return;
-      }
-
+      const trackingUri = pluginConfig.trackingUri;
+      const experimentId = pluginConfig.experimentId;
       ctx.logger.info(`mlflow: exporting traces to ${trackingUri} (experiment=${experimentId})`);
 
-      // =====================================================================
-      // Hook: llm_input — create root AGENT span + child LLM span
-      // =====================================================================
-      api.on('llm_input', (event: unknown, agentCtx: unknown) => {
-        const ctx = agentCtx as Record<string, unknown>;
-        const evt = event as Record<string, unknown>;
-        const sessionKey = ctx.sessionKey as string | undefined;
-        if (!sessionKey) return;
-        rememberSession(sessionKey, ctx.agentId);
-
-        const prompt = (evt.prompt as string) ?? '';
-        const historyMessages = evt.historyMessages as unknown[] | undefined;
-        const trace = getOrCreateTrace(sessionKey, prompt);
-
-        // Extract channel/trigger context
-        const channelId = asNonEmptyString(ctx.channelId) ?? asNonEmptyString(ctx.messageProvider);
-        if (channelId) trace.channelId = channelId;
-        const trigger = asNonEmptyString(ctx.trigger);
-        if (trigger) trace.trigger = trigger;
-
-        if (trace.pendingLlm) {
-          trace.pendingLlm.span.end();
-        }
-
-        const rawProvider = evt.provider as string | undefined;
-        const provider = normalizeProvider(rawProvider) ?? rawProvider;
-        const model = evt.model as string | undefined;
-        const modelLabel = provider && model ? `${provider}/${model}` : model || 'unknown';
-
-        // Track last-known model/provider at trace level
-        if (model) trace.model = model;
-        if (provider) trace.provider = provider;
-
-        // Build OpenAI-style messages array for chat UI rendering
-        const messages: { role: string; content: string }[] = [];
-        if (evt.systemPrompt) {
-          messages.push({ role: 'system', content: evt.systemPrompt as string });
-        }
-        if (historyMessages?.length) {
-          for (const msg of historyMessages) {
-            const m = msg as { role?: string; content?: unknown };
-            if (!m.role) continue;
-            const role = m.role === 'toolResult' ? 'tool' : m.role;
-            const content =
-              typeof m.content === 'string'
-                ? m.content
-                : Array.isArray(m.content)
-                  ? m.content.map((p: { text?: string }) => p.text ?? '').join('\n')
-                  : m.content != null
-                    ? JSON.stringify(m.content)
-                    : '';
-            messages.push({ role, content });
-          }
-        }
-        messages.push({ role: 'user', content: prompt });
-        const llmInputs = sanitizeValue({
-          messages,
-          model: modelLabel,
-        }) as Record<string, unknown>;
-
-        const llmSpan = startSpan({
-          name: 'llm_call',
-          parent: trace.rootSpan,
-          spanType: SpanType.LLM,
-          inputs: llmInputs,
-          attributes: {
-            ...(model ? { 'mlflow.llm.model': model } : {}),
-            ...(provider ? { 'mlflow.llm.provider': provider } : {}),
-          },
-        });
-        llmSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
-
-        trace.pendingLlm = { span: llmSpan, name: 'llm_call' };
-      });
-
-      // =====================================================================
-      // Hook: llm_output — end LLM span with response
-      // =====================================================================
-      api.on('llm_output', (event: unknown, agentCtx: unknown) => {
-        const ctx = agentCtx as Record<string, unknown>;
-        const evt = event as Record<string, unknown>;
-        const sessionKey = ctx.sessionKey as string | undefined;
-        if (!sessionKey) return;
-        rememberSession(sessionKey, ctx.agentId);
-
-        const trace = activeTraces.get(sessionKey);
-        if (!trace) return;
-
-        trace.lastActivityMs = Date.now();
-        const assistantTexts = (evt.assistantTexts as string[] | undefined) ?? [];
-        const lastAssistant = evt.lastAssistant as Record<string, unknown> | undefined;
-        const rawResponse =
-          assistantTexts.length > 0 ? assistantTexts.join('\n') : (evt.response as string) || '';
-        const response = sanitizeOpenClawText(rawResponse);
-        trace.lastResponse = response;
-
-        // Update model/provider from output
-        const rawProvider = evt.provider as string | undefined;
-        if (rawProvider) trace.provider = normalizeProvider(rawProvider) ?? rawProvider;
-        if (evt.model) trace.model = evt.model as string;
-
-        if (trace.pendingLlm) {
-          type UsageLike = {
-            input?: number;
-            output?: number;
-            total?: number;
-            totalTokens?: number;
-            cacheRead?: number;
-            cacheWrite?: number;
-          };
-          const evtUsage = evt.usage as UsageLike | undefined;
-          const assistantUsage = lastAssistant?.usage as UsageLike | undefined;
-          const usage = evtUsage ?? assistantUsage;
-          if (usage && (usage.input || usage.output || usage.total || usage.totalTokens)) {
-            const inputTokens = usage.input ?? 0;
-            const outputTokens = usage.output ?? 0;
-            const cacheRead = usage.cacheRead ?? 0;
-            const cacheWrite = usage.cacheWrite ?? 0;
-            trace.pendingLlm.span.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
-              input_tokens: inputTokens,
-              output_tokens: outputTokens,
-              total_tokens: inputTokens + outputTokens + cacheRead + cacheWrite,
-              ...(cacheRead ? { cache_read_input_tokens: cacheRead } : {}),
-              ...(cacheWrite ? { cache_creation_input_tokens: cacheWrite } : {}),
-            });
-          }
-          trace.pendingLlm.span.setOutputs({
-            choices: [{ message: { role: 'assistant', content: response } }],
-          });
-          trace.pendingLlm.span.end();
-          trace.pendingLlm = null;
-        }
-      });
-
-      // =====================================================================
-      // Hook: before_tool_call — create TOOL span
-      // =====================================================================
-      api.on('before_tool_call', (event: unknown, agentCtx: unknown) => {
-        const ctx = agentCtx as Record<string, unknown>;
-        const evt = event as Record<string, unknown>;
-        const sessionKey = ctx.sessionKey as string | undefined;
-        if (!sessionKey) return;
-        rememberSession(sessionKey, ctx.agentId);
-
-        const trace = activeTraces.get(sessionKey);
-        if (!trace) return;
-
-        trace.lastActivityMs = Date.now();
-        const toolName = evt.toolName as string;
-        const toolCallId = evt.toolCallId as string | undefined;
-        const key = toolKey(toolName, toolCallId);
-
-        const toolSpan = startSpan({
-          name: toolName,
-          parent: trace.rootSpan,
-          spanType: SpanType.TOOL,
-          inputs: sanitizeValue((evt.params as Record<string, unknown>) || {}) as Record<
-            string,
-            unknown
-          >,
-          attributes: {
-            tool_name: toolName,
-            ...(toolCallId ? { tool_id: toolCallId } : {}),
-          },
-        });
-
-        trace.pendingTools.set(key, { span: toolSpan, name: toolName });
-      });
-
-      // =====================================================================
-      // Hook: after_tool_call — end TOOL span with result or error
-      // =====================================================================
-      api.on('after_tool_call', (event: unknown, agentCtx: unknown) => {
-        const ctx = agentCtx as Record<string, unknown>;
-        const evt = event as Record<string, unknown>;
-
-        // Session correlation with fallbacks
-        const sessionKey = resolveAfterToolSessionKey(ctx);
-        if (!sessionKey) return;
-        rememberSession(sessionKey, ctx.agentId);
-
-        const trace = activeTraces.get(sessionKey);
-        if (!trace) return;
-
-        trace.lastActivityMs = Date.now();
-        const toolName = evt.toolName as string;
-        const toolCallId = evt.toolCallId as string | undefined;
-        const key = toolKey(toolName, toolCallId);
-        const pending = trace.pendingTools.get(key);
-
-        if (pending) {
-          if (evt.error) {
-            pending.span.setOutputs({ error: evt.error });
-          } else {
-            pending.span.setOutputs({
-              result: (evt.result as string) || '',
-            });
-          }
-          pending.span.end();
-          trace.pendingTools.delete(key);
-        }
-      });
-
-      // =====================================================================
-      // Hook: subagent_spawning — create nested AGENT span
-      // =====================================================================
-      api.on('subagent_spawning', (event: unknown, agentCtx: unknown) => {
-        const ctx = agentCtx as Record<string, unknown>;
-        const evt = event as Record<string, unknown>;
-        const sessionKey = ctx.sessionKey as string | undefined;
-        if (!sessionKey) return;
-
-        const trace = activeTraces.get(sessionKey);
-        if (!trace) return;
-
-        trace.lastActivityMs = Date.now();
-        const agentId = evt.agentId as string;
-        const label = evt.label as string | undefined;
-
-        const subSpan = startSpan({
-          name: `subagent_${label || agentId}`,
-          parent: trace.rootSpan,
-          spanType: SpanType.AGENT,
-          inputs: {
-            agent_id: agentId,
-            ...(label ? { label } : {}),
-          },
-        });
-
-        trace.pendingSubagents.set(agentId, {
-          span: subSpan,
-          name: agentId,
-        });
-      });
-
-      // =====================================================================
-      // Hook: subagent_ended — end subagent span
-      // =====================================================================
-      api.on('subagent_ended', (event: unknown, agentCtx: unknown) => {
-        const ctx = agentCtx as Record<string, unknown>;
-        const evt = event as Record<string, unknown>;
-        const sessionKey = ctx.sessionKey as string | undefined;
-        if (!sessionKey) return;
-
-        const trace = activeTraces.get(sessionKey);
-        if (!trace) return;
-
-        trace.lastActivityMs = Date.now();
-        const agentId = evt.agentId as string;
-        const pending = trace.pendingSubagents.get(agentId);
-
-        if (pending) {
-          if (evt.error) {
-            pending.span.setOutputs({ error: evt.error });
-          } else {
-            pending.span.setOutputs({
-              result: (evt.result as string) || '',
-            });
-          }
-          pending.span.end();
-          trace.pendingSubagents.delete(agentId);
-        }
-      });
-
-      // =====================================================================
-      // Hook: agent_end — finalize trace (deferred via queueMicrotask)
-      // =====================================================================
-      api.on('agent_end', (event: unknown, agentCtx: unknown) => {
-        const ctx = agentCtx as Record<string, unknown>;
-        const evt = event as Record<string, unknown>;
-        const sessionKey = ctx.sessionKey as string | undefined;
-        if (!sessionKey) return;
-        rememberSession(sessionKey, ctx.agentId);
-
-        const trace = activeTraces.get(sessionKey);
-        if (!trace) return;
-
-        // Extract channel/trigger if not already set
-        const channelId = asNonEmptyString(ctx.channelId) ?? asNonEmptyString(ctx.messageProvider);
-        if (channelId && !trace.channelId) trace.channelId = channelId;
-        const trigger = asNonEmptyString(ctx.trigger);
-        if (trigger && !trace.trigger) trace.trigger = trigger;
-
-        trace.agentEndData = {
-          success: evt.success as boolean | undefined,
-          error: evt.error as string | undefined,
-          durationMs: evt.durationMs as number | undefined,
-          messages: evt.messages as unknown[] | undefined,
-        };
-
-        const userId = ctx.userId as string | undefined;
-
-        queueMicrotask(async () => {
-          try {
-            const t = activeTraces.get(sessionKey);
-            if (t) {
-              activeTraces.delete(sessionKey);
-              forgetSession(sessionKey);
-              await finalizeTrace(sessionKey, t, userId);
-            }
-          } catch {
-            // Silently ignore finalization errors
-          }
-        });
-      });
-
-      // =====================================================================
-      // Diagnostic: model.usage — accumulate token usage + cost metadata
-      // =====================================================================
       const unsubDiagnostics = onDiagnosticEvent((evt: DiagnosticEventPayload) => {
         if (evt.type !== 'model.usage') return;
 
@@ -748,9 +723,6 @@ export function createMLflowService(api: OpenClawPluginApi): OpenClawPluginServi
         }
       });
 
-      // =====================================================================
-      // Stale trace cleanup sweep
-      // =====================================================================
       const sweepInterval = setInterval(() => {
         const now = Date.now();
         for (const [key, trace] of activeTraces) {
@@ -764,9 +736,6 @@ export function createMLflowService(api: OpenClawPluginApi): OpenClawPluginServi
         }
       }, DEFAULT_STALE_SWEEP_INTERVAL_MS);
 
-      // =====================================================================
-      // Wire cleanup
-      // =====================================================================
       cleanup = () => {
         unsubDiagnostics();
         clearInterval(sweepInterval);

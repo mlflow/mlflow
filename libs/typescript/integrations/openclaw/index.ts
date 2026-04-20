@@ -1,15 +1,22 @@
-import type { OpenClawPluginApi } from 'openclaw/plugin-sdk';
-import { emptyPluginConfigSchema } from 'openclaw/plugin-sdk';
+import { definePluginEntry } from 'openclaw/plugin-sdk/plugin-entry';
+import type { OpenClawPluginApi } from 'openclaw/plugin-sdk/plugin-entry';
 import { createMLflowService } from './src/service.js';
 import { registerMlflowCli } from './src/configure.js';
 
-const plugin = {
+function parsePluginConfig(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return raw as Record<string, unknown>;
+}
+
+export default definePluginEntry({
   id: 'mlflow-openclaw',
   name: 'MLflow Tracing',
   description: 'Export OpenClaw LLM traces to MLflow',
-  configSchema: emptyPluginConfigSchema(),
   register(api: OpenClawPluginApi) {
-    api.registerService(createMLflowService(api));
+    const pluginConfig = parsePluginConfig(api.pluginConfig);
+    const service = createMLflowService(api, pluginConfig);
+    service.registerHooks();
+    api.registerService(service);
     api.registerCli(
       ({ program }) => {
         registerMlflowCli({
@@ -21,6 +28,4 @@ const plugin = {
       { commands: ['mlflow'] },
     );
   },
-};
-
-export default plugin;
+});

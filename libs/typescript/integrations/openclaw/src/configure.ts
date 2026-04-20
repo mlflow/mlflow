@@ -2,7 +2,7 @@
  * CLI registration for `openclaw mlflow configure` and `openclaw mlflow status`.
  */
 
-import type { OpenClawConfig } from 'openclaw/plugin-sdk';
+import type { OpenClawConfig } from 'openclaw/plugin-sdk/plugin-entry';
 
 const PLUGIN_ID = 'mlflow-openclaw';
 

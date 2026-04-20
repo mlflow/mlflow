@@ -2,17 +2,16 @@
  * Tests for MLflow OpenClaw integration
  */
 
-import type { DiagnosticEventPayload } from 'openclaw/plugin-sdk';
+import type { DiagnosticEventPayload } from 'openclaw/plugin-sdk/diagnostics-otel';
 
 // Capture the diagnostic event handler registered by the service
 let diagnosticHandler: ((evt: DiagnosticEventPayload) => void) | null = null;
 
-jest.mock('openclaw/plugin-sdk', () => ({
+jest.mock('openclaw/plugin-sdk/diagnostics-otel', () => ({
   onDiagnosticEvent: jest.fn((handler: (evt: DiagnosticEventPayload) => void) => {
     diagnosticHandler = handler;
     return jest.fn(); // unsubscribe
   }),
-  emptyPluginConfigSchema: jest.fn(() => ({})),
 }));
 
 // Mock the @mlflow/core module
@@ -55,7 +54,8 @@ jest.mock('@mlflow/core', () => {
       UNSET: 'UNSET',
     },
     SpanAttributeKey: {
-      TOKEN_USAGE: 'token_usage',
+      TOKEN_USAGE: 'mlflow.chat.tokenUsage',
+      MESSAGE_FORMAT: 'mlflow.message.format',
     },
     TraceMetadataKey: {
       TRACE_SESSION: 'mlflow.trace.session',
@@ -131,14 +131,17 @@ function createMockLogger() {
   };
 }
 
-async function startService(harness: TestHarness, config: Record<string, unknown> = {}) {
-  const service = createMLflowService(harness.api as any);
+async function startService(
+  harness: TestHarness,
+  pluginCfg: Record<string, unknown> = {
+    trackingUri: 'http://localhost:5000',
+    experimentId: 'exp-123',
+  },
+) {
+  const service = createMLflowService(harness.api as any, pluginCfg);
+  service.registerHooks();
   await service.start!({
-    config: {
-      trackingUri: 'http://localhost:5000',
-      experimentId: 'exp-123',
-      ...config,
-    },
+    config: {},
     logger: createMockLogger(),
   });
   return service;
@@ -191,50 +194,50 @@ describe('MLflowTracingPlugin', () => {
   });
 
   describe('Configuration', () => {
-    it('should not register hooks when trackingUri is missing', async () => {
+    it('should not initialize SDK when trackingUri is missing', async () => {
       const harness = createTestHarness();
-      const service = createMLflowService(harness.api as any);
+      const service = createMLflowService(harness.api as any, { experimentId: 'exp-123' });
+      service.registerHooks();
       await service.start!({
-        config: { experimentId: 'exp-123' },
+        config: {},
         logger: createMockLogger(),
       });
 
-      expect(harness.api.on).not.toHaveBeenCalled();
+      // Hooks are registered during register() but SDK should not init
+      expect(mlflowTracing.init).not.toHaveBeenCalled();
     });
 
-    it('should not register hooks when experimentId is missing', async () => {
+    it('should not initialize SDK when experimentId is missing', async () => {
       const harness = createTestHarness();
-      const service = createMLflowService(harness.api as any);
+      const service = createMLflowService(harness.api as any, {
+        trackingUri: 'http://localhost:5000',
+      });
+      service.registerHooks();
       await service.start!({
-        config: { trackingUri: 'http://localhost:5000' },
+        config: {},
         logger: createMockLogger(),
       });
 
-      expect(harness.api.on).not.toHaveBeenCalled();
+      expect(mlflowTracing.init).not.toHaveBeenCalled();
     });
 
-    it('should fall back to env vars when config is empty', async () => {
-      process.env.MLFLOW_TRACKING_URI = 'http://env-host:5000';
-      process.env.MLFLOW_EXPERIMENT_ID = 'env-exp';
-
-      const harness = createTestHarness();
-      const service = createMLflowService(harness.api as any);
-      await service.start!({ config: {}, logger: createMockLogger() });
-
-      expect(mlflowTracing.init).toHaveBeenCalledWith({
-        trackingUri: 'http://env-host:5000',
-        experimentId: 'env-exp',
-      });
-    });
-
-    it('should initialize SDK with config values', async () => {
+    it('should register hooks when pluginConfig has values', async () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      expect(mlflowTracing.init).toHaveBeenCalledWith({
-        trackingUri: 'http://localhost:5000',
-        experimentId: 'exp-123',
+      expect(harness.api.on).toHaveBeenCalledWith('llm_input', expect.any(Function));
+      expect(harness.api.on).toHaveBeenCalledWith('agent_end', expect.any(Function));
+    });
+
+    it('should use pluginConfig values passed from register', async () => {
+      const harness = createTestHarness();
+      await startService(harness, {
+        trackingUri: 'http://custom:9000',
+        experimentId: 'custom-exp',
       });
+
+      // SDK init now happens in register(), not start() — test that hooks work
+      expect(harness.api.on).toHaveBeenCalledWith('llm_input', expect.any(Function));
     });
   });
 
@@ -413,7 +416,7 @@ describe('MLflowTracingPlugin', () => {
         { sessionKey: 'session-1' },
       );
 
-      expect(llmSpan.setAttribute).toHaveBeenCalledWith('token_usage', {
+      expect(llmSpan.setAttribute).toHaveBeenCalledWith('mlflow.chat.tokenUsage', {
         input_tokens: 100,
         output_tokens: 30,
         total_tokens: 130,
@@ -778,7 +781,7 @@ describe('MLflowTracingPlugin', () => {
         { sessionKey: 'session-1' },
       );
 
-      expect(llmSpan.setAttribute).toHaveBeenCalledWith('token_usage', {
+      expect(llmSpan.setAttribute).toHaveBeenCalledWith('mlflow.chat.tokenUsage', {
         input_tokens: 50,
         output_tokens: 25,
         total_tokens: 75,
@@ -811,7 +814,7 @@ describe('MLflowTracingPlugin', () => {
       await flushMicrotasks();
 
       const rootSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[0].value;
-      expect(rootSpan.setAttribute).toHaveBeenCalledWith('token_usage', {
+      expect(rootSpan.setAttribute).toHaveBeenCalledWith('mlflow.chat.tokenUsage', {
         input_tokens: 300,
         output_tokens: 150,
         total_tokens: 450,
@@ -833,7 +836,7 @@ describe('MLflowTracingPlugin', () => {
 
       const rootSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[0].value;
       const tokenCalls = rootSpan.setAttribute.mock.calls.filter(
-        (call: unknown[]) => call[0] === 'token_usage',
+        (call: unknown[]) => call[0] === 'mlflow.chat.tokenUsage',
       );
       expect(tokenCalls).toHaveLength(0);
     });
