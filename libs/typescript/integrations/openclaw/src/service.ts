@@ -113,7 +113,7 @@ export function normalizeProvider(value: unknown): string | undefined {
   return normalized;
 }
 
-function asNonEmptyString(value: unknown): string | undefined {
+export function asNonEmptyString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
