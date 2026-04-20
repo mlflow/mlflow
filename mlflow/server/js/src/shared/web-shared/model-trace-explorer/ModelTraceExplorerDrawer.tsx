@@ -5,8 +5,12 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  LinkIcon,
+  Notification,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { ModelTraceExplorerAddToDatasetProvider, useModelTraceExplorerContext } from './ModelTraceExplorerContext';
@@ -39,7 +43,14 @@ export const ModelTraceExplorerDrawer = ({
 }: ModelTraceExplorerDrawerProps) => {
   const { theme } = useDesignSystemTheme();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
+  const [showCopiedNotification, setShowCopiedNotification] = useState(false);
   const { renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth = '60vw' } = useModelTraceExplorerContext();
+
+  const handleShareClick = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href);
+    setShowCopiedNotification(true);
+    setTimeout(() => setShowCopiedNotification(false), 2000);
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -101,6 +112,26 @@ export const ModelTraceExplorerDrawer = ({
               <ChevronRightIcon />
             </Button>
             <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            <Tooltip
+              componentId="mlflow.evaluations_review.modal.share-tooltip"
+              content={
+                <FormattedMessage
+                  defaultMessage="Copy link to trace"
+                  description="Tooltip for the share trace button"
+                />
+              }
+            >
+              <Button
+                componentId="mlflow.evaluations_review.modal.share-button"
+                icon={<LinkIcon />}
+                size="small"
+                type="tertiary"
+                onClick={handleShareClick}
+                css={{ flexShrink: 0 }}
+              >
+                <FormattedMessage defaultMessage="Share" description="Label for the share trace button" />
+              </Button>
+            </Tooltip>
           </div>
         }
         expandContentToFullHeight
@@ -138,6 +169,19 @@ export const ModelTraceExplorerDrawer = ({
           setVisible: setShowDatasetModal,
         })}
       </DrawerComponent.Content>
+      {showCopiedNotification && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.evaluations_review.modal.share-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Copied to clipboard"
+                description="Success message after copying trace link"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
     </DrawerComponent.Root>
   );
 };

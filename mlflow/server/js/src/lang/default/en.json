@@ -439,6 +439,10 @@
     "defaultMessage": "Active",
     "description": "Linked model dropdown option to show active experiment runs"
   },
+  "0phUi0": {
+    "defaultMessage": "Copy link to trace",
+    "description": "Tooltip for the share trace button"
+  },
   "0r2ub6": {
     "defaultMessage": "Overview",
     "description": "Label for the overview tab in the MLflow experiment navbar"
@@ -802,6 +806,10 @@
   "2zy+D5": {
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
+  },
+  "32GwrT": {
+    "defaultMessage": "Share",
+    "description": "Label for the share trace button"
   },
   "35bW7o": {
     "defaultMessage": "Step 2: Run the judge",
@@ -8706,6 +8714,10 @@
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
     "description": "Tooltip message when no sessions are selected"
+  },
+  "qdYCbk": {
+    "defaultMessage": "Copied to clipboard",
+    "description": "Success message after copying trace link"
   },
   "qhOwHa": {
     "defaultMessage": "Endpoints",
