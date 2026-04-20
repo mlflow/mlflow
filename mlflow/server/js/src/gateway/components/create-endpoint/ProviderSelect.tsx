@@ -9,7 +9,7 @@ import type {
 } from '../../../common/components/navigable-combobox/types';
 import type { SelectorItem } from '../../../common/components/selector-modal/types';
 import { useProvidersQuery } from '../../hooks/useProvidersQuery';
-import { formatProviderName, buildProviderGroups, COMMON_PROVIDERS } from '../../utils/providerUtils';
+import { formatProviderName, COMMON_PROVIDERS } from '../../utils/providerUtils';
 
 interface ProviderSelectProps {
   value: string;
@@ -44,12 +44,11 @@ export const ProviderSelect = ({
       };
     }
 
-    const { ungroupedProviders } = buildProviderGroups(providers);
     const commonSet = new Set<string>(COMMON_PROVIDERS);
 
     const commonProviders: string[] = [];
     const otherUngrouped: string[] = [];
-    for (const provider of ungroupedProviders) {
+    for (const provider of providers) {
       if (commonSet.has(provider)) {
         commonProviders.push(provider);
       } else {
