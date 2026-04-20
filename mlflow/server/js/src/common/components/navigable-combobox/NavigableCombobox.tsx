@@ -456,7 +456,9 @@ export function NavigableCombobox<T = string>({
           }}
           onClick={(e) => {
             // Prevent downshift from processing this click as an item selection.
-            (e.nativeEvent as any).preventDownshiftDefault = true;
+            // downshift's callAllEventHandlers checks this flag on both the synthetic
+            // and native event to skip subsequent handlers (e.g. itemHandleClick).
+            (e as any).preventDownshiftDefault = true;
             handleGroupClick(menuItem, e);
           }}
         >
