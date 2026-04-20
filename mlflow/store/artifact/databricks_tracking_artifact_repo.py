@@ -66,6 +66,7 @@ class DatabricksTrackingArtifactRepository(ArtifactRepository, ABC):
             self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
 
     def log_artifacts(self, local_dir: str, artifact_path: str | None = None) -> None:
+        _logger.info(f"[DatabricksTrackingArtifactRepository] Logging artifacts to {local_dir} with artifact path {artifact_path}")
         try:
             self.databricks_sdk_repo.log_artifacts(local_dir, artifact_path)
         except Exception as e:
