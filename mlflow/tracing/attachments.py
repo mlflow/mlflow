@@ -63,7 +63,7 @@ class Attachment:
             size = int(size_str) if size_str else None
         except ValueError:
             size = None
-        if size is not None and size < 0:
+        if size is not None and size <= 0:
             size = None
         return {
             "attachment_id": attachment_id,

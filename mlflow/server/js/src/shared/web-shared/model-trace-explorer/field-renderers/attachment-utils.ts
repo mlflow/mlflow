@@ -19,7 +19,7 @@ export function parseAttachmentUri(
     const sizeStr = parsed.searchParams.get('size');
     const parsedSize = sizeStr ? Number(sizeStr) : undefined;
     const size =
-      parsedSize !== undefined && Number.isFinite(parsedSize) && Number.isInteger(parsedSize) && parsedSize >= 0
+      parsedSize !== undefined && Number.isFinite(parsedSize) && Number.isInteger(parsedSize) && parsedSize > 0
         ? parsedSize
         : undefined;
     return { attachmentId, contentType, traceId, ...(size !== undefined ? { size } : {}) };

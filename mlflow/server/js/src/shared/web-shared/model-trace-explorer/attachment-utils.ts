@@ -18,7 +18,7 @@ async function getTraceAttachment(requestId: string, attachmentId: string): Prom
 /**
  * Programmatically fetches a blob and triggers a browser download.
  */
-async function fetchAndDownload(traceId: string, attachmentId: string, contentType: string) {
+export async function fetchAndDownload(traceId: string, attachmentId: string, contentType: string) {
   const url = getAjaxUrl(
     `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(traceId)}&path=${encodeURIComponent(attachmentId)}`,
   );
@@ -52,7 +52,7 @@ export function parseAttachmentUri(
     const sizeStr = parsed.searchParams.get('size');
     const parsedSize = sizeStr ? Number(sizeStr) : undefined;
     const size =
-      parsedSize !== undefined && Number.isFinite(parsedSize) && Number.isInteger(parsedSize) && parsedSize >= 0
+      parsedSize !== undefined && Number.isFinite(parsedSize) && Number.isInteger(parsedSize) && parsedSize > 0
         ? parsedSize
         : undefined;
     return { attachmentId, contentType, traceId, ...(size !== undefined ? { size } : {}) };

@@ -61,12 +61,9 @@ describe('parseAttachmentUri', () => {
     expect(result?.size).toBeUndefined();
   });
 
-  it('omits size for non-integer values', () => {
-    const cases = ['abc', '1.5', '-1', 'Infinity', 'NaN', ''];
-    for (const bad of cases) {
-      const uri = `mlflow-attachment://abc-123?content_type=image%2Fpng&trace_id=tr-456&size=${bad}`;
-      const result = parseAttachmentUri(uri);
-      expect(result?.size).toBeUndefined();
-    }
+  it.each(['abc', '1.5', '-1', '0', 'Infinity', 'NaN', ''])('omits invalid size value: %s', (bad) => {
+    const uri = `mlflow-attachment://abc-123?content_type=image%2Fpng&trace_id=tr-456&size=${bad}`;
+    const result = parseAttachmentUri(uri);
+    expect(result?.size).toBeUndefined();
   });
 });

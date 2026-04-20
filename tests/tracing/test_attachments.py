@@ -108,7 +108,7 @@ def test_ref_size_reflects_content_length():
     assert parsed["size"] == 1024
 
 
-@pytest.mark.parametrize("bad_size", ["abc", "-1", "-100"])
+@pytest.mark.parametrize("bad_size", ["abc", "-1", "-100", "0"])
 def test_parse_ref_invalid_size(bad_size):
     uri = f"mlflow-attachment://abc-123?content_type=image%2Fpng&trace_id=tr-456&size={bad_size}"
     parsed = Attachment.parse_ref(uri)

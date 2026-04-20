@@ -3,28 +3,10 @@ import { useCallback, useEffect } from 'react';
 import { fetchOrFail } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { exceedsRenderSizeLimit } from '../../media-rendering-utils';
 import { useQuery } from '../../query-client/queryClient';
+import { fetchAndDownload } from '../attachment-utils';
 import { getAjaxUrl } from '../ModelTraceExplorer.request.utils';
 
 const TRACE_ATTACHMENT_QUERY_KEY = 'traceAttachment';
-
-/**
- * Programmatically fetches a blob and triggers a browser download.
- */
-async function fetchAndDownload(traceId: string, attachmentId: string, contentType: string) {
-  const url = getAjaxUrl(
-    `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(traceId)}&path=${encodeURIComponent(attachmentId)}`,
-  );
-  const response = await fetchOrFail(url);
-  const blob = await response.blob();
-  const blobUrl = URL.createObjectURL(new Blob([blob], { type: contentType }));
-  const a = document.createElement('a');
-  a.href = blobUrl;
-  a.download = `attachment-${attachmentId}`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(blobUrl);
-}
 
 /**
  * Fetches a trace attachment and returns a blob object URL for rendering.
