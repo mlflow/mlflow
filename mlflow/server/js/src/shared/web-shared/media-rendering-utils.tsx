@@ -4,6 +4,7 @@
  * and artifact viewing.
  */
 
+import { Typography } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 // Auto-render size thresholds (bytes). Files exceeding these show a download link.
@@ -84,15 +85,12 @@ export function DownloadLink({
 
   if (onFetchDownload) {
     return (
-      <a
-        href="#"
-        onClick={(e) => {
-          e.preventDefault();
-          void onFetchDownload().catch(() => undefined);
-        }}
+      <Typography.Link
+        componentId="shared.media-rendering-utils.fetch-download"
+        onClick={() => void onFetchDownload().catch(() => undefined)}
       >
         {label}
-      </a>
+      </Typography.Link>
     );
   }
 
