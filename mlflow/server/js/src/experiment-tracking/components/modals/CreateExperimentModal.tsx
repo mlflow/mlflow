@@ -87,8 +87,8 @@ export class CreateExperimentModalImpl extends Component<
         onClose={this.handleClose}
         okButtonProps={{ disabled: !experimentName.trim() }}
       >
-        {/* @ts-expect-error TS(2322): Type '{ validator: ((rule: any, value: any, callba... Remove this comment to see the full error message */}
         <CreateExperimentForm
+          // @ts-expect-error TS(2322): injectIntl wrapper loses custom prop types
           validator={this.debouncedExperimentNameValidator}
           onValuesChange={this.handleValuesChange}
         />
