@@ -75,8 +75,6 @@ jobs:
 
       - name: Update model-catalog/latest tag
         if: steps.diff.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git tag -f model-catalog/latest
           git push -f origin model-catalog/latest
