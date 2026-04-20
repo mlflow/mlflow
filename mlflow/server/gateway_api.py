@@ -178,18 +178,14 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 if request is not None:
                     params["has_traceparent"] = request.headers.get("traceparent") is not None
                     auth_mod = sys.modules.get("mlflow.server.auth")
-                    params["auth_enabled"] = (
-                        auth_mod.is_auth_enabled() if auth_mod else False
-                    )
+                    params["auth_enabled"] = auth_mod.is_auth_enabled() if auth_mod else False
                     if endpoint_id := getattr(request.state, "endpoint_id", None):
                         params["endpoint_id"] = endpoint_id
                     # Prefer the actual provider from the response (set by
                     # BaseProvider after the call) over the endpoint config
                     # estimate, which may not reflect traffic-split/fallback.
                     actual_provider = getattr(result, "provider", None)
-                    if provider := (
-                        actual_provider or getattr(request.state, "provider", None)
-                    ):
+                    if provider := (actual_provider or getattr(request.state, "provider", None)):
                         params["provider"] = provider
                 _record_event(
                     GatewayInvocationEvent,
