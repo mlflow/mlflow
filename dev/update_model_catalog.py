@@ -78,6 +78,7 @@ _MODALITY_OUTPUT = re.compile(r"^output_cost_per_([a-z0-9_]+)_token$")
 _MODALITY_CACHE_READ = re.compile(r"^cache_read_input_([a-z0-9_]+)_token_cost$")
 _MODALITY_CACHE_WRITE = re.compile(r"^cache_creation_input_([a-z0-9_]+)_token_cost$")
 _MODALITY_CACHE_READ_ALT = re.compile(r"^cache_read_input_token_cost_per_([a-z0-9_]+)_token$")
+_EXCLUDED_MODALITIES = {"reasoning"}
 
 
 def _extract_modality_pricing(info: dict[str, Any]) -> dict[str, dict[str, float]]:
@@ -85,17 +86,32 @@ def _extract_modality_pricing(info: dict[str, Any]) -> dict[str, dict[str, float
     modalities: dict[str, dict[str, float]] = {}
     for k, v in info.items():
         if m := _MODALITY_INPUT.match(k):
-            modalities.setdefault(m.group(1), {})["input_per_million_tokens"] = _to_per_million(v)
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modalities.setdefault(modality, {})["input_per_million_tokens"] = _to_per_million(v)
         elif m := _MODALITY_OUTPUT.match(k):
-            modalities.setdefault(m.group(1), {})["output_per_million_tokens"] = _to_per_million(v)
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modalities.setdefault(modality, {})["output_per_million_tokens"] = _to_per_million(v)
         elif m := _MODALITY_CACHE_READ.match(k):
-            modality_entry = modalities.setdefault(m.group(1), {})
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modality_entry = modalities.setdefault(modality, {})
             modality_entry["cache_read_per_million_tokens"] = _to_per_million(v)
         elif m := _MODALITY_CACHE_WRITE.match(k):
-            modality_entry = modalities.setdefault(m.group(1), {})
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modality_entry = modalities.setdefault(modality, {})
             modality_entry["cache_write_per_million_tokens"] = _to_per_million(v)
         elif m := _MODALITY_CACHE_READ_ALT.match(k):
-            modality_entry = modalities.setdefault(m.group(1), {})
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modality_entry = modalities.setdefault(modality, {})
             modality_entry["cache_read_per_million_tokens"] = _to_per_million(v)
 
     return modalities

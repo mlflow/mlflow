@@ -168,9 +168,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 1.0
-          },
-          "reasoning": {
-            "output_per_million_tokens": 2.5
           }
         }
       },
@@ -196,9 +193,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 0.3
-          },
-          "reasoning": {
-            "output_per_million_tokens": 0.4
           }
         }
       },
@@ -224,9 +218,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 0.5
-          },
-          "reasoning": {
-            "output_per_million_tokens": 0.4
           }
         }
       },
@@ -253,9 +244,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 0.3
-          },
-          "reasoning": {
-            "output_per_million_tokens": 0.4
           }
         }
       },
@@ -353,9 +341,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 1.0
-          },
-          "reasoning": {
-            "output_per_million_tokens": 2.5
           }
         }
       },
@@ -455,9 +440,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 1.0
-          },
-          "reasoning": {
-            "output_per_million_tokens": 3.0
           }
         }
       },
@@ -524,9 +506,6 @@
           "audio": {
             "cache_read_per_million_tokens": 0.05,
             "input_per_million_tokens": 0.5
-          },
-          "reasoning": {
-            "output_per_million_tokens": 1.5
           }
         }
       },
@@ -726,9 +705,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 1.0
-          },
-          "reasoning": {
-            "output_per_million_tokens": 2.5
           }
         }
       },
@@ -754,9 +730,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 1.0
-          },
-          "reasoning": {
-            "output_per_million_tokens": 2.5
           }
         }
       },
@@ -782,9 +755,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 0.3
-          },
-          "reasoning": {
-            "output_per_million_tokens": 0.4
           }
         }
       },
@@ -874,9 +844,6 @@
         "modality": {
           "audio": {
             "input_per_million_tokens": 1.0
-          },
-          "reasoning": {
-            "output_per_million_tokens": 2.5
           }
         }
       },
