@@ -197,11 +197,12 @@ repos:
 
       - id: typos
         name: typos
-        entry: bin/typos --format brief --force-exclude --color never
+        entry: bin/typos --format brief --color never
         files: '\.(py$|mdx?$)'
         language: system
         stages: [pre-commit]
         require_serial: true
+        pass_filenames: false
 
       - id: conftest
         name: conftest
