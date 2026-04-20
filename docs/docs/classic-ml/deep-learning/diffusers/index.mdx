@@ -97,15 +97,15 @@ result = loaded_pyfunc.predict(
 
 The default signature for diffusers adapter models:
 
-| Role | Type | Name |
-|------|------|------|
-| **Input** | `string` | `prompt` |
-| **Output** | `binary` | `image` |
+| Role       | Type      | Name                                |
+| ---------- | --------- | ----------------------------------- |
+| **Input**  | `string`  | `prompt`                            |
+| **Output** | `binary`  | `image`                             |
 | **Params** | `integer` | `num_inference_steps` (default: 30) |
-| | `double` | `guidance_scale` (default: 7.5) |
-| | `integer` | `height` (default: 512) |
-| | `integer` | `width` (default: 512) |
-| | `string` | `negative_prompt` (default: "") |
+|            | `double`  | `guidance_scale` (default: 7.5)     |
+|            | `integer` | `height` (default: 512)             |
+|            | `integer` | `width` (default: 512)              |
+|            | `string`  | `negative_prompt` (default: "")     |
 
 ## How It Works
 
