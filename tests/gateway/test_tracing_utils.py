@@ -35,6 +35,7 @@ def endpoint_config():
         endpoint_id="test-endpoint-id",
         endpoint_name="test-endpoint",
         experiment_id=_get_experiment_id(),
+        usage_tracking=True,
         models=[],
     )
 
@@ -252,7 +253,7 @@ async def test_maybe_traced_gateway_call_without_experiment_id(endpoint_config_n
         },
     )
 
-    # When experiment_id is None, maybe_traced_gateway_call returns the original function
+    # When usage_tracking is False, maybe_traced_gateway_call returns the original function
     assert traced_func is mock_async_func
 
     result = await traced_func({"input": "test"})
@@ -371,6 +372,7 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
         endpoint_id="test-endpoint-id",
         endpoint_name="test-endpoint",
         experiment_id=gateway_experiment_id,
+        usage_tracking=True,
         models=[],
     )
 
@@ -457,6 +459,7 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
         endpoint_id="test-endpoint-id",
         endpoint_name="test-endpoint",
         experiment_id=gateway_experiment_id,
+        usage_tracking=True,
         models=[],
     )
 
@@ -547,6 +550,7 @@ async def test_maybe_traced_gateway_call_with_traceparent_multiple_providers(gat
         endpoint_id="test-endpoint-id",
         endpoint_name="test-endpoint",
         experiment_id=gateway_experiment_id,
+        usage_tracking=True,
         models=[],
     )
 
