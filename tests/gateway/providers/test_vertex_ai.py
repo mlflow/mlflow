@@ -123,25 +123,16 @@ def test_global_endpoint_when_no_location():
     )
 
 
-@pytest.mark.parametrize(
-    "model_name",
-    [
-        "gemini-3-flash-preview",
-        "gemini-3-pro-preview",
-        "gemini-3-pro-image-preview",
-        "gemini-3.1-pro-preview",
-    ],
-)
-def test_gemini3_uses_global_endpoint(model_name: str):
+def test_global_location_uses_global_endpoint():
     endpoint_config = EndpointConfig(
         name="vertex-endpoint",
         endpoint_type="llm/v1/chat",
         model={
             "provider": "vertex_ai",
-            "name": model_name,
+            "name": "gemini-3-pro-preview",
             "config": {
                 "vertex_project": "my-gcp-project",
-                "vertex_location": "us-central1",
+                "vertex_location": "global",
             },
         },
     )
