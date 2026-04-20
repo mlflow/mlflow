@@ -85,7 +85,7 @@ interface ActiveTrace {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function evictOldest<K, V>(map: Map<K, V>, maxSize: number): void {
+export function evictOldest<K, V>(map: Map<K, V>, maxSize: number): void {
   while (map.size > maxSize) {
     const oldest = map.keys().next().value;
     if (oldest !== undefined) {
@@ -94,11 +94,11 @@ function evictOldest<K, V>(map: Map<K, V>, maxSize: number): void {
   }
 }
 
-function toolKey(toolName: string, toolCallId?: string): string {
+export function toolKey(toolName: string, toolCallId?: string): string {
   return toolCallId ? `${toolName}:${toolCallId}` : toolName;
 }
 
-function normalizeProvider(value: unknown): string | undefined {
+export function normalizeProvider(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length === 0) return undefined;
   const normalized = value.trim().toLowerCase();
   if (normalized.length === 0) return undefined;
@@ -124,7 +124,7 @@ function sleep(ms: number): Promise<void> {
 /**
  * Sanitize OpenClaw internal markers from text before storing in MLflow.
  */
-function sanitizeOpenClawText(value: string): string {
+export function sanitizeOpenClawText(value: string): string {
   return value
     .replace(/\\r\\n/g, '\n')
     .replace(/\\n/g, '\n')
@@ -146,7 +146,7 @@ function sanitizeOpenClawText(value: string): string {
     .trim();
 }
 
-function sanitizeValue(value: unknown): unknown {
+export function sanitizeValue(value: unknown): unknown {
   if (typeof value === 'string') return sanitizeOpenClawText(value);
   if (Array.isArray(value)) return value.map(sanitizeValue);
   if (value !== null && typeof value === 'object') {
