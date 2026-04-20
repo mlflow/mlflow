@@ -63,8 +63,10 @@ def change_working_directory(tmp_path, monkeypatch):
 
 def run_test(src, src_expected, mock_responses):
     def patch_urlopen(url, **kwargs):
-        package_name = re.search(r"/pypi/(.+)/json", url).group(1)
-        return mock_responses[package_name]
+        match = re.search(r"/pypi/(.+)/json", url)
+        if not match:
+            return MockResponse({"status": "ok"})
+        return mock_responses[match.group(1)]
 
     versions_yaml = Path("mlflow/ml-package-versions.yml")
     versions_yaml.parent.mkdir()
