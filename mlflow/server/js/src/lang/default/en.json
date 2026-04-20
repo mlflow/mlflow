@@ -715,6 +715,10 @@
     "defaultMessage": "Prompt created",
     "description": "Webhook event label"
   },
+  "2WOke0": {
+    "defaultMessage": "Stage",
+    "description": "Guardrail stage column header"
+  },
   "2XH9oW": {
     "defaultMessage": "Back",
     "description": "Back button"
@@ -2470,6 +2474,10 @@
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button on the registered prompt details page\""
   },
+  "DJsLPv": {
+    "defaultMessage": "Delete {count, plural, one {guardrail} other {# guardrails}}",
+    "description": "Bulk delete guardrails modal title"
+  },
   "DLGEdG": {
     "defaultMessage": "Thank you for exploring the new Model Registry UI. We are dedicated to providing the best experience, and your feedback is invaluable. Please share your thoughts with us <link>here</link>.",
     "description": "Model registry > Switcher for the new model registry UI containing aliases > disable confirmation modal content"
@@ -3170,10 +3178,6 @@
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected"
   },
-  "IRZcTi": {
-    "defaultMessage": "Add Guardrail",
-    "description": "Add guardrail button"
-  },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
     "description": "Text shown when there are no common artifacts between the runs"
@@ -3485,6 +3489,10 @@
   "KdsrPi": {
     "defaultMessage": "Assessments",
     "description": "Label for the read-only assessments tab of the model trace explorer."
+  },
+  "Kg1HbP": {
+    "defaultMessage": "Delete",
+    "description": "Confirm delete button"
   },
   "Kkr/RI": {
     "defaultMessage": "Configure charts",
@@ -6095,6 +6103,10 @@
     "defaultMessage": "Run details",
     "description": "Run page > Overview > Run details section heading"
   },
+  "b5Aw4a": {
+    "defaultMessage": "Delete{count, select, 0 {} other { ({count})}}",
+    "description": "Delete guardrails button with optional count"
+  },
   "b6VGsd": {
     "defaultMessage": "Pre-built LLM-as-a-judge | Session level",
     "description": "Label indicating a pre-built session-level LLM-as-a-judge template"
@@ -6182,6 +6194,10 @@
   "ba7/ni": {
     "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
     "description": "Tooltip explaining the demo experiment in the experiments list"
+  },
+  "bcFuUb": {
+    "defaultMessage": "Are you sure you want to remove {count, plural, one {this guardrail} other {these # guardrails}}?",
+    "description": "Bulk remove guardrails confirmation message"
   },
   "bcw06n": {
     "defaultMessage": "Is the output semantically equivalent to the expected output?",
@@ -7082,6 +7098,10 @@
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
+  },
+  "h1VO0z": {
+    "defaultMessage": "Failed to remove one or more guardrails. Please try again.",
+    "description": "Error when bulk guardrail removal fails"
   },
   "h2398a": {
     "defaultMessage": "documentation",
@@ -9710,10 +9730,6 @@
   "x7NsCC": {
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
-  },
-  "x9kyZm": {
-    "defaultMessage": "Placement",
-    "description": "Guardrail placement column header"
   },
   "xBVMQz": {
     "defaultMessage": "LLM",

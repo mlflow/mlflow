@@ -46,8 +46,10 @@ from mlflow.telemetry.events import (
     PromptOptimizationEvent,
     SimulateConversationEvent,
     StartTraceEvent,
+    TraceAttachmentsEvent,
     UpdateIssueEvent,
 )
+from mlflow.tracing.attachments import Attachment
 
 
 @pytest.mark.parametrize(
@@ -850,3 +852,24 @@ def test_update_issue_parse_result_none():
 def test_genai_evaluate_event_parse_eval_data_type(arguments, expected_eval_data_type):
     result = GenAIEvaluateEvent.parse(arguments)
     assert result.get("eval_data_type") == expected_eval_data_type
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected"),
+    [
+        (
+            {
+                "attachments": {
+                    "a": Attachment(content_type="image/png", content_bytes=b"img1"),
+                    "b": Attachment(content_type="audio/wav", content_bytes=b"audio"),
+                    "c": Attachment(content_type="image/png", content_bytes=b"img2"),
+                }
+            },
+            {"content_types": {"image/png": 2, "audio/wav": 1}},
+        ),
+        ({"attachments": {}}, None),
+        ({}, None),
+    ],
+)
+def test_trace_attachments_event_parse(arguments, expected):
+    assert TraceAttachmentsEvent.parse(arguments) == expected
