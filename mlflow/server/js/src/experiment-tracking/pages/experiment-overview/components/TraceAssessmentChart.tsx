@@ -125,10 +125,10 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
   const timeSeriesTooltipContent = (
     <ScrollableTooltip
       formatter={timeSeriesTooltipFormatter}
+      componentId="mlflow.overview.quality.assessment_timeseries.view_traces_link"
       linkConfig={
         enableTraceNavigation
           ? {
-              componentId: 'mlflow.overview.quality.assessment_timeseries.view_traces_link',
               onLinkClick: handleViewTimeSeriesTraces,
             }
           : undefined
@@ -139,10 +139,10 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
   const distributionTooltipContent = (
     <ScrollableTooltip
       formatter={distributionTooltipFormatter}
+      componentId="mlflow.overview.quality.assessment.view_traces_link"
       linkConfig={
         enableTraceNavigation
           ? {
-              componentId: 'mlflow.overview.quality.assessment.view_traces_link',
               linkText: (
                 <FormattedMessage
                   defaultMessage="View traces with this score"

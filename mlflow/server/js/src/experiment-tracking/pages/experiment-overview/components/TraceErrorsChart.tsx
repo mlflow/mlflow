@@ -92,10 +92,10 @@ export const TraceErrorsChart: React.FC<TraceErrorsChartProps> = ({ enableTraceN
                 content={
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
+                    componentId="mlflow.overview.usage.errors.view_traces_link"
                     linkConfig={
                       enableTraceNavigation
                         ? {
-                            componentId: 'mlflow.overview.usage.errors.view_traces_link',
                             onLinkClick: handleViewTraces,
                           }
                         : undefined
