@@ -22,15 +22,19 @@ def simulation_mocks(mock_trace):
         trace_id_counter["count"] += 1
         return f"trace_{trace_id_counter['count']}"
 
-    # Track metadata/tags passed to configure_trace and apply them to mock traces
-    captured_configure_calls = []
+    # Track metadata/tags passed to tracing.context and apply them to mock traces
+    captured_context_calls = []
 
     @contextmanager
-    def mock_configure_trace(metadata=None, tags=None):
-        captured_configure_calls.append({"metadata": metadata, "tags": tags})
+    def mock_context(metadata=None, tags=None, enabled=None, session_id=None, user=None):
+        captured_context_calls.append(
+            {"metadata": metadata, "tags": tags, "session_id": session_id, "user": user}
+        )
         # Apply metadata/tags to the mock trace so tests can assert on them
         if metadata:
             mock_trace.info.trace_metadata.update(metadata)
+        if session_id is not None:
+            mock_trace.info.trace_metadata["mlflow.trace.session"] = session_id
         if tags:
             mock_trace.info.tags.update(tags)
         yield
@@ -38,7 +42,7 @@ def simulation_mocks(mock_trace):
     with (
         patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.get_last_active_trace_id", side_effect=unique_trace_id) as mock_get_trace_id,
-        patch("mlflow.configure_trace", side_effect=mock_configure_trace),
+        patch("mlflow.tracing.context", side_effect=mock_context),
         patch(
             "mlflow.tracing.client.TracingClient",
             return_value=Mock(get_trace=lambda _: mock_trace),
@@ -47,7 +51,7 @@ def simulation_mocks(mock_trace):
         yield {
             "invoke": mock_invoke,
             "get_trace_id": mock_get_trace_id,
-            "configure_calls": captured_configure_calls,
+            "context_calls": captured_context_calls,
             "trace": mock_trace,
         }
 

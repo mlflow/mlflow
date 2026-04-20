@@ -788,10 +788,10 @@ class ConversationSimulator:
                 :_MAX_METADATA_LENGTH
             ]
 
-        # Use configure_trace to inject session ID as metadata (immutable) and
-        # simulation info as tags, without creating a wrapper span.
-        with mlflow.configure_trace(
-            metadata={TraceMetadataKey.TRACE_SESSION: trace_session_id},
+        # Inject session ID as metadata (immutable) and simulation info as tags,
+        # without creating a wrapper span.
+        with mlflow.tracing.context(
+            session_id=trace_session_id,
             tags=trace_tags,
         ):
             prev_trace_id = mlflow.get_last_active_trace_id(thread_local=True)

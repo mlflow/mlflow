@@ -121,7 +121,7 @@ def test_conversation_simulator_basic_simulation(
     assert len(all_traces[0]) == 2  # 2 traces
     assert all(t is simulation_mocks["trace"] for t in all_traces[0])
     assert simulation_mocks["invoke"].call_count == 4  # 2 turns * 2 calls each
-    assert len(simulation_mocks["configure_calls"]) == 2  # one per turn
+    assert len(simulation_mocks["context_calls"]) == 2  # one per turn
 
 
 def test_conversation_simulator_max_turns_stopping(
