@@ -2,8 +2,6 @@
 
 This file provides guidance to Claude Code when working with the MLflow frontend code in this directory.
 
-**For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](../../../CONTRIBUTING.md).**
-
 ## Consistency is Critical
 
 **IMPORTANT**: Always be consistent with the rest of the repository. This is extremely important!
@@ -61,9 +59,6 @@ yarn prettier:check     # Check Prettier formatting
 yarn prettier:fix       # Fix Prettier formatting
 yarn type-check         # Run TypeScript type checking
 
-# Combined Checks
-yarn check-all          # Run all checks (lint, prettier, i18n, type-check)
-
 # Other Commands
 yarn storybook          # Start Storybook for component development
 yarn build-storybook    # Build static Storybook
@@ -76,7 +71,12 @@ yarn i18n:check         # Check i18n translations
 
 ```bash
 # From repository root
-pushd mlflow/server/js && yarn check-all; popd
+pushd mlflow/server/js
+yarn lint
+yarn prettier:check
+yarn i18n:check
+yarn type-check
+popd
 
 # Fix any issues that are reported
 ```
@@ -106,6 +106,21 @@ Example import:
 import { Button, Modal, Input } from '@databricks/design-system';
 ```
 
+### Avoid HTML Elements When Design System Alternatives Exist
+
+**Prefer `Button` from `@databricks/design-system` over raw HTML `<button>` elements** for most interactive actions:
+
+```typescript
+// ✅ GOOD - Use DuBois Button for actions
+<Button componentId="my-feature.action" type="tertiary" onClick={handleClick}>
+  Click me
+</Button>
+
+// ❌ BAD - Avoid raw HTML button for typical actions
+<button type="button" onClick={handleClick}>
+  Click me
+</button>
+```
 ### Theme Usage
 
 Use the design system theme for consistent styling:

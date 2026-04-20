@@ -246,7 +246,26 @@ const useSearchParams = useSearchParamsDirect;
 
 const useParams = useParamsDirect;
 
-const useNavigate = useNavigateDirect;
+type UseNavigateOptions = {
+  bypassWorkspacePrefix?: boolean;
+};
+
+const useNavigate = (options: UseNavigateOptions = { bypassWorkspacePrefix: false }): NavigateFunction => {
+  const { bypassWorkspacePrefix } = options;
+  const navigate = useNavigateDirect();
+  const wrappedNavigate = useCallback(
+    (to: To | number, options?: NavigateOptions) => {
+      if (typeof to === 'number') {
+        navigate(to);
+        return;
+      }
+      navigate(bypassWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to), options);
+    },
+    [navigate, bypassWorkspacePrefix],
+  );
+
+  return wrappedNavigate as NavigateFunction;
+};
 
 const Outlet = OutletDirect;
 

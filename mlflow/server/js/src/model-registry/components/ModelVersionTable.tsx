@@ -39,6 +39,7 @@ import { ModelVersionTableAliasesCell } from './aliases/ModelVersionTableAliases
 import type { Interpolation, Theme } from '@emotion/react';
 import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
 import { setModelVersionAliasesApi } from '../actions';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 
 type ModelVersionTableProps = {
   isLoading: boolean;
@@ -155,6 +156,7 @@ export const ModelVersionTable = ({
   });
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  useRegisterSelectedIds('selectedModelVersions', rowSelection);
 
   useEffect(() => {
     const selectedVersions = (versions || []).filter(({ version }) => rowSelection[version]);
