@@ -33,6 +33,7 @@ import {
   LINKED_PROMPTS_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   TAGS_COLUMN_ID,
+  ISSUES_COLUMN_ID,
 } from './hooks/useTableColumns';
 import {
   TracesTableColumnGroup,
@@ -97,6 +98,10 @@ const COLUMN_TOOLTIPS: Record<string, { description: string; docsUrl?: string }>
   [TAGS_COLUMN_ID]: {
     description: 'User-defined key-value pairs',
     docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/attach-tags`,
+  },
+  [ISSUES_COLUMN_ID]: {
+    description: 'Issues detected on the trace by automatic issue detection',
+    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/eval-monitor/ai-insights/detect-issues`,
   },
   [`${TracesTableColumnGroup.ASSESSMENT}-group`]: {
     description: 'Feedback scores logged to the trace',
