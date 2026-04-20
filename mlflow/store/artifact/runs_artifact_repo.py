@@ -172,11 +172,10 @@ class RunsArtifactRepository(ArtifactRepository):
                     return None
                 raise
 
-            if matched := next((m for m in page if m.source_run_id == run_id), None):
+            if model := next((m for m in page if m.source_run_id == run_id), None):
                 return get_artifact_repository(
-                    matched.artifact_location, tracking_uri=self.tracking_uri
+                    model.artifact_location, tracking_uri=self.tracking_uri
                 )
-
             if not page.token:
                 break
             page_token = page.token
