@@ -5,6 +5,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
@@ -176,4 +177,26 @@ def test_list_model_artifacts_returns_empty_when_logged_models_api_missing(error
             artifact_uri="runs:/some-run-id/foo", tracking_uri="http://x"
         )
         assert runs_repo._list_model_artifacts(path=None) == []
+        mock_client.search_logged_models.assert_called_once()
+
+
+@pytest.mark.parametrize("error_code", ["ENDPOINT_NOT_FOUND", "NOT_IMPLEMENTED"])
+def test_download_artifacts_uses_run_artifacts_when_logged_models_api_missing(
+    error_code: str, tmp_path
+):
+    runs_repo = RunsArtifactRepository.__new__(RunsArtifactRepository)
+    ArtifactRepository.__init__(runs_repo, artifact_uri="runs:/some-run-id/foo", tracking_uri="http://x")
+    runs_repo.repo = Mock()
+    runs_repo.repo.download_artifacts.return_value = str(tmp_path / "foo")
+
+    mock_client = Mock()
+    mock_client.get_run.return_value = Mock(info=Mock(experiment_id="0"))
+    mock_client.search_logged_models.side_effect = RestException({
+        "error_code": error_code,
+        "message": "endpoint does not exist",
+    })
+
+    with mock.patch("mlflow.tracking.MlflowClient", return_value=mock_client):
+        assert runs_repo.download_artifacts("foo", str(tmp_path)) == str(tmp_path / "foo")
+        runs_repo.repo.download_artifacts.assert_called_once_with("foo", str(tmp_path))
         mock_client.search_logged_models.assert_called_once()
