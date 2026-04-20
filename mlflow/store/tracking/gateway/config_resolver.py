@@ -246,8 +246,7 @@ def get_endpoint_config(
             routing_strategy=endpoint_entity.routing_strategy,
             fallback_config=endpoint_entity.fallback_config,
             experiment_id=endpoint_entity.experiment_id,
-            usage_tracking=endpoint_entity.usage_tracking
-            and endpoint_entity.experiment_id is not None,
+            usage_tracking=endpoint_entity.usage_tracking,
         )
 
     store.secret_cache.set(cache_key, result.to_dict())

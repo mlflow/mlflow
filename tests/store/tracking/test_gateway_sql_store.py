@@ -1559,6 +1559,50 @@ def test_get_gateway_endpoint_config_experiment_id_is_string(store: SqlAlchemySt
     assert isinstance(config.experiment_id, str)
 
 
+def test_get_gateway_endpoint_config_usage_tracking_true_without_experiment_id(
+    store: SqlAlchemyStore,
+):
+    secret = store.create_gateway_secret(
+        secret_name="usage-tracking-no-exp-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="usage-tracking-no-exp-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="usage-tracking-no-exp-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+    )
+
+    # Simulate existing endpoint data with usage_tracking enabled but no experiment_id.
+    with store.ManagedSessionMaker() as session:
+        sql_endpoint = (
+            store
+            ._get_query(session, SqlGatewayEndpoint)
+            .filter(SqlGatewayEndpoint.endpoint_id == endpoint.endpoint_id)
+            .one()
+        )
+        sql_endpoint.experiment_id = None
+        session.flush()
+
+    config = get_endpoint_config(
+        endpoint_name=endpoint.name,
+        store=store,
+    )
+
+    assert config.usage_tracking is True
+    assert config.experiment_id is None
+
+
 # =============================================================================
 # Serialization & Caching Tests
 # =============================================================================
