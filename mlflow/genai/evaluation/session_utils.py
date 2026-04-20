@@ -69,7 +69,8 @@ def group_traces_by_session(
 
         # First, try to get session_id from the trace metadata if trace exists
         if getattr(item, "trace", None):
-            session_id = item.trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+            trace_metadata = item.trace.info.trace_metadata
+            session_id = trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
 
         # If no session_id found in trace, check the source data (for dataset records)
         if not session_id and item.source is not None:
