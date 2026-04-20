@@ -449,7 +449,7 @@ export function NavigableCombobox<T = string>({
           comboboxState={comboboxState}
           data-testid={`${componentId}.option.${menuItem.key}`}
           onMouseDown={(e) => {
-            // Prevent input blur but don't switch views yet — wait for onClick
+            // Prevent input blur but don't switch views yet, wait for onClick
             // so the DOM element still exists during the full click cycle.
             e.preventDefault();
             e.stopPropagation();
