@@ -76,6 +76,22 @@ DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
     "/mlflow/gateway/model-definitions/permissions/delete", version=3
 )
 
+# Role management routes (RBAC)
+CREATE_ROLE = _get_rest_path("/mlflow/roles/create", version=3)
+GET_ROLE = _get_rest_path("/mlflow/roles/get", version=3)
+LIST_ROLES = _get_rest_path("/mlflow/roles/list", version=3)
+UPDATE_ROLE = _get_rest_path("/mlflow/roles/update", version=3)
+DELETE_ROLE = _get_rest_path("/mlflow/roles/delete", version=3)
+ADD_ROLE_PERMISSION = _get_rest_path("/mlflow/roles/permissions/add", version=3)
+REMOVE_ROLE_PERMISSION = _get_rest_path("/mlflow/roles/permissions/remove", version=3)
+LIST_ROLE_PERMISSIONS = _get_rest_path("/mlflow/roles/permissions/list", version=3)
+UPDATE_ROLE_PERMISSION = _get_rest_path("/mlflow/roles/permissions/update", version=3)
+ASSIGN_ROLE = _get_rest_path("/mlflow/roles/assign", version=3)
+UNASSIGN_ROLE = _get_rest_path("/mlflow/roles/unassign", version=3)
+LIST_USER_ROLES = _get_rest_path("/mlflow/users/roles/list", version=3)
+LIST_ROLE_USERS = _get_rest_path("/mlflow/roles/users/list", version=3)
+LIST_ALL_ROLES = _get_rest_path("/mlflow/admin/roles/list", version=3)
+
 # Gateway AJAX-only routes
 GATEWAY_SUPPORTED_PROVIDERS = _get_ajax_path("/mlflow/gateway/supported-providers", version=3)
 GATEWAY_SUPPORTED_MODELS = _get_ajax_path("/mlflow/gateway/supported-models", version=3)
