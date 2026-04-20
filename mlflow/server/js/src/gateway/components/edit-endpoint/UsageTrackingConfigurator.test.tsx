@@ -8,7 +8,7 @@ describe('UsageTrackingConfigurator', () => {
   test('renders toggle in off state by default', () => {
     const onChange = jest.fn();
 
-    renderWithDesignSystem(<UsageTrackingConfigurator componentId="" value={false} onChange={onChange} />);
+    renderWithDesignSystem(<UsageTrackingConfigurator value={false} onChange={onChange} />);
 
     expect(screen.getByText('Enable usage tracking')).toBeInTheDocument();
     expect(screen.getByRole('switch')).not.toBeChecked();
@@ -17,7 +17,7 @@ describe('UsageTrackingConfigurator', () => {
   test('renders toggle in on state when value is true', () => {
     const onChange = jest.fn();
 
-    renderWithDesignSystem(<UsageTrackingConfigurator componentId="" value onChange={onChange} />);
+    renderWithDesignSystem(<UsageTrackingConfigurator value onChange={onChange} />);
 
     expect(screen.getByRole('switch')).toBeChecked();
   });
@@ -25,7 +25,7 @@ describe('UsageTrackingConfigurator', () => {
   test('calls onChange when toggle is clicked', async () => {
     const onChange = jest.fn();
 
-    renderWithDesignSystem(<UsageTrackingConfigurator componentId="" value={false} onChange={onChange} />);
+    renderWithDesignSystem(<UsageTrackingConfigurator value={false} onChange={onChange} />);
 
     await userEvent.click(screen.getByRole('switch'));
     expect(onChange).toHaveBeenCalledWith(true);
@@ -34,7 +34,7 @@ describe('UsageTrackingConfigurator', () => {
   test('displays description text', () => {
     const onChange = jest.fn();
 
-    renderWithDesignSystem(<UsageTrackingConfigurator componentId="" value={false} onChange={onChange} />);
+    renderWithDesignSystem(<UsageTrackingConfigurator value={false} onChange={onChange} />);
 
     expect(screen.getByText(/all requests to this endpoint will be logged as traces/)).toBeInTheDocument();
   });

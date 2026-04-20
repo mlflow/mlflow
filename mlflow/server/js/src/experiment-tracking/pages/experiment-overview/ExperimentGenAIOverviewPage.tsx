@@ -49,7 +49,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
   const isFileStore = useIsFileStore();
   const sqlWarehouseContext = useSqlWarehouseContextSafe();
-  const isUCBacked = sqlWarehouseContext?.hasV4Location ?? true;
+
+  // all features should be enabled in OSS
+  const enableAllCharts = true;
 
   const [isMysqlBannerDismissed, setIsMysqlBannerDismissed] = useLocalStorage({
     key: 'mlflow.overview.mysqlBannerDismissed',
@@ -234,12 +236,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
 
               {/* Latency and Errors charts - side by side (latency requires UC) */}
               <ChartGrid>
-                {isUCBacked && <LazyTraceLatencyChart />}
-                <LazyTraceErrorsChart enableTraceNavigation={isUCBacked} />
+                {enableAllCharts && <LazyTraceLatencyChart />}
+                <LazyTraceErrorsChart enableTraceNavigation={enableAllCharts} />
               </ChartGrid>
 
               {/* Token Usage and Token Stats charts - side by side (requires UC) */}
-              {isUCBacked && (
+              {enableAllCharts && (
                 <ChartGrid>
                   <LazyTraceTokenUsageChart />
                   <LazyTraceTokenStatsChart />
@@ -247,7 +249,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
               )}
 
               {/* Cost Breakdown and Cost Over Time charts - side by side (requires UC) */}
-              {isUCBacked && (
+              {enableAllCharts && (
                 <ChartGrid>
                   <LazyTraceCostBreakdownChart />
                   <LazyTraceCostOverTimeChart />
@@ -259,13 +261,13 @@ const ExperimentGenAIOverviewPageImpl = () => {
           <Tabs.Content value={OverviewTab.Quality} css={{ flex: 1, overflowY: 'auto' }}>
             <TabContentContainer>
               {/* Assessment charts - dynamically rendered based on available assessments */}
-              <AssessmentChartsSection enableTraceNavigation={isUCBacked} />
+              <AssessmentChartsSection enableTraceNavigation={enableAllCharts} />
             </TabContentContainer>
           </Tabs.Content>
 
           <Tabs.Content value={OverviewTab.ToolCalls} css={{ flex: 1, overflowY: 'auto' }}>
             <TabContentContainer>
-              {isUCBacked ? (
+              {enableAllCharts ? (
                 <>
                   {/* Tool call statistics */}
                   <ToolCallStatistics />

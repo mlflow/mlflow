@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useEvaluateTraces } from '../useEvaluateTraces';
 import type { EvaluateTracesParams, LLM_TEMPLATE, LLMScorer, ScheduledScorer } from '../types';
 import { ScorerEvaluationScope } from '../constants';
@@ -7,7 +7,7 @@ import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { isObject } from 'lodash';
 import { useTemplateOptions } from '../llmScorerUtils';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
-import { useSqlWarehouseContextSafe } from '../../experiment-page-tabs/SqlWarehouseContext';
+import { createTraceLocationForExperiment } from '@databricks/web-shared/genai-traces-table';
 
 /**
  * Runs a known serialized scorer on a set of traces.
@@ -26,7 +26,9 @@ export const useRunSerializedScorer = ({
   });
   const { displayMap } = useTemplateOptions(scope);
 
-  const { traceSearchLocations = [] } = useSqlWarehouseContextSafe() ?? {};
+  const traceSearchLocations = useMemo(() => {
+    return [createTraceLocationForExperiment(experimentId ?? '')];
+  }, [experimentId]);
 
   const getEvaluationParams = useCallback(
     (scorerOrTemplate: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string): EvaluateTracesParams => {

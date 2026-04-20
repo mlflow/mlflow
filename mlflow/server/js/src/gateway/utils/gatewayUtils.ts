@@ -13,15 +13,15 @@ export const getModelProvider = (model: string | undefined): ModelProvider => {
   if (!model || model.startsWith(GATEWAY_MODEL_PREFIX)) {
     return ModelProvider.GATEWAY;
   }
-  if (model.startsWith(DATABRICKS_MODEL_PREFIX)) {
-    return ModelProvider.DATABRICKS;
-  }
   return ModelProvider.OTHER;
 };
 
 export const getEndpointNameFromGatewayModel = (model: string | undefined): string | undefined => {
   if (model?.startsWith(GATEWAY_MODEL_PREFIX)) {
     return model.replace(GATEWAY_MODEL_PREFIX, '');
+  }
+  if (model?.startsWith(DATABRICKS_MODEL_PREFIX)) {
+    return ModelProvider.DATABRICKS;
   }
   return undefined;
 };
