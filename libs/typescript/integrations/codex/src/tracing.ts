@@ -20,6 +20,7 @@ import {
   startSpan,
   flushTraces,
   InMemoryTraceManager,
+  SpanStatusCode,
   SpanType,
   SpanAttributeKey,
   TraceMetadataKey,
@@ -231,6 +232,7 @@ export function createChildSpans(
 ): void {
   const toolResults = buildToolResultMap(turnRecords);
   const toolEndTimes = buildToolEndTimes(turnRecords);
+  const toolStatuses = buildToolStatuses(turnRecords);
 
   // Initial boundary for the first LLM span: the turn's task_started event,
   // if present. Falls back to null so the LLM span omits startTimeNs.
@@ -284,6 +286,18 @@ export function createChildSpans(
         inputs: args,
         attributes: { tool_name: funcName, tool_id: callId },
       });
+      // Reflect tool failure in the span status so failed calls are visible
+      // in the trace UI. Codex emits `exec_command_end` event_msg records
+      // with structured status/exit_code — see buildToolStatuses.
+      const toolStatus = toolStatuses[callId];
+      if (toolStatus && toolStatus.failed) {
+        toolSpan.setStatus(
+          SpanStatusCode.ERROR,
+          toolStatus.exitCode != null
+            ? `Tool call failed (exit code ${toolStatus.exitCode})`
+            : 'Tool call failed',
+        );
+      }
       toolSpan.end({
         outputs: { result: toolResults[callId] ?? '' },
         endTimeNs: toolEndTimes[callId] ?? timestampNs,
@@ -350,4 +364,37 @@ function buildToolEndTimes(turnRecords: RolloutLine[]): Record<string, number> {
     }
   }
   return endTimes;
+}
+
+/**
+ * Build a lookup from function call_id to its outcome, derived from the
+ * Codex `exec_command_end` event_msg which has structured `status` and
+ * `exit_code` fields. Codex uses `status: 'failed'` for failed commands
+ * (e.g. exit_code 127 for command-not-found).
+ *
+ * Non-exec_command tools don't emit exec_command_end, so their call_ids
+ * won't appear in the map and their spans stay in the default OK state.
+ */
+export function buildToolStatuses(
+  turnRecords: RolloutLine[],
+): Record<string, { failed: boolean; exitCode: number | null }> {
+  const statuses: Record<string, { failed: boolean; exitCode: number | null }> = {};
+  for (const record of turnRecords) {
+    if (record.type !== 'event_msg') {
+      continue;
+    }
+    const payload = record.payload as EventMsgPayload & {
+      call_id?: string;
+      exit_code?: number;
+      status?: string;
+    };
+    if (payload.type === 'exec_command_end' && payload.call_id) {
+      const failed = payload.status === 'failed' || (payload.exit_code ?? 0) !== 0;
+      statuses[payload.call_id] = {
+        failed,
+        exitCode: payload.exit_code ?? null,
+      };
+    }
+  }
+  return statuses;
 }

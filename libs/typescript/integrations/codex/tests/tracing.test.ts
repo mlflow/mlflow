@@ -24,8 +24,14 @@ jest.mock('@mlflow/core', () => {
         attributes: { ...(options.attributes ?? {}) },
         startTimeNs: options.startTimeNs ?? null,
         endTimeNs: null,
+        statusCode: null as string | null,
+        statusMessage: null as string | null,
         setAttribute: jest.fn((key: string, value: any) => {
           span.attributes[key] = value;
+        }),
+        setStatus: jest.fn((code: string, message?: string) => {
+          span.statusCode = code;
+          span.statusMessage = message ?? null;
         }),
         end: jest.fn((opts?: any) => {
           if (opts?.outputs) {
@@ -40,6 +46,11 @@ jest.mock('@mlflow/core', () => {
       return span;
     }),
     flushTraces: jest.fn().mockResolvedValue(undefined),
+    SpanStatusCode: {
+      OK: 'STATUS_CODE_OK',
+      ERROR: 'STATUS_CODE_ERROR',
+      UNSET: 'STATUS_CODE_UNSET',
+    },
     SpanType: {
       LLM: 'LLM',
       AGENT: 'AGENT',
@@ -72,6 +83,7 @@ jest.mock('@mlflow/core', () => {
 import { resolve } from 'path';
 
 import {
+  buildToolStatuses,
   createChildSpans,
   findTaskCompleteNs,
   findTaskStartedNs,
@@ -524,5 +536,47 @@ describe('findTaskStartedNs / findTaskCompleteNs', () => {
       const endNs = (span.end as jest.Mock).mock.calls[0]?.[0]?.endTimeNs;
       expect(endNs).toBeLessThanOrEqual(completeNs);
     }
+  });
+});
+
+describe('tool span failure status', () => {
+  beforeEach(() => {
+    spanCounter = 0;
+    Object.keys(mockSpans).forEach((key) => delete mockSpans[key]);
+    jest.clearAllMocks();
+  });
+
+  it('buildToolStatuses flags failed exec_command_end by status and exit_code', () => {
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-failed-tool.jsonl'));
+    const turn = getLastTurnRecords(records);
+
+    const statuses = buildToolStatuses(turn);
+    expect(statuses).toEqual({
+      call_fail_1: { failed: true, exitCode: 127 },
+      call_ok_1: { failed: false, exitCode: 0 },
+    });
+  });
+
+  it('sets ERROR status on TOOL spans whose exec_command_end reports failure', () => {
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-failed-tool.jsonl'));
+    const turn = getLastTurnRecords(records);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = { spanId: 'root' } as any;
+    createChildSpans(parent, turn, 'gpt-4');
+
+    const toolSpans = getSpansByType('TOOL');
+    expect(toolSpans.length).toBe(2);
+
+    const failed = toolSpans.find((s) => s.attributes.tool_id === 'call_fail_1');
+    const ok = toolSpans.find((s) => s.attributes.tool_id === 'call_ok_1');
+
+    expect(failed.statusCode).toBe('STATUS_CODE_ERROR');
+    expect(failed.statusMessage).toContain('127');
+    expect(failed.setStatus).toHaveBeenCalled();
+
+    // OK tool: setStatus should NOT have been called
+    expect(ok.statusCode).toBeNull();
+    expect(ok.setStatus).not.toHaveBeenCalled();
   });
 });
