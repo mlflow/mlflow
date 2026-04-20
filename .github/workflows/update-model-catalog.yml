@@ -70,7 +70,7 @@ jobs:
         run: |
           git config user.name 'mlflow-app[bot]'
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-          branch="update-model-catalog-$(date +%Y%m%d)"
+          branch="update-model-catalog-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$branch"
           git add mlflow/utils/model_catalog/
           git commit -m "Update model catalog from upstream sources"
