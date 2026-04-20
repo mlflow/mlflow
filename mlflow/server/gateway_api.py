@@ -183,7 +183,13 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                     )
                     if endpoint_id := getattr(request.state, "endpoint_id", None):
                         params["endpoint_id"] = endpoint_id
-                    if provider := getattr(request.state, "provider", None):
+                    # Prefer the actual provider from the response (set by
+                    # BaseProvider after the call) over the endpoint config
+                    # estimate, which may not reflect traffic-split/fallback.
+                    actual_provider = getattr(result, "provider", None)
+                    if provider := (
+                        actual_provider or getattr(request.state, "provider", None)
+                    ):
                         params["provider"] = provider
                 _record_event(
                     GatewayInvocationEvent,
