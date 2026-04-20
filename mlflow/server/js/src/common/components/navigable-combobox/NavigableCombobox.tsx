@@ -448,7 +448,17 @@ export function NavigableCombobox<T = string>({
           index={index}
           comboboxState={comboboxState}
           data-testid={`${componentId}.option.${menuItem.key}`}
-          onMouseDown={(e) => handleGroupClick(menuItem, e)}
+          onMouseDown={(e) => {
+            // Prevent input blur but don't switch views yet — wait for onClick
+            // so the DOM element still exists during the full click cycle.
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            // Prevent downshift from processing this click as an item selection.
+            (e.nativeEvent as any).preventDownshiftDefault = true;
+            handleGroupClick(menuItem, e);
+          }}
         >
           {renderItem ? renderItem(menuItem, defaultContent) : defaultContent}
         </TypeaheadComboboxMenuItem>
