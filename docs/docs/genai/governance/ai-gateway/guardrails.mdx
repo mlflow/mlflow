@@ -3,7 +3,7 @@ title: Guardrails
 description: Protect your MLflow AI Gateway endpoints with configurable guardrails. Block harmful content, detect PII, and sanitize requests and responses with LLM-powered judges.
 ---
 
-import useBaseUrl from "@docusaurus/useBaseUrl";
+import ImageBox from "@site/src/components/ImageBox";
 
 # Guardrails
 
@@ -23,11 +23,7 @@ Common use cases include:
 
 Guardrails are configured per endpoint. Navigate to **AI Gateway > Endpoints**, click an endpoint, then select the **Guardrails** tab.
 
-<img
-  src={useBaseUrl("/images/genai/governance/ai-gateway/guardrails-tab-empty.png")}
-  alt="Guardrails tab showing empty state"
-  style={{ maxWidth: "100%" }}
-/>
+<ImageBox src="/images/genai/governance/ai-gateway/guardrails-tab-empty.png" alt="Guardrails tab showing empty state" />
 
 The table lists all guardrails attached to the endpoint, showing each guardrail's name, pipeline stage, and configured action. When no guardrails have been added yet, the tab shows an empty state prompting you to create one.
 
@@ -37,11 +33,7 @@ Click **Create Guardrail** to open the creation wizard.
 
 ### Step 1 — Choose a type
 
-<img
-  src={useBaseUrl("/images/genai/governance/ai-gateway/guardrails-create-type-picker.png")}
-  alt="Create Guardrail modal showing type picker with Safety, PII Detection, and Custom Guardrail options"
-  style={{ maxWidth: "100%" }}
-/>
+<ImageBox src="/images/genai/governance/ai-gateway/guardrails-create-type-picker.png" alt="Create Guardrail modal showing type picker with Safety, PII Detection, and Custom Guardrail options" />
 
 Several built-in types are available:
 
@@ -55,11 +47,7 @@ Selecting a built-in type pre-populates the name and instructions on the next st
 
 ### Step 2 — Configure the guardrail
 
-<img
-  src={useBaseUrl("/images/genai/governance/ai-gateway/guardrails-create-config.png")}
-  alt="Create Guardrail configuration step showing Name, Stage picker, Instructions, Guardrail Model, and Action fields"
-  style={{ maxWidth: "100%" }}
-/>
+<ImageBox src="/images/genai/governance/ai-gateway/guardrails-create-config.png" alt="Create Guardrail configuration step showing Name, Stage picker, Instructions, Guardrail Model, and Action fields" />
 
 #### Name
 
