@@ -32,14 +32,17 @@ type CreateExperimentModalImplState = {
   experimentName: string;
 };
 
-export class CreateExperimentModalImpl extends Component<CreateExperimentModalImplProps, CreateExperimentModalImplState> {
+export class CreateExperimentModalImpl extends Component<
+  CreateExperimentModalImplProps,
+  CreateExperimentModalImplState
+> {
   state: CreateExperimentModalImplState = {
     experimentName: '',
   };
 
   handleValuesChange = (changedValues: any) => {
     if (EXP_NAME_FIELD in changedValues) {
-      this.setState({ experimentName: changedValues[EXP_NAME_FIELD] });
+      this.setState({ experimentName: changedValues[EXP_NAME_FIELD] ?? '' });
     }
   };
 

@@ -20,7 +20,7 @@ type Props = {
   footer?: React.ReactNode;
   handleSubmit: (...args: any[]) => any;
   title: React.ReactNode;
-  okButtonProps?: Record<string, any>;
+  okButtonProps?: React.ComponentProps<typeof Modal>['okButtonProps'];
 };
 
 type State = {
