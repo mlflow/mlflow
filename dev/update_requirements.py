@@ -13,13 +13,14 @@ from packaging.version import InvalidVersion, Version
 
 PACKAGE_NAMES = ["tracing", "skinny", "core", "gateway"]
 RELEASE_CUTOFF_DAYS = 14
-PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org")
+PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org").rstrip("/")
 
 
 def check_pypi_accessibility() -> None:
     try:
-        requests.head(PYPI_URL, timeout=5)
-    except requests.exceptions.ConnectionError:
+        response = requests.head(PYPI_URL, timeout=5)
+        response.raise_for_status()
+    except requests.exceptions.RequestException:
         raise SystemExit(
             f"Error: Cannot connect to {PYPI_URL}. "
             "If it's not accessible, set the PYPI_URL environment variable to a PyPI proxy URL."

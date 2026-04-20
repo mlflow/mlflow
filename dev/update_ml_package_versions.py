@@ -35,12 +35,13 @@ def save_file(src, path):
 
 
 RELEASE_CUTOFF_DAYS = 14
-PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org")
+PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org").rstrip("/")
 
 
 def check_pypi_accessibility() -> None:
     try:
-        urllib.request.urlopen(PYPI_URL, timeout=5)
+        with urllib.request.urlopen(PYPI_URL, timeout=5):
+            pass
     except (urllib.error.URLError, OSError):
         raise SystemExit(
             f"Error: Cannot connect to {PYPI_URL}. "
