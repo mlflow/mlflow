@@ -989,14 +989,6 @@ class SqlAlchemyStore(AbstractStore):
 
         """
 
-        def next_version(session, name):
-            max_version = (
-                session.query(sqlalchemy.func.max(SqlModelVersion.version))
-                .filter(SqlModelVersion.name == name, *self._get_workspace_clauses(SqlModelVersion))
-                .scalar()
-            )
-            return (max_version or 0) + 1
-
         _validate_model_name(name)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
@@ -1031,7 +1023,16 @@ class SqlAlchemyStore(AbstractStore):
                 try:
                     sql_registered_model = self._get_registered_model(session, name)
                     sql_registered_model.last_updated_time = creation_time
-                    version = next_version(session, name)
+                    max_version = (
+                        session
+                        .query(sqlalchemy.func.max(SqlModelVersion.version))
+                        .filter(
+                            SqlModelVersion.name == name,
+                            *self._get_workspace_clauses(SqlModelVersion),
+                        )
+                        .scalar()
+                    )
+                    version = (max_version or 0) + 1
                     model_version = self._with_workspace_field(
                         SqlModelVersion(
                             name=name,

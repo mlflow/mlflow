@@ -1,3 +1,4 @@
+import concurrent.futures
 import shutil
 import time
 import uuid
@@ -2492,40 +2493,26 @@ def test_create_model_version_with_model_id_and_no_run_id(store):
 
 
 def test_create_model_version_concurrent(store):
-    """Test that concurrent create_model_version calls produce unique version numbers."""
-    import concurrent.futures
-    import threading
-
     name = "test_concurrent_mv"
     _rm_maker(store, name)
 
     num_threads = 4
     versions_per_thread = 5
     results = []
-    errors = []
-    lock = threading.Lock()
 
     def create_versions():
-        thread_versions = []
-        for _ in range(versions_per_thread):
-            try:
-                mv = store.create_model_version(name, "path/to/source", uuid.uuid4().hex)
-                with lock:
-                    thread_versions.append(mv.version)
-            except Exception as e:
-                with lock:
-                    errors.append(e)
-        return thread_versions
+        return [
+            store.create_model_version(name, "path/to/source", uuid.uuid4().hex).version
+            for _ in range(versions_per_thread)
+        ]
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=num_threads, thread_name_prefix="create_model_version"
+    ) as executor:
         futures = [executor.submit(create_versions) for _ in range(num_threads)]
         for f in concurrent.futures.as_completed(futures):
             results.extend(f.result())
 
-    assert not errors, f"Errors during concurrent creation: {errors}"
-
     # All versions should be unique
-    assert len(results) == len(set(results)), (
-        f"Duplicate versions detected: {sorted(results)}"
-    )
+    assert len(results) == len(set(results))
     assert len(results) == num_threads * versions_per_thread
