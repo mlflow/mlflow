@@ -12,7 +12,7 @@ import {
   useDesignSystemTheme,
   ChevronDownIcon,
 } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
+import { defineMessage, useIntl, type MessageDescriptor } from '@databricks/i18n';
 
 import { EvaluationsAssessmentHoverCard } from './components/EvaluationsAssessmentHoverCard';
 import { AssessmentColumnSummary } from './components/charts/AssessmentColumnSummary';
@@ -44,74 +44,127 @@ import {
   type EvalTraceComparisonEntry,
 } from './types';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
+import { getDocsLink } from './utils/DocUtils';
 
-const MLFLOW_DOCS_BASE_URL = 'https://mlflow.org/docs/latest';
-
-const COLUMN_TOOLTIPS: Record<string, { description: string; docsUrl?: string }> = {
+const COLUMN_TOOLTIPS = {
   [TRACE_ID_COLUMN_ID]: {
-    description: 'Unique identifier for the trace',
+    description: defineMessage({
+      defaultMessage: 'Unique identifier for the trace',
+      description: 'Tooltip description for the Trace ID column in the traces table',
+    }),
   },
   [INPUTS_COLUMN_ID]: {
-    description: "Inputs of the trace, derived from the root span's inputs",
+    description: defineMessage({
+      defaultMessage: "Inputs of the trace, derived from the root span's inputs",
+      description: 'Tooltip description for the Inputs column in the traces table',
+    }),
   },
   [RESPONSE_COLUMN_ID]: {
-    description: "Outputs of the trace, derived from the root span's outputs",
+    description: defineMessage({
+      defaultMessage: "Outputs of the trace, derived from the root span's outputs",
+      description: 'Tooltip description for the Response column in the traces table',
+    }),
   },
   [SESSION_COLUMN_ID]: {
-    description: 'A unique identifier for the session or conversation for grouping traces',
-    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/track-users-sessions/`,
+    description: defineMessage({
+      defaultMessage: 'A unique identifier for the session or conversation for grouping traces',
+      description: 'Tooltip description for the Session column in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/tracing/track-users-sessions/'),
   },
   [USER_COLUMN_ID]: {
-    description: 'Application user who triggered the trace',
-    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/track-users-sessions/`,
+    description: defineMessage({
+      defaultMessage: 'Application user who triggered the trace',
+      description: 'Tooltip description for the User column in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/tracing/track-users-sessions/'),
   },
   [TRACE_NAME_COLUMN_ID]: {
-    description: "Name of the trace, derived from the root span's name",
+    description: defineMessage({
+      defaultMessage: "Name of the trace, derived from the root span's name",
+      description: 'Tooltip description for the Trace Name column in the traces table',
+    }),
   },
   [TOKENS_COLUMN_ID]: {
-    description: 'Aggregated input/output/total token usage across all spans in the trace',
-    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/token-usage-cost`,
+    description: defineMessage({
+      defaultMessage: 'Aggregated input/output/total token usage across all spans in the trace',
+      description: 'Tooltip description for the Tokens column in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/tracing/token-usage-cost'),
   },
   [EXECUTION_DURATION_COLUMN_ID]: {
-    description: 'Total trace duration',
+    description: defineMessage({
+      defaultMessage: 'Total trace duration',
+      description: 'Tooltip description for the Execution Duration column in the traces table',
+    }),
   },
   [REQUEST_TIME_COLUMN_ID]: {
-    description: 'When the trace was created',
+    description: defineMessage({
+      defaultMessage: 'When the trace was created',
+      description: 'Tooltip description for the Request Time column in the traces table',
+    }),
   },
   [STATE_COLUMN_ID]: {
-    description: 'Trace status: OK, ERROR, or IN_PROGRESS',
+    description: defineMessage({
+      defaultMessage: 'Trace status: OK, ERROR, or IN_PROGRESS',
+      description: 'Tooltip description for the State column in the traces table',
+    }),
   },
   [SOURCE_COLUMN_ID]: {
-    description: 'Entry point or script that generated the trace',
-    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/track-environments-context`,
+    description: defineMessage({
+      defaultMessage: 'Entry point or script that generated the trace',
+      description: 'Tooltip description for the Source column in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/tracing/track-environments-context'),
   },
   [LOGGED_MODEL_COLUMN_ID]: {
-    description: 'Associated model version',
+    description: defineMessage({
+      defaultMessage: 'Associated model version',
+      description: 'Tooltip description for the Logged Model column in the traces table',
+    }),
   },
   [LINKED_PROMPTS_COLUMN_ID]: {
-    description: 'Linked prompt versions from Prompt Registry',
-    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/prompt-registry/use-prompts-in-apps#linking-with-trace`,
+    description: defineMessage({
+      defaultMessage: 'Linked prompt versions from Prompt Registry',
+      description: 'Tooltip description for the Linked Prompts column in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/prompt-registry/use-prompts-in-apps#linking-with-trace'),
   },
   [RUN_NAME_COLUMN_ID]: {
-    description: 'Associated MLflow Run if the trace was generated within an MLflow run context',
+    description: defineMessage({
+      defaultMessage: 'Associated MLflow Run if the trace was generated within an MLflow run context',
+      description: 'Tooltip description for the Run Name column in the traces table',
+    }),
   },
   [TAGS_COLUMN_ID]: {
-    description: 'User-defined key-value pairs',
-    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/attach-tags`,
+    description: defineMessage({
+      defaultMessage: 'User-defined key-value pairs',
+      description: 'Tooltip description for the Tags column in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/tracing/attach-tags'),
   },
   [ISSUES_COLUMN_ID]: {
-    description: 'Issues detected on the trace by automatic issue detection',
-    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/eval-monitor/ai-insights/detect-issues`,
+    description: defineMessage({
+      defaultMessage: 'Issues detected on the trace by automatic issue detection',
+      description: 'Tooltip description for the Issues column in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/eval-monitor/ai-insights/detect-issues'),
   },
   [`${TracesTableColumnGroup.ASSESSMENT}-group`]: {
-    description: 'Feedback scores logged to the trace',
-    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/eval-monitor`,
+    description: defineMessage({
+      defaultMessage: 'Feedback scores logged to the trace',
+      description: 'Tooltip description for the Assessment column group in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/eval-monitor'),
   },
   [`${TracesTableColumnGroup.EXPECTATION}-group`]: {
-    description: 'Ground truth values annotated to the trace',
-    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/assessments/expectations`,
+    description: defineMessage({
+      defaultMessage: 'Ground truth values annotated to the trace',
+      description: 'Tooltip description for the Expectation column group in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/assessments/expectations'),
   },
-};
+} satisfies Record<string, { description: MessageDescriptor; docsUrl?: string }>;
 
 interface GenAiTracesTableHeaderProps {
   enableRowSelection?: boolean;
@@ -243,7 +296,7 @@ export const GenAiTracesTableHeader = React.memo(
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </div>
               );
-              const tooltipInfo = COLUMN_TOOLTIPS[header.column.id];
+              const tooltipInfo = COLUMN_TOOLTIPS[header.column.id as keyof typeof COLUMN_TOOLTIPS];
               const titleElement =
                 assessmentInfo && !disableAssessmentTooltips ? (
                   <HoverCard
@@ -267,8 +320,8 @@ export const GenAiTracesTableHeader = React.memo(
                     componentId="mlflow.traces-table.column-header-tooltip"
                     content={
                       <span>
-                        {tooltipInfo.description}.
-                        {tooltipInfo.docsUrl && (
+                        {intl.formatMessage(tooltipInfo.description)}.
+                        {'docsUrl' in tooltipInfo && tooltipInfo.docsUrl && (
                           <>
                             {' '}
                             <a
