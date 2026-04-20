@@ -15,6 +15,7 @@ import {
   invalidateMlflowSearchTracesCache,
   useMlflowTracesTableMetadata,
   useSearchMlflowTraces,
+  useSessionChildTraces,
 } from './useMlflowTraces';
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -1849,6 +1850,91 @@ describe('useSearchMlflowTraces — session search branch', () => {
       'session-a': 5,
       'session-b': 2,
     });
+  });
+});
+
+describe('useSessionChildTraces', () => {
+  const locations = [
+    {
+      type: 'MLFLOW_EXPERIMENT' as const,
+      mlflow_experiment: { experiment_id: 'exp-1' },
+    },
+  ];
+
+  beforeEach(() => {
+    jest.mocked(fetchAPI).mockClear();
+  });
+
+  test('fetches one query per expanded session, filtering by the session metadata key', async () => {
+    jest
+      .mocked(fetchAPI)
+      .mockResolvedValueOnce({
+        traces: [
+          { trace_id: 'tr-a1', trace_metadata: { 'mlflow.trace.session': 'session-a' } },
+          { trace_id: 'tr-a2', trace_metadata: { 'mlflow.trace.session': 'session-a' } },
+        ],
+      })
+      .mockResolvedValueOnce({
+        traces: [{ trace_id: 'tr-b1', trace_metadata: { 'mlflow.trace.session': 'session-b' } }],
+      });
+
+    const { result } = renderHook(
+      () =>
+        useSessionChildTraces({
+          locations,
+          expandedSessions: new Set(['session-a', 'session-b']),
+          enabled: true,
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(Object.keys(result.current.sessionChildTraces)).toHaveLength(2));
+
+    expect(fetchAPI).toHaveBeenCalledTimes(2);
+    const calls = jest.mocked(fetchAPI).mock.calls;
+    const filters = calls.map(([, init]) => (init as any)?.body?.filter);
+    // Session IDs are sorted for deterministic order.
+    expect(filters).toEqual([
+      "metadata.`mlflow.trace.session` = 'session-a'",
+      "metadata.`mlflow.trace.session` = 'session-b'",
+    ]);
+
+    expect(result.current.sessionChildTraces['session-a']).toHaveLength(2);
+    expect(result.current.sessionChildTraces['session-b']).toHaveLength(1);
+  });
+
+  test('does not fire any queries when disabled', async () => {
+    renderHook(
+      () =>
+        useSessionChildTraces({
+          locations,
+          expandedSessions: new Set(['session-a']),
+          enabled: false,
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    // Give React Query time to settle.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(fetchAPI).not.toHaveBeenCalled();
+  });
+
+  test('escapes single quotes in the session ID', async () => {
+    jest.mocked(fetchAPI).mockResolvedValueOnce({ traces: [] });
+
+    renderHook(
+      () =>
+        useSessionChildTraces({
+          locations,
+          expandedSessions: new Set(["weird'session"]),
+          enabled: true,
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(fetchAPI).toHaveBeenCalled());
+    const [, init] = jest.mocked(fetchAPI).mock.lastCall as any;
+    expect(init.body.filter).toBe("metadata.`mlflow.trace.session` = 'weird''session'");
   });
 });
 

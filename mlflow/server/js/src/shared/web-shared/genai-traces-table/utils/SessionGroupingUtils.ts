@@ -122,12 +122,18 @@ interface SessionData {
  *   trace count for that session, as returned by the `search_sessions`
  *   endpoint. When absent the session header falls back to the client-side
  *   (page-bound) trace list length.
+ * @param sessionChildEntries - Optional map from sessionId to the full list
+ *   of lazy-loaded child entries for that session, supplied by the parent
+ *   when using the `search_sessions` endpoint (where `currentEvaluationResults`
+ *   only contains first traces). When present, expanded-session trace rows
+ *   are drawn from this map instead of searching `currentEvaluationResults`.
  */
 export const groupTracesBySessionForTable = (
   currentEvaluationResults: EvalTraceComparisonEntry[],
   expandedSessions: Set<string>,
   isComparing?: boolean,
   sessionCounts?: Record<string, number>,
+  sessionChildEntries?: Record<string, EvalTraceComparisonEntry[]>,
 ): { groupedRows: GroupedTraceTableRowData[]; traceIdToTurnMap: Record<string, number> } => {
   const sessionDataMap: Record<string, SessionData> = {};
   const standaloneEntries: EvalTraceComparisonEntry[] = [];
@@ -252,20 +258,31 @@ export const groupTracesBySessionForTable = (
     // Add individual trace rows only if session is expanded and not comparing
     // In comparison mode with session grouping, sessions are not expandable
     if (expandedSessions.has(sessionId) && !isComparing) {
-      // Create a map of trace_id -> sorted index for ordering
-      const traceIdToSortIndex = new Map(sortedCurrentTraces.map((t, idx) => [t.trace_id, idx]));
-
-      // Find the original entries for these traces and sort them to match sortedCurrentTraces order
-      const entriesForSession = currentEvaluationResults
-        .filter((entry) => {
-          const traceId = entry.currentRunValue?.traceInfo?.trace_id;
-          return traceId && traceIdToSortIndex.has(traceId);
-        })
-        .toSorted((a, b) => {
-          const aIdx = traceIdToSortIndex.get(a.currentRunValue?.traceInfo?.trace_id ?? '') ?? 0;
-          const bIdx = traceIdToSortIndex.get(b.currentRunValue?.traceInfo?.trace_id ?? '') ?? 0;
-          return aIdx - bIdx;
-        });
+      // Prefer lazy-loaded child entries from the parent when present (session
+      // search mode, where `currentEvaluationResults` only has first traces).
+      // Otherwise fall back to searching `currentEvaluationResults` for the
+      // session's traces (the legacy client-side grouping path).
+      const lazyChildren = sessionChildEntries?.[sessionId];
+      const entriesForSession =
+        lazyChildren !== undefined
+          ? [...lazyChildren].toSorted((a, b) => {
+              const aTime = a.currentRunValue?.traceInfo?.request_time ?? '';
+              const bTime = b.currentRunValue?.traceInfo?.request_time ?? '';
+              return aTime.localeCompare(bTime);
+            })
+          : (() => {
+              const traceIdToSortIndex = new Map(sortedCurrentTraces.map((t, idx) => [t.trace_id, idx]));
+              return currentEvaluationResults
+                .filter((entry) => {
+                  const traceId = entry.currentRunValue?.traceInfo?.trace_id;
+                  return traceId && traceIdToSortIndex.has(traceId);
+                })
+                .toSorted((a, b) => {
+                  const aIdx = traceIdToSortIndex.get(a.currentRunValue?.traceInfo?.trace_id ?? '') ?? 0;
+                  const bIdx = traceIdToSortIndex.get(b.currentRunValue?.traceInfo?.trace_id ?? '') ?? 0;
+                  return aIdx - bIdx;
+                });
+            })();
 
       entriesForSession.forEach((entry, index) => {
         result.push({

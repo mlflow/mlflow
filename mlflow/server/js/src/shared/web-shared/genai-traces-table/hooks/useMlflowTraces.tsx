@@ -5,7 +5,7 @@ import { useIntl } from '@databricks/i18n';
 import type { NetworkRequestError } from '../../errors/PredefinedErrors';
 import { matchPredefinedErrorFromResponse } from '../../errors/PredefinedErrors';
 import type { QueryClient } from '../../query-client/queryClient';
-import { useQuery, useInfiniteQuery } from '../../query-client/queryClient';
+import { useQuery, useQueries, useInfiniteQuery } from '../../query-client/queryClient';
 
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -760,6 +760,88 @@ const useSearchMlflowTracesInfinite = ({
     isFetchingNextPage,
     sessionCounts,
   };
+};
+
+const SESSION_CHILD_TRACES_MAX_RESULTS = 500;
+
+/**
+ * Fetches the full list of traces for each currently-expanded session, one
+ * query per session, in parallel. Only active in the session-search mode
+ * (`shouldUseSessionsSearchAPI` + `isGroupedBySession`), where the parent
+ * search returns one trace per session and children must be loaded on
+ * demand when the user expands a session header row.
+ */
+export const useSessionChildTraces = ({
+  locations,
+  expandedSessions,
+  enabled,
+}: {
+  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  expandedSessions: Set<string>;
+  enabled: boolean;
+}): {
+  sessionChildTraces: Record<string, ModelTraceInfoV3[]>;
+  loadingSessions: Set<string>;
+} => {
+  // Stable sort for deterministic query order (avoids needless re-issues).
+  const sessionIds = useMemo(() => [...expandedSessions].sort(), [expandedSessions]);
+
+  const queries = useQueries({
+    queries: sessionIds.map((sessionId) => ({
+      queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY, 'session-children', sessionId, locations],
+      queryFn: async ({ signal }: { signal?: AbortSignal }) => {
+        // Escape single quotes by doubling them (SQL-style). Session IDs are
+        // typically UUIDs so this is defensive but cheap.
+        const escapedSessionId = sessionId.replace(/'/g, "''");
+        const payload: SearchMlflowTracesRequest = {
+          locations,
+          filter: `metadata.\`${SESSION_ID_METADATA_KEY}\` = '${escapedSessionId}'`,
+          // Chronological order reads naturally for session playback. Ignore
+          // the table's global orderBy — that's for ranking sessions, not
+          // turns within a session.
+          order_by: ['timestamp_ms ASC'],
+          max_results: SESSION_CHILD_TRACES_MAX_RESULTS,
+        };
+        const json = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+          method: 'POST',
+          body: payload,
+          signal,
+        })) as { traces?: ModelTraceInfoV3[] };
+        return json.traces ?? [];
+      },
+      enabled,
+      staleTime: Infinity,
+      cacheTime: Infinity,
+      refetchOnWindowFocus: false,
+    })),
+  });
+
+  const sessionChildTraces = useMemo(() => {
+    const result: Record<string, ModelTraceInfoV3[]> = {};
+    sessionIds.forEach((sessionId, idx) => {
+      const q = queries[idx];
+      if (q?.data) {
+        result[sessionId] = q.data;
+      }
+    });
+    return result;
+    // queries is a fresh array on every render; depend on sessionIds + the
+    // stringified data signal instead to avoid infinite re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionIds, queries.map((q) => q.dataUpdatedAt).join(',')]);
+
+  const loadingSessions = useMemo(() => {
+    const result = new Set<string>();
+    sessionIds.forEach((sessionId, idx) => {
+      if (queries[idx]?.isLoading) {
+        result.add(sessionId);
+      }
+    });
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionIds, queries.map((q) => q.isLoading).join(',')]);
+
+  return { sessionChildTraces, loadingSessions };
 };
 
 /**

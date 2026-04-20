@@ -208,4 +208,65 @@ describe('groupTracesBySessionForTable', () => {
     // Falls back path: consumers should use `traces.length` when totalTraceCount is absent.
     expect((groupedRows[0] as { totalTraceCount?: number }).totalTraceCount).toBeUndefined();
   });
+
+  it('uses sessionChildEntries for expanded-session trace rows when provided', () => {
+    // Simulates the session-search flow: the main list only has the first
+    // trace of each session; expanded sessions get their traces from the
+    // lazy-loaded child entries map.
+    const entries: EvalTraceComparisonEntry[] = [createMockEntry('tr-a1', 'session-A', '2025-01-01T10:00:00.000Z')];
+    const sessionChildEntries = {
+      'session-A': [
+        createMockEntry('tr-a2', 'session-A', '2025-01-01T12:00:00.000Z'),
+        createMockEntry('tr-a3', 'session-A', '2025-01-01T11:00:00.000Z'),
+      ],
+    } satisfies Record<string, EvalTraceComparisonEntry[]>;
+
+    const { groupedRows, traceIdToTurnMap } = groupTracesBySessionForTable(
+      entries,
+      new Set(['session-A']),
+      false,
+      undefined,
+      sessionChildEntries,
+    );
+
+    // 1 header + 2 child trace rows from the lazy map (sorted by request_time ASC).
+    expect(groupedRows).toHaveLength(3);
+    expect(groupedRows[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+    expect(groupedRows[1]).toMatchObject({ type: 'trace' });
+    expect(groupedRows[2]).toMatchObject({ type: 'trace' });
+
+    // tr-a3 (11:00) sorts before tr-a2 (12:00) within the session.
+    expect(traceIdToTurnMap['tr-a3']).toBe(1);
+    expect(traceIdToTurnMap['tr-a2']).toBe(2);
+  });
+
+  it('renders only the header when sessionChildEntries provides an empty list', () => {
+    // If the backend hasn't returned yet, the parent may pass an empty array
+    // (or leave the session absent from the map). Either way the header
+    // should render without child rows.
+    const entries: EvalTraceComparisonEntry[] = [createMockEntry('tr-a1', 'session-A', '2025-01-01T10:00:00.000Z')];
+
+    const { groupedRows } = groupTracesBySessionForTable(entries, new Set(['session-A']), false, undefined, {
+      'session-A': [],
+    });
+
+    expect(groupedRows).toHaveLength(1);
+    expect(groupedRows[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+  });
+
+  it('falls back to searching currentEvaluationResults when sessionChildEntries is undefined', () => {
+    // Legacy behavior: when the parent doesn't supply a lazy children map,
+    // expanded sessions still render from the in-memory list.
+    const entries: EvalTraceComparisonEntry[] = [
+      createMockEntry('tr-a1', 'session-A', '2025-01-01T10:00:00.000Z'),
+      createMockEntry('tr-a2', 'session-A', '2025-01-01T11:00:00.000Z'),
+    ];
+
+    const { groupedRows } = groupTracesBySessionForTable(entries, new Set(['session-A']));
+
+    expect(groupedRows).toHaveLength(3);
+    expect(groupedRows[0]).toMatchObject({ type: 'sessionHeader' });
+    expect(groupedRows[1]).toMatchObject({ type: 'trace' });
+    expect(groupedRows[2]).toMatchObject({ type: 'trace' });
+  });
 });

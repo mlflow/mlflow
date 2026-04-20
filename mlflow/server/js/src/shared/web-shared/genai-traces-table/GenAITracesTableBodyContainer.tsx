@@ -1,8 +1,13 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import type {
+  ModelTraceLocationMlflowExperiment,
+  ModelTraceLocationUcSchema,
+} from '../model-trace-explorer/ModelTrace.types';
 import type { Assessment, ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
+import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 import { AssessmentSchemaContextProvider } from '../model-trace-explorer/contexts/AssessmentSchemaContext';
 
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
@@ -10,17 +15,19 @@ import { GenAiTracesTableBody } from './GenAiTracesTableBody';
 import { useActiveEvaluation } from './hooks/useActiveEvaluation';
 import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSelection';
 import type { GetTraceFunction } from './hooks/useGetTrace';
+import { useSessionChildTraces } from './hooks/useMlflowTraces';
 import type {
   AssessmentFilter,
   AssessmentCountMetrics,
   AssessmentInfo,
+  EvalTraceComparisonEntry,
   TracesTableColumn,
   EvaluationsOverviewTableSort,
   TableFilter,
 } from './types';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { sortAssessmentInfos } from './utils/AggregationUtils';
-import { shouldEnableTagGrouping } from './utils/FeatureUtils';
+import { shouldEnableTagGrouping, shouldUseSessionsSearchAPI } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
 
 interface GenAITracesTableBodyContainerProps {
@@ -83,6 +90,12 @@ interface GenAITracesTableBodyContainerProps {
    * header rows prefer these over the page-bound `traces.length` fallback.
    */
   sessionCounts?: Record<string, number>;
+
+  /**
+   * Locations used by the parent trace fetch. Required to lazy-load child
+   * traces for an expanded session when `shouldUseSessionsSearchAPI` is on.
+   */
+  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -115,8 +128,67 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       assessmentCountMetrics,
       compareAssessmentCountMetrics,
       sessionCounts,
+      locations,
     } = props;
     const { theme } = useDesignSystemTheme();
+
+    // Session expand state lives here (and flows down to the body as a
+    // controlled prop) so we can issue a lazy `search_traces` per expanded
+    // session when the session-search endpoint is active.
+    const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+    const toggleSessionExpanded = useCallback((sessionId: string) => {
+      setExpandedSessions((prev) => {
+        const next = new Set(prev);
+        if (next.has(sessionId)) {
+          next.delete(sessionId);
+        } else {
+          next.add(sessionId);
+        }
+        return next;
+      });
+    }, []);
+
+    const sessionChildTracesEnabled = Boolean(
+      isGroupedBySession && shouldUseSessionsSearchAPI() && expandedSessions.size > 0,
+    );
+    const { sessionChildTraces, loadingSessions } = useSessionChildTraces({
+      locations,
+      expandedSessions,
+      enabled: sessionChildTracesEnabled,
+    });
+
+    // Convert lazy-loaded ModelTraceInfoV3[] per session into the
+    // EvalTraceComparisonEntry[] shape the grouping util and cell renderers
+    // expect. Excludes the first trace (already present in
+    // currentTraceInfoV3) to avoid duplicate rows.
+    const sessionChildEntries = useMemo<Record<string, EvalTraceComparisonEntry[]> | undefined>(() => {
+      if (!sessionChildTracesEnabled) return undefined;
+      const result: Record<string, EvalTraceComparisonEntry[]> = {};
+      const firstTraceIds = new Set(currentTraceInfoV3.map((t) => t.trace_id));
+      Object.entries(sessionChildTraces).forEach(([sessionId, traces]) => {
+        const childTraces = traces.filter((t) => !firstTraceIds.has(t.trace_id));
+        if (childTraces.length === 0) {
+          result[sessionId] = [];
+          return;
+        }
+        const runEntries = applyTraceInfoV3ToEvalEntry(
+          childTraces.map((traceInfo) => ({
+            evaluationId: traceInfo.trace_id,
+            requestId: traceInfo.client_request_id || traceInfo.trace_id,
+            inputsId: traceInfo.trace_id,
+            inputs: {},
+            outputs: {},
+            targets: {},
+            overallAssessments: [],
+            responseAssessmentsByName: {},
+            metrics: {},
+            traceInfo,
+          })),
+        );
+        result[sessionId] = runEntries.map((entry) => ({ currentRunValue: entry }));
+      });
+      return result;
+    }, [sessionChildTraces, currentTraceInfoV3, sessionChildTracesEnabled]);
 
     // Convert trace info v3 to the format expected by GenAITracesTableBody
     const currentEvaluationResults = useMemo(
@@ -289,6 +361,10 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 assessmentCountMetrics={assessmentCountMetrics}
                 compareAssessmentCountMetrics={compareAssessmentCountMetrics}
                 sessionCounts={sessionCounts}
+                expandedSessions={expandedSessions}
+                toggleSessionExpanded={toggleSessionExpanded}
+                sessionChildEntries={sessionChildEntries}
+                loadingSessions={loadingSessions}
               />
             </AssessmentSchemaContextProvider>
           </div>

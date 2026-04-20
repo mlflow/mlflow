@@ -424,6 +424,7 @@ const TracesV3LogsImpl = React.memo(
                 isFetchingNextPage={isFetchingNextPage}
                 assessmentCountMetrics={assessmentCountMetrics}
                 sessionCounts={sessionCounts}
+                locations={traceSearchLocations}
               />
             </div>
           </>
@@ -492,6 +493,7 @@ const TracesV3LogsImpl = React.memo(
                   isFetchingNextPage={isFetchingNextPage}
                   assessmentCountMetrics={assessmentCountMetrics}
                   sessionCounts={sessionCounts}
+                  locations={traceSearchLocations}
                 />
               </ContextProviders>
             )}

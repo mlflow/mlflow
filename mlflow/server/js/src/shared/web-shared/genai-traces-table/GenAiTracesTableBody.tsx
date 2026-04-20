@@ -86,6 +86,10 @@ export const GenAiTracesTableBody = React.memo(
     assessmentCountMetrics,
     compareAssessmentCountMetrics,
     sessionCounts,
+    expandedSessions: controlledExpandedSessions,
+    toggleSessionExpanded: controlledToggleSessionExpanded,
+    sessionChildEntries,
+    loadingSessions,
   }: {
     experimentId?: string;
     selectedColumns: TracesTableColumn[];
@@ -136,17 +140,41 @@ export const GenAiTracesTableBody = React.memo(
      * header rows render the real total instead of the loaded-page count.
      */
     sessionCounts?: Record<string, number>;
+
+    /**
+     * When provided, the body uses this controlled expand state instead of
+     * its internal `useState`. Parents that also need to observe expansions
+     * (e.g. to lazy-load child traces) own the state and pass it back down.
+     */
+    expandedSessions?: Set<string>;
+    toggleSessionExpanded?: (sessionId: string) => void;
+
+    /**
+     * Lazy-loaded child traces for expanded sessions, keyed by session ID
+     * and expressed in the same shape as the main `evaluations` list. When
+     * present, the grouping util prefers this over searching
+     * `evaluations` for a session's traces.
+     */
+    sessionChildEntries?: Record<string, EvalTraceComparisonEntry[]>;
+    /**
+     * Sessions whose lazy child-trace fetch is currently in flight. Used to
+     * render a spinner under expanded headers.
+     */
+    loadingSessions?: Set<string>;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
     const [collapsedHeader, setCollapsedHeader] = useState(false);
     const lastSelectedRowIdRef = useRef<string | null>(null);
     const lastSelectedSessionIdRef = useRef<string | null>(null);
-    // Track which sessions are expanded (collapsed by default)
-    const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+    // Track which sessions are expanded (collapsed by default). Controlled
+    // from the parent when `controlledExpandedSessions` is supplied so the
+    // parent can lazy-load child traces on expand.
+    const [internalExpandedSessions, setInternalExpandedSessions] = useState<Set<string>>(new Set());
+    const expandedSessions = controlledExpandedSessions ?? internalExpandedSessions;
 
-    const toggleSessionExpanded = React.useCallback((sessionId: string) => {
-      setExpandedSessions((prev) => {
+    const internalToggleSessionExpanded = React.useCallback((sessionId: string) => {
+      setInternalExpandedSessions((prev) => {
         const next = new Set(prev);
         if (next.has(sessionId)) {
           next.delete(sessionId);
@@ -156,6 +184,7 @@ export const GenAiTracesTableBody = React.memo(
         return next;
       });
     }, []);
+    const toggleSessionExpanded = controlledToggleSessionExpanded ?? internalToggleSessionExpanded;
 
     const isComparing = !isNil(compareToRunUuid);
 
@@ -249,9 +278,9 @@ export const GenAiTracesTableBody = React.memo(
     const { groupedRows, traceIdToTurnMap } = useMemo(
       () =>
         isGroupedBySession
-          ? groupTracesBySessionForTable(evaluations, expandedSessions, isComparing, sessionCounts)
+          ? groupTracesBySessionForTable(evaluations, expandedSessions, isComparing, sessionCounts, sessionChildEntries)
           : { groupedRows: [], traceIdToTurnMap: {} },
-      [isGroupedBySession, evaluations, expandedSessions, isComparing, sessionCounts],
+      [isGroupedBySession, evaluations, expandedSessions, isComparing, sessionCounts, sessionChildEntries],
     );
 
     const table = useReactTable<EvalTraceComparisonEntry & { multiline?: boolean }>(
