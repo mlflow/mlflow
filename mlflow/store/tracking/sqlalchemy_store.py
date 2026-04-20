@@ -22,7 +22,7 @@ import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, case, distinct, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Query, Session, aliased, joinedload
+from sqlalchemy.orm import Query, Session, aliased, joinedload, selectinload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
@@ -2511,7 +2511,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
-            return self._resolve_endpoint_in_scorer(entity)
+            return self.resolve_endpoint_in_scorer(entity)
 
     def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
@@ -2648,7 +2648,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
-            return self._resolve_endpoint_in_scorer(entity)
+            return self.resolve_endpoint_in_scorer(entity)
 
     def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
@@ -3042,8 +3042,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 try:
                     col = getattr(SqlLoggedModel, name)
                 except AttributeError:
+                    # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
                     raise MlflowException.invalid_parameter_value(
-                        f"Invalid order by field name: {field_name}"
+                        f"Invalid order by field name: {field_name}",
+                        error_class="ATTRIBUTE_NOT_FOUND",
                     )
                 # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
                 order_by_clauses.extend([
@@ -3525,7 +3527,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses_for_search_traces(
                 order_by or [], session
             )
-            stmt = select(SqlTraceInfo, *cases_orderby)
+            stmt = select(SqlTraceInfo, *cases_orderby).options(
+                sqlalchemy.orm.selectinload(SqlTraceInfo.tags),
+                sqlalchemy.orm.selectinload(SqlTraceInfo.request_metadata),
+                sqlalchemy.orm.selectinload(SqlTraceInfo.assessments),
+            )
 
             attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
                 _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
@@ -4984,7 +4990,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sql_trace_info = (
                 self
                 ._trace_query(session)
-                .options(joinedload(SqlTraceInfo.spans))
+                .options(
+                    joinedload(SqlTraceInfo.spans),
+                    selectinload(SqlTraceInfo.tags),
+                    selectinload(SqlTraceInfo.request_metadata),
+                    selectinload(SqlTraceInfo.assessments),
+                )
                 .filter(SqlTraceInfo.request_id == trace_id)
                 .one_or_none()
             )
@@ -5025,7 +5036,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sql_trace_infos = (
                 self
                 ._trace_query(session)
-                .options(joinedload(SqlTraceInfo.spans))
+                .options(
+                    joinedload(SqlTraceInfo.spans),
+                    selectinload(SqlTraceInfo.tags),
+                    selectinload(SqlTraceInfo.request_metadata),
+                    selectinload(SqlTraceInfo.assessments),
+                )
                 .filter(SqlTraceInfo.request_id.in_(trace_ids))
                 .order_by(order_case)
                 .all()
@@ -6367,7 +6383,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
         return obj
 
-    def _resolve_endpoint_in_scorer(self, scorer_version: ScorerVersion) -> ScorerVersion:
+    def resolve_endpoint_in_scorer(self, scorer_version: ScorerVersion) -> ScorerVersion:
         """
         Resolve gateway endpoint ID to name in a scorer version.
 

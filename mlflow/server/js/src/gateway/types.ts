@@ -82,7 +82,7 @@ export interface GetSecretInfoResponse {
 
 export interface UpdateSecretRequest {
   secret_id: string;
-  secret_value: Record<string, string>;
+  secret_value?: Record<string, string>;
   auth_config?: Record<string, string>;
   updated_by?: string;
 }
@@ -348,4 +348,112 @@ export interface BudgetPolicyWindow {
 
 export interface ListBudgetWindowsResponse {
   windows: BudgetPolicyWindow[];
+}
+
+// Guardrail types — aligned with backend proto (service.proto)
+export type GuardrailStage = 'BEFORE' | 'AFTER';
+export type GuardrailAction = 'VALIDATION' | 'SANITIZATION';
+
+/** Matches GatewayGuardrail proto message. */
+export interface GatewayGuardrail {
+  guardrail_id: string;
+  name: string;
+  scorer?: {
+    scorer_id: string;
+    scorer_version: number;
+    serialized_scorer?: string;
+  };
+  stage: GuardrailStage;
+  action: GuardrailAction;
+  action_endpoint_id?: string;
+  created_by?: string;
+  created_at: number;
+  last_updated_by?: string;
+  last_updated_at: number;
+}
+
+/** Matches GatewayGuardrailConfig proto message. */
+export interface GatewayGuardrailConfig {
+  endpoint_id: string;
+  guardrail_id: string;
+  execution_order?: number;
+  created_by?: string;
+  created_at: number;
+  guardrail?: GatewayGuardrail;
+}
+
+/** Request for POST /mlflow/gateway/guardrails/create */
+export interface CreateGatewayGuardrailRequest {
+  name: string;
+  scorer_id: string;
+  scorer_version: number;
+  stage: GuardrailStage;
+  action: GuardrailAction;
+  action_endpoint_id?: string;
+}
+
+export interface CreateGatewayGuardrailResponse {
+  guardrail: GatewayGuardrail;
+}
+
+/** Request for GET /mlflow/gateway/guardrails/get */
+export interface GetGatewayGuardrailRequest {
+  guardrail_id: string;
+}
+
+export interface GetGatewayGuardrailResponse {
+  guardrail: GatewayGuardrail;
+}
+
+/** Request for DELETE /mlflow/gateway/guardrails/delete */
+export interface DeleteGatewayGuardrailRequest {
+  guardrail_id: string;
+}
+
+/** Request for GET /mlflow/gateway/guardrails/list */
+export interface ListGatewayGuardrailsRequest {
+  max_results?: number;
+  page_token?: string;
+}
+
+export interface ListGatewayGuardrailsResponse {
+  guardrails: GatewayGuardrail[];
+  next_page_token?: string;
+}
+
+/** Request for POST /mlflow/gateway/guardrails/add-to-endpoint */
+export interface AddGuardrailToEndpointRequest {
+  endpoint_id: string;
+  guardrail_id: string;
+  execution_order?: number;
+}
+
+export interface AddGuardrailToEndpointResponse {
+  config: GatewayGuardrailConfig;
+}
+
+/** Request for DELETE /mlflow/gateway/guardrails/remove-from-endpoint */
+export interface RemoveGuardrailFromEndpointRequest {
+  endpoint_id: string;
+  guardrail_id: string;
+}
+
+/** Request for GET /mlflow/gateway/guardrails/list-for-endpoint */
+export interface ListEndpointGuardrailConfigsRequest {
+  endpoint_id: string;
+}
+
+export interface ListEndpointGuardrailConfigsResponse {
+  configs: GatewayGuardrailConfig[];
+}
+
+/** Request for PATCH /mlflow/gateway/guardrails/update-config */
+export interface UpdateEndpointGuardrailConfigRequest {
+  endpoint_id: string;
+  guardrail_id: string;
+  execution_order?: number;
+}
+
+export interface UpdateEndpointGuardrailConfigResponse {
+  config: GatewayGuardrailConfig;
 }

@@ -1,5 +1,5 @@
+/* eslint-disable @databricks/no-mock-location*/
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
-import { waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import userEvent from '@testing-library/user-event';
 import { WorkspacesHomeView } from './WorkspacesHomeView';

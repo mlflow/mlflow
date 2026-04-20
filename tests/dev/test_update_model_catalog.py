@@ -8,7 +8,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
 from update_model_catalog import (
     _extract_long_context_pricing,
+    _extract_modality_pricing,
     _extract_service_tiers,
+    _extract_tool_pricing,
     _is_deprecated,
     _normalize_provider,
     _transform_entry,
@@ -174,6 +176,73 @@ def test_extract_long_context_multiple_thresholds():
 def test_extract_service_tiers_empty_when_no_tiers():
     info = {"input_cost_per_token": 1e-6, "output_cost_per_token": 2e-6}
     assert _extract_service_tiers(info) == {}
+
+
+def test_extract_modality_pricing():
+    info = {
+        "input_cost_per_audio_token": 7e-7,
+        "output_cost_per_audio_token": 1.1e-6,
+        "cache_read_input_audio_token_cost": 2e-7,
+        "cache_creation_input_audio_token_cost": 4e-7,
+    }
+    assert _extract_modality_pricing(info) == {
+        "audio": {
+            "input_per_million_tokens": 0.7,
+            "output_per_million_tokens": 1.1,
+            "cache_read_per_million_tokens": 0.2,
+            "cache_write_per_million_tokens": 0.4,
+        }
+    }
+
+
+def test_extract_modality_pricing_skips_reasoning():
+    info = {
+        "input_cost_per_audio_token": 7e-7,
+        "output_cost_per_reasoning_token": 4e-7,
+    }
+    assert _extract_modality_pricing(info) == {"audio": {"input_per_million_tokens": 0.7}}
+
+
+def test_extract_tool_pricing():
+    info = {
+        "computer_use_input_cost_per_1k_tokens": 0.00225,
+        "computer_use_output_cost_per_1k_tokens": 0.009,
+        "search_context_cost_per_query": {
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01,
+            "search_context_size_high": 0.01,
+        },
+        "tool_use_system_prompt_tokens": 159,
+    }
+    assert _extract_tool_pricing(info) == {
+        "computer_use": {
+            "input_per_million_tokens": 2.25,
+            "output_per_million_tokens": 9.0,
+        },
+        "search_context_per_query": {
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01,
+            "search_context_size_high": 0.01,
+        },
+        "tool_use_system_prompt_tokens": 159,
+    }
+
+
+def test_transform_entry_with_modality_and_tool_pricing():
+    info = {
+        "mode": "chat",
+        "input_cost_per_token": 1e-7,
+        "output_cost_per_token": 4e-7,
+        "input_cost_per_audio_token": 7e-7,
+        "computer_use_input_cost_per_1k_tokens": 0.00225,
+        "tool_use_system_prompt_tokens": 159,
+    }
+    result = _transform_entry(info)
+    assert result["pricing"]["modality"] == {"audio": {"input_per_million_tokens": 0.7}}
+    assert result["pricing"]["tooling"] == {
+        "computer_use": {"input_per_million_tokens": 2.25},
+        "tool_use_system_prompt_tokens": 159,
+    }
 
 
 def test_convert_end_to_end(tmp_path):

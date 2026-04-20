@@ -25,6 +25,7 @@ import { StarterCodeCard } from './StarterCodeCard';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
+import { GuardrailsTabContent } from '../guardrails/GuardrailsTabContent';
 import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
@@ -115,7 +116,7 @@ export const EditEndpointFormRenderer = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
-  const VALID_TABS = ['overview', 'usage', 'traces'] as const;
+  const VALID_TABS = ['overview', 'guardrails', 'usage', 'traces'] as const;
   const tabParam = searchParams.get('tab');
   // Support legacy ?tab=configuration URLs
   const normalizedTab = tabParam === 'configuration' ? 'overview' : tabParam;
@@ -143,6 +144,13 @@ export const EditEndpointFormRenderer = ({
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
+
+  const uniqueSecretNames = useMemo(
+    () => [
+      ...new Set(endpoint?.model_mappings.map((m) => m.model_definition?.secret_name).filter(Boolean) as string[]),
+    ],
+    [endpoint?.model_mappings],
+  );
 
   if (isLoadingEndpoint) {
     return (
@@ -233,6 +241,9 @@ export const EditEndpointFormRenderer = ({
           <Tabs.List>
             <Tabs.Trigger value="overview">
               <FormattedMessage defaultMessage="Overview" description="Tab label for endpoint overview" />
+            </Tabs.Trigger>
+            <Tabs.Trigger value="guardrails">
+              <FormattedMessage defaultMessage="Guardrails" description="Tab label for endpoint guardrails" />
             </Tabs.Trigger>
             {isUsageTabDisabled ? (
               <Tooltip
@@ -356,6 +367,16 @@ export const EditEndpointFormRenderer = ({
               </div>
             </Tabs.Content>
 
+            <Tabs.Content value="guardrails">
+              {endpoint && (
+                <GuardrailsTabContent
+                  endpointName={endpoint.name}
+                  endpointId={endpoint.endpoint_id}
+                  experimentId={experimentId}
+                />
+              )}
+            </Tabs.Content>
+
             <Tabs.Content value="usage">
               {experimentId && (
                 <GatewayUsageSection experimentId={experimentId} tooltipLinkUrlBuilder={tooltipLinkUrlBuilder} />
@@ -404,23 +425,30 @@ export const EditEndpointFormRenderer = ({
                     </Typography.Text>
                   </div>
 
-                  {endpoint.model_mappings[0]?.model_definition?.secret_name && (
+                  {uniqueSecretNames.length > 0 && (
                     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                       <Typography.Text bold color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                        <FormattedMessage defaultMessage="API key" description="Label for endpoint API key" />
+                        <FormattedMessage
+                          defaultMessage="{count, plural, =1 {API key} other {API keys}}"
+                          description="Label for endpoint API key(s)"
+                          values={{ count: uniqueSecretNames.length }}
+                        />
                       </Typography.Text>
-                      <Link
-                        componentId="mlflow.gateway.edit-endpoint.api-key-link"
-                        to={GatewayRoutes.apiKeysPageRoute}
-                        css={{
-                          fontSize: theme.typography.fontSizeSm,
-                          color: theme.colors.actionPrimaryBackgroundDefault,
-                          textDecoration: 'none',
-                          '&:hover': { textDecoration: 'underline' },
-                        }}
-                      >
-                        {endpoint.model_mappings[0].model_definition.secret_name}
-                      </Link>
+                      {uniqueSecretNames.map((secretName) => (
+                        <Link
+                          key={secretName}
+                          componentId="mlflow.gateway.edit-endpoint.api-key-link"
+                          to={GatewayRoutes.apiKeysPageRoute}
+                          css={{
+                            fontSize: theme.typography.fontSizeSm,
+                            color: theme.colors.actionPrimaryBackgroundDefault,
+                            textDecoration: 'none',
+                            '&:hover': { textDecoration: 'underline' },
+                          }}
+                        >
+                          {secretName}
+                        </Link>
+                      ))}
                     </div>
                   )}
 

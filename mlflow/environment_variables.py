@@ -659,6 +659,15 @@ MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
 #: (default: ``None`` — uses in-memory tracker)
 MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_REDIS_URL", str, None)
 
+#: Comma-separated list of provider names that are allowed in the AI Gateway.
+#: When set, only these providers will be available for endpoint creation and discovery.
+#: All other providers are rejected.
+#: Example: ``openai,anthropic,gemini``
+#: (default: ``None`` — all providers are allowed)
+MLFLOW_GATEWAY_ALLOWED_PROVIDERS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_ALLOWED_PROVIDERS", str, None
+)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
@@ -715,6 +724,14 @@ MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZ
 #: (default: ``True``)
 MLFLOW_TRACE_EXTRACT_ATTACHMENTS = _BooleanEnvironmentVariable(
     "MLFLOW_TRACE_EXTRACT_ATTACHMENTS", True
+)
+
+#: Maximum size in bytes for a single trace attachment. When set, attachments
+#: exceeding this limit are discarded and replaced with an error message.
+#: Only applies to trace attachments, not artifact uploads.
+#: (default: unset — no limit)
+MLFLOW_TRACE_MAX_ATTACHMENT_SIZE = _EnvironmentVariable(
+    "MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", int, None
 )
 
 #: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.

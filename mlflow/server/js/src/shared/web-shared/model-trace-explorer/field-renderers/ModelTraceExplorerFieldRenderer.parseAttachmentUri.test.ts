@@ -38,4 +38,32 @@ describe('parseAttachmentUri', () => {
     expect(parseAttachmentUri('hello world')).toBeNull();
     expect(parseAttachmentUri('{"key": "value"}')).toBeNull();
   });
+
+  it('parses a valid size parameter', () => {
+    const uri = 'mlflow-attachment://abc-123?content_type=image%2Fpng&trace_id=tr-456&size=1048576';
+    const result = parseAttachmentUri(uri);
+    expect(result).toEqual({
+      attachmentId: 'abc-123',
+      contentType: 'image/png',
+      traceId: 'tr-456',
+      size: 1048576,
+    });
+  });
+
+  it('omits size when not present in URI', () => {
+    const uri = 'mlflow-attachment://abc-123?content_type=image%2Fpng&trace_id=tr-456';
+    const result = parseAttachmentUri(uri);
+    expect(result).toEqual({
+      attachmentId: 'abc-123',
+      contentType: 'image/png',
+      traceId: 'tr-456',
+    });
+    expect(result?.size).toBeUndefined();
+  });
+
+  it.each(['abc', '1.5', '-1', '0', 'Infinity', 'NaN', ''])('omits invalid size value: %s', (bad) => {
+    const uri = `mlflow-attachment://abc-123?content_type=image%2Fpng&trace_id=tr-456&size=${bad}`;
+    const result = parseAttachmentUri(uri);
+    expect(result?.size).toBeUndefined();
+  });
 });

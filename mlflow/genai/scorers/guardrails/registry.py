@@ -34,8 +34,10 @@ def get_validator_class(validator_name: str):
         return getattr(hub, validator_name)
     except AttributeError:
         available = ", ".join(sorted(_SUPPORTED_VALIDATORS))
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException.invalid_parameter_value(
             f"Unknown Guardrails AI validator: '{validator_name}'. Could not find "
             f"'{validator_name}' in 'guardrails.hub'. "
-            f"Available pre-configured validators: {available}"
+            f"Available pre-configured validators: {available}",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )

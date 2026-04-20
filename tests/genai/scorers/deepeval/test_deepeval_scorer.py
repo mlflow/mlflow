@@ -299,7 +299,7 @@ def test_deepeval_scorer_telemetry_direct_call(
         {
             "scorer_class": expected_class,
             "scorer_kind": "third_party",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -343,7 +343,7 @@ def test_deepeval_scorer_telemetry_in_genai_evaluate(
         {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": expected_class, "kind": "third_party", "scope": "response"},
+                {"class": expected_class, "kind": "third_party", "scope": "trace"},
             ],
             "eval_data_type": "list[dict]",
             "eval_data_size": 1,

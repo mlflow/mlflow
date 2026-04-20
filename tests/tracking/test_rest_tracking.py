@@ -659,10 +659,9 @@ def test_path_validation(mlflow_client):
 
     def assert_response(resp):
         assert resp.status_code == 400
-        assert response.json() == {
-            "error_code": "INVALID_PARAMETER_VALUE",
-            "message": "Invalid path",
-        }
+        body = response.json()
+        assert body["error_code"] == "INVALID_PARAMETER_VALUE"
+        assert body["message"] == "Invalid path"
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/artifacts/list",
@@ -4010,7 +4009,7 @@ def test_scorer_CRUD(mlflow_client, store_type):
     store = mlflow_client._tracking_client.store
 
     # Test register scorer
-    scorer_data = {"name": "test_scorer", "call_source": "test", "original_func_name": "test_func"}
+    scorer_data = {"name": "test_scorer", "original_func_name": "test_func"}
     serialized_scorer = json.dumps(scorer_data)
 
     version = store.register_scorer(experiment_id, "test_scorer", serialized_scorer)
@@ -4041,7 +4040,6 @@ def test_scorer_CRUD(mlflow_client, store_type):
     # Test register second version
     scorer_data_v2 = {
         "name": "test_scorer_v2",
-        "call_source": "test",
         "original_func_name": "test_func_v2",
     }
     serialized_scorer_v2 = json.dumps(scorer_data_v2)
