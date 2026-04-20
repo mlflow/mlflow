@@ -52,6 +52,11 @@ MESSAGE_TYPE_QUEUE_OPERATION = "queue-operation"
 QUEUE_OPERATION_ENQUEUE = "enqueue"
 METADATA_KEY_CLAUDE_CODE_VERSION = "mlflow.claude_code_version"
 
+AGENT_TOOL_NAME = "Agent"
+SUBAGENT_FIELD_AGENT_ID = "agentId"
+SUBAGENT_FIELD_AGENT_TYPE = "agentType"
+SUBAGENT_FIELD_TOTAL_DURATION_MS = "totalDurationMs"
+
 # Custom logging level for Claude tracing
 CLAUDE_TRACING_LEVEL = logging.WARNING - 5
 
@@ -407,8 +412,130 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
 
+# ============================================================================
+# SUBAGENT PROCESSING
+# ============================================================================
+
+
+def _build_subagent_map(
+    transcript: list[dict[str, Any]], start_idx: int
+) -> dict[str, dict[str, Any]]:
+    """Build a mapping from tool_use_id to subagent metadata for Agent tool calls.
+
+    Walks the transcript from start_idx looking for entries with
+    toolUseResult.agentId, which indicate completed subagent invocations.
+
+    Returns:
+        Dict mapping tool_use_id to the toolUseResult dict containing
+        agentId, agentType, prompt, usage, content, etc.
+    """
+    subagent_map: dict[str, dict[str, Any]] = {}
+
+    for entry in transcript[start_idx:]:
+        tool_use_result = entry.get(MESSAGE_FIELD_TOOL_USE_RESULT)
+        if not isinstance(tool_use_result, dict):
+            continue
+        if not tool_use_result.get(SUBAGENT_FIELD_AGENT_ID):
+            continue
+
+        # Extract tool_use_id from the tool_result content block
+        msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
+        content = msg.get(MESSAGE_FIELD_CONTENT, [])
+        if not isinstance(content, list):
+            continue
+
+        tool_use_id = next(
+            (
+                part.get("tool_use_id")
+                for part in content
+                if isinstance(part, dict)
+                and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TOOL_RESULT
+            ),
+            None,
+        )
+        if tool_use_id:
+            subagent_map[tool_use_id] = tool_use_result
+
+    return subagent_map
+
+
+def _create_subagent_span(
+    parent_span,
+    subagent_info: dict[str, Any],
+    subagents_dir: Path,
+    start_ns: int,
+    end_ns: int,
+) -> None:
+    """Create an AGENT span with nested LLM/tool spans from a subagent transcript.
+
+    Falls back to a simple TOOL span if the subagent transcript file is missing.
+    """
+    agent_id = subagent_info.get(SUBAGENT_FIELD_AGENT_ID, "unknown")
+    agent_type = subagent_info.get(SUBAGENT_FIELD_AGENT_TYPE, "unknown")
+
+    try:
+        subagent_path = subagents_dir / f"agent-{agent_id}.jsonl"
+        if not subagent_path.exists():
+            get_logger().warning("Subagent transcript not found: %s", subagent_path)
+            # Graceful fallback: create a simple TOOL span with the result
+            fallback_span = mlflow.start_span_no_context(
+                name=f"agent_{agent_type}",
+                parent_span=parent_span,
+                span_type=SpanType.TOOL,
+                start_time_ns=start_ns,
+                inputs={"prompt": subagent_info.get("prompt", "")},
+                attributes={"agent_id": agent_id, "agent_type": agent_type},
+            )
+            content = subagent_info.get(MESSAGE_FIELD_CONTENT, [])
+            fallback_span.set_outputs({"result": extract_text_content(content)})
+            fallback_span.end(end_time_ns=end_ns)
+            return
+
+        subagent_transcript = read_transcript(str(subagent_path))
+        if not subagent_transcript:
+            return
+
+        # Use subagent's own timestamps when available
+        first_ts = parse_timestamp_to_ns(subagent_transcript[0].get(MESSAGE_FIELD_TIMESTAMP))
+        last_ts = parse_timestamp_to_ns(subagent_transcript[-1].get(MESSAGE_FIELD_TIMESTAMP))
+        span_start = first_ts or start_ns
+        span_end = last_ts or end_ns
+
+        agent_span = mlflow.start_span_no_context(
+            name=f"agent_{agent_type}",
+            parent_span=parent_span,
+            span_type=SpanType.AGENT,
+            start_time_ns=span_start,
+            inputs={"prompt": subagent_info.get("prompt", "")},
+            attributes={"agent_id": agent_id, "agent_type": agent_type},
+        )
+
+        _set_token_usage_attribute(agent_span, subagent_info.get("usage", {}))
+
+        # Recursively create child spans (supports sub-subagents)
+        nested_map = _build_subagent_map(subagent_transcript, 0)
+        _create_llm_and_tool_spans(
+            agent_span,
+            subagent_transcript,
+            0,
+            subagent_map=nested_map or None,
+            subagents_dir=subagents_dir if nested_map else None,
+        )
+
+        content = subagent_info.get(MESSAGE_FIELD_CONTENT, [])
+        agent_span.set_outputs({"response": extract_text_content(content)})
+        agent_span.end(end_time_ns=span_end)
+
+    except Exception as e:
+        get_logger().warning("Failed to create subagent span for %s: %s", agent_id, e)
+
+
 def _create_llm_and_tool_spans(
-    parent_span, transcript: list[dict[str, Any]], start_idx: int
+    parent_span,
+    transcript: list[dict[str, Any]],
+    start_idx: int,
+    subagent_map: dict[str, dict[str, Any]] | None = None,
+    subagents_dir: Path | None = None,
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
     for i in range(start_idx, len(transcript)):
@@ -470,6 +597,23 @@ def _create_llm_and_tool_spans(
             for idx, tool_use in enumerate(tool_uses):
                 tool_start_ns = timestamp_ns + (idx * tool_duration_ns)
                 tool_use_id = tool_use.get("id", "")
+
+                # Expand Agent tool calls into nested subagent spans
+                if (
+                    subagent_map
+                    and subagents_dir
+                    and tool_use.get("name") == AGENT_TOOL_NAME
+                    and tool_use_id in subagent_map
+                ):
+                    _create_subagent_span(
+                        parent_span,
+                        subagent_map[tool_use_id],
+                        subagents_dir,
+                        tool_start_ns,
+                        tool_start_ns + tool_duration_ns,
+                    )
+                    continue
+
                 tool_result = tool_results.get(tool_use_id, "No result found")
 
                 tool_span = mlflow.start_span_no_context(
@@ -629,8 +773,22 @@ def process_transcript(
             span_type=SpanType.AGENT,
         )
 
+        # Build subagent map for nested Agent tool call expansion
+        subagents_dir = Path(transcript_path).with_suffix("") / "subagents"
+        subagent_map = (
+            _build_subagent_map(transcript, last_user_idx + 1)
+            if subagents_dir.is_dir()
+            else {}
+        )
+
         # Create spans for all assistant responses and tool uses
-        _create_llm_and_tool_spans(parent_span, transcript, last_user_idx + 1)
+        _create_llm_and_tool_spans(
+            parent_span,
+            transcript,
+            last_user_idx + 1,
+            subagent_map=subagent_map or None,
+            subagents_dir=subagents_dir if subagent_map else None,
+        )
 
         # Update trace with preview content and end timing
         final_response = find_final_assistant_response(transcript, last_user_idx + 1)

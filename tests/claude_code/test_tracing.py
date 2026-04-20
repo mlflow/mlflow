@@ -18,6 +18,7 @@ import mlflow.claude_code.tracing as tracing_module
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     METADATA_KEY_CLAUDE_CODE_VERSION,
+    _build_subagent_map,
     find_last_user_message_index,
     get_hook_response,
     parse_timestamp_to_ns,
@@ -849,3 +850,253 @@ def test_process_transcript_includes_steer_messages(tmp_path):
     steer_messages = [m for m in input_messages if m.get("content") == "also tell me about Java"]
     assert len(steer_messages) == 1
     assert steer_messages[0]["role"] == "user"
+
+
+# ============================================================================
+# SUBAGENT TRACING TESTS
+# ============================================================================
+
+DUMMY_SUBAGENT_TRANSCRIPT = [
+    {
+        "type": "user",
+        "message": {"role": "user", "content": "Search for files matching *.py"},
+        "timestamp": "2025-01-15T10:00:02.500Z",
+        "isSidechain": True,
+        "agentId": "sub123",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "I'll search for Python files."}],
+            "model": "claude-sonnet-4-20250514",
+            "usage": {"input_tokens": 50, "output_tokens": 10},
+        },
+        "timestamp": "2025-01-15T10:00:03.000Z",
+        "isSidechain": True,
+        "agentId": "sub123",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "sub_tool_1",
+                    "name": "Glob",
+                    "input": {"pattern": "**/*.py"},
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:03.500Z",
+        "isSidechain": True,
+        "agentId": "sub123",
+    },
+    {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "sub_tool_1", "content": "main.py\ntest.py"}
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:04.000Z",
+        "isSidechain": True,
+        "agentId": "sub123",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Found 2 Python files: main.py and test.py"}],
+            "model": "claude-sonnet-4-20250514",
+            "usage": {"input_tokens": 80, "output_tokens": 20},
+        },
+        "timestamp": "2025-01-15T10:00:04.500Z",
+        "isSidechain": True,
+        "agentId": "sub123",
+    },
+]
+
+DUMMY_TRANSCRIPT_WITH_SUBAGENT = [
+    {
+        "type": "user",
+        "message": {"role": "user", "content": "Find all Python files in the project"},
+        "timestamp": "2025-01-15T10:00:00.000Z",
+        "sessionId": "test-session-subagent",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "I'll use an agent to search for that."}],
+        },
+        "timestamp": "2025-01-15T10:00:01.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "agent_tool_1",
+                    "name": "Agent",
+                    "input": {
+                        "prompt": "Search for files matching *.py",
+                        "description": "Find Python files",
+                        "subagent_type": "Explore",
+                    },
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:02.000Z",
+    },
+    {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "agent_tool_1",
+                    "content": [
+                        {"type": "text", "text": "Found 2 Python files: main.py and test.py"}
+                    ],
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:05.000Z",
+        "toolUseResult": {
+            "status": "completed",
+            "agentId": "sub123",
+            "agentType": "Explore",
+            "prompt": "Search for files matching *.py",
+            "content": [
+                {"type": "text", "text": "Found 2 Python files: main.py and test.py"}
+            ],
+            "totalDurationMs": 3000,
+            "totalTokens": 160,
+            "usage": {"input_tokens": 130, "output_tokens": 30},
+        },
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": "The search found 2 Python files: main.py and test.py."}
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:06.000Z",
+    },
+]
+
+
+def _write_transcript(tmp_path, filename, entries):
+    path = tmp_path / filename
+    path.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
+    return path
+
+
+def test_build_subagent_map():
+    result = _build_subagent_map(DUMMY_TRANSCRIPT_WITH_SUBAGENT, 0)
+
+    assert "agent_tool_1" in result
+    assert result["agent_tool_1"]["agentId"] == "sub123"
+    assert result["agent_tool_1"]["agentType"] == "Explore"
+
+
+def test_build_subagent_map_no_subagents():
+    result = _build_subagent_map(DUMMY_TRANSCRIPT, 0)
+
+    assert result == {}
+
+
+def test_process_transcript_with_subagent(tmp_path):
+    transcript_path = _write_transcript(
+        tmp_path, "session1.jsonl", DUMMY_TRANSCRIPT_WITH_SUBAGENT
+    )
+
+    # Create subagent JSONL in the expected location
+    subagents_dir = tmp_path / "session1" / "subagents"
+    subagents_dir.mkdir(parents=True)
+    _write_transcript(subagents_dir, "agent-sub123.jsonl", DUMMY_SUBAGENT_TRANSCRIPT)
+
+    trace = process_transcript(str(transcript_path), "test-session-subagent")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Root span
+    root_span = trace.data.spans[0]
+    assert root_span.name == "claude_code_conversation"
+    assert root_span.span_type == SpanType.AGENT
+
+    # Subagent span should be an AGENT, not a TOOL
+    agent_spans = [
+        s for s in spans if s.span_type == SpanType.AGENT and s.name == "agent_Explore"
+    ]
+    assert len(agent_spans) == 1
+    subagent_span = agent_spans[0]
+    assert subagent_span.inputs["prompt"] == "Search for files matching *.py"
+    assert subagent_span.get_attribute("agent_id") == "sub123"
+    assert subagent_span.get_attribute("agent_type") == "Explore"
+
+    # Subagent should have token usage
+    token_usage = subagent_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage["input_tokens"] == 130
+    assert token_usage["output_tokens"] == 30
+
+    # Subagent should have child LLM and tool spans
+    subagent_children = [s for s in spans if s.parent_id == subagent_span.span_id]
+    child_types = {s.span_type for s in subagent_children}
+    assert SpanType.LLM in child_types
+    assert SpanType.TOOL in child_types
+
+    tool_children = [s for s in subagent_children if s.span_type == SpanType.TOOL]
+    assert any(s.name == "tool_Glob" for s in tool_children)
+
+    # Parent should still have its own LLM spans
+    parent_llm_spans = [
+        s for s in spans if s.span_type == SpanType.LLM and s.parent_id == root_span.span_id
+    ]
+    assert len(parent_llm_spans) == 2
+
+
+def test_process_transcript_subagent_file_missing(tmp_path):
+    transcript_path = _write_transcript(
+        tmp_path, "session2.jsonl", DUMMY_TRANSCRIPT_WITH_SUBAGENT
+    )
+
+    # Create subagents dir but NOT the agent file
+    subagents_dir = tmp_path / "session2" / "subagents"
+    subagents_dir.mkdir(parents=True)
+
+    trace = process_transcript(str(transcript_path), "test-session-missing")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Should fall back to a TOOL span (not AGENT) since file is missing
+    fallback_spans = [s for s in spans if s.name == "agent_Explore"]
+    assert len(fallback_spans) == 1
+    assert fallback_spans[0].span_type == SpanType.TOOL
+
+
+def test_process_transcript_no_subagents_unchanged(tmp_path):
+    transcript_path = _write_transcript(tmp_path, "session3.jsonl", DUMMY_TRANSCRIPT)
+
+    trace = process_transcript(str(transcript_path), "test-session-no-subagents")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Same structure as existing tests: root + 2 LLM + 1 tool
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
+    assert len(llm_spans) == 2
+    assert len(tool_spans) == 1
+    assert tool_spans[0].name == "tool_Bash"
