@@ -1,9 +1,10 @@
 /**
  * Curated registry of all componentIds used in the MLflow UI.
  *
- * Every static componentId string literal in the codebase must have
- * an entry here. Run `yarn lint` to check for unregistered IDs, and
- * `node check-registry-staleness.js` to find stale registry entries.
+ * Every static componentId string literal in non-test source files must
+ * have an entry here. The CI job `check-component-ids` verifies this
+ * bidirectionally: code IDs must be in the registry, and registry
+ * entries must exist in code.
  *
  * Format: key = componentId string, value = description of the component
  */
@@ -243,7 +244,6 @@ module.exports = {
   'codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_98': '',
   'codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsconfiguremodal.tsx_232': '',
   'codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsconfiguremodal.tsx_296': '',
-  'codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsdraggablecardsgrid.test.tsx_420': '',
   'codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsfilterinput.tsx_30': '',
   'codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsfullscreenmodal.tsx_53': '',
   'codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsglobalchartsettingsdropdown.tsx_118': '',
@@ -400,7 +400,6 @@ module.exports = {
   'storybook.long-form.model': '',
   'storybook.long-form.name': '',
   'storybook.long-form.provider': '',
-  'test': '',
   'traces-v3-empty-state-button': '',
   'virtualized-table-header': '',
   'web-shared.genai-traces-table.evaluations-review-assessment.tooltip': '',

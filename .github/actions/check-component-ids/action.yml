@@ -1,0 +1,7 @@
+name: "check-component-ids"
+description: "Verify that all componentIds in the MLflow UI are registered in the componentId registry and vice versa."
+runs:
+  using: "composite"
+  steps:
+    - run: node ${GITHUB_WORKSPACE}/.github/actions/check-component-ids/index.js
+      shell: bash
