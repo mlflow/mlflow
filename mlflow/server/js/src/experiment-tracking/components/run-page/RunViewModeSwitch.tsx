@@ -1,79 +1,19 @@
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { NavigationMenu } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
+import { Link, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
-import { getTimeRangeQueryString } from '../../pages/experiment-page-tabs/side-nav/utils';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
-import { useState, type ReactNode } from 'react';
 import type { KeyValueEntity } from '../../../common/types';
 
 // Set of tabs that when active, the margin of the tab selector should be removed for better displaying
 const TABS_WITHOUT_MARGIN = [RunPageTabName.ARTIFACTS, RunPageTabName.EVALUATIONS];
 
-// Default tabs to show in the run view
-const DEFAULT_VISIBLE_TABS = [
-  RunPageTabName.OVERVIEW,
-  RunPageTabName.MODEL_METRIC_CHARTS,
-  RunPageTabName.SYSTEM_METRIC_CHARTS,
-  RunPageTabName.EVALUATIONS,
-  RunPageTabName.ARTIFACTS,
-];
-
-// Tab label configuration
-const TAB_LABELS: Record<RunPageTabName, ReactNode> = {
-  [RunPageTabName.OVERVIEW]: (
-    <FormattedMessage defaultMessage="Overview" description="Run details page > tab selector > overview tab" />
-  ),
-  [RunPageTabName.MODEL_METRIC_CHARTS]: (
-    <FormattedMessage
-      defaultMessage="Model metrics"
-      description="Run details page > tab selector > Model metrics tab"
-    />
-  ),
-  [RunPageTabName.SYSTEM_METRIC_CHARTS]: (
-    <FormattedMessage
-      defaultMessage="System metrics"
-      description="Run details page > tab selector > System metrics tab"
-    />
-  ),
-  [RunPageTabName.EVALUATIONS]: (
-    <FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />
-  ),
-  [RunPageTabName.TRACES]: (
-    <FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />
-  ),
-  [RunPageTabName.ISSUES]: (
-    <FormattedMessage defaultMessage="Issues" description="Run details page > tab selector > issues tab" />
-  ),
-  [RunPageTabName.ARTIFACTS]: (
-    <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
-  ),
-};
-
-export interface RunViewModeSwitchProps {
-  runTags?: Record<string, KeyValueEntity>;
-  /** Custom function to get the base route (overview tab) */
-  getBaseRoute?: (experimentId: string, runUuid: string) => string;
-  /** Custom function to get the route for a specific tab */
-  getTabRoute?: (experimentId: string, runUuid: string, tabName: string) => string;
-  /** List of tabs to show. Defaults to all tabs. */
-  visibleTabs?: RunPageTabName[];
-}
-
 /**
  * Mode switcher for the run details page.
  */
-export const RunViewModeSwitch = ({
-  runTags,
-  getBaseRoute,
-  getTabRoute,
-  visibleTabs = DEFAULT_VISIBLE_TABS,
-}: RunViewModeSwitchProps) => {
+export const RunViewModeSwitch = ({ runTags }: { runTags: Record<string, KeyValueEntity> }) => {
   const { experimentId, runUuid } = useParams<{ runUuid: string; experimentId: string }>();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { theme } = useDesignSystemTheme();
   const currentTab = useRunViewActiveTab();
 
   if (!experimentId || !runUuid) {
@@ -117,42 +57,22 @@ export const RunViewModeSwitch = ({
     },
   ];
 
-  const removeTabMargin = TABS_WITHOUT_MARGIN.includes(currentTab as RunPageTabName);
-
-  const onTabChanged = (newTabKey: RunPageTabName) => {
-    const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
-    const withSearchParams = (route: string) => (timeRangeSearch ? `${route}${timeRangeSearch}` : route);
-
-    if (newTabKey === RunPageTabName.OVERVIEW) {
-      const route = getBaseRoute ? getBaseRoute(experimentId, runUuid) : Routes.getRunPageRoute(experimentId, runUuid);
-      navigate(withSearchParams(route));
-      return;
-    }
-    const route = getTabRoute
-      ? getTabRoute(experimentId, runUuid, newTabKey)
-      : Routes.getRunPageTabRoute(experimentId, runUuid, newTabKey);
-    navigate(withSearchParams(route));
-  };
+  const getTabUrl = (tabKey: RunPageTabName) =>
+    tabKey === RunPageTabName.OVERVIEW
+      ? Routes.getRunPageRoute(experimentId, runUuid)
+      : Routes.getRunPageTabRoute(experimentId, runUuid, tabKey);
 
   return (
-    <Tabs.Root
-      componentId="mlflow.run-page.view-mode-switch"
-      value={currentTab}
-      onValueChange={onTabChanged}
-      valueHasNoPii
-      css={{
-        '& > div:nth-of-type(1)': {
-          marginBottom: removeTabMargin ? 0 : undefined,
-        },
-      }}
-    >
-      <Tabs.List>
-        {visibleTabs.map((tabName) => (
-          <Tabs.Trigger key={tabName} value={tabName}>
-            {TAB_LABELS[tabName]}
-          </Tabs.Trigger>
+    <NavigationMenu.Root aria-label="Run details navigation">
+      <NavigationMenu.List css={{ marginBottom: TABS_WITHOUT_MARGIN.includes(currentTab) ? 0 : undefined }}>
+        {tabs.map((tab) => (
+          <NavigationMenu.Item key={tab.key} active={currentTab === tab.key}>
+            <Link componentId="mlflow.run.details.tabs" to={getTabUrl(tab.key)}>
+              {tab.label}
+            </Link>
+          </NavigationMenu.Item>
         ))}
-      </Tabs.List>
-    </Tabs.Root>
+      </NavigationMenu.List>
+    </NavigationMenu.Root>
   );
 };

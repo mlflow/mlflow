@@ -2,13 +2,15 @@ import { Button, Empty, Modal, Tooltip } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useParams } from '../../common/utils/RoutingUtils';
-import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table';
+import {
+  createTraceLocationForExperiment,
+  GenAiTraceTableRowSelectionProvider,
+} from '@databricks/web-shared/genai-traces-table';
 import { GenAIChatSessionsTable, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
 import { getChatSessionsFilter } from '../pages/experiment-chat-sessions/utils';
 import { TracesV3DateSelector } from './experiment-page/components/traces-v3/TracesV3DateSelector';
 import type { MonitoringFilters } from '../hooks/useMonitoringFilters';
 import { MonitoringFiltersUpdateContext, useMonitoringFiltersTimeRange } from '../hooks/useMonitoringFilters';
-import { useSqlWarehouseContextSafe } from '../pages/experiment-page-tabs/SqlWarehouseContext';
 
 interface SelectSessionsModalProps {
   onClose?: () => void;
@@ -29,12 +31,9 @@ const SelectSessionsModalImpl = ({
 
   const timeRange = useMonitoringFiltersTimeRange();
 
-  const {
-    traceSearchLocations = [],
-    hasV4Location,
-    warehouseId: selectedWarehouseId,
-    setWarehouseId: setSelectedWarehouseId,
-  } = useSqlWarehouseContextSafe() ?? {};
+  const traceSearchLocations = useMemo(() => {
+    return [createTraceLocationForExperiment(experimentId ?? '')];
+  }, [experimentId]);
 
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(() =>
     initialSessionIdsSelected.reduce(
