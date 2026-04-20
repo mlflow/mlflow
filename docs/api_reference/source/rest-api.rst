@@ -8402,6 +8402,24 @@ Response
 | next_page_token | ``STRING``                           |                                                          |
 +-----------------+--------------------------------------+----------------------------------------------------------+
 
+.. _mlflowSearchSessionsV3Response:
+
+Response
+--------
+
+
+
+
+
+
++-----------------+--------------------------------------+----------------------------------------+
+|   Field Name    |                 Type                 |              Description               |
++=================+======================================+========================================+
+| sessions        | An array of :ref:`mlflowsessioninfo` | Sessions matching the search criteria. |
++-----------------+--------------------------------------+----------------------------------------+
+| next_page_token | ``STRING``                           |                                        |
++-----------------+--------------------------------------+----------------------------------------+
+
 .. _mlflowCreateDatasetResponse:
 
 Response
@@ -8875,6 +8893,34 @@ SearchLoggedModels
 | page_token     | ``STRING``                                         | Token indicating the page of Logged Models to fetch.                                                                           |
 +----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
 
+.. _mlflowSearchSessionsV3:
+
+SearchSessionsV3
+----------------
+
+
+
+Search for distinct sessions across trace locations. Each result is the
+first trace (by ``timestamp_ms``) of a session plus session-level stats.
+The ``filter`` and ``order_by`` are evaluated against the first trace of
+each session; traces without an ``mlflow.trace.session`` metadata key are
+excluded.
+
+
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------+
+| Field Name  |                  Type                  |                                                      Description                                                      |
++=============+========================================+=======================================================================================================================+
+| locations   | An array of :ref:`mlflowtracelocation` | A list of MLflow experiments to search over.                                                                          |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------+
+| filter      | ``STRING``                             | A filter expression evaluated against the first trace of each session. Syntax matches ``SearchTracesV3.filter``.      |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------+
+| max_results | ``INT32``                              | Maximum number of sessions desired. Max threshold is 500.                                                             |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------+
+| order_by    | An array of ``STRING``                 | List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``. Applied to the first trace of each session. |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------+
+| page_token  | ``STRING``                             | Token indicating the page of sessions to fetch.                                                                       |
++-------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------+
+
 .. _mlflowSearchTraces:
 
 SearchTraces
@@ -9008,6 +9054,26 @@ SerializedValue
 +----------------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | value                | ``STRING`` | The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.                                          |
 +----------------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+.. _mlflowSessionInfo:
+
+SessionInfo
+-----------
+
+
+
+A session grouped from traces sharing an ``mlflow.trace.session`` metadata
+value. Returned by ``SearchSessionsV3``.
+
+
++-------------------+--------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+|    Field Name     |           Type           |                                                                      Description                                                                      |
++===================+==========================+=======================================================================================================================================================+
+| first_trace       | :ref:`mlflowtraceinfov3` | The first trace (by ``timestamp_ms``) of the session. Carries the ``mlflow.trace.session`` metadata plus any request/response previews, tags, and     |
+|                   |                          | assessments needed to render a session header row.                                                                                                    |
++-------------------+--------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+| total_trace_count | ``INT64``                | Total number of traces in this session across all pages — authoritative, not page-bound.                                                              |
++-------------------+--------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSetDatasetTags:
 
