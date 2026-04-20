@@ -39,7 +39,6 @@ import {
   getLastTurnRecords,
   readTranscript,
 } from './transcript.js';
-const MAX_PREVIEW_LENGTH = 1000;
 
 /**
  * Process a Codex notify hook payload and create an MLflow trace.
@@ -72,11 +71,13 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     }
   }
 
-  // Create root AGENT span
+  // Create root AGENT span. Pass the user prompt as a raw string so MLflow
+  // can auto-generate the request preview and the session view renders the
+  // message cleanly.
   const rootSpan = startSpan({
     name: 'codex_conversation',
     spanType: SpanType.AGENT,
-    inputs: { prompt: userPrompt },
+    inputs: userPrompt,
     attributes: { model },
   });
 
@@ -105,20 +106,15 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     });
   }
 
-  // Set trace previews and metadata.
-  // We use InMemoryTraceManager directly because `updateCurrentTrace()` requires
-  // an active OTel span context, which hook-based integrations don't have —
-  // spans are created via `startSpan()` without OTel context propagation.
-  // This is the same pattern used by the opencode integration.
+  // Attach session/user metadata to the trace. We use InMemoryTraceManager
+  // directly because `updateCurrentTrace()` requires an active OTel span
+  // context, which hook-based integrations don't have — spans are created
+  // via `startSpan()` without OTel context propagation.
   const traceId = rootSpan.traceId;
   if (traceId) {
     const traceManager = InMemoryTraceManager.getInstance();
     const trace = traceManager.getTrace(traceId);
     if (trace) {
-      trace.info.requestPreview = userPrompt.slice(0, MAX_PREVIEW_LENGTH);
-      if (assistantResponse) {
-        trace.info.responsePreview = assistantResponse.slice(0, MAX_PREVIEW_LENGTH);
-      }
       trace.info.traceMetadata = {
         ...trace.info.traceMetadata,
         [TraceMetadataKey.TRACE_SESSION]: sessionId,
@@ -127,12 +123,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     }
   }
 
-  rootSpan.end({
-    outputs: {
-      status: 'completed',
-      response: assistantResponse,
-    },
-  });
+  rootSpan.end({ outputs: assistantResponse });
 
   await flushTraces();
 }

@@ -3,8 +3,6 @@ let spanCounter = 0;
 const mockSpans: Record<string, any> = {};
 const mockTraceInfo: {
   traceMetadata: Record<string, string>;
-  requestPreview?: string;
-  responsePreview?: string;
 } = {
   traceMetadata: {},
 };
@@ -103,8 +101,6 @@ describe('processNotify', () => {
     spanCounter = 0;
     Object.keys(mockSpans).forEach((key) => delete mockSpans[key]);
     mockTraceInfo.traceMetadata = {};
-    mockTraceInfo.requestPreview = undefined;
-    mockTraceInfo.responsePreview = undefined;
     jest.clearAllMocks();
   });
 
@@ -121,11 +117,11 @@ describe('processNotify', () => {
     expect(llmSpans[0].parentId).toBe(root.spanId);
   });
 
-  it('sets trace previews from notify payload', async () => {
+  it('passes the user prompt as a raw string on the root span', async () => {
     await processNotify(makeNotifyPayload());
 
-    expect(mockTraceInfo.requestPreview).toBe('what is 2+2');
-    expect(mockTraceInfo.responsePreview).toBe('4');
+    const root = getRootSpan();
+    expect(root.inputs).toBe('what is 2+2');
   });
 
   it('sets session metadata', async () => {
@@ -143,8 +139,10 @@ describe('processNotify', () => {
       }),
     );
 
-    expect(mockTraceInfo.requestPreview).toBe('third prompt');
-    expect(mockTraceInfo.responsePreview).toBe('response to third');
+    const root = getRootSpan();
+    expect(root.inputs).toBe('third prompt');
+    const endCall = (root.end as jest.Mock).mock.calls[0][0];
+    expect(endCall.outputs).toBe('response to third');
   });
 
   it('skips when no user prompt', async () => {
@@ -159,13 +157,12 @@ describe('processNotify', () => {
     expect(flushTraces).toHaveBeenCalled();
   });
 
-  it('includes response in root span outputs', async () => {
+  it('sets the assistant response as the raw root span output', async () => {
     await processNotify(makeNotifyPayload());
 
     const root = getRootSpan();
     expect(root.end).toHaveBeenCalled();
     const endCall = (root.end as jest.Mock).mock.calls[0][0];
-    expect(endCall.outputs.response).toBe('4');
-    expect(endCall.outputs.status).toBe('completed');
+    expect(endCall.outputs).toBe('4');
   });
 });
