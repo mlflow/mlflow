@@ -327,8 +327,12 @@ def cast_df_types_according_to_schema(pdf, schema):
                     pass
                 else:
                     # In pandas 3.0+, string columns with NaN are inferred as StringDtype
-                    # instead of object. Skip casting StringDtype to object as they are compatible.
-                    if col_type == object and isinstance(pdf[col_name].dtype, pd.StringDtype):
+                    # instead of object. Skip casting StringDtype to object/numpy str as they
+                    # are compatible; casting would downgrade StringDtype back to object.
+                    if (
+                        col_type == object
+                        or (isinstance(col_type, np.dtype) and col_type.kind == "U")
+                    ) and isinstance(pdf[col_name].dtype, pd.StringDtype):
                         continue
                     pdf[col_name] = pdf[col_name].astype(col_type)
             except Exception as ex:

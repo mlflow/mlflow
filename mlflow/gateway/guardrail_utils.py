@@ -54,11 +54,14 @@ async def run_before_guardrails(
     guardrails: list[JudgeGuardrail],
     payload_dict: dict[str, Any],
     auth_headers: dict[str, str] | None = None,
+    usage_tracking: bool = False,
 ) -> dict[str, Any]:
     """Run BEFORE-stage guardrails on the request payload. Returns the (possibly modified) dict."""
     for guardrail in guardrails:
         if guardrail.stage == GuardrailStage.BEFORE:
-            payload_dict = await guardrail.process_request(payload_dict, auth_headers=auth_headers)
+            payload_dict = await guardrail.process_request(
+                payload_dict, auth_headers=auth_headers, usage_tracking=usage_tracking
+            )
     return payload_dict
 
 
@@ -67,6 +70,7 @@ async def run_after_guardrails(
     request_payload: dict[str, Any],
     response: chat.ResponsePayload,
     auth_headers: dict[str, str] | None = None,
+    usage_tracking: bool = False,
 ) -> chat.ResponsePayload:
     """Run AFTER-stage guardrails on the response. Returns the (possibly modified) response.
 
@@ -80,6 +84,6 @@ async def run_after_guardrails(
     response_dict = response.model_dump()
     for guardrail in after_guardrails:
         response_dict = await guardrail.process_response(
-            request_payload, response_dict, auth_headers=auth_headers
+            request_payload, response_dict, auth_headers=auth_headers, usage_tracking=usage_tracking
         )
     return chat.ResponsePayload(**response_dict)
