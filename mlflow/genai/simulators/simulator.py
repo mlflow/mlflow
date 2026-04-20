@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import inspect
 import logging
 import math
