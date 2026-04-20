@@ -33,3 +33,7 @@ export const INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE = '_issue_discovery_judge
 // Key used in assessment metadata to indicate which document (by index) the assessment references
 export const MLFLOW_SPAN_OUTPUT_KEY = 'span_output_key';
 export const CHUNK_INDEX_KEY = 'chunk_index';
+
+// Threshold (in characters) above which markdown rendering is skipped to prevent
+// browser freezes from extremely large strings (e.g., un-extracted base64 data).
+export const MARKDOWN_RENDER_SIZE_LIMIT = 1_000_000;

@@ -8,15 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
-import {
-  Spacer,
-  Switch,
-  LegacyTabs,
-  LegacyTooltip,
-  Tooltip,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Spacer, Switch, LegacyTabs, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -698,16 +690,15 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             const cellText = value === undefined ? '' : formatter(value);
             return (
               <td className="data-value" key={this.props.runInfos[i].runUuid} css={colWidthStyle}>
-                <LegacyTooltip
-                  title={cellText}
-                  // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
-                  color="gray"
-                  placement="topLeft"
-                  overlayStyle={{ maxWidth: '400px' }}
-                  mouseEnterDelay={1.0}
+                <Tooltip
+                  componentId="mlflow.compare_runs.data_cell"
+                  content={cellText}
+                  side="top"
+                  align="start"
+                  maxWidth={400}
                 >
                   <span className="truncate-text single-line">{cellText}</span>
-                </LegacyTooltip>
+                </Tooltip>
               </td>
             );
           })}

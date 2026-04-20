@@ -14,6 +14,7 @@ import { TestRouter, setupTestRouter, testRoute } from '../../../../../common/ut
 
 const mockNavigate = jest.fn();
 
+// eslint-disable-next-line @databricks/no-restricted-jest-mock-modules
 jest.mock('@databricks/design-system', () => {
   const actual = jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system');
   const MockBreadcrumb = ({ children }: { children: React.ReactNode }) => <nav>{children}</nav>;

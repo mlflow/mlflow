@@ -20,6 +20,7 @@ import {
   isFeedbackAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
 
+import { ExecutionDurationTag } from './ExecutionDurationTag';
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { StackedComponents } from './StackedComponents';
@@ -44,7 +45,7 @@ import {
 } from '../hooks/useTableColumns';
 import { TracesTableColumnType, type TracesTableColumn } from '../types';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
-import { escapeCssSpecialCharacters, highlightSearchInText } from '../utils/DisplayUtils';
+import { escapeCssSpecialCharacters, highlightSearchInText, normalizeDurationString } from '../utils/DisplayUtils';
 import {
   convertFeedbackAssessmentToRunEvalAssessment,
   getExperimentIdFromTraceLocation,
@@ -554,40 +555,21 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     }
   } else if (column.id === EXECUTION_DURATION_COLUMN_ID) {
     // Duration - sum all execution durations
-    const duration = traces.length > 0 ? calculateSessionDuration(traces) : null;
-    const otherDuration = otherTraces && otherTraces.length > 0 ? calculateSessionDuration(otherTraces) : null;
+    const duration = traces.length > 0 ? normalizeDurationString(calculateSessionDuration(traces) ?? undefined) : null;
+    const otherDuration =
+      otherTraces && otherTraces.length > 0
+        ? normalizeDurationString(calculateSessionDuration(otherTraces) ?? undefined)
+        : null;
 
     if (isComparing) {
       cellContent = (
         <StackedComponents
-          first={
-            duration ? (
-              <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={duration}>
-                {duration}
-              </div>
-            ) : (
-              <NullCell isComparing />
-            )
-          }
-          second={
-            otherDuration ? (
-              <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherDuration}>
-                {otherDuration}
-              </div>
-            ) : (
-              <NullCell isComparing />
-            )
-          }
+          first={duration ? <ExecutionDurationTag value={duration} /> : <NullCell isComparing />}
+          second={otherDuration ? <ExecutionDurationTag value={otherDuration} /> : <NullCell isComparing />}
         />
       );
     } else {
-      cellContent = duration ? (
-        <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={duration}>
-          {duration}
-        </div>
-      ) : (
-        <NullCell />
-      );
+      cellContent = duration ? <ExecutionDurationTag value={duration} /> : <NullCell />;
     }
   } else if (column.id === SIMULATION_GOAL_COLUMN_ID) {
     // Goal column - show the simulation goal (same for matched sessions, so show once)

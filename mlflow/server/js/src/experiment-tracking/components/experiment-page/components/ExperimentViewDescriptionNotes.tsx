@@ -188,6 +188,7 @@ export const ExperimentViewDescriptionNotes = ({
           selectedTab={selectedTab}
           onTabChange={(newTab) => setSelectedTab(newTab)}
           generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
+          // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
           getIcon={(name) => (
             <Tooltip componentId="mlflow.experiment-tracking.experiment-description.edit" content={name}>
               <span css={{ color: theme.colors.textPrimary }}>

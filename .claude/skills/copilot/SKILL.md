@@ -20,6 +20,8 @@ gh agent-task create "<task description>"
 gh agent-task create -F task-desc.md
 ```
 
+`gh agent-task create` may print a `queued` message instead of a session URL (e.g., `job <job-id> queued. View progress: https://github.com/copilot/agents`). This means the task was created successfully but may stay queued for minutes or longer. Wait and then run `gh agent-task list` to check if a session has started.
+
 ## Post-creation
 
 Print both the session URL and the PR URL (strip `/agent-sessions/...` from the session URL).

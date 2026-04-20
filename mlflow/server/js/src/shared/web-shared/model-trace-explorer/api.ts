@@ -193,12 +193,12 @@ export const searchTracesV4 = async ({
   locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   pageSize?: number;
 }) => {
-  const payload: Record<string, any> = {
+  const payload = {
     locations,
     filter,
     max_results: pageSize ?? 1000,
     order_by: orderBy,
-  };
+  } satisfies Record<string, any>;
   const queryResponse = await fetchAPI(getAjaxUrl('ajax-api/4.0/mlflow/traces/search'), 'POST', payload, signal);
 
   const json = queryResponse as { trace_infos: ModelTraceInfoV3[]; next_page_token?: string };

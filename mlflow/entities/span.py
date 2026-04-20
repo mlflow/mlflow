@@ -1,3 +1,4 @@
+import ast
 import base64
 import json
 import logging
@@ -615,6 +616,18 @@ class LiveSpan(Span):
         return value
 
     def _store_attachment(self, attachment: Attachment) -> str:
+        from mlflow.environment_variables import MLFLOW_TRACE_MAX_ATTACHMENT_SIZE
+
+        max_size = MLFLOW_TRACE_MAX_ATTACHMENT_SIZE.get()
+        if max_size is not None and max_size > 0 and len(attachment.content_bytes) > max_size:
+            size_bytes = len(attachment.content_bytes)
+            msg = (
+                f"Attachment too large ({size_bytes} bytes > {max_size} bytes limit). "
+                f"Content discarded."
+            )
+            _logger.warning(msg)
+            self.record_exception(msg)
+            return f"[Attachment too large: {size_bytes} bytes exceeds {max_size} bytes limit]"
         ref = attachment.ref(self.trace_id)
         self._attachments[attachment.id] = attachment
         return ref
@@ -733,16 +746,27 @@ class LiveSpan(Span):
                     }
 
         # Google Gemini: {"inline_data": {"mime_type": "image/png", "data": "<base64>"}}
+        # The Gemini SDK (Pydantic) may serialize bytes as a Python repr string
+        # (e.g., "b'\\x89PNG...'") instead of base64, so we handle both formats.
         if isinstance(inline := value.get("inline_data"), dict):
             data = inline.get("data")
             mime_type = inline.get("mime_type", "application/octet-stream")
             if isinstance(data, str) and data and not data.startswith("mlflow-attachment://"):
                 if not isinstance(mime_type, str) or not mime_type:
                     mime_type = "application/octet-stream"
-                try:
-                    content_bytes = base64.b64decode(data, validate=True)
-                except Exception:
-                    return None
+                content_bytes = None
+                if data.startswith(("b'", 'b"')):
+                    try:
+                        parsed = ast.literal_eval(data)
+                        if isinstance(parsed, bytes):
+                            content_bytes = parsed
+                    except Exception:
+                        pass
+                if content_bytes is None:
+                    try:
+                        content_bytes = base64.b64decode(data, validate=True)
+                    except Exception:
+                        return None
                 ref = self._store_attachment(
                     Attachment(content_type=mime_type, content_bytes=content_bytes)
                 )
@@ -750,6 +774,23 @@ class LiveSpan(Span):
                     **value,
                     "inline_data": {**inline, "data": ref},
                 }
+
+        # OpenAI Responses API image generation:
+        # {"type": "image_generation_call", "result": "<base64>", "output_format": "png"}
+        if value.get("type") == "image_generation_call":
+            data = value.get("result")
+            fmt = value.get("output_format", "png")
+            if isinstance(data, str) and data and not data.startswith("mlflow-attachment://"):
+                if not isinstance(fmt, str) or not fmt:
+                    fmt = "png"
+                try:
+                    content_bytes = base64.b64decode(data, validate=True)
+                except Exception:
+                    return None
+                ref = self._store_attachment(
+                    Attachment(content_type=f"image/{fmt}", content_bytes=content_bytes)
+                )
+                return {**value, "result": ref}
 
         return None
 

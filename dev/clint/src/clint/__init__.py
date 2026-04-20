@@ -13,8 +13,25 @@ from typing_extensions import Self
 
 from clint.config import Config
 from clint.index import SymbolIndex
-from clint.linter import lint_file
+from clint.linter import Violation, lint_file
 from clint.utils import get_repo_root, resolve_paths
+
+_WORKER_INDEX: SymbolIndex | None = None
+_WORKER_CONFIG: Config | None = None
+
+
+def _init_worker(index_path: Path, config: Config) -> None:
+    global _WORKER_INDEX, _WORKER_CONFIG
+    _WORKER_INDEX = SymbolIndex.load(index_path)
+    _WORKER_CONFIG = config
+
+
+def _worker_lint(path: Path, code: str) -> list[Violation]:
+    if _WORKER_INDEX is None or _WORKER_CONFIG is None:
+        raise RuntimeError(
+            "Worker not initialized; _init_worker must be called before _worker_lint"
+        )
+    return lint_file(path, code, _WORKER_CONFIG, _WORKER_INDEX)
 
 
 @dataclass
@@ -66,8 +83,8 @@ def main() -> None:
         # the large index object to multiple worker processes
         index_path = Path(tmp_dir) / "symbol_index.pkl"
         SymbolIndex.build().save(index_path)
-        with ProcessPoolExecutor() as pool:
-            futures = [pool.submit(lint_file, f, f.read_text(), config, index_path) for f in files]
+        with ProcessPoolExecutor(initializer=_init_worker, initargs=(index_path, config)) as pool:
+            futures = [pool.submit(_worker_lint, f, f.read_text()) for f in files]
             violations_iter = itertools.chain.from_iterable(
                 f.result() for f in as_completed(futures)
             )
