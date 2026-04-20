@@ -73,6 +73,12 @@ jobs:
             --body "Weekly refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
             --label "team-review"
 
+      - name: Update model-catalog/latest tag
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git tag -f model-catalog/latest
+          git push -f origin model-catalog/latest
+
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'
         env:
