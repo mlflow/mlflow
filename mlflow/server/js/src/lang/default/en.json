@@ -491,6 +491,10 @@
     "defaultMessage": "User",
     "description": "Label for the user id section"
   },
+  "12WZU6": {
+    "defaultMessage": "Issues",
+    "description": "Run details page > tab selector > issues tab"
+  },
   "13vJft": {
     "defaultMessage": "View Examples",
     "description": "Experiment page > new run modal > prompt examples button"
@@ -4123,6 +4127,10 @@
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
   },
+  "Ob5d+s": {
+    "defaultMessage": "System metrics",
+    "description": "Run details page > tab selector > System metrics tab"
+  },
   "OcYzCN": {
     "defaultMessage": "Unresolved",
     "description": "Label for a user_frustration assessment with 'unresolved' value"
@@ -7146,10 +7154,6 @@
   "hDSawl": {
     "defaultMessage": "Run evaluation",
     "description": "Title for the run evaluation modal dialog"
-  },
-  "hFlaPP": {
-    "defaultMessage": "System metrics",
-    "description": "Run details page > tab selector > Model metrics tab"
   },
   "hHNj31": {
     "defaultMessage": "Cancel",
