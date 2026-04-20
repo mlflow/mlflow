@@ -71,7 +71,13 @@ jest.mock('@mlflow/core', () => {
 
 import { resolve } from 'path';
 
-import { createChildSpans, processNotify, reconstructMessages } from '../src/tracing';
+import {
+  createChildSpans,
+  findTaskCompleteNs,
+  findTaskStartedNs,
+  processNotify,
+  reconstructMessages,
+} from '../src/tracing';
 import { readTranscript, getLastTurnRecords } from '../src/transcript';
 import { flushTraces } from '@mlflow/core';
 import type { NotifyPayload, RolloutLine } from '../src/types';
@@ -470,5 +476,53 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
     // Sanity: spans don't overlap
     expect(llmSpans[0].endTimeNs).toBeLessThanOrEqual(toolSpans[0].startTimeNs);
     expect(toolSpans[0].endTimeNs).toBeLessThanOrEqual(llmSpans[1].startTimeNs);
+  });
+});
+
+describe('findTaskStartedNs / findTaskCompleteNs', () => {
+  it('extract the turn boundary timestamps from the fixture', () => {
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'));
+    const turn = getLastTurnRecords(records);
+
+    const parseNs = (iso: string) => new Date(iso).getTime() * 1_000_000;
+    expect(findTaskStartedNs(turn)).toBe(parseNs('2026-04-05T10:00:00Z'));
+    expect(findTaskCompleteNs(turn)).toBe(parseNs('2026-04-05T10:00:05Z'));
+  });
+
+  it('returns null when the turn lacks a task_started or task_complete event', () => {
+    // A turn that only contains a response_item (no event_msg markers)
+    const records: RolloutLine[] = [
+      {
+        timestamp: '2026-04-05T10:00:00Z',
+        type: 'response_item',
+        payload: { type: 'message', role: 'user', content: [] },
+      },
+    ];
+    expect(findTaskStartedNs(records)).toBeNull();
+    expect(findTaskCompleteNs(records)).toBeNull();
+  });
+
+  it('returned values bracket all child spans from createChildSpans', () => {
+    // Invariant: if processNotify passes these timestamps as the root span's
+    // startTimeNs/endTimeNs, the root span will correctly enclose every
+    // child created by createChildSpans.
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'));
+    const turn = getLastTurnRecords(records);
+    const startNs = findTaskStartedNs(turn)!;
+    const completeNs = findTaskCompleteNs(turn)!;
+
+    // Reset the span tracker populated by earlier describe blocks
+    spanCounter = 0;
+    Object.keys(mockSpans).forEach((key) => delete mockSpans[key]);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = { spanId: 'root' } as any;
+    createChildSpans(parent, turn, 'gpt-4');
+
+    for (const span of Object.values(mockSpans)) {
+      expect(span.startTimeNs).toBeGreaterThanOrEqual(startNs);
+      const endNs = (span.end as jest.Mock).mock.calls[0]?.[0]?.endTimeNs;
+      expect(endNs).toBeLessThanOrEqual(completeNs);
+    }
   });
 });

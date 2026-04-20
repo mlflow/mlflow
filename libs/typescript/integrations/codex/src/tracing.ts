@@ -76,6 +76,16 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     }
   }
 
+  // Root span bracket: use task_started / task_complete from the transcript
+  // so the root span covers the full turn. Without this, the root span would
+  // only cover the hook's own wall-clock execution time (a few ms), which is
+  // AFTER the transcript timestamps on the children. That makes the waterfall
+  // scale to ~turn_duration + hook_delay with the root as a sliver at the
+  // right edge. Opencode uses the same pattern with message.time.created /
+  // .completed.
+  const rootStartNs = turnRecords ? findTaskStartedNs(turnRecords) : null;
+  const rootEndNs = turnRecords ? findTaskCompleteNs(turnRecords) : null;
+
   // Create root AGENT span. Pass the user prompt as a raw string so MLflow
   // can auto-generate the request preview and the session view renders the
   // message cleanly.
@@ -84,6 +94,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     spanType: SpanType.AGENT,
     inputs: userPrompt,
     attributes: { model },
+    ...(rootStartNs != null ? { startTimeNs: rootStartNs } : {}),
   });
 
   // If we have transcript data, create detailed child spans
@@ -135,7 +146,10 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     }
   }
 
-  rootSpan.end({ outputs: assistantResponse });
+  rootSpan.end({
+    outputs: assistantResponse,
+    ...(rootEndNs != null ? { endTimeNs: rootEndNs } : {}),
+  });
 
   await flushTraces();
 }
@@ -286,11 +300,29 @@ export function createChildSpans(
  * Find the turn's `task_started` event_msg timestamp in nanoseconds.
  * Returns null if the turn doesn't include a task_started event.
  */
-function findTaskStartedNs(turnRecords: RolloutLine[]): number | null {
+export function findTaskStartedNs(turnRecords: RolloutLine[]): number | null {
   for (const record of turnRecords) {
     if (record.type === 'event_msg') {
       const payload = record.payload as EventMsgPayload;
       if (payload.type === 'task_started') {
+        return parseTimestampToNs(record.timestamp);
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Find the turn's `task_complete` event_msg timestamp in nanoseconds.
+ * Returns null if the turn doesn't include a task_complete event (in-progress
+ * turns may not have one yet).
+ */
+export function findTaskCompleteNs(turnRecords: RolloutLine[]): number | null {
+  for (let i = turnRecords.length - 1; i >= 0; i--) {
+    const record = turnRecords[i];
+    if (record.type === 'event_msg') {
+      const payload = record.payload as EventMsgPayload;
+      if (payload.type === 'task_complete') {
         return parseTimestampToNs(record.timestamp);
       }
     }
