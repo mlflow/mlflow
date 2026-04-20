@@ -110,12 +110,9 @@ class DeepEvalScorer(Scorer):
     def model_dump(self, **kwargs) -> dict[str, Any]:
         return self._build_third_party_dump(
             metric_name=self._metric_name,
-            model=self._model_uri if self._third_party_accepts_model() else None,
+            model=self._model_uri,
             metric_kwargs=self._metric_kwargs,
         )
-
-    def _third_party_accepts_model(self) -> bool:
-        return not self._is_deterministic
 
     def align(self, **kwargs):
         raise MlflowException.invalid_parameter_value(

@@ -1069,19 +1069,11 @@ class Scorer(BaseModel):
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
         return copy
 
-    def _third_party_accepts_model(self) -> bool:
-        """Whether this third-party scorer's constructor accepts a `model=` kwarg.
-
-        Defaults to True. Subclasses whose concrete metrics reject `model` for some
-        variants (e.g. RAGAS deterministic metrics via `_validate_args`) override
-        this to return False for those variants.
-        """
-        return True
-
     def _rebuild_third_party_copy(self) -> "Scorer":
         """Rebuild a third-party scorer wrapper by re-invoking `__init__`.
 
-        Subclasses must populate `_metric_name`, `_model` (may be None), and
+        Subclasses must populate `_metric_name`, `_model` (None when the concrete
+        metric rejects `model=`, e.g. RAGAS/DeepEval deterministic metrics), and
         `_metric_kwargs` in their `__init__` for this to work. Preserves
         user-facing overrides (``name``, ``description``, ``aggregations``) and
         any cached serialization dump.
@@ -1096,7 +1088,7 @@ class Scorer(BaseModel):
         if class_metric_name != metric_name:
             init_kwargs["metric_name"] = metric_name
         model = getattr(self, "_model", None)
-        if model is not None and self._third_party_accepts_model():
+        if model is not None:
             init_kwargs["model"] = model
         new_instance = type(self)(**init_kwargs)
 

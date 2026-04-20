@@ -86,16 +86,25 @@ class RagasScorer(Scorer):
 
         self._validate_args(metric_name, model)
         super().__init__(name=metric_name)
-        model = model or get_default_model()
-        self._model = model
         # Preserve the intrinsic RAGAS metric identifier separately from `self.name`,
         # which users can rebind at register-time via `register(name=...)`.
         self._metric_name = metric_name
         # Snapshot the user-supplied metric kwargs so we can round-trip them through
         # register() -> serialize -> model_validate without re-wrapping the LLM/embeddings.
         self._metric_kwargs = dict(metric_kwargs)
+        # Deterministic RAGAS metrics (e.g. `ExactMatch`) reject `model=` in their
+        # constructor via `_validate_args`; leave `_model` as None for them so
+        # serialization round-trips and `_create_copy` reconstruct cleanly.
+        metric_accepts_model = requires_llm_in_constructor(
+            metric_name
+        ) or requires_llm_at_score_time(metric_name)
+        if metric_accepts_model:
+            model = model or get_default_model()
+            self._model = model
+        else:
+            self._model = None
         metric_class = get_metric_class(metric_name)
-        ragas_llm = create_ragas_model(model)
+        ragas_llm = create_ragas_model(model) if metric_accepts_model else None
         constructor_kwargs = dict(metric_kwargs)
 
         if requires_llm_in_constructor(metric_name):
@@ -115,19 +124,10 @@ class RagasScorer(Scorer):
         return ScorerKind.THIRD_PARTY
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
-        # Deterministic RAGAS metrics (e.g., ExactMatch) reject `model=` in their
-        # constructor via `_validate_args`. We still stash `self._model` for audit
-        # purposes, but only serialize it when the metric actually accepts one so
-        # round-trips reconstruct cleanly.
         return self._build_third_party_dump(
             metric_name=self._metric_name,
-            model=self._model if self._third_party_accepts_model() else None,
+            model=self._model,
             metric_kwargs=self._metric_kwargs,
-        )
-
-    def _third_party_accepts_model(self) -> bool:
-        return requires_llm_in_constructor(self._metric_name) or requires_llm_at_score_time(
-            self._metric_name
         )
 
     def align(self, **kwargs):
