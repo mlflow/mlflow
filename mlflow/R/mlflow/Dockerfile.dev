@@ -3,7 +3,8 @@ FROM rocker/r-ver:4.2.1@sha256:6f9339b3e58d872078cb947c2c0089759bb599b99c4f135d7
 
 WORKDIR /mlflow/mlflow/R/mlflow
 RUN apt-get update -y
-RUN apt-get install lsb-release git wget libxml2-dev libgit2-dev -y
+# `fs` >= 2.0.0 binaries from PPM link against `libuv.so.1`; install the runtime lib.
+RUN apt-get install lsb-release git wget libxml2-dev libgit2-dev libuv1 -y
 
 # Install miniforge
 RUN wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O ~/miniforge.sh
