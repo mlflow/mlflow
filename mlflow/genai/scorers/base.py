@@ -413,7 +413,7 @@ class Scorer(BaseModel):
             module_path = data.get("module") or ""
             class_name = data.get("class")
             metric_name = data.get("metric_name")
-            if not any(
+            if ".." in module_path or not any(
                 module_path == m or module_path.startswith(m + ".")
                 for m in THIRD_PARTY_SCORER_ALLOWED_MODULES
             ):
@@ -990,7 +990,9 @@ class Scorer(BaseModel):
 
     def _create_copy(self) -> "Scorer":
         self._check_can_be_registered(
-            error_message="Scorer must be a builtin or decorator scorer to be copied."
+            error_message=(
+                "Scorer must be a builtin, decorator, or third-party scorer to be copied."
+            )
         )
 
         if self.kind == ScorerKind.THIRD_PARTY:

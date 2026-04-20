@@ -297,5 +297,4 @@ __all__ = [
     "PlanQuality",
     "ToolSelection",
     "ToolCalling",
-    "ScorerKind",
 ]

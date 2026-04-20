@@ -286,6 +286,23 @@ def test_deepeval_scorer_serialization_round_trip():
     assert restored.kind == ScorerKind.THIRD_PARTY
 
 
+def test_deepeval_scorer_llm_metric_serialization_round_trip(mock_deepeval_model):
+    from mlflow.genai.scorers.base import Scorer
+
+    with patch(
+        "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
+    ):
+        scorer = AnswerRelevancy(model="openai:/gpt-4o")
+        dump = scorer.model_dump()
+        assert dump["third_party_scorer_data"]["class"] == "AnswerRelevancy"
+        assert dump["third_party_scorer_data"]["metric_name"] == "AnswerRelevancy"
+        assert dump["third_party_scorer_data"]["model"] == "openai:/gpt-4o"
+
+        restored = Scorer.model_validate(dump)
+        assert isinstance(restored, AnswerRelevancy)
+        assert restored._model == "openai:/gpt-4o"
+
+
 def test_deepeval_scorer_align_not_supported():
     from mlflow.exceptions import MlflowException
 
