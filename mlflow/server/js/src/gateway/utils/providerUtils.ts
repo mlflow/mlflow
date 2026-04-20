@@ -1,5 +1,6 @@
 export const COMMON_PROVIDERS = [
   'openai',
+  'azure',
   'anthropic',
   'databricks',
   'bedrock',
@@ -29,10 +30,7 @@ export const PROVIDER_GROUPS = {
   },
 };
 
-export function getProviderGroupId(provider: string): string | null {
-  if (provider === 'openai' || provider === 'azure') {
-    return 'openai_azure';
-  }
+export function getProviderGroupId(_provider: string): string | null {
   return null;
 }
 

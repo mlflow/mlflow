@@ -5,7 +5,6 @@ import { NavigableCombobox } from '../../../common/components/navigable-combobox
 import type {
   NavigableComboboxConfig,
   ComboboxModalTriggerItem,
-  ComboboxGroupItem,
   ComboboxSelectableItem,
 } from '../../../common/components/navigable-combobox/types';
 import type { SelectorItem } from '../../../common/components/selector-modal/types';
@@ -45,44 +44,22 @@ export const ProviderSelect = ({
       };
     }
 
-    const { groups, ungroupedProviders } = buildProviderGroups(providers);
+    const { ungroupedProviders } = buildProviderGroups(providers);
     const commonSet = new Set<string>(COMMON_PROVIDERS);
 
-    const commonUngrouped: string[] = [];
+    const commonProviders: string[] = [];
     const otherUngrouped: string[] = [];
     for (const provider of ungroupedProviders) {
       if (commonSet.has(provider)) {
-        commonUngrouped.push(provider);
+        commonProviders.push(provider);
       } else {
         otherUngrouped.push(provider);
       }
     }
 
-    const items: (ComboboxSelectableItem<string> | ComboboxGroupItem<string> | ComboboxModalTriggerItem<string>)[] = [];
+    const items: (ComboboxSelectableItem<string> | ComboboxModalTriggerItem<string>)[] = [];
 
-    for (const group of groups) {
-      const isCommonGroup = group.groupId === 'openai_azure' || group.groupId === 'vertex_ai';
-      if (isCommonGroup) {
-        const groupItem: ComboboxGroupItem<string> = {
-          type: 'group',
-          key: `group-${group.groupId}`,
-          label: group.displayName,
-          backLabel: intl.formatMessage({
-            defaultMessage: 'Back to providers',
-            description: 'Navigation back to main provider list',
-          }),
-          children: group.providers.map((provider) => ({
-            type: 'item' as const,
-            key: provider,
-            label: formatProviderName(provider),
-            value: provider,
-          })),
-        };
-        items.push(groupItem);
-      }
-    }
-
-    for (const provider of commonUngrouped) {
+    for (const provider of commonProviders) {
       items.push({
         type: 'item',
         key: provider,
@@ -92,11 +69,10 @@ export const ProviderSelect = ({
     }
 
     const getCommonProviderIndex = (
-      item: ComboboxSelectableItem<string> | ComboboxGroupItem<string> | ComboboxModalTriggerItem<string>,
+      item: ComboboxSelectableItem<string> | ComboboxModalTriggerItem<string>,
     ): number => {
       if (item.type === 'modal-trigger') return Infinity;
-      const providerKey = item.type === 'group' ? item.children[0]?.value : item.value;
-      const index = COMMON_PROVIDERS.indexOf(providerKey as (typeof COMMON_PROVIDERS)[number]);
+      const index = COMMON_PROVIDERS.indexOf(item.value as (typeof COMMON_PROVIDERS)[number]);
       return index === -1 ? Infinity : index;
     };
     items.sort((a, b) => getCommonProviderIndex(a) - getCommonProviderIndex(b));
