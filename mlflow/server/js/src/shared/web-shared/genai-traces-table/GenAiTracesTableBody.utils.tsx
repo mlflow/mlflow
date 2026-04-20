@@ -104,23 +104,10 @@ export const formatResponseTitle = (outputs: string) => {
   try {
     const parsedOutputs = JSON.parse(outputs);
 
-    // Try to parse OpenAI choices format (nested under response key)
-    const nestedChoices = parsedOutputs['response']?.['choices'];
-    if (Array.isArray(nestedChoices) && !isNil(nestedChoices[0]?.message?.content)) {
-      outputsTitle = nestedChoices[0]?.message?.content;
-    }
-    // Try to parse top-level choices format
-    else if (Array.isArray(parsedOutputs['choices']) && !isNil(parsedOutputs['choices'][0]?.message?.content)) {
-      outputsTitle = parsedOutputs['choices'][0]?.message?.content;
-    }
-    // Try to parse messages array format (last assistant message)
-    else if (Array.isArray(parsedOutputs['messages'])) {
-      const lastMsg = [...parsedOutputs['messages']].reverse().find((m: Record<string, unknown>) => m?.['content']);
-      if (lastMsg?.['content']) {
-        outputsTitle = lastMsg['content'] as string;
-      } else {
-        outputsTitle = stringifyValue(outputs);
-      }
+    // Try to parse OpenAI messages
+    const choices = parsedOutputs['response']['choices'];
+    if (Array.isArray(choices) && !isNil(choices[0]?.message?.content)) {
+      outputsTitle = choices[0]?.message?.content;
     } else {
       outputsTitle = stringifyValue(outputs);
     }

@@ -1,9 +1,12 @@
+const path = require('path');
+
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
+  modulePaths: [path.resolve(__dirname, '../../node_modules')],
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
@@ -20,9 +23,9 @@ module.exports = {
       },
     ],
   },
-  // Only service.ts helpers are tested — no external deps needed
+  // openclaw/plugin-sdk/* doesn't exist outside the gateway runtime —
+  // map to a trivial empty module so service.ts can load.
   moduleNameMapper: {
-    '^@mlflow/core$': '<rootDir>/tests/__mocks__/@mlflow/core.ts',
-    '^openclaw/plugin-sdk/(.*)$': '<rootDir>/tests/__mocks__/openclaw/plugin-sdk/$1.ts',
+    '^openclaw/plugin-sdk/.*$': '<rootDir>/tests/__mocks__/empty.ts',
   },
 };
