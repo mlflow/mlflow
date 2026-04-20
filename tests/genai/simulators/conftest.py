@@ -27,9 +27,12 @@ def simulation_mocks(mock_trace):
 
     @contextmanager
     def mock_context(metadata=None, tags=None, enabled=None, session_id=None, user=None):
-        captured_context_calls.append(
-            {"metadata": metadata, "tags": tags, "session_id": session_id, "user": user}
-        )
+        captured_context_calls.append({
+            "metadata": metadata,
+            "tags": tags,
+            "session_id": session_id,
+            "user": user,
+        })
         # Apply metadata/tags to the mock trace so tests can assert on them
         if metadata:
             mock_trace.info.trace_metadata.update(metadata)
