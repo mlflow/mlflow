@@ -16,8 +16,11 @@ from mlflow.server.auth.db.models import (
     SqlGatewayModelDefinitionPermission,
     SqlGatewaySecretPermission,
     SqlRegisteredModelPermission,
+    SqlRole,
+    SqlRolePermission,
     SqlScorerPermission,
     SqlUser,
+    SqlUserRoleAssignment,
     SqlWorkspacePermission,
 )
 from mlflow.server.auth.entities import (
@@ -26,11 +29,21 @@ from mlflow.server.auth.entities import (
     GatewayModelDefinitionPermission,
     GatewaySecretPermission,
     RegisteredModelPermission,
+    Role,
+    RolePermission,
     ScorerPermission,
     User,
+    UserRoleAssignment,
     WorkspacePermission,
 )
-from mlflow.server.auth.permissions import Permission, _validate_permission, get_permission
+from mlflow.server.auth.permissions import (
+    MANAGE,
+    Permission,
+    _validate_permission,
+    _validate_resource_type,
+    get_permission,
+    max_permission,
+)
 from mlflow.store.db.utils import _get_managed_session_maker, create_sqlalchemy_engine_with_retry
 from mlflow.utils import workspace_context
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -782,3 +795,305 @@ class SqlAlchemyStore:
             session.query(SqlGatewayModelDefinitionPermission).filter(
                 SqlGatewayModelDefinitionPermission.model_definition_id == model_definition_id,
             ).delete()
+
+    # ---- Role CRUD ----
+
+    def create_role(
+        self,
+        name: str,
+        workspace: str,
+        description: str | None = None,
+        is_workspace_admin: bool = False,
+    ) -> Role:
+        with self.ManagedSessionMaker() as session:
+            try:
+                role = SqlRole(
+                    name=name,
+                    workspace=workspace,
+                    description=description,
+                    is_workspace_admin=is_workspace_admin,
+                )
+                session.add(role)
+                session.flush()
+                return role.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Role (name={name}, workspace={workspace}) already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    @staticmethod
+    def _get_role(session, role_id: int) -> SqlRole:
+        try:
+            return session.query(SqlRole).filter(SqlRole.id == role_id).one()
+        except NoResultFound:
+            raise MlflowException(
+                f"Role with id={role_id} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+    @staticmethod
+    def _get_role_by_name(session, workspace: str, name: str) -> SqlRole:
+        try:
+            return (
+                session
+                .query(SqlRole)
+                .filter(SqlRole.workspace == workspace, SqlRole.name == name)
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Role with name={name} in workspace={workspace} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+    def get_role(self, role_id: int) -> Role:
+        with self.ManagedSessionMaker() as session:
+            return self._get_role(session, role_id).to_mlflow_entity()
+
+    def get_role_by_name(self, workspace: str, name: str) -> Role:
+        with self.ManagedSessionMaker() as session:
+            return self._get_role_by_name(session, workspace, name).to_mlflow_entity()
+
+    def list_roles(self, workspace: str) -> list[Role]:
+        with self.ManagedSessionMaker() as session:
+            roles = session.query(SqlRole).filter(SqlRole.workspace == workspace).all()
+            return [r.to_mlflow_entity() for r in roles]
+
+    def list_all_roles(self) -> list[Role]:
+        with self.ManagedSessionMaker() as session:
+            roles = session.query(SqlRole).all()
+            return [r.to_mlflow_entity() for r in roles]
+
+    def update_role(
+        self,
+        role_id: int,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> Role:
+        with self.ManagedSessionMaker() as session:
+            role = self._get_role(session, role_id)
+            if name is not None:
+                # Check for name conflicts before updating
+                existing = (
+                    session
+                    .query(SqlRole)
+                    .filter(
+                        SqlRole.workspace == role.workspace,
+                        SqlRole.name == name,
+                        SqlRole.id != role_id,
+                    )
+                    .first()
+                )
+                if existing is not None:
+                    raise MlflowException(
+                        f"Role with name={name} already exists in workspace={role.workspace}",
+                        RESOURCE_ALREADY_EXISTS,
+                    )
+                role.name = name
+            if description is not None:
+                role.description = description
+            return role.to_mlflow_entity()
+
+    def delete_role(self, role_id: int) -> None:
+        with self.ManagedSessionMaker() as session:
+            role = self._get_role(session, role_id)
+            session.delete(role)
+
+    def delete_roles_for_workspace(self, workspace_name: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlRole).filter(SqlRole.workspace == workspace_name).delete(
+                synchronize_session=False
+            )
+
+    # ---- RolePermission CRUD ----
+
+    def add_role_permission(
+        self,
+        role_id: int,
+        resource_type: str,
+        resource_pattern: str,
+        permission: str,
+    ) -> RolePermission:
+        _validate_permission(permission)
+        _validate_resource_type(resource_type)
+        with self.ManagedSessionMaker() as session:
+            self._get_role(session, role_id)
+            try:
+                rp = SqlRolePermission(
+                    role_id=role_id,
+                    resource_type=resource_type,
+                    resource_pattern=resource_pattern,
+                    permission=permission,
+                )
+                session.add(rp)
+                session.flush()
+                return rp.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Role permission (role_id={role_id}, resource_type={resource_type}, "
+                    f"resource_pattern={resource_pattern}) already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def remove_role_permission(self, role_permission_id: int) -> None:
+        with self.ManagedSessionMaker() as session:
+            try:
+                rp = (
+                    session
+                    .query(SqlRolePermission)
+                    .filter(SqlRolePermission.id == role_permission_id)
+                    .one()
+                )
+            except NoResultFound:
+                raise MlflowException(
+                    f"Role permission with id={role_permission_id} not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            session.delete(rp)
+
+    def list_role_permissions(self, role_id: int) -> list[RolePermission]:
+        with self.ManagedSessionMaker() as session:
+            self._get_role(session, role_id)
+            perms = (
+                session.query(SqlRolePermission).filter(SqlRolePermission.role_id == role_id).all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_role_permission(self, role_permission_id: int, permission: str) -> RolePermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                rp = (
+                    session
+                    .query(SqlRolePermission)
+                    .filter(SqlRolePermission.id == role_permission_id)
+                    .one()
+                )
+            except NoResultFound:
+                raise MlflowException(
+                    f"Role permission with id={role_permission_id} not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            rp.permission = permission
+            return rp.to_mlflow_entity()
+
+    # ---- UserRoleAssignment CRUD ----
+
+    def assign_role_to_user(self, user_id: int, role_id: int) -> UserRoleAssignment:
+        with self.ManagedSessionMaker() as session:
+            self._get_role(session, role_id)
+            try:
+                assignment = SqlUserRoleAssignment(user_id=user_id, role_id=role_id)
+                session.add(assignment)
+                session.flush()
+                return UserRoleAssignment(
+                    id_=assignment.id,
+                    user_id=assignment.user_id,
+                    role_id=assignment.role_id,
+                )
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"User role assignment (user_id={user_id}, role_id={role_id}) "
+                    f"already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def unassign_role_from_user(self, user_id: int, role_id: int) -> None:
+        with self.ManagedSessionMaker() as session:
+            try:
+                assignment = (
+                    session
+                    .query(SqlUserRoleAssignment)
+                    .filter(
+                        SqlUserRoleAssignment.user_id == user_id,
+                        SqlUserRoleAssignment.role_id == role_id,
+                    )
+                    .one()
+                )
+            except NoResultFound:
+                raise MlflowException(
+                    f"User role assignment (user_id={user_id}, role_id={role_id}) not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            session.delete(assignment)
+
+    def list_user_roles(self, user_id: int) -> list[Role]:
+        with self.ManagedSessionMaker() as session:
+            assignments = (
+                session
+                .query(SqlUserRoleAssignment)
+                .filter(SqlUserRoleAssignment.user_id == user_id)
+                .all()
+            )
+            role_ids = [a.role_id for a in assignments]
+            if not role_ids:
+                return []
+            roles = session.query(SqlRole).filter(SqlRole.id.in_(role_ids)).all()
+            return [r.to_mlflow_entity() for r in roles]
+
+    def list_user_roles_for_workspace(self, user_id: int, workspace: str) -> list[Role]:
+        with self.ManagedSessionMaker() as session:
+            roles = (
+                session
+                .query(SqlRole)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                )
+                .all()
+            )
+            return [r.to_mlflow_entity() for r in roles]
+
+    def list_role_users(self, role_id: int) -> list[UserRoleAssignment]:
+        with self.ManagedSessionMaker() as session:
+            self._get_role(session, role_id)
+            assignments = (
+                session
+                .query(SqlUserRoleAssignment)
+                .filter(SqlUserRoleAssignment.role_id == role_id)
+                .all()
+            )
+            return [
+                UserRoleAssignment(id_=a.id, user_id=a.user_id, role_id=a.role_id)
+                for a in assignments
+            ]
+
+    # ---- Role-based permission resolution ----
+
+    def get_role_permission_for_resource(
+        self, user_id: int, resource_type: str, resource_id: str, workspace: str
+    ) -> Permission | None:
+        with self.ManagedSessionMaker() as session:
+            roles = (
+                session
+                .query(SqlRole)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                )
+                .all()
+            )
+            if not roles:
+                return None
+
+            best_permission_name: str | None = None
+            for role in roles:
+                if role.is_workspace_admin:
+                    return MANAGE
+
+                for rp in role.permissions:
+                    if rp.resource_type != resource_type:
+                        continue
+                    if rp.resource_pattern in ("*", resource_id):
+                        best_permission_name = (
+                            max_permission(best_permission_name, rp.permission)
+                            if best_permission_name is not None
+                            else rp.permission
+                        )
+
+            if best_permission_name is None:
+                return None
+            return get_permission(best_permission_name)
