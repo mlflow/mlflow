@@ -243,7 +243,7 @@ async def test_maybe_traced_gateway_call_with_user_metadata(endpoint_config):
 
 
 @pytest.mark.asyncio
-async def test_maybe_traced_gateway_call_without_experiment_id(endpoint_config_no_experiment):
+async def test_maybe_traced_gateway_call_without_usage_tracking(endpoint_config_no_experiment):
     traced_func = maybe_traced_gateway_call(
         mock_async_func,
         endpoint_config_no_experiment,
