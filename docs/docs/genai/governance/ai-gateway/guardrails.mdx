@@ -64,7 +64,7 @@ Request  >  Before Guardrails  >  LLM  >  After Guardrails  >  Response
 Click **Before Guardrails** or **After Guardrails** to select where this guardrail runs:
 
 - **Before Guardrails**: evaluates the incoming request before it reaches the LLM. Use `{{ inputs }}` in your instructions to reference the request content.
-- **After Guardrails**: evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content. After guardrails are **not triggered for streaming requests** — only non-streaming responses are evaluated.
+- **After Guardrails**: evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content, or `{{ inputs }}` to reference the original request. After guardrails are **not triggered for streaming requests** — only non-streaming responses are evaluated.
 
 When you switch between stages, the editor automatically swaps `{{ inputs }}` ↔ `{{ outputs }}` in your instructions so they remain correct.
 
@@ -72,7 +72,7 @@ When you switch between stages, the editor automatically swaps `{{ inputs }}` �
 
 Write natural-language instructions for the LLM judge. Instructions describe what the guardrail should look for and how it should respond. The hint text below the label shows an example for the currently selected stage.
 
-Instructions must contain the relevant variable (`{{ inputs }}` for Before, `{{ outputs }}` for After) so the judge receives the actual content to evaluate.
+Instructions must contain at least one content variable so the judge receives the actual content to evaluate. Use `{{ inputs }}` to reference the request and `{{ outputs }}` to reference the LLM response — Before guardrails typically use `{{ inputs }}`, while After guardrails can use `{{ outputs }}`, `{{ inputs }}`, or both.
 
 Example instructions for a custom toxicity guardrail on the After stage:
 
