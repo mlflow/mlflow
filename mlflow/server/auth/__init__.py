@@ -183,13 +183,16 @@ from mlflow.server.auth.permissions import (
     get_permission,
 )
 from mlflow.server.auth.routes import (
+    ADD_ROLE_PERMISSION,
     AJAX_LIST_USERS,
+    ASSIGN_ROLE,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
     CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
     CREATE_GATEWAY_SECRET_PERMISSION,
     CREATE_PROMPTLAB_RUN,
     CREATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_ROLE,
     CREATE_SCORER_PERMISSION,
     CREATE_USER,
     CREATE_USER_UI,
@@ -198,6 +201,7 @@ from mlflow.server.auth.routes import (
     DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
     DELETE_GATEWAY_SECRET_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_ROLE,
     DELETE_SCORER_PERMISSION,
     DELETE_USER,
     GATEWAY_PROVIDER_CONFIG,
@@ -214,21 +218,31 @@ from mlflow.server.auth.routes import (
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_MODEL_VERSION_ARTIFACT,
     GET_REGISTERED_MODEL_PERMISSION,
+    GET_ROLE,
     GET_SCORER_PERMISSION,
     GET_TRACE_ARTIFACT,
     GET_USER,
     HOME,
     INVOKE_SCORER,
+    LIST_ALL_ROLES,
+    LIST_ROLE_PERMISSIONS,
+    LIST_ROLE_USERS,
+    LIST_ROLES,
+    LIST_USER_ROLES,
     LIST_USER_WORKSPACE_PERMISSIONS,
     LIST_USERS,
     LIST_WORKSPACE_PERMISSIONS,
+    REMOVE_ROLE_PERMISSION,
     SEARCH_DATASETS,
     SIGNUP,
+    UNASSIGN_ROLE,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_GATEWAY_ENDPOINT_PERMISSION,
     UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
     UPDATE_GATEWAY_SECRET_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_ROLE,
+    UPDATE_ROLE_PERMISSION,
     UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
@@ -323,38 +337,62 @@ def _get_request_param(param: str) -> str:
     return args[param]
 
 
+def _higher_permission(a: Permission, b: Permission) -> Permission:
+    from mlflow.server.auth.permissions import PERMISSION_PRIORITY
+
+    a_priority = PERMISSION_PRIORITY.get(a.name, 0)
+    b_priority = PERMISSION_PRIORITY.get(b.name, 0)
+    return a if a_priority >= b_priority else b
+
+
 def _get_permission_from_store_or_default(
     store_permission_func: Callable[[], str],
     workspace_level_permission_func: Callable[[], Permission | None] | None = None,
+    role_permission_func: Callable[[], Permission | None] | None = None,
 ) -> Permission:
     """
-    Resolve a permission from the auth store, with an optional workspace-aware fallback.
+    Resolve a permission from the auth store, with optional role-based and workspace fallbacks.
 
-    Behavior:
-    - If a direct (resource-level) permission exists, it is returned.
-    - If no direct permission exists and workspaces are enabled, callers provide
-      ``workspace_level_permission_func`` to check workspace-level permissions for the resource's
-      workspace. This fallback should default to ``NO_PERMISSIONS`` to preserve workspace isolation.
-    - If workspace permissions are not applicable (e.g. workspaces are disabled and the func
-      returns ``None``), fall back to ``auth_config.default_permission``.
-    - Unexpected errors are propagated rather than granting access.
+    Resolution order:
+    1. If role_permission_func is provided and returns a non-None/non-NO_PERMISSIONS result,
+       combine it with any direct resource permission (take the higher of the two).
+    2. If a direct (resource-level) permission exists, it is returned.
+    3. If no direct permission exists and workspaces are enabled, check workspace-level permission.
+    4. Fall back to auth_config.default_permission.
     """
+    # Check role-based permissions
+    role_perm = None
+    if role_permission_func is not None:
+        role_perm = role_permission_func()
+
+    # Check direct resource permission
+    direct_perm = None
     try:
-        perm = store_permission_func()
+        direct_perm = get_permission(store_permission_func())
     except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            if workspace_level_permission_func is not None:
-                workspace_permission = workspace_level_permission_func()
-                # workspace_permission is only None when workspaces are not enabled.
-                # workspace_permission defaults to NO_PERMISSIONS. In effect, this means that
-                # auth_config.default_permission is not supported when workspaces are enabled
-                # to keep workspace isolation.
-                if workspace_permission is not None:
-                    return workspace_permission
-            perm = auth_config.default_permission
-        else:
+        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
-    return get_permission(perm)
+
+    # If we have both, take the higher
+    if role_perm is not None and role_perm != NO_PERMISSIONS and direct_perm is not None:
+        return _higher_permission(role_perm, direct_perm)
+
+    # If only role permission, use it
+    if role_perm is not None and role_perm != NO_PERMISSIONS:
+        return role_perm
+
+    # If only direct permission, use it
+    if direct_perm is not None:
+        return direct_perm
+
+    # Fall back to workspace permission
+    if workspace_level_permission_func is not None:
+        workspace_permission = workspace_level_permission_func()
+        if workspace_permission is not None:
+            return workspace_permission
+
+    # Final fallback to default
+    return get_permission(auth_config.default_permission)
 
 
 def _workspace_permission(
@@ -572,11 +610,23 @@ def _get_permission_from_experiment_id() -> Permission:
 
 
 def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
+    def _role_perm():
+        user = store.get_user(username)
+        workspace_name = _get_resource_workspace(
+            experiment_id, _get_tracking_store().get_experiment, "experiment"
+        )
+        if workspace_name is None:
+            return None
+        return store.get_role_permission_for_resource(
+            user.id, "experiment", experiment_id, workspace_name
+        )
+
     return _get_permission_from_store_or_default(
         lambda: store.get_experiment_permission(experiment_id, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
             username, experiment_id
         ),
+        role_permission_func=_role_perm,
     )
 
 
@@ -678,11 +728,24 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
     username = authenticate_request().username
+
+    def _role_perm():
+        user = store.get_user(username)
+        workspace_name = _get_resource_workspace(
+            name, _get_model_registry_store().get_registered_model, "registered model"
+        )
+        if workspace_name is None:
+            return None
+        return store.get_role_permission_for_resource(
+            user.id, "registered_model", name, workspace_name
+        )
+
     return _get_permission_from_store_or_default(
         lambda: store.get_registered_model_permission(name, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_registered_model(
             username, name
         ),
+        role_permission_func=_role_perm,
     )
 
 
@@ -690,11 +753,24 @@ def _get_permission_from_scorer_name() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
     username = authenticate_request().username
+
+    def _role_perm():
+        user = store.get_user(username)
+        workspace_name = _get_resource_workspace(
+            experiment_id, _get_tracking_store().get_experiment, "experiment"
+        )
+        if workspace_name is None:
+            return None
+        return store.get_role_permission_for_resource(
+            user.id, "scorer", f"{experiment_id}/{name}", workspace_name
+        )
+
     return _get_permission_from_store_or_default(
         lambda: store.get_scorer_permission(experiment_id, name, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
             username, experiment_id
         ),
+        role_permission_func=_role_perm,
     )
 
 
@@ -702,11 +778,24 @@ def _get_permission_from_scorer_permission_request() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     scorer_name = _get_request_param("scorer_name")
     username = authenticate_request().username
+
+    def _role_perm():
+        user = store.get_user(username)
+        workspace_name = _get_resource_workspace(
+            experiment_id, _get_tracking_store().get_experiment, "experiment"
+        )
+        if workspace_name is None:
+            return None
+        return store.get_role_permission_for_resource(
+            user.id, "scorer", f"{experiment_id}/{scorer_name}", workspace_name
+        )
+
     return _get_permission_from_store_or_default(
         lambda: store.get_scorer_permission(experiment_id, scorer_name, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
             username, experiment_id
         ),
+        role_permission_func=_role_perm,
     )
 
 
@@ -770,28 +859,74 @@ def _workspace_permission_for_gateway_model_definition(
 def _get_permission_from_gateway_secret_id() -> Permission:
     secret_id = _get_request_param("secret_id")
     username = authenticate_request().username
+
+    def _role_perm():
+        user = store.get_user(username)
+        workspace_name = _get_resource_workspace(
+            secret_id,
+            lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+            "gateway secret",
+        )
+        if workspace_name is None:
+            return None
+        return store.get_role_permission_for_resource(
+            user.id, "gateway_secret", secret_id, workspace_name
+        )
+
     return _get_permission_from_store_or_default(
         lambda: store.get_gateway_secret_permission(secret_id, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_gateway_secret(
             username, secret_id
         ),
+        role_permission_func=_role_perm,
     )
 
 
 def _get_permission_from_gateway_endpoint_id() -> Permission:
     endpoint_id = _get_request_param("endpoint_id")
     username = authenticate_request().username
+
+    def _role_perm():
+        user = store.get_user(username)
+        workspace_name = _get_resource_workspace(
+            endpoint_id,
+            lambda eid: _get_tracking_store().get_gateway_endpoint(endpoint_id=eid),
+            "gateway endpoint",
+        )
+        if workspace_name is None:
+            return None
+        return store.get_role_permission_for_resource(
+            user.id, "gateway_endpoint", endpoint_id, workspace_name
+        )
+
     return _get_permission_from_store_or_default(
         lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_gateway_endpoint(
             username, endpoint_id
         ),
+        role_permission_func=_role_perm,
     )
 
 
 def _get_permission_from_gateway_model_definition_id() -> Permission:
     model_definition_id = _get_request_param("model_definition_id")
     username = authenticate_request().username
+
+    def _role_perm():
+        user = store.get_user(username)
+        workspace_name = _get_resource_workspace(
+            model_definition_id,
+            lambda mdid: _get_tracking_store().get_gateway_model_definition(
+                model_definition_id=mdid
+            ),
+            "gateway model definition",
+        )
+        if workspace_name is None:
+            return None
+        return store.get_role_permission_for_resource(
+            user.id, "gateway_model_definition", model_definition_id, workspace_name
+        )
+
     return _get_permission_from_store_or_default(
         lambda: (
             store.get_gateway_model_definition_permission(model_definition_id, username).permission
@@ -799,6 +934,7 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
         workspace_level_permission_func=lambda: _workspace_permission_for_gateway_model_definition(
             username, model_definition_id
         ),
+        role_permission_func=_role_perm,
     )
 
 
@@ -1022,6 +1158,53 @@ def sender_is_admin():
     return store.get_user(username).is_admin
 
 
+def _is_workspace_admin(username: str, workspace: str) -> bool:
+    user = store.get_user(username)
+    roles = store.list_user_roles_for_workspace(user.id, workspace)
+    return any(r.is_workspace_admin for r in roles)
+
+
+def _get_role_workspace_from_request() -> str:
+    if role_id := _get_request_param("role_id"):
+        role = store.get_role(int(role_id))
+        return role.workspace
+    return _get_request_param("workspace")
+
+
+def validate_can_manage_roles():
+    username = authenticate_request().username
+    if store.get_user(username).is_admin:
+        return True
+    workspace = _get_role_workspace_from_request()
+    return _is_workspace_admin(username, workspace)
+
+
+def validate_can_view_roles():
+    username = authenticate_request().username
+    user = store.get_user(username)
+    if user.is_admin:
+        return True
+    workspace = _get_role_workspace_from_request()
+    roles = store.list_user_roles_for_workspace(user.id, workspace)
+    return len(roles) > 0
+
+
+def validate_can_view_user_roles():
+    username = authenticate_request().username
+    user = store.get_user(username)
+    if user.is_admin:
+        return True
+    target_username = _get_request_param("username")
+    if username == target_username:
+        return True
+    # WP admins can view user roles for users in their workspaces
+    all_target_roles = store.list_user_roles(store.get_user(target_username).id)
+    for role in all_target_roles:
+        if _is_workspace_admin(username, role.workspace):
+            return True
+    return False
+
+
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
     """
     Filter experiment IDs to only include those the user has read access to.
@@ -1046,6 +1229,7 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
             return experiment_ids
 
         username = authenticate_request().username
+        user = store.get_user(username)
         perms = store.list_experiment_permissions(username)
         can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
         default_can_read = get_permission(auth_config.default_permission).can_read
@@ -1060,6 +1244,14 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
         workspace_perm = (
             _workspace_permission(username, workspace_name) if workspace_name else NO_PERMISSIONS
         )
+
+        # Check if user has a wildcard experiment role in the active workspace
+        if workspace_name:
+            role_perm = store.get_role_permission_for_resource(
+                user.id, "experiment", "*", workspace_name
+            )
+            if role_perm is not None and role_perm.can_read:
+                return experiment_ids
 
         return [
             exp_id for exp_id in experiment_ids if can_read.get(exp_id, workspace_perm.can_read)
@@ -1621,6 +1813,24 @@ BEFORE_REQUEST_VALIDATORS.update({
     ): validate_can_manage_gateway_model_definition,
 })
 
+# Role management routes (RBAC)
+BEFORE_REQUEST_VALIDATORS.update({
+    (CREATE_ROLE, "POST"): validate_can_manage_roles,
+    (GET_ROLE, "GET"): validate_can_view_roles,
+    (LIST_ROLES, "GET"): validate_can_view_roles,
+    (UPDATE_ROLE, "PATCH"): validate_can_manage_roles,
+    (DELETE_ROLE, "DELETE"): validate_can_manage_roles,
+    (ADD_ROLE_PERMISSION, "POST"): validate_can_manage_roles,
+    (REMOVE_ROLE_PERMISSION, "DELETE"): validate_can_manage_roles,
+    (LIST_ROLE_PERMISSIONS, "GET"): validate_can_view_roles,
+    (UPDATE_ROLE_PERMISSION, "PATCH"): validate_can_manage_roles,
+    (ASSIGN_ROLE, "POST"): validate_can_manage_roles,
+    (UNASSIGN_ROLE, "DELETE"): validate_can_manage_roles,
+    (LIST_USER_ROLES, "GET"): validate_can_view_user_roles,
+    (LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
+    (LIST_ALL_ROLES, "GET"): sender_is_admin,
+})
+
 # Flask routes (no proto mapping)
 BEFORE_REQUEST_VALIDATORS.update({
     (GET_ARTIFACT, "GET"): validate_can_read_run_artifact,
@@ -1934,6 +2144,122 @@ def list_user_workspace_permissions():
     return jsonify({"permissions": [perm.to_json() for perm in permissions]})
 
 
+# ---- Role management handlers (RBAC) ----
+
+
+@catch_mlflow_exception
+def create_role():
+    name = _get_request_param("name")
+    workspace = _get_request_param("workspace")
+    body = request.json or {}
+    description = body.get("description")
+    is_workspace_admin = body.get("is_workspace_admin", False)
+    role = store.create_role(name, workspace, description, is_workspace_admin)
+    return jsonify({"role": role.to_json()})
+
+
+@catch_mlflow_exception
+def get_role():
+    role_id = int(_get_request_param("role_id"))
+    role = store.get_role(role_id)
+    return jsonify({"role": role.to_json()})
+
+
+@catch_mlflow_exception
+def list_roles():
+    workspace = _get_request_param("workspace")
+    roles = store.list_roles(workspace)
+    return jsonify({"roles": [r.to_json() for r in roles]})
+
+
+@catch_mlflow_exception
+def update_role():
+    role_id = int(_get_request_param("role_id"))
+    body = request.json or {}
+    name = body.get("name")
+    description = body.get("description")
+    role = store.update_role(role_id, name=name, description=description)
+    return jsonify({"role": role.to_json()})
+
+
+@catch_mlflow_exception
+def delete_role():
+    role_id = int(_get_request_param("role_id"))
+    store.delete_role(role_id)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def add_role_permission():
+    role_id = int(_get_request_param("role_id"))
+    resource_type = _get_request_param("resource_type")
+    resource_pattern = _get_request_param("resource_pattern")
+    permission = _get_request_param("permission")
+    rp = store.add_role_permission(role_id, resource_type, resource_pattern, permission)
+    return jsonify({"role_permission": rp.to_json()})
+
+
+@catch_mlflow_exception
+def remove_role_permission():
+    role_permission_id = int(_get_request_param("role_permission_id"))
+    store.remove_role_permission(role_permission_id)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def list_role_permissions():
+    role_id = int(_get_request_param("role_id"))
+    perms = store.list_role_permissions(role_id)
+    return jsonify({"role_permissions": [p.to_json() for p in perms]})
+
+
+@catch_mlflow_exception
+def update_role_permission():
+    role_permission_id = int(_get_request_param("role_permission_id"))
+    permission = _get_request_param("permission")
+    rp = store.update_role_permission(role_permission_id, permission)
+    return jsonify({"role_permission": rp.to_json()})
+
+
+@catch_mlflow_exception
+def assign_role():
+    username = _get_request_param("username")
+    role_id = int(_get_request_param("role_id"))
+    user = store.get_user(username)
+    assignment = store.assign_role_to_user(user.id, role_id)
+    return jsonify({"assignment": assignment.to_json()})
+
+
+@catch_mlflow_exception
+def unassign_role():
+    username = _get_request_param("username")
+    role_id = int(_get_request_param("role_id"))
+    user = store.get_user(username)
+    store.unassign_role_from_user(user.id, role_id)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def list_user_roles():
+    username = _get_request_param("username")
+    user = store.get_user(username)
+    roles = store.list_user_roles(user.id)
+    return jsonify({"roles": [r.to_json() for r in roles]})
+
+
+@catch_mlflow_exception
+def list_role_users():
+    role_id = int(_get_request_param("role_id"))
+    assignments = store.list_role_users(role_id)
+    return jsonify({"assignments": [a.to_json() for a in assignments]})
+
+
+@catch_mlflow_exception
+def list_all_roles():
+    roles = store.list_all_roles()
+    return jsonify({"roles": [r.to_json() for r in roles]})
+
+
 def filter_list_workspaces(resp: Response) -> None:
     if sender_is_admin():
         return
@@ -1969,6 +2295,15 @@ def _cleanup_workspace_permissions(resp: Response) -> None:
     except MlflowException as e:
         _logger.error(
             "Failed to delete workspace permissions for workspace '%s': %s",
+            workspace_name,
+            e,
+        )
+
+    try:
+        store.delete_roles_for_workspace(workspace_name)
+    except MlflowException as e:
+        _logger.error(
+            "Failed to delete roles for workspace '%s': %s",
             workspace_name,
             e,
         )
@@ -3426,6 +3761,25 @@ def create_app(app: Flask = app):
         view_func=list_user_workspace_permissions,
         methods=["GET"],
     )
+    # Role management routes (RBAC)
+    app.add_url_rule(rule=CREATE_ROLE, view_func=create_role, methods=["POST"])
+    app.add_url_rule(rule=GET_ROLE, view_func=get_role, methods=["GET"])
+    app.add_url_rule(rule=LIST_ROLES, view_func=list_roles, methods=["GET"])
+    app.add_url_rule(rule=UPDATE_ROLE, view_func=update_role, methods=["PATCH"])
+    app.add_url_rule(rule=DELETE_ROLE, view_func=delete_role, methods=["DELETE"])
+    app.add_url_rule(rule=ADD_ROLE_PERMISSION, view_func=add_role_permission, methods=["POST"])
+    app.add_url_rule(
+        rule=REMOVE_ROLE_PERMISSION, view_func=remove_role_permission, methods=["DELETE"]
+    )
+    app.add_url_rule(rule=LIST_ROLE_PERMISSIONS, view_func=list_role_permissions, methods=["GET"])
+    app.add_url_rule(
+        rule=UPDATE_ROLE_PERMISSION, view_func=update_role_permission, methods=["PATCH"]
+    )
+    app.add_url_rule(rule=ASSIGN_ROLE, view_func=assign_role, methods=["POST"])
+    app.add_url_rule(rule=UNASSIGN_ROLE, view_func=unassign_role, methods=["DELETE"])
+    app.add_url_rule(rule=LIST_USER_ROLES, view_func=list_user_roles, methods=["GET"])
+    app.add_url_rule(rule=LIST_ROLE_USERS, view_func=list_role_users, methods=["GET"])
+    app.add_url_rule(rule=LIST_ALL_ROLES, view_func=list_all_roles, methods=["GET"])
 
     app.before_request(_before_request)
     app.after_request(_after_request)
