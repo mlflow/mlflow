@@ -15,9 +15,9 @@ Guardrails are only supported on **unified endpoints**. They are not available f
 
 Common use cases include:
 
-- **Safety filtering** — reject harmful, offensive, or toxic content before it reaches your users or your LLM.
-- **PII detection** — prevent personally identifiable information from leaking in requests or responses.
-- **Custom policies** — enforce organization-specific rules such as topic restrictions, tone requirements, or brand guidelines.
+- **Safety filtering**: reject harmful, offensive, or toxic content before it reaches your users or your LLM.
+- **PII detection**: prevent personally identifiable information from leaking in requests or responses.
+- **Custom policies**: enforce organization-specific rules such as topic restrictions, tone requirements, or brand guidelines.
 
 ## Viewing Guardrails
 
@@ -43,7 +43,7 @@ Click **Create Guardrail** to open the creation wizard.
   style={{ maxWidth: "100%" }}
 />
 
-Three built-in types are available:
+Several built-in types are available:
 
 | Type                 | Description                                                                                                                                                                    |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -75,8 +75,8 @@ Request  >  Before Guardrails  >  LLM  >  After Guardrails  >  Response
 
 Click **Before Guardrails** or **After Guardrails** to select where this guardrail runs:
 
-- **Before Guardrails** — evaluates the incoming request before it reaches the LLM. Use `{{ inputs }}` in your instructions to reference the request content.
-- **After Guardrails** — evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content. After guardrails are **not triggered for streaming requests** — only non-streaming responses are evaluated.
+- **Before Guardrails**: evaluates the incoming request before it reaches the LLM. Use `{{ inputs }}` in your instructions to reference the request content.
+- **After Guardrails**: evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content. After guardrails are **not triggered for streaming requests** — only non-streaming responses are evaluated.
 
 When you switch between stages, the editor automatically swaps `{{ inputs }}` ↔ `{{ outputs }}` in your instructions so they remain correct.
 
@@ -110,8 +110,8 @@ The current endpoint is automatically excluded from the list to prevent circular
 
 Choose what happens when the guardrail triggers (i.e., when the judge returns `"no"`):
 
-- **Block** — the request is rejected immediately with an HTTP 400 response. The response body includes the guardrail name and the judge's rationale so callers can understand why the request was blocked.
-- **Sanitize** — flagged content is redacted or masked, then the (sanitized) request or response is allowed to continue through the pipeline.
+- **Block**: the request is rejected immediately with an HTTP 400 response. The response body includes the guardrail name and the judge's rationale so callers can understand why the request was blocked.
+- **Sanitize**: flagged content is redacted or masked, then the (sanitized) request or response is allowed to continue through the pipeline.
 
 Click **Create Guardrail** to save. The guardrail is immediately active for all traffic through the endpoint.
 
