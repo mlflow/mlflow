@@ -84,11 +84,24 @@ class VertexAIProvider(GeminiProvider):
         credentials = self._get_credentials()
         return {"Authorization": f"Bearer {credentials.token}"}
 
+    def _requires_global_endpoint(self) -> bool:
+        """Check if the model requires the global endpoint.
+
+        Some models (e.g., Gemini 3 family) are only available via the
+        global endpoint and cannot be accessed through regional endpoints.
+        See: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/locations
+        """
+        return self.config.model.name.startswith("gemini-3")
+
     @property
     def base_url(self) -> str:
-        location = self.vertex_config.vertex_location
         project = self.vertex_config.vertex_project
-        if location:
+        if self._requires_global_endpoint():
+            return (
+                "https://aiplatform.googleapis.com"
+                f"/v1/projects/{project}/locations/global/publishers/google/models"
+            )
+        if location := self.vertex_config.vertex_location:
             host = f"https://{location}-aiplatform.googleapis.com"
             path = f"/v1/projects/{project}/locations/{location}/publishers/google/models"
         else:

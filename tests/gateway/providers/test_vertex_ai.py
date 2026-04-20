@@ -123,6 +123,36 @@ def test_global_endpoint_when_no_location():
     )
 
 
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "gemini-3-flash-preview",
+        "gemini-3-pro-preview",
+        "gemini-3-pro-image-preview",
+        "gemini-3.1-pro-preview",
+    ],
+)
+def test_gemini3_uses_global_endpoint(model_name: str):
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": model_name,
+            "config": {
+                "vertex_project": "my-gcp-project",
+                "vertex_location": "us-central1",
+            },
+        },
+    )
+    provider = VertexAIProvider(endpoint_config)
+    provider._cached_credentials = _mock_credentials()
+    assert provider.base_url == (
+        "https://aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/global/publishers/google/models"
+    )
+
+
 def test_with_credentials():
     creds_json = json.dumps({"type": "service_account", "project_id": "test"})
     config = VertexAIConfig(vertex_project="my-project", vertex_credentials=creds_json)
