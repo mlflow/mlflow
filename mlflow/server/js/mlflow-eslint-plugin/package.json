@@ -7,7 +7,6 @@
     "index.js"
   ],
   "scripts": {
-    "test": "node --test **/*.test.js",
-    "check-stale-ids": "node check-registry-staleness.js"
+    "test": "node --test **/*.test.js"
   }
 }
