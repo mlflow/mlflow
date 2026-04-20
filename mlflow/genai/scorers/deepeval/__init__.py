@@ -73,6 +73,7 @@ class DeepEvalScorer(Scorer):
         model_kwargs: dict[str, Any] | None = None,
         **metric_kwargs: Any,
     ):
+        # Use class attribute if metric_name not provided
         if metric_name is None:
             metric_name = self.metric_name
 
@@ -85,6 +86,7 @@ class DeepEvalScorer(Scorer):
         self._metric_kwargs = dict(metric_kwargs)
 
         if self._is_deterministic:
+            # Deterministic metrics don't need a model
             self._metric = metric_class(**metric_kwargs)
             self._model = None
         else:

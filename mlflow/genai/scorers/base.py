@@ -255,6 +255,9 @@ class Scorer(BaseModel):
         return f"{base_repr[:-1]}, sample_rate={self.sample_rate}, filter_string={filter_string})"
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
+        """Override model_dump to include source code."""
+
+        # Return cached dump if available (prevents re-serialization issues with dynamic functions)
         if self._cached_dump is not None:
             return self._cached_dump
 
@@ -277,13 +280,23 @@ class Scorer(BaseModel):
             self._cached_dump = asdict(serialized)
             return self._cached_dump
 
+        # Check if this is a decorator scorer
         if not getattr(self, "_original_func", None):
+            # BuiltInScorer overrides `model_dump`, so this is neither a builtin scorer nor a
+            # decorator scorer
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported scorer type: {self.__class__.__name__}. "
-                f"Use a builtin scorer, the @scorer decorator, or a third-party wrapper."
+                f"Scorer serialization only supports:\n"
+                f"1. Builtin scorers (from mlflow.genai.scorers.builtin_scorers)\n"
+                f"2. Decorator-created scorers (using @scorer decorator)\n"
+                f"Direct subclassing of Scorer is not supported for serialization. "
+                f"Please use the @scorer decorator instead."
             )
 
+        # Decorator scorer - extract and store source code
         source_info = self._extract_source_code_info()
+
+        # Create serialized scorer with all fields at once
         serialized = SerializedScorer(
             name=self.name,
             description=self.description,
@@ -989,6 +1002,9 @@ class Scorer(BaseModel):
         )
 
     def _create_copy(self) -> "Scorer":
+        """
+        Create a copy of this scorer instance.
+        """
         self._check_can_be_registered(
             error_message=(
                 "Scorer must be a builtin, decorator, or third-party scorer to be copied."
@@ -1011,6 +1027,7 @@ class Scorer(BaseModel):
                 copy.aggregations = self.aggregations
         else:
             copy = self.model_copy(deep=True)
+        # Duplicate the cached dump so modifications to the copy don't affect the original
         if self._cached_dump is not None:
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
         return copy

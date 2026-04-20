@@ -455,8 +455,19 @@ def test_direct_subclass_scorer_rejected():
     assert direct_scorer(outputs="hello world") is True
     assert direct_scorer(outputs="hi") is False
 
+    # But serialization should raise an error
     with pytest.raises(MlflowException, match="Unsupported scorer type: DirectSubclassScorer"):
         direct_scorer.model_dump()
+
+    # Verify the error message is informative
+    try:
+        direct_scorer.model_dump()
+    except MlflowException as e:
+        error_msg = str(e)
+        assert "Builtin scorers" in error_msg
+        assert "Decorator-created scorers" in error_msg
+        assert "@scorer decorator" in error_msg
+        assert "Direct subclassing of Scorer is not supported" in error_msg
 
 
 def test_builtin_scorer_with_aggregations_round_trip():
