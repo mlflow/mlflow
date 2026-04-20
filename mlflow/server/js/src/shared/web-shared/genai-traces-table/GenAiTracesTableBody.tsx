@@ -85,6 +85,7 @@ export const GenAiTracesTableBody = React.memo(
     isFetchingNextPage,
     assessmentCountMetrics,
     compareAssessmentCountMetrics,
+    sessionCounts,
   }: {
     experimentId?: string;
     selectedColumns: TracesTableColumn[];
@@ -129,6 +130,12 @@ export const GenAiTracesTableBody = React.memo(
     // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
     assessmentCountMetrics?: AssessmentCountMetrics;
     compareAssessmentCountMetrics?: AssessmentCountMetrics;
+    /**
+     * Authoritative per-session trace counts from the `search_sessions`
+     * endpoint. Threaded into `groupTracesBySessionForTable` so session
+     * header rows render the real total instead of the loaded-page count.
+     */
+    sessionCounts?: Record<string, number>;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -242,9 +249,9 @@ export const GenAiTracesTableBody = React.memo(
     const { groupedRows, traceIdToTurnMap } = useMemo(
       () =>
         isGroupedBySession
-          ? groupTracesBySessionForTable(evaluations, expandedSessions, isComparing)
+          ? groupTracesBySessionForTable(evaluations, expandedSessions, isComparing, sessionCounts)
           : { groupedRows: [], traceIdToTurnMap: {} },
-      [isGroupedBySession, evaluations, expandedSessions, isComparing],
+      [isGroupedBySession, evaluations, expandedSessions, isComparing, sessionCounts],
     );
 
     const table = useReactTable<EvalTraceComparisonEntry & { multiline?: boolean }>(

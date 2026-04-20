@@ -144,7 +144,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
               <SessionHeaderRow
                 sessionId={groupedRow.sessionId}
                 otherSessionId={groupedRow.otherSessionId}
-                traceCount={groupedRow.traces.length}
+                traceCount={groupedRow.totalTraceCount ?? groupedRow.traces.length}
                 traces={groupedRow.traces}
                 otherTraces={groupedRow.otherTraces}
                 goal={groupedRow.goal}

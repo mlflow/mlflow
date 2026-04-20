@@ -1,5 +1,5 @@
 import { jest, describe, test, expect, it, beforeEach } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { IntlProvider } from '@databricks/i18n';
@@ -30,7 +30,11 @@ import {
   RESPONSE_COLUMN_ID,
 } from './useTableColumns';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
-import { shouldUseTracesV4API } from '../utils/FeatureUtils';
+import {
+  shouldUseInfinitePaginatedTraces,
+  shouldUseSessionsSearchAPI,
+  shouldUseTracesV4API,
+} from '../utils/FeatureUtils';
 import { fetchAPI } from '../utils/FetchUtils';
 
 // Mock shouldEnableUnifiedEvalTab
@@ -38,6 +42,8 @@ jest.mock('../utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../utils/FeatureUtils')>('../utils/FeatureUtils'),
   shouldEnableUnifiedEvalTab: jest.fn(),
   shouldUseTracesV4API: jest.fn().mockReturnValue(false),
+  shouldUseInfinitePaginatedTraces: jest.fn().mockReturnValue(false),
+  shouldUseSessionsSearchAPI: jest.fn().mockReturnValue(false),
   getMlflowTracesSearchPageSize: jest.fn().mockReturnValue(10000),
 }));
 
@@ -1688,6 +1694,161 @@ describe('useSearchMlflowTraces', () => {
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data?.[0].trace_id).toBe('trace_1');
     expect(result.current.data?.[0].assessments?.length).toBe(2);
+  });
+});
+
+describe('useSearchMlflowTraces — session search branch', () => {
+  beforeEach(() => {
+    jest.mocked(shouldUseTracesV4API).mockReturnValue(false);
+    jest.mocked(shouldUseInfinitePaginatedTraces).mockReturnValue(true);
+    jest.mocked(fetchAPI).mockClear();
+  });
+
+  const locations = [
+    {
+      type: 'MLFLOW_EXPERIMENT' as const,
+      mlflow_experiment: { experiment_id: 'exp-1' },
+    },
+  ];
+
+  test('hits the sessions endpoint when both flags + isGroupedBySession are true, flattens SessionInfo[], and surfaces sessionCounts', async () => {
+    jest.mocked(shouldUseSessionsSearchAPI).mockReturnValue(true);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      sessions: [
+        {
+          first_trace: {
+            trace_id: 'tr-a',
+            trace_metadata: { 'mlflow.trace.session': 'session-a' },
+          },
+          total_trace_count: '3',
+        },
+        {
+          first_trace: {
+            trace_id: 'tr-b',
+            trace_metadata: { 'mlflow.trace.session': 'session-b' },
+          },
+          total_trace_count: 1,
+        },
+      ],
+      next_page_token: undefined,
+    });
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ locations, isGroupedBySession: true }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(fetchAPI).toHaveBeenCalledTimes(1);
+    const [url] = jest.mocked(fetchAPI).mock.lastCall as any;
+    expect(url).toBe('/ajax-api/3.0/mlflow/traces/sessions/search');
+
+    // The hook flattens SessionInfo[] → ModelTraceInfoV3[] (the first traces)
+    // so downstream grouping/rendering code is unchanged.
+    expect(result.current.data).toHaveLength(2);
+    expect(result.current.data?.[0].trace_id).toBe('tr-a');
+    expect(result.current.data?.[1].trace_id).toBe('tr-b');
+
+    // total_trace_count is surfaced via the sessionCounts sidecar, keyed by
+    // the `mlflow.trace.session` metadata value. int64 arrives as a string
+    // from proto3 JSON — must be coerced to number.
+    expect(result.current.sessionCounts).toEqual({
+      'session-a': 3,
+      'session-b': 1,
+    });
+  });
+
+  test('falls back to traces/search when sessions flag is off', async () => {
+    jest.mocked(shouldUseSessionsSearchAPI).mockReturnValue(false);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({ traces: [], next_page_token: undefined });
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ locations, isGroupedBySession: true }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url] = jest.mocked(fetchAPI).mock.lastCall as any;
+    expect(url).toBe('/ajax-api/3.0/mlflow/traces/search');
+    expect(result.current.sessionCounts).toBeUndefined();
+  });
+
+  test('falls back to traces/search when grouping is off, even with sessions flag on', async () => {
+    jest.mocked(shouldUseSessionsSearchAPI).mockReturnValue(true);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({ traces: [], next_page_token: undefined });
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ locations, isGroupedBySession: false }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url] = jest.mocked(fetchAPI).mock.lastCall as any;
+    expect(url).toBe('/ajax-api/3.0/mlflow/traces/search');
+    expect(result.current.sessionCounts).toBeUndefined();
+  });
+
+  test('falls back to traces/search when infinite pagination is off', async () => {
+    jest.mocked(shouldUseInfinitePaginatedTraces).mockReturnValue(false);
+    jest.mocked(shouldUseSessionsSearchAPI).mockReturnValue(true);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({ traces: [], next_page_token: undefined });
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ locations, isGroupedBySession: true }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url] = jest.mocked(fetchAPI).mock.lastCall as any;
+    expect(url).toBe('/ajax-api/3.0/mlflow/traces/search');
+    expect(result.current.sessionCounts).toBeUndefined();
+  });
+
+  test('accumulates sessionCounts across paginated pages', async () => {
+    jest.mocked(shouldUseSessionsSearchAPI).mockReturnValue(true);
+    jest
+      .mocked(fetchAPI)
+      .mockResolvedValueOnce({
+        sessions: [
+          {
+            first_trace: {
+              trace_id: 'tr-a',
+              trace_metadata: { 'mlflow.trace.session': 'session-a' },
+            },
+            total_trace_count: 5,
+          },
+        ],
+        next_page_token: 'page2',
+      })
+      .mockResolvedValueOnce({
+        sessions: [
+          {
+            first_trace: {
+              trace_id: 'tr-b',
+              trace_metadata: { 'mlflow.trace.session': 'session-b' },
+            },
+            total_trace_count: 2,
+          },
+        ],
+        next_page_token: undefined,
+      });
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ locations, isGroupedBySession: true }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.hasNextPage).toBe(true));
+
+    act(() => {
+      result.current.fetchNextPage?.();
+    });
+
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    expect(result.current.sessionCounts).toEqual({
+      'session-a': 5,
+      'session-b': 2,
+    });
   });
 });
 

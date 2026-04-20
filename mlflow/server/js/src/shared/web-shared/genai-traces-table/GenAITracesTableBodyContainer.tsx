@@ -76,6 +76,13 @@ interface GenAITracesTableBodyContainerProps {
   // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
   assessmentCountMetrics?: AssessmentCountMetrics;
   compareAssessmentCountMetrics?: AssessmentCountMetrics;
+
+  /**
+   * Authoritative per-session trace counts keyed by session ID, populated
+   * when the traces were fetched via the `search_sessions` endpoint. Session
+   * header rows prefer these over the page-bound `traces.length` fallback.
+   */
+  sessionCounts?: Record<string, number>;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -107,6 +114,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       isFetchingNextPage,
       assessmentCountMetrics,
       compareAssessmentCountMetrics,
+      sessionCounts,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -280,6 +288,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 isFetchingNextPage={isFetchingNextPage}
                 assessmentCountMetrics={assessmentCountMetrics}
                 compareAssessmentCountMetrics={compareAssessmentCountMetrics}
+                sessionCounts={sessionCounts}
               />
             </AssessmentSchemaContextProvider>
           </div>

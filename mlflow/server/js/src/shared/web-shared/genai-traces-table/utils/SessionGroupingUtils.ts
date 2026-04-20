@@ -14,6 +14,12 @@ export interface SessionHeaderRowData {
   otherTraces?: ModelTraceInfoV3[];
   goal?: string;
   persona?: string;
+  /**
+   * Total number of traces in the session, authoritative when provided by the
+   * backend (see `shouldUseSessionsSearchAPI`). When undefined, consumers
+   * should fall back to `traces.length` (which is page-bound).
+   */
+  totalTraceCount?: number;
 }
 
 export type GroupedTraceTableRowData =
@@ -112,11 +118,16 @@ interface SessionData {
  * @param currentEvaluationResults - The evaluation entries to group
  * @param expandedSessions - Set of session IDs that are expanded (show trace rows)
  * @param isComparing - Whether we're in comparison mode
+ * @param sessionCounts - Optional map from sessionId to authoritative total
+ *   trace count for that session, as returned by the `search_sessions`
+ *   endpoint. When absent the session header falls back to the client-side
+ *   (page-bound) trace list length.
  */
 export const groupTracesBySessionForTable = (
   currentEvaluationResults: EvalTraceComparisonEntry[],
   expandedSessions: Set<string>,
   isComparing?: boolean,
+  sessionCounts?: Record<string, number>,
 ): { groupedRows: GroupedTraceTableRowData[]; traceIdToTurnMap: Record<string, number> } => {
   const sessionDataMap: Record<string, SessionData> = {};
   const standaloneEntries: EvalTraceComparisonEntry[] = [];
@@ -235,6 +246,7 @@ export const groupTracesBySessionForTable = (
       otherTraces: isComparing ? sortedOtherTraces : undefined,
       goal,
       persona,
+      totalTraceCount: sessionCounts?.[sessionId],
     });
 
     // Add individual trace rows only if session is expanded and not comparing

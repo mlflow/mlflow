@@ -29,6 +29,7 @@ import {
   ISSUE_ID_COLUMN_ID,
 } from './useTableColumns';
 import { TracesServiceV4 } from '../../model-trace-explorer/api';
+import { SESSION_ID_METADATA_KEY } from '../../model-trace-explorer/constants';
 import type {
   ModelTraceInfoV3,
   ModelTraceLocationMlflowExperiment,
@@ -57,6 +58,7 @@ import {
   shouldUseTracesV4API,
   shouldUseLongRunningTracesAPI,
   shouldUseInfinitePaginatedTraces,
+  shouldUseSessionsSearchAPI,
 } from '../utils/FeatureUtils';
 import { fetchAPI, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
@@ -314,6 +316,7 @@ export const useSearchMlflowTraces = ({
   sqlWarehouseId,
   filterByAssessmentSourceRun = false,
   enablePagination = true,
+  isGroupedBySession,
 }: {
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   runUuid?: string | null;
@@ -351,6 +354,13 @@ export const useSearchMlflowTraces = ({
    * to join on inputs.
    */
   enablePagination?: boolean;
+  /**
+   * When true AND `shouldUseSessionsSearchAPI()` is enabled AND the
+   * infinite-pagination path is active, fetches via the `search_sessions`
+   * endpoint so session header rows get authoritative per-session trace
+   * counts via `sessionCounts`.
+   */
+  isGroupedBySession?: boolean;
 }): {
   data: ModelTraceInfoV3[] | undefined;
   isLoading: boolean;
@@ -360,6 +370,7 @@ export const useSearchMlflowTraces = ({
   fetchNextPage?: () => void;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
+  sessionCounts?: Record<string, number>;
 } => {
   // Client-side filtering is always disabled in OSS MLflow. It is only used in Databricks.
   const useClientSideFiltering = false;
@@ -387,6 +398,7 @@ export const useSearchMlflowTraces = ({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    sessionCounts,
   } = useSearchMlflowTracesInner({
     locations,
     filter,
@@ -397,6 +409,7 @@ export const useSearchMlflowTraces = ({
     loggedModelId,
     sqlWarehouseId,
     enablePagination,
+    isGroupedBySession,
   });
 
   // TODO: Remove this once mlflow apis support filtering
@@ -478,6 +491,7 @@ export const useSearchMlflowTraces = ({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    sessionCounts,
   };
 };
 
@@ -562,6 +576,14 @@ interface UseSearchMlflowTracesInnerParams {
   sqlWarehouseId?: string;
   enabled?: boolean;
   enablePagination?: boolean;
+  /**
+   * When true AND `shouldUseSessionsSearchAPI()` is enabled, the infinite
+   * pagination hook hits `/mlflow/traces/sessions/search` instead of
+   * `/mlflow/traces/search`. Response is a list of `SessionInfo` wrappers;
+   * the hook flattens to a `ModelTraceInfoV3[]` of first traces and exposes
+   * the per-session total trace counts via `sessionCounts`.
+   */
+  isGroupedBySession?: boolean;
 }
 
 interface UseSearchMlflowTracesInnerResult {
@@ -573,6 +595,11 @@ interface UseSearchMlflowTracesInnerResult {
   fetchNextPage?: () => void;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
+  /**
+   * Authoritative per-session trace counts, populated only when the session
+   * search endpoint was used. Keyed by `mlflow.trace.session` metadata value.
+   */
+  sessionCounts?: Record<string, number>;
 }
 
 /**
@@ -593,14 +620,36 @@ export function getSearchMlflowTracesQueryCacheConfig(usingV4APIs: boolean) {
 
 const SEARCH_TRACES_INFINITE_PAGE_SIZE = 100;
 
-type SearchMlflowTracesResponse = {
+type SessionInfoJson = {
+  first_trace: ModelTraceInfoV3;
+  // proto3 JSON serializes int64 as a string; accept either for safety
+  total_trace_count: number | string;
+};
+
+type SearchMlflowSessionsResponse = {
+  sessions: SessionInfoJson[];
+  next_page_token?: string;
+};
+
+/**
+ * Normalized infinite-page shape. `traces` feeds the existing table render
+ * path; `sessionCounts` is populated only on the `search_sessions` branch
+ * and surfaces authoritative per-session totals.
+ */
+type SearchMlflowTracesPage = {
   traces: ModelTraceInfoV3[];
+  sessionCounts?: Record<string, number>;
   next_page_token?: string;
 };
 
 /**
  * Fetches traces using useInfiniteQuery, loading one page at a time.
  * Enabled only when shouldUseInfinitePaginatedTraces() is true.
+ *
+ * When `isGroupedBySession` is true and `shouldUseSessionsSearchAPI()` is
+ * enabled, switches to the `search_sessions` endpoint and flattens each
+ * `SessionInfo` into a `ModelTraceInfoV3` (the first trace), exposing the
+ * per-session trace counts via `sessionCounts`.
  */
 const useSearchMlflowTracesInfinite = ({
   locations,
@@ -609,9 +658,12 @@ const useSearchMlflowTracesInfinite = ({
   loggedModelId,
   sqlWarehouseId,
   enabled = true,
+  isGroupedBySession,
 }: Omit<UseSearchMlflowTracesInnerParams, 'limit' | 'pageSize'>): UseSearchMlflowTracesInnerResult => {
+  const useSessionsSearch = Boolean(isGroupedBySession) && shouldUseSessionsSearchAPI();
+
   const { data, isLoading, isFetching, isFetchingNextPage, fetchNextPage, hasNextPage, refetch, error } =
-    useInfiniteQuery<SearchMlflowTracesResponse, NetworkRequestError>({
+    useInfiniteQuery<SearchMlflowTracesPage, NetworkRequestError>({
       keepPreviousData: true,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
@@ -626,6 +678,7 @@ const useSearchMlflowTracesInfinite = ({
           orderBy,
           loggedModelId,
           sqlWarehouseId,
+          useSessionsSearch,
         },
       ],
       queryFn: async ({ signal, pageParam }) => {
@@ -642,16 +695,59 @@ const useSearchMlflowTracesInfinite = ({
         if (pageParam) {
           payload.page_token = pageParam;
         }
-        return fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+        const endpoint = useSessionsSearch
+          ? 'ajax-api/3.0/mlflow/traces/sessions/search'
+          : 'ajax-api/3.0/mlflow/traces/search';
+        const response = await fetchAPI(getAjaxUrl(endpoint), {
           method: 'POST',
           body: payload,
           signal,
-        }) as Promise<SearchMlflowTracesResponse>;
+        });
+        if (useSessionsSearch) {
+          // Flatten SessionInfo[] back to ModelTraceInfoV3[] so the rest of
+          // the table rendering logic is shared, and extract per-session
+          // total counts into a sidecar map.
+          const sessionsResponse = response as SearchMlflowSessionsResponse;
+          const sessions = sessionsResponse.sessions ?? [];
+          const traces: ModelTraceInfoV3[] = [];
+          const sessionCounts: Record<string, number> = {};
+          for (const s of sessions) {
+            if (!s.first_trace) continue;
+            traces.push(s.first_trace);
+            const sessionId = s.first_trace.trace_metadata?.[SESSION_ID_METADATA_KEY];
+            if (sessionId) {
+              sessionCounts[sessionId] = Number(s.total_trace_count);
+            }
+          }
+          return {
+            traces,
+            sessionCounts,
+            next_page_token: sessionsResponse.next_page_token,
+          };
+        }
+        const tracesResponse = response as { traces: ModelTraceInfoV3[]; next_page_token?: string };
+        return {
+          traces: tracesResponse.traces,
+          next_page_token: tracesResponse.next_page_token,
+        };
       },
       getNextPageParam: (lastPage) => lastPage.next_page_token,
     });
 
   const allTraces = useMemo(() => data?.pages.flatMap((page) => page.traces).filter(Boolean), [data]);
+
+  // Accumulate `(sessionId -> total_trace_count)` across all loaded pages.
+  // Only populated when the session-search endpoint is in use; otherwise left
+  // undefined so the caller falls back to page-bound trace counts.
+  const sessionCounts = useMemo(() => {
+    if (!useSessionsSearch || !data) return undefined;
+    const counts: Record<string, number> = {};
+    for (const page of data.pages) {
+      if (!page.sessionCounts) continue;
+      Object.assign(counts, page.sessionCounts);
+    }
+    return counts;
+  }, [data, useSessionsSearch]);
 
   return {
     data: allTraces,
@@ -662,6 +758,7 @@ const useSearchMlflowTracesInfinite = ({
     fetchNextPage,
     hasNextPage: hasNextPage ?? false,
     isFetchingNextPage,
+    sessionCounts,
   };
 };
 
@@ -686,6 +783,7 @@ const useSearchMlflowTracesInner = ({
   sqlWarehouseId,
   enabled = true,
   enablePagination = true,
+  isGroupedBySession,
 }: UseSearchMlflowTracesInnerParams): UseSearchMlflowTracesInnerResult => {
   const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
   const usingLongRunningAPI = usingV4APIs && shouldUseLongRunningTracesAPI();
@@ -703,6 +801,7 @@ const useSearchMlflowTracesInner = ({
     loggedModelId,
     sqlWarehouseId,
     enabled: enabled && usingInfinitePagination,
+    isGroupedBySession,
   });
 
   // Standard synchronous search (only active when not using long-running API or infinite pagination)

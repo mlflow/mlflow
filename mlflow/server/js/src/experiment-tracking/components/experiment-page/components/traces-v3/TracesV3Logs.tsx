@@ -290,6 +290,7 @@ const TracesV3LogsImpl = React.memo(
       fetchNextPage,
       hasNextPage,
       isFetchingNextPage,
+      sessionCounts,
     } = useSearchMlflowTraces({
       locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
@@ -299,6 +300,7 @@ const TracesV3LogsImpl = React.memo(
       filterByLoggedModelId: loggedModelId,
       tableSort,
       disabled: isQueryDisabled,
+      isGroupedBySession: forceGroupBySession || isGroupedBySession,
     });
 
     const deleteTracesMutation = useDeleteTracesMutation();
@@ -421,6 +423,7 @@ const TracesV3LogsImpl = React.memo(
                 hasNextPage={hasNextPage}
                 isFetchingNextPage={isFetchingNextPage}
                 assessmentCountMetrics={assessmentCountMetrics}
+                sessionCounts={sessionCounts}
               />
             </div>
           </>
@@ -488,6 +491,7 @@ const TracesV3LogsImpl = React.memo(
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}
                   assessmentCountMetrics={assessmentCountMetrics}
+                  sessionCounts={sessionCounts}
                 />
               </ContextProviders>
             )}

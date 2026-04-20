@@ -52,3 +52,14 @@ export const shouldEnableSessionGrouping = () => {
 export const shouldUseInfinitePaginatedTraces = () => {
   return false;
 };
+
+/**
+ * Gates use of the POST /mlflow/traces/sessions/search endpoint inside the
+ * infinite-pagination path when the traces table is in "group by sessions"
+ * mode. REQUIRES shouldUseInfinitePaginatedTraces() to also be true — the
+ * session-search endpoint only fits the infinite-pagination model. When
+ * disabled, the client pages traces and groups client-side (legacy behavior).
+ */
+export const shouldUseSessionsSearchAPI = () => {
+  return false;
+};

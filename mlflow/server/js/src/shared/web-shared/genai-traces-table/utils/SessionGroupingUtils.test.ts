@@ -167,4 +167,45 @@ describe('groupTracesBySessionForTable', () => {
     expect(traceIdToTurnMap['trace-middle']).toBe(2);
     expect(traceIdToTurnMap['trace-late']).toBe(3);
   });
+
+  it('attaches totalTraceCount on session headers when sessionCounts is provided', () => {
+    const entries: EvalTraceComparisonEntry[] = [
+      // Only the first trace of each session is in the entries (simulating
+      // the search_sessions endpoint result). The sessionCounts sidecar
+      // carries the authoritative totals.
+      createMockEntry('trace-a1', 'session-A', '2025-01-01T10:00:00.000Z'),
+      createMockEntry('trace-b1', 'session-B', '2025-01-01T09:00:00.000Z'),
+    ];
+
+    const { groupedRows } = groupTracesBySessionForTable(entries, new Set(), false, {
+      'session-A': 7,
+      'session-B': 2,
+    });
+
+    expect(groupedRows).toHaveLength(2);
+    expect(groupedRows[0]).toMatchObject({
+      type: 'sessionHeader',
+      sessionId: 'session-A',
+      totalTraceCount: 7,
+    });
+    expect(groupedRows[1]).toMatchObject({
+      type: 'sessionHeader',
+      sessionId: 'session-B',
+      totalTraceCount: 2,
+    });
+  });
+
+  it('leaves totalTraceCount undefined when sessionCounts is not provided', () => {
+    const entries: EvalTraceComparisonEntry[] = [
+      createMockEntry('trace-1', 'session-A', '2025-01-01T10:00:00.000Z'),
+      createMockEntry('trace-2', 'session-A', '2025-01-01T11:00:00.000Z'),
+    ];
+
+    const { groupedRows } = groupTracesBySessionForTable(entries, new Set());
+
+    expect(groupedRows).toHaveLength(1);
+    expect(groupedRows[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+    // Falls back path: consumers should use `traces.length` when totalTraceCount is absent.
+    expect((groupedRows[0] as { totalTraceCount?: number }).totalTraceCount).toBeUndefined();
+  });
 });
