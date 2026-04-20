@@ -22,12 +22,17 @@ jest.mock('@mlflow/core', () => {
         inputs: options.inputs ?? {},
         outputs: {},
         attributes: { ...(options.attributes ?? {}) },
+        startTimeNs: options.startTimeNs ?? null,
+        endTimeNs: null,
         setAttribute: jest.fn((key: string, value: any) => {
           span.attributes[key] = value;
         }),
         end: jest.fn((opts?: any) => {
           if (opts?.outputs) {
             span.outputs = opts.outputs;
+          }
+          if (opts?.endTimeNs != null) {
+            span.endTimeNs = opts.endTimeNs;
           }
         }),
       };
@@ -416,5 +421,54 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
         },
       ],
     });
+  });
+
+  it('derives span timestamps from turn boundaries, not next-record chaining', () => {
+    // Fixture timestamps are spaced 1 second apart:
+    //   10:00:00Z task_started
+    //   10:00:00Z user "list files in current directory"
+    //   10:00:01Z assistant "I'll list the files for you."
+    //   10:00:02Z function_call exec_command
+    //   10:00:03Z function_call_output
+    //   10:00:04Z assistant "There are 3 files: ..."
+    //   10:00:05Z task_complete
+    //
+    // Expected:
+    //   LLM #1: task_started (00) -> assistant #1 (01)           = 1s
+    //   TOOL:   function_call (02) -> function_call_output (03)  = 1s
+    //   LLM #2: function_call_output (03) -> assistant #2 (04)   = 1s
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'));
+    const turn = getLastTurnRecords(records);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = { spanId: 'root' } as any;
+    createChildSpans(parent, turn, 'gpt-4');
+
+    const NS_PER_SEC = 1_000_000_000;
+    const parseNs = (iso: string) => new Date(iso).getTime() * 1_000_000;
+
+    const llmSpans = getSpansByType('LLM');
+    const toolSpans = getSpansByType('TOOL');
+
+    // LLM #1: task_started -> first assistant message
+    expect(llmSpans[0].startTimeNs).toBe(parseNs('2026-04-05T10:00:00Z'));
+    expect(llmSpans[0].endTimeNs).toBe(parseNs('2026-04-05T10:00:01Z'));
+    expect(llmSpans[0].endTimeNs - llmSpans[0].startTimeNs).toBe(NS_PER_SEC);
+
+    // TOOL: function_call -> matching function_call_output (by call_id)
+    expect(toolSpans[0].startTimeNs).toBe(parseNs('2026-04-05T10:00:02Z'));
+    expect(toolSpans[0].endTimeNs).toBe(parseNs('2026-04-05T10:00:03Z'));
+    expect(toolSpans[0].endTimeNs - toolSpans[0].startTimeNs).toBe(NS_PER_SEC);
+
+    // LLM #2: previous function_call_output -> second assistant message
+    // (NOT from the previous assistant message — the LLM was waiting on the
+    // tool during that time)
+    expect(llmSpans[1].startTimeNs).toBe(parseNs('2026-04-05T10:00:03Z'));
+    expect(llmSpans[1].endTimeNs).toBe(parseNs('2026-04-05T10:00:04Z'));
+    expect(llmSpans[1].endTimeNs - llmSpans[1].startTimeNs).toBe(NS_PER_SEC);
+
+    // Sanity: spans don't overlap
+    expect(llmSpans[0].endTimeNs).toBeLessThanOrEqual(toolSpans[0].startTimeNs);
+    expect(toolSpans[0].endTimeNs).toBeLessThanOrEqual(llmSpans[1].startTimeNs);
   });
 });

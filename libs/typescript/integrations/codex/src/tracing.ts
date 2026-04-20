@@ -27,9 +27,14 @@ import {
   type LiveSpan,
 } from '@mlflow/core';
 
-import type { ChatMessage, NotifyPayload, RolloutLine, ResponseItemPayload } from './types.js';
+import type {
+  ChatMessage,
+  EventMsgPayload,
+  NotifyPayload,
+  RolloutLine,
+  ResponseItemPayload,
+} from './types.js';
 import {
-  NANOSECONDS_PER_MS,
   parseTimestampToNs,
   extractTextFromContent,
   getTokenUsage,
@@ -192,6 +197,18 @@ export function reconstructMessages(
 
 /**
  * Create LLM and TOOL child spans from transcript turn records.
+ *
+ * Timing model:
+ * - LLM span covers "LLM thinking": from the last boundary (turn start or
+ *   the previous `function_call_output`) to the `message/assistant` record.
+ * - TOOL span covers the actual tool call: from the `function_call` record
+ *   to the matching `function_call_output` record (matched by call_id).
+ *
+ * Using the record's own timestamp as both start and end — or chaining to
+ * the next response_item — would produce spans that represent "time between
+ * records" rather than the work each span describes. The record's timestamp
+ * marks when the event was logged, which for an assistant message is when
+ * generation *finished*, not when it started.
  */
 export function createChildSpans(
   parentSpan: LiveSpan,
@@ -199,6 +216,11 @@ export function createChildSpans(
   model: string,
 ): void {
   const toolResults = buildToolResultMap(turnRecords);
+  const toolEndTimes = buildToolEndTimes(turnRecords);
+
+  // Initial boundary for the first LLM span: the turn's task_started event,
+  // if present. Falls back to null so the LLM span omits startTimeNs.
+  let prevBoundaryNs: number | null = findTaskStartedNs(turnRecords);
 
   const responseItems = turnRecords.filter((record) => record.type === 'response_item');
 
@@ -210,19 +232,6 @@ export function createChildSpans(
       continue;
     }
 
-    // Derive end time from next record or default
-    let endTimeNs: number | null = null;
-    for (let j = i + 1; j < responseItems.length; j++) {
-      const nextTs = parseTimestampToNs(responseItems[j].timestamp);
-      if (nextTs != null && nextTs > timestampNs) {
-        endTimeNs = nextTs;
-        break;
-      }
-    }
-    if (endTimeNs == null) {
-      endTimeNs = timestampNs + 1000 * NANOSECONDS_PER_MS;
-    }
-
     if (payload.type === 'message' && payload.role === 'assistant') {
       const text = extractTextFromContent(payload.content);
       if (text.trim()) {
@@ -231,7 +240,7 @@ export function createChildSpans(
           name: 'llm_call',
           parent: parentSpan,
           spanType: SpanType.LLM,
-          startTimeNs: timestampNs,
+          startTimeNs: prevBoundaryNs ?? timestampNs,
           inputs: { model, messages },
           attributes: { model },
         });
@@ -239,8 +248,9 @@ export function createChildSpans(
           outputs: {
             choices: [{ message: { role: 'assistant', content: text } }],
           },
-          endTimeNs,
+          endTimeNs: timestampNs,
         });
+        prevBoundaryNs = timestampNs;
       }
     } else if (payload.type === 'function_call') {
       const callId = payload.call_id ?? '';
@@ -262,8 +272,50 @@ export function createChildSpans(
       });
       toolSpan.end({
         outputs: { result: toolResults[callId] ?? '' },
-        endTimeNs,
+        endTimeNs: toolEndTimes[callId] ?? timestampNs,
       });
+    } else if (payload.type === 'function_call_output') {
+      // Tool result logged; the next LLM span should start from here, since
+      // the LLM is waiting on tool output until this point.
+      prevBoundaryNs = timestampNs;
     }
   }
+}
+
+/**
+ * Find the turn's `task_started` event_msg timestamp in nanoseconds.
+ * Returns null if the turn doesn't include a task_started event.
+ */
+function findTaskStartedNs(turnRecords: RolloutLine[]): number | null {
+  for (const record of turnRecords) {
+    if (record.type === 'event_msg') {
+      const payload = record.payload as EventMsgPayload;
+      if (payload.type === 'task_started') {
+        return parseTimestampToNs(record.timestamp);
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Build a lookup from function call_id to its `function_call_output`
+ * timestamp (ns). Used to derive accurate TOOL span end times instead of
+ * chaining to the next response_item, which may not be the matching output.
+ */
+function buildToolEndTimes(turnRecords: RolloutLine[]): Record<string, number> {
+  const endTimes: Record<string, number> = {};
+  for (const record of turnRecords) {
+    if (record.type !== 'response_item') {
+      continue;
+    }
+    const payload = record.payload as ResponseItemPayload;
+    if (payload.type === 'function_call_output' && payload.call_id) {
+      const ts = parseTimestampToNs(record.timestamp);
+      if (ts != null) {
+        endTimes[payload.call_id] = ts;
+      }
+    }
+  }
+  return endTimes;
 }
