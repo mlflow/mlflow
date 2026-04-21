@@ -405,6 +405,7 @@ export function MlflowSidebar({
             </span>
           </MlflowSidebarLink>
           <MlflowSidebarLink
+            disableWorkspacePrefix
             css={{ paddingBlock: theme.spacing.sm }}
             to={AdminRoutes.adminPageRoute}
             componentId="mlflow.sidebar.admin_tab_link"
@@ -415,6 +416,7 @@ export function MlflowSidebar({
             <FormattedMessage defaultMessage="Admin" description="Sidebar link for admin page" />
           </MlflowSidebarLink>
           <MlflowSidebarLink
+            disableWorkspacePrefix
             css={{ paddingBlock: theme.spacing.sm }}
             to={AdminRoutes.accountPageRoute}
             componentId="mlflow.sidebar.account_tab_link"

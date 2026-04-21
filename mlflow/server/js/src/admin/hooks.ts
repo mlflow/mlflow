@@ -81,6 +81,7 @@ export const useRoleDetailQuery = (roleId: number) => {
     queryFn: () => AdminApi.getRole(roleId),
     retry: false,
     refetchOnWindowFocus: false,
+    enabled: Number.isFinite(roleId),
   });
 };
 

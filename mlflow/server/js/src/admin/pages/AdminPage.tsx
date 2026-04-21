@@ -31,7 +31,7 @@ import type { CreateRoleRequest, User, Role } from '../types';
 
 const UsersTab = () => {
   const { theme } = useDesignSystemTheme();
-  const { data: usersData, isLoading } = useUsersQuery();
+  const { data: usersData, isLoading, error: queryError } = useUsersQuery();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const updateAdmin = useUpdateAdmin();
@@ -46,6 +46,10 @@ const UsersTab = () => {
 
   const handleCreateUser = async () => {
     setError(null);
+    if (!newUsername.trim() || !newPassword) {
+      setError('Username and password are required');
+      return;
+    }
     try {
       await createUser.mutateAsync({ username: newUsername, password: newPassword });
       setShowCreateModal(false);
@@ -84,6 +88,17 @@ const UsersTab = () => {
     );
   }
 
+  if (queryError) {
+    return (
+      <Alert
+        componentId="admin.users.query_error"
+        type="error"
+        message="Failed to load users"
+        description={(queryError as Error)?.message || 'An error occurred while fetching users.'}
+      />
+    );
+  }
+
   const columns = [
     {
       title: 'Username',
@@ -100,6 +115,7 @@ const UsersTab = () => {
           checked={record.is_admin}
           onChange={() => handleToggleAdmin(record.username, record.is_admin)}
           label=""
+          aria-label={`Toggle admin for ${record.username}`}
         />
       ),
     },
@@ -189,7 +205,7 @@ const UsersTab = () => {
 
 const RolesTab = () => {
   const { theme } = useDesignSystemTheme();
-  const { data: rolesData, isLoading } = useRolesQuery();
+  const { data: rolesData, isLoading, error: queryError } = useRolesQuery();
   const createRole = useCreateRole();
   const deleteRole = useDeleteRole();
 
@@ -239,6 +255,17 @@ const RolesTab = () => {
       <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.lg }}>
         <Spinner size="small" />
       </div>
+    );
+  }
+
+  if (queryError) {
+    return (
+      <Alert
+        componentId="admin.roles.query_error"
+        type="error"
+        message="Failed to load roles"
+        description={(queryError as Error)?.message || 'An error occurred while fetching roles.'}
+      />
     );
   }
 
@@ -386,7 +413,7 @@ const AdminPage = () => {
         <Typography.Title level={2} css={{ marginBottom: theme.spacing.lg }}>
           <FormattedMessage defaultMessage="Platform Admin" description="Admin page title" />
         </Typography.Title>
-        <Tabs.Root componentId="admin.tabs" valueHasNoPii value="users" defaultValue="users">
+        <Tabs.Root componentId="admin.tabs" valueHasNoPii defaultValue="users">
           <Tabs.List>
             <Tabs.Trigger value="users">
               <FormattedMessage defaultMessage="Users" description="Admin users tab" />

@@ -12,7 +12,6 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { useUpdatePassword, useUserRolesQuery } from '../hooks';
-import type { Role } from '../types';
 
 const AccountPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -91,6 +90,16 @@ const AccountPage = () => {
           <FormattedMessage defaultMessage="Account" description="Account page title" />
         </Typography.Title>
 
+        {!username && (
+          <Alert
+            componentId="account.no_user"
+            type="warning"
+            message="Not logged in"
+            description="Could not determine the current user. Please log in again."
+            css={{ marginBottom: theme.spacing.md }}
+          />
+        )}
+
         {username && (
           <Typography.Text css={{ marginBottom: theme.spacing.lg, display: 'block' }}>
             Logged in as <strong>{username}</strong>
@@ -146,6 +155,7 @@ const AccountPage = () => {
               type="primary"
               onClick={handleChangePassword}
               loading={updatePassword.isLoading}
+              disabled={!username}
             >
               <FormattedMessage defaultMessage="Update Password" description="Button to update password" />
             </Button>

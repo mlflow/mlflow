@@ -18,7 +18,6 @@ import {
   DialogComboboxOptionList,
   DialogComboboxOptionListSelectItem,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { Link, useParams } from '../../common/utils/RoutingUtils';
 import AdminRoutes from '../routes';
@@ -48,6 +47,7 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
   const [newResourcePattern, setNewResourcePattern] = useState('*');
   const [newPermission, setNewPermission] = useState<string>(PERMISSIONS[0]);
   const [editingPermission, setEditingPermission] = useState<{ id: number; permission: string } | null>(null);
+  const [deletePermissionTarget, setDeletePermissionTarget] = useState<RolePermission | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const permissions = useMemo(() => roleData?.role?.permissions ?? [], [roleData]);
@@ -70,10 +70,12 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
     }
   };
 
-  const handleRemovePermission = async (permissionId: number) => {
+  const handleRemovePermission = async () => {
+    if (!deletePermissionTarget) return;
     setError(null);
     try {
-      await removePermission.mutateAsync(permissionId);
+      await removePermission.mutateAsync(deletePermissionTarget.id);
+      setDeletePermissionTarget(null);
     } catch (e: any) {
       setError(e.message || 'Failed to remove permission');
     }
@@ -136,7 +138,7 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
             type="tertiary"
             icon={<TrashIcon />}
             size="small"
-            onClick={() => handleRemovePermission(record.id)}
+            onClick={() => setDeletePermissionTarget(record)}
             danger
           />
         </div>
@@ -272,14 +274,30 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
           </div>
         )}
       </Modal>
+      <Modal
+        componentId="admin.role.remove_permission_modal"
+        title="Remove Permission"
+        visible={Boolean(deletePermissionTarget)}
+        onCancel={() => setDeletePermissionTarget(null)}
+        onOk={handleRemovePermission}
+        okText="Remove"
+        okButtonProps={{ danger: true }}
+        confirmLoading={removePermission.isLoading}
+      >
+        <Typography.Text>
+          Are you sure you want to remove the <strong>{deletePermissionTarget?.permission}</strong> permission on{' '}
+          <strong>{deletePermissionTarget?.resource_type}</strong> ({deletePermissionTarget?.resource_pattern})? This
+          action cannot be undone.
+        </Typography.Text>
+      </Modal>
     </div>
   );
 };
 
 const AssignedUsersSection = ({ roleId }: { roleId: number }) => {
   const { theme } = useDesignSystemTheme();
-  const { data: assignmentsData, isLoading } = useRoleUsersQuery(roleId);
-  const { data: usersData } = useUsersQuery();
+  const { data: assignmentsData, isLoading, error: queryError } = useRoleUsersQuery(roleId);
+  const { data: usersData, error: usersError } = useUsersQuery();
   const assignRole = useAssignRole(roleId);
   const unassignRole = useUnassignRole(roleId);
 
@@ -357,6 +375,8 @@ const AssignedUsersSection = ({ roleId }: { roleId: number }) => {
     );
   }
 
+  const fetchError = queryError || usersError;
+
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -370,6 +390,14 @@ const AssignedUsersSection = ({ roleId }: { roleId: number }) => {
           Assign User
         </Button>
       </div>
+      {fetchError && (
+        <Alert
+          componentId="admin.role.assignments.fetch_error"
+          type="error"
+          message="Failed to load assigned users"
+          description={(fetchError as Error)?.message || 'An error occurred while fetching data.'}
+        />
+      )}
       {error && (
         <Alert
           componentId="admin.role.assignments.error"
@@ -425,6 +453,7 @@ const RoleDetailPage = () => {
   const { theme } = useDesignSystemTheme();
   const { roleId: roleIdParam } = useParams<{ roleId: string }>();
   const roleId = Number(roleIdParam);
+  const isValidRoleId = Number.isFinite(roleId);
 
   const { data: roleData, isLoading, error: loadError } = useRoleDetailQuery(roleId);
   const updateRole = useUpdateRole(roleId);
@@ -455,6 +484,21 @@ const RoleDetailPage = () => {
       setError(e.message || 'Failed to update role');
     }
   };
+
+  if (!isValidRoleId) {
+    return (
+      <ScrollablePageWrapper>
+        <div css={{ padding: theme.spacing.lg }}>
+          <Alert
+            componentId="admin.role.invalid_id"
+            type="error"
+            message="Invalid role ID"
+            description="The requested role could not be loaded because the URL contains an invalid role ID."
+          />
+        </div>
+      </ScrollablePageWrapper>
+    );
+  }
 
   if (isLoading) {
     return (
