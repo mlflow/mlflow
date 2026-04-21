@@ -34,7 +34,10 @@ function findFiles(dir) {
 const EXTRACT_PATTERNS = [
   /(?:componentId|data-component-id)=["']([^"']+)["']/g,
   /componentId:\s*["']([^"']+)["']/g,
-  /componentId=\{["']([^"']+)["']\}/g,
+  // Match static strings inside JSX expressions like componentId={"value"},
+  // componentId={cond ?? "fallback"}, componentId={cond ? "a" : "b"}, etc.
+  // Uses [^\n}]* to avoid matching across lines.
+  /componentId=\{[^\n}]*["']([^"'\n`]+)["'][^\n}]*\}/g,
 ];
 
 function extractComponentIds(files) {

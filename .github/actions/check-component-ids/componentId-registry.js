@@ -6,7 +6,8 @@
  * bidirectionally: code IDs must be in the registry, and registry
  * entries must exist in code.
  *
- * Format: key = componentId string, value = description of the component
+ * Format: key = componentId string, value = optional description of the
+ * component (blank by default, especially for generated entries)
  */
 module.exports = {
   // -- Codegen (auto-generated) --
@@ -617,6 +618,7 @@ module.exports = {
     "",
   codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorermodalrenderer_29:
     "",
+  "codegen_web-shared_src_copy_copyactionbutton.tsx_17": "",
   "codegen_web-shared_src_snippet_actions_snippetactionbutton.tsx_26": "",
   "codegen_web-shared_src_snippet_actions_snippetactionbutton.tsx_33": "",
   "codegen_webapp_js_genai_util_markdown.tsx_71": "",
@@ -1097,6 +1099,7 @@ module.exports = {
   "mlflow.experiment_tracking.artifacts.logged_model_fallback_link": "",
   "mlflow.experiment_tracking.artifacts.model_version_link": "",
   "mlflow.experiment_tracking.charts.tooltip_run_link": "",
+  "mlflow.experiment_tracking.common.line_smooth_slider": "",
   "mlflow.experiment_tracking.compare_header.experiments_breadcrumb_link": "",
   "mlflow.experiment_tracking.compare_runs.compare_experiments_link": "",
   "mlflow.experiment_tracking.compare_runs.experiment_link": "",
@@ -1786,6 +1789,7 @@ module.exports = {
   "mlflow.settings.webhooks.url-input": "",
 
   // -- mlflow.shared --
+  "mlflow.shared.copy_button": "",
   "mlflow.shared.copy_button.tooltip": "",
 
   // -- mlflow.sidebar --
