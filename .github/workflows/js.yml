@@ -1,6 +1,7 @@
 name: JS
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - mlflow/server/js/**
