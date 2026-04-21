@@ -29,6 +29,7 @@ _R = TypeVar("_R")
 
 _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
+_info_function: Callable[..., Any] | None = None
 
 
 def get_invoke_function():
@@ -37,6 +38,10 @@ def get_invoke_function():
 
 def get_stream_function():
     return _stream_function
+
+
+def get_info_function():
+    return _info_function
 
 
 def invoke() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
@@ -65,6 +70,24 @@ def stream() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
         if _stream_function is not None:
             raise ValueError("stream decorator can only be used once")
         _stream_function = func
+
+        @functools.wraps(func)
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def info() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+    """Decorator to register an agent info provider. Can only be used once."""
+
+    def decorator(func: Callable[_P, _R]) -> Callable[_P, _R]:
+        global _info_function
+        if _info_function is not None:
+            raise ValueError("info decorator can only be used once")
+        _info_function = func
 
         @functools.wraps(func)
         def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
@@ -257,6 +280,23 @@ class AgentServer:
             # Conditionally add agent_api field for ResponsesAgent only
             if self.agent_type == "ResponsesAgent":
                 info["agent_api"] = "responses"
+
+            if info_provider := get_info_function():
+                from mlflow.types.agent_info import AgentInfo
+
+                registered_info = info_provider()
+                if inspect.isawaitable(registered_info):
+                    registered_info = await registered_info
+
+                if isinstance(registered_info, AgentInfo):
+                    info.update(registered_info.to_dict())
+                elif isinstance(registered_info, dict):
+                    info.update(AgentInfo(**registered_info).to_dict())
+                elif registered_info is not None:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Registered agent info must return an AgentInfo or dict.",
+                    )
 
             return info
 

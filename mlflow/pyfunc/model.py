@@ -13,7 +13,7 @@ import shutil
 from abc import ABCMeta, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Generator, Iterator
+from typing import Any, ClassVar, Generator, Iterator
 
 import cloudpickle
 import pandas as pd
@@ -53,6 +53,7 @@ from mlflow.types.agent import (
     ChatAgentResponse,
     ChatContext,
 )
+from mlflow.types.agent_info import AgentInfo
 from mlflow.types.llm import (
     ChatCompletionChunk,
     ChatCompletionResponse,
@@ -851,6 +852,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     """
 
     _skip_type_hint_validation = True
+    agent_info: ClassVar[AgentInfo | None] = None
 
     @staticmethod
     def responses_agent_output_reducer(

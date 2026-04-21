@@ -3,19 +3,23 @@ from typing import Any, AsyncGenerator
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
+import pydantic
 import pytest
 from fastapi.testclient import TestClient
 
 from mlflow.genai.agent_server import (
     AgentServer,
+    get_info_function,
     get_invoke_function,
     get_request_headers,
     get_stream_function,
+    info,
     invoke,
     set_request_headers,
     stream,
 )
 from mlflow.genai.agent_server.validator import ResponsesAgentValidator
+from mlflow.types import AgentInfo
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
@@ -30,6 +34,7 @@ def reset_global_state():
 
     mlflow.genai.agent_server.server._invoke_function = None
     mlflow.genai.agent_server.server._stream_function = None
+    mlflow.genai.agent_server.server._info_function = None
 
 
 async def responses_invoke(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
@@ -94,6 +99,16 @@ def test_stream_decorator_single_registration():
     assert registered_function is not None
 
 
+def test_info_decorator_single_registration():
+    @info()
+    def my_info_function():
+        return AgentInfo(name="rag-assistant")
+
+    registered_function = get_info_function()
+    assert registered_function is not None
+    assert registered_function() == AgentInfo(name="rag-assistant")
+
+
 def test_multiple_invoke_registrations_raises_error():
     @invoke()
     def first_function(request):
@@ -116,6 +131,18 @@ def test_multiple_stream_registrations_raises_error():
         @stream()
         def second_stream(request):
             yield {"delta": {"content": "second"}}
+
+
+def test_multiple_info_registrations_raises_error():
+    @info()
+    def first_info():
+        return AgentInfo(name="first")
+
+    with pytest.raises(ValueError, match="info decorator can only be used once"):
+
+        @info()
+        def second_info():
+            return AgentInfo(name="second")
 
 
 def test_get_invoke_function_returns_registered():
@@ -860,6 +887,62 @@ def test_agent_info_endpoint_custom_app_name(monkeypatch):
     assert data["name"] == "custom_agent"
     assert data["use_case"] == "agent"
     assert data["mlflow_version"] == mlflow.__version__
+    assert data["agent_api"] == "responses"
+
+
+def test_agent_info_endpoint_registered_agent_info():
+    class InputSchema(pydantic.BaseModel):
+        query: str
+
+    class OutputSchema(pydantic.BaseModel):
+        answer: str
+
+    @info()
+    def registered_info():
+        return AgentInfo(
+            name="rag-assistant",
+            description="Retrieval-augmented QA over internal docs",
+            version="3.0.0",
+            metadata={
+                "custom_inputs_schema": InputSchema,
+                "custom_outputs_schema": OutputSchema,
+                "capabilities": ["qa", "search"],
+            },
+            tags={"team": "ml-platform"},
+        )
+
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "rag-assistant"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"]
+    assert data["agent_api"] == "responses"
+    assert data["description"] == "Retrieval-augmented QA over internal docs"
+    assert data["version"] == "3.0.0"
+    assert data["metadata"]["custom_inputs_schema"] == InputSchema.model_json_schema()
+    assert data["metadata"]["custom_outputs_schema"] == OutputSchema.model_json_schema()
+    assert data["metadata"]["capabilities"] == ["qa", "search"]
+    assert data["tags"] == {"team": "ml-platform"}
+
+
+def test_agent_info_endpoint_registered_partial_dict_overrides_defaults():
+    @info()
+    def registered_info():
+        return {"name": "custom-agent", "use_case": "assistant"}
+
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "custom-agent"
+    assert data["use_case"] == "assistant"
+    assert data["mlflow_version"]
     assert data["agent_api"] == "responses"
 
 

@@ -28,6 +28,7 @@ class _ResponsesAgentPyfuncWrapper:
     def __init__(self, responses_agent, context):
         self.responses_agent = responses_agent
         self.context = context
+        self.agent_info = getattr(responses_agent, "agent_info", None)
 
     def get_raw_model(self):
         """

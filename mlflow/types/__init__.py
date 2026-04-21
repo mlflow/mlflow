@@ -6,6 +6,10 @@ components to describe interface independent of other frameworks or languages.
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 if not IS_TRACING_SDK_ONLY:
+    from mlflow.types.agent_info import AgentInfo
+
+    __all__ = ["AgentInfo"]
+
     try:
         import numpy as _np  # noqa: F401
 
@@ -28,6 +32,7 @@ if not IS_TRACING_SDK_ONLY:
         )
 
         __all__ = [
+            "AgentInfo",
             "Schema",
             "ColSpec",
             "DataType",

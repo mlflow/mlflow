@@ -12,6 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
 from mlflow.pyfunc.model import _DEFAULT_RESPONSES_AGENT_METADATA_TASK, ResponsesAgent
+from mlflow.types import AgentInfo
 from mlflow.types.responses import (
     _HAS_LANGCHAIN_BASE_MESSAGE,
     RESPONSES_AGENT_INPUT_EXAMPLE,
@@ -148,6 +149,19 @@ class ResponsesAgentWithContext(ResponsesAgent):
         )
 
 
+class ResponsesAgentWithInfo(ResponsesAgent):
+    agent_info = AgentInfo(
+        name="rag-assistant",
+        description="Retrieval-augmented QA over internal docs",
+        version="3.0.0",
+        metadata={"capabilities": ["qa", "search"]},
+        tags={"team": "ml-platform"},
+    )
+
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        return ResponsesAgentResponse(**get_mock_response(request))
+
+
 def mock_responses_predict():
     return "hello from context"
 
@@ -187,6 +201,22 @@ def test_responses_agent_save_load_signatures(tmp_path):
     output_schema = loaded_model.metadata.get_output_schema()
     assert input_schema == RESPONSES_AGENT_INPUT_SCHEMA
     assert output_schema == RESPONSES_AGENT_OUTPUT_SCHEMA
+
+
+def test_responses_agent_declares_agent_info():
+    assert SimpleResponsesAgent.agent_info is None
+    assert ResponsesAgentWithInfo.agent_info.name == "rag-assistant"
+
+
+def test_responses_agent_wrapper_preserves_agent_info(tmp_path):
+    model = ResponsesAgentWithInfo()
+    model_path = tmp_path / "model"
+
+    mlflow.pyfunc.save_model(python_model=model, path=model_path)
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    assert isinstance(loaded_model._model_impl, _ResponsesAgentPyfuncWrapper)
+    assert loaded_model._model_impl.agent_info == model.agent_info
 
 
 def test_responses_agent_log_default_task():
