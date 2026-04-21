@@ -946,6 +946,22 @@ def test_agent_info_endpoint_registered_partial_dict_overrides_defaults():
     assert data["agent_api"] == "responses"
 
 
+def test_agent_info_endpoint_invalid_registered_dict_returns_explicit_error():
+    @info()
+    def registered_info():
+        return {"name": "custom-agent", "owner": "ml-platform"}
+
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 500
+    assert (
+        response.json()["detail"]
+        == "Registered agent info dict contains unsupported fields: owner"
+    )
+
+
 def test_agent_server_routes_registration_responses_agent():
     server = AgentServer("ResponsesAgent")
     routes = [route.path for route in server.app.routes]

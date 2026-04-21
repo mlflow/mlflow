@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import posixpath
+from dataclasses import fields
 from typing import Any, AsyncGenerator, Callable, Literal, ParamSpec, TypeVar
 
 import httpx
@@ -291,6 +292,18 @@ class AgentServer:
                 if isinstance(registered_info, AgentInfo):
                     info.update(registered_info.to_dict())
                 elif isinstance(registered_info, dict):
+                    supported_fields = {field.name for field in fields(AgentInfo)}
+                    unexpected_fields = sorted(
+                        str(field) for field in set(registered_info) - supported_fields
+                    )
+                    if unexpected_fields:
+                        raise HTTPException(
+                            status_code=500,
+                            detail=(
+                                "Registered agent info dict contains unsupported fields: "
+                                + ", ".join(unexpected_fields)
+                            ),
+                        )
                     info.update(AgentInfo(**registered_info).to_dict())
                 elif registered_info is not None:
                     raise HTTPException(
