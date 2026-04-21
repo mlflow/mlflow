@@ -6,7 +6,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   PlusIcon,
-  LinkIcon,
   Notification,
   Tooltip,
   useDesignSystemTheme,
