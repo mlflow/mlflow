@@ -1,3 +1,4 @@
+import logging
 import json
 import os
 import posixpath
@@ -35,6 +36,8 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
     strip_scheme,
 )
+
+_logger = logging.getLogger(__name__)
 
 # The following constants are defined as @developer_stable
 LIST_API_ENDPOINT = "/api/2.0/dbfs/list"
