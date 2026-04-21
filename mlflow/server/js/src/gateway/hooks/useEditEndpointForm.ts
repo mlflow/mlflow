@@ -93,26 +93,10 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       const fallbackMappings = endpoint.model_mappings.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
       const totalWeight = primaryMappings.reduce((sum, m) => sum + (m.weight ?? 1.0), 0);
 
-      form.reset({
-        name: endpoint.name ?? '',
-        trafficSplitModels: primaryMappings.map((m) => ({
-          modelDefinitionId: m.model_definition?.model_definition_id,
-          modelDefinitionName: m.model_definition?.name ?? '',
-          provider: m.model_definition?.provider ?? '',
-          modelName: m.model_definition?.model_name ?? '',
-          secretMode: 'existing' as const,
-          existingSecretId: m.model_definition?.secret_id ?? '',
-          newSecret: {
-            name: '',
-            authMode: '',
-            secretFields: {},
-            configFields: {},
-          },
-          weight: totalWeight > 0 ? ((m.weight ?? 1.0) / totalWeight) * 100 : 100 / primaryMappings.length,
-        })),
-        fallbackModels: fallbackMappings
-          .sort((a, b) => (a.fallback_order ?? 0) - (b.fallback_order ?? 0))
-          .map((m, idx) => ({
+      form.reset(
+        {
+          name: endpoint.name ?? '',
+          trafficSplitModels: primaryMappings.map((m) => ({
             modelDefinitionId: m.model_definition?.model_definition_id,
             modelDefinitionName: m.model_definition?.name ?? '',
             provider: m.model_definition?.provider ?? '',
@@ -125,13 +109,32 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
               secretFields: {},
               configFields: {},
             },
-            fallbackOrder: idx + 1,
+            weight: totalWeight > 0 ? ((m.weight ?? 1.0) / totalWeight) * 100 : 100 / primaryMappings.length,
           })),
-        usageTracking: endpoint.usage_tracking ?? false,
-        experimentId: endpoint.experiment_id ?? '',
-      }, {
-        keepDirtyValues: true,
-      });
+          fallbackModels: fallbackMappings
+            .sort((a, b) => (a.fallback_order ?? 0) - (b.fallback_order ?? 0))
+            .map((m, idx) => ({
+              modelDefinitionId: m.model_definition?.model_definition_id,
+              modelDefinitionName: m.model_definition?.name ?? '',
+              provider: m.model_definition?.provider ?? '',
+              modelName: m.model_definition?.model_name ?? '',
+              secretMode: 'existing' as const,
+              existingSecretId: m.model_definition?.secret_id ?? '',
+              newSecret: {
+                name: '',
+                authMode: '',
+                secretFields: {},
+                configFields: {},
+              },
+              fallbackOrder: idx + 1,
+            })),
+          usageTracking: endpoint.usage_tracking ?? false,
+          experimentId: endpoint.experiment_id ?? '',
+        },
+        {
+          keepDirtyValues: true,
+        },
+      );
     }
   }, [endpoint, form]);
 
