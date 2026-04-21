@@ -186,6 +186,10 @@ def test_invoke_parses_response_with_newlines_in_json_strings():
         'The response is clear.",\n  "result": "yes"\n}'
     )
 
+    # Verify this response is indeed invalid under strict JSON parsing
+    with pytest.raises(json.JSONDecodeError, match="Invalid control character"):
+        json.loads(response_with_newlines)
+
     with mock.patch(
         "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
         return_value=response_with_newlines,
