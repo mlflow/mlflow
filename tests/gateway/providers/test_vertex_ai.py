@@ -119,7 +119,8 @@ def test_global_endpoint_when_no_location():
     provider = VertexAIProvider(endpoint_config)
     provider._cached_credentials = _mock_credentials()
     assert provider.base_url == (
-        "https://aiplatform.googleapis.com/v1/projects/my-project/publishers/google/models"
+        "https://aiplatform.googleapis.com"
+        "/v1/projects/my-project/locations/global/publishers/google/models"
     )
 
 
