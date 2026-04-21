@@ -1,6 +1,6 @@
 import { Button, Modal, Spinner, Switch, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { useLocalStorage } from '../shared/web-shared/hooks';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from '../telemetry/utils';
 import { telemetryClient } from '../telemetry';
 import { useCallback, useState } from 'react';
@@ -48,8 +48,6 @@ const SettingsPage = () => {
         relativeUrl: 'ajax-api/3.0/mlflow/demo/delete',
         method: HTTPMethods.POST,
       });
-    } catch (error) {
-      // fail silently
     } finally {
       setIsCleaningDemo(false);
     }

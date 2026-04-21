@@ -2,7 +2,7 @@ import { Button, PlusIcon, Spacer, Typography, useDesignSystemTheme } from '@dat
 import type { ExpectationAssessment } from '../ModelTrace.types';
 import { ExpectationItem } from './ExpectationItem';
 import { useMemo, useState } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
 import { isEmpty } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 

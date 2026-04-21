@@ -301,12 +301,12 @@ def test_invalid_content_type_returns_400(mlflow_server: str):
     request = ExportTraceServiceRequest()
     request.resource_spans.append(resource_spans)
 
-    # Send request with incorrect Content-Type
+    # Send request with unsupported Content-Type
     response = requests.post(
         f"{mlflow_server}/v1/traces",
         data=request.SerializeToString(),
         headers={
-            "Content-Type": "application/json",  # Wrong content type
+            "Content-Type": "text/plain",
             MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
         },
         timeout=10,
@@ -878,6 +878,65 @@ def test_service_name_propagated_to_root_span(mlflow_server: str):
     # service.name should be on the root span only
     assert root_span.get_attribute("service.name") == "gemini-cli"
     assert child_span.get_attribute("service.name") is None
+
+
+def test_otlp_json_encoding(mlflow_server: str):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-json-encoding-test")
+    experiment_id = experiment.experiment_id
+
+    trace_id_hex = "61181d5c16b3b25d966891c3fc595af9"
+    span_id_hex = "508755a859b294e3"
+
+    payload = {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": [
+                        {"key": "service.name", "value": {"stringValue": "gemini-cli"}},
+                    ]
+                },
+                "scopeSpans": [
+                    {
+                        "scope": {"name": "gemini-cli"},
+                        "spans": [
+                            {
+                                "traceId": trace_id_hex,
+                                "spanId": span_id_hex,
+                                "name": "user_prompt",
+                                "startTimeUnixNano": str(int(time.time() * 1e9)),
+                                "endTimeUnixNano": str(int(time.time() * 1e9) + 1000000000),
+                                "attributes": [
+                                    {
+                                        "key": "gen_ai.operation.name",
+                                        "value": {"stringValue": "user_prompt"},
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        json=payload,
+        headers={
+            "Content-Type": "application/json",
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+    assert response.status_code == 200
+
+    traces = mlflow.search_traces(locations=[experiment_id], include_spans=True, return_type="list")
+    assert len(traces) == 1
+
+    root_span = traces[0].data.spans[0]
+    assert root_span.name == "user_prompt"
+    assert root_span.get_attribute("service.name") == "gemini-cli"
 
 
 def test_response_is_protobuf_format(mlflow_server: str):

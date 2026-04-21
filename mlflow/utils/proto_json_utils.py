@@ -325,6 +325,8 @@ def cast_df_types_according_to_schema(pdf, schema):
                     )
                 elif isinstance(col_type_spec, AnyType):
                     pass
+                elif isinstance(col_type_spec, DataType) and col_type_spec == DataType.datetime:
+                    pdf[col_name] = pd.to_datetime(pdf[col_name])
                 else:
                     # In pandas 3.0+, string columns with NaN are inferred as StringDtype
                     # instead of object. Skip casting StringDtype to object/numpy str as they

@@ -5,11 +5,16 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  PlusIcon,
+  LinkIcon,
+  Notification,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
-import { ModelTraceExplorerAddToDatasetProvider, useModelTraceExplorerContext } from './ModelTraceExplorerContext';
+import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 
 export interface ModelTraceExplorerDrawerProps {
@@ -39,7 +44,14 @@ export const ModelTraceExplorerDrawer = ({
 }: ModelTraceExplorerDrawerProps) => {
   const { theme } = useDesignSystemTheme();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
+  const [showCopiedNotification, setShowCopiedNotification] = useState(false);
   const { renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth = '60vw' } = useModelTraceExplorerContext();
+
+  const handleShareClick = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href);
+    setShowCopiedNotification(true);
+    setTimeout(() => setShowCopiedNotification(false), 2000);
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -71,6 +83,7 @@ export const ModelTraceExplorerDrawer = ({
   }, [handleKeyDown]);
 
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
+  const handleAddToDatasetClick = useCallback(() => setShowDatasetModal(true), []);
 
   return (
     <DrawerComponent.Root
@@ -101,6 +114,38 @@ export const ModelTraceExplorerDrawer = ({
               <ChevronRightIcon />
             </Button>
             <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            {showAddToDatasetButton && (
+              <Button
+                componentId="mlflow.evaluations_review.modal.add_to_dataset"
+                onClick={handleAddToDatasetClick}
+                icon={<PlusIcon />}
+              >
+                <FormattedMessage
+                  defaultMessage="Add to dataset"
+                  description="Button text for adding a trace to a dataset"
+                />
+              </Button>
+            )}
+            <Tooltip
+              componentId="mlflow.evaluations_review.modal.share-tooltip"
+              content={
+                <FormattedMessage
+                  defaultMessage="Copy link to trace"
+                  description="Tooltip for the share trace button"
+                />
+              }
+            >
+              <Button
+                componentId="mlflow.evaluations_review.modal.share-button"
+                icon={<LinkIcon />}
+                size="small"
+                type="tertiary"
+                onClick={handleShareClick}
+                css={{ flexShrink: 0 }}
+              >
+                <FormattedMessage defaultMessage="Share" description="Label for the share trace button" />
+              </Button>
+            </Tooltip>
           </div>
         }
         expandContentToFullHeight
@@ -121,15 +166,7 @@ export const ModelTraceExplorerDrawer = ({
         ]}
       >
         <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
-          {isLoading ? (
-            <ModelTraceExplorerSkeleton />
-          ) : showAddToDatasetButton ? (
-            <ModelTraceExplorerAddToDatasetProvider openModal={() => setShowDatasetModal(true)}>
-              {children}
-            </ModelTraceExplorerAddToDatasetProvider>
-          ) : (
-            <>{children}</>
-          )}
+          {isLoading ? <ModelTraceExplorerSkeleton /> : <>{children}</>}
         </ApplyDesignSystemContextOverrides>
         {renderExportTracesToDatasetsModal?.({
           selectedTraceInfos: traceInfo ? [traceInfo] : [],
@@ -138,6 +175,19 @@ export const ModelTraceExplorerDrawer = ({
           setVisible: setShowDatasetModal,
         })}
       </DrawerComponent.Content>
+      {showCopiedNotification && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.evaluations_review.modal.share-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Copied to clipboard"
+                description="Success message after copying trace link"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
     </DrawerComponent.Root>
   );
 };

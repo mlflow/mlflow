@@ -826,6 +826,25 @@ export const createListFromObject = (
   });
 };
 
+/**
+ * Builds a single JSON string from a key-value list
+ * Used for aggregated table view. Duplicate keys overwrite; parse errors fall back to raw string.
+ */
+export const buildAggregatedJsonFromKeyValueList = (list: { key: string; value: string }[]): string => {
+  if (!Array.isArray(list)) {
+    return '{}';
+  }
+  const obj: Record<string, unknown> = {};
+  for (const { key, value } of list) {
+    try {
+      obj[key] = JSON.parse(value);
+    } catch {
+      obj[key] = value;
+    }
+  }
+  return JSON.stringify(obj, null, 2);
+};
+
 export const getHighlightedSpanComponents = ({
   searchFilter,
   data,
@@ -1353,13 +1372,7 @@ export const useIntermediateNodes = (rootNode: ModelTraceSpanNode | null) => {
   return intermediateNodes;
 };
 
-/**
- * Determines if a trace (by provided info object) supports being queried using V4 API.
- * For now, only UC_SCHEMA-located traces are supported.
- */
-export const doesTraceSupportV4API = (traceInfo?: ModelTrace['info'] | Partial<ModelTraceInfoV3>) => {
-  return Boolean(traceInfo && isV3ModelTraceInfo(traceInfo) && traceInfo.trace_location?.type === 'UC_SCHEMA');
-};
+export { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 
 export const createTraceV4SerializedLocation = (location: ModelTraceLocation) => {
   if (location.type === 'MLFLOW_EXPERIMENT') {
@@ -1371,13 +1384,22 @@ export const createTraceV4SerializedLocation = (location: ModelTraceLocation) =>
   if (location.type === 'UC_SCHEMA') {
     return `${location.uc_schema?.catalog_name}.${location.uc_schema?.schema_name}`;
   }
+  if (location.type === 'UC_TABLE_PREFIX') {
+    return `${location.uc_table_prefix?.catalog_name}.${location.uc_table_prefix?.schema_name}.${location.uc_table_prefix?.table_prefix}`;
+  }
   return undefined;
 };
 
 export const parseTraceV4SerializedLocation = (locationString: string): ModelTraceLocation => {
-  const [catalog_name, schema_name] = locationString.split('.');
-  if (catalog_name && schema_name) {
-    return { type: 'UC_SCHEMA', uc_schema: { catalog_name, schema_name } };
+  const parts = locationString.split('.');
+  if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
+    return {
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: { catalog_name: parts[0], schema_name: parts[1], table_prefix: parts[2] },
+    };
+  }
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return { type: 'UC_SCHEMA', uc_schema: { catalog_name: parts[0], schema_name: parts[1] } };
   }
   return { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: locationString } };
 };
