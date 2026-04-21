@@ -1,5 +1,5 @@
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import selectinload, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
@@ -902,9 +902,9 @@ class SqlAlchemyStore:
 
     def delete_roles_for_workspace(self, workspace_name: str) -> None:
         with self.ManagedSessionMaker() as session:
-            session.query(SqlRole).filter(SqlRole.workspace == workspace_name).delete(
-                synchronize_session=False
-            )
+            roles = session.query(SqlRole).filter(SqlRole.workspace == workspace_name).all()
+            for role in roles:
+                session.delete(role)
 
     # ---- RolePermission CRUD ----
 
@@ -982,22 +982,37 @@ class SqlAlchemyStore:
 
     def assign_role_to_user(self, user_id: int, role_id: int) -> UserRoleAssignment:
         with self.ManagedSessionMaker() as session:
-            self._get_role(session, role_id)
-            try:
-                assignment = SqlUserRoleAssignment(user_id=user_id, role_id=role_id)
-                session.add(assignment)
-                session.flush()
-                return UserRoleAssignment(
-                    id_=assignment.id,
-                    user_id=assignment.user_id,
-                    role_id=assignment.role_id,
-                )
-            except IntegrityError as e:
+            # Validate both user and role exist before attempting assignment
+            user = session.get(SqlUser, user_id)
+            if user is None:
                 raise MlflowException(
-                    f"User role assignment (user_id={user_id}, role_id={role_id}) "
-                    f"already exists. Error: {e}",
+                    f"User with id={user_id} not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            self._get_role(session, role_id)
+            # Check for duplicate assignment before insert
+            existing = (
+                session
+                .query(SqlUserRoleAssignment)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlUserRoleAssignment.role_id == role_id,
+                )
+                .first()
+            )
+            if existing is not None:
+                raise MlflowException(
+                    f"User role assignment (user_id={user_id}, role_id={role_id}) already exists",
                     RESOURCE_ALREADY_EXISTS,
-                ) from e
+                )
+            assignment = SqlUserRoleAssignment(user_id=user_id, role_id=role_id)
+            session.add(assignment)
+            session.flush()
+            return UserRoleAssignment(
+                id_=assignment.id,
+                user_id=assignment.user_id,
+                role_id=assignment.role_id,
+            )
 
     def unassign_role_from_user(self, user_id: int, role_id: int) -> None:
         with self.ManagedSessionMaker() as session:
@@ -1069,6 +1084,7 @@ class SqlAlchemyStore:
             roles = (
                 session
                 .query(SqlRole)
+                .options(selectinload(SqlRole.permissions))
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(
                     SqlUserRoleAssignment.user_id == user_id,

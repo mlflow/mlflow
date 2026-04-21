@@ -147,6 +147,17 @@ def test_delete_roles_for_workspace(store):
     assert len(store.list_roles("ws2")) == 1
 
 
+def test_delete_roles_for_workspace_cascades(store, user):
+    role = store.create_role(name="r1", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user.id, role.id)
+
+    store.delete_roles_for_workspace("ws1")
+
+    assert store.list_roles("ws1") == []
+    assert store.list_user_roles(user.id) == []
+
+
 # ---- RolePermission CRUD ----
 
 
@@ -240,6 +251,12 @@ def test_assign_role_to_user(store, user):
     assert isinstance(assignment, UserRoleAssignment)
     assert assignment.user_id == user.id
     assert assignment.role_id == role.id
+
+
+def test_assign_role_nonexistent_user(store):
+    role = store.create_role(name="viewer", workspace="ws1")
+    with pytest.raises(MlflowException, match="not found"):
+        store.assign_role_to_user(99999, role.id)
 
 
 def test_assign_role_duplicate(store, user):
