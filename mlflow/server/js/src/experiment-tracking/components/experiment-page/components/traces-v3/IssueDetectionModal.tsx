@@ -17,7 +17,7 @@ import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
 import { IssueDetectionCategorySelection } from './IssueDetectionCategorySelection';
-import { IssueDetectionModelSelection, type IssueDetectionModelSelectionRef } from './IssueDetectionModelSelection';
+import { GenAIModelSelection, type GenAIModelSelectionRef } from './GenAIModelSelection';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 
 interface IssueDetectionModalProps {
@@ -38,7 +38,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const modelSelectionRef = useRef<IssueDetectionModelSelectionRef>(null);
+  const modelSelectionRef = useRef<GenAIModelSelectionRef>(null);
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [selectedCategories, setSelectedCategories] = useState<Set<IssueCategory>>(new Set(ALL_ISSUE_CATEGORIES));
@@ -246,7 +246,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             onCategoryToggle={handleCategoryToggle}
           />
         ) : (
-          <IssueDetectionModelSelection
+          <GenAIModelSelection
             ref={modelSelectionRef}
             selectedTraceIds={selectedTraceIds}
             onSelectTracesClick={() => setIsSelectTracesModalOpen(true)}
