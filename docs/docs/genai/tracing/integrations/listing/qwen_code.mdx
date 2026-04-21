@@ -49,53 +49,53 @@ Add the hook configuration to your Qwen Code settings. This can be in either `~/
         ]
       }
     ]
-  },
-  "env": {
-    "MLFLOW_TRACKING_URI": "http://localhost:5000",
-    "MLFLOW_EXPERIMENT_ID": "0"
   }
 }
 ```
+
+:::warning
+Qwen Code's `settings.json` also supports an `env` block, but those variables do **not** propagate to hook subprocesses. MLflow configuration must be exported in the shell before launching `qwen` (see Step 3).
+:::
+
+:::note
+If you use `nvm` or a similar Node version manager, the `command` field should use an absolute path to the `node` binary (e.g. `/Users/you/.nvm/versions/node/v22.22.2/bin/node`). Hook subprocesses inherit the login shell's `PATH`, which typically does not include the nvm shim.
+:::
 
 :::note
 Older Qwen Code versions (prior to 0.14) disabled the hook system by default and required a top-level `"hooksConfig": { "enabled": true }` entry to turn it on. Current versions ignore that setting and run hooks unconditionally — it's safe to leave in if you already have it, but no longer needed.
 :::
 
-### Step 3: Use Qwen Code Normally
+### Step 3: Launch Qwen Code with MLflow environment variables
+
+Export the MLflow tracking URI and experiment ID in your shell, then start `qwen`:
 
 ```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=0
+
 # Tracing happens automatically on each conversation turn
 qwen
-
-# View traces in MLflow UI
-mlflow server
 ```
+
+Traces become visible in the MLflow UI (`mlflow server`) after each turn completes.
 
 ## How It Works
 
 1. The Stop hook fires after each Qwen Code conversation turn
 2. Qwen passes the session ID and transcript path via stdin
-3. The plugin reads the tree-structured ChatRecord JSONL transcript
-4. An MLflow trace is created with an AGENT root span and LLM/TOOL child spans
+3. The plugin reads the chronological ChatRecord JSONL transcript and matches each `functionCall` to its `tool_result` by `callId`
+4. An MLflow trace is created with an AGENT root span (`qwen_code_conversation`) and LLM/TOOL child spans. LLM spans use OpenAI chat format (`{model, messages}` inputs, `{choices}` outputs)
 
 ## Configuration Examples
 
-```json
-// Local MLflow server
-{
-  "env": {
-    "MLFLOW_TRACKING_URI": "http://localhost:5000",
-    "MLFLOW_EXPERIMENT_ID": "0"
-  }
-}
+```bash
+# Local MLflow server
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=0
 
-// Databricks MLflow
-{
-  "env": {
-    "MLFLOW_TRACKING_URI": "databricks",
-    "MLFLOW_EXPERIMENT_ID": "123456789"
-  }
-}
+# Databricks MLflow
+export MLFLOW_TRACKING_URI=databricks
+export MLFLOW_EXPERIMENT_ID=123456789
 ```
 
 ## Token Usage and Cost
@@ -108,9 +108,10 @@ MLflow automatically tracks token usage for each LLM call within Qwen Code conve
 
 **Tracing not working:**
 
+- Confirm `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` are exported in the shell that launched `qwen` — the `env` block in `settings.json` is **not** propagated to hook subprocesses
 - Check that the Stop hook command points to the correct `bundle/stop.js` path
+- On `nvm` setups, use an absolute path to the `node` binary in the hook command; hook subprocesses do not inherit the current shell's nvm shim
 - Verify Node.js 18+ is being used (required for `fetch` support)
-- Check that the `env` section contains `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID`
 - On Qwen Code versions older than 0.14, hooks are disabled by default — add a top-level `"hooksConfig": { "enabled": true }` entry to enable them
 
 **Missing traces:**
