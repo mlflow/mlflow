@@ -10,7 +10,7 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import ScorerKind
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.ragas import (
     AgentGoalAccuracyWithoutReference,
     AgentGoalAccuracyWithReference,
@@ -245,8 +245,6 @@ def test_ragas_scorer_serialization_round_trip():
         "model": None,
         "kwargs": {},
     }
-    from mlflow.genai.scorers.base import Scorer
-
     restored = Scorer.model_validate(dump)
     assert isinstance(restored, ExactMatch)
     assert restored.name == "ExactMatch"
@@ -264,8 +262,6 @@ def test_ragas_scorer_serialization_round_trip_preserves_register_name():
     # metric_name stays bound to the RAGAS class, not the registered name.
     assert dump["third_party_scorer_data"]["metric_name"] == "ExactMatch"
 
-    from mlflow.genai.scorers.base import Scorer
-
     restored = Scorer.model_validate(dump)
     assert restored.name == "exact_match_v1"
     assert isinstance(restored, ExactMatch)
@@ -276,8 +272,6 @@ def test_ragas_scorer_llm_metric_serialization_round_trip():
     dump = scorer.model_dump()
     assert dump["third_party_scorer_data"]["metric_name"] == "Faithfulness"
     assert dump["third_party_scorer_data"]["model"] == "openai:/gpt-4o"
-
-    from mlflow.genai.scorers.base import Scorer
 
     restored = Scorer.model_validate(dump)
     assert isinstance(restored, Faithfulness)

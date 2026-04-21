@@ -6,9 +6,10 @@ import pytest
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import ScorerKind
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.deepeval import (
     AnswerRelevancy,
     ExactMatch,
@@ -259,8 +260,6 @@ def test_deepeval_scorer_kind_property():
 
 
 def test_deepeval_scorer_register_blocked_on_databricks():
-    from mlflow.exceptions import MlflowException
-
     scorer = get_scorer("ExactMatch")
     with patch(
         "mlflow.genai.scorers.base.is_databricks_uri",
@@ -272,8 +271,6 @@ def test_deepeval_scorer_register_blocked_on_databricks():
 
 
 def test_deepeval_scorer_serialization_round_trip():
-    from mlflow.genai.scorers.base import Scorer
-
     scorer = ExactMatch()
     dump = scorer.model_dump()
     assert dump["third_party_scorer_data"]["class"] == "ExactMatch"
@@ -287,8 +284,6 @@ def test_deepeval_scorer_serialization_round_trip():
 
 
 def test_deepeval_scorer_llm_metric_serialization_round_trip(mock_deepeval_model):
-    from mlflow.genai.scorers.base import Scorer
-
     with patch(
         "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
     ):

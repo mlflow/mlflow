@@ -5,7 +5,10 @@ import trulens  # noqa: F401
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
+from mlflow.genai.scorers.base import Scorer, ScorerKind
+from mlflow.genai.scorers.trulens import Groundedness
 
 
 @pytest.fixture
@@ -237,20 +240,12 @@ def test_high_level_scorer_call_chain(mock_provider):
 
 
 def test_trulens_scorer_kind_is_third_party(mock_provider):
-    from mlflow.genai.scorers.base import ScorerKind
-
     with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
-        from mlflow.genai.scorers.trulens import Groundedness
-
         assert Groundedness(model="openai:/gpt-4").kind == ScorerKind.THIRD_PARTY
 
 
 def test_trulens_scorer_serialization_round_trip(mock_provider):
-    from mlflow.genai.scorers.base import Scorer, ScorerKind
-
     with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
-        from mlflow.genai.scorers.trulens import Groundedness
-
         scorer = Groundedness(model="openai:/gpt-4", threshold=0.7)
         dump = scorer.model_dump()
         assert dump["third_party_scorer_data"]["class"] == "Groundedness"
@@ -266,11 +261,7 @@ def test_trulens_scorer_serialization_round_trip(mock_provider):
 
 
 def test_trulens_scorer_register_blocked_on_databricks(mock_provider):
-    from mlflow.exceptions import MlflowException
-
     with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
-        from mlflow.genai.scorers.trulens import Groundedness
-
         scorer = Groundedness(model="openai:/gpt-4")
         with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
             with pytest.raises(MlflowException, match="Third-party scorer registration"):

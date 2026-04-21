@@ -5,6 +5,9 @@ import pytest
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.base import Scorer, ScorerKind
+from mlflow.genai.scorers.phoenix import Hallucination
 
 
 @pytest.fixture
@@ -157,16 +160,10 @@ def test_high_level_scorer_call_chain(monkeypatch):
 
 
 def test_phoenix_scorer_kind_is_third_party():
-    from mlflow.genai.scorers.base import ScorerKind
-    from mlflow.genai.scorers.phoenix import Hallucination
-
     assert Hallucination(model="openai:/gpt-4").kind == ScorerKind.THIRD_PARTY
 
 
 def test_phoenix_scorer_serialization_round_trip():
-    from mlflow.genai.scorers.base import Scorer, ScorerKind
-    from mlflow.genai.scorers.phoenix import Hallucination
-
     scorer = Hallucination(model="openai:/gpt-4")
     dump = scorer.model_dump()
     assert dump["third_party_scorer_data"]["class"] == "Hallucination"
@@ -180,9 +177,6 @@ def test_phoenix_scorer_serialization_round_trip():
 
 
 def test_phoenix_scorer_register_blocked_on_databricks():
-    from mlflow.exceptions import MlflowException
-    from mlflow.genai.scorers.phoenix import Hallucination
-
     scorer = Hallucination(model="openai:/gpt-4")
     with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
         with pytest.raises(MlflowException, match="Third-party scorer registration"):
