@@ -6547,6 +6547,10 @@
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
   },
+  "d2b9xa": {
+    "defaultMessage": "Enable Usage Tracking in the Overview tab to configure guardrails",
+    "description": "Tooltip shown on disabled Guardrails tab explaining that usage tracking must be enabled first"
+  },
   "d34yzQ": {
     "defaultMessage": "Rejected",
     "description": "Issue status tag label for rejected issues"
