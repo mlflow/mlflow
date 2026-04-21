@@ -90,12 +90,7 @@ export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionData
       const name = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME];
       const value = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_VALUE];
       const count = dp.values?.[AggregationType.COUNT];
-      if (
-        !name ||
-        name === INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE ||
-        value === undefined ||
-        count === undefined
-      ) {
+      if (!name || name === INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE || value === undefined || count === undefined) {
         continue;
       }
       counts.set(name, (counts.get(name) ?? 0) + count);
