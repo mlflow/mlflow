@@ -2,7 +2,7 @@ import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { waitFor } from '@testing-library/react';
 import React from 'react';
 import { renderWithDesignSystem } from '../../../../../common/utils/TestUtils.react18';
-import { IssueDetectionModelSelection } from './IssueDetectionModelSelection';
+import { GenAIModelSelection } from './GenAIModelSelection';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 
 jest.mock('../../../../../gateway/hooks/useEndpointsQuery');
@@ -10,18 +10,18 @@ jest.mock('../../../../../gateway/hooks/useSecretsConfigQuery');
 jest.mock('../../../../../gateway/components/create-endpoint/ModelSelect', () => ({
   ModelSelect: () => <div data-testid="model-select">Model Select</div>,
 }));
-jest.mock('./IssueDetectionApiKeyConfigurator', () => ({
-  IssueDetectionApiKeyConfigurator: () => <div data-testid="api-key-configurator">API Key Configurator</div>,
+jest.mock('./GenAIApiKeyConfigurator', () => ({
+  GenAIApiKeyConfigurator: () => <div data-testid="api-key-configurator">API Key Configurator</div>,
 }));
-jest.mock('./IssueDetectionAdvancedSettings', () => ({
-  IssueDetectionAdvancedSettings: () => <div data-testid="advanced-settings">Advanced Settings</div>,
+jest.mock('./GenAIAdvancedSettings', () => ({
+  GenAIAdvancedSettings: () => <div data-testid="advanced-settings">Advanced Settings</div>,
 }));
 const mockUseApiKeyConfiguration = jest.fn();
 jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration', () => ({
   useApiKeyConfiguration: (...args: any[]) => mockUseApiKeyConfiguration(...args),
 }));
 
-describe('IssueDetectionModelSelection', () => {
+describe('GenAIModelSelection', () => {
   const defaultProps = {
     selectedTraceIds: [],
     onSelectTracesClick: jest.fn(),
@@ -53,7 +53,7 @@ describe('IssueDetectionModelSelection', () => {
     } as any);
 
     const ref = React.createRef<any>();
-    renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} ref={ref} />);
+    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
 
     await waitFor(() => {
       expect(ref.current?.getValues().mode).toBe('endpoint');
@@ -67,7 +67,7 @@ describe('IssueDetectionModelSelection', () => {
     } as any);
 
     const ref = React.createRef<any>();
-    renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} ref={ref} />);
+    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
 
     await waitFor(() => {
       expect(ref.current?.getValues().mode).toBe('direct');
@@ -80,7 +80,7 @@ describe('IssueDetectionModelSelection', () => {
       isLoading: true,
     } as any);
 
-    const { getByText } = renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} />);
+    const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
     expect(getByText('Loading endpoints...')).toBeInTheDocument();
   });
@@ -99,7 +99,7 @@ describe('IssueDetectionModelSelection', () => {
       isLoading: false,
     } as any);
 
-    const { getByText } = renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} />);
+    const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
     // The first endpoint is auto-selected and shown in the trigger
     expect(getByText('test-endpoint')).toBeInTheDocument();
@@ -127,7 +127,7 @@ describe('IssueDetectionModelSelection', () => {
     } as any);
 
     const ref = React.createRef<any>();
-    renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} ref={ref} />);
+    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
 
     await waitFor(() => {
       expect(ref.current?.getValues().endpointName).toBe('first-endpoint');
@@ -150,7 +150,7 @@ describe('IssueDetectionModelSelection', () => {
     });
 
     const ref = React.createRef<any>();
-    renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} ref={ref} />);
+    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
 
     await waitFor(() => {
       const config = ref.current?.getValues().apiKeyConfig;
@@ -165,7 +165,7 @@ describe('IssueDetectionModelSelection', () => {
       isLoading: false,
     } as any);
 
-    const { queryByText } = renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} />);
+    const { queryByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
     expect(queryByText('Select endpoint')).not.toBeInTheDocument();
   });
