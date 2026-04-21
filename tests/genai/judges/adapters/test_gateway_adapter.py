@@ -198,7 +198,7 @@ def test_invoke_parses_response_with_newlines_in_json_strings():
 
     mock_invoke.assert_called_once()
     assert result.feedback.value == "yes"
-    assert "step by step" in result.feedback.rationale
+    assert "\nThe response is clear." in result.feedback.rationale
 
 
 # --- invoke_with_structured_output tests ---
