@@ -100,6 +100,7 @@ async def _run_test_chat(provider):
             "object": "chat.completion",
             "created": 1677858242,
             "model": "gpt-4o-mini",
+            "provider": "openai",
             "choices": [
                 {
                     "message": {
@@ -195,6 +196,7 @@ async def _run_test_chat_stream(resp, provider):
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
+                "provider": "openai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -213,6 +215,7 @@ async def _run_test_chat_stream(resp, provider):
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
+                "provider": "openai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -231,6 +234,7 @@ async def _run_test_chat_stream(resp, provider):
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
+                "provider": "openai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -295,6 +299,7 @@ async def test_chat_stream_with_function_calling():
                 "object": "chat.completion.chunk",
                 "created": 1,
                 "model": "test",
+                "provider": "openai",
                 "choices": [
                     {
                         "index": 0,
@@ -320,6 +325,7 @@ async def test_chat_stream_with_function_calling():
                 "object": "chat.completion.chunk",
                 "created": 1,
                 "model": "test",
+                "provider": "openai",
                 "choices": [
                     {
                         "index": 0,
@@ -345,6 +351,7 @@ async def test_chat_stream_with_function_calling():
                 "object": "chat.completion.chunk",
                 "created": 1,
                 "model": "test",
+                "provider": "openai",
                 "choices": [
                     {
                         "index": 0,
