@@ -28,6 +28,7 @@ import { useInitializeExperimentRunColors } from './experiment-tracking/componen
 import { MlflowSidebar } from './common/components/MlflowSidebar';
 import { AssistantProvider, AssistantRouteContextProvider } from './assistant';
 import { RootAssistantLayout } from './common/components/RootAssistantLayout';
+import type { To } from './common/utils/RoutingUtils';
 import {
   extractWorkspaceFromSearchParams,
   getActiveWorkspace,
@@ -35,6 +36,7 @@ import {
   isGlobalRoute,
   setActiveWorkspace,
   setLastUsedWorkspace,
+  WORKSPACE_QUERY_PARAM,
 } from './workspaces/utils/WorkspaceUtils';
 import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
 
@@ -177,10 +179,14 @@ export const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: 
     const lastUsedWorkspace = getLastUsedWorkspace();
     if (!lastUsedWorkspace) {
       setActiveWorkspace(null);
-      navigate('/', { replace: true });
+      navigate('/', { replace: true, state: location.state });
       return;
     } else {
-      navigate(location.pathname + '?workspace=' + lastUsedWorkspace, { replace: true });
+      const to: To = {
+        pathname: location.pathname,
+        search: `?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(lastUsedWorkspace)}`,
+      };
+      navigate(to, { replace: true, state: location.state });
     }
   }, [location, navigate, workspacesEnabled, searchParams]);
 

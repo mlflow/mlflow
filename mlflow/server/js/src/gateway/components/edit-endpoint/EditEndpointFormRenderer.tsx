@@ -16,6 +16,8 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 import { useMemo } from 'react';
 import GatewayRoutes from '../../routes';
+import Routes from '../../../experiment-tracking/routes';
+import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../../settings/settingsSectionConstants';
 import { GatewayLabel } from '../../../common/components/GatewayNewTag';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
@@ -438,7 +440,7 @@ export const EditEndpointFormRenderer = ({
                         <Link
                           key={secretName}
                           componentId="mlflow.gateway.edit-endpoint.api-key-link"
-                          to={GatewayRoutes.apiKeysPageRoute}
+                          to={Routes.getSettingsSectionRoute(SETTINGS_SECTION_LLM_CONNECTIONS)}
                           css={{
                             fontSize: theme.typography.fontSizeSm,
                             color: theme.colors.actionPrimaryBackgroundDefault,

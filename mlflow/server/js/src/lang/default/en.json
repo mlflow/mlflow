@@ -711,10 +711,6 @@
     "defaultMessage": "Created at",
     "description": "Column header for created timestamp in the evaluation runs table"
   },
-  "2PCNVS": {
-    "defaultMessage": "API Keys",
-    "description": "API Keys page title"
-  },
   "2RgAyy": {
     "defaultMessage": "Search",
     "description": "Search placeholder"
@@ -846,6 +842,10 @@
   "3N1zOb": {
     "defaultMessage": "Disabled",
     "description": "Webhook disabled label"
+  },
+  "3PBIB8": {
+    "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
+    "description": "Settings content section subtitle for general preferences including demo data"
   },
   "3Rb4sG": {
     "defaultMessage": "Delete",
@@ -1843,10 +1843,6 @@
     "defaultMessage": "MLflow runs:",
     "description": "A label for the associated MLflow runs in the prompt details page"
   },
-  "9ZzOhu": {
-    "defaultMessage": "API Keys",
-    "description": "Sidebar link for gateway API keys"
-  },
   "9cTaBs": {
     "defaultMessage": "Fail",
     "description": "Failing assessment label"
@@ -1874,6 +1870,10 @@
   "9kTEoo": {
     "defaultMessage": "Is the app's response grounded in retrieved information?",
     "description": "Hint for RetrievalGroundedness template"
+  },
+  "9lo9Zg": {
+    "defaultMessage": "LLM Connections",
+    "description": "Settings content section title: LLM connections"
   },
   "9mAGv0": {
     "defaultMessage": "Model name",
@@ -2194,6 +2194,10 @@
   "BZLX5c": {
     "defaultMessage": "Track experiments, parameters, and metrics throughout training.",
     "description": "Home page quick action description for training models"
+  },
+  "BaNRkH": {
+    "defaultMessage": "Webhooks",
+    "description": "Settings content section title: webhooks"
   },
   "Bbm59f": {
     "defaultMessage": "100",
@@ -2726,6 +2730,10 @@
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
+  },
+  "F39ONm": {
+    "defaultMessage": "LLM Connections",
+    "description": "Sidebar link: Settings > LLM Connections"
   },
   "F4K195": {
     "defaultMessage": "No evaluation datasets found",
@@ -3579,6 +3587,10 @@
     "defaultMessage": "X-axis:",
     "description": "Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
   },
+  "L3sJpt": {
+    "defaultMessage": "Settings",
+    "description": "Settings sub-sidebar: return to main nav (same label as main Settings)"
+  },
   "L3szkg": {
     "defaultMessage": "Failed to create assessment. Error: {error}",
     "description": "Error message when creating an assessment fails"
@@ -4226,6 +4238,10 @@
   "PGbCZD": {
     "defaultMessage": "Production",
     "description": "Column title for production phase version in the registered model page"
+  },
+  "PIPzZY": {
+    "defaultMessage": "General",
+    "description": "Sidebar link: Settings > General"
   },
   "PIsgM0": {
     "defaultMessage": "Experiments",
@@ -6207,10 +6223,6 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
-  "bZgVna": {
-    "defaultMessage": "Saved API keys can be managed from the API Keys page",
-    "description": "Tooltip explaining where saved API keys can be found"
-  },
   "ba7/ni": {
     "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
     "description": "Tooltip explaining the demo experiment in the experiments list"
@@ -6554,6 +6566,10 @@
   "dSaI6E": {
     "defaultMessage": "Failed to load audio attachment",
     "description": "Error message when trace audio attachment fails to load"
+  },
+  "dTHmzd": {
+    "defaultMessage": "Saved API keys can be managed in LLM Connections under Settings.",
+    "description": "Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)"
   },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
@@ -6979,6 +6995,10 @@
     "defaultMessage": "Delete {count, plural, one { # trace } other { # traces }}",
     "description": "Experiment page > traces view controls > Delete traces modal > Delete button"
   },
+  "g5myH8": {
+    "defaultMessage": "Webhooks",
+    "description": "Sidebar link: Settings > Webhooks"
+  },
   "g7xNvF": {
     "defaultMessage": "Display points",
     "description": "Runs charts > line chart > display points > label"
@@ -7186,6 +7206,10 @@
   "hN4qL/": {
     "defaultMessage": "Create workspace",
     "description": "Home page workspaces empty state CTA"
+  },
+  "hNmwSr": {
+    "defaultMessage": "General",
+    "description": "Settings content section title: general"
   },
   "hP8kyS": {
     "defaultMessage": "Delete ({count})",
@@ -7911,6 +7935,10 @@
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
   },
+  "leXUJw": {
+    "defaultMessage": "Create and manage API keys for authenticating to external LLM providers.",
+    "description": "Settings content section subtitle for LLM connections (API keys)"
+  },
   "lf2ttL": {
     "defaultMessage": "Sample rate",
     "description": "Section header for sample rate"
@@ -8583,6 +8611,10 @@
     "defaultMessage": "via endpoint:",
     "description": "Gateway > Bindings using key drawer > Via endpoint label"
   },
+  "pdhbzZ": {
+    "defaultMessage": "Return to main navigation",
+    "description": "Tooltip for leaving Settings sub-sidebar to Home and other items"
+  },
   "peyOdH": {
     "defaultMessage": "Cancel",
     "description": "Text for canceling changes on rows in editable form table in MLflow"
@@ -8938,10 +8970,6 @@
   "rdrvCs": {
     "defaultMessage": "Created",
     "description": "Secret created label"
-  },
-  "retpTK": {
-    "defaultMessage": "API Keys",
-    "description": "Gateway side nav > API Keys tab"
   },
   "rgSaFx": {
     "defaultMessage": "Span type",
@@ -9407,6 +9435,10 @@
     "defaultMessage": "Overall",
     "description": "Evaluation results > known type of evaluation result assessment > overall assessment."
   },
+  "up3hbr": {
+    "defaultMessage": "Receive HTTP notifications when events occur in MLflow.",
+    "description": "Settings content section subtitle for webhooks"
+  },
   "uq6CTI": {
     "defaultMessage": "No profile available",
     "description": "Text for no profile available in the experiment run dataset drawer"
@@ -9646,10 +9678,6 @@
   "wOmMb1": {
     "defaultMessage": "Budget exceeded: {spend} of {limit} spent",
     "description": "Tooltip shown when current spend exceeds the budget limit"
-  },
-  "wRV8PN": {
-    "defaultMessage": "Settings",
-    "description": "Settings page title"
   },
   "wY58OE": {
     "defaultMessage": "Retrieval groundedness",

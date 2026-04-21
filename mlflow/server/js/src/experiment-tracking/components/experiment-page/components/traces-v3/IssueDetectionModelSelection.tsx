@@ -451,8 +451,9 @@ export const IssueDetectionModelSelection = forwardRef<
                     <Tooltip
                       componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
                       content={intl.formatMessage({
-                        defaultMessage: 'Saved API keys can be managed from the API Keys page',
-                        description: 'Tooltip explaining where saved API keys can be found',
+                        defaultMessage: 'Saved API keys can be managed in LLM Connections under Settings.',
+                        description:
+                          'Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)',
                       })}
                     >
                       <span>
