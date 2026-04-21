@@ -32,7 +32,7 @@ import { shouldEnableWorkflowBasedNavigation, shouldEnableWorkspaces } from '../
 import { AssistantSparkleIcon } from '../../assistant/AssistantIconButton';
 import { useAssistant } from '../../assistant/AssistantContext';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
-import { SETTINGS_RETURN_TO_PARAM } from '../../settings/settingsSectionConstants';
+import { SETTINGS_RETURN_TO_PARAM, SETTINGS_SECTION_GENERAL } from '../../settings/settingsSectionConstants';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
 import { DOCS_ROOT, GenAIDocsUrl, MLDocsUrl, Version } from '../constants';
@@ -414,7 +414,7 @@ export function MlflowSidebar({
           {showWorkspaceMenuItems && !showNestedSettingsItems && (
             <MlflowSidebarLink
               css={{ paddingBlock: theme.spacing.sm }}
-              to={`${ExperimentTrackingRoutes.getSettingsSectionRoute('general')}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(location.pathname + location.search)}`}
+              to={`${ExperimentTrackingRoutes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(location.pathname + location.search)}`}
               componentId="mlflow.sidebar.settings_tab_link"
               isActive={isSettingsActive}
               icon={<GearIcon />}

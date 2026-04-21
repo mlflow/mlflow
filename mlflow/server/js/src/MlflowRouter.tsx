@@ -28,7 +28,6 @@ import { useInitializeExperimentRunColors } from './experiment-tracking/componen
 import { MlflowSidebar } from './common/components/MlflowSidebar';
 import { AssistantProvider, AssistantRouteContextProvider } from './assistant';
 import { RootAssistantLayout } from './common/components/RootAssistantLayout';
-import type { To } from './common/utils/RoutingUtils';
 import {
   extractWorkspaceFromSearchParams,
   getActiveWorkspace,
@@ -179,14 +178,10 @@ export const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: 
     const lastUsedWorkspace = getLastUsedWorkspace();
     if (!lastUsedWorkspace) {
       setActiveWorkspace(null);
-      navigate('/', { replace: true, state: location.state });
+      navigate('/', { replace: true });
       return;
     } else {
-      const to: To = {
-        pathname: location.pathname,
-        search: `?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(lastUsedWorkspace)}`,
-      };
-      navigate(to, { replace: true, state: location.state });
+      navigate(location.pathname + '?' + WORKSPACE_QUERY_PARAM + '=' + lastUsedWorkspace, { replace: true });
     }
   }, [location, navigate, workspacesEnabled, searchParams]);
 

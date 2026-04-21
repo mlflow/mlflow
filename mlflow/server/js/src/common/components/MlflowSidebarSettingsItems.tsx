@@ -5,9 +5,10 @@ import { matchPath, useSearchParams } from '../utils/RoutingUtils';
 import type { Location } from '../utils/RoutingUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import {
-  sanitizeSettingsReturnPath,
   SETTINGS_RETURN_TO_PARAM,
+  SETTINGS_SECTION_GENERAL,
   SETTINGS_SECTION_LLM_CONNECTIONS,
+  SETTINGS_SECTION_WEBHOOKS,
 } from '../../settings/settingsSectionConstants';
 
 const matchSettingsSection =
@@ -24,7 +25,7 @@ export const MlflowSidebarSettingsItems = ({ collapsed }: { collapsed: boolean }
   const [searchParams] = useSearchParams();
 
   const returnToParam = searchParams.get(SETTINGS_RETURN_TO_PARAM) ?? undefined;
-  const exitTo = sanitizeSettingsReturnPath(returnToParam, ExperimentTrackingRoutes.rootRoute);
+  const exitTo = returnToParam ?? ExperimentTrackingRoutes.rootRoute;
 
   const sectionTo = (section: string) => {
     const path = ExperimentTrackingRoutes.getSettingsSectionRoute(section);
@@ -60,9 +61,9 @@ export const MlflowSidebarSettingsItems = ({ collapsed }: { collapsed: boolean }
       </MlflowSidebarLink>
       <MlflowSidebarLink
         css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
-        to={sectionTo('general')}
+        to={sectionTo(SETTINGS_SECTION_GENERAL)}
         componentId="mlflow.sidebar.settings_general_link"
-        isActive={matchSettingsSection('general')}
+        isActive={matchSettingsSection(SETTINGS_SECTION_GENERAL)}
         collapsed={collapsed}
       >
         <FormattedMessage defaultMessage="General" description="Sidebar link: Settings > General" />
@@ -78,9 +79,9 @@ export const MlflowSidebarSettingsItems = ({ collapsed }: { collapsed: boolean }
       </MlflowSidebarLink>
       <MlflowSidebarLink
         css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
-        to={sectionTo('webhooks')}
+        to={sectionTo(SETTINGS_SECTION_WEBHOOKS)}
         componentId="mlflow.sidebar.settings_webhooks_link"
-        isActive={matchSettingsSection('webhooks')}
+        isActive={matchSettingsSection(SETTINGS_SECTION_WEBHOOKS)}
         collapsed={collapsed}
       >
         <FormattedMessage defaultMessage="Webhooks" description="Sidebar link: Settings > Webhooks" />

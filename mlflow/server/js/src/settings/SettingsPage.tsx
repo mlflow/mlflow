@@ -13,6 +13,7 @@ import WebhooksSettings from './WebhooksSettings';
 import {
   isSettingsPathSegment,
   SETTINGS_RETURN_TO_PARAM,
+  SETTINGS_SECTION_GENERAL,
   SETTINGS_SECTION_LLM_CONNECTIONS,
   type SettingsPathSegment,
 } from './settingsSectionConstants';
@@ -91,7 +92,7 @@ const SettingsPage = () => {
   useEffect(() => {
     if (sectionParam && !isSettingsPathSegment(sectionParam)) {
       const returnTo = new URLSearchParams(location.search).get(SETTINGS_RETURN_TO_PARAM);
-      const target = Routes.getSettingsSectionRoute('general');
+      const target = Routes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL);
       navigate(returnTo ? `${target}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(returnTo)}` : target, {
         replace: true,
         state: location.state,
