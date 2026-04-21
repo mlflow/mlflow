@@ -831,6 +831,11 @@ class SqlAlchemyStore:
                 f"Role with id={role_id} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple roles with id={role_id}",
+                INVALID_STATE,
+            )
 
     @staticmethod
     def _get_role_by_name(session, workspace: str, name: str) -> SqlRole:
@@ -845,6 +850,11 @@ class SqlAlchemyStore:
             raise MlflowException(
                 f"Role with name={name} in workspace={workspace} not found",
                 RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple roles with name={name} in workspace={workspace}",
+                INVALID_STATE,
             )
 
     def get_role(self, role_id: int) -> Role:
@@ -1008,11 +1018,7 @@ class SqlAlchemyStore:
             assignment = SqlUserRoleAssignment(user_id=user_id, role_id=role_id)
             session.add(assignment)
             session.flush()
-            return UserRoleAssignment(
-                id_=assignment.id,
-                user_id=assignment.user_id,
-                role_id=assignment.role_id,
-            )
+            return assignment.to_mlflow_entity()
 
     def unassign_role_from_user(self, user_id: int, role_id: int) -> None:
         with self.ManagedSessionMaker() as session:
@@ -1035,16 +1041,13 @@ class SqlAlchemyStore:
 
     def list_user_roles(self, user_id: int) -> list[Role]:
         with self.ManagedSessionMaker() as session:
-            assignments = (
+            roles = (
                 session
-                .query(SqlUserRoleAssignment)
+                .query(SqlRole)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(SqlUserRoleAssignment.user_id == user_id)
                 .all()
             )
-            role_ids = [a.role_id for a in assignments]
-            if not role_ids:
-                return []
-            roles = session.query(SqlRole).filter(SqlRole.id.in_(role_ids)).all()
             return [r.to_mlflow_entity() for r in roles]
 
     def list_user_roles_for_workspace(self, user_id: int, workspace: str) -> list[Role]:
@@ -1070,10 +1073,7 @@ class SqlAlchemyStore:
                 .filter(SqlUserRoleAssignment.role_id == role_id)
                 .all()
             )
-            return [
-                UserRoleAssignment(id_=a.id, user_id=a.user_id, role_id=a.role_id)
-                for a in assignments
-            ]
+            return [a.to_mlflow_entity() for a in assignments]
 
     # ---- Role-based permission resolution ----
 

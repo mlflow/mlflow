@@ -21,6 +21,7 @@ from mlflow.server.auth.entities import (
     RolePermission,
     ScorerPermission,
     User,
+    UserRoleAssignment,
     WorkspacePermission,
 )
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -247,3 +248,10 @@ class SqlUserRoleAssignment(Base):
         Index("idx_user_role_assignments_user_id", "user_id"),
         Index("idx_user_role_assignments_role_id", "role_id"),
     )
+
+    def to_mlflow_entity(self):
+        return UserRoleAssignment(
+            id_=self.id,
+            user_id=self.user_id,
+            role_id=self.role_id,
+        )
