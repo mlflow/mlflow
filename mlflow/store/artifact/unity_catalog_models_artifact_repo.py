@@ -124,10 +124,13 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         Get underlying ArtifactRepository instance for model version blob
         storage
         """
+        _logger.info(f"[UnityCatalogModelsArtifactRepository] Getting artifact repo for {self.model_name} {self.model_version}")
         if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get():
+            _logger.info(f"[UnityCatalogModelsArtifactRepository] Using DatabricksSDKModelsArtifactRepository for {self.model_name} {self.model_version}")
             return DatabricksSDKModelsArtifactRepository(self.model_name, self.model_version)
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
+            _logger.info(f"[UnityCatalogModelsArtifactRepository] Using PresignedUrlArtifactRepository for {self.model_name} {self.model_version}")
             return PresignedUrlArtifactRepository(
                 get_databricks_host_creds(self.registry_uri), self.model_name, self.model_version
             )
