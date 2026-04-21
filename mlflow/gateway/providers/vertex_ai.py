@@ -87,15 +87,10 @@ class VertexAIProvider(GeminiProvider):
     @property
     def base_url(self) -> str:
         project = self.vertex_config.vertex_project
-        location = self.vertex_config.vertex_location
-        if location and location != "global":
-            host = f"https://{location}-aiplatform.googleapis.com"
-            path = f"/v1/projects/{project}/locations/{location}/publishers/google/models"
-        else:
-            # When no location is specified or location is "global", use the global
-            # endpoint. Models only available on the global endpoint (e.g., Gemini 3
-            # family) require `locations/global` in the path.
-            # See: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/locations
-            host = "https://aiplatform.googleapis.com"
-            path = f"/v1/projects/{project}/locations/global/publishers/google/models"
+        location = self.vertex_config.vertex_location or "global"
+        # Regional endpoints use a "{location}-" prefix; the global endpoint has no prefix.
+        # https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
+        prefix = "" if location == "global" else f"{location}-"
+        host = f"https://{prefix}aiplatform.googleapis.com"
+        path = f"/v1/projects/{project}/locations/{location}/publishers/google/models"
         return f"{host}{path}"
