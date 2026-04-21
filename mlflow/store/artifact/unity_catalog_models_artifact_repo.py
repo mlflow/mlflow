@@ -1,4 +1,5 @@
 import base64
+import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -41,6 +42,8 @@ from mlflow.utils.uri import (
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
+
+_logger = logging.getLogger(__name__)
 
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
@@ -126,6 +129,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         Get underlying ArtifactRepository instance for model version blob
         storage
         """
+        _logger.info(f"[UnityCatalogModelsArtifactRepository] Getting artifact repo for {self.model_name} {self.model_version}")
         host_creds = get_databricks_host_creds(self.registry_uri)
         if is_databricks_sdk_models_artifact_repository_enabled(host_creds):
             entities = lineage_header_info.entities if lineage_header_info else []
@@ -136,14 +140,17 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                 entities,
                 ModelVersionLineageDirection.DOWNSTREAM,
             )
+            _logger.info(f"[UnityCatalogModelsArtifactRepository] Using DatabricksSDKModelsArtifactRepository for {self.model_name} {self.model_version}")
             return DatabricksSDKModelsArtifactRepository(self.model_name, self.model_version)
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
+            _logger.info(f"[UnityCatalogModelsArtifactRepository] Using PresignedUrlArtifactRepository for {self.model_name} {self.model_version}")
             return PresignedUrlArtifactRepository(
                 get_databricks_host_creds(self.registry_uri), self.model_name, self.model_version
             )
 
         blob_storage_path = self._get_blob_storage_path()
+        _logger.info(f"[UnityCatalogModelsArtifactRepository] Using get_artifact_repo_from_storage_info for {self.model_name} {self.model_version}")
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,
             scoped_token=scoped_token,
