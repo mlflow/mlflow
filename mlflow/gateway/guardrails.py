@@ -3,10 +3,13 @@ from __future__ import annotations
 import abc
 import asyncio
 import json
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException
 
+import mlflow
+from mlflow.entities import SpanType
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
@@ -76,6 +79,7 @@ class Guardrail(abc.ABC):
         self,
         request: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         """Process an incoming request payload before LLM invocation.
 
@@ -83,6 +87,8 @@ class Guardrail(abc.ABC):
             request: The chat request payload as a dict.
             auth_headers: Optional HTTP headers to forward when making
                 internal calls (e.g. sanitization via the gateway).
+            usage_tracking: If True, emit MLflow tracing spans for this
+                guardrail execution.
 
         Returns:
             The (possibly modified) request payload.
@@ -97,6 +103,7 @@ class Guardrail(abc.ABC):
         request: dict[str, Any],
         response: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         """Process an outgoing response payload after LLM invocation.
 
@@ -105,6 +112,8 @@ class Guardrail(abc.ABC):
             response: The chat response payload as a dict.
             auth_headers: Optional HTTP headers to forward when making
                 internal calls (e.g. sanitization via the gateway).
+            usage_tracking: If True, emit MLflow tracing spans for this
+                guardrail execution.
 
         Returns:
             The (possibly modified) response payload.
@@ -204,6 +213,7 @@ class JudgeGuardrail(Guardrail):
         rationale: str,
         payload_model: type[ChatCompletionRequest] | type[ChatCompletionResponse],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         """Send the full payload to the action endpoint LLM for rewriting.
 
@@ -246,26 +256,43 @@ class JudgeGuardrail(Guardrail):
         # Bypass guardrails on the sanitization call to prevent recursive loops.
         headers[_SANITIZE_BYPASS_HEADER] = "1"
 
-        try:
-            resp_json = await send_request(headers=headers, base_url=url, path=path, payload=body)
-        except HTTPException as e:
-            raise GuardrailViolation(self.name, f"Sanitization request failed: {e.detail}") from e
+        span_ctx = (
+            mlflow.start_span(name="sanitization", span_type=SpanType.LLM)
+            if usage_tracking
+            else nullcontext()
+        )
+        with span_ctx as san_span:
+            if san_span is not None:
+                san_span.set_inputs({"payload": payload, "rationale": rationale})
 
-        try:
-            content = resp_json["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as e:
-            raise GuardrailViolation(
-                self.name,
-                "Sanitization LLM response is missing 'choices[0].message.content'.",
-            ) from e
+            try:
+                resp_json = await send_request(
+                    headers=headers, base_url=url, path=path, payload=body
+                )
+            except HTTPException as e:
+                raise GuardrailViolation(
+                    self.name, f"Sanitization request failed: {e.detail}"
+                ) from e
 
-        try:
-            return json.loads(content)
-        except (json.JSONDecodeError, TypeError) as e:
-            raise GuardrailViolation(
-                self.name,
-                "Sanitization LLM returned invalid JSON.",
-            ) from e
+            try:
+                content = resp_json["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError) as e:
+                raise GuardrailViolation(
+                    self.name,
+                    "Sanitization LLM response is missing 'choices[0].message.content'.",
+                ) from e
+
+            try:
+                result = json.loads(content)
+            except (json.JSONDecodeError, TypeError) as e:
+                raise GuardrailViolation(
+                    self.name,
+                    "Sanitization LLM returned invalid JSON.",
+                ) from e
+
+            if san_span is not None:
+                san_span.set_outputs(result)
+            return result
 
     async def _enforce(
         self,
@@ -273,6 +300,7 @@ class JudgeGuardrail(Guardrail):
         payload_model: type[ChatCompletionRequest] | type[ChatCompletionResponse],
         result: ScorerResult,
         auth_headers: dict[str, str] | None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         """Block or sanitize *payload* based on *result*.
 
@@ -288,30 +316,74 @@ class JudgeGuardrail(Guardrail):
         if self.action == GuardrailAction.VALIDATION:
             raise GuardrailViolation(self.name, rationale)
 
-        return await self._sanitize(payload, rationale, payload_model, auth_headers=auth_headers)
+        return await self._sanitize(
+            payload,
+            rationale,
+            payload_model,
+            auth_headers=auth_headers,
+            usage_tracking=usage_tracking,
+        )
 
     async def process_request(
         self,
         request: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         if self.stage == GuardrailStage.AFTER:
             return request
 
-        result = await asyncio.to_thread(self._invoke_judge, inputs=request)
-        return await self._enforce(request, ChatCompletionRequest, result, auth_headers)
+        if not usage_tracking:
+            result = await asyncio.to_thread(self._invoke_judge, inputs=request)
+            return await self._enforce(request, ChatCompletionRequest, result, auth_headers)
+
+        with mlflow.start_span(
+            name=f"guardrail/{self.name}", span_type=SpanType.GUARDRAIL
+        ) as gspan:
+            gspan.set_inputs(request)
+            with mlflow.start_span(name="judge", span_type=SpanType.EVALUATOR) as jspan:
+                result = await asyncio.to_thread(self._invoke_judge, inputs=request)
+                passed = self._is_passing(result)
+                jspan.set_outputs({"passed": passed, "rationale": self._get_rationale(result)})
+            output = await self._enforce(
+                request, ChatCompletionRequest, result, auth_headers, usage_tracking=usage_tracking
+            )
+            gspan.set_outputs(output)
+            return output
 
     async def process_response(
         self,
         request: dict[str, Any],
         response: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
+        usage_tracking: bool = False,
     ) -> dict[str, Any]:
         if self.stage == GuardrailStage.BEFORE:
             return response
 
-        result = await asyncio.to_thread(self._invoke_judge, inputs=request, outputs=response)
-        return await self._enforce(response, ChatCompletionResponse, result, auth_headers)
+        if not usage_tracking:
+            result = await asyncio.to_thread(self._invoke_judge, inputs=request, outputs=response)
+            return await self._enforce(response, ChatCompletionResponse, result, auth_headers)
+
+        with mlflow.start_span(
+            name=f"guardrail/{self.name}", span_type=SpanType.GUARDRAIL
+        ) as gspan:
+            gspan.set_inputs({"request": request, "response": response})
+            with mlflow.start_span(name="judge", span_type=SpanType.EVALUATOR) as jspan:
+                result = await asyncio.to_thread(
+                    self._invoke_judge, inputs=request, outputs=response
+                )
+                passed = self._is_passing(result)
+                jspan.set_outputs({"passed": passed, "rationale": self._get_rationale(result)})
+            output = await self._enforce(
+                response,
+                ChatCompletionResponse,
+                result,
+                auth_headers,
+                usage_tracking=usage_tracking,
+            )
+            gspan.set_outputs(output)
+            return output
 
     @classmethod
     def from_entity(cls, entity: GatewayGuardrail, server_url: str | None = None) -> JudgeGuardrail:

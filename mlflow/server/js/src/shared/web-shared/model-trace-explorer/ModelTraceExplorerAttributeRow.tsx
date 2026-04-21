@@ -6,7 +6,6 @@ import { Button, ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemT
 import type { SearchMatch } from './ModelTrace.types';
 import { ModelTraceExplorerHighlightedCodeSnippet } from './ModelTraceExplorerHighlightedCodeSnippet';
 import { ModelTraceExplorerHighlightedSnippetTitle } from './ModelTraceExplorerHighlightedSnippetTitle';
-// eslint-disable-next-line import/no-deprecated
 import { CodeSnippet } from '../snippet/CodeSnippet';
 
 export function ModelTraceExplorerAttributeRow({
@@ -91,7 +90,6 @@ export function ModelTraceExplorerAttributeRow({
           ) : (
             <div />
           )}
-          {/* eslint-disable-next-line import/no-deprecated */}
           <CodeSnippet
             PreTag={PreWithRef}
             language="json"

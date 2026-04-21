@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import lint_file
 from clint.rules.redundant_mock_return_value import RedundantMockReturnValue
 
@@ -57,8 +58,8 @@ def test_foo():
         ),
     ],
 )
-def test_violation(code: str, index_path: Path) -> None:
-    violations = lint_file(TEST_FILE, code, CONFIG, index_path)
+def test_violation(code: str, index: SymbolIndex) -> None:
+    violations = lint_file(TEST_FILE, code, CONFIG, index)
     assert len(violations) == 1
     assert isinstance(violations[0].rule, RedundantMockReturnValue)
 
@@ -101,12 +102,12 @@ def test_foo():
         ),
     ],
 )
-def test_no_violation(code: str, index_path: Path) -> None:
-    violations = lint_file(TEST_FILE, code, CONFIG, index_path)
+def test_no_violation(code: str, index: SymbolIndex) -> None:
+    violations = lint_file(TEST_FILE, code, CONFIG, index)
     assert len(violations) == 0
 
 
-def test_non_test_file_not_checked(index_path: Path) -> None:
+def test_non_test_file_not_checked(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -114,5 +115,5 @@ def foo():
     with mock.patch("foo.bar", return_value=mock.MagicMock()):
         ...
 """
-    violations = lint_file(Path("foo.py"), code, CONFIG, index_path)
+    violations = lint_file(Path("foo.py"), code, CONFIG, index)
     assert len(violations) == 0

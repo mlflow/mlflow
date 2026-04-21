@@ -1,6 +1,7 @@
 import inspect
 import os
 import sys
+from collections import Counter
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -462,6 +463,17 @@ class GatewayListEndpointsEvent(Event):
         }
 
 
+class GatewayCreateModelDefinitionEvent(Event):
+    name: str = "gateway_create_model_definition"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "model_name": arguments.get("model_name"),
+            "provider": arguments.get("provider"),
+        }
+
+
 # Gateway Budget Policy CRUD Events
 class GatewayCreateBudgetPolicyEvent(Event):
     name: str = "gateway_create_budget_policy"
@@ -632,10 +644,22 @@ class AutologgingEvent(Event):
     name: str = "autologging"
 
 
+class TraceAttachmentsEvent(Event):
+    name: str = "trace_attachments"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        if attachments := arguments.get("attachments"):
+            content_types = Counter(att.content_type for att in attachments.values())
+            return {"content_types": dict(content_types)}
+        return None
+
+
 class TraceSource(str, Enum):
     """Source of a trace received by the MLflow server."""
 
     MLFLOW_PYTHON_CLIENT = "MLFLOW_PYTHON_CLIENT"
+    EXTERNAL_OTEL_CLIENT = "EXTERNAL_OTEL_CLIENT"
     UNKNOWN = "UNKNOWN"
 
 

@@ -111,18 +111,26 @@ describe('GuardrailsTabContent', () => {
     expect(screen.getByText(/No guardrails match your search/)).toBeInTheDocument();
   });
 
-  test('clicking delete opens confirmation modal', async () => {
+  test('clicking delete opens confirmation modal after selecting a row', async () => {
     setup();
     renderWithDesignSystem(<GuardrailsTabContent {...defaultProps} />);
-    const deleteButtons = screen.getAllByRole('button', { name: /Remove guardrail/i });
-    await userEvent.click(deleteButtons[0]);
-    expect(screen.getByText('Remove Guardrail')).toBeInTheDocument();
+
+    // Select the first row via its checkbox, then click the toolbar Delete button
+    const checkboxes = screen.getAllByRole('checkbox');
+    await userEvent.click(checkboxes[1]); // index 0 is "select all", index 1 is first row
+    await userEvent.click(screen.getByRole('button', { name: /^Delete/ }));
+
+    expect(screen.getByText(/Delete.*guardrail/i)).toBeInTheDocument();
   });
 
-  test('view buttons are enabled', () => {
+  test('clicking a guardrail name renders the row', async () => {
     setup();
     renderWithDesignSystem(<GuardrailsTabContent {...defaultProps} />);
-    const viewButtons = screen.getAllByRole('button', { name: /View and edit guardrail/i });
-    viewButtons.forEach((btn) => expect(btn).not.toBeDisabled());
+
+    const nameButton = screen.getByRole('button', { name: 'Safety' });
+    expect(nameButton).toBeInTheDocument();
+    await userEvent.click(nameButton);
+    // Row remains visible after click (modal is mocked out)
+    expect(screen.getByRole('button', { name: 'Safety' })).toBeInTheDocument();
   });
 });

@@ -23,7 +23,6 @@ import {
   generatePath,
   Navigate,
   Route,
-  NavLink as NavLinkDirect,
   Outlet as OutletDirect,
   Link as LinkDirect,
   useNavigate as useNavigateDirect,
@@ -294,22 +293,12 @@ const Link = React.forwardRef<
   return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
 });
 
-const NavLink = React.forwardRef<
-  HTMLAnchorElement,
-  ComponentProps<typeof NavLinkDirect> & { disableWorkspacePrefix?: boolean }
->(function NavLink(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
-  const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <NavLinkDirect ref={ref} to={finalTo} {...rest} />;
-});
-
 export {
   // React Router V6 API exports
   BrowserRouter,
   MemoryRouter,
   HashRouter,
   Link,
-  NavLink,
   useNavigate,
   useLocation,
   useParams,

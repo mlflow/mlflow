@@ -11,7 +11,7 @@
     "project": "./tsconfig.json"
   },
   "plugins": ["@typescript-eslint"],
-  "ignorePatterns": ["dist/", "build/", "node_modules/", "*.d.ts", "jest.config.js"],
+  "ignorePatterns": ["dist/", "build/", "bundle/", "node_modules/", "*.d.ts", "jest.config.js"],
   "rules": {
     // TypeScript-specific rules
     "@typescript-eslint/no-unused-vars": [

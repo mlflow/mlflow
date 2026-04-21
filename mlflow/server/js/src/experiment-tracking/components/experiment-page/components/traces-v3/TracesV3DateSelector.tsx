@@ -10,6 +10,7 @@ import {
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
   FormUI,
+  RangePicker,
   RefreshIcon,
   Tooltip,
   useDesignSystemTheme,
@@ -26,7 +27,6 @@ import {
   useMonitoringFilters,
 } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
 import { isNil } from 'lodash';
-import { RangePicker } from '@databricks/design-system/development';
 import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { useQueryClient, useIsFetching } from '@databricks/web-shared/query-client';
 import { shouldEnableTracesTableStatePersistence } from '@databricks/web-shared/model-trace-explorer';

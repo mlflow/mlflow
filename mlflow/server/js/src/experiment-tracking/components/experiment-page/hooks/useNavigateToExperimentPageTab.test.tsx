@@ -1,3 +1,4 @@
+/* eslint-disable jest/no-standalone-expect */
 import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { render, renderHook, screen, waitFor } from '@testing-library/react';
 import { useNavigateToExperimentPageTab } from './useNavigateToExperimentPageTab';
@@ -28,6 +29,9 @@ jest.mock('../../../../common/contexts/WorkflowTypeContext', () => ({
 jest.setTimeout(60000); // Larger timeout for integration testing
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
   shouldEnableExperimentOverviewTab: jest.fn().mockReturnValue(true),
   shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(true),
 }));
@@ -87,6 +91,9 @@ describe('useNavigateToExperimentPageTab', () => {
       const { tabName } = useParams();
       return <span>experiment page displaying {tabName} tab</span>;
     };
+    const TestExperimentOverviewPage = () => {
+      return <span>experiment page displaying overview tab</span>;
+    };
     const queryClient = new QueryClient();
     return render(
       <TestRouter
@@ -94,6 +101,10 @@ describe('useNavigateToExperimentPageTab', () => {
         routes={[
           testRoute(<TestExperimentPage />, createMLflowRoutePath('/experiments/:experimentId')),
           testRoute(<TestExperimentTabsPage />, createMLflowRoutePath('/experiments/:experimentId/:tabName')),
+          testRoute(
+            <TestExperimentOverviewPage />,
+            createMLflowRoutePath('/experiments/:experimentId/overview/:overviewTab'),
+          ),
         ]}
         initialEntries={[initialRoute]}
       />,
