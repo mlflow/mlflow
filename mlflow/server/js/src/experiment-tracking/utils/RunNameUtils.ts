@@ -62,6 +62,5 @@ export const getStableColorForRun = (runUuid: string) => {
     b = (b + a) % 255;
   }
 
-  // eslint-disable-next-line no-bitwise
   return RUNS_COLOR_PALETTE[(a | (b << 8)) % RUNS_COLOR_PALETTE.length];
 };

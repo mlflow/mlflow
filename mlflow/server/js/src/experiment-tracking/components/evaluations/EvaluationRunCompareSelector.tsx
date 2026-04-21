@@ -130,8 +130,10 @@ export const EvaluationRunCompareSelector = ({
                 {currentRunInfo?.runName ? (
                   <Typography.Hint>{currentRunInfo?.runName}</Typography.Hint>
                 ) : (
-                  // eslint-disable-next-line formatjs/enforce-description
-                  intl.formatMessage({ defaultMessage: 'Select baseline run' })
+                  intl.formatMessage({
+                    defaultMessage: 'Select baseline run',
+                    description: 'Placeholder text for the baseline run selector dropdown',
+                  })
                 )}
               </div>
             </Button>
@@ -214,8 +216,10 @@ export const EvaluationRunCompareSelector = ({
                           color: theme.colors.textPlaceholder,
                         }}
                       >
-                        {/* eslint-disable-next-line formatjs/enforce-description */}
-                        {intl.formatMessage({ defaultMessage: 'baseline run' })}
+                        {intl.formatMessage({
+                          defaultMessage: 'baseline run',
+                          description: 'Placeholder text shown when no baseline run is selected for comparison',
+                        })}
                       </span>
                     )}
                   </div>

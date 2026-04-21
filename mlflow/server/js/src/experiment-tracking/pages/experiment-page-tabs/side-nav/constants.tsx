@@ -32,7 +32,7 @@ export type ExperimentPageSideNavConfig = {
 
 export type ExperimentPageSideNavSectionKey = 'top-level' | 'observability' | 'evaluation' | 'prompts-versions';
 
-export const ExperimentPageSideNavGenAIConfig = {
+const ExperimentPageSideNavGenAIConfig = {
   observability: [
     {
       label: (
@@ -107,7 +107,7 @@ export const ExperimentPageSideNavGenAIConfig = {
   ],
 };
 
-export const ExperimentPageSideNavCustomModelConfig = {
+const ExperimentPageSideNavCustomModelConfig = {
   'top-level': [
     {
       label: (
@@ -177,9 +177,11 @@ export const getExperimentPageSideNavSectionLabel = (
 export const useExperimentPageSideNavConfig = ({
   experimentKind,
   hasTrainingRuns = false,
+  hasV4Location,
 }: {
   experimentKind: ExperimentKind;
   hasTrainingRuns?: boolean;
+  hasV4Location?: boolean;
 }): ExperimentPageSideNavConfig => {
   if (
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
@@ -187,7 +189,7 @@ export const useExperimentPageSideNavConfig = ({
   ) {
     const baseConfig = {
       'top-level': [
-        ...(shouldEnableExperimentOverviewTab()
+        ...(shouldEnableExperimentOverviewTab(hasV4Location)
           ? [
               {
                 label: (

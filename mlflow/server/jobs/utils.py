@@ -614,9 +614,10 @@ def _load_function(fullname: str) -> Callable[..., Any]:
             f"Module not found for function '{fullname}'",
         )
     except AttributeError:
-        # Function doesn't exist in the module
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException.invalid_parameter_value(
             f"Function not found in module for '{fullname}'",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )
 
 

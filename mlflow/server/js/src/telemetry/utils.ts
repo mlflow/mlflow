@@ -30,5 +30,5 @@ export const isDesignSystemEvent = (event: any): event is DesignSystemObservabil
 };
 
 export const isTelemetryDevLoggingEnabled = (): boolean => {
-  return getLocalStorageItem(TELEMETRY_ENABLE_DEV_LOGGING_STORAGE_KEY, 1, false);
+  return getLocalStorageItem(TELEMETRY_ENABLE_DEV_LOGGING_STORAGE_KEY, 1, false, false);
 };

@@ -1127,3 +1127,65 @@ async def test_tracing_headers_preserve_user_headers(client):
     # User-provided headers should be preserved alongside traceparent
     assert "traceparent" in captured_request["headers"]
     assert captured_request["headers"].get("x-custom") == "my-value"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
+)
+async def test_chat_completions_autolog_streaming_with_cached_tokens(client, mock_litellm_cost):
+    mlflow.openai.autolog()
+
+    mock_chunk = {
+        "id": "chatcmpl-stream-cached",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 50,
+            "completion_tokens": 20,
+            "total_tokens": 70,
+            "prompt_tokens_details": {"cached_tokens": 30, "audio_tokens": 0},
+            "completion_tokens_details": {"reasoning_tokens": 0},
+        },
+    }
+
+    if client._is_async:
+        patch_target = "httpx.AsyncClient.send"
+
+        async def send_patch(self, request, *args, **kwargs):
+            content = f"data: {json.dumps(mock_chunk)}\n\ndata: [DONE]\n\n".encode()
+            return httpx.Response(status_code=200, request=request, content=content)
+
+    else:
+        patch_target = "httpx.Client.send"
+
+        def send_patch(self, request, *args, **kwargs):
+            content = f"data: {json.dumps(mock_chunk)}\n\ndata: [DONE]\n\n".encode()
+            return httpx.Response(status_code=200, request=request, content=content)
+
+    with mock.patch(patch_target, send_patch):
+        stream = client.chat.completions.create(
+            messages=[{"role": "user", "content": "test"}],
+            model="gpt-4o-mini",
+            stream=True,
+            stream_options={"include_usage": True},
+        )
+        if client._is_async:
+            async for _ in await stream:
+                pass
+        else:
+            for _ in stream:
+                pass
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+    }

@@ -193,6 +193,7 @@ export const SetupStepProject = ({
                 </Checkbox>
                 <Tooltip
                   componentId="mlflow.assistant.setup.project.perm_mlflow_cli_tooltip"
+                  disableHoverableContent={false}
                   content="Allow running MLflow commands to fetch traces, runs, and experiment data. This is required for the assistant to work properly."
                 >
                   <QuestionMarkIcon
@@ -211,6 +212,7 @@ export const SetupStepProject = ({
                 </Checkbox>
                 <Tooltip
                   componentId="mlflow.assistant.setup.project.perm_read_docs_tooltip"
+                  disableHoverableContent={false}
                   content="Allow fetching content from mlflow.org documentation to get the latest information about MLflow and make accurate suggestions."
                 >
                   <QuestionMarkIcon
@@ -229,6 +231,7 @@ export const SetupStepProject = ({
                 </Checkbox>
                 <Tooltip
                   componentId="mlflow.assistant.setup.project.perm_edit_files_tooltip"
+                  disableHoverableContent={false}
                   content="Allow modifying files in your project directory. Required if you want to use the assistant to work on your project code, e.g., writing evaluation scripts, fixing bugs, etc."
                 >
                   <QuestionMarkIcon
@@ -376,7 +379,7 @@ export const SetupStepProject = ({
         nextLabel={nextLabel}
         backLabel={backLabel}
         isLoading={isSaving}
-        nextDisabled={!!error}
+        nextDisabled={Boolean(error)}
       />
     </div>
   );

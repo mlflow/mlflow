@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable import/no-duplicates */
 import { jest, beforeAll, afterAll, describe, it, expect } from '@jest/globals';
 import { render, screen, within, waitForElementToBeRemoved, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -25,6 +23,7 @@ import {
   MOCK_V3_SPANS,
 } from './ModelTraceExplorer.test-utils';
 import { AssessmentSchemaContextProvider } from './contexts/AssessmentSchemaContext';
+import { ModelTraceExplorerPreferencesProvider } from './ModelTraceExplorerPreferencesContext';
 
 // increase timeout and it's a heavy test
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
@@ -102,7 +101,9 @@ const TestComponent = ({ modelTrace }: { modelTrace: ModelTrace }) => {
     <IntlProvider locale="en">
       <DesignSystemProvider>
         <QueryClientProvider client={queryClient}>
-          <ModelTraceExplorer modelTrace={modelTrace} initialActiveView="detail" />
+          <ModelTraceExplorerPreferencesProvider initialRenderMode="default">
+            <ModelTraceExplorer modelTrace={modelTrace} initialActiveView="detail" />
+          </ModelTraceExplorerPreferencesProvider>
         </QueryClientProvider>
       </DesignSystemProvider>
     </IntlProvider>
@@ -421,5 +422,35 @@ describe('ModelTraceExplorer', () => {
     // Switch to the other top-level span
     await userEvent.click(spanElements[0]);
     expect(await screen.findByText('rephrase_chat_to_queue-input')).toBeInTheDocument();
+  });
+
+  it('should render V4 error feedback assessments that have no value field', async () => {
+    // V4 API omits feedback.value for error assessments — only error is present.
+    // Previously these were silently dropped by the grouping logic.
+    const traceWithV4ErrorFeedback: ModelTrace = {
+      data: { spans: MOCK_V3_SPANS },
+      info: {
+        ...MOCK_TRACE_INFO_V3,
+        assessments: [
+          {
+            ...MOCK_ASSESSMENT,
+            assessment_id: 'a-error-1',
+            assessment_name: 'error_judge',
+            feedback: {
+              error: { error_code: 'EVALUATION_FAILED', error_message: 'Something went wrong' },
+            },
+          },
+        ],
+      },
+    };
+
+    render(<TestComponent modelTrace={traceWithV4ErrorFeedback} />);
+
+    // The assessments pane should open since the trace has assessments
+    expect(screen.getByTestId('assessments-pane')).toBeInTheDocument();
+
+    // The error feedback group should be rendered with its assessment name,
+    // proving the V4 error feedback was not dropped by groupFeedbacks
+    expect(await screen.findByText('error_judge')).toBeInTheDocument();
   });
 });

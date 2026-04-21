@@ -1,6 +1,5 @@
-import { fetchAPI } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import type { ModelTrace, ModelTraceData } from '../ModelTrace.types';
-import { getAjaxUrl } from '../ModelTraceExplorer.request.utils';
+import { fetchAPI, getAjaxUrl } from '../ModelTraceExplorer.request.utils';
 
 // returns ModelTrace if the request is successful, otherwise returns an error message
 export async function getTraceArtifact(requestId: string): Promise<ModelTrace | string> {

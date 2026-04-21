@@ -659,10 +659,9 @@ def test_path_validation(mlflow_client):
 
     def assert_response(resp):
         assert resp.status_code == 400
-        assert response.json() == {
-            "error_code": "INVALID_PARAMETER_VALUE",
-            "message": "Invalid path",
-        }
+        body = response.json()
+        assert body["error_code"] == "INVALID_PARAMETER_VALUE"
+        assert body["message"] == "Invalid path"
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/artifacts/list",

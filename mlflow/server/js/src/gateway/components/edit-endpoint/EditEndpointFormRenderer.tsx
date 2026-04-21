@@ -16,6 +16,8 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 import { useMemo } from 'react';
 import GatewayRoutes from '../../routes';
+import Routes from '../../../experiment-tracking/routes';
+import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../../settings/settingsSectionConstants';
 import { GatewayLabel } from '../../../common/components/GatewayNewTag';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
@@ -25,6 +27,7 @@ import { StarterCodeCard } from './StarterCodeCard';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
+import { GuardrailsTabContent } from '../guardrails/GuardrailsTabContent';
 import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
@@ -115,7 +118,7 @@ export const EditEndpointFormRenderer = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
-  const VALID_TABS = ['overview', 'usage', 'traces'] as const;
+  const VALID_TABS = ['overview', 'guardrails', 'usage', 'traces'] as const;
   const tabParam = searchParams.get('tab');
   // Support legacy ?tab=configuration URLs
   const normalizedTab = tabParam === 'configuration' ? 'overview' : tabParam;
@@ -241,6 +244,9 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Trigger value="overview">
               <FormattedMessage defaultMessage="Overview" description="Tab label for endpoint overview" />
             </Tabs.Trigger>
+            <Tabs.Trigger value="guardrails">
+              <FormattedMessage defaultMessage="Guardrails" description="Tab label for endpoint guardrails" />
+            </Tabs.Trigger>
             {isUsageTabDisabled ? (
               <Tooltip
                 componentId="mlflow.gateway.endpoint.usage-tab-tooltip"
@@ -363,6 +369,16 @@ export const EditEndpointFormRenderer = ({
               </div>
             </Tabs.Content>
 
+            <Tabs.Content value="guardrails">
+              {endpoint && (
+                <GuardrailsTabContent
+                  endpointName={endpoint.name}
+                  endpointId={endpoint.endpoint_id}
+                  experimentId={experimentId}
+                />
+              )}
+            </Tabs.Content>
+
             <Tabs.Content value="usage">
               {experimentId && (
                 <GatewayUsageSection experimentId={experimentId} tooltipLinkUrlBuilder={tooltipLinkUrlBuilder} />
@@ -424,7 +440,7 @@ export const EditEndpointFormRenderer = ({
                         <Link
                           key={secretName}
                           componentId="mlflow.gateway.edit-endpoint.api-key-link"
-                          to={GatewayRoutes.apiKeysPageRoute}
+                          to={Routes.getSettingsSectionRoute(SETTINGS_SECTION_LLM_CONNECTIONS)}
                           css={{
                             fontSize: theme.typography.fontSizeSm,
                             color: theme.colors.actionPrimaryBackgroundDefault,

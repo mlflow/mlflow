@@ -79,12 +79,18 @@ jobs:
         run: |
           Rscript -e 'source(".install-deps.R", echo=TRUE)'
       - name: Set USE_R_DEVEL
+        env:
+          HAS_R_DEVEL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'r-devel') }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             USE_R_DEVEL=true
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            # Use r-devel on a pull request targeted to a release branch
-            USE_R_DEVEL=$([[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
+            # Use r-devel on a pull request targeted to a release branch or with the "r-devel" label
+            if [[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] || [ "$HAS_R_DEVEL_LABEL" = "true" ]; then
+              USE_R_DEVEL=true
+            else
+              USE_R_DEVEL=false
+            fi
           else
             # Use r-devel on a push to a release branch
             USE_R_DEVEL=$([[ $GITHUB_REF_NAME =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
