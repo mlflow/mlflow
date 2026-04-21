@@ -404,6 +404,15 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "5.3.0"
         }
     },
+    "diffusers": {
+        "package_info": {
+            "pip_release": "diffusers"
+        },
+        "models": {
+            "minimum": "0.37.0",
+            "maximum": "0.37.1"
+        }
+    },
     "haystack": {
         "package_info": {
             "pip_release": "haystack-ai",

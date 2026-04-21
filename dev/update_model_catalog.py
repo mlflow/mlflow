@@ -52,6 +52,7 @@ def _normalize_provider(provider: str) -> str:
 
 
 _PER_MILLION = 1_000_000
+_PER_THOUSAND = 1_000
 
 
 def _to_per_million(cost_per_token: float) -> float:
@@ -70,6 +71,70 @@ def _extract_base_pricing(info: dict[str, Any]) -> dict[str, Any]:
     if (v := info.get("cache_creation_input_token_cost")) is not None:
         pricing["cache_write_per_million_tokens"] = _to_per_million(v)
     return pricing
+
+
+_MODALITY_INPUT = re.compile(r"^input_cost_per_([a-z0-9_]+)_token$")
+_MODALITY_OUTPUT = re.compile(r"^output_cost_per_([a-z0-9_]+)_token$")
+_MODALITY_CACHE_READ = re.compile(r"^cache_read_input_([a-z0-9_]+)_token_cost$")
+_MODALITY_CACHE_WRITE = re.compile(r"^cache_creation_input_([a-z0-9_]+)_token_cost$")
+_MODALITY_CACHE_READ_ALT = re.compile(r"^cache_read_input_token_cost_per_([a-z0-9_]+)_token$")
+_EXCLUDED_MODALITIES = {"reasoning"}
+
+
+def _extract_modality_pricing(info: dict[str, Any]) -> dict[str, dict[str, float]]:
+    """Extract modality-specific pricing (audio/image/etc) as per-million-token rates."""
+    modalities: dict[str, dict[str, float]] = {}
+    for k, v in info.items():
+        if m := _MODALITY_INPUT.match(k):
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modalities.setdefault(modality, {})["input_per_million_tokens"] = _to_per_million(v)
+        elif m := _MODALITY_OUTPUT.match(k):
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modalities.setdefault(modality, {})["output_per_million_tokens"] = _to_per_million(v)
+        elif m := _MODALITY_CACHE_READ.match(k):
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modality_entry = modalities.setdefault(modality, {})
+            modality_entry["cache_read_per_million_tokens"] = _to_per_million(v)
+        elif m := _MODALITY_CACHE_WRITE.match(k):
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modality_entry = modalities.setdefault(modality, {})
+            modality_entry["cache_write_per_million_tokens"] = _to_per_million(v)
+        elif m := _MODALITY_CACHE_READ_ALT.match(k):
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modality_entry = modalities.setdefault(modality, {})
+            modality_entry["cache_read_per_million_tokens"] = _to_per_million(v)
+
+    return modalities
+
+
+def _extract_tool_pricing(info: dict[str, Any]) -> dict[str, Any]:
+    """Extract tool-related pricing and tool-use token overhead fields."""
+    tool_pricing: dict[str, Any] = {}
+
+    if (v := info.get("computer_use_input_cost_per_1k_tokens")) is not None:
+        tool_pricing.setdefault("computer_use", {})["input_per_million_tokens"] = round(
+            v * _PER_THOUSAND, 10
+        )
+    if (v := info.get("computer_use_output_cost_per_1k_tokens")) is not None:
+        tool_pricing.setdefault("computer_use", {})["output_per_million_tokens"] = round(
+            v * _PER_THOUSAND, 10
+        )
+    if (v := info.get("search_context_cost_per_query")) is not None:
+        tool_pricing["search_context_per_query"] = v
+    if (v := info.get("tool_use_system_prompt_tokens")) is not None:
+        tool_pricing["tool_use_system_prompt_tokens"] = v
+
+    return tool_pricing
 
 
 # LiteLLM uses suffixes like _batches, _batch_requests, _flex, _priority
@@ -181,6 +246,12 @@ def _transform_entry(info: dict[str, Any]) -> dict[str, Any] | None:
 
     if long_context := _extract_long_context_pricing(info):
         pricing["long_context"] = long_context
+
+    if modality_pricing := _extract_modality_pricing(info):
+        pricing["modality"] = modality_pricing
+
+    if tool_pricing := _extract_tool_pricing(info):
+        pricing["tooling"] = tool_pricing
 
     capabilities = {
         "function_calling": info.get("supports_function_calling", False),
