@@ -54,7 +54,7 @@ describe('SettingsPage', () => {
     jest.clearAllMocks();
   });
 
-  it('shows demo data controls under General (legacy /settings/data deep links redirect to general)', async () => {
+  it('shows demo data controls under General section', async () => {
     renderComponent('/settings/general');
 
     expect(await screen.findByText('Clear all demo data')).toBeInTheDocument();

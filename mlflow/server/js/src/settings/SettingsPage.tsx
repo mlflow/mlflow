@@ -12,6 +12,7 @@ import Routes from '../experiment-tracking/routes';
 import WebhooksSettings from './WebhooksSettings';
 import {
   isSettingsPathSegment,
+  SETTINGS_RETURN_TO_PARAM,
   SETTINGS_SECTION_LLM_CONNECTIONS,
   type SettingsPathSegment,
 } from './settingsSectionConstants';
@@ -89,9 +90,14 @@ const SettingsPage = () => {
 
   useEffect(() => {
     if (sectionParam && !isSettingsPathSegment(sectionParam)) {
-      navigate(Routes.getSettingsSectionRoute('general'), { replace: true, state: location.state });
+      const returnTo = new URLSearchParams(location.search).get(SETTINGS_RETURN_TO_PARAM);
+      const target = Routes.getSettingsSectionRoute('general');
+      navigate(returnTo ? `${target}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(returnTo)}` : target, {
+        replace: true,
+        state: location.state,
+      });
     }
-  }, [sectionParam, navigate, location.state]);
+  }, [sectionParam, navigate, location.search, location.state]);
 
   const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,

@@ -21,7 +21,13 @@ export function sanitizeSettingsReturnPath(value: string | undefined, fallback: 
   if (!value.startsWith('/') || value.startsWith('//')) {
     return fallback;
   }
-  if (value === '/settings' || value.startsWith('/settings/')) {
+  // Parse to get just the pathname, so /settings?workspace=... and /settings#hash are also rejected.
+  try {
+    const { pathname } = new URL(value, 'http://localhost');
+    if (pathname === '/settings' || pathname.startsWith('/settings/')) {
+      return fallback;
+    }
+  } catch {
     return fallback;
   }
   return value;

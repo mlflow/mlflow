@@ -1,4 +1,3 @@
-import { useDesignSystemTheme } from '@databricks/design-system';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ApiKeysList } from '../components/api-keys/ApiKeysList';
@@ -9,8 +8,6 @@ import { BindingsUsingKeyDrawer } from '../components/api-keys/BindingsUsingKeyD
 import { useApiKeysPage } from '../hooks/useApiKeysPage';
 
 export function ApiKeysPageInner() {
-  const { theme } = useDesignSystemTheme();
-
   const {
     // Data
     allEndpoints,
