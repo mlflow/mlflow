@@ -166,8 +166,8 @@ describe('AssessmentChartsSection', () => {
 
     it('should treat only internal issue discovery judge as no assessments', async () => {
       setupTraceMetricsHandler(
-        [createCountDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 50)],
-        [createAvgDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 1)],
+        [createSimpleCountDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 50)],
+        [createTimeSeriesDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, '2025-12-22T10:00:00Z', 1)],
       );
 
       renderComponent();
@@ -185,7 +185,7 @@ describe('AssessmentChartsSection', () => {
           const hasNoTimeRange = !('start_time_ms' in body) || body.start_time_ms === null;
           if (hasNoTimeRange && body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
             return res(
-              ctx.json({ data_points: [createCountDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 10)] }),
+              ctx.json({ data_points: [createSimpleCountDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 10)] }),
             );
           }
           return res(ctx.json({ data_points: [] }));
@@ -337,8 +337,11 @@ describe('AssessmentChartsSection', () => {
 
     it('should hide internal issue discovery judge from quality charts', async () => {
       setupTraceMetricsHandler(
-        [createCountDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, 99), createCountDataPoint('UserJudge', 10)],
-        [createAvgDataPoint('UserJudge', 0.5)],
+        [
+          createDistributionDataPoint(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, '1', 99),
+          createDistributionDataPoint('UserJudge', '1', 10),
+        ],
+        [createTimeSeriesDataPoint('UserJudge', '2025-12-22T10:00:00Z', 0.5)],
       );
 
       renderComponent();
