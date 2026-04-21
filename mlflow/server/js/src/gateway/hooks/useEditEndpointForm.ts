@@ -67,6 +67,7 @@ export interface UseEditEndpointFormResult {
   handleSubmit: (values: EditEndpointFormData) => Promise<void>;
   handleCancel: () => void;
   handleNameUpdate: (newName: string) => Promise<void>;
+  handleUsageTrackingUpdate: (enabled: boolean) => Promise<void>;
 }
 
 export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResult {
@@ -291,6 +292,27 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     [endpoint, updateEndpoint, queryClient, endpointId],
   );
 
+  const handleUsageTrackingUpdate = useCallback(
+    async (enabled: boolean) => {
+      if (!endpoint) return;
+
+      const previousValue = form.getValues('usageTracking');
+      if (previousValue === enabled) return;
+
+      form.setValue('usageTracking', enabled);
+
+      try {
+        await updateEndpoint({
+          endpointId: endpoint.endpoint_id,
+          usage_tracking: enabled,
+        });
+      } catch {
+        form.setValue('usageTracking', previousValue);
+      }
+    },
+    [endpoint, form, updateEndpoint],
+  );
+
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
 
@@ -324,16 +346,11 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   }, [trafficSplitModels, fallbackModels]);
 
   const name = form.watch('name');
-  const usageTracking = form.watch('usageTracking');
-
   const hasChanges = useMemo(() => {
     if (!endpoint) return false;
 
     const originalName = endpoint.name ?? '';
     if (name !== originalName) return true;
-
-    const originalUsageTracking = endpoint.usage_tracking ?? false;
-    if (usageTracking !== originalUsageTracking) return true;
 
     const originalPrimaryMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'PRIMARY') ?? [];
     const originalFallbackMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
@@ -400,7 +417,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     });
 
     return trafficSplitChanged || fallbackChanged;
-  }, [endpoint, name, usageTracking, trafficSplitModels, fallbackModels]);
+  }, [endpoint, name, trafficSplitModels, fallbackModels]);
 
   const { data: existingEndpoints } = useEndpointsQuery();
 
@@ -417,5 +434,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     handleSubmit,
     handleCancel,
     handleNameUpdate,
+    handleUsageTrackingUpdate,
   };
 }

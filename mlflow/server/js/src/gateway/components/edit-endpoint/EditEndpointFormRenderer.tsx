@@ -96,6 +96,7 @@ export interface EditEndpointFormRendererProps {
   onSubmit: (values: EditEndpointFormData) => Promise<void>;
   onCancel: () => void;
   onNameUpdate: (newName: string) => Promise<void>;
+  onUsageTrackingUpdate: (enabled: boolean) => Promise<void>;
 }
 
 export const EditEndpointFormRenderer = ({
@@ -112,6 +113,7 @@ export const EditEndpointFormRenderer = ({
   onSubmit,
   onCancel,
   onNameUpdate,
+  onUsageTrackingUpdate,
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -481,7 +483,8 @@ export const EditEndpointFormRenderer = ({
                           <Switch
                             componentId="mlflow.gateway.edit-endpoint.usage-tracking.toggle"
                             checked={field.value}
-                            onChange={(checked) => field.onChange(checked)}
+                            onChange={(checked) => void onUsageTrackingUpdate(checked)}
+                            disabled={isSubmitting}
                             aria-label="Enable usage tracking"
                           />
                           <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
