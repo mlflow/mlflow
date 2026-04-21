@@ -85,6 +85,7 @@ export function getAssessmentInfos(
 ): AssessmentInfo[] {
   const assessmentInfos: Record<string, AssessmentInfo> = {};
   // Compute dtypes in the first pass.
+  // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
   const assessmentDtypes: Record<string, AssessmentDType | undefined> = {
     [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: 'pass-fail',
   };
@@ -333,9 +334,35 @@ export function getNumericAggregate(numericValues: number[]): NumericAggregate |
     return undefined;
   }
 
+  const valueCounts = new Map<number, number>();
+  for (const value of numericValues) {
+    valueCounts.set(value, (valueCounts.get(value) ?? 0) + 1);
+  }
+  return getNumericAggregateFromCounts(valueCounts);
+}
+
+export function getNumericAggregateFromCounts(valueCounts: Map<number, number>): NumericAggregate | undefined {
+  if (valueCounts.size === 0) {
+    return undefined;
+  }
+
+  let min = Infinity;
+  let max = -Infinity;
+  let sum = 0;
+  let total = 0;
+  for (const [value, count] of valueCounts) {
+    if (value < min) min = value;
+    if (value > max) max = value;
+    sum += value * count;
+    total += count;
+  }
+
+  if (total === 0) {
+    return undefined;
+  }
+
+  const average = sum / total;
   const numericAggregateCounts: NumericAggregateCount[] = [];
-  const min = Math.min(...numericValues);
-  const max = Math.max(...numericValues);
 
   // Set a minimum bucket size of 0.01, since the data is displayed in 2 decimal places.
   // Show at most 10 buckets.
@@ -343,26 +370,26 @@ export function getNumericAggregate(numericValues: number[]): NumericAggregate |
   let maxCount = 0;
 
   if (min === max) {
-    numericAggregateCounts.push({ lower: min, upper: max, count: numericValues.length });
+    numericAggregateCounts.push({ lower: min, upper: max, count: total });
+    maxCount = total;
   } else {
     for (let i = min; i < max; i += bucketSize) {
       numericAggregateCounts.push({ lower: i, upper: Math.min(i + bucketSize, max), count: 0 });
     }
-  }
+    numericAggregateCounts.sort((a, b) => a.lower - b.lower);
 
-  numericAggregateCounts.sort((a, b) => a.lower - b.lower);
-  for (const numericValue of numericValues) {
-    const bucket = numericAggregateCounts.find(
-      (bucket) =>
-        numericValue >= bucket.lower &&
-        (numericValue < bucket.upper || (numericValue === bucket.upper && numericValue === max)),
-    );
-    if (bucket) {
-      bucket.count++;
-      maxCount = Math.max(maxCount, bucket.count);
+    for (const [value, count] of valueCounts) {
+      const bucket = numericAggregateCounts.find(
+        (b) => value >= b.lower && (value < b.upper || (value === b.upper && value === max)),
+      );
+      if (bucket) {
+        bucket.count += count;
+        maxCount = Math.max(maxCount, bucket.count);
+      }
     }
   }
-  return { min, max, maxCount, counts: numericAggregateCounts };
+
+  return { min, max, maxCount, average, counts: numericAggregateCounts };
 }
 
 export function getAssessmentNumericAggregates(
@@ -414,29 +441,6 @@ function getAssessmentRunValueCounts(
   return valueCounts;
 }
 
-function getAssessmentRunNumericValues(
-  assessmentInfo: AssessmentInfo,
-  evalResults: RunEvaluationTracesDataEntry[],
-): number[] | undefined {
-  if (assessmentInfo.dtype !== 'numeric') {
-    return undefined;
-  }
-  const values: number[] = [];
-  evalResults.forEach((evalResult) => {
-    const assessment = assessmentInfo.isOverall
-      ? first(evalResult.overallAssessments)
-      : first(evalResult.responseAssessmentsByName[assessmentInfo.name]);
-    if (assessment) {
-      const value = getEvaluationResultAssessmentValue(assessment);
-
-      if (!isNil(value)) {
-        values.push(Number(value));
-      }
-    }
-  });
-  return values;
-}
-
 function getRootCauseAssessmentCount(
   assessmentInfo: AssessmentInfo,
   evalResults: RunEvaluationTracesDataEntry[],
@@ -464,6 +468,7 @@ export function getAssessmentAggregates(
   const otherAssessmentAggregates = getAssessmentRunValueCounts(assessmentInfo, otherEvalResults);
 
   const currentNumericAggregates = getAssessmentNumericAggregates(assessmentInfo, currentEvalResults);
+  const otherNumericAggregates = getAssessmentNumericAggregates(assessmentInfo, otherEvalResults);
 
   const assessmentFilters = allAssessmentFilters.filter((filter) => filter.assessmentName === assessmentInfo.name);
 
@@ -471,8 +476,8 @@ export function getAssessmentAggregates(
     assessmentInfo,
     currentCounts: currentAssessmentAggregates,
     otherCounts: otherAssessmentAggregates,
-    currentNumericValues: getAssessmentRunNumericValues(assessmentInfo, currentEvalResults),
-    otherNumericValues: getAssessmentRunNumericValues(assessmentInfo, otherEvalResults),
+    currentNumericAverage: currentNumericAggregates?.average,
+    otherNumericAverage: otherNumericAggregates?.average,
     currentNumericAggregate: currentNumericAggregates,
     currentNumRootCause: getRootCauseAssessmentCount(assessmentInfo, currentEvalResults),
     otherNumRootCause: getRootCauseAssessmentCount(assessmentInfo, otherEvalResults),
@@ -791,24 +796,26 @@ export function getUniqueValueCountsBySourceId(
 function buildCountsFromMetrics(
   assessmentInfo: AssessmentInfo,
   metricsData: AssessmentCountMetrics['data'],
-): { counts: AssessmentRunCounts; numericValues: number[] } {
+): AssessmentRunCounts {
   const relevant = metricsData.filter((m) => m.assessmentName === assessmentInfo.name);
   const counts: AssessmentRunCounts = new Map();
-  const numericValues: number[] = [];
 
   for (const metric of relevant) {
     const typedValue = parseMetricAssessmentValue(metric.assessmentValue);
-    if (assessmentInfo.dtype === 'numeric' && typeof typedValue === 'number') {
-      counts.set(typedValue, metric.count);
-      for (let i = 0; i < metric.count; i++) {
-        numericValues.push(typedValue);
-      }
-    } else {
-      counts.set(typedValue, metric.count);
-    }
+    counts.set(typedValue, metric.count);
   }
 
-  return { counts, numericValues };
+  return counts;
+}
+
+function toNumericCounts(counts: AssessmentRunCounts): Map<number, number> {
+  const result = new Map<number, number>();
+  for (const [key, count] of counts) {
+    if (typeof key === 'number') {
+      result.set(key, count);
+    }
+  }
+  return result;
 }
 
 /**
@@ -841,16 +848,20 @@ export function buildAggregatesFromCountMetrics(
   allAssessmentFilters: AssessmentFilter[],
   otherMetricsData?: AssessmentCountMetrics['data'],
 ): AssessmentAggregates {
-  const current = buildCountsFromMetrics(assessmentInfo, metricsData);
-  const other = otherMetricsData ? buildCountsFromMetrics(assessmentInfo, otherMetricsData) : undefined;
+  const currentCounts = buildCountsFromMetrics(assessmentInfo, metricsData);
+  const otherCounts = otherMetricsData ? buildCountsFromMetrics(assessmentInfo, otherMetricsData) : undefined;
   const assessmentFilters = allAssessmentFilters.filter((f) => f.assessmentName === assessmentInfo.name);
 
   if (assessmentInfo.dtype === 'numeric') {
+    const currentNumericCounts = toNumericCounts(currentCounts);
+    const otherNumericCounts = otherCounts ? toNumericCounts(otherCounts) : undefined;
+    const currentAggregate = getNumericAggregateFromCounts(currentNumericCounts);
+    const otherAggregate = otherNumericCounts ? getNumericAggregateFromCounts(otherNumericCounts) : undefined;
     return {
       assessmentInfo,
-      currentNumericValues: current.numericValues,
-      otherNumericValues: other?.numericValues,
-      currentNumericAggregate: getNumericAggregate(current.numericValues),
+      currentNumericAverage: currentAggregate?.average,
+      otherNumericAverage: otherAggregate?.average,
+      currentNumericAggregate: currentAggregate,
       currentNumRootCause: 0,
       otherNumRootCause: 0,
       assessmentFilters,
@@ -859,8 +870,8 @@ export function buildAggregatesFromCountMetrics(
 
   return {
     assessmentInfo,
-    currentCounts: current.counts,
-    otherCounts: other?.counts,
+    currentCounts,
+    otherCounts,
     currentNumRootCause: 0,
     otherNumRootCause: 0,
     assessmentFilters,

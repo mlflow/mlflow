@@ -119,9 +119,9 @@ export interface AssessmentAggregates {
   currentCounts?: AssessmentRunCounts;
   otherCounts?: AssessmentRunCounts;
 
-  // Numeric values for the current run and other run.
-  currentNumericValues?: number[];
-  otherNumericValues?: number[];
+  // Numeric averages for the current run and other run.
+  currentNumericAverage?: number;
+  otherNumericAverage?: number;
 
   currentNumRootCause: number;
   otherNumRootCause: number;
@@ -172,6 +172,9 @@ export interface AssessmentFilter {
   filterValue: AssessmentValueType;
   // Only defined when filtering on an assessment for RCA values.
   filterType?: 'rca' | undefined;
+  // Optional operator for numeric comparison filters (>, <, >=, <=).
+  // Defaults to equality (=) when not specified.
+  filterOperator?: FilterOperator;
   run: string;
 }
 export type TableFilter = {
@@ -365,6 +368,7 @@ export type NumericAggregate = {
   min: number;
   max: number;
   maxCount: number;
+  average: number;
   counts: NumericAggregateCount[];
 };
 

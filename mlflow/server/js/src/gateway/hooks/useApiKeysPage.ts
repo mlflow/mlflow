@@ -2,21 +2,13 @@ import { useState, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useSecretsQuery } from './useSecretsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
-import { useBindingsQuery } from './useBindingsQuery';
 import { useModelDefinitionsQuery } from './useModelDefinitionsQuery';
-import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../types';
+import type { SecretInfo, Endpoint, EndpointBinding } from '../types';
 import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
 } from '@databricks/design-system';
-
-export interface DeleteModalData {
-  secret: SecretInfo;
-  modelDefinitions: ModelDefinition[];
-  endpoints: Endpoint[];
-  bindingCount: number;
-}
 
 export interface EndpointsDrawerData {
   secret: SecretInfo;
@@ -35,50 +27,14 @@ export interface BindingsDrawerData {
 export function useApiKeysPage() {
   const { refetch: refetchSecrets } = useSecretsQuery();
   const { data: allEndpoints, refetch: refetchEndpoints } = useEndpointsQuery();
-  const { data: allBindings } = useBindingsQuery();
-  const { data: allModelDefinitions, refetch: refetchModelDefinitions } = useModelDefinitionsQuery();
+  const { refetch: refetchModelDefinitions } = useModelDefinitionsQuery();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<SecretInfo | null>(null);
-  const [editingSecret, setEditingSecret] = useState<SecretInfo | null>(null);
-  const [deleteModalData, setDeleteModalData] = useState<DeleteModalData | null>(null);
   const [endpointsDrawerData, setEndpointsDrawerData] = useState<EndpointsDrawerData | null>(null);
   const [bindingsDrawerData, setBindingsDrawerData] = useState<BindingsDrawerData | null>(null);
-
-  const getModelDefinitionsForSecret = useCallback(
-    (secretId: string): ModelDefinition[] => {
-      if (!allModelDefinitions) return [];
-      return allModelDefinitions.filter((modelDef) => modelDef.secret_id === secretId);
-    },
-    [allModelDefinitions],
-  );
-
-  const getEndpointsForSecret = useCallback(
-    (secretId: string): Endpoint[] => {
-      if (!allEndpoints) return [];
-      return allEndpoints.filter((endpoint) =>
-        endpoint.model_mappings?.some((mapping) => mapping.model_definition?.secret_id === secretId),
-      );
-    },
-    [allEndpoints],
-  );
-
-  const getBindingCountForSecret = useCallback(
-    (secretId: string): number => {
-      if (!allBindings || !allEndpoints) return 0;
-      const endpointIds = new Set(
-        allEndpoints
-          .filter((endpoint) =>
-            endpoint.model_mappings?.some((mapping) => mapping.model_definition?.secret_id === secretId),
-          )
-          .map((endpoint) => endpoint.endpoint_id),
-      );
-      return allBindings.filter((binding) => endpointIds.has(binding.endpoint_id)).length;
-    },
-    [allBindings, allEndpoints],
-  );
 
   // Create modal handlers
   const handleCreateClick = useCallback(() => {
@@ -112,44 +68,18 @@ export function useApiKeysPage() {
     setSelectedSecret(null);
   }, []);
 
-  // Edit modal handlers
-  const handleEditClick = useCallback((secret: SecretInfo) => {
-    setEditingSecret(secret);
-  }, []);
-
-  const handleEditModalClose = useCallback(() => {
-    setEditingSecret(null);
-  }, []);
-
-  const handleEditSuccess = useCallback(() => {
-    refetchSecrets();
-    if (selectedSecret && editingSecret && selectedSecret.secret_id === editingSecret.secret_id) {
-      setSelectedSecret(null);
+  // Edit success handler (inline editing in drawer)
+  const handleEditSuccess = useCallback(async () => {
+    const result = await refetchSecrets();
+    if (selectedSecret && result.data) {
+      const updated = result.data.secrets.find((s) => s.secret_id === selectedSecret.secret_id);
+      if (updated) {
+        setSelectedSecret(updated);
+      }
     }
-  }, [refetchSecrets, selectedSecret, editingSecret]);
+  }, [refetchSecrets, selectedSecret]);
 
-  // Delete modal handlers
-  const handleDeleteClick = useCallback(
-    (secret: SecretInfo, modelDefinitions: ModelDefinition[], endpoints: Endpoint[], bindingCount: number) => {
-      setDeleteModalData({ secret, modelDefinitions, endpoints, bindingCount });
-    },
-    [],
-  );
-
-  const handleDeleteFromDrawer = useCallback(
-    (secret: SecretInfo) => {
-      const modelDefinitions = getModelDefinitionsForSecret(secret.secret_id);
-      const endpoints = getEndpointsForSecret(secret.secret_id);
-      const bindingCount = getBindingCountForSecret(secret.secret_id);
-      setDeleteModalData({ secret, modelDefinitions, endpoints, bindingCount });
-    },
-    [getModelDefinitionsForSecret, getEndpointsForSecret, getBindingCountForSecret],
-  );
-
-  const handleDeleteModalClose = useCallback(() => {
-    setDeleteModalData(null);
-  }, []);
-
+  // Delete success handler (shared by bulk delete)
   const handleDeleteSuccess = useCallback(async () => {
     await refetchSecrets();
     // Refetch related data - errors are ignored since backend may have
@@ -158,18 +88,38 @@ export function useApiKeysPage() {
   }, [refetchSecrets, refetchEndpoints, refetchModelDefinitions]);
 
   // Endpoints drawer handlers
-  const handleEndpointsClick = useCallback((secret: SecretInfo, endpoints: Endpoint[]) => {
-    setEndpointsDrawerData({ secret, endpoints });
-  }, []);
+  const handleEndpointsClick = useCallback(
+    (secret: SecretInfo, endpoints: Endpoint[]) => {
+      setEndpointsDrawerData({ secret, endpoints });
+      logTelemetryEvent({
+        componentId: 'mlflow.gateway.api-keys.list.endpoints-link',
+        componentViewId: viewId,
+        componentType: DesignSystemEventProviderComponentTypes.Button,
+        componentSubType: null,
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+      });
+    },
+    [logTelemetryEvent, viewId],
+  );
 
   const handleEndpointsDrawerClose = useCallback(() => {
     setEndpointsDrawerData(null);
   }, []);
 
   // Bindings drawer handlers
-  const handleBindingsClick = useCallback((secret: SecretInfo, bindings: EndpointBinding[]) => {
-    setBindingsDrawerData({ secret, bindings });
-  }, []);
+  const handleBindingsClick = useCallback(
+    (secret: SecretInfo, bindings: EndpointBinding[]) => {
+      setBindingsDrawerData({ secret, bindings });
+      logTelemetryEvent({
+        componentId: 'mlflow.gateway.api-keys.list.used-by-link',
+        componentViewId: viewId,
+        componentType: DesignSystemEventProviderComponentTypes.Button,
+        componentSubType: null,
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+      });
+    },
+    [logTelemetryEvent, viewId],
+  );
 
   const handleBindingsDrawerClose = useCallback(() => {
     setBindingsDrawerData(null);
@@ -182,22 +132,16 @@ export function useApiKeysPage() {
     // Modal/drawer open state (derived from data)
     isCreateModalOpen,
     isDetailsDrawerOpen: selectedSecret !== null,
-    isEditModalOpen: editingSecret !== null,
-    isDeleteModalOpen: deleteModalData !== null,
     isEndpointsDrawerOpen: endpointsDrawerData !== null,
     isBindingsDrawerOpen: bindingsDrawerData !== null,
 
     // Modal/drawer data
     selectedSecret,
-    editingSecret,
-    deleteModalData,
     endpointsDrawerData,
     bindingsDrawerData,
 
     // Handlers for ApiKeysList
     handleKeyClick,
-    handleEditClick,
-    handleDeleteClick,
     handleEndpointsClick,
     handleBindingsClick,
 
@@ -208,14 +152,9 @@ export function useApiKeysPage() {
 
     // Handlers for Details drawer
     handleDrawerClose,
-    handleDeleteFromDrawer,
-
-    // Handlers for Edit modal
-    handleEditModalClose,
     handleEditSuccess,
 
     // Handlers for Delete modal
-    handleDeleteModalClose,
     handleDeleteSuccess,
 
     // Handlers for Endpoints drawer

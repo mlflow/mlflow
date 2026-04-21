@@ -1,0 +1,6 @@
+{"timestamp":"2026-04-05T10:00:00Z","type":"session_meta","payload":{"id":"test-session-001","timestamp":"2026-04-05T10:00:00Z","cwd":"/tmp/test","originator":"codex-tui","cli_version":"0.118.0","source":"cli"}}
+{"timestamp":"2026-04-05T10:00:00Z","type":"event_msg","payload":{"type":"task_started"}}
+{"timestamp":"2026-04-05T10:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"what is 2+2"}]}}
+{"timestamp":"2026-04-05T10:00:01Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"4"}]}}
+{"timestamp":"2026-04-05T10:00:02Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":100,"output_tokens":10,"total_tokens":110}}}}
+{"timestamp":"2026-04-05T10:00:02Z","type":"event_msg","payload":{"type":"task_complete"}}

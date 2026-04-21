@@ -79,6 +79,7 @@ from mlflow.exceptions import (
     MlflowTracingException,
     _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
+    _UnsupportedPresignedUploadException,
 )
 from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
@@ -160,6 +161,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
+    CreatePresignedUploadUrl,
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
@@ -282,7 +284,11 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
 )
-from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import (
+    MultipartDownloadMixin,
+    MultipartUploadMixin,
+    PresignedUploadMixin,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
@@ -3411,6 +3417,52 @@ def _validate_support_multipart_upload(artifact_repo):
 def _validate_support_multipart_download(artifact_repo):
     if not isinstance(artifact_repo, MultipartDownloadMixin):
         raise _UnsupportedMultipartDownloadException()
+
+
+def _validate_support_presigned_upload(artifact_repo):
+    if not isinstance(artifact_repo, PresignedUploadMixin):
+        raise _UnsupportedPresignedUploadException()
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_presigned_upload_url():
+    """
+    Handler for POST /api/2.0/mlflow/artifacts/presigned-upload-url.
+    Generates a presigned URL for uploading an artifact directly to cloud storage.
+
+    Client reference: https://github.com/aws/sagemaker-mlflow
+    """
+    request_message = _get_request_message(
+        CreatePresignedUploadUrl(),
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "path": [_assert_required, _assert_string],
+            "expiration": [_assert_intlike],
+        },
+    )
+    run_id = request_message.run_id
+    path = validate_path_is_safe(request_message.path)
+    expiration = request_message.expiration if request_message.HasField("expiration") else 900
+
+    run = _get_tracking_store().get_run(run_id)
+    artifact_uri = run.info.artifact_uri
+    artifact_uri_scheme = urllib.parse.urlparse(artifact_uri).scheme
+    if artifact_uri_scheme in ("http", "https", "mlflow-artifacts"):
+        raise MlflowException(
+            "Presigned upload is not supported for runs with proxied artifact storage "
+            f"(artifact URI scheme: {artifact_uri_scheme}). "
+            "This endpoint requires a run with a direct cloud storage artifact URI.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    artifact_repo = _get_artifact_repo(run)
+    _validate_support_presigned_upload(artifact_repo)
+
+    response = artifact_repo.create_presigned_upload_url(path, expiration=expiration)
+    response_message = response.to_proto()
+    resp = Response(mimetype="application/json")
+    resp.set_data(message_to_json(response_message))
+    return resp
 
 
 @catch_mlflow_exception
@@ -6823,6 +6875,7 @@ HANDLERS = {
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
+    CreatePresignedUploadUrl: _create_presigned_upload_url,
     GetMetricHistory: _get_metric_history,
     GetMetricHistoryBulkInterval: get_metric_history_bulk_interval_handler,
     SearchExperiments: _search_experiments,

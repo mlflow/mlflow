@@ -58,7 +58,7 @@ export const BulkDeleteEndpointModal = ({
 
   return (
     <Modal
-      componentId="mlflow.gateway.bulk-delete-endpoint-modal"
+      componentId="mlflow.gateway.delete-endpoint-modal"
       title={intl.formatMessage(
         {
           defaultMessage: 'Delete {count, plural, one {# Endpoint} other {# Endpoints}}',
@@ -70,15 +70,11 @@ export const BulkDeleteEndpointModal = ({
       onCancel={handleClose}
       footer={
         <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
-          <Button
-            componentId="mlflow.gateway.bulk-delete-endpoint-modal.cancel"
-            onClick={handleClose}
-            disabled={isDeleting}
-          >
+          <Button componentId="mlflow.gateway.delete-endpoint-modal.cancel" onClick={handleClose} disabled={isDeleting}>
             <FormattedMessage defaultMessage="Cancel" description="Cancel button text" />
           </Button>
           <Button
-            componentId="mlflow.gateway.bulk-delete-endpoint-modal.delete"
+            componentId="mlflow.gateway.delete-endpoint-modal.delete"
             type="primary"
             danger
             onClick={handleDelete}
@@ -94,7 +90,7 @@ export const BulkDeleteEndpointModal = ({
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
         {error && (
           <Alert
-            componentId="mlflow.gateway.bulk-delete-endpoint-modal.error"
+            componentId="mlflow.gateway.delete-endpoint-modal.error"
             type="error"
             message={error}
             closable={false}
@@ -133,7 +129,7 @@ export const BulkDeleteEndpointModal = ({
 
         {hasBindings && (
           <Alert
-            componentId="mlflow.gateway.bulk-delete-endpoint-modal.warning"
+            componentId="mlflow.gateway.delete-endpoint-modal.warning"
             type="warning"
             message={
               <FormattedMessage

@@ -246,6 +246,7 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
           }
           // @ts-expect-error TS(4111): Property 'deletingKey' comes from an index signatu... Remove this comment to see the full error message
           visible={this.state.deletingKey}
+          // eslint-disable-next-line @databricks/no-passive-modal-button-labels -- TODO: Update button text to match guidelines at go/dubois/Modal
           okText={
             <FormattedMessage
               defaultMessage="Confirm"

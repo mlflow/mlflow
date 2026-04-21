@@ -27,7 +27,7 @@ export const ModelTraceExplorerSummarySpans = ({
   const { theme } = useDesignSystemTheme();
   const preferences = useModelTraceExplorerPreferences();
   const [renderMode, setRenderModeInternal] = useState<ModelTraceExplorerRenderMode>(preferences.renderMode);
-  const { readOnly } = useModelTraceExplorerViewState();
+  const { readOnly, assessmentsPaneExpanded } = useModelTraceExplorerViewState();
 
   useEffect(() => {
     setRenderModeInternal(preferences.renderMode);
@@ -88,11 +88,17 @@ export const ModelTraceExplorerSummarySpans = ({
                   description="Label for the JSON render mode selector in the model trace explorer summary view"
                 />
               </SegmentedControlButton>
+              <SegmentedControlButton value="table">
+                <FormattedMessage
+                  defaultMessage="Table"
+                  description="Label for the Table render mode selector in the model trace explorer summary view"
+                />
+              </SegmentedControlButton>
             </SegmentedControlGroup>
             {!readOnly && (
               <>
                 <AddToDatasetButton />
-                <AssessmentPaneToggle />
+                {!assessmentsPaneExpanded && <AssessmentPaneToggle />}
               </>
             )}
           </div>
