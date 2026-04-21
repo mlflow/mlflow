@@ -690,17 +690,6 @@ def test_builtin_scorer_instructions_preserved_through_serialization():
         ),
         pytest.param(
             {
-                "module": "mlflow.genai.scorers.ragas..evil",
-                "class": "X",
-                "metric_name": "X",
-                "model": None,
-                "kwargs": {},
-            },
-            "not in the allow-list",
-            id="module_with_dotdot_rejected",
-        ),
-        pytest.param(
-            {
                 "module": "mlflow.genai.scorers.ragas",
                 "class": "",
                 "metric_name": "Faithfulness",

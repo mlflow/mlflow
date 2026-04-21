@@ -234,9 +234,6 @@ def update_model_in_serialized_scorer(
             ),
         }
     elif tp_data := result.get("third_party_scorer_data"):
-        # Only overwrite when the scorer originally recorded a model — deterministic
-        # RAGAS/DeepEval metrics store None and their constructors reject `model=`,
-        # which would break deserialization.
         if tp_data.get("model") is not None:
             result["third_party_scorer_data"] = {**tp_data, "model": new_model}
     return result

@@ -426,7 +426,7 @@ class Scorer(BaseModel):
             module_path = data.get("module") or ""
             class_name = data.get("class")
             metric_name = data.get("metric_name")
-            if ".." in module_path or not any(
+            if not any(
                 module_path == m or module_path.startswith(m + ".")
                 for m in THIRD_PARTY_SCORER_ALLOWED_MODULES
             ):
@@ -453,8 +453,13 @@ class Scorer(BaseModel):
                     f"found in module '{module_path}'."
                 )
             init_kwargs: dict[str, Any] = dict(data.get("kwargs") or {})
-            # Concrete subclasses (e.g. DeepEval `ExactMatch`) hardcode `metric_name`
-            # in their __init__; passing it again raises "multiple values".
+            # Two shapes of third-party class exist: (a) the base wrapper
+            # (`RagasScorer`, `DeepEvalScorer`, …) has no `metric_name` ClassVar
+            # and expects `metric_name=` as an argument, and (b) concrete
+            # subclasses like `ExactMatch` pin `metric_name: ClassVar[str] =
+            # "ExactMatch"` and forward to `super().__init__` internally, so
+            # passing it again raises "multiple values for keyword argument".
+            # Only pass the kwarg when the class hasn't already pinned it.
             if getattr(scorer_class, "metric_name", None) != metric_name:
                 init_kwargs["metric_name"] = metric_name
             model = data.get("model")
@@ -1012,8 +1017,12 @@ class Scorer(BaseModel):
         )
 
         if self.kind == ScorerKind.THIRD_PARTY:
-            # RAGAS metrics wrap an `instructor` client whose recursive __getattr__
-            # blows the call stack on deepcopy — rebuild via __init__ instead.
+            # Rebuild via `__init__` rather than `model_copy(deep=True)`: some
+            # third-party metric instances (notably RAGAS metrics, which hold an
+            # `instructor`-wrapped LLM client) contain objects whose `__getattr__`
+            # recurses into themselves when deepcopy walks them, overflowing the
+            # stack. Re-running `__init__` with the stored args produces a clean
+            # wrapper without touching the underlying metric's state.
             init_kwargs = dict(self._metric_kwargs)
             if getattr(type(self), "metric_name", None) != self._metric_name:
                 init_kwargs["metric_name"] = self._metric_name

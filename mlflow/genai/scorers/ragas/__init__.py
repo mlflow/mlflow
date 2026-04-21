@@ -88,8 +88,6 @@ class RagasScorer(Scorer):
         super().__init__(name=metric_name)
         self._metric_name = metric_name
         self._metric_kwargs = dict(metric_kwargs)
-        # Deterministic metrics reject `model=` via `_validate_args`; keep `_model`
-        # None for them so serialization and `_create_copy` round-trip.
         accepts_model = requires_llm_in_constructor(metric_name) or requires_llm_at_score_time(
             metric_name
         )
