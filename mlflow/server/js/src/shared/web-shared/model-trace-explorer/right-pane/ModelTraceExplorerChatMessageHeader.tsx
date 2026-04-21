@@ -104,7 +104,6 @@ export const ModelTraceExplorerChatMessageHeader = ({
       }}
       onClick={() => setExpanded(!expanded)}
     >
-      {isExpandable && (expanded ? <ChevronDownIcon /> : <ChevronRightIcon />)}
       {getRoleIcon(message.role)}
       {message.tool_call_id ? (
         <Typography.Text
