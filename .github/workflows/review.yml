@@ -61,12 +61,12 @@ jobs:
             let message;
             if (isAllowed) {
               const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
-              message = `🚀 [Review workflow started](${workflowUrl})`;
+              message = `🚀 [Review running...](${workflowUrl})`;
             } else {
               message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
             }
 
-            const updatedBody = `${comment.body}\n\n---\n${message}`;
+            const updatedBody = `${comment.body}\n\n---\n\n${message}`;
 
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
@@ -158,7 +158,8 @@ jobs:
               console.log('Failed to read Claude output file:', e);
             }
 
-            let resultMessage = '✅ Review completed.';
+            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
+            let resultLine = `✅ [Review](${workflowUrl}) completed`;
 
             // Extract and display Claude's result from JSON output
             if (claudeOutput) {
@@ -166,14 +167,14 @@ jobs:
                 const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
                 const resultEvent = events.findLast(({ type }) => type === 'result');
                 if (resultEvent) {
-                  resultMessage += `\n\n<details>\n<summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
+                  resultLine += `\n<details><summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
                 }
               } catch (e) {
                 console.log('Failed to parse Claude output as JSON:', e);
               }
             }
 
-            console.log('Result message to post:', resultMessage);
+            console.log('Result line to post:', resultLine);
 
             const { data: currentComment } = await github.rest.issues.getComment({
               owner,
@@ -181,7 +182,8 @@ jobs:
               comment_id: comment.id,
             });
 
-            const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+            const originalBody = currentComment.body.split('\n\n---\n\n🚀 ')[0];
+            const updatedBody = `${originalBody}\n\n---\n\n${resultLine}`;
 
             await github.rest.issues.updateComment({
               owner,
