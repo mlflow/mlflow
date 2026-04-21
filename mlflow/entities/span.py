@@ -273,8 +273,10 @@ class Span:
                 "code": self.status.status_code.to_otel_proto_status_code_name(),
                 "message": self.status.description,
             },
-            # save the dumped attributes so they can be loaded correctly when deserializing
-            "attributes": {k: self._span.attributes.get(k) for k in self.attributes.keys()},
+            # save the dumped attributes so they can be loaded correctly when deserializing.
+            # Read raw values directly from the OTel span to skip a full json.loads pass
+            # over every attribute that self.attributes would trigger via get_all().
+            "attributes": dict(self._span.attributes),
         }
 
     @classmethod
