@@ -32,7 +32,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.ISSUES
-    version = 3
+    version = 4
 
     def generate(self) -> DemoResult:
         store = _get_store()
