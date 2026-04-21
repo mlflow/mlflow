@@ -132,6 +132,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         _logger.info(f"[UnityCatalogModelsArtifactRepository] Getting artifact repo for {self.model_name} {self.model_version}")
         host_creds = get_databricks_host_creds(self.registry_uri)
         if is_databricks_sdk_models_artifact_repository_enabled(host_creds):
+            _logger.info(f"[UnityCatalogModelsArtifactRepository] Using DatabricksSDKModelsArtifactRepository for {self.model_name} {self.model_version}")
             entities = lineage_header_info.entities if lineage_header_info else []
             emit_model_version_lineage(
                 host_creds,
@@ -143,10 +144,12 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             return DatabricksSDKModelsArtifactRepository(self.model_name, self.model_version)
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
+            _logger.info(f"[UnityCatalogModelsArtifactRepository] Using PresignedUrlArtifactRepository for {self.model_name} {self.model_version}")
             return PresignedUrlArtifactRepository(
                 get_databricks_host_creds(self.registry_uri), self.model_name, self.model_version
             )
 
+        _logger.info(f"[UnityCatalogModelsArtifactRepository] Using get_artifact_repo_from_storage_info for {self.model_name} {self.model_version}")
         blob_storage_path = self._get_blob_storage_path()
         return get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path,
