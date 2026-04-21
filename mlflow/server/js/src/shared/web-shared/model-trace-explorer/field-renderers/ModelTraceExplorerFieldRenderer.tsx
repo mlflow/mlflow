@@ -23,7 +23,7 @@ const MAX_ATTACHMENT_SEARCH_DEPTH = 10;
 export const findAttachmentUris = (
   value: unknown,
   depth = 0,
-): { attachmentId: string; traceId: string; contentType: string }[] => {
+): { attachmentId: string; traceId: string; contentType: string; size?: number }[] => {
   if (depth > MAX_ATTACHMENT_SEARCH_DEPTH) {
     return [];
   }
@@ -152,6 +152,7 @@ export const ModelTraceExplorerFieldRenderer = ({
             attachmentId={attachment.attachmentId}
             traceId={attachment.traceId}
             contentType={attachment.contentType}
+            size={attachment.size}
           />
         );
       }
@@ -180,6 +181,7 @@ export const ModelTraceExplorerFieldRenderer = ({
               attachmentId={att.attachmentId}
               traceId={att.traceId}
               contentType={att.contentType}
+              size={att.size}
             />
           ))}
           <ModelTraceExplorerCodeSnippet title={title} data={data} />

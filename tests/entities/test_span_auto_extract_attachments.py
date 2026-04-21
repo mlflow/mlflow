@@ -586,3 +586,74 @@ def test_explicit_attachment_still_works_when_opted_out(monkeypatch):
     span.set_inputs({"image": att})
     assert span.inputs["image"].startswith("mlflow-attachment://")
     assert len(span._attachments) == 1
+
+
+# --- Attachment size limit ---
+
+
+def test_attachment_under_size_limit_is_extracted(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", str(len(PNG_BYTES) + 1))
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+
+    assert span.inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+
+
+def test_attachment_over_size_limit_is_discarded(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", str(len(PNG_BYTES) - 1))
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+
+    assert "[Attachment too large:" in span.inputs["image"]
+    assert len(span._attachments) == 0
+
+
+def test_attachment_size_limit_unset_allows_all():
+    # Default is None (unset) — no limit enforced
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+
+    assert span.inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+
+
+def test_structured_content_over_size_limit_is_discarded(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", "1")
+    span = _make_live_span()
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_audio",
+                        "input_audio": {"data": WAV_B64, "format": "wav"},
+                    }
+                ],
+            }
+        ]
+    })
+
+    audio_part = span.inputs["messages"][0]["content"][0]
+    assert "[Attachment too large:" in audio_part["input_audio"]["data"]
+    assert len(span._attachments) == 0
+
+
+def test_explicit_attachment_over_size_limit_is_discarded(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", "1")
+    span = _make_live_span()
+    att = Attachment(content_type="image/png", content_bytes=PNG_BYTES)
+    span.set_inputs({"image": att})
+
+    assert "[Attachment too large:" in span.inputs["image"]
+    assert len(span._attachments) == 0
+
+
+def test_attachment_size_limit_negative_treated_as_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", "-1")
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+
+    assert span.inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1

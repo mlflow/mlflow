@@ -391,6 +391,11 @@ def _process_last_chunk(
                     TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
                     TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
                 }
+
+                # Extract cached tokens if available in the streaming chunk
+                if details := getattr(usage, "prompt_tokens_details", None):
+                    if (cached := getattr(details, "cached_tokens", None)) is not None:
+                        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
                 span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
         _end_span_on_success(span, inputs, output, is_responses_api)

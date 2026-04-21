@@ -23,7 +23,7 @@ def get_latest_commit_for_repo(repo: str) -> str:
     except ImportError:
         raise MlflowException(
             "Unable to fetch model commit hash from the HuggingFace model hub. "
-            "This is required for saving Transformer model without base model "
+            "This is required for saving a model without base model "
             "weights, while ensuring the version consistency of the model. "
             "Please install the `huggingface-hub` package and retry.",
             error_code=RESOURCE_DOES_NOT_EXIST,
@@ -51,7 +51,7 @@ def get_latest_commit_for_repo(repo: str) -> str:
 
     raise MlflowException(
         "Unable to fetch model commit hash from the HuggingFace model hub. "
-        "This is required for saving Transformer model without base model "
+        "This is required for saving a model without base model "
         "weights, while ensuring the version consistency of the model. ",
         error_code=RESOURCE_DOES_NOT_EXIST,
     )
