@@ -5,12 +5,10 @@ export const getExperimentNameValidator = (getExistingExperimentNames: () => str
   return (rule: unknown, value: string | undefined, callback: (arg?: string) => void) => {
     if (!value) {
       // no need to execute below validations when no value is entered
-      // eslint-disable-next-line callback-return
       callback(undefined);
     } else if (getExistingExperimentNames().includes(value)) {
       // getExistingExperimentNames returns the names of all active experiments
       // check whether the passed value is part of the list
-      // eslint-disable-next-line callback-return
       callback(`Experiment "${value}" already exists.`);
     } else {
       // on-demand validation whether experiment already exists in deleted state

@@ -10,7 +10,6 @@ import { GatewaySideNav, type GatewayTab } from '../components/side-nav';
 import { GatewayLabel } from '../../common/components/GatewayNewTag';
 import { GatewaySetupGuide } from '../components/SecretsSetupGuide';
 import { useSecretsConfigQuery } from '../hooks/useSecretsConfigQuery';
-import ApiKeysPage from './ApiKeysPage';
 import BudgetsPage from './BudgetsPage';
 import GatewayUsagePage from './GatewayUsagePage';
 import GatewayRoutes from '../routes';
@@ -22,9 +21,6 @@ const GatewayPage = () => {
   const { data: secretsConfig, isLoading: isLoadingConfig } = useSecretsConfigQuery();
 
   const activeTab: GatewayTab = useMemo(() => {
-    if (location.pathname.includes('/api-keys')) {
-      return 'api-keys';
-    }
     if (location.pathname.includes('/usage')) {
       return 'usage';
     }
@@ -35,10 +31,9 @@ const GatewayPage = () => {
   }, [location.pathname]);
 
   const isIndexRoute = location.pathname === '/gateway' || location.pathname === '/gateway/';
-  const isApiKeysRoute = location.pathname.includes('/api-keys');
   const isUsageRoute = location.pathname.includes('/usage');
   const isBudgetsRoute = location.pathname.includes('/budgets');
-  const isNestedRoute = !isIndexRoute && !isApiKeysRoute && !isUsageRoute && !isBudgetsRoute;
+  const isNestedRoute = !isIndexRoute && !isUsageRoute && !isBudgetsRoute;
 
   if (isLoadingConfig) {
     return (
@@ -130,7 +125,6 @@ const GatewayPage = () => {
                   </div>
                 </div>
               )}
-              {isApiKeysRoute && <ApiKeysPage />}
               {isUsageRoute && <GatewayUsagePage />}
               {isBudgetsRoute && <BudgetsPage />}
             </>
