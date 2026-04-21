@@ -132,6 +132,15 @@ def mock_file_client(mock_directory_client):
             "dfs.core.windows.net",
             "Pharma/Marketing Navigator",
         ),
+        (
+            # %2F decodes to "/", which lstrip("/") removes so downstream ADLS
+            # calls receive a relative path.
+            "abfss://filesystem@acct.dfs.core.windows.net/%2Ffoo/bar",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "foo/bar",
+        ),
     ],
 )
 def test_parse_valid_abfss_uri(uri, filesystem, account, region_suffix, path):
