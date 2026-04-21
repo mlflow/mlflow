@@ -38,7 +38,6 @@ pytorch:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
       "== 2.3.*": ["transformers<5"]
-      "< 2.3": ["numpy<2", "transformers<=4.49.0", "safetensors<0.6.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -813,10 +812,6 @@ ag2:
           "openai",
           "numpy<2",
         ]
-      # see https://github.com/ag2ai/ag2/issues/2046, this release
-      # used simple string comparison for packages and does not
-      # recognize that version 1.100 is greater than 1.66
-      "== 0.8.7": ["openai<1.99.9"]
     run: pytest tests/ag2
 
 autogen:
