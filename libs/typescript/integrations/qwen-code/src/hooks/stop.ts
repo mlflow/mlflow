@@ -5,7 +5,6 @@
  *   {"session_id": "...", "transcript_path": "...", "cwd": "...", ...}
  *
  * Configured in .qwen/settings.json under hooks.Stop.
- * Requires hooksConfig.enabled=true in settings.json.
  */
 
 import { readStdin } from '../utils/stdin.js';
