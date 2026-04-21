@@ -38,9 +38,6 @@ Add the hook configuration to your Qwen Code settings. This can be in either `~/
 
 ```json title="~/.qwen/settings.json"
 {
-  "hooksConfig": {
-    "enabled": true
-  },
   "hooks": {
     "Stop": [
       {
@@ -61,7 +58,7 @@ Add the hook configuration to your Qwen Code settings. This can be in either `~/
 ```
 
 :::note
-The `hooksConfig.enabled: true` setting is required — Qwen Code's hook system is disabled by default.
+Older Qwen Code versions (prior to 0.14) disabled the hook system by default and required a top-level `"hooksConfig": { "enabled": true }` entry to turn it on. Current versions ignore that setting and run hooks unconditionally — it's safe to leave in if you already have it, but no longer needed.
 :::
 
 ### Step 3: Use Qwen Code Normally
@@ -111,10 +108,10 @@ MLflow automatically tracks token usage for each LLM call within Qwen Code conve
 
 **Tracing not working:**
 
-- Verify `hooksConfig.enabled` is set to `true` in settings.json — Qwen Code's hook system is disabled by default
 - Check that the Stop hook command points to the correct `bundle/stop.js` path
 - Verify Node.js 18+ is being used (required for `fetch` support)
 - Check that the `env` section contains `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID`
+- On Qwen Code versions older than 0.14, hooks are disabled by default — add a top-level `"hooksConfig": { "enabled": true }` entry to enable them
 
 **Missing traces:**
 
@@ -128,4 +125,6 @@ MLflow automatically tracks token usage for each LLM call within Qwen Code conve
 
 ### Disable Tracing
 
-Remove the `hooks` section from settings.json, or set `hooksConfig.enabled` to `false`. Existing traces are preserved.
+Remove the `hooks` section from settings.json. Existing traces are preserved.
+
+(On older Qwen Code versions that still honor `hooksConfig`, setting `"hooksConfig": { "enabled": false }` will also disable the hook system without removing the entry.)
