@@ -36,7 +36,12 @@
       "pricing": {
         "input_per_million_tokens": 0.1,
         "output_per_million_tokens": 0.4,
-        "cache_read_per_million_tokens": 0.025
+        "cache_read_per_million_tokens": 0.025,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.7
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -57,7 +62,12 @@
       "pricing": {
         "input_per_million_tokens": 0.1,
         "output_per_million_tokens": 0.4,
-        "cache_read_per_million_tokens": 0.025
+        "cache_read_per_million_tokens": 0.025,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -77,7 +87,12 @@
       "pricing": {
         "input_per_million_tokens": 0.075,
         "output_per_million_tokens": 0.3,
-        "cache_read_per_million_tokens": 0.01875
+        "cache_read_per_million_tokens": 0.01875,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.075
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -97,7 +112,12 @@
       "pricing": {
         "input_per_million_tokens": 0.075,
         "output_per_million_tokens": 0.3,
-        "cache_read_per_million_tokens": 0.01875
+        "cache_read_per_million_tokens": 0.01875,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.075
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -144,7 +164,12 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 2.5,
-        "cache_read_per_million_tokens": 0.03
+        "cache_read_per_million_tokens": 0.03,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -164,7 +189,12 @@
       "pricing": {
         "input_per_million_tokens": 0.1,
         "output_per_million_tokens": 0.4,
-        "cache_read_per_million_tokens": 0.01
+        "cache_read_per_million_tokens": 0.01,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.3
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -184,7 +214,12 @@
       "pricing": {
         "input_per_token": 1e-7,
         "output_per_token": 4e-7,
-        "cache_read_per_token": 2.5e-8
+        "cache_read_per_token": 2.5e-8,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.5
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -205,7 +240,12 @@
       "pricing": {
         "input_per_million_tokens": 0.1,
         "output_per_million_tokens": 0.4,
-        "cache_read_per_million_tokens": 0.01
+        "cache_read_per_million_tokens": 0.01,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.3
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -224,7 +264,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
-        "output_per_million_tokens": 2.5
+        "output_per_million_tokens": 2.5,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -243,7 +288,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
-        "output_per_million_tokens": 2.5
+        "output_per_million_tokens": 2.5,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -262,7 +312,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
-        "output_per_million_tokens": 2.5
+        "output_per_million_tokens": 2.5,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -282,7 +337,12 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 2.5,
-        "cache_read_per_million_tokens": 0.075
+        "cache_read_per_million_tokens": 0.075,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -344,7 +404,12 @@
             "input_per_million_tokens": 2.5,
             "output_per_million_tokens": 15.0
           }
-        ]
+        ],
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.7
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -370,6 +435,11 @@
             "input_per_million_tokens": 0.9,
             "output_per_million_tokens": 5.4,
             "cache_read_per_million_tokens": 0.09
+          }
+        },
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
           }
         }
       },
@@ -431,7 +501,13 @@
       "pricing": {
         "input_per_million_tokens": 0.25,
         "output_per_million_tokens": 1.5,
-        "cache_read_per_million_tokens": 0.025
+        "cache_read_per_million_tokens": 0.025,
+        "modality": {
+          "audio": {
+            "cache_read_per_million_tokens": 0.05,
+            "input_per_million_tokens": 0.5
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -450,7 +526,16 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.75,
-        "output_per_million_tokens": 4.5
+        "output_per_million_tokens": 4.5,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 3.0,
+            "output_per_million_tokens": 12.0
+          },
+          "image": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -616,7 +701,12 @@
             "input_per_million_tokens": 0,
             "output_per_million_tokens": 0
           }
-        ]
+        ],
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -636,7 +726,12 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 2.5,
-        "cache_read_per_million_tokens": 0.075
+        "cache_read_per_million_tokens": 0.075,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -656,7 +751,12 @@
       "pricing": {
         "input_per_million_tokens": 0.1,
         "output_per_million_tokens": 0.4,
-        "cache_read_per_million_tokens": 0.025
+        "cache_read_per_million_tokens": 0.025,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 0.3
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -740,7 +840,12 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 2.5,
-        "cache_read_per_million_tokens": 0
+        "cache_read_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,

@@ -10,12 +10,12 @@ export const RUN_EVALUATIONS_SINGLE_ITEM_REVIEW_UI_PAGE_ID = 'mlflow.evaluations
 
 // Views
 // Counts the number of times the expanded assessment details is clicked, showing how many times users view rationales.
-export const EXPANDED_ASSESSMENT_DETAILS_VIEW: Record<string, string> = {
+export const EXPANDED_ASSESSMENT_DETAILS_VIEW = {
   // Important note: Overall is always expanded.
   overall: 'mlflow.evaluations_review.expanded_overall_assessment_details_view',
   response: 'mlflow.evaluations_review.expanded_response_assessment_details_view',
   retrieval: 'mlflow.evaluations_review.expanded_retrieval_assessment_details_view',
-};
+} satisfies Record<string, string>;
 
 export const ASSESSMENT_RATIONAL_HOVER_DETAILS_VIEW =
   'mlflow.evaluations_review.assessment_rationale_hover_details_view';

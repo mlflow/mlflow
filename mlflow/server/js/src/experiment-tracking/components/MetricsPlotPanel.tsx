@@ -290,7 +290,6 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         while (nextPageToken) {
           const uid = getUUID();
           requestIds.push(uid);
-          /* eslint-disable no-await-in-loop */
           const nextPageResp = await this.props.getMetricHistoryApi(
             runUuid,
             metricKey,

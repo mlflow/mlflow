@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules import UnnamedThread
 
 
-def test_unnamed_thread(index_path: Path) -> None:
+def test_unnamed_thread(index: SymbolIndex) -> None:
     code = """
 import threading
 
@@ -16,7 +17,7 @@ threading.Thread(target=lambda: None)
 # threading.Thread(target=lambda: None, name="worker")
 """
     config = Config(select={UnnamedThread.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 1
     assert isinstance(results[0].rule, UnnamedThread)
     assert results[0].range == Range(Position(4, 0))

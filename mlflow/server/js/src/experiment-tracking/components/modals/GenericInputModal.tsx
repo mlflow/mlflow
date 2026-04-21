@@ -20,6 +20,7 @@ type Props = {
   footer?: React.ReactNode;
   handleSubmit: (...args: any[]) => any;
   title: React.ReactNode;
+  okButtonProps?: React.ComponentProps<typeof Modal>['okButtonProps'];
 };
 
 type State = {
@@ -71,7 +72,7 @@ export class GenericInputModal extends Component<Props, State> {
 
   render() {
     const { isSubmitting } = this.state;
-    const { okText, cancelText, isOpen, footer, children } = this.props;
+    const { okText, cancelText, isOpen, footer, children, okButtonProps } = this.props;
 
     // add props (ref) to passed component
     const displayForm = React.Children.map(children, (child) => {
@@ -95,6 +96,7 @@ export class GenericInputModal extends Component<Props, State> {
         okText={okText}
         cancelText={cancelText}
         confirmLoading={isSubmitting}
+        okButtonProps={okButtonProps}
         onCancel={this.handleCancel}
         footer={footer}
         centered

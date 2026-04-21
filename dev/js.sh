@@ -8,6 +8,11 @@
 
 set -euo pipefail
 
+if [ -n "${CI:-}" ]; then
+  echo "Skipping dev/js.sh on CI (prettier runs in js.yml)" >&2
+  exit 0
+fi
+
 cmd="${1:-}"
 shift || true
 

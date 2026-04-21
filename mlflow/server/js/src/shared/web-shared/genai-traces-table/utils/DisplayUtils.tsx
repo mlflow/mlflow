@@ -14,6 +14,25 @@ export function displayPercentage(fraction: number, numDecimalsDisplayPercentage
   return Number((fraction * 100).toFixed(numDecimalsDisplayPercentage)).toString();
 }
 
+/**
+ * Parse a duration string like "34.00000000000002ms" or "5.100s", round the numeric
+ * part to up to 3 decimals, strip trailing zeros, and reattach the unit.
+ */
+export function normalizeDurationString(val?: string): string | undefined {
+  if (val === undefined) {
+    return undefined;
+  }
+  const floatVal = parseFloat(val);
+  const unit = val
+    ?.replace?.(/[0-9.]/g, '')
+    .trim()
+    .toLowerCase();
+  if (isNil(floatVal) || isNaN(floatVal)) {
+    return undefined;
+  }
+  return [floatVal.toFixed(3).replace(/\.?0+$/, ''), unit].filter(Boolean).join('');
+}
+
 export function displayFloat(value: number | undefined | null, numDecimals = 3) {
   if (isNil(value)) {
     return 'null';

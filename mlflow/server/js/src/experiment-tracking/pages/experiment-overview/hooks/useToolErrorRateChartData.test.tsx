@@ -13,12 +13,13 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
 
-// Helper to create a span count data point with status
-const createSpanCountDataPoint = (timeBucket: string, status: string, count: number) => ({
+// Helper to create a span count data point with status and tool name
+const createSpanCountDataPoint = (timeBucket: string, status: string, count: number, toolName = 'test_tool') => ({
   metric_name: SpanMetricKey.SPAN_COUNT,
   dimensions: {
     time_bucket: timeBucket,
     [SpanDimensionKey.SPAN_STATUS]: status,
+    [SpanDimensionKey.SPAN_NAME]: toolName,
   },
   values: { [AggregationType.COUNT]: count },
 });
@@ -275,6 +276,7 @@ describe('useToolErrorRateChartData', () => {
           metric_name: SpanMetricKey.SPAN_COUNT,
           dimensions: {
             [SpanDimensionKey.SPAN_STATUS]: SpanStatus.ERROR,
+            [SpanDimensionKey.SPAN_NAME]: defaultToolName,
             // Missing time_bucket
           },
           values: { [AggregationType.COUNT]: 100 },
@@ -303,6 +305,7 @@ describe('useToolErrorRateChartData', () => {
           dimensions: {
             time_bucket: '2025-12-22T10:00:00Z',
             [SpanDimensionKey.SPAN_STATUS]: SpanStatus.ERROR,
+            [SpanDimensionKey.SPAN_NAME]: defaultToolName,
           },
           values: {}, // Missing COUNT value
         },
@@ -321,6 +324,29 @@ describe('useToolErrorRateChartData', () => {
       expect(result.current.chartData[0]).toHaveProperty('errorRate', 0);
     });
 
+    it('should filter out data points for other tools', async () => {
+      setupTraceMetricsHandler([
+        // Data for our tool: 10% error rate
+        createSpanCountDataPoint('2025-12-22T10:00:00Z', SpanStatus.OK, 90, defaultToolName),
+        createSpanCountDataPoint('2025-12-22T10:00:00Z', SpanStatus.ERROR, 10, defaultToolName),
+        // Data for a different tool: 50% error rate — should be ignored
+        createSpanCountDataPoint('2025-12-22T10:00:00Z', SpanStatus.OK, 50, 'other_tool'),
+        createSpanCountDataPoint('2025-12-22T10:00:00Z', SpanStatus.ERROR, 50, 'other_tool'),
+      ]);
+
+      const { result } = renderHook(() => useToolErrorRateChartData({ toolName: defaultToolName }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should only reflect our tool's 10% error rate, not the other tool's 50%
+      expect(result.current.hasData).toBe(true);
+      expect(result.current.chartData[0]).toHaveProperty('errorRate', 10);
+    });
+
     it('should return hasData true when there are data points', async () => {
       setupTraceMetricsHandler([createSpanCountDataPoint('2025-12-22T10:00:00Z', SpanStatus.OK, 100)]);
 
@@ -337,7 +363,7 @@ describe('useToolErrorRateChartData', () => {
   });
 
   describe('API request', () => {
-    it('should include SPAN_STATUS dimension in request', async () => {
+    it('should request SPAN_NAME and SPAN_STATUS dimensions', async () => {
       let capturedBody: any = null;
 
       server.use(
@@ -355,31 +381,11 @@ describe('useToolErrorRateChartData', () => {
         expect(capturedBody).not.toBeNull();
       });
 
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.SPAN_NAME);
       expect(capturedBody.dimensions).toContain(SpanDimensionKey.SPAN_STATUS);
     });
 
-    it('should filter for TOOL type spans', async () => {
-      let capturedBody: any = null;
-
-      server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
-          capturedBody = await req.json();
-          return res(ctx.json({ data_points: [] }));
-        }),
-      );
-
-      renderHook(() => useToolErrorRateChartData({ toolName: defaultToolName }), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(capturedBody).not.toBeNull();
-      });
-
-      expect(capturedBody.filters).toContainEqual('span.type = "TOOL"');
-    });
-
-    it('should filter for specific tool name', async () => {
+    it('should filter for TOOL type only (no per-tool name filter)', async () => {
       let capturedBody: any = null;
 
       server.use(
@@ -397,7 +403,8 @@ describe('useToolErrorRateChartData', () => {
         expect(capturedBody).not.toBeNull();
       });
 
-      expect(capturedBody.filters).toContainEqual('span.name = "my_custom_tool"');
+      expect(capturedBody.filters).toContainEqual('span.type = "TOOL"');
+      expect(capturedBody.filters).not.toContainEqual(expect.stringContaining('span.name'));
     });
 
     it('should request COUNT aggregation for span count', async () => {

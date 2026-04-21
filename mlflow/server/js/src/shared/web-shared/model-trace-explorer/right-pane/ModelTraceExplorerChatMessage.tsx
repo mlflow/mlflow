@@ -14,6 +14,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
 import {
   attachmentAwareUrlTransform,
   isAttachmentUri,
@@ -63,9 +64,19 @@ function ClickToExpandImage({ src, alt }: { src: string; alt?: string }) {
 }
 
 function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
-  const { url, loading, error } = useAttachmentUrl(src ?? null);
+  const { url, contentLength, contentType, loading, error, triggerDownload } = useAttachmentUrl(src ?? null);
   if (loading) {
     return <Spinner size="small" />;
+  }
+  if ((url || triggerDownload) && contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return (
+      <DownloadLink
+        url={url}
+        contentType={contentType}
+        contentLength={contentLength}
+        onFetchDownload={triggerDownload}
+      />
+    );
   }
   if (error || !url) {
     return <span>{`[${alt ?? 'Failed to load image'}]`}</span>;
@@ -84,6 +95,7 @@ const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }
           attachmentId={parsed.attachmentId}
           traceId={parsed.traceId}
           contentType={parsed.contentType}
+          size={parsed.size}
         />
       );
     }
@@ -244,9 +256,19 @@ function getAudioMimeType(format: string): string {
 }
 
 function AttachmentAudioPlayer({ uri }: { uri: string }) {
-  const { url, loading, error } = useAttachmentUrl(uri);
+  const { url, contentLength, contentType, loading, error, triggerDownload } = useAttachmentUrl(uri);
   if (loading) {
     return <Spinner size="small" />;
+  }
+  if ((url || triggerDownload) && contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return (
+      <DownloadLink
+        url={url}
+        contentType={contentType}
+        contentLength={contentLength}
+        onFetchDownload={triggerDownload}
+      />
+    );
   }
   if (error || !url) {
     return (

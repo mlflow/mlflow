@@ -13,7 +13,6 @@ import {
   Typography,
   useDesignSystemTheme,
   UserIcon,
-  ClockIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
@@ -22,6 +21,7 @@ import { useModelTraceExplorerRunJudgesContext } from '../../model-trace-explore
 
 import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
+import { ExecutionDurationTag } from './ExecutionDurationTag';
 import { IssuesCell } from './IssuesCell';
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
@@ -66,7 +66,7 @@ import {
 import type { AssessmentInfo, EvalTraceComparisonEntry } from '../types';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
-import { highlightSearchInText, timeSinceStr } from '../utils/DisplayUtils';
+import { highlightSearchInText, normalizeDurationString, timeSinceStr } from '../utils/DisplayUtils';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
   getCustomMetadataKeyFromColumnId,
@@ -957,72 +957,15 @@ export const traceInfoCellRenderer = (
       />
     );
   } else if (colId === EXECUTION_DURATION_COLUMN_ID) {
-    // Parse and reformat time values from the backend. Keep up to 3 decimal places for float values,
-    // trim trailing zeros and the dot if there are no decimal places
-    const normalizeFloatValue = (val?: string) => {
-      if (val === undefined) {
-        return undefined;
-      }
-      const floatVal = parseFloat(val);
-      const unit = val
-        ?.replace?.(/[0-9.]/g, '')
-        .trim()
-        .toLowerCase();
-      if (isNil(floatVal) || isNaN(floatVal)) {
-        return undefined;
-      }
-      return [floatVal.toFixed(3).replace(/\.?0+$/, ''), unit].filter(Boolean).join('');
-    };
-
-    const value = normalizeFloatValue(currentTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
-    const otherValue = normalizeFloatValue(otherTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
+    const value = normalizeDurationString(currentTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
+    const otherValue = normalizeDurationString(otherTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
 
     return (
       <StackedComponents
-        first={
-          !isNil(value) ? (
-            <Tag
-              icon={<ClockIcon />}
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.execution-time"
-            >
-              <span
-                css={{
-                  display: 'block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-                title={value}
-              >
-                {value}
-              </span>
-            </Tag>
-          ) : (
-            <NullCell isComparing={isComparing} />
-          )
-        }
+        first={!isNil(value) ? <ExecutionDurationTag value={value} /> : <NullCell isComparing={isComparing} />}
         second={
           isComparing &&
-          (!isNil(otherValue) ? (
-            <Tag
-              icon={<ClockIcon />}
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.execution-time"
-            >
-              <span
-                css={{
-                  display: 'block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-                title={otherValue}
-              >
-                {otherValue}
-              </span>
-            </Tag>
-          ) : (
-            <NullCell isComparing={isComparing} />
-          ))
+          (!isNil(otherValue) ? <ExecutionDurationTag value={otherValue} /> : <NullCell isComparing={isComparing} />)
         }
       />
     );

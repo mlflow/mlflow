@@ -1,8 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { LegacySkeleton, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  LegacySkeleton,
+  Modal,
+  Typography,
+  useDesignSystemEventComponentCallbacks,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
 import { useTraceAttachment } from '../hooks/useTraceAttachment';
 
 export const ModelTraceExplorerAttachmentRenderer = ({
@@ -10,15 +19,34 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   attachmentId,
   traceId,
   contentType,
+  size,
 }: {
   title: string;
   attachmentId: string;
   traceId: string;
   contentType: string;
+  size?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { objectUrl, isLoading, error } = useTraceAttachment({ traceId, attachmentId, contentType });
+  const { objectUrl, contentLength, isLoading, error, triggerDownload } = useTraceAttachment({
+    traceId,
+    attachmentId,
+    contentType,
+    size,
+  });
   const [previewVisible, setPreviewVisible] = useState(false);
+  const audioEvents = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const audioEventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: 'shared.model-trace-explorer.attachment-audio-play',
+    analyticsEvents: audioEvents,
+  });
+  const downloadEvents = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const downloadEventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: 'shared.model-trace-explorer.attachment-download',
+    analyticsEvents: downloadEvents,
+  });
 
   if (error) {
     return (
@@ -31,7 +59,40 @@ export const ModelTraceExplorerAttachmentRenderer = ({
     );
   }
 
-  if (isLoading || !objectUrl) {
+  if (isLoading) {
+    return <LegacySkeleton />;
+  }
+
+  const exceedsRenderLimit = exceedsRenderSizeLimit(contentType, contentLength);
+
+  if (exceedsRenderLimit) {
+    return (
+      <div css={{ padding: theme.spacing.sm }}>
+        {title && (
+          <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+            {title}
+          </Typography.Text>
+        )}
+        {objectUrl ? (
+          <DownloadLink
+            url={objectUrl}
+            contentType={contentType}
+            contentLength={contentLength}
+            filename={`attachment-${attachmentId}`}
+          />
+        ) : (
+          <DownloadLink
+            contentType={contentType}
+            contentLength={contentLength}
+            filename={`attachment-${attachmentId}`}
+            onFetchDownload={triggerDownload}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (!objectUrl) {
     return <LegacySkeleton />;
   }
 
@@ -81,7 +142,12 @@ export const ModelTraceExplorerAttachmentRenderer = ({
           </Typography.Text>
         )}
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <audio controls css={{ width: '100%', maxWidth: 500 }} src={objectUrl} />
+        <audio
+          controls
+          css={{ width: '100%', maxWidth: 500 }}
+          src={objectUrl}
+          onPlay={(e) => audioEventContext.onClick(e as any)}
+        />
       </div>
     );
   }
@@ -110,7 +176,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
 
   return (
     <div css={{ padding: theme.spacing.sm }}>
-      <a href={objectUrl} download={`attachment-${attachmentId}`}>
+      <a href={objectUrl} download={`attachment-${attachmentId}`} onClick={(e) => downloadEventContext.onClick(e)}>
         <FormattedMessage
           defaultMessage="Download attachment ({contentType})"
           description="Download link for trace attachment with unknown content type"
