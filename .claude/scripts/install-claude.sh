@@ -9,8 +9,8 @@ if [ "${CI:-}" != "true" ]; then
   exit 1
 fi
 
-VERSION="2.1.85"
-CHECKSUM="ff0b23dba11c97a53386c61ebe47d46d768a8ad33f98c7d22186c9a63f179f4d"
+VERSION="2.1.98"
+CHECKSUM="d40827b5aa8d737a7eb68e3aad990b80e2521540a6bc8a405259b63b25d42ed8"
 GCS_BUCKET="https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases"
 PLATFORM="linux-x64"
 

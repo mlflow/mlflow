@@ -1,5 +1,9 @@
 import { FormattedMessage } from 'react-intl';
-import { EXPERIMENT_PAGE_FEEDBACK_URL, ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import {
+  // prettier-ignore
+  EXPERIMENT_PAGE_FEEDBACK_URL,
+  ExperimentPageTabName,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { WorkflowType } from '@mlflow/mlflow/src/common/contexts/WorkflowTypeContext';
 import {
   BeakerIcon,
@@ -70,7 +74,7 @@ export const getTabDisplayName = (tabName: ExperimentPageTabName, workflowType: 
   return getMLTabDisplayName(tabName);
 };
 
-export const getGenAITabDisplayName = (tabName: ExperimentPageTabName) => {
+const getGenAITabDisplayName = (tabName: ExperimentPageTabName) => {
   switch (tabName) {
     case ExperimentPageTabName.Models:
       return (
@@ -91,7 +95,7 @@ export const getGenAITabDisplayName = (tabName: ExperimentPageTabName) => {
   }
 };
 
-export const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
+const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
   switch (tabName) {
     case ExperimentPageTabName.Overview:
       return (

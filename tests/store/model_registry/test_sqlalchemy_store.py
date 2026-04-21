@@ -1,3 +1,4 @@
+import concurrent.futures
 import shutil
 import time
 import uuid
@@ -2489,3 +2490,29 @@ def test_create_model_version_with_model_id_and_no_run_id(store):
 
         mvd = store.get_model_version(name=mv.name, version=mv.version)
         assert mvd.run_id == mock_run_id
+
+
+def test_create_model_version_concurrent(store):
+    name = "test_concurrent_mv"
+    _rm_maker(store, name)
+
+    num_threads = 4
+    versions_per_thread = 5
+    results = []
+
+    def create_versions():
+        return [
+            store.create_model_version(name, "path/to/source", uuid.uuid4().hex).version
+            for _ in range(versions_per_thread)
+        ]
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=num_threads, thread_name_prefix="create_model_version"
+    ) as executor:
+        futures = [executor.submit(create_versions) for _ in range(num_threads)]
+        for f in concurrent.futures.as_completed(futures):
+            results.extend(f.result())
+
+    # All versions should be unique
+    assert len(results) == len(set(results))
+    assert len(results) == num_threads * versions_per_thread

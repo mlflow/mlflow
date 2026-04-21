@@ -189,7 +189,6 @@ lint = [
   "types-PyYAML",
   "packaging>=25.0",
   "aiohttp",
-  "tiktoken",
   "claude-agent-sdk",
   "pytest",
   "types-requests",
@@ -486,10 +485,18 @@ Tru = "Tru"                        # TruLens library name prefix
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
 extend-exclude = [
-  # Ignore proto files
+  # Allowlist: only check these extensions
+  "*",
+  "!*/",
+  "!*.py",
+  "!*.md",
+  "!*.mdx",
+  # Ignore proto files (re-excluded because they match *.py above)
   "mlflow/protos/**/*",
   # Vendored files
   "mlflow/utils/gorilla.py",
+  # Submodule (typos should be fixed upstream)
+  "mlflow/assistant/skills/**/*",
 ]
 
 [tool.typos.default]

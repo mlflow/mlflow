@@ -42,6 +42,8 @@ import {
   getTraceCost,
   convertOtelAttributesToMap,
   isSessionLevelAssessment,
+  createTraceV4SerializedLocation,
+  parseTraceV4SerializedLocation,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -1440,5 +1442,57 @@ describe('prettyPrintChatMessage - audio parts', () => {
     const result = prettyPrintChatMessage(message);
     expect(result?.content).toBe('');
     expect(result?.audioParts).toEqual([{ data: 'audiodata', format: 'wav' }]);
+  });
+});
+
+describe('createTraceV4SerializedLocation', () => {
+  it('should serialize MLFLOW_EXPERIMENT location to experiment ID', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'MLFLOW_EXPERIMENT',
+        mlflow_experiment: { experiment_id: '123' },
+      }),
+    ).toBe('123');
+  });
+
+  it('should serialize UC_SCHEMA location to catalog.schema', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'UC_SCHEMA',
+        uc_schema: { catalog_name: 'catalog', schema_name: 'schema' },
+      }),
+    ).toBe('catalog.schema');
+  });
+
+  it('should serialize UC_TABLE_PREFIX location to catalog.schema.prefix', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'UC_TABLE_PREFIX',
+        uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
+      }),
+    ).toBe('catalog.schema.prefix');
+  });
+});
+
+describe('parseTraceV4SerializedLocation', () => {
+  it('should parse 1-part string as MLFLOW_EXPERIMENT', () => {
+    expect(parseTraceV4SerializedLocation('123')).toEqual({
+      type: 'MLFLOW_EXPERIMENT',
+      mlflow_experiment: { experiment_id: '123' },
+    });
+  });
+
+  it('should parse 2-part string as UC_SCHEMA', () => {
+    expect(parseTraceV4SerializedLocation('catalog.schema')).toEqual({
+      type: 'UC_SCHEMA',
+      uc_schema: { catalog_name: 'catalog', schema_name: 'schema' },
+    });
+  });
+
+  it('should parse 3-part string as UC_TABLE_PREFIX', () => {
+    expect(parseTraceV4SerializedLocation('catalog.schema.prefix')).toEqual({
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
+    });
   });
 });

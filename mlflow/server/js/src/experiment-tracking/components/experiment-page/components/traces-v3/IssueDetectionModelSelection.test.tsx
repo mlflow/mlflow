@@ -16,13 +16,9 @@ jest.mock('./IssueDetectionApiKeyConfigurator', () => ({
 jest.mock('./IssueDetectionAdvancedSettings', () => ({
   IssueDetectionAdvancedSettings: () => <div data-testid="advanced-settings">Advanced Settings</div>,
 }));
+const mockUseApiKeyConfiguration = jest.fn();
 jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration', () => ({
-  useApiKeyConfiguration: () => ({
-    existingSecrets: [],
-    authModes: [],
-    defaultAuthMode: '',
-    isLoadingProviderConfig: false,
-  }),
+  useApiKeyConfiguration: (...args: any[]) => mockUseApiKeyConfiguration(...args),
 }));
 
 describe('IssueDetectionModelSelection', () => {
@@ -34,6 +30,12 @@ describe('IssueDetectionModelSelection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseApiKeyConfiguration.mockReturnValue({
+      existingSecrets: [],
+      authModes: [],
+      defaultAuthMode: '',
+      isLoadingProviderConfig: false,
+    });
   });
 
   test('defaults to endpoint mode when endpoints exist', async () => {
@@ -99,8 +101,62 @@ describe('IssueDetectionModelSelection', () => {
 
     const { getByText } = renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} />);
 
-    // The trigger placeholder is visible when no endpoint is selected yet
-    expect(getByText('Select endpoint')).toBeInTheDocument();
+    // The first endpoint is auto-selected and shown in the trigger
+    expect(getByText('test-endpoint')).toBeInTheDocument();
+  });
+
+  test('auto-selects first endpoint when endpoints are available', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [
+        {
+          endpoint_id: 'ep-1',
+          name: 'first-endpoint',
+          model_mappings: [],
+          created_at: 0,
+          last_updated_at: 0,
+        },
+        {
+          endpoint_id: 'ep-2',
+          name: 'second-endpoint',
+          model_mappings: [],
+          created_at: 0,
+          last_updated_at: 0,
+        },
+      ],
+      isLoading: false,
+    } as any);
+
+    const ref = React.createRef<any>();
+    renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} ref={ref} />);
+
+    await waitFor(() => {
+      expect(ref.current?.getValues().endpointName).toBe('first-endpoint');
+    });
+  });
+
+  test('auto-selects first existing API key when secrets are available', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+    mockUseApiKeyConfiguration.mockReturnValue({
+      existingSecrets: [
+        { secret_id: 'secret-1', secret_name: 'My Key', provider: 'openai', masked_values: {} },
+        { secret_id: 'secret-2', secret_name: 'Other Key', provider: 'openai', masked_values: {} },
+      ],
+      authModes: [],
+      defaultAuthMode: '',
+      isLoadingProviderConfig: false,
+    });
+
+    const ref = React.createRef<any>();
+    renderWithDesignSystem(<IssueDetectionModelSelection {...defaultProps} ref={ref} />);
+
+    await waitFor(() => {
+      const config = ref.current?.getValues().apiKeyConfig;
+      expect(config.mode).toBe('existing');
+      expect(config.existingSecretId).toBe('secret-1');
+    });
   });
 
   test('hides endpoint dropdown when no endpoints exist', () => {

@@ -168,19 +168,26 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           {!isInitialScreen && (
-            <Tooltip
-              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_178"
-              content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
-            >
-              <span>
-                <RunScorerButton
-                  variant={BUTTON_VARIANT.RERUN}
-                  onClick={handleRunScorer}
-                  loading={isLoading}
-                  disabled={isRunScorerDisabled}
-                />
-              </span>
-            </Tooltip>
+            <>
+              <SampleScorerTracesToEvaluatePicker
+                selectedItemIds={selectedItemIds}
+                onSelectedItemIdsChange={onSelectedItemIdsChange}
+                buttonProps={{ size: 'small' }}
+              />
+              <Tooltip
+                componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_178"
+                content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
+              >
+                <span>
+                  <RunScorerButton
+                    variant={BUTTON_VARIANT.RERUN}
+                    onClick={handleRunScorer}
+                    loading={isLoading}
+                    disabled={isRunScorerDisabled}
+                  />
+                </span>
+              </Tooltip>
+            </>
           )}
         </div>
       </div>

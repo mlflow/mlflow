@@ -44,6 +44,7 @@ export const useFetchedRunsNotification = (notification: NotificationInstance) =
         );
       }
 
+      // Returned when we fetch both regular (parent) and child runs
       // eslint-disable-next-line formatjs/no-multiple-plurals
       return formatMessage(
         {

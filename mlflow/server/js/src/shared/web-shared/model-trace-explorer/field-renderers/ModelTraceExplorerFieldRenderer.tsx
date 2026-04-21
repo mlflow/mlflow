@@ -23,7 +23,7 @@ const MAX_ATTACHMENT_SEARCH_DEPTH = 10;
 export const findAttachmentUris = (
   value: unknown,
   depth = 0,
-): { attachmentId: string; traceId: string; contentType: string }[] => {
+): { attachmentId: string; traceId: string; contentType: string; size?: number }[] => {
   if (depth > MAX_ATTACHMENT_SEARCH_DEPTH) {
     return [];
   }
@@ -53,7 +53,7 @@ export const ModelTraceExplorerFieldRenderer = ({
 }: {
   title: string;
   data: string;
-  renderMode: 'default' | 'json' | 'text';
+  renderMode: 'default' | 'json' | 'text' | 'table';
   chatMessageFormat?: string;
   maxVisibleMessages?: number;
   assessments?: Assessment[];
@@ -138,6 +138,10 @@ export const ModelTraceExplorerFieldRenderer = ({
     return <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.TEXT} />;
   }
 
+  if (renderMode === 'table') {
+    return <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.TABLE} />;
+  }
+
   if (dataIsScalar) {
     if (isString(parsedData)) {
       const attachment = parseAttachmentUri(parsedData);
@@ -148,6 +152,7 @@ export const ModelTraceExplorerFieldRenderer = ({
             attachmentId={attachment.attachmentId}
             traceId={attachment.traceId}
             contentType={attachment.contentType}
+            size={attachment.size}
           />
         );
       }
@@ -176,6 +181,7 @@ export const ModelTraceExplorerFieldRenderer = ({
               attachmentId={att.attachmentId}
               traceId={att.traceId}
               contentType={att.contentType}
+              size={att.size}
             />
           ))}
           <ModelTraceExplorerCodeSnippet title={title} data={data} />
