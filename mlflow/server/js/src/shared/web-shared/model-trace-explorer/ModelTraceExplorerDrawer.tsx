@@ -5,7 +5,7 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
-  LinkIcon,
+  PlusIcon,
   Notification,
   Tooltip,
   useDesignSystemTheme,
@@ -13,7 +13,7 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
-import { ModelTraceExplorerAddToDatasetProvider, useModelTraceExplorerContext } from './ModelTraceExplorerContext';
+import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 
 export interface ModelTraceExplorerDrawerProps {
@@ -82,6 +82,7 @@ export const ModelTraceExplorerDrawer = ({
   }, [handleKeyDown]);
 
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
+  const handleAddToDatasetClick = useCallback(() => setShowDatasetModal(true), []);
 
   return (
     <DrawerComponent.Root
@@ -112,6 +113,18 @@ export const ModelTraceExplorerDrawer = ({
               <ChevronRightIcon />
             </Button>
             <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            {showAddToDatasetButton && (
+              <Button
+                componentId="mlflow.evaluations_review.modal.add_to_dataset"
+                onClick={handleAddToDatasetClick}
+                icon={<PlusIcon />}
+              >
+                <FormattedMessage
+                  defaultMessage="Add to dataset"
+                  description="Button text for adding a trace to a dataset"
+                />
+              </Button>
+            )}
             <Tooltip
               componentId="mlflow.evaluations_review.modal.share-tooltip"
               content={
@@ -121,14 +134,7 @@ export const ModelTraceExplorerDrawer = ({
                 />
               }
             >
-              <Button
-                componentId="mlflow.evaluations_review.modal.share-button"
-                icon={<LinkIcon />}
-                size="small"
-                type="tertiary"
-                onClick={handleShareClick}
-                css={{ flexShrink: 0 }}
-              >
+              <Button componentId="mlflow.evaluations_review.modal.share-button" onClick={handleShareClick}>
                 <FormattedMessage defaultMessage="Share" description="Label for the share trace button" />
               </Button>
             </Tooltip>
@@ -152,15 +158,7 @@ export const ModelTraceExplorerDrawer = ({
         ]}
       >
         <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
-          {isLoading ? (
-            <ModelTraceExplorerSkeleton />
-          ) : showAddToDatasetButton ? (
-            <ModelTraceExplorerAddToDatasetProvider openModal={() => setShowDatasetModal(true)}>
-              {children}
-            </ModelTraceExplorerAddToDatasetProvider>
-          ) : (
-            <>{children}</>
-          )}
+          {isLoading ? <ModelTraceExplorerSkeleton /> : <>{children}</>}
         </ApplyDesignSystemContextOverrides>
         {renderExportTracesToDatasetsModal?.({
           selectedTraceInfos: traceInfo ? [traceInfo] : [],

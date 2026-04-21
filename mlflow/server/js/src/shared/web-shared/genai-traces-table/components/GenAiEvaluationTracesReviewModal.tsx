@@ -24,7 +24,7 @@ import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
 
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
-import { AssistantAwareDrawer } from '../../../../common/components/AssistantAwareDrawer';
+import { GenAITracesTableContext } from '../GenAITracesTableContext';
 import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
 import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace, useGetTraceByFullTraceId } from '../hooks/useGetTrace';
@@ -143,17 +143,17 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     const shouldEnablePolling = spansLocation === TRACKING_STORE_SPANS_LOCATION;
 
     // prettier-ignore
-    const traceQueryResult = useGetTrace(
+    const traceQueryResult = useGetTrace({
       getTrace,
-      evaluation?.currentRunValue?.traceInfo,
-      shouldEnablePolling,
-    );
+      traceInfo:evaluation?.currentRunValue?.traceInfo,
+      enablePolling: shouldEnablePolling,
+    });
     // prettier-ignore
-    const compareToTraceQueryResult = useGetTrace(
+    const compareToTraceQueryResult = useGetTrace({
       getTrace,
-      evaluation?.otherRunValue?.traceInfo,
-      shouldEnablePolling,
-    );
+      traceInfo:evaluation?.otherRunValue?.traceInfo,
+      enablePolling: shouldEnablePolling,
+    });
     // In case that the selected evaluation is not provided upstream (but the list is loaded), we lazily fetch the full trace data here
     const shouldFetchTraceBySearchParamId = useMemo(
       () => Boolean(evaluations) && !evaluation && Boolean(selectedEvaluationId),
@@ -167,15 +167,15 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
     // Prefetching the next and previous traces to optimize performance
     // prettier-ignore
-    useGetTrace(
+    useGetTrace({
       getTrace,
-      nextEvaluation?.currentRunValue?.traceInfo,
-    );
+      traceInfo: nextEvaluation?.currentRunValue?.traceInfo,
+    });
     // prettier-ignore
-    useGetTrace(
+    useGetTrace({
       getTrace,
-      previousEvaluation?.currentRunValue?.traceInfo,
-    );
+      traceInfo: previousEvaluation?.currentRunValue?.traceInfo,
+    });
 
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);

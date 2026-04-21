@@ -89,25 +89,28 @@ describe('RunView navigation integration test', () => {
     });
 
     await userEvent.click(screen.getByRole('tab', { name: 'Model metrics' }));
-
-    expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
-    expect(screen.queryByText('model metric charts')).toBeInTheDocument();
-    expect(screen.queryByText('system metric charts')).not.toBeInTheDocument();
-    expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
+      expect(screen.queryByText('model metric charts')).toBeInTheDocument();
+      expect(screen.queryByText('system metric charts')).not.toBeInTheDocument();
+      expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
+    });
 
     await userEvent.click(screen.getByRole('tab', { name: 'System metrics' }));
-
-    expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
-    expect(screen.queryByText('model metric charts')).not.toBeInTheDocument();
-    expect(screen.queryByText('system metric charts')).toBeInTheDocument();
-    expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
+      expect(screen.queryByText('model metric charts')).not.toBeInTheDocument();
+      expect(screen.queryByText('system metric charts')).toBeInTheDocument();
+      expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
+    });
 
     await userEvent.click(screen.getByRole('tab', { name: 'Artifacts' }));
-
-    expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
-    expect(screen.queryByText('model metrics')).not.toBeInTheDocument();
-    expect(screen.queryByText('system metrics')).not.toBeInTheDocument();
-    expect(screen.queryByText('artifacts tab')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
+      expect(screen.queryByText('model metrics')).not.toBeInTheDocument();
+      expect(screen.queryByText('system metrics')).not.toBeInTheDocument();
+      expect(screen.queryByText('artifacts tab')).toBeInTheDocument();
+    });
   });
 
   test('should display artirfact tab if using a targeted artifact URL', async () => {

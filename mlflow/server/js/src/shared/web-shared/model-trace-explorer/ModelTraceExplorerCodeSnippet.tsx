@@ -26,6 +26,8 @@ function getRenderModeDisplayText(renderMode: CodeSnippetRenderMode) {
   switch (renderMode) {
     case CodeSnippetRenderMode.JSON:
       return 'JSON';
+    case CodeSnippetRenderMode.TABLE:
+      return 'Table';
     case CodeSnippetRenderMode.TEXT:
       return 'Text';
     case CodeSnippetRenderMode.MARKDOWN:
@@ -44,6 +46,7 @@ export function ModelTraceExplorerCodeSnippet({
   containsActiveMatch = false,
   initialRenderMode,
   initialExpanded,
+  hideRenderModeDropdown = false,
 }: {
   title: string;
   tokens?: number;
@@ -56,6 +59,8 @@ export function ModelTraceExplorerCodeSnippet({
   containsActiveMatch?: boolean;
   initialRenderMode?: CodeSnippetRenderMode;
   initialExpanded?: boolean;
+  /** When true, the per-snippet render mode dropdown is hidden (e.g. for aggregated table view). */
+  hideRenderModeDropdown?: boolean;
 }) {
   const parsedData = useMemo(() => JSON.parse(data), [data]);
   const dataIsString = isString(parsedData);
@@ -65,7 +70,7 @@ export function ModelTraceExplorerCodeSnippet({
     getInitialRenderMode(dataIsString, initialRenderMode),
   );
   const isTitleMatch = containsActiveMatch && (activeMatch?.isKeyMatch ?? false);
-  const shouldShowRenderModeDropdown = dataIsString && !searchFilter;
+  const shouldShowRenderModeDropdown = !hideRenderModeDropdown && dataIsString && !searchFilter;
 
   // we need to reset the render mode when the data changes
   useEffect(() => {
@@ -140,7 +145,7 @@ export function ModelTraceExplorerCodeSnippet({
                       onValueChange={(value) => setRenderMode(value as CodeSnippetRenderMode)}
                     >
                       {Object.values(CodeSnippetRenderMode).map((mode) => {
-                        if (mode === CodeSnippetRenderMode.PYTHON) {
+                        if (mode === CodeSnippetRenderMode.PYTHON || mode === CodeSnippetRenderMode.TABLE) {
                           return null;
                         }
                         return (

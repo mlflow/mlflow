@@ -5,11 +5,17 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSummaryViewExceptionsSection } from './ModelTraceExplorerSummaryViewExceptionsSection';
 import { type ModelTraceSpanNode } from '../ModelTrace.types';
-import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplorer.utils';
+import { CodeSnippetRenderMode } from '../ModelTrace.types';
+import {
+  createListFromObject,
+  buildAggregatedJsonFromKeyValueList,
+  getSpanExceptionEvents,
+} from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { SpanNameDetailViewLink } from '../assessments-pane/SpanNameDetailViewLink';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { spanTimeFormatter } from '../timeline-tree/TimelineTree.utils';
 
 const CONNECTOR_WIDTH = 12;
@@ -20,12 +26,20 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
   renderMode,
 }: {
   node: ModelTraceSpanNode;
-  renderMode: 'default' | 'json';
+  renderMode: 'default' | 'json' | 'table';
 }) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
   const inputList = useMemo(() => createListFromObject(node.inputs), [node]);
   const outputList = useMemo(() => createListFromObject(node.outputs), [node]);
+  const aggregatedInputJson = useMemo(
+    () => (inputList.length > 0 ? buildAggregatedJsonFromKeyValueList(inputList) : null),
+    [inputList],
+  );
+  const aggregatedOutputJson = useMemo(
+    () => (outputList.length > 0 ? buildAggregatedJsonFromKeyValueList(outputList) : null),
+    [outputList],
+  );
   const exceptionEvents = getSpanExceptionEvents(node);
   const chatMessageFormat = node.chatMessageFormat;
 
@@ -123,22 +137,30 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
               >
                 <div
                   css={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: theme.spacing.sm,
                     paddingLeft: theme.spacing.lg,
                     marginBottom: theme.spacing.sm,
                   }}
                 >
-                  {inputList.map(({ key, value }, index) => (
-                    <ModelTraceExplorerFieldRenderer
-                      key={key || index}
-                      title={key}
-                      data={value}
-                      renderMode={renderMode}
-                      chatMessageFormat={chatMessageFormat}
+                  {renderMode === 'table' && aggregatedInputJson ? (
+                    <ModelTraceExplorerCodeSnippet
+                      title=""
+                      data={aggregatedInputJson}
+                      initialRenderMode={CodeSnippetRenderMode.TABLE}
+                      hideRenderModeDropdown
                     />
-                  ))}
+                  ) : (
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                      {inputList.map(({ key, value }, index) => (
+                        <ModelTraceExplorerFieldRenderer
+                          key={key || index}
+                          title={key}
+                          data={value}
+                          renderMode={renderMode}
+                          chatMessageFormat={chatMessageFormat}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </ModelTraceExplorerCollapsibleSection>
             )}
@@ -154,23 +176,31 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
               >
                 <div
                   css={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: theme.spacing.sm,
                     paddingLeft: theme.spacing.lg,
                     marginBottom: theme.spacing.sm,
                   }}
                 >
-                  {outputList.map(({ key, value }) => (
-                    <ModelTraceExplorerFieldRenderer
-                      key={key}
-                      title={key}
-                      data={value}
-                      renderMode={renderMode}
-                      chatMessageFormat={chatMessageFormat}
-                      assessments={node.assessments}
+                  {renderMode === 'table' && aggregatedOutputJson ? (
+                    <ModelTraceExplorerCodeSnippet
+                      title=""
+                      data={aggregatedOutputJson}
+                      initialRenderMode={CodeSnippetRenderMode.TABLE}
+                      hideRenderModeDropdown
                     />
-                  ))}
+                  ) : (
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                      {outputList.map(({ key, value }) => (
+                        <ModelTraceExplorerFieldRenderer
+                          key={key}
+                          title={key}
+                          data={value}
+                          renderMode={renderMode}
+                          chatMessageFormat={chatMessageFormat}
+                          assessments={node.assessments}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </ModelTraceExplorerCollapsibleSection>
             )}

@@ -68,7 +68,6 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
     const urlState = this.getUrlState();
     const persistedPageTokens = this.getPersistedPageTokens();
     const maxResultsForTokens = this.getPersistedMaxResults();
-    // eslint-disable-next-line react/no-did-mount-set-state
     this.setState(
       {
         // @ts-expect-error TS(4111): Property 'orderByKey' comes from an index signatur... Remove this comment to see the full error message

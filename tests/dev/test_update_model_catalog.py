@@ -290,9 +290,10 @@ def test_convert_end_to_end(tmp_path):
 
     stats = convert(input_data, output_dir)
 
-    assert stats == {"anthropic": 1, "openai": 2}
+    assert stats == {"anthropic": 1, "bedrock": 1, "openai": 2}
     assert (output_dir / "openai.json").exists()
     assert (output_dir / "anthropic.json").exists()
+    assert (output_dir / "bedrock.json").exists()
     assert not (output_dir / "bedrock_converse.json").exists()
 
     openai_catalog = json.loads((output_dir / "openai.json").read_text())

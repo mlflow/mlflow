@@ -1,7 +1,4 @@
-import type {
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
-} from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import type { ScorerEvaluationScope } from './constants';
 
 interface ScheduledScorerBase {
@@ -73,15 +70,17 @@ export const SESSION_LEVEL_LLM_TEMPLATES = [
   LLM_TEMPLATE.CUSTOM,
 ];
 
-export const TEMPLATES_WITH_GUIDELINES: readonly LLM_TEMPLATE[] = [
+// Templates that use guidelines instead of instructions
+const TEMPLATES_WITH_GUIDELINES: readonly LLM_TEMPLATE[] = [
   LLM_TEMPLATE.GUIDELINES,
   LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES,
 ];
 
+// Helper function to check if the selected template uses guidelines
 export const isGuidelinesTemplate = (template: string | undefined): boolean =>
   template !== undefined && TEMPLATES_WITH_GUIDELINES.includes(template as LLM_TEMPLATE);
 
-export const TEMPLATES_WITH_EXPECTATIONS: readonly LLM_TEMPLATE[] = [
+const TEMPLATES_WITH_EXPECTATIONS: readonly LLM_TEMPLATE[] = [
   LLM_TEMPLATE.CORRECTNESS,
   LLM_TEMPLATE.EQUIVALENCE,
   LLM_TEMPLATE.EXPECTATIONS_GUIDELINES,
@@ -179,7 +178,7 @@ interface EvaluateChatParamsBase {
   itemCount?: number;
   // Explicit list of item IDs to evaluate. Can be either trace IDs or session IDs. This is used to override the itemCount.
   itemIds?: string[];
-  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations: ModelTraceSearchLocation[];
   experimentId: string;
   serializedScorer?: string;
   evaluationScope?: ScorerEvaluationScope;
