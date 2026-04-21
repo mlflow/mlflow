@@ -432,24 +432,24 @@ def is_databricks_sdk_models_artifact_repository_enabled(host_creds):
     if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.defined:
         return MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get()
 
-    endpoint, method = _METHOD_TO_INFO[IsDatabricksSdkModelsArtifactRepositoryEnabledRequest]
-    req_body = message_to_json(IsDatabricksSdkModelsArtifactRepositoryEnabledRequest())
-    response_proto = IsDatabricksSdkModelsArtifactRepositoryEnabledResponse()
+    # endpoint, method = _METHOD_TO_INFO[IsDatabricksSdkModelsArtifactRepositoryEnabledRequest]
+    # req_body = message_to_json(IsDatabricksSdkModelsArtifactRepositoryEnabledRequest())
+    # response_proto = IsDatabricksSdkModelsArtifactRepositoryEnabledResponse()
 
-    try:
-        resp = call_endpoint(
-            host_creds=host_creds,
-            endpoint=endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=response_proto,
-        )
-        return resp.is_databricks_sdk_models_artifact_repository_enabled
-    except Exception as e:
-        _logger.warning(
-            "Failed to confirm if DatabricksSDKModelsArtifactRepository should be used; "
-            f"falling back to default. Error: {e}"
-        )
+    # try:
+    #     resp = call_endpoint(
+    #         host_creds=host_creds,
+    #         endpoint=endpoint,
+    #         method=method,
+    #         json_body=req_body,
+    #         response_proto=response_proto,
+    #     )
+    #     return resp.is_databricks_sdk_models_artifact_repository_enabled
+    # except Exception as e:
+    #     _logger.warning(
+    #         "Failed to confirm if DatabricksSDKModelsArtifactRepository should be used; "
+    #         f"falling back to default. Error: {e}"
+    #     )
     return False
 
 

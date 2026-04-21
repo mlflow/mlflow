@@ -229,7 +229,9 @@ def dbfs_artifact_repo_factory(
     cleaned_artifact_uri = artifact_uri.rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
     if is_databricks_acled_artifacts_uri(artifact_uri):
+        _logger.info(f"[DbfsArtifactRepoFactory] is_databricks_acled_artifacts_uri: {artifact_uri}")
         if DatabricksLoggedModelArtifactRepository.is_logged_model_uri(artifact_uri):
+            _logger.info(f"[DbfsArtifactRepoFactory] DatabricksLoggedModelArtifactRepository for {artifact_uri}")
             return DatabricksLoggedModelArtifactRepository(
                 cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
             )
@@ -237,9 +239,11 @@ def dbfs_artifact_repo_factory(
             not MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS.get()
             and DatabricksRunArtifactRepository.is_run_uri(artifact_uri)
         ):
+            _logger.info(f"[DbfsArtifactRepoFactory] DatabricksRunArtifactRepository for {artifact_uri}")
             return DatabricksRunArtifactRepository(
                 cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
             )
+        _logger.info(f"[DbfsArtifactRepoFactory] DatabricksArtifactRepository for {artifact_uri}")
         return DatabricksArtifactRepository(
             cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
         )
@@ -249,6 +253,7 @@ def dbfs_artifact_repo_factory(
         and not is_databricks_model_registry_artifacts_uri(artifact_uri)
         and (db_profile_uri is None or db_profile_uri == "databricks")
     ):
+        _logger.info(f"[DbfsArtifactRepoFactory] is_dbfs_fuse_available: {artifact_uri}")
         # If the DBFS FUSE mount is available, write artifacts directly to
         # /dbfs/... using local filesystem APIs.
         # Note: it is possible for a named Databricks profile to point to the current workspace,
@@ -260,6 +265,7 @@ def dbfs_artifact_repo_factory(
         return LocalArtifactRepository(
             file_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
         )
+    _logger.info(f"[DbfsArtifactRepoFactory] DbfsRestArtifactRepository for {artifact_uri}")
     return DbfsRestArtifactRepository(
         cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
     )
