@@ -116,7 +116,7 @@ class GetSpanTool(JudgeTool):
                     filtered_attributes[attr] = span_dict["attributes"][attr]
             span_dict["attributes"] = filtered_attributes
 
-        full_content = json.dumps(span_dict, default=str, indent=2)
+        full_content = json.dumps(span_dict, default=str, indent=2, ensure_ascii=False)
         total_size = len(full_content.encode("utf-8"))
         start_offset = parse_page_token(page_token)
         end_offset = min(start_offset + max_content_length, total_size)
