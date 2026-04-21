@@ -23,8 +23,6 @@ jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKey
 
 describe('GenAIModelSelection', () => {
   const defaultProps = {
-    selectedTraceIds: [],
-    onSelectTracesClick: jest.fn(),
     onValidityChange: jest.fn(),
   };
 

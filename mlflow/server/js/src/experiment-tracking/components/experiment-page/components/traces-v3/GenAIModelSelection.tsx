@@ -4,7 +4,6 @@ import {
   Typography,
   Tooltip,
   Input,
-  Button,
   Accordion,
   DialogCombobox,
   DialogComboboxContent,
@@ -83,13 +82,13 @@ export interface GenAIModelSelectionRef {
 }
 
 interface GenAIModelSelectionProps {
-  selectedTraceIds: string[];
-  onSelectTracesClick: () => void;
   onValidityChange: (isValid: boolean) => void;
+  readOnly?: boolean;
+  initialValues?: Partial<ModelSelectionValues>;
 }
 
 export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModelSelectionProps>(
-  function GenAIModelSelection({ selectedTraceIds, onSelectTracesClick, onValidityChange }, ref) {
+  function GenAIModelSelection({ onValidityChange, readOnly = false, initialValues }, ref) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
 
@@ -97,10 +96,11 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
     const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
     const hasEndpoints = endpoints.length > 0;
 
-    // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints
-    const [mode, setMode] = useState<ModelConfigMode>('direct');
-    const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>();
-    const [hasInitializedMode, setHasInitializedMode] = useState(false);
+    // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints.
+    // If initialValues provides a mode, use it directly and skip the endpoint-loading effect.
+    const [mode, setMode] = useState<ModelConfigMode>(initialValues?.mode ?? 'direct');
+    const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>(initialValues?.endpointName);
+    const [hasInitializedMode, setHasInitializedMode] = useState(initialValues?.mode != null);
 
     // Set initial mode based on whether endpoints are available, and auto-select first endpoint
     useEffect(() => {
@@ -113,15 +113,19 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
     }, [isLoadingEndpoints, hasEndpoints, hasInitializedMode, endpoints]);
 
-    const [provider, setProvider] = useState(DEFAULT_PROVIDER);
-    const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
-    const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(() => ({
-      ...DEFAULT_API_KEY_CONFIG,
-      newSecret: {
-        ...DEFAULT_API_KEY_CONFIG.newSecret,
-        name: generateRandomName(DEFAULT_PROVIDER),
-      },
-    }));
+    const initialProvider = initialValues?.provider ?? DEFAULT_PROVIDER;
+    const [provider, setProvider] = useState(initialProvider);
+    const [model, setModel] = useState(initialValues?.model ?? DEFAULT_MODEL_BY_PROVIDER[initialProvider] ?? '');
+    const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(
+      () =>
+        initialValues?.apiKeyConfig ?? {
+          ...DEFAULT_API_KEY_CONFIG,
+          newSecret: {
+            ...DEFAULT_API_KEY_CONFIG.newSecret,
+            name: generateRandomName(initialProvider),
+          },
+        },
+    );
     const [saveKey] = useState(true);
     const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
 
@@ -219,7 +223,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
 
     const isEndpointModeValid = mode === 'endpoint' && Boolean(selectedEndpointName);
     const isDirectModeValid = mode === 'direct' && Boolean(provider && model && isApiKeyValid);
-    const isValid = (isEndpointModeValid || isDirectModeValid) && selectedTraceIds.length > 0;
+    const isValid = isEndpointModeValid || isDirectModeValid;
 
     // Compute whether there are optional fields in the selected auth mode
     const hasOptionalFields = useMemo(() => {
@@ -308,6 +312,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                 <DialogComboboxTrigger
                   withInlineLabel={false}
                   allowClear={false}
+                  disabled={readOnly}
                   placeholder={intl.formatMessage({
                     defaultMessage: 'Select endpoint',
                     description: 'Placeholder for endpoint selector',
@@ -364,6 +369,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                   <DialogComboboxTrigger
                     withInlineLabel={false}
                     allowClear={false}
+                    disabled={readOnly}
                     placeholder={intl.formatMessage({
                       defaultMessage: 'Select provider',
                       description: 'Placeholder for provider selector',
@@ -443,6 +449,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                     defaultAuthMode={defaultAuthMode}
                     isLoadingProviderConfig={isLoadingProviderConfig}
                     hasExistingSecrets={existingSecrets.length > 0}
+                    disabled={readOnly}
                   />
                   {apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
                     <div
@@ -486,6 +493,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                           defaultMessage: 'API key name',
                           description: 'Placeholder for API key name input',
                         })}
+                        disabled={readOnly}
                         css={{ width: 200 }}
                       />
                     </div>
@@ -496,32 +504,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           )}
         </div>
 
-        <div>
-          <Typography.Text css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
-            <FormattedMessage defaultMessage="Traces" description="Section header for trace selection" />
-          </Typography.Text>
-          <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-            <FormattedMessage
-              defaultMessage="Select the traces to analyze for issues"
-              description="Description for trace selection section"
-            />
-          </Typography.Text>
-          <div css={{ marginTop: theme.spacing.sm }}>
-            <Button componentId="mlflow.traces.issue-detection-modal.select-traces" onClick={onSelectTracesClick}>
-              {selectedTraceIds.length > 0 ? (
-                <FormattedMessage
-                  defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
-                  description="Label showing number of traces selected"
-                  values={{ count: selectedTraceIds.length }}
-                />
-              ) : (
-                <FormattedMessage defaultMessage="Select traces" description="Button to open trace selection modal" />
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {mode === 'direct' && shouldShowAdvancedSettings && (
+        {mode === 'direct' && shouldShowAdvancedSettings && !readOnly && (
           <Accordion
             componentId="mlflow.traces.issue-detection-modal.advanced-settings"
             activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}
