@@ -16,11 +16,7 @@ function findFiles(dir) {
   function walk(d) {
     for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
       const full = path.join(d, entry.name);
-      if (
-        entry.isDirectory() &&
-        !entry.name.startsWith(".") &&
-        entry.name !== "node_modules"
-      ) {
+      if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
         walk(full);
       } else if (
         entry.isFile() &&
@@ -77,28 +73,20 @@ if (unregistered.length > 0) {
   for (const id of unregistered) {
     console.error(`  + ${id}`);
   }
-  console.error(
-    "\nAdd these to .github/actions/check-component-ids/componentId-registry.js"
-  );
+  console.error("\nAdd these to .github/actions/check-component-ids/componentId-registry.js");
 }
 
 if (stale.length > 0) {
   failed = true;
-  console.error(
-    `\n❌ Found ${stale.length} stale componentId(s) in registry but NOT in code:\n`
-  );
+  console.error(`\n❌ Found ${stale.length} stale componentId(s) in registry but NOT in code:\n`);
   for (const id of stale) {
     console.error(`  - ${id}`);
   }
-  console.error(
-    "\nRemove these from .github/actions/check-component-ids/componentId-registry.js"
-  );
+  console.error("\nRemove these from .github/actions/check-component-ids/componentId-registry.js");
 }
 
 if (failed) {
   process.exit(1);
 } else {
-  console.log(
-    `✅ componentId registry is in sync. ${registryKeys.size} entries verified.`
-  );
+  console.log(`✅ componentId registry is in sync. ${registryKeys.size} entries verified.`);
 }
