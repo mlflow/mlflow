@@ -129,6 +129,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           })),
         usageTracking: endpoint.usage_tracking ?? false,
         experimentId: endpoint.experiment_id ?? '',
+      }, {
+        keepDirtyValues: true,
       });
     }
   }, [endpoint, form]);
