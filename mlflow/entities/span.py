@@ -2,7 +2,7 @@ import ast
 import base64
 import json
 import logging
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from typing import Any, Union
 
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
@@ -116,8 +116,7 @@ class Span:
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
         self._attachments: dict[str, Attachment] = {}
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def trace_id(self) -> str:
         """The trace ID of the span, a unique identifier for the trace it belongs to."""
         return self.get_attribute(SpanAttributeKey.REQUEST_ID)
