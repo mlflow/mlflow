@@ -41,6 +41,7 @@ const DEFAULT_PROVIDER = 'openai';
 const ALLOWED_PROVIDERS = ['openai', 'anthropic', 'gemini', 'azure'] as const;
 
 // Display names for providers
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
@@ -60,6 +61,7 @@ const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
 };
 
 // Default to recommended models for each provider
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
   openai: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-6',
@@ -103,13 +105,16 @@ export const IssueDetectionModelSelection = forwardRef<
   const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>();
   const [hasInitializedMode, setHasInitializedMode] = useState(false);
 
-  // Set initial mode based on whether endpoints are available
+  // Set initial mode based on whether endpoints are available, and auto-select first endpoint
   useEffect(() => {
     if (!isLoadingEndpoints && !hasInitializedMode) {
       setMode(hasEndpoints ? 'endpoint' : 'direct');
+      if (hasEndpoints && endpoints.length > 0) {
+        setSelectedEndpointName(endpoints[0].name);
+      }
       setHasInitializedMode(true);
     }
-  }, [isLoadingEndpoints, hasEndpoints, hasInitializedMode]);
+  }, [isLoadingEndpoints, hasEndpoints, hasInitializedMode, endpoints]);
 
   const [provider, setProvider] = useState(DEFAULT_PROVIDER);
   const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
@@ -167,18 +172,18 @@ export const IssueDetectionModelSelection = forwardRef<
     }
   }, []);
 
-  // Update API key mode to 'existing' when secrets become available for the selected provider
+  // Update API key mode to 'existing' and auto-select first secret when secrets become available
   useEffect(() => {
     if (provider && existingSecrets.length > 0) {
       setApiKeyConfig((prev) => {
         // Only update if currently in 'new' mode with no fields filled
         if (prev.mode === 'new' && Object.keys(prev.newSecret.secretFields).length === 0) {
-          return { ...prev, mode: 'existing' };
+          return { ...prev, mode: 'existing', existingSecretId: existingSecrets[0].secret_id };
         }
         return prev;
       });
     }
-  }, [provider, existingSecrets.length]);
+  }, [provider, existingSecrets]);
 
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
@@ -211,11 +216,11 @@ export const IssueDetectionModelSelection = forwardRef<
 
   const isApiKeyValid =
     apiKeyConfig.mode === 'existing'
-      ? !!apiKeyConfig.existingSecretId
+      ? Boolean(apiKeyConfig.existingSecretId)
       : Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
-        (!saveKey || !!apiKeyConfig.newSecret.name);
+        (!saveKey || Boolean(apiKeyConfig.newSecret.name));
 
-  const isEndpointModeValid = mode === 'endpoint' && !!selectedEndpointName;
+  const isEndpointModeValid = mode === 'endpoint' && Boolean(selectedEndpointName);
   const isDirectModeValid = mode === 'direct' && Boolean(provider && model && isApiKeyValid);
   const isValid = (isEndpointModeValid || isDirectModeValid) && selectedTraceIds.length > 0;
 
@@ -232,7 +237,7 @@ export const IssueDetectionModelSelection = forwardRef<
   const hasEnteredNewApiKey =
     apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v);
   const shouldShowAdvancedSettings =
-    !!DEFAULT_MODEL_BY_PROVIDER[provider] || (hasEnteredNewApiKey && hasOptionalFields);
+    Boolean(DEFAULT_MODEL_BY_PROVIDER[provider]) || (hasEnteredNewApiKey && hasOptionalFields);
 
   useEffect(() => {
     onValidityChange(isValid);
@@ -535,7 +540,7 @@ export const IssueDetectionModelSelection = forwardRef<
               onApiKeyConfigChange={setApiKeyConfig}
               authModes={authModes}
               defaultAuthMode={defaultAuthMode}
-              showModelSelector={!!DEFAULT_MODEL_BY_PROVIDER[provider]}
+              showModelSelector={Boolean(DEFAULT_MODEL_BY_PROVIDER[provider])}
             />
           </Accordion.Panel>
         </Accordion>

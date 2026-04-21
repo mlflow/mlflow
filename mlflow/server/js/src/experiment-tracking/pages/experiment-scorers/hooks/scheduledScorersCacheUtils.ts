@@ -67,8 +67,18 @@ export function updateScheduledScorersCache(
     });
   } else {
     // Fallback to invalidation if response structure is unexpected or experiment ID mismatch
-    queryClient.invalidateQueries(['mlflow', 'scheduled-scorers', experimentId]);
+    invalidateScheduledScorersCache(queryClient, experimentId);
   }
+}
+
+/**
+ * Invalidates all scheduled scorers queries for an experiment.
+ *
+ * @param queryClient - The React Query client
+ * @param experimentId - The experiment ID
+ */
+export function invalidateScheduledScorersCache(queryClient: QueryClient, experimentId: string): Promise<void> {
+  return queryClient.invalidateQueries(['mlflow', 'scheduled-scorers', experimentId]);
 }
 
 /**
@@ -101,6 +111,6 @@ export function removeScheduledScorersFromCache(
     });
   } else {
     // If no scorer names provided (delete all) or cache is empty, invalidate to refetch
-    queryClient.invalidateQueries(['mlflow', 'scheduled-scorers', experimentId]);
+    invalidateScheduledScorersCache(queryClient, experimentId);
   }
 }

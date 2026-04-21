@@ -1,3 +1,4 @@
+/* eslint-disable @databricks/no-mock-location*/
 import { describe, test, expect, jest } from '@jest/globals';
 import React from 'react';
 import userEvent from '@testing-library/user-event';

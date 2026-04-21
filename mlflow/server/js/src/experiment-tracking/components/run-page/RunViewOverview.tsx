@@ -165,7 +165,6 @@ export const RunViewOverview = ({
                 display: 'flex',
               }}
             >
-              {/* eslint-disable-next-line */}
               {/* prettier-ignore */}
             </div>
           </div>

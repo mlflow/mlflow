@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-imports */
 import type { Observable } from '@apollo/client/core';
 import { ApolloLink, type Operation, type NextLink, type FetchResult } from '@apollo/client/core';
 import { getDefaultHeaders } from './FetchUtils';

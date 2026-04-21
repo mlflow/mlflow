@@ -50,18 +50,18 @@ const navItems: Array<{
     componentId: 'mlflow.gateway.side-nav.usage.tooltip',
   },
   {
-    tab: 'api-keys',
-    label: <FormattedMessage defaultMessage="API Keys" description="Gateway side nav > API Keys tab" />,
-    icon: <KeyIcon />,
-    to: GatewayRoutes.apiKeysPageRoute,
-    componentId: 'mlflow.gateway.side-nav.api-keys.tooltip',
-  },
-  {
     tab: 'budgets',
     label: <FormattedMessage defaultMessage="Budgets" description="Gateway side nav > Budgets tab" />,
     icon: <CreditCardIcon />,
     to: GatewayRoutes.budgetsPageRoute,
     componentId: 'mlflow.gateway.side-nav.budgets.tooltip',
+  },
+  {
+    tab: 'api-keys',
+    label: <FormattedMessage defaultMessage="API Keys" description="Gateway side nav > API Keys tab" />,
+    icon: <KeyIcon />,
+    to: GatewayRoutes.apiKeysPageRoute,
+    componentId: 'mlflow.gateway.side-nav.api-keys.tooltip',
   },
 ];
 

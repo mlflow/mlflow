@@ -1,4 +1,4 @@
-import type { HeaderGroup, ColumnSizingState, Updater } from '@tanstack/react-table';
+import type { HeaderGroup } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
 import { isNil } from 'lodash';
 import React, { useState } from 'react';
@@ -48,7 +48,6 @@ interface GenAiTracesTableHeaderProps {
   allRowSelected: boolean;
   someRowSelected: boolean;
   toggleAllRowsSelectedHandler: () => (event: unknown) => void;
-  setColumnSizing: (updater: Updater<ColumnSizingState>) => void;
 }
 
 export const GenAiTracesTableHeader = React.memo(
@@ -71,7 +70,6 @@ export const GenAiTracesTableHeader = React.memo(
     allRowSelected,
     someRowSelected,
     toggleAllRowsSelectedHandler,
-    setColumnSizing,
   }: GenAiTracesTableHeaderProps) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
@@ -195,7 +193,6 @@ export const GenAiTracesTableHeader = React.memo(
                   }}
                   header={header}
                   column={header.column}
-                  setColumnSizing={setColumnSizing}
                 >
                   <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                     {titleElement}

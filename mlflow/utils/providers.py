@@ -12,6 +12,12 @@ import cachetools
 from typing_extensions import NotRequired
 
 from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URI
+from mlflow.exceptions import MlflowException
+from mlflow.utils.provider_filter import (
+    filter_providers,
+    is_provider_allowed,
+    normalize_provider_name,
+)
 from mlflow.utils.request_utils import cloud_storage_http_request
 
 _logger = logging.getLogger(__name__)
@@ -301,19 +307,17 @@ def _load_provider(provider: str) -> dict[str, ModelInfo]:
 
 
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
-    """Look up model cost info, loading only the relevant provider file when possible."""
+    """Look up model cost info, loading only the relevant provider file."""
     bare_model = model.split("/", 1)[-1]
 
     if custom_llm_provider:
-        # Fast path: load only the one provider file we need
-        if info := _load_provider(custom_llm_provider).get(bare_model):
-            return info
+        return _load_provider(custom_llm_provider).get(bare_model)
 
-    # Fallback: scan all providers for bare model name.
-    # Prefer entries that have pricing data over empty/stub entries.
+    # No provider given — scan bundled providers only (no remote fetch)
+    # to avoid O(N) network requests across all providers.
     fallback = None
     for provider in _list_provider_names():
-        if info := _load_provider(provider).get(bare_model):
+        if info := _load_bundled_provider(provider).get(bare_model):
             if info.get("input_cost_per_token"):
                 return info
             if fallback is None:
@@ -777,6 +781,16 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
     if not provider:
         raise ValueError("Provider parameter is required")
 
+    if not is_provider_allowed(provider):
+        _logger.debug(
+            "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",
+            provider,
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"Provider '{provider}' is not allowed by the current gateway provider policy."
+        )
+
+    provider = normalize_provider_name(provider.lower())
     config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider
 
     if config_provider in _PROVIDER_AUTH_MODES:
@@ -822,10 +836,7 @@ def _normalize_provider(provider: str) -> str:
 
 def get_all_providers() -> list[str]:
     """
-    Get a list of all providers that have chat, completion, or embedding capabilities.
-
-    Only returns providers that have at least one chat, completion, or embedding model,
-    excluding providers that only offer image generation, audio, or other non-text services.
+    Get a list of all providers.
 
     Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
     variants are returned as just vertex_ai).
@@ -834,12 +845,8 @@ def get_all_providers() -> list[str]:
     for provider in _list_provider_names():
         if provider in _EXCLUDED_PROVIDERS:
             continue
-        # Check that the provider has at least one model with a supported mode
-        for info in _load_provider(provider).values():
-            if info.get("mode") in _SUPPORTED_MODEL_MODES:
-                providers.add(_normalize_provider(provider))
-                break
-    return list(providers)
+        providers.add(_normalize_provider(provider))
+    return filter_providers(list(providers))
 
 
 def get_models(provider: str | None = None) -> list[ModelDict]:
@@ -899,6 +906,9 @@ def _extract_models(
 
         # Filter by provider (matching against the normalized provider name)
         if provider_filter and normalized_provider != provider_filter:
+            continue
+
+        if normalized_provider and not is_provider_allowed(normalized_provider):
             continue
 
         mode = info.get("mode")

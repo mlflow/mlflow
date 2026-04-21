@@ -14,6 +14,7 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   isRunningScorersEnabled: () => true,
   isEvaluatingSessionsInScorersEnabled: () => true,
   isScorerModelSelectionEnabled: () => true,
+  isScorerOutputTypeSelectorEnabled: () => false,
 }));
 
 // Mock the endpoint selector to avoid API calls (forbidden in unit tests)
@@ -24,6 +25,26 @@ jest.mock('../../components/EndpointSelector', () => ({
 // Mock useExperimentIds used by ModelSectionRenderer for cache invalidation
 jest.mock('../../components/experiment-page/hooks/useExperimentIds', () => ({
   useExperimentIds: () => ['exp-123'],
+}));
+
+// Mock to avoid transitive @databricks/web-shared/comlink resolution failure via SelectTracesModal
+jest.mock('./SampleScorerOutputPanelContainer', () => ({
+  __esModule: true,
+  default: ({
+    selectedItemIds,
+    isSessionLevelScorer,
+  }: {
+    selectedItemIds: string[];
+    isSessionLevelScorer: boolean;
+  }) => (
+    <div data-testid="sample-scorer-output-panel">
+      {selectedItemIds.length > 0
+        ? `${selectedItemIds.length} session selected`
+        : isSessionLevelScorer
+          ? 'Select sessions'
+          : 'Select traces'}
+    </div>
+  ),
 }));
 
 const queryClient = new QueryClient({
