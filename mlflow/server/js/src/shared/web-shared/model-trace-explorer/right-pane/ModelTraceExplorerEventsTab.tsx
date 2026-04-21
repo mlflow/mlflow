@@ -37,7 +37,7 @@ export function ModelTraceExplorerEventsTab({
   }
 
   return (
-    <div css={{ padding: theme.spacing.md }}>
+    <div>
       {events.map((event, index) => {
         const attributes = event.attributes;
         const title =
@@ -57,7 +57,11 @@ export function ModelTraceExplorerEventsTab({
         return (
           <ModelTraceExplorerCollapsibleSection
             key={`${event.name}-${index}`}
-            css={{ marginBottom: theme.spacing.sm }}
+            css={{
+              marginBottom: theme.spacing.sm,
+              // avoid double border clashing with the tab bar
+              '& > div:first-of-type': { borderTop: 'none' },
+            }}
             sectionKey={event.name}
             title={title}
             withBorder

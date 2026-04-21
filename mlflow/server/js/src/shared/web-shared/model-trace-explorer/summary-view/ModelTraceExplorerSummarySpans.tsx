@@ -58,16 +58,12 @@ export const ModelTraceExplorerSummarySpans = ({
         flexDirection: 'column',
         flex: 1,
         minHeight: 0,
-        padding: theme.spacing.md,
-        paddingTop: theme.spacing.sm,
         overflow: 'auto',
         minWidth: SUMMARY_SPANS_MIN_WIDTH,
       }}
     >
       {!hideRenderModeSelector && (
-        <div
-          css={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}
-        >
+        <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', marginBlock: theme.spacing.sm }}>
           <div css={{ display: 'flex', gap: theme.spacing.sm }}>
             <SegmentedControlGroup
               name="render-mode"
@@ -119,8 +115,13 @@ export const ModelTraceExplorerSummarySpans = ({
         chatMessageFormat={chatMessageFormat}
       />
       {hasIntermediateNodes &&
-        intermediateNodes.map((node) => (
-          <ModelTraceExplorerSummaryIntermediateNode key={node.key} node={node} renderMode={renderMode} />
+        intermediateNodes.map((node, index) => (
+          <ModelTraceExplorerSummaryIntermediateNode
+            key={node.key}
+            node={node}
+            renderMode={renderMode}
+            css={{ borderTop: `1px solid ${theme.colors.border}` }}
+          />
         ))}
       <ModelTraceExplorerSummarySection
         title={
