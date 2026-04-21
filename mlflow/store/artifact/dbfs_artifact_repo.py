@@ -36,6 +36,9 @@ from mlflow.utils.uri import (
     strip_scheme,
 )
 
+_logger = logging.getLogger(__name__)
+
+
 # The following constants are defined as @developer_stable
 LIST_API_ENDPOINT = "/api/2.0/dbfs/list"
 GET_STATUS_ENDPOINT = "/api/2.0/dbfs/get-status"
@@ -229,6 +232,7 @@ def dbfs_artifact_repo_factory(
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
     if is_databricks_acled_artifacts_uri(artifact_uri):
         if DatabricksLoggedModelArtifactRepository.is_logged_model_uri(artifact_uri):
+            _logger.info(f"[DbfsArtifactRepoFactory] DatabricksLoggedModelArtifactRepository for {artifact_uri}")
             return DatabricksLoggedModelArtifactRepository(
                 cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
             )
@@ -236,9 +240,11 @@ def dbfs_artifact_repo_factory(
             not MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS.get()
             and DatabricksRunArtifactRepository.is_run_uri(artifact_uri)
         ):
+            _logger.info(f"[DbfsArtifactRepoFactory] DatabricksRunArtifactRepository for {artifact_uri}")
             return DatabricksRunArtifactRepository(
                 cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
             )
+        _logger.info(f"[DbfsArtifactRepoFactory] DatabricksArtifactRepository for {artifact_uri}")
         return DatabricksArtifactRepository(
             cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
         )
