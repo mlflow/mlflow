@@ -28,6 +28,7 @@ import {
   useDeleteRole,
 } from '../hooks';
 import type { CreateRoleRequest, User, Role } from '../types';
+import { isWorkspaceAdminRole } from '../types';
 
 const UsersTab = () => {
   const { theme } = useDesignSystemTheme();
@@ -213,7 +214,6 @@ const RolesTab = () => {
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDescription, setNewRoleDescription] = useState('');
   const [newRoleWorkspace, setNewRoleWorkspace] = useState('default');
-  const [newRoleIsAdmin, setNewRoleIsAdmin] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -226,14 +226,12 @@ const RolesTab = () => {
         name: newRoleName,
         workspace: newRoleWorkspace,
         description: newRoleDescription || undefined,
-        is_workspace_admin: newRoleIsAdmin || undefined,
       };
       await createRole.mutateAsync(request);
       setShowCreateModal(false);
       setNewRoleName('');
       setNewRoleDescription('');
       setNewRoleWorkspace('default');
-      setNewRoleIsAdmin(false);
     } catch (e: any) {
       setError(e.message || 'Failed to create role');
     }
@@ -293,10 +291,9 @@ const RolesTab = () => {
     },
     {
       title: 'Admin Role',
-      dataIndex: 'is_workspace_admin',
       key: 'is_workspace_admin',
-      render: (isAdmin: boolean) =>
-        isAdmin ? (
+      render: (_: unknown, record: Role) =>
+        isWorkspaceAdminRole(record) ? (
           <Tag componentId="admin.roles.admin_tag" color="indigo">
             Admin
           </Tag>
@@ -342,7 +339,6 @@ const RolesTab = () => {
           setNewRoleName('');
           setNewRoleDescription('');
           setNewRoleWorkspace('default');
-          setNewRoleIsAdmin(false);
         }}
         onOk={handleCreateRole}
         okText="Create"
@@ -376,14 +372,9 @@ const RolesTab = () => {
               placeholder="Enter description (optional)"
             />
           </div>
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-            <Switch
-              componentId="admin.roles.create_is_admin"
-              checked={newRoleIsAdmin}
-              onChange={(checked) => setNewRoleIsAdmin(checked)}
-              label="Workspace Admin"
-            />
-          </div>
+          <Typography.Paragraph css={{ color: theme.colors.textSecondary, marginTop: theme.spacing.sm }}>
+            To make this a workspace admin role, add a permission with resource type <strong>workspace</strong>, resource pattern <strong>*</strong>, and permission <strong>MANAGE</strong> after creation.
+          </Typography.Paragraph>
         </div>
       </Modal>
       <Modal

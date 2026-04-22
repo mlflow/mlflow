@@ -12,6 +12,8 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { useUpdatePassword, useUserRolesQuery } from '../hooks';
+import type { Role } from '../types';
+import { isWorkspaceAdminRole } from '../types';
 
 const AccountPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -26,7 +28,7 @@ const AccountPage = () => {
     document.cookie
       .split('; ')
       .find((row) => row.startsWith('mlflow_user='))
-      ?.split('=')[1] ?? '';
+      ?.substring('mlflow_user='.length) ?? '';
 
   const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
 
@@ -72,10 +74,9 @@ const AccountPage = () => {
     },
     {
       title: 'Admin',
-      dataIndex: 'is_workspace_admin',
       key: 'is_workspace_admin',
-      render: (isAdmin: boolean) =>
-        isAdmin ? (
+      render: (_: unknown, record: Role) =>
+        isWorkspaceAdminRole(record) ? (
           <Tag componentId="account.role_admin_tag" color="indigo">
             Admin
           </Tag>

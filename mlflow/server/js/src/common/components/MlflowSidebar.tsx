@@ -26,6 +26,7 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import AdminRoutes from '../../admin/routes';
+import { useCurrentUserIsAdmin } from '../../admin/hooks';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -126,6 +127,8 @@ export function MlflowSidebar({
   const activeExperimentId = isInsideExperiment(location) ? experimentId : lastSelectedExperimentIdRef.current;
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
+
+  const isAdmin = useCurrentUserIsAdmin();
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -415,17 +418,19 @@ export function MlflowSidebar({
               <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
             </span>
           </MlflowSidebarLink>
-          <MlflowSidebarLink
-            disableWorkspacePrefix
-            css={{ paddingBlock: theme.spacing.sm }}
-            to={AdminRoutes.adminPageRoute}
-            componentId="mlflow.sidebar.admin_tab_link"
-            isActive={isAdminActive}
-            icon={<GearIcon />}
-            collapsed={!showSidebar}
-          >
-            <FormattedMessage defaultMessage="Admin" description="Sidebar link for admin page" />
-          </MlflowSidebarLink>
+          {isAdmin && (
+            <MlflowSidebarLink
+              disableWorkspacePrefix
+              css={{ paddingBlock: theme.spacing.sm }}
+              to={AdminRoutes.adminPageRoute}
+              componentId="mlflow.sidebar.admin_tab_link"
+              isActive={isAdminActive}
+              icon={<GearIcon />}
+              collapsed={!showSidebar}
+            >
+              <FormattedMessage defaultMessage="Admin" description="Sidebar link for admin page" />
+            </MlflowSidebarLink>
+          )}
           <MlflowSidebarLink
             disableWorkspacePrefix
             css={{ paddingBlock: theme.spacing.sm }}

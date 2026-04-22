@@ -3,7 +3,6 @@ export interface Role {
   name: string;
   workspace: string;
   description: string | null;
-  is_workspace_admin: boolean;
   permissions: RolePermission[];
 }
 
@@ -69,7 +68,6 @@ export interface CreateRoleRequest {
   name: string;
   workspace: string;
   description?: string;
-  is_workspace_admin?: boolean;
 }
 
 export interface UpdateRoleRequest {
@@ -112,6 +110,13 @@ export const RESOURCE_TYPES = [
   'gateway_secret',
   'gateway_endpoint',
   'gateway_model_definition',
+  'workspace',
 ] as const;
 
 export const PERMISSIONS = ['READ', 'USE', 'EDIT', 'MANAGE', 'NO_PERMISSIONS'] as const;
+
+/** A workspace-admin role has a (workspace, *, MANAGE) permission row. */
+export const isWorkspaceAdminRole = (role: Role): boolean =>
+  role.permissions?.some(
+    (p) => p.resource_type === 'workspace' && p.resource_pattern === '*' && p.permission === 'MANAGE',
+  ) ?? false;

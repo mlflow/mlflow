@@ -10,6 +10,29 @@ import type {
   UpdateAdminRequest,
 } from './types';
 
+/**
+ * Returns whether the current user (from mlflow_user cookie) is an admin.
+ * Returns false if the cookie is missing or the users list cannot be fetched (e.g. 403).
+ */
+export const useCurrentUserIsAdmin = () => {
+  const username =
+    document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('mlflow_user='))
+      ?.substring('mlflow_user='.length) ?? '';
+
+  const { data } = useQuery({
+    queryKey: ['admin_current_user', username],
+    queryFn: AdminApi.listUsers,
+    retry: false,
+    refetchOnWindowFocus: false,
+    enabled: Boolean(username),
+  });
+
+  if (!username || !data?.users) return false;
+  return data.users.some((u) => u.username === username && u.is_admin);
+};
+
 export const AdminQueryKeys = {
   users: ['admin_users'] as const,
   roles: ['admin_roles'] as const,

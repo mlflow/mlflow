@@ -33,7 +33,7 @@ import {
   useUsersQuery,
 } from '../hooks';
 import type { RolePermission, UserRoleAssignment } from '../types';
-import { RESOURCE_TYPES, PERMISSIONS } from '../types';
+import { RESOURCE_TYPES, PERMISSIONS, isWorkspaceAdminRole } from '../types';
 
 const PermissionsSection = ({ roleId }: { roleId: number }) => {
   const { theme } = useDesignSystemTheme();
@@ -543,7 +543,7 @@ const RoleDetailPage = () => {
               <Typography.Text color="secondary">
                 {role.description || 'No description'} | Workspace: {role.workspace}
               </Typography.Text>
-              {role.is_workspace_admin && (
+              {isWorkspaceAdminRole(role) && (
                 <Tag componentId="admin.role.admin_tag" color="indigo">
                   Admin Role
                 </Tag>
