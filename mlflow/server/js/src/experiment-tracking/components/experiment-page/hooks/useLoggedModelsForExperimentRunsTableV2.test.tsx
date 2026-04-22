@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
+
 import { renderHook, waitFor } from '@testing-library/react';
 import { rest } from 'msw';
 import { setupServer } from '../../../../common/utils/setup-msw';
@@ -25,6 +26,7 @@ describe('useLoggedModelsForExperimentRunsTableV2', () => {
         // Extract model IDs from the query parameters
         const modelIds = req.url.searchParams.getAll('model_ids');
 
+        // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
         const sourceRunIdByModelIdMap: Record<string, string> = {
           'model-id-1': 'run-1',
           'model-id-2': 'run-1',

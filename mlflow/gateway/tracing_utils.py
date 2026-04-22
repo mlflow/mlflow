@@ -186,7 +186,7 @@ def maybe_traced_gateway_call(
     Usage:
         result = await traced_gateway_call(provider.chat, endpoint_config)(payload)
     """
-    if not endpoint_config.experiment_id:
+    if not endpoint_config.usage_tracking:
         return func
 
     trace_kwargs = {

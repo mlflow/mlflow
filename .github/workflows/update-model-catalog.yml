@@ -56,6 +56,13 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Update model-catalog/latest tag
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git fetch origin master --depth=1
+          git tag -f model-catalog/latest origin/master
+          git push -f origin refs/tags/model-catalog/latest
+
       - name: Create pull request
         if: steps.diff.outputs.changed == 'true'
         env:
@@ -63,7 +70,7 @@ jobs:
         run: |
           git config user.name 'mlflow-app[bot]'
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-          branch="update-model-catalog-$(date +%Y%m%d)"
+          branch="update-model-catalog-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$branch"
           git add mlflow/utils/model_catalog/
           git commit -m "Update model catalog from upstream sources"

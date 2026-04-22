@@ -2,7 +2,7 @@ import ast
 import base64
 import json
 import logging
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from typing import Any, Union
 
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
@@ -116,8 +116,7 @@ class Span:
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
         self._attachments: dict[str, Attachment] = {}
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def trace_id(self) -> str:
         """The trace ID of the span, a unique identifier for the trace it belongs to."""
         return self.get_attribute(SpanAttributeKey.REQUEST_ID)
@@ -273,8 +272,10 @@ class Span:
                 "code": self.status.status_code.to_otel_proto_status_code_name(),
                 "message": self.status.description,
             },
-            # save the dumped attributes so they can be loaded correctly when deserializing
-            "attributes": {k: self._span.attributes.get(k) for k in self.attributes.keys()},
+            # save the dumped attributes so they can be loaded correctly when deserializing.
+            # Read raw values directly from the OTel span to skip a full json.loads pass
+            # over every attribute that self.attributes would trigger via get_all().
+            "attributes": dict(self._span.attributes),
         }
 
     @classmethod
@@ -616,6 +617,18 @@ class LiveSpan(Span):
         return value
 
     def _store_attachment(self, attachment: Attachment) -> str:
+        from mlflow.environment_variables import MLFLOW_TRACE_MAX_ATTACHMENT_SIZE
+
+        max_size = MLFLOW_TRACE_MAX_ATTACHMENT_SIZE.get()
+        if max_size is not None and max_size > 0 and len(attachment.content_bytes) > max_size:
+            size_bytes = len(attachment.content_bytes)
+            msg = (
+                f"Attachment too large ({size_bytes} bytes > {max_size} bytes limit). "
+                f"Content discarded."
+            )
+            _logger.warning(msg)
+            self.record_exception(msg)
+            return f"[Attachment too large: {size_bytes} bytes exceeds {max_size} bytes limit]"
         ref = attachment.ref(self.trace_id)
         self._attachments[attachment.id] = attachment
         return ref

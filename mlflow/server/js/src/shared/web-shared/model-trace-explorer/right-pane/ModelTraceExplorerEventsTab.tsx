@@ -57,6 +57,7 @@ export function ModelTraceExplorerEventsTab({
         return (
           <ModelTraceExplorerCollapsibleSection
             key={`${event.name}-${index}`}
+            css={{ marginBottom: theme.spacing.sm }}
             sectionKey={event.name}
             title={title}
             withBorder

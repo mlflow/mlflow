@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/vercel",
-  "version": "0.2.0-rc.0",
+  "version": "0.2.0-rc.1",
   "description": "Vercel AI SDK integration for MLflow Tracing — SpanProcessor that translates AI SDK span attributes to MLflow format",
   "repository": {
     "type": "git",

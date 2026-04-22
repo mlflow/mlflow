@@ -1,4 +1,4 @@
-import { getActiveWorkspace } from '@mlflow/mlflow/src/workspaces/utils/WorkspaceUtils';
+import { getActiveWorkspace } from './RoutingUtils';
 import { matchPredefinedError } from '../errors/PredefinedErrors';
 
 // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch

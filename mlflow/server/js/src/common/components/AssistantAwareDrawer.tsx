@@ -9,7 +9,6 @@
  * This component is designed to be a drop-in replacement for Drawer.Root + Drawer.Content
  * with automatic assistant-awareness.
  */
-
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -134,7 +133,6 @@ function Content({
 
   return (
     <>
-      {/* Hide the dark overlay for non-modal drawers to prevent it from tinting the sidenav */}
       {!isModal && (
         <Global
           styles={{
@@ -174,9 +172,6 @@ function Content({
       >
         {children}
       </Drawer.Content>
-      {/* Resize handle rendered via portal to share z-index context with the portaled drawer.
-          The outer div is a wide (12px) invisible hit area for easy grabbing.
-          The inner ::after pseudo-element is the thin (2px) visible line that appears on hover. */}
       {createPortal(
         <div
           data-drawer-resize-handle="true"

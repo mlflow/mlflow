@@ -1,4 +1,4 @@
-import { describe, jest, beforeEach, it, expect } from '@jest/globals';
+import { describe, jest, beforeEach, it, expect, beforeAll } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 
 import { QueryClientProvider, QueryClient } from '../../query-client/queryClient';
@@ -7,6 +7,7 @@ import { useUpdateTraceTagsMutation } from './useUpdateTraceTagsMutation';
 import { shouldUseTracesV4API } from '../FeatureUtils';
 import type { ModelTraceInfoV3, ModelTraceLocation } from '../ModelTrace.types';
 import { TracesServiceV3, TracesServiceV4 } from '../api';
+import { setupServer } from 'msw/node';
 
 jest.mock('../FeatureUtils', () => ({
   shouldUseTracesV4API: jest.fn(),
@@ -24,6 +25,9 @@ jest.mock('../api', () => ({
 }));
 
 describe('useUpdateTraceTagsMutation', () => {
+  const server = setupServer();
+  beforeAll(() => server.listen());
+
   const wrapper = ({ children }: { children: React.ReactNode }) => {
     const queryClient = new QueryClient();
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
