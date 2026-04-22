@@ -8,7 +8,6 @@ import shutil
 import sys
 import time
 import uuid
-import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
@@ -46,7 +45,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_DIR
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE, MLFLOW_TRACKING_DIR
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
@@ -221,15 +220,15 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super().__init__()
-        warnings.warn(
-            "The filesystem tracking backend (e.g., './mlruns') is deprecated as of "
-            "February 2026. Consider transitioning to a database backend (e.g., "
-            "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
-            "See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
-            "for migration guidance.",
-            FutureWarning,
-            stacklevel=2,
-        )
+        if not MLFLOW_ALLOW_FILE_STORE.get():
+            raise MlflowException(
+                "The filesystem tracking backend (e.g., './mlruns') is no longer supported. "
+                "Please migrate to a database backend (e.g., 'sqlite:///mlflow.db'). "
+                "See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
+                "for migration guidance. Set the environment variable "
+                f"'{MLFLOW_ALLOW_FILE_STORE.name}=true' to temporarily opt out of this error.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         if not artifact_root_uri:
             self.artifact_root_uri = path_to_local_file_uri(self.root_directory)
