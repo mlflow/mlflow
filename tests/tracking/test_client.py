@@ -695,6 +695,8 @@ def reset_prompt_cache():
 @pytest.fixture(params=["file", "sqlalchemy"])
 def tracking_uri(request, tmp_path, db_uri):
     """Set an MLflow Tracking URI with different type of backend."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
 
@@ -2074,6 +2076,8 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id(db_uri):
 @pytest.fixture(params=["file", "sqlalchemy"])
 def registry_uri(request, tmp_path, db_uri):
     """Set an MLflow Model Registry URI with different type of backend."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
 

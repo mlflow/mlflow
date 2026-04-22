@@ -119,6 +119,8 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def store_type(request):
     """Provides the store type for parameterized tests."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     return request.param
 
 
