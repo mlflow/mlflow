@@ -1016,10 +1016,12 @@ def _response_with_file_attachment_headers(file_path, response):
 
 def _send_artifact(artifact_repository, path):
     file_path = os.path.abspath(artifact_repository.download_artifacts(path))
-    # Always send artifacts as attachments to prevent the browser from displaying them on our web
-    # server's domain, which might enable XSS.
+    # Send artifacts as attachments by default to prevent the browser from displaying them on our
+    # web server's domain, which might enable XSS. Image files are served as inline so they render
+    # correctly when opened in a new browser tab (images cannot execute JavaScript).
     mime_type = _guess_mime_type(file_path)
-    file_sender_response = send_file(file_path, mimetype=mime_type, as_attachment=True)
+    as_attachment = not mime_type.startswith("image/")
+    file_sender_response = send_file(file_path, mimetype=mime_type, as_attachment=as_attachment)
     return _response_with_file_attachment_headers(file_path, file_sender_response)
 
 
