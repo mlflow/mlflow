@@ -226,16 +226,26 @@ def _try_parse_raw_response(response: Any) -> Any:
     As documented at https://github.com/openai/openai-python/tree/52357cff50bee57ef442e94d78a0de38b4173fc2?tab=readme-ov-file#accessing-raw-response-data-eg-headers,
     a `LegacyAPIResponse` (https://github.com/openai/openai-python/blob/52357cff50bee57ef442e94d78a0de38b4173fc2/src/openai/_legacy_response.py#L45)
     object is returned when the `create` method is invoked with `with_raw_response`.
+
+    Similarly, the newer `APIResponse` / `AsyncAPIResponse` (from ``openai._response``)
+    is returned by the OpenAI Agents SDK when using streaming responses via
+    ``with_streaming_response``. Calling ``parse()`` on these yields the underlying
+    ``Stream`` / ``AsyncStream`` so tracing can capture the streamed content.
     """
     try:
         from openai._legacy_response import LegacyAPIResponse
+        from openai._response import APIResponse, AsyncAPIResponse
     except ImportError:
-        _logger.debug("Failed to import `LegacyAPIResponse` from `openai._legacy_response`")
+        _logger.debug(
+            "Failed to import API response types from `openai._legacy_response` "
+            "or `openai._response`"
+        )
         return response
-    if isinstance(response, LegacyAPIResponse):
+
+    if isinstance(response, (LegacyAPIResponse, APIResponse, AsyncAPIResponse)):
         try:
-            # `parse` returns either a `pydantic.BaseModel` or a `openai.Stream` object
-            # depending on whether the request has a `stream` parameter set to `True`.
+            # `parse` returns either a `pydantic.BaseModel`, a `openai.Stream`,
+            # or an `openai.AsyncStream` object depending on the request type.
             return response.parse()
         except Exception as e:
             _logger.debug(f"Failed to parse {response} (type: {response.__class__}): {e}")
