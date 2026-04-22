@@ -421,6 +421,10 @@ export abstract class RunsChartsCardConfig {
       }
     });
 
+    // Auto-collapse newly-discovered sections when chart count is high to avoid
+    // rendering thousands of charts if new metrics stream in incrementally
+    const collapseNewSections = resultChartSet.length > 100;
+
     Object.keys(sectionName2Uuid).forEach((sectionName) => {
       // Check if it is a new section
       const doesSectionNameExist = resultSectionSet.findIndex((section) => section.name === sectionName) >= 0;
@@ -428,7 +432,7 @@ export abstract class RunsChartsCardConfig {
         resultSectionSet.push({
           uuid: sectionName2Uuid[sectionName],
           name: sectionName,
-          display: true,
+          display: !collapseNewSections,
           isReordered: false,
         });
       }
