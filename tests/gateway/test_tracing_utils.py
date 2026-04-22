@@ -641,6 +641,54 @@ def _sse(event: dict) -> bytes:
     return f"data: {json.dumps(event)}\n".encode()
 
 
+def _msg_start(msg_id: str, model: str, input_tokens: int | None = None) -> bytes:
+    usage = {"input_tokens": input_tokens} if input_tokens is not None else {}
+    return _sse({
+        "type": "message_start",
+        "message": {"id": msg_id, "model": model, "role": "assistant", "usage": usage},
+    })
+
+
+def _text_block_start(index: int) -> bytes:
+    return _sse({
+        "type": "content_block_start",
+        "index": index,
+        "content_block": {"type": "text", "text": ""},
+    })
+
+
+def _text_delta(index: int, text: str) -> bytes:
+    return _sse({
+        "type": "content_block_delta",
+        "index": index,
+        "delta": {"type": "text_delta", "text": text},
+    })
+
+
+def _tool_block_start(index: int, tool_id: str, name: str) -> bytes:
+    return _sse({
+        "type": "content_block_start",
+        "index": index,
+        "content_block": {"type": "tool_use", "id": tool_id, "name": name, "input": {}},
+    })
+
+
+def _tool_delta(index: int, partial_json: str) -> bytes:
+    return _sse({
+        "type": "content_block_delta",
+        "index": index,
+        "delta": {"type": "input_json_delta", "partial_json": partial_json},
+    })
+
+
+def _msg_delta(stop_reason: str, output_tokens: int, stop_sequence: str | None = None) -> bytes:
+    return _sse({
+        "type": "message_delta",
+        "delta": {"stop_reason": stop_reason, "stop_sequence": stop_sequence},
+        "usage": {"output_tokens": output_tokens},
+    })
+
+
 def test_aggregate_anthropic_messages_stream_chunks_empty():
     assert aggregate_anthropic_messages_stream_chunks([]) is None
 
@@ -652,12 +700,12 @@ def test_aggregate_anthropic_messages_stream_chunks_no_parseable_events():
 
 def test_aggregate_anthropic_messages_stream_chunks_text():
     chunks = [
-        _sse({"type": "message_start", "message": {"id": "msg_1", "model": "claude-3-5-sonnet-20241022", "role": "assistant", "usage": {"input_tokens": 10}}}),
-        _sse({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}),
-        _sse({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Hello"}}),
-        _sse({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " world"}}),
+        _msg_start("msg_1", "claude-3-5-sonnet-20241022", input_tokens=10),
+        _text_block_start(0),
+        _text_delta(0, "Hello"),
+        _text_delta(0, " world"),
         _sse({"type": "content_block_stop", "index": 0}),
-        _sse({"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": 5}}),
+        _msg_delta("end_turn", output_tokens=5, stop_sequence=None),
         _sse({"type": "message_stop"}),
     ]
     result = aggregate_anthropic_messages_stream_chunks(chunks)
@@ -674,12 +722,12 @@ def test_aggregate_anthropic_messages_stream_chunks_text():
 
 def test_aggregate_anthropic_messages_stream_chunks_tool_use():
     chunks = [
-        _sse({"type": "message_start", "message": {"id": "msg_2", "model": "claude-3-5-sonnet-20241022", "role": "assistant", "usage": {"input_tokens": 20}}}),
-        _sse({"type": "content_block_start", "index": 0, "content_block": {"type": "tool_use", "id": "toolu_abc", "name": "get_weather", "input": {}}}),
-        _sse({"type": "content_block_delta", "index": 0, "delta": {"type": "input_json_delta", "partial_json": '{"city"'}}),
-        _sse({"type": "content_block_delta", "index": 0, "delta": {"type": "input_json_delta", "partial_json": ': "Paris"}'}}),
+        _msg_start("msg_2", "claude-3-5-sonnet-20241022", input_tokens=20),
+        _tool_block_start(0, "toolu_abc", "get_weather"),
+        _tool_delta(0, '{"city"'),
+        _tool_delta(0, ': "Paris"}'),
         _sse({"type": "content_block_stop", "index": 0}),
-        _sse({"type": "message_delta", "delta": {"stop_reason": "tool_use", "stop_sequence": None}, "usage": {"output_tokens": 15}}),
+        _msg_delta("tool_use", output_tokens=15, stop_sequence=None),
     ]
     result = aggregate_anthropic_messages_stream_chunks(chunks)
 
@@ -695,29 +743,34 @@ def test_aggregate_anthropic_messages_stream_chunks_tool_use():
 
 def test_aggregate_anthropic_messages_stream_chunks_mixed_content():
     chunks = [
-        _sse({"type": "message_start", "message": {"id": "msg_3", "model": "claude-3-5-sonnet-20241022", "role": "assistant", "usage": {"input_tokens": 30}}}),
-        _sse({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}),
-        _sse({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Let me check that."}}),
+        _msg_start("msg_3", "claude-3-5-sonnet-20241022", input_tokens=30),
+        _text_block_start(0),
+        _text_delta(0, "Let me check that."),
         _sse({"type": "content_block_stop", "index": 0}),
-        _sse({"type": "content_block_start", "index": 1, "content_block": {"type": "tool_use", "id": "toolu_xyz", "name": "search", "input": {}}}),
-        _sse({"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": '{"q": "mlflow"}'}}),
+        _tool_block_start(1, "toolu_xyz", "search"),
+        _tool_delta(1, '{"q": "mlflow"}'),
         _sse({"type": "content_block_stop", "index": 1}),
-        _sse({"type": "message_delta", "delta": {"stop_reason": "tool_use", "stop_sequence": None}, "usage": {"output_tokens": 25}}),
+        _msg_delta("tool_use", output_tokens=25, stop_sequence=None),
     ]
     result = aggregate_anthropic_messages_stream_chunks(chunks)
 
     assert len(result["content"]) == 2
     assert result["content"][0] == {"type": "text", "text": "Let me check that."}
-    assert result["content"][1] == {"type": "tool_use", "id": "toolu_xyz", "name": "search", "input": {"q": "mlflow"}}
+    assert result["content"][1] == {
+        "type": "tool_use",
+        "id": "toolu_xyz",
+        "name": "search",
+        "input": {"q": "mlflow"},
+    }
 
 
 def test_aggregate_anthropic_messages_stream_chunks_multiple_chunks_per_sse():
     # Multiple SSE events packed into one bytes chunk (newline-separated)
     combined = (
-        _sse({"type": "message_start", "message": {"id": "msg_4", "model": "claude-3-5-sonnet-20241022", "role": "assistant", "usage": {"input_tokens": 5}}})
-        + _sse({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}})
-        + _sse({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Hi"}})
-        + _sse({"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": 2}})
+        _msg_start("msg_4", "claude-3-5-sonnet-20241022", input_tokens=5)
+        + _text_block_start(0)
+        + _text_delta(0, "Hi")
+        + _msg_delta("end_turn", output_tokens=2, stop_sequence=None)
     )
     result = aggregate_anthropic_messages_stream_chunks([combined])
 
@@ -736,12 +789,12 @@ def test_aggregate_anthropic_messages_stream_chunks_multiple_chunks_per_sse():
 )
 def test_aggregate_anthropic_messages_stream_chunks_tool_input_edge_cases(raw_json, expected_input):
     chunks = [
-        _sse({"type": "message_start", "message": {"id": "msg_5", "model": "claude-3-5-sonnet-20241022", "role": "assistant", "usage": {}}}),
-        _sse({"type": "content_block_start", "index": 0, "content_block": {"type": "tool_use", "id": "t1", "name": "fn", "input": {}}}),
+        _msg_start("msg_5", "claude-3-5-sonnet-20241022"),
+        _tool_block_start(0, "t1", "fn"),
     ]
     if raw_json:
-        chunks.append(_sse({"type": "content_block_delta", "index": 0, "delta": {"type": "input_json_delta", "partial_json": raw_json}}))
-    chunks.append(_sse({"type": "message_delta", "delta": {"stop_reason": "tool_use"}, "usage": {"output_tokens": 1}}))
+        chunks.append(_tool_delta(0, raw_json))
+    chunks.append(_msg_delta("tool_use", output_tokens=1))
 
     result = aggregate_anthropic_messages_stream_chunks(chunks)
     assert result["content"][0]["input"] == expected_input
