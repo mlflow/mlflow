@@ -55,9 +55,7 @@ def test_native_model_forwards_kwargs_to_complete_prompt():
             "databricks", model_kwargs={"temperature": 0.0, "max_tokens": 512}
         )
         model.generate("test prompt")
-        mock_complete.assert_called_once_with(
-            "test prompt", temperature=0.0, max_tokens=512
-        )
+        mock_complete.assert_called_once_with("test prompt", temperature=0.0, max_tokens=512)
 
 
 def test_litellm_model_merges_model_kwargs(monkeypatch):
