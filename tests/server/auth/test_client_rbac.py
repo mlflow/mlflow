@@ -277,6 +277,39 @@ def test_list_user_roles_not_self_requires_admin(client, monkeypatch):
         client.list_user_roles(target)
 
 
+def test_list_user_roles_wp_admin_sees_only_own_workspace_scope(client, monkeypatch):
+    # Target has roles in two workspaces (ws1, ws2). Requester is WP admin of ws1 only.
+    # The response should be filtered to ws1 roles — ws2 membership must not leak.
+    target, _ = _create_admin_controlled_user(client, monkeypatch)
+    wp_admin, wp_admin_pw = _create_admin_controlled_user(client, monkeypatch)
+    _make_user_wp_admin(client, monkeypatch, wp_admin, "ws1")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        ws1_role = client.create_role(workspace="ws1", name="ws1-viewer")
+        ws2_role = client.create_role(workspace="ws2", name="ws2-viewer")
+        client.assign_role(target, ws1_role.id)
+        client.assign_role(target, ws2_role.id)
+
+    with User(wp_admin, wp_admin_pw, monkeypatch):
+        visible = client.list_user_roles(target)
+
+    visible_names = {r.name for r in visible}
+    assert "ws1-viewer" in visible_names
+    assert "ws2-viewer" not in visible_names
+
+
+def test_list_user_roles_super_admin_sees_all(client, monkeypatch):
+    target, _ = _create_admin_controlled_user(client, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        ws1_role = client.create_role(workspace="ws1", name="r1")
+        ws2_role = client.create_role(workspace="ws2", name="r2")
+        client.assign_role(target, ws1_role.id)
+        client.assign_role(target, ws2_role.id)
+        visible = client.list_user_roles(target)
+
+    assert {r.name for r in visible} == {"r1", "r2"}
+
+
 # ---- Cross-workspace admin list ----
 
 

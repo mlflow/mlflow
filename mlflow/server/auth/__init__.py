@@ -1183,7 +1183,12 @@ def _get_role_workspace_from_request() -> str | None:
             return None
         raise
     if "workspace" in params:
-        return params["workspace"]
+        workspace = params["workspace"]
+        if not isinstance(workspace, str) or not workspace.strip():
+            raise MlflowException.invalid_parameter_value(
+                "Parameter 'workspace' must be a non-empty string."
+            )
+        return workspace
     raise MlflowException.invalid_parameter_value(
         "Request must include one of: role_id, role_permission_id, workspace."
     )
@@ -2291,6 +2296,16 @@ def list_user_roles():
     username = _get_request_param("username")
     user = store.get_user(username)
     roles = store.list_user_roles(user.id)
+
+    # Filter the response to match the caller's authorization scope so we don't leak
+    # role/workspace membership outside what the caller can see:
+    # - Self or super admin: see all of the target's roles.
+    # - Workspace admin: see only roles in workspaces where the caller is a WP admin.
+    requester = authenticate_request().username
+    requester_user = store.get_user(requester)
+    if not (requester_user.is_admin or requester == username):
+        roles = [r for r in roles if store.is_workspace_admin(requester_user.id, r.workspace)]
+
     return jsonify({"roles": [r.to_json() for r in roles]})
 
 
