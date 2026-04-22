@@ -32,9 +32,10 @@ jest.mock('../../../experiment-tracking/components/experiment-page/components/tr
 const endpoint: Endpoint = {
   endpoint_id: 'ep-1',
   name: 'test-endpoint',
-  created_at: '2025-01-01T00:00:00Z',
+  created_at: 1735689600000,
+  last_updated_at: 1735689600000,
   model_mappings: [],
-} as Endpoint;
+};
 
 const TestHarness = ({ experimentId, initialEntry }: { experimentId: string; initialEntry: string }) => {
   const form = useForm<EditEndpointFormData>({
