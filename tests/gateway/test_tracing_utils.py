@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import pytest
 
@@ -636,7 +637,7 @@ async def test_maybe_traced_gateway_call_with_traceparent_multiple_providers(gat
 # ---------------------------------------------------------------------------
 
 
-def _sse(event: dict) -> bytes:
+def _sse(event: dict[str, Any]) -> bytes:
     """Encode a single event dict as an SSE data line."""
     return f"data: {json.dumps(event)}\n".encode()
 
