@@ -59,6 +59,7 @@ from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import (
     aggregate_anthropic_messages_stream_chunks,
     aggregate_chat_stream_chunks,
+    aggregate_gemini_stream_generate_content_chunks,
     aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
 )
@@ -1139,6 +1140,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         yield_stream,
         endpoint_config,
         user_metadata,
+        output_reducer=aggregate_gemini_stream_generate_content_chunks,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
         on_complete=make_budget_on_complete(store, workspace),
