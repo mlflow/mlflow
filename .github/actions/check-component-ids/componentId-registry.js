@@ -1314,6 +1314,7 @@ module.exports = {
   "mlflow.gateway.guardrails.config-instructions": "",
   "mlflow.gateway.guardrails.config-name": "",
   "mlflow.gateway.guardrails.create": "",
+  "mlflow.gateway.guardrails.create-tooltip": "",
   "mlflow.gateway.guardrails.delete": "",
   "mlflow.gateway.guardrails.detail-cancel": "",
   "mlflow.gateway.guardrails.detail-delete": "",

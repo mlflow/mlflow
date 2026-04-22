@@ -8,6 +8,7 @@ import {
   Input,
   Modal,
   SparkleDoubleIcon,
+  Tooltip,
   Typography,
   UserIcon,
   useDesignSystemEventComponentCallbacks,
@@ -178,7 +179,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
   const guardrailTypes = getGuardrailTypes(intl);
   const { mutateAsync: createGuardrail } = useCreateGuardrail();
   const queryClient = useQueryClient();
-  const { data: endpoints } = useEndpointsQuery();
+  const { data: endpoints = [], isLoading: isEndpointsLoading, error: endpointsError } = useEndpointsQuery();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState('');
@@ -230,10 +231,20 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
   }, []);
 
   const handleCreate = useCallback(async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !modelEndpoint) return;
     setIsSubmitting(true);
     setError(null);
     try {
+      const selectedModelEndpoint = endpoints.find((endpoint) => endpoint.name === modelEndpoint);
+      if (!selectedModelEndpoint) {
+        throw new Error(
+          intl.formatMessage({
+            defaultMessage: 'Selected guardrail model endpoint is unavailable. Please choose another endpoint.',
+            description: 'Error shown when selected guardrail model endpoint is no longer available',
+          }),
+        );
+      }
+
       const scorerName = name.trim().toLowerCase();
       const trimmedInstructions = instructions.trim();
       const serializedScorer = {
@@ -241,7 +252,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
         instructions_judge_pydantic_data: {
           instructions: trimmedInstructions,
           feedback_value_type: { type: 'string', enum: ['yes', 'no'] },
-          ...(modelEndpoint ? { model: `gateway:/${modelEndpoint}` } : {}),
+          model: `gateway:/${modelEndpoint}`,
         },
       };
 
@@ -256,9 +267,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
         scorer_version: registered.version,
         stage,
         action,
-        ...(action === 'SANITIZATION' && modelEndpoint
-          ? { action_endpoint_id: endpoints?.find((e) => e.name === modelEndpoint)?.endpoint_id }
-          : {}),
+        ...(action === 'SANITIZATION' ? { action_endpoint_id: selectedModelEndpoint.endpoint_id } : {}),
       });
 
       await GatewayApi.addGuardrailToEndpoint({
@@ -284,6 +293,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
     endpointId,
     experimentId,
     createGuardrail,
+    intl,
     onSuccess,
     onClose,
     queryClient,
@@ -303,6 +313,21 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
 
   const instructionsError = validateStageInstructions(instructions, stage);
   const isStep2Valid = name.trim().length > 0 && instructionsError === null;
+  const endpointsLoaded = !isEndpointsLoading && !endpointsError;
+  const hasAvailableGuardrailModelEndpoint =
+    !endpointsLoaded || endpoints.some((endpoint) => endpoint.endpoint_id !== endpointId);
+  const createButtonTooltip = !hasAvailableGuardrailModelEndpoint
+    ? intl.formatMessage({
+        defaultMessage: 'You need another endpoint to use guardrails.',
+        description: 'Tooltip shown when no alternate endpoint exists for guardrail model selection',
+      })
+    : !modelEndpoint
+      ? intl.formatMessage({
+          defaultMessage: 'Select a Guardrail Model endpoint to create this guardrail.',
+          description: 'Tooltip shown when create button is disabled because guardrail model is not selected',
+        })
+      : undefined;
+  const isCreateButtonDisabled = !isStep2Valid || isSubmitting || !modelEndpoint;
 
   return (
     <Modal
@@ -331,15 +356,17 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
             >
               <FormattedMessage defaultMessage="Back" description="Back button" />
             </Button>
-            <Button
-              componentId="mlflow.gateway.guardrails.create"
-              type="primary"
-              onClick={handleCreate}
-              loading={isSubmitting}
-              disabled={!isStep2Valid || isSubmitting}
-            >
-              <FormattedMessage defaultMessage="Create Guardrail" description="Create guardrail button" />
-            </Button>
+            <Tooltip componentId="mlflow.gateway.guardrails.create-tooltip" content={createButtonTooltip}>
+              <Button
+                componentId="mlflow.gateway.guardrails.create"
+                type="primary"
+                onClick={handleCreate}
+                loading={isSubmitting}
+                disabled={isCreateButtonDisabled}
+              >
+                <FormattedMessage defaultMessage="Create Guardrail" description="Create guardrail button" />
+              </Button>
+            </Tooltip>
           </div>
         )
       }
@@ -431,6 +458,17 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
                 onValuesChange={handleModelValuesChange}
                 showCreateEndpoint
               />
+              {!hasAvailableGuardrailModelEndpoint && (
+                <Typography.Text
+                  color="secondary"
+                  css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
+                >
+                  <FormattedMessage
+                    defaultMessage="You need another endpoint to use guardrails."
+                    description="Guidance shown when no alternate endpoint exists for guardrail model selection"
+                  />
+                </Typography.Text>
+              )}
             </div>
           </div>
 
