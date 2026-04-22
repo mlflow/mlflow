@@ -1153,25 +1153,35 @@ def _request_params() -> dict[str, object]:
     if request.method == "GET":
         return dict(request.args)
     if request.method in ("POST", "PATCH"):
-        return dict(request.json or {})
+        return dict(request.get_json(silent=True) or {})
     if request.method == "DELETE":
-        return dict(request.json) if request.is_json else dict(request.args)
+        if request.is_json:
+            return dict(request.get_json(silent=True) or {})
+        return dict(request.args)
     return {}
 
 
-def _get_role_workspace_from_request() -> str:
+def _get_role_workspace_from_request() -> str | None:
     """
     Resolve the workspace the request is targeting for role-authorization purposes.
 
     Requests identify a role either directly (``role_id``), indirectly via a role
     permission (``role_permission_id``), or by supplying ``workspace`` on create.
+    Returns ``None`` if the referenced role/role_permission does not exist — callers
+    (validators) should treat that as unauthorized rather than leaking existence via
+    a 404.
     """
     params = _request_params()
-    if "role_id" in params:
-        return store.get_role(int(params["role_id"])).workspace
-    if "role_permission_id" in params:
-        rp = store.get_role_permission(int(params["role_permission_id"]))
-        return store.get_role(rp.role_id).workspace
+    try:
+        if "role_id" in params:
+            return store.get_role(int(params["role_id"])).workspace
+        if "role_permission_id" in params:
+            rp = store.get_role_permission(int(params["role_permission_id"]))
+            return store.get_role(rp.role_id).workspace
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return None
+        raise
     if "workspace" in params:
         return params["workspace"]
     raise MlflowException.invalid_parameter_value(
@@ -1184,6 +1194,8 @@ def validate_can_manage_roles():
     if store.get_user(username).is_admin:
         return True
     workspace = _get_role_workspace_from_request()
+    if workspace is None:
+        return False
     return _is_workspace_admin(username, workspace)
 
 
@@ -1193,6 +1205,8 @@ def validate_can_view_roles():
     if user.is_admin:
         return True
     workspace = _get_role_workspace_from_request()
+    if workspace is None:
+        return False
     roles = store.list_user_roles_for_workspace(user.id, workspace)
     return len(roles) > 0
 
@@ -1254,13 +1268,30 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
             _workspace_permission(username, workspace_name) if workspace_name else NO_PERMISSIONS
         )
 
-        # Check if user has a wildcard experiment role in the active workspace
+        # Load all role-based experiment grants for this user in the active workspace
+        # in one query (also pulls workspace-wide grants). Build a role-derived
+        # {experiment_id -> can_read} map; wildcard/workspace grants short-circuit to
+        # return all experiment_ids.
         if workspace_name:
-            role_perm = store.get_role_permission_for_resource(
-                user.id, "experiment", "*", workspace_name
+            role_grants = store.list_role_grants_for_user_in_workspace(
+                user.id, workspace_name, "experiment"
             )
-            if role_perm is not None and role_perm.can_read:
-                return experiment_ids
+            role_can_read: dict[str, bool] = {}
+            for resource_pattern, permission in role_grants:
+                if resource_pattern == "*":
+                    if get_permission(permission).can_read:
+                        # Wildcard READ on experiments or workspace — user can read any
+                        # experiment in the active workspace.
+                        return experiment_ids
+                    continue
+                # Specific grant: fold into per-experiment map, taking the highest seen.
+                existing = role_can_read.get(resource_pattern, False)
+                role_can_read[resource_pattern] = existing or get_permission(permission).can_read
+
+            # Merge role-derived can_read into the direct can_read (OR semantics).
+            for exp_id, can in role_can_read.items():
+                if can:
+                    can_read[exp_id] = True
 
         return [
             exp_id for exp_id in experiment_ids if can_read.get(exp_id, workspace_perm.can_read)
@@ -2160,6 +2191,10 @@ def list_user_workspace_permissions():
 def create_role():
     name = _get_request_param("name")
     workspace = _get_request_param("workspace")
+    if not isinstance(name, str) or not name.strip():
+        raise MlflowException.invalid_parameter_value("Role name cannot be empty.")
+    if not isinstance(workspace, str) or not workspace.strip():
+        raise MlflowException.invalid_parameter_value("Workspace cannot be empty.")
     body = request.json or {}
     description = body.get("description")
     role = store.create_role(name, workspace, description)

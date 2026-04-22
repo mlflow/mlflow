@@ -190,6 +190,12 @@ def test_add_role_permission_invalid_resource_type(store):
         store.add_role_permission(role.id, "invalid_type", "123", "READ")
 
 
+def test_add_role_permission_workspace_requires_wildcard(store):
+    role = store.create_role(name="ws-role", workspace="ws1")
+    with pytest.raises(MlflowException, match="resource_type='workspace' requires"):
+        store.add_role_permission(role.id, "workspace", "42", "MANAGE")
+
+
 def test_add_role_permission_nonexistent_role(store):
     with pytest.raises(MlflowException, match="not found"):
         store.add_role_permission(99999, "experiment", "123", "READ")
@@ -423,6 +429,35 @@ def test_is_workspace_admin_requires_manage(store, user):
     store.assign_role_to_user(user.id, role.id)
 
     assert store.is_workspace_admin(user.id, "ws1") is False
+
+
+def test_list_role_grants_for_user_in_workspace(store, user):
+    # Role with specific + wildcard experiment grants + workspace-wide grant.
+    role = store.create_role(name="multi", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "42", "EDIT")
+    store.add_role_permission(role.id, "experiment", "*", "READ")
+    store.add_role_permission(role.id, "workspace", "*", "READ")
+    # Unrelated grant on another resource type.
+    store.add_role_permission(role.id, "registered_model", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    grants = store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment")
+    # Should include specific experiment grant, wildcard experiment grant,
+    # and the workspace-wide grant. Should NOT include the registered_model grant.
+    assert sorted(grants) == sorted([("42", "EDIT"), ("*", "READ"), ("*", "READ")])
+
+
+def test_list_role_grants_for_user_in_workspace_cross_workspace(store, user):
+    # Grants in ws2 should not surface when querying ws1.
+    role = store.create_role(name="other-ws", workspace="ws2")
+    store.add_role_permission(role.id, "experiment", "99", "EDIT")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment") == []
+
+
+def test_list_role_grants_for_user_in_workspace_no_roles(store, user):
+    assert store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment") == []
 
 
 def test_get_role_permission_does_not_cross_workspace(store, user):

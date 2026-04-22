@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import selectinload, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -866,12 +866,18 @@ class SqlAlchemyStore:
 
     def list_roles(self, workspace: str) -> list[Role]:
         with self.ManagedSessionMaker() as session:
-            roles = session.query(SqlRole).filter(SqlRole.workspace == workspace).all()
+            roles = (
+                session
+                .query(SqlRole)
+                .options(selectinload(SqlRole.permissions))
+                .filter(SqlRole.workspace == workspace)
+                .all()
+            )
             return [r.to_mlflow_entity() for r in roles]
 
     def list_all_roles(self) -> list[Role]:
         with self.ManagedSessionMaker() as session:
-            roles = session.query(SqlRole).all()
+            roles = session.query(SqlRole).options(selectinload(SqlRole.permissions)).all()
             return [r.to_mlflow_entity() for r in roles]
 
     def update_role(
@@ -926,6 +932,14 @@ class SqlAlchemyStore:
     ) -> RolePermission:
         _validate_permission(permission)
         _validate_resource_type(resource_type)
+        # Workspace-scope grants only support the "*" pattern (apply to every resource in
+        # the role's workspace). Any other pattern would be silently ignored by the
+        # resolver, so reject it up front.
+        if resource_type == "workspace" and resource_pattern != "*":
+            raise MlflowException.invalid_parameter_value(
+                "resource_type='workspace' requires resource_pattern='*'. "
+                f"Got resource_pattern='{resource_pattern}'."
+            )
         with self.ManagedSessionMaker() as session:
             self._get_role(session, role_id)
             try:
@@ -1045,6 +1059,7 @@ class SqlAlchemyStore:
             roles = (
                 session
                 .query(SqlRole)
+                .options(selectinload(SqlRole.permissions))
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(SqlUserRoleAssignment.user_id == user_id)
                 .all()
@@ -1056,6 +1071,7 @@ class SqlAlchemyStore:
             roles = (
                 session
                 .query(SqlRole)
+                .options(selectinload(SqlRole.permissions))
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(
                     SqlUserRoleAssignment.user_id == user_id,
@@ -1142,6 +1158,38 @@ class SqlAlchemyStore:
                 .first()
                 is not None
             )
+
+    def list_role_grants_for_user_in_workspace(
+        self, user_id: int, workspace: str, resource_type: str
+    ) -> list[tuple[str, str]]:
+        """
+        Return all role-based permission grants a user has in ``workspace`` that apply to
+        resources of ``resource_type``. Includes both grants on the specific resource_type
+        and workspace-wide grants (``resource_type='workspace'``, ``resource_pattern='*'``)
+        since those apply to every resource type.
+
+        Returns a list of ``(resource_pattern, permission)`` tuples.
+        """
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session
+                .query(SqlRolePermission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                    or_(
+                        SqlRolePermission.resource_type == resource_type,
+                        and_(
+                            SqlRolePermission.resource_type == "workspace",
+                            SqlRolePermission.resource_pattern == "*",
+                        ),
+                    ),
+                )
+                .all()
+            )
+            return [(row.resource_pattern, row.permission) for row in rows]
 
     def is_workspace_admin_of_any_of_users_workspaces(
         self, admin_user_id: int, target_user_id: int
