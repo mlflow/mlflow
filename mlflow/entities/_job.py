@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.exceptions import MlflowException
 from mlflow.protos.jobs_pb2 import JobProgress as ProtoJobProgress
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
@@ -126,6 +127,40 @@ class JobScopedPermission:
         return payload
 
 
+def _normalize_progress_payload(
+    progress_payload: JobProgress | dict[str, Any] | None,
+) -> JobProgress | None:
+    if progress_payload is None:
+        return None
+    if isinstance(progress_payload, JobProgress):
+        return progress_payload
+    if isinstance(progress_payload, dict):
+        return JobProgress.from_dict(progress_payload)
+    raise MlflowException.invalid_parameter_value(
+        "`progress_payload` must be a JobProgress, dict, or None."
+    )
+
+
+def _normalize_scoped_permissions(
+    scoped_permissions: list[JobScopedPermission | dict[str, Any]] | None,
+) -> list[JobScopedPermission] | None:
+    if scoped_permissions is None:
+        return None
+
+    normalized_permissions = []
+    for permission in scoped_permissions:
+        if isinstance(permission, JobScopedPermission):
+            normalized_permissions.append(permission)
+        elif isinstance(permission, dict):
+            normalized_permissions.append(JobScopedPermission.from_dict(permission))
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "`scoped_permissions` entries must be JobScopedPermission or dict."
+            )
+
+    return normalized_permissions
+
+
 class Job(_MlflowObject):
     """
     MLflow entity representing a Job.
@@ -151,7 +186,7 @@ class Job(_MlflowObject):
         progress_payload: JobProgress | dict[str, Any] | None = None,
         progress_updated_at: int | None = None,
         token_hash: str | None = None,
-        scoped_permissions: list[JobScopedPermission] | list[dict[str, Any]] | None = None,
+        scoped_permissions: list[JobScopedPermission | dict[str, Any]] | None = None,
     ):
         super().__init__()
         self._job_id = job_id
@@ -169,19 +204,10 @@ class Job(_MlflowObject):
         self._executor_backend = executor_backend
         self._lease_expires_at = lease_expires_at
         self._status_message = status_message
-        self._progress_payload = (
-            JobProgress.from_dict(progress_payload)
-            if isinstance(progress_payload, dict)
-            else progress_payload
-        )
+        self._progress_payload = _normalize_progress_payload(progress_payload)
         self._progress_updated_at = progress_updated_at
         self._token_hash = token_hash
-        self._scoped_permissions = (
-            [JobScopedPermission.from_dict(permission) for permission in scoped_permissions]
-            if scoped_permissions is not None
-            and all(isinstance(permission, dict) for permission in scoped_permissions)
-            else scoped_permissions
-        )
+        self._scoped_permissions = _normalize_scoped_permissions(scoped_permissions)
 
     @property
     def job_id(self) -> str:
@@ -233,10 +259,11 @@ class Job(_MlflowObject):
     def parsed_result(self) -> Any:
         """
         Return the parsed result.
-        If job status is SUCCEEDED, the parsed result is the
-        job function returned value
-        If job status is FAILED, the parsed result is the error string.
-        Otherwise, the parsed result is None.
+
+        If job status is SUCCEEDED, the parsed result is the job function returned
+        value decoded from JSON. For non-SUCCEEDED jobs, this returns the stored
+        terminal payload string when present. Otherwise, the parsed result is
+        None.
         """
         if self.result is None:
             return None

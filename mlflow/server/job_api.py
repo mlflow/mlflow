@@ -16,6 +16,26 @@ from mlflow.exceptions import MlflowException
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
 
 
+class JobProgressResponse(BaseModel):
+    """
+    Pydantic model for structured job progress.
+    """
+
+    phase: str | None = None
+    completed: int | None = None
+    total: int | None = None
+    unit: str | None = None
+
+    @classmethod
+    def from_job_progress(cls, progress: JobProgress) -> "JobProgressResponse":
+        return cls(
+            phase=progress.phase,
+            completed=progress.completed,
+            total=progress.total,
+            unit=progress.unit,
+        )
+
+
 class Job(BaseModel):
     """
     Pydantic model for job query response.
@@ -33,7 +53,7 @@ class Job(BaseModel):
     last_update_time: int
     status_details: dict[str, Any] | None = None
     status_message: str | None = None
-    progress_payload: dict[str, Any] | None = None
+    progress_payload: JobProgressResponse | None = None
     progress_updated_at: int | None = None
 
     @classmethod
@@ -52,7 +72,7 @@ class Job(BaseModel):
             status_details=job.status_details,
             status_message=job.status_message,
             progress_payload=(
-                job.progress_payload.to_dict()
+                JobProgressResponse.from_job_progress(job.progress_payload)
                 if isinstance(job.progress_payload, JobProgress)
                 else None
             ),

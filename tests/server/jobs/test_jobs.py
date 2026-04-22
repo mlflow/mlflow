@@ -9,12 +9,13 @@ from unittest import mock
 import pytest
 
 import mlflow.store.jobs.sqlalchemy_store
-from mlflow.entities._job import JobProgress, JobScopedPermission
+from mlflow.entities._job import Job, JobProgress, JobScopedPermission
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
+from mlflow.server.job_api import Job as JobApiResponse
 from mlflow.server.jobs import (
     TransientError,
     cancel_job,
@@ -477,6 +478,47 @@ def test_job_progress_round_trips_empty_strings_to_proto():
     assert JobProgress.from_proto(proto) == progress
 
 
+def test_job_api_response_keeps_null_progress_keys():
+    job = Job(
+        job_id="job-123",
+        creation_time=1234567890000,
+        job_name="test_job",
+        params="{}",
+        timeout=None,
+        status=JobStatus.RUNNING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        progress_payload=JobProgress(phase="scoring"),
+    )
+
+    response = JobApiResponse.from_job_entity(job).model_dump()
+    assert response["progress_payload"] == {
+        "phase": "scoring",
+        "completed": None,
+        "total": None,
+        "unit": None,
+    }
+
+
+def test_job_rejects_invalid_progress_payload_type():
+    with pytest.raises(
+        MlflowException, match="`progress_payload` must be a JobProgress, dict, or None"
+    ):
+        Job(
+            job_id="job-123",
+            creation_time=1234567890000,
+            job_name="test_job",
+            params="{}",
+            timeout=None,
+            status=JobStatus.PENDING,
+            result=None,
+            retry_count=0,
+            last_update_time=1234567890000,
+            progress_payload=["bad-payload"],
+        )
+
+
 def test_job_scoped_permissions_payload_hydrates_to_dataclass(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
@@ -542,6 +584,68 @@ def test_job_scoped_permissions_payload_defaults_permission_to_read(tmp_path: Pa
             permission="READ",
         )
     ]
+
+
+def test_job_scoped_permissions_mixed_inputs_are_normalized():
+    job = Job(
+        job_id="job-123",
+        creation_time=1234567890000,
+        job_name="test_job",
+        params="{}",
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        scoped_permissions=[
+            JobScopedPermission(
+                resource_type="experiment",
+                resource_identifier="2",
+                workspace="team-a",
+                permission="EDIT",
+            ),
+            {
+                "resource_type": "gateway_endpoint",
+                "resource_identifier": "endpoint-1",
+                "workspace": "team-a",
+                "permission": "USE",
+            },
+        ],
+    )
+
+    assert job.scoped_permissions == [
+        JobScopedPermission(
+            resource_type="experiment",
+            resource_identifier="2",
+            workspace="team-a",
+            permission="EDIT",
+        ),
+        JobScopedPermission(
+            resource_type="gateway_endpoint",
+            resource_identifier="endpoint-1",
+            workspace="team-a",
+            permission="USE",
+        ),
+    ]
+
+
+def test_job_rejects_invalid_scoped_permissions_entry():
+    with pytest.raises(
+        MlflowException,
+        match="`scoped_permissions` entries must be JobScopedPermission or dict",
+    ):
+        Job(
+            job_id="job-123",
+            creation_time=1234567890000,
+            job_name="test_job",
+            params="{}",
+            timeout=None,
+            status=JobStatus.PENDING,
+            result=None,
+            retry_count=0,
+            last_update_time=1234567890000,
+            scoped_permissions=["bad-permission"],
+        )
 
 
 # `submit_job` API is designed to be called inside MLflow server handler,
@@ -1135,16 +1239,16 @@ def test_update_status_details(tmp_path: Path):
     store.update_status_details(job.job_id, {"stage": "preprocessing"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "preprocessing"}
-    assert updated_job.status_message == "preprocessing"
-    assert updated_job.progress_payload == JobProgress(phase="preprocessing")
-    assert updated_job.progress_updated_at is not None
+    assert updated_job.status_message is None
+    assert updated_job.progress_payload is None
+    assert updated_job.progress_updated_at is None
 
     store.update_status_details(job.job_id, {"stage": "processing", "progress": "50%"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "processing", "progress": "50%"}
-    assert updated_job.status_message == "processing"
-    assert updated_job.progress_payload == JobProgress(phase="processing")
-    assert updated_job.progress_updated_at is not None
+    assert updated_job.status_message is None
+    assert updated_job.progress_payload is None
+    assert updated_job.progress_updated_at is None
 
 
 def test_update_status_details_rejects_finalized_job(tmp_path: Path):
@@ -1157,6 +1261,98 @@ def test_update_status_details_rejects_finalized_job(tmp_path: Path):
 
     with pytest.raises(MlflowException, match="already finalized"):
         store.update_status_details(job.job_id, {"stage": "should-fail"})
+
+
+def test_report_job_progress(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+
+    store.report_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_message == "Processing traces"
+    assert updated_job.progress_payload == JobProgress(
+        phase="scoring", completed=42, total=100, unit="traces"
+    )
+    assert updated_job.progress_updated_at is not None
+
+
+def test_report_job_progress_replaces_previous_fields(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.report_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    first_updated_at = store.get_job(job.job_id).progress_updated_at
+
+    store.report_job_progress(job.job_id, message="Uploading artifacts")
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_message == "Uploading artifacts"
+    assert updated_job.progress_payload is None
+    assert updated_job.progress_updated_at is not None
+    assert updated_job.progress_updated_at >= first_updated_at
+
+
+def test_report_job_progress_refreshes_timestamp_for_same_heartbeat(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.report_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    first_updated_at = store.get_job(job.job_id).progress_updated_at
+
+    store.report_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.progress_updated_at is not None
+    assert updated_job.progress_updated_at >= first_updated_at
+
+
+def test_report_job_progress_with_no_fields_is_noop(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.report_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    first_job = store.get_job(job.job_id)
+
+    store.report_job_progress(job.job_id)
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_message == first_job.status_message
+    assert updated_job.progress_payload == first_job.progress_payload
+    assert updated_job.progress_updated_at == first_job.progress_updated_at
+
+
+def test_report_job_progress_rejects_finalized_job(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.start_job(job.job_id)
+    store.finish_job(job.job_id, "done")
+
+    with pytest.raises(MlflowException, match="already finalized"):
+        store.report_job_progress(job.job_id, message="should-fail")
 
 
 def test_delete_jobs_cascades_job_locks(tmp_path: Path):
@@ -1205,24 +1401,23 @@ def test_update_status_details_merges_with_existing(tmp_path: Path):
     store.update_status_details(job.job_id, {"stage": "preprocessing", "step": "1"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "preprocessing", "step": "1"}
-    assert updated_job.status_message == "preprocessing"
-    assert updated_job.progress_payload == JobProgress(phase="preprocessing")
-    first_updated_at = updated_job.progress_updated_at
+    assert updated_job.status_message is None
+    assert updated_job.progress_payload is None
+    assert updated_job.progress_updated_at is None
 
     store.update_status_details(job.job_id, {"stage": "processing", "progress": "50%"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "processing", "step": "1", "progress": "50%"}
-    assert updated_job.status_message == "processing"
-    assert updated_job.progress_payload == JobProgress(phase="processing")
-    assert updated_job.progress_updated_at is not None
-    assert updated_job.progress_updated_at >= first_updated_at
+    assert updated_job.status_message is None
+    assert updated_job.progress_payload is None
+    assert updated_job.progress_updated_at is None
 
     store.update_status_details(job.job_id, {"progress": "100%"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "processing", "step": "1", "progress": "100%"}
-    assert updated_job.status_message == "processing"
-    assert updated_job.progress_payload == JobProgress(phase="processing")
-    assert updated_job.progress_updated_at is not None
+    assert updated_job.status_message is None
+    assert updated_job.progress_payload is None
+    assert updated_job.progress_updated_at is None
 
 
 def test_update_status_details_on_nonexistent_job(tmp_path: Path):

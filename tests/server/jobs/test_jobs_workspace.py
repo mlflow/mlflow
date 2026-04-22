@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mlflow.entities import Workspace
+from mlflow.entities._job import JobProgress
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.builtin_scorers import Completeness
@@ -118,6 +119,49 @@ def test_update_status_details_workspace_isolation(monkeypatch: pytest.MonkeyPat
     with WorkspaceContext("team-b"):
         fetched_b = store.get_job(job_b.job_id)
         assert fetched_b.status_details == {"stage": "team-b-stage"}
+
+
+def test_report_job_progress_workspace_isolation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    backend_store_uri = f"sqlite:///{tmp_path / 'workspace-progress.db'}"
+    store = WorkspaceAwareSqlAlchemyJobStore(backend_store_uri)
+
+    with WorkspaceContext("team-a"):
+        job_a = store.create_job("test_job", '{"value": 1}')
+        store.report_job_progress(
+            job_a.job_id,
+            message="team-a-progress",
+            progress=JobProgress(phase="team-a", completed=1, total=2, unit="items"),
+        )
+
+    with WorkspaceContext("team-b"):
+        job_b = store.create_job("test_job", '{"value": 2}')
+        store.report_job_progress(
+            job_b.job_id,
+            message="team-b-progress",
+            progress=JobProgress(phase="team-b", completed=1, total=3, unit="items"),
+        )
+
+    with WorkspaceContext("team-a"):
+        fetched_a = store.get_job(job_a.job_id)
+        assert fetched_a.status_message == "team-a-progress"
+        assert fetched_a.progress_payload == JobProgress(
+            phase="team-a", completed=1, total=2, unit="items"
+        )
+
+        with pytest.raises(MlflowException, match="not found"):
+            store.report_job_progress(
+                job_b.job_id,
+                message="attempt",
+                progress=JobProgress(phase="blocked"),
+            )
+
+    with WorkspaceContext("team-b"):
+        fetched_b = store.get_job(job_b.job_id)
+        assert fetched_b.status_message == "team-b-progress"
+        assert fetched_b.progress_payload == JobProgress(
+            phase="team-b", completed=1, total=3, unit="items"
+        )
 
 
 def test_create_job_initializes_metadata_as_none(tmp_path: Path):

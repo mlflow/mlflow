@@ -5399,6 +5399,47 @@ def test_get_job_success(mock_job_store):
         assert json_response["progress_updated_at"] is None
 
 
+def test_get_job_with_structured_progress_payload(mock_job_store):
+    mock_job = JobEntity(
+        job_id="job-running",
+        creation_time=1234567890000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.RUNNING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567891000,
+        status_details={"stage": "processing"},
+        status_message="Processing traces",
+        progress_payload={
+            "phase": "scoring",
+            "completed": 42,
+            "total": 100,
+            "unit": "traces",
+        },
+        progress_updated_at=1234567894321,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.get_job", return_value=mock_job),
+        app.test_client() as c,
+    ):
+        resp = c.get("/ajax-api/3.0/mlflow/jobs/job-running")
+        assert resp.status_code == 200
+        json_response = resp.get_json()
+
+        assert json_response["status"] == "RUNNING"
+        assert json_response["status_message"] == "Processing traces"
+        assert json_response["progress_payload"] == {
+            "phase": "scoring",
+            "completed": 42,
+            "total": 100,
+            "unit": "traces",
+        }
+        assert json_response["progress_updated_at"] == 1234567894321
+
+
 def test_get_job_pending(mock_job_store):
     mock_job = JobEntity(
         job_id="job-pending",

@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from mlflow.entities._job import JobProgress
 from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException
 
 _job_tracker: "JobTracker | NoOpTracker | None" = None
@@ -24,11 +25,37 @@ class JobTracker:
             # late heartbeats should be ignored rather than turning into failures.
             pass
 
+    def report_job_progress(
+        self,
+        message: str | None = None,
+        progress: JobProgress | None = None,
+    ) -> None:
+        from mlflow.server.handlers import _get_job_store
+
+        job_store = _get_job_store()
+        try:
+            job_store.report_job_progress(
+                self.job_id,
+                message=message,
+                progress=progress,
+            )
+        except JobTerminalStateUpdateException:
+            # Progress updates are best-effort. Once the job is already terminal,
+            # late heartbeats should be ignored rather than turning into failures.
+            pass
+
 
 class NoOpTracker:
     """No-op tracker used when not running as a job."""
 
     def update(self, status_details: dict[str, Any]) -> None:
+        pass
+
+    def report_job_progress(
+        self,
+        message: str | None = None,
+        progress: JobProgress | None = None,
+    ) -> None:
         pass
 
 
@@ -51,3 +78,18 @@ def update_status_details(status_details: dict[str, Any]) -> None:
     """
     tracker = _get_job_tracker()
     tracker.update(status_details)
+
+
+def report_job_progress(
+    message: str | None = None,
+    progress: JobProgress | None = None,
+) -> None:
+    """
+    Update the current job execution structured progress fields.
+
+    When called from a job, updates progress via the configured job store.
+    Progress updates are best-effort, so late updates after a terminal transition may be ignored.
+    When called outside a job context, does nothing (no-op).
+    """
+    tracker = _get_job_tracker()
+    tracker.report_job_progress(message=message, progress=progress)

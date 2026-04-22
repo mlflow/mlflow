@@ -5,7 +5,7 @@ from typing import Any, Iterator
 
 import sqlalchemy
 
-from mlflow.entities._job import Job
+from mlflow.entities._job import Job, JobProgress
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -471,9 +471,35 @@ class SqlAlchemyJobStore(AbstractJobStore):
             current_details = job.status_details or {}
             current_details.update(status_details)
             job.status_details = current_details
-            progress_updated_at = get_current_time_millis()
-            if isinstance(current_details.get("stage"), str):
-                job.status_message = current_details["stage"]
-                job.progress_payload = {"phase": current_details["stage"]}
-            job.progress_updated_at = progress_updated_at
-            job.last_update_time = progress_updated_at
+            job.last_update_time = get_current_time_millis()
+
+    def report_job_progress(
+        self,
+        job_id: str,
+        message: str | None = None,
+        progress: JobProgress | None = None,
+    ) -> None:
+        """
+        Update structured progress fields for an in-flight job.
+
+        Args:
+            job_id: The ID of the job to update
+            message: Human-readable plain-text progress message
+            progress: Structured machine-readable progress payload
+        """
+        if message is None and progress is None:
+            return
+
+        with self.ManagedSessionMaker() as session:
+            job = self._get_sql_job(session, job_id)
+
+            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
+                raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))
+
+            update_time = get_current_time_millis()
+            serialized_progress = progress.to_dict() if progress is not None else None
+
+            job.status_message = message
+            job.progress_payload = serialized_progress
+            job.progress_updated_at = update_time
+            job.last_update_time = update_time
