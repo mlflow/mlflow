@@ -232,6 +232,16 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
     setIsSubmitting(true);
     setError(null);
     try {
+      const selectedModelEndpoint = endpoints.find((endpoint) => endpoint.name === modelEndpoint);
+      if (!selectedModelEndpoint) {
+        throw new Error(
+          intl.formatMessage({
+            defaultMessage: 'Selected guardrail model endpoint is unavailable. Please choose another endpoint.',
+            description: 'Error shown when selected guardrail model endpoint is no longer available',
+          }),
+        );
+      }
+
       const scorerName = name.trim().toLowerCase();
       const trimmedInstructions = instructions.trim();
       const serializedScorer = {
@@ -254,7 +264,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
         scorer_version: registered.version,
         stage,
         action,
-        ...(action === 'SANITIZATION' ? { action_endpoint_id: endpoints.find((e) => e.name === modelEndpoint)?.endpoint_id } : {}),
+        ...(action === 'SANITIZATION' ? { action_endpoint_id: selectedModelEndpoint.endpoint_id } : {}),
       });
 
       await GatewayApi.addGuardrailToEndpoint({
@@ -280,6 +290,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
     endpointId,
     experimentId,
     createGuardrail,
+    intl,
     onSuccess,
     onClose,
     queryClient,

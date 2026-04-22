@@ -34,11 +34,15 @@ jest.mock('../../../experiment-tracking/pages/experiment-scorers/api', () => ({
 }));
 
 const mockCreateGuardrail = jest.fn<any>();
+const setMockEndpoints = (endpoints: Array<{ endpoint_id: string; name: string }>) => {
+  mockEndpoints.length = 0;
+  mockEndpoints.push(...endpoints);
+};
 
 describe('AddGuardrailModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockEndpoints.splice(0, mockEndpoints.length, { endpoint_id: 'e-456', name: 'judge-endpoint' });
+    setMockEndpoints([{ endpoint_id: 'e-456', name: 'judge-endpoint' }]);
     jest.mocked(useCreateGuardrail).mockReturnValue({
       mutateAsync: mockCreateGuardrail,
       isLoading: false,
@@ -219,7 +223,7 @@ describe('AddGuardrailModal', () => {
   });
 
   test('shows no-endpoint guidance when no alternate endpoint is available', async () => {
-    mockEndpoints.splice(0, mockEndpoints.length, { endpoint_id: 'e-123', name: 'my-endpoint' });
+    setMockEndpoints([{ endpoint_id: 'e-123', name: 'my-endpoint' }]);
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
