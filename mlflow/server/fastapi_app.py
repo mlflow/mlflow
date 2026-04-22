@@ -40,6 +40,10 @@ from mlflow.version import VERSION
 class _EfficientWSGIResponder(WSGIResponder):
     """WSGIResponder with O(n) body buffering instead of O(n^2) concatenation.
 
+    Starlette's WSGIMiddleware is deprecated and upstream has declined to fix the
+    quadratic body buffering (see https://github.com/Kludex/starlette/pull/2450,
+    closed in favor of deprecating the module entirely).
+
     Ref: https://github.com/Kludex/starlette/blob/0e88e92b592bfa11fd92e331869a8d49ba34b541/starlette/middleware/wsgi.py#L98-L117
     """
 
