@@ -57,9 +57,9 @@ module.exports = {\n`;
 for (const gk of Object.keys(groups).sort()) {
   output += `  // -- ${gk} --\n`;
   for (const id of groups[gk]) {
-    const escaped = id.replace(/'/g, "\\'");
-    const desc = (existingDescriptions[id] || "").replace(/'/g, "\\'");
-    output += `  '${escaped}': '${desc}',\n`;
+    const escaped = id.replace(/"/g, '\\"');
+    const desc = (existingDescriptions[id] || "").replace(/"/g, '\\"');
+    output += `  "${escaped}": "${desc}",\n`;
   }
   output += "\n";
 }
