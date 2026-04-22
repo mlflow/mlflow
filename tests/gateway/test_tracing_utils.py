@@ -798,3 +798,46 @@ def test_aggregate_anthropic_messages_stream_chunks_tool_input_edge_cases(raw_js
 
     result = aggregate_anthropic_messages_stream_chunks(chunks)
     assert result["content"][0]["input"] == expected_input
+
+
+def test_aggregate_anthropic_messages_stream_chunks_split_sse_lines():
+    # Simulate an aiohttp byte chunk that splits a "data:" SSE line mid-way.
+    # All events should still be parsed correctly after concatenation.
+    msg_start_bytes = _msg_start("msg_split", "claude-3-5-sonnet-20241022", input_tokens=3)
+    mid = len(msg_start_bytes) // 2
+    chunks = [
+        msg_start_bytes[:mid],
+        msg_start_bytes[mid:] + _msg_delta("end_turn", output_tokens=1),
+    ]
+    result = aggregate_anthropic_messages_stream_chunks(chunks)
+
+    assert result is not None
+    assert result["id"] == "msg_split"
+    assert result["usage"] == {"input_tokens": 3, "output_tokens": 1}
+
+
+def test_aggregate_anthropic_messages_stream_chunks_cache_tokens():
+    chunks = [
+        _sse({
+            "type": "message_start",
+            "message": {
+                "id": "msg_cache",
+                "model": "claude-3-5-sonnet-20241022",
+                "role": "assistant",
+                "usage": {
+                    "input_tokens": 10,
+                    "cache_read_input_tokens": 5,
+                    "cache_creation_input_tokens": 2,
+                },
+            },
+        }),
+        _msg_delta("end_turn", output_tokens=8),
+    ]
+    result = aggregate_anthropic_messages_stream_chunks(chunks)
+
+    assert result["usage"] == {
+        "input_tokens": 10,
+        "cache_read_input_tokens": 5,
+        "cache_creation_input_tokens": 2,
+        "output_tokens": 8,
+    }

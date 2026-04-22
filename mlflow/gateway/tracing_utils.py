@@ -371,7 +371,7 @@ def aggregate_anthropic_messages_stream_chunks(
             "model": "...",
             "stop_reason": "end_turn",
             "stop_sequence": null,
-            "usage": {"input_tokens": N, "output_tokens": M},
+            "usage": {"input_tokens": N, "cache_read_input_tokens": C, "output_tokens": M},
         }
 
     Returns ``None`` if *chunks* is empty or contains no parseable events.
@@ -379,60 +379,67 @@ def aggregate_anthropic_messages_stream_chunks(
     if not chunks:
         return None
 
+    # Concatenate all raw bytes before parsing. The aiohttp streaming iterator
+    # yields arbitrary-sized byte chunks that can split a single SSE "data:" line
+    # across multiple pieces; parse_sse_lines() requires complete lines. Joining
+    # here ensures no events are silently dropped due to mid-line splits.
+    combined = b"".join(chunks)
+
     msg_id: str | None = None
     model: str | None = None
     role: str = "assistant"
     stop_reason: str | None = None
     stop_sequence: str | None = None
-    input_tokens: int | None = None
-    output_tokens: int | None = None
+    usage: dict[str, Any] = {}
     # Ordered dict keyed by content block index preserving insertion order
     content_blocks: dict[int, dict[str, Any]] = {}
 
-    for chunk in chunks:
-        for event in parse_sse_lines(chunk):
-            match event:
-                case {"type": "message_start", "message": dict(msg)}:
-                    msg_id = msg.get("id")
-                    model = msg.get("model")
-                    role = msg.get("role", "assistant")
-                    if usage := msg.get("usage"):
-                        input_tokens = usage.get("input_tokens", input_tokens)
-                case {
-                    "type": "content_block_start",
-                    "index": int(index),
-                    "content_block": dict(block),
-                }:
-                    block_type = block.get("type")
-                    if block_type == "tool_use":
-                        content_blocks[index] = {
-                            "type": "tool_use",
-                            "id": block.get("id"),
-                            "name": block.get("name"),
-                            "_input_json": "",
-                        }
-                    else:
-                        content_blocks[index] = {"type": "text", "text": block.get("text", "")}
-                case {
-                    "type": "content_block_delta",
-                    "index": int(index),
-                    "delta": dict(delta),
-                }:
-                    block = content_blocks.get(index)
-                    if block is None:
-                        continue
-                    match delta.get("type"):
-                        case "text_delta":
-                            block["text"] = block.get("text", "") + delta.get("text", "")
-                        case "input_json_delta":
-                            block["_input_json"] = block.get("_input_json", "") + delta.get(
-                                "partial_json", ""
-                            )
-                case {"type": "message_delta", "delta": dict(delta)}:
-                    stop_reason = delta.get("stop_reason", stop_reason)
-                    stop_sequence = delta.get("stop_sequence", stop_sequence)
-                    if usage := event.get("usage"):
-                        output_tokens = usage.get("output_tokens", output_tokens)
+    for event in parse_sse_lines(combined):
+        match event:
+            case {"type": "message_start", "message": dict(msg)}:
+                msg_id = msg.get("id")
+                model = msg.get("model")
+                role = msg.get("role", "assistant")
+                # Merge all usage fields (input_tokens, cache_read_input_tokens,
+                # cache_creation_input_tokens, …) present in message_start.
+                if msg_usage := msg.get("usage"):
+                    usage.update({k: v for k, v in msg_usage.items() if v is not None})
+            case {
+                "type": "content_block_start",
+                "index": int(index),
+                "content_block": dict(block),
+            }:
+                block_type = block.get("type")
+                if block_type == "tool_use":
+                    content_blocks[index] = {
+                        "type": "tool_use",
+                        "id": block.get("id"),
+                        "name": block.get("name"),
+                        "_input_json": "",
+                    }
+                else:
+                    content_blocks[index] = {"type": "text", "text": block.get("text", "")}
+            case {
+                "type": "content_block_delta",
+                "index": int(index),
+                "delta": dict(delta),
+            }:
+                block = content_blocks.get(index)
+                if block is None:
+                    continue
+                match delta.get("type"):
+                    case "text_delta":
+                        block["text"] = block.get("text", "") + delta.get("text", "")
+                    case "input_json_delta":
+                        block["_input_json"] = block.get("_input_json", "") + delta.get(
+                            "partial_json", ""
+                        )
+            case {"type": "message_delta", "delta": dict(delta)}:
+                stop_reason = delta.get("stop_reason", stop_reason)
+                stop_sequence = delta.get("stop_sequence", stop_sequence)
+                # Merge output_tokens (and any extra fields) from message_delta.
+                if delta_usage := event.get("usage"):
+                    usage.update({k: v for k, v in delta_usage.items() if v is not None})
 
     if msg_id is None and not content_blocks:
         return None
@@ -457,12 +464,6 @@ def aggregate_anthropic_messages_stream_chunks(
         "stop_reason": stop_reason,
         "stop_sequence": stop_sequence,
     }
-
-    usage: dict[str, Any] = {}
-    if input_tokens is not None:
-        usage["input_tokens"] = input_tokens
-    if output_tokens is not None:
-        usage["output_tokens"] = output_tokens
     if usage:
         result["usage"] = usage
 
