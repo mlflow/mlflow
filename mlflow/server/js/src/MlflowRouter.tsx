@@ -25,6 +25,8 @@ import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/rout
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { getGatewayRouteDefs } from './gateway/route-defs';
 import { getAdminRouteDefs } from './admin/route-defs';
+import { USE_MOCK_API } from './admin/hooks';
+import { DevUserSwitcher } from './admin/DevUserSwitcher';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
 import { AssistantProvider, AssistantRouteContextProvider } from './assistant';
@@ -91,6 +93,7 @@ const MlflowRootLayout = ({
               <React.Suspense fallback={<LegacySkeleton />}>
                 <Outlet />
               </React.Suspense>
+              {USE_MOCK_API && <DevUserSwitcher />}
             </main>
           </div>
         </RootAssistantLayout>

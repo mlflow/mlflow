@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { AdminApi } from './api';
+import { AdminApi as RealAdminApi } from './api';
+import { MockAdminApi } from './mockApi';
 import type {
   CreateRoleRequest,
   UpdateRoleRequest,
@@ -9,6 +10,10 @@ import type {
   UpdatePasswordRequest,
   UpdateAdminRequest,
 } from './types';
+
+// Toggle this to true to use in-memory mock data for UI development
+export const USE_MOCK_API = true;
+const AdminApi = USE_MOCK_API ? MockAdminApi : RealAdminApi;
 
 /**
  * Returns whether the current user (from mlflow_user cookie) is an admin.
