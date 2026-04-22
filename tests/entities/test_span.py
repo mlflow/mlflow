@@ -794,3 +794,81 @@ def test_load_from_3_5_0_span_dict():
         "tool_input": '"What is MLflow?"',
         "log": "test",
     }
+
+
+def test_live_span_add_link():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+
+        link = Link(
+            trace_id="tr-abc123",
+            span_id="sp-abc123",
+            attributes={"relationship": "triggered_by"},
+        )
+        span.add_link(link)
+
+        assert len(span.links) == 1
+        assert span.links[0].trace_id == "tr-abc123"
+        assert span.links[0].span_id == "sp-abc123"
+        assert span.links[0].attributes == {"relationship": "triggered_by"}
+
+
+def test_span_to_dict_with_links():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        live_span = create_mlflow_span(otel_span, trace_id=trace_id)
+        link = Link(trace_id="tr-abc123", span_id="sp-abc123", attributes={"type": "test"})
+        live_span.add_link(link)
+
+    immutable_span = live_span.to_immutable_span()
+    span_dict = immutable_span.to_dict()
+
+    assert "links" in span_dict
+    assert len(span_dict["links"]) == 1
+    assert span_dict["links"][0]["trace_id"] == "tr-abc123"
+    assert span_dict["links"][0]["span_id"] == "sp-abc123"
+    assert span_dict["links"][0]["attributes"] == {"type": "test"}
+
+
+def test_span_from_dict_with_links():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        live_span = create_mlflow_span(otel_span, trace_id=trace_id)
+        link = Link(trace_id="tr-abc123", span_id="sp-abc123", attributes={"type": "test"})
+        live_span.add_link(link)
+
+    immutable_span = live_span.to_immutable_span()
+    span_dict = immutable_span.to_dict()
+
+    reconstructed_span = Span.from_dict(span_dict)
+    assert len(reconstructed_span.links) == 1
+    assert reconstructed_span.links[0].trace_id == "tr-abc123"
+    assert reconstructed_span.links[0].span_id == "sp-abc123"
+    assert reconstructed_span.links[0].attributes == {"type": "test"}
+
+
+def test_span_from_dict_without_links():
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+
+    immutable_span = span.to_immutable_span()
+    span_dict = immutable_span.to_dict()
+
+    # Should not have links key in dict if no links
+    assert "links" not in span_dict
+
+    # Round trip should work with empty links
+    reconstructed_span = Span.from_dict(span_dict)
+    assert len(reconstructed_span.links) == 0
