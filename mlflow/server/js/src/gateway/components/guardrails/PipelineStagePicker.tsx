@@ -44,9 +44,15 @@ export const PipelineStagePicker = ({
           const isSelected = isStage && item === stage;
           const label =
             item === 'BEFORE'
-              ? intl.formatMessage({ defaultMessage: 'Before Guardrails', description: 'Pipeline BEFORE stage label' })
+              ? intl.formatMessage({
+                  defaultMessage: 'Pre-LLM Guardrails',
+                  description: 'Pipeline BEFORE stage label',
+                })
               : item === 'AFTER'
-                ? intl.formatMessage({ defaultMessage: 'After Guardrails', description: 'Pipeline AFTER stage label' })
+                ? intl.formatMessage({
+                    defaultMessage: 'Post-LLM Guardrails',
+                    description: 'Pipeline AFTER stage label',
+                  })
                 : item;
           return (
             <div key={item} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>

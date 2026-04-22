@@ -161,7 +161,7 @@ describe('AddGuardrailModal', () => {
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Custom Guardrail').closest('[role="option"]')!);
-    await userEvent.click(screen.getByText('After Guardrails'));
+    await userEvent.click(screen.getByText('Post-LLM Guardrails'));
 
     expect(screen.getByText(/Receives {{ inputs }}.*{{ outputs }}/s)).toBeInTheDocument();
   });
