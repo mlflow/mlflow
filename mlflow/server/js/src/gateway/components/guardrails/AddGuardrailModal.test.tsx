@@ -6,15 +6,21 @@ import { AddGuardrailModal } from './AddGuardrailModal';
 import { useCreateGuardrail } from '../../hooks/useCreateGuardrail';
 import { GatewayApi } from '../../api';
 
+const mockEndpoints: Array<{ endpoint_id: string; name: string }> = [];
+
 jest.mock('../../hooks/useCreateGuardrail');
 jest.mock('../../hooks/useEndpointsQuery', () => ({
-  useEndpointsQuery: () => ({ data: [] }),
+  useEndpointsQuery: () => ({ data: mockEndpoints }),
 }));
 jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 jest.mock('../../../experiment-tracking/components/EndpointSelector', () => ({
-  EndpointSelector: () => null,
+  EndpointSelector: ({ onEndpointSelect, disabled }: { onEndpointSelect: (value: string) => void; disabled?: boolean }) => (
+    <button type="button" onClick={() => onEndpointSelect('judge-endpoint')} disabled={disabled}>
+      Select guardrail model
+    </button>
+  ),
 }));
 jest.mock('../../api', () => ({
   GatewayApi: {
@@ -32,6 +38,7 @@ const mockCreateGuardrail = jest.fn<any>();
 describe('AddGuardrailModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEndpoints.splice(0, mockEndpoints.length, { endpoint_id: 'e-456', name: 'judge-endpoint' });
     jest.mocked(useCreateGuardrail).mockReturnValue({
       mutateAsync: mockCreateGuardrail,
       isLoading: false,
@@ -50,6 +57,10 @@ describe('AddGuardrailModal', () => {
   };
 
   const instructionsPlaceholder = 'Describe what this guardrail should check for...';
+
+  const selectGuardrailModel = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Select guardrail model' }));
+  };
 
   // ─── Step 1: Type selection ───────────────────────────────────────────
 
@@ -128,6 +139,7 @@ describe('AddGuardrailModal', () => {
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+    await selectGuardrailModel();
     await userEvent.click(screen.getByRole('button', { name: 'Create Guardrail' }));
 
     expect(mockRegisterScorer).toHaveBeenCalledWith('0', expect.objectContaining({ name: 'safety' }));
@@ -192,9 +204,29 @@ describe('AddGuardrailModal', () => {
     // userEvent.type treats { as special — use fireEvent.change for template variable syntax
     const textarea = screen.getByPlaceholderText(instructionsPlaceholder);
     fireEvent.change(textarea, { target: { value: 'Is {{ inputs }} free of profanity?' } });
+    await selectGuardrailModel();
 
     expect(screen.queryByText(/must reference|not available/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create Guardrail' })).not.toBeDisabled();
+  });
+
+  test('disables Create when Guardrail Model is not selected', async () => {
+    renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+
+    expect(screen.getByRole('button', { name: 'Create Guardrail' })).toBeDisabled();
+  });
+
+  test('shows no-endpoint guidance when no alternate endpoint is available', async () => {
+    mockEndpoints.splice(0, mockEndpoints.length, { endpoint_id: 'e-123', name: 'my-endpoint' });
+    renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+
+    expect(screen.getByText('You need another endpoint to use guardrails.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Select guardrail model' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Create Guardrail' })).toBeDisabled();
   });
 
   test('shows error when BEFORE-stage instructions reference {{ outputs }}', async () => {
