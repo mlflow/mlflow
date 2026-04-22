@@ -627,6 +627,10 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
+  "1oofcq": {
+    "defaultMessage": "Show less",
+    "description": "Link that collapses an expanded list when clicked"
+  },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
     "description": "Issue detection summary > View issues button"
@@ -7034,6 +7038,10 @@
   "g+YDB/": {
     "defaultMessage": "Group by",
     "description": "Label for the grouping selector button in the logged model list page when no grouping is selected"
+  },
+  "g/6rnt": {
+    "defaultMessage": "Show {count} more intermediate steps",
+    "description": "Link that expands a collapsed list of intermediate function execution steps when clicked"
   },
   "g0tloS": {
     "defaultMessage": "Context sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",

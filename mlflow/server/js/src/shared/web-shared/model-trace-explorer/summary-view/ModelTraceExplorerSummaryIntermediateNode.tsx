@@ -56,6 +56,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
         flexDirection: 'row',
         flexShrink: 0,
         padding: theme.spacing.sm,
+        paddingRight: theme.spacing.md,
       }}
     >
       <div css={{ display: 'flex', alignItems: 'flex-start' }}>
