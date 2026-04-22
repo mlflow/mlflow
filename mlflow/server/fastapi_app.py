@@ -38,9 +38,13 @@ from mlflow.version import VERSION
 
 
 class _EfficientWSGIResponder(WSGIResponder):
-    """WSGIResponder with O(n) body buffering instead of O(n^2) concatenation."""
+    """WSGIResponder with O(n) body buffering instead of O(n^2) concatenation.
+
+    Ref: https://github.com/Kludex/starlette/blob/0e88e92b592bfa11fd92e331869a8d49ba34b541/starlette/middleware/wsgi.py#L98-L117
+    """
 
     async def __call__(self, receive: Receive, send: Send) -> None:
+        # >>> Changed from original: use list + join instead of body += chunk
         chunks: list[bytes] = []
         more_body = True
         while more_body:
@@ -50,6 +54,7 @@ class _EfficientWSGIResponder(WSGIResponder):
             more_body = message.get("more_body", False)
         body = b"".join(chunks)
         del chunks  # Free chunk list before build_environ copies body into BytesIO
+        # <<< End of change
         environ = build_environ(self.scope, body)
 
         async with anyio.create_task_group() as task_group:
