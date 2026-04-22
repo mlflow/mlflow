@@ -501,12 +501,25 @@ def aggregate_openai_responses_stream_chunks(
     if not chunks:
         return None
 
-    # Concatenate before parsing: aiohttp yields arbitrary-sized byte chunks that
-    # can split a single SSE "data:" line across multiple pieces.
-    combined = b"".join(chunks)
+    # Scan chunks incrementally to avoid materializing a second full copy of the
+    # stream bytes.  aiohttp yields arbitrary-sized byte chunks that can bisect a
+    # ``data:`` line, so we carry any trailing incomplete line into the next
+    # iteration rather than joining everything up front.
+    leftover = b""
+    for chunk in chunks:
+        data = leftover + chunk
+        # Split on newlines, keeping the last (potentially incomplete) segment.
+        lines = data.split(b"\n")
+        leftover = lines[-1]
+        complete = b"\n".join(lines[:-1]) + b"\n"
+        for event in parse_sse_lines(complete):
+            if event.get("type") == "response.completed":
+                return event.get("response")
 
-    for event in parse_sse_lines(combined):
-        if event.get("type") == "response.completed":
-            return event.get("response")
+    # Flush any remaining bytes that were not followed by a newline.
+    if leftover:
+        for event in parse_sse_lines(leftover):
+            if event.get("type") == "response.completed":
+                return event.get("response")
 
     return None
