@@ -261,6 +261,24 @@ repos:
         files: ^\.github/(workflows|actions)/.*\.yaml$
         stages: [pre-commit]
 
+      - id: check-component-ids
+        name: check-component-ids
+        entry: |
+          bash -c '
+            if ! node .github/actions/check-component-ids/index.js; then
+              echo
+              echo "Auto-regenerating componentId registry..."
+              node .github/actions/check-component-ids/regenerate.js
+              git add .github/actions/check-component-ids/componentId-registry.js
+              exit 1
+            fi
+          '
+        language: system
+        files: ^(mlflow/server/js/src/|\.github/actions/check-component-ids/)
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
       - id: js-fmt
         name: js-fmt
         entry: dev/js.sh fmt

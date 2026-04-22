@@ -1,9 +1,11 @@
 name: JS
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - mlflow/server/js/**
+      - .github/actions/check-component-ids/**
       - .github/workflows/js.yml
     branches:
       - master
@@ -15,6 +17,7 @@ on:
       - reopened
     paths:
       - mlflow/server/js/**
+      - .github/actions/check-component-ids/**
       - .github/workflows/js.yml
 
 concurrency:
@@ -26,6 +29,19 @@ defaults:
     shell: bash
 
 jobs:
+  check-component-ids:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Check componentId registry
+        uses: ./.github/actions/check-component-ids
+
   js:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
