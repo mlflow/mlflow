@@ -450,6 +450,7 @@ async def test_chat():
             json={
                 "messages": [{"role": "user", "content": "Who's the protagonist in Metro 2033?"}],
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "max_tokens": 200,
                 "temperature": 1.0,
                 "n": 1,
@@ -585,6 +586,7 @@ async def test_chat_stream(resp):
             "https://api.together.xyz/v1/chat/completions",
             json={
                 "model": "mistralai/Mixtral-8x7B-v0.1",
+                "provider": "togetherai",
                 "temperature": 1,
                 "messages": [
                     {"role": "system", "content": "This is a test"},

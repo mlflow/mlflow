@@ -259,6 +259,7 @@ def test_model_to_chat():
         "object": "chat.completion",
         "created": 1,
         "model": "test-model",
+        "provider": "openai",
         "choices": [
             {
                 "message": {"role": "assistant", "content": "Hello!"},
@@ -278,6 +279,7 @@ def test_model_to_embeddings():
     resp = {
         "data": [{"embedding": [0.1, 0.2], "index": 0}],
         "model": "test-model",
+        "provider": "openai",
         "usage": {"prompt_tokens": 5, "total_tokens": 5},
     }
     result = OpenAICompatibleAdapter.model_to_embeddings(resp, config)
@@ -292,6 +294,7 @@ def test_model_to_chat_with_tool_calls():
         "object": "chat.completion",
         "created": 1,
         "model": "test-model",
+        "provider": "openai",
         "choices": [
             {
                 "message": {
