@@ -1,6 +1,7 @@
 import dataclasses
 import functools
 import inspect
+import json
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -10,6 +11,7 @@ from mlflow.entities import SpanStatus, SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.config import GatewayRequestType
 from mlflow.gateway.schemas.chat import StreamResponsePayload
+from mlflow.gateway.utils import parse_sse_lines
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
@@ -340,5 +342,129 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
             "completion_tokens": last_chunk.usage.completion_tokens,
             "total_tokens": last_chunk.usage.total_tokens,
         }
+
+    return result
+
+
+def aggregate_anthropic_messages_stream_chunks(
+    chunks: list[bytes],
+) -> dict[str, Any] | None:
+    """
+    Aggregate raw Anthropic Messages API SSE streaming chunks into a single Messages response.
+
+    Processes the following Anthropic streaming event types:
+    - ``message_start``: extracts id, model, role, and input token usage
+    - ``content_block_start``: initialises text or tool_use content blocks
+    - ``content_block_delta``: appends text deltas and tool input JSON deltas
+    - ``message_delta``: extracts stop_reason, stop_sequence, and output token usage
+
+    Returns a dict matching the Anthropic Messages API non-streaming response shape::
+
+        {
+            "id": "msg_...",
+            "type": "message",
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": "..."},
+                {"type": "tool_use", "id": "...", "name": "...", "input": {...}},
+            ],
+            "model": "...",
+            "stop_reason": "end_turn",
+            "stop_sequence": null,
+            "usage": {"input_tokens": N, "cache_read_input_tokens": C, "output_tokens": M},
+        }
+
+    Returns ``None`` if *chunks* is empty or contains no parseable events.
+    """
+    if not chunks:
+        return None
+
+    # Concatenate all raw bytes before parsing. The aiohttp streaming iterator
+    # yields arbitrary-sized byte chunks that can split a single SSE "data:" line
+    # across multiple pieces; parse_sse_lines() requires complete lines. Joining
+    # here ensures no events are silently dropped due to mid-line splits.
+    combined = b"".join(chunks)
+
+    msg_id: str | None = None
+    model: str | None = None
+    role: str = "assistant"
+    stop_reason: str | None = None
+    stop_sequence: str | None = None
+    usage: dict[str, Any] = {}
+    # Ordered dict keyed by content block index preserving insertion order
+    content_blocks: dict[int, dict[str, Any]] = {}
+
+    for event in parse_sse_lines(combined):
+        match event:
+            case {"type": "message_start", "message": dict(msg)}:
+                msg_id = msg.get("id")
+                model = msg.get("model")
+                role = msg.get("role", "assistant")
+                # Merge all usage fields (input_tokens, cache_read_input_tokens,
+                # cache_creation_input_tokens, …) present in message_start.
+                if msg_usage := msg.get("usage"):
+                    usage.update({k: v for k, v in msg_usage.items() if v is not None})
+            case {
+                "type": "content_block_start",
+                "index": int(index),
+                "content_block": dict(block),
+            }:
+                block_type = block.get("type")
+                if block_type == "tool_use":
+                    content_blocks[index] = {
+                        "type": "tool_use",
+                        "id": block.get("id"),
+                        "name": block.get("name"),
+                        "_input_json": "",
+                    }
+                else:
+                    content_blocks[index] = {"type": "text", "text": block.get("text", "")}
+            case {
+                "type": "content_block_delta",
+                "index": int(index),
+                "delta": dict(delta),
+            }:
+                block = content_blocks.get(index)
+                if block is None:
+                    continue
+                match delta.get("type"):
+                    case "text_delta":
+                        block["text"] = block.get("text", "") + delta.get("text", "")
+                    case "input_json_delta":
+                        block["_input_json"] = block.get("_input_json", "") + delta.get(
+                            "partial_json", ""
+                        )
+            case {"type": "message_delta", "delta": dict(delta)}:
+                stop_reason = delta.get("stop_reason", stop_reason)
+                stop_sequence = delta.get("stop_sequence", stop_sequence)
+                # Merge output_tokens (and any extra fields) from message_delta.
+                if delta_usage := event.get("usage"):
+                    usage.update({k: v for k, v in delta_usage.items() if v is not None})
+
+    if msg_id is None and not content_blocks:
+        return None
+
+    # Finalise content blocks: parse accumulated tool input JSON
+    content: list[dict[str, Any]] = []
+    for block in (content_blocks[i] for i in sorted(content_blocks)):
+        if block["type"] == "tool_use":
+            raw_json = block.pop("_input_json", "")
+            try:
+                block["input"] = json.loads(raw_json) if raw_json else {}
+            except json.JSONDecodeError:
+                block["input"] = {}
+        content.append(block)
+
+    result: dict[str, Any] = {
+        "id": msg_id,
+        "type": "message",
+        "role": role,
+        "content": content,
+        "model": model,
+        "stop_reason": stop_reason,
+        "stop_sequence": stop_sequence,
+    }
+    if usage:
+        result["usage"] = usage
 
     return result

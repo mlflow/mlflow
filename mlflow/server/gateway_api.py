@@ -56,7 +56,11 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
+from mlflow.gateway.tracing_utils import (
+    aggregate_anthropic_messages_stream_chunks,
+    aggregate_chat_stream_chunks,
+    maybe_traced_gateway_call,
+)
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -1014,6 +1018,7 @@ async def anthropic_passthrough_messages(request: Request):
             yield_stream,
             endpoint_config,
             user_metadata,
+            output_reducer=aggregate_anthropic_messages_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
             on_complete=make_budget_on_complete(store, workspace),
