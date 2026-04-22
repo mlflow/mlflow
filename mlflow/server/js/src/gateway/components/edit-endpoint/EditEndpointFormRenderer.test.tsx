@@ -13,7 +13,9 @@ jest.mock('./StarterCodeCard', () => ({ StarterCodeCard: () => null }));
 jest.mock('./EditableEndpointName', () => ({ EditableEndpointName: () => null }));
 jest.mock('./GatewayUsageSection', () => ({ GatewayUsageSection: () => null }));
 jest.mock('../guardrails/GuardrailsTabContent', () => ({ GuardrailsTabContent: () => null }));
-jest.mock('../../../common/components/long-form/LongFormSummary', () => ({ LongFormSummary: ({ children }: any) => children }));
+jest.mock('../../../common/components/long-form/LongFormSummary', () => ({
+  LongFormSummary: ({ children }: any) => children,
+}));
 jest.mock('../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs', () => ({
   TracesV3Logs: () => null,
 }));
