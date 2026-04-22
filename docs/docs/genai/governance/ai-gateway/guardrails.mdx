@@ -124,7 +124,7 @@ The `detail.message` field contains the guardrail name and the judge's rationale
 
 Click any row in the guardrails table to open the detail panel for that guardrail. You can update the stage, instructions, guardrail model, and action. Changes are saved by clicking **Save** — this registers a new scorer version under the hood and atomically replaces the guardrail on the endpoint so that no requests are dropped during the update.
 
-The **Save** button is disabled until you make a change, and it remains disabled if instructions contain a validation error (for example, if you switch to the Post-LLM stage but the instructions still reference `{{ inputs }}`).
+The **Save** button is disabled until you make a change, and it remains disabled if instructions contain a validation error (for example, if you switch to the Post-LLM stage but the instructions reference neither `{{ inputs }}` nor `{{ outputs }}`).
 
 ## Deleting a Guardrail
 
