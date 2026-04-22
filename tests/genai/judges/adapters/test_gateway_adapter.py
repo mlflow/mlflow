@@ -616,11 +616,11 @@ def test_get_provider_instance_gateway():
 
 
 def test_get_provider_instance_gateway_with_base_url():
-    with mock.patch(
-        "mlflow.metrics.genai.model_utils.get_gateway_config"
-    ) as mock_get_config:
+    with mock.patch("mlflow.metrics.genai.model_utils.get_gateway_config") as mock_get_config:
         provider = _get_provider_instance(
-            "gateway", "my-endpoint", base_url="http://localhost:5000/gateway/mlflow/v1/chat/completions"
+            "gateway",
+            "my-endpoint",
+            base_url="http://localhost:5000/gateway/mlflow/v1/chat/completions",
         )
         mock_get_config.assert_not_called()
 
