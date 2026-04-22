@@ -1755,7 +1755,7 @@ def get_auth_func(authorization_function: str) -> Callable[[], Authorization | R
 def authenticate_request_basic_auth() -> Authorization | Response:
     """Authenticate the request using basic auth."""
     authorization = request.authorization
-    if authorization is None:
+    if authorization is None and not request.headers.get("Authorization"):
         if alt_auth := request.headers.get("X-Mlflow-Authorization"):
             try:
                 scheme, credentials = alt_auth.split(None, 1)

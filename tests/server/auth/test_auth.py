@@ -115,6 +115,20 @@ def test_x_mlflow_authorization_header(client):
     assert response.status_code == 200
 
 
+def test_authorization_header_takes_precedence_over_x_mlflow_authorization(client):
+    username, password = create_user(client.tracking_uri)
+    credentials = base64.b64encode(f"{username}:{password}".encode()).decode("ascii")
+    response = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/experiments/search",
+        headers={
+            "Authorization": "Bearer invalid-token",
+            "X-Mlflow-Authorization": f"Basic {credentials}",
+        },
+        json={"max_results": 100},
+    )
+    assert response.status_code == 401
+
+
 @pytest.mark.parametrize(
     ("username", "password"),
     [
@@ -3263,21 +3277,13 @@ def test_fastapi_malformed_authorization_header(mock_auth_store, mock_auth_confi
 # -- X-Mlflow-Authorization fallback header --
 
 
-def _make_request_with_mlflow_auth_header(path, mlflow_authorization):
-    request = mock.Mock()
-    request.url.path = path
-    request.headers = {"X-Mlflow-Authorization": mlflow_authorization}
-    return request
-
-
 def test_fastapi_x_mlflow_authorization_header_used_when_no_authorization(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
-    request = _make_request_with_mlflow_auth_header(
-        "/api/3.0/mlflow/experiments/list", f"Basic {credentials}"
-    )
+    request = _make_request("/api/3.0/mlflow/experiments/list")
+    request.headers = {"X-Mlflow-Authorization": f"Basic {credentials}"}
 
     user = _authenticate_fastapi_request(request)
 
