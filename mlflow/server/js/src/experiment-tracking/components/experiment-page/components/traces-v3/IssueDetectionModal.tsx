@@ -278,7 +278,11 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
                 </Button>
               </div>
             </div>
-            <GenAIModelSelection ref={modelSelectionRef} onValidityChange={handleModelSelectionValidityChange} />
+            <GenAIModelSelection
+              ref={modelSelectionRef}
+              onValidityChange={handleModelSelectionValidityChange}
+              showConfigureDirectly
+            />
           </div>
         )}
       </Modal>

@@ -18,6 +18,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ModelSelect } from '../../../../../gateway/components/create-endpoint/ModelSelect';
+import { CreateEndpointModal } from '../../../../../gateway/components/endpoint-form';
 import { GenAIApiKeyConfigurator } from './GenAIApiKeyConfigurator';
 import { GenAIAdvancedSettings } from './GenAIAdvancedSettings';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
@@ -25,10 +26,12 @@ import type { ApiKeyConfiguration } from '../../../../../gateway/components/mode
 import { generateRandomName } from '../../../../../common/utils/NameUtils';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { getEndpointDisplayInfo } from '../../../../../gateway/utils/gatewayUtils';
+import type { Endpoint } from '../../../../../gateway/types';
 
 type ModelConfigMode = 'endpoint' | 'direct';
 
 const CONFIGURE_DIRECTLY_VALUE = '__configure_directly__';
+const CREATE_ENDPOINT_VALUE = '__create_endpoint__';
 
 const DEFAULT_PROVIDER = 'openai';
 
@@ -85,15 +88,23 @@ interface GenAIModelSelectionProps {
   onValidityChange: (isValid: boolean) => void;
   readOnly?: boolean;
   initialValues?: Partial<ModelSelectionValues>;
+  /** Whether to show the "Configure model directly" option in the endpoint dropdown. Defaults to false. */
+  showConfigureDirectly?: boolean;
+  /** Whether to show the "Create Gateway endpoint" option in the endpoint dropdown. Defaults to false. */
+  showCreateEndpoint?: boolean;
 }
 
 export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModelSelectionProps>(
-  function GenAIModelSelection({ onValidityChange, readOnly = false, initialValues }, ref) {
+  function GenAIModelSelection(
+    { onValidityChange, readOnly = false, initialValues, showConfigureDirectly = false, showCreateEndpoint = false },
+    ref,
+  ) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
 
     // Fetch available endpoints
-    const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
+    const { data: endpoints, isLoading: isLoadingEndpoints, refetch: refetchEndpoints } = useEndpointsQuery();
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const hasEndpoints = endpoints.length > 0;
 
     // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints.
@@ -179,6 +190,16 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
         setSelectedEndpointName(value);
       }
     }, []);
+
+    const handleCreateEndpointSuccess = useCallback(
+      async (endpoint: Endpoint) => {
+        await refetchEndpoints();
+        setMode('endpoint');
+        setSelectedEndpointName(endpoint.name);
+        setIsCreateModalOpen(false);
+      },
+      [refetchEndpoints],
+    );
 
     // Update API key mode to 'existing' and auto-select first secret when secrets become available.
     // Skip when readOnly or when initialValues.apiKeyConfig was provided to preserve round-trip fidelity.
@@ -306,7 +327,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
               </Typography.Text>
             </div>
           ) : (
-            hasEndpoints && (
+            (hasEndpoints || showCreateEndpoint) && (
               <DialogCombobox
                 componentId="mlflow.traces.issue-detection-modal.model-source"
                 id="mlflow.traces.issue-detection-modal.model-source"
@@ -331,7 +352,14 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                 <DialogComboboxContent>
                   <DialogComboboxOptionList>
                     {endpointOptions.length > 0 && (
-                      <div css={{ maxHeight: 150, overflowY: 'auto' }}>
+                      <div
+                        css={{
+                          maxHeight: 150,
+                          overflowY: 'auto',
+                          width: '100%',
+                          alignSelf: 'stretch',
+                        }}
+                      >
                         {endpointOptions.map((option) => (
                           <DialogComboboxOptionListSelectItem
                             key={option.value}
@@ -349,17 +377,33 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                         ))}
                       </div>
                     )}
-                    {endpointOptions.length > 0 && <DialogComboboxSeparator />}
-                    <DialogComboboxOptionListSelectItem
-                      value={CONFIGURE_DIRECTLY_VALUE}
-                      onChange={() => handleDropdownSelect(CONFIGURE_DIRECTLY_VALUE)}
-                      checked={hasInitializedMode && mode === 'direct'}
-                    >
-                      <FormattedMessage
-                        defaultMessage="Configure model directly"
-                        description="Option to configure model directly instead of using an endpoint"
-                      />
-                    </DialogComboboxOptionListSelectItem>
+                    {(showConfigureDirectly || showCreateEndpoint) && endpointOptions.length > 0 && (
+                      <DialogComboboxSeparator />
+                    )}
+                    {showConfigureDirectly && (
+                      <DialogComboboxOptionListSelectItem
+                        value={CONFIGURE_DIRECTLY_VALUE}
+                        onChange={() => handleDropdownSelect(CONFIGURE_DIRECTLY_VALUE)}
+                        checked={hasInitializedMode && mode === 'direct'}
+                      >
+                        <FormattedMessage
+                          defaultMessage="Configure model directly"
+                          description="Option to configure model directly instead of using an endpoint"
+                        />
+                      </DialogComboboxOptionListSelectItem>
+                    )}
+                    {showCreateEndpoint && (
+                      <DialogComboboxOptionListSelectItem
+                        value={CREATE_ENDPOINT_VALUE}
+                        onChange={() => setIsCreateModalOpen(true)}
+                        checked={false}
+                      >
+                        <FormattedMessage
+                          defaultMessage="Create Gateway endpoint"
+                          description="Option to create a new AI Gateway endpoint"
+                        />
+                      </DialogComboboxOptionListSelectItem>
+                    )}
                   </DialogComboboxOptionList>
                 </DialogComboboxContent>
               </DialogCombobox>
@@ -514,6 +558,14 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
             </>
           )}
         </div>
+
+        {showCreateEndpoint && (
+          <CreateEndpointModal
+            open={isCreateModalOpen}
+            onClose={() => setIsCreateModalOpen(false)}
+            onSuccess={handleCreateEndpointSuccess}
+          />
+        )}
 
         {mode === 'direct' && shouldShowAdvancedSettings && !readOnly && (
           <Accordion
