@@ -19,12 +19,12 @@ export function ModelTraceExplorerChatTab({
     <div
       css={{
         overflowY: 'auto',
-        padding: theme.spacing.md,
       }}
       data-testid="model-trace-explorer-chat-tab"
     >
       {chatTools && (
         <ModelTraceExplorerCollapsibleSection
+          withBorder
           css={{ marginBottom: theme.spacing.sm }}
           title={
             <FormattedMessage
@@ -50,6 +50,7 @@ export function ModelTraceExplorerChatTab({
           />
         }
         sectionKey="messages"
+        withBorder
       >
         <ModelTraceExplorerConversation messages={chatMessages} />
       </ModelTraceExplorerCollapsibleSection>
