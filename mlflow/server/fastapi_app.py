@@ -45,11 +45,11 @@ class _EfficientWSGIResponder(WSGIResponder):
         more_body = True
         while more_body:
             message = await receive()
-            chunk = message.get("body", b"")
-            if chunk:
+            if chunk := message.get("body", b""):
                 chunks.append(chunk)
             more_body = message.get("more_body", False)
         body = b"".join(chunks)
+        del chunks  # Free chunk list before build_environ copies body into BytesIO
         environ = build_environ(self.scope, body)
 
         async with anyio.create_task_group() as task_group:
