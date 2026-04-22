@@ -121,7 +121,6 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
               >
                 <div
                   css={{
-                    paddingLeft: theme.spacing.lg,
                     marginBottom: theme.spacing.sm,
                   }}
                 >
@@ -160,7 +159,6 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
               >
                 <div
                   css={{
-                    paddingLeft: theme.spacing.lg,
                     marginBottom: theme.spacing.sm,
                   }}
                 >
