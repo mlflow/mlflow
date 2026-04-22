@@ -267,7 +267,6 @@ async def test_chat_stream():
             "https://api.cohere.ai/v1/chat",
             json={
                 "model": "command",
-                "provider": "cohere",
                 "chat_history": [
                     {"role": "USER", "message": "Message 1"},
                     {"role": "CHATBOT", "message": "Message 2"},

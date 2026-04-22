@@ -247,7 +247,6 @@ async def _run_test_chat_stream(resp, provider):
             "https://api.openai.com/v1/chat/completions",
             json={
                 "model": "gpt-4o-mini",
-                "provider": "openai",
                 "n": 1,
                 "stream_options": {"include_usage": True},
                 **payload,

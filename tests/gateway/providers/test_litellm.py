@@ -332,7 +332,6 @@ def test_adapter_model_to_chat():
         "object": "chat.completion",
         "created": 1234567890,
         "model": "test-model",
-        "provider": "litellm",
         "choices": [
             {
                 "index": 0,
@@ -595,7 +594,6 @@ async def test_passthrough_openai_embeddings():
         "object": "list",
         "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}],
         "model": "text-embedding-3-small",
-        "provider": "litellm",
     }
 
     with mock.patch("litellm.aembedding", return_value=mock_response) as mock_embedding:

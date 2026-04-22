@@ -151,20 +151,23 @@ class BaseProvider(ABC):
     # Public methods (with optional tracing)
     # -------------------------------------------------------------------------
 
+    @property
+    def _provider_name(self) -> str:
+        provider = self.config.model.provider
+        return provider.value if isinstance(provider, Enum) else str(provider)
+
     async def chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         async for chunk in self._maybe_trace_stream_method(
             "chat_stream", self._chat_stream, payload
         ):
-            provider = self.config.model.provider
-            chunk.provider = provider.value if isinstance(provider, Enum) else str(provider)
+            chunk.provider = self._provider_name
             yield chunk
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         result = await self._maybe_trace_method("chat", self._chat, payload)
-        provider = self.config.model.provider
-        result.provider = provider.value if isinstance(provider, Enum) else str(provider)
+        result.provider = self._provider_name
         return result
 
     async def completions_stream(

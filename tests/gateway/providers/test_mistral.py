@@ -431,7 +431,6 @@ async def _run_test_chat_stream(resp, provider):
             "https://api.mistral.ai/v1/chat/completions",
             json={
                 "model": "mistral-large-latest",
-                "provider": "mistral",
                 "n": 1,
                 **payload,
             },
