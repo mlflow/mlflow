@@ -1,7 +1,5 @@
 import gc
-import os
 import random
-import tempfile
 import threading
 import time
 from datetime import datetime
@@ -116,10 +114,8 @@ def _generate_trial(generator: random.Random) -> FrozenTrial:
 
 
 @pytest.fixture
-def setup_storage():
-    tempdir = tempfile.mkdtemp(prefix="optuna_tests_", dir="/tmp")
-    mlflow_uri = "file:" + os.path.join(tempdir, "mlflow")
-    mlflow.set_tracking_uri(mlflow_uri)
+def setup_storage(db_uri):
+    mlflow.set_tracking_uri(db_uri)
     experiment_id = mlflow.create_experiment(name="optuna_mlflow_test")
     storage = MlflowStorage(
         experiment_id=experiment_id, batch_flush_interval=1.0, batch_size_threshold=5
