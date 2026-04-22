@@ -3,7 +3,7 @@ import {
   Alert,
   Breadcrumb,
   Button,
-  InfoFillIcon,
+  InfoTooltip,
   Spinner,
   Switch,
   Tabs,
@@ -464,18 +464,14 @@ export const EditEndpointFormRenderer = ({
                           description="Label for usage tracking toggle in sidebar"
                         />
                       </Typography.Text>
-                      <Tooltip
+                      <InfoTooltip
                         componentId="mlflow.gateway.edit-endpoint.usage-tracking-info"
                         content={intl.formatMessage({
                           defaultMessage:
                             'When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.',
                           description: 'Tooltip explaining what usage tracking does',
                         })}
-                      >
-                        <InfoFillIcon
-                          css={{ width: 14, height: 14, color: theme.colors.textSecondary, cursor: 'help' }}
-                        />
-                      </Tooltip>
+                      />
                     </div>
                     <Controller
                       control={form.control}
