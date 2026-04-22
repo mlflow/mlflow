@@ -1160,8 +1160,7 @@ def sender_is_admin():
 
 def _is_workspace_admin(username: str, workspace: str) -> bool:
     user = store.get_user(username)
-    roles = store.list_user_roles_for_workspace(user.id, workspace)
-    return any(r.is_workspace_admin for r in roles)
+    return store.is_workspace_admin(user.id, workspace)
 
 
 def _get_role_workspace_from_request() -> str:
@@ -2153,8 +2152,7 @@ def create_role():
     workspace = _get_request_param("workspace")
     body = request.json or {}
     description = body.get("description")
-    is_workspace_admin = body.get("is_workspace_admin", False)
-    role = store.create_role(name, workspace, description, is_workspace_admin)
+    role = store.create_role(name, workspace, description)
     return jsonify({"role": role.to_json()})
 
 

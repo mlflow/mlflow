@@ -1015,9 +1015,8 @@ class AuthServiceClient:
         workspace: str,
         name: str,
         description: str | None = None,
-        is_workspace_admin: bool = False,
     ) -> Role:
-        payload = {"workspace": workspace, "name": name, "is_workspace_admin": is_workspace_admin}
+        payload = {"workspace": workspace, "name": name}
         if description is not None:
             payload["description"] = description
         resp = self._request(CREATE_ROLE, "POST", json=payload)
