@@ -9,6 +9,7 @@ import { setupTestRouter, testRoute, TestRouter } from '../../common/utils/Routi
 import { setupServer } from '../../common/utils/setup-msw';
 import { render, screen, waitFor } from '../../common/utils/TestUtils.react18';
 import MetricPage from './MetricPage';
+
 import { DesignSystemProvider } from '@databricks/design-system';
 import { apis } from '../reducers/Reducers';
 

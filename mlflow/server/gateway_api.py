@@ -38,8 +38,8 @@ from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.guardrail_utils import (
     extract_auth_headers,
     load_guardrails,
-    run_after_guardrails,
-    run_before_guardrails,
+    run_post_llm_guardrails,
+    run_pre_llm_guardrails,
 )
 from mlflow.gateway.guardrails import (
     _SANITIZE_BYPASS_HEADER,
@@ -56,7 +56,11 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
+from mlflow.gateway.tracing_utils import (
+    aggregate_anthropic_messages_stream_chunks,
+    aggregate_chat_stream_chunks,
+    maybe_traced_gateway_call,
+)
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -579,22 +583,28 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-        try:
-            body = await run_before_guardrails(
-                guardrails, payload.model_dump(), auth_headers=auth_headers
-            )
-            payload = chat.RequestPayload(**body)
-        except GuardrailViolation as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, endpoint_type
         )
 
         if payload.stream:
-            # AFTER-stage guardrails are not applied to streaming responses.
+            # Post-LLM guardrails are not applied to streaming responses.
+            # Pre-LLM guardrails run inside the trace as child spans; violations
+            # are surfaced as SSE error chunks via safe_stream.
+            async def _guarded_stream(
+                payload: chat.RequestPayload,
+            ):
+                request_dict = await run_pre_llm_guardrails(
+                    guardrails,
+                    payload.model_dump(),
+                    auth_headers=auth_headers,
+                    usage_tracking=endpoint_config.usage_tracking,
+                )
+                async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
+                    yield chunk
+
             stream = maybe_traced_gateway_call(
-                provider.chat_stream,
+                _guarded_stream,
                 endpoint_config,
                 user_metadata,
                 output_reducer=aggregate_chat_stream_chunks,
@@ -607,18 +617,35 @@ async def invocations(endpoint_name: str, request: Request):
                 media_type="text/event-stream",
             )
         else:
-            response = await maybe_traced_gateway_call(
-                provider.chat,
-                endpoint_config,
-                user_metadata,
-                request_headers=headers,
-                request_type=GatewayRequestType.UNIFIED_CHAT,
-                on_complete=make_budget_on_complete(store, workspace),
-            )(payload)
-            try:
-                return await run_after_guardrails(
-                    guardrails, body, response, auth_headers=auth_headers
+
+            async def _guarded_chat(
+                payload: chat.RequestPayload,
+            ) -> chat.ResponsePayload:
+                request_dict = await run_pre_llm_guardrails(
+                    guardrails,
+                    payload.model_dump(),
+                    auth_headers=auth_headers,
+                    usage_tracking=endpoint_config.usage_tracking,
                 )
+                modified_payload = chat.RequestPayload(**request_dict)
+                response = await provider.chat(modified_payload)
+                return await run_post_llm_guardrails(
+                    guardrails,
+                    request_dict,
+                    response,
+                    auth_headers=auth_headers,
+                    usage_tracking=endpoint_config.usage_tracking,
+                )
+
+            try:
+                return await maybe_traced_gateway_call(
+                    _guarded_chat,
+                    endpoint_config,
+                    user_metadata,
+                    request_headers=headers,
+                    request_type=GatewayRequestType.UNIFIED_CHAT,
+                    on_complete=make_budget_on_complete(store, workspace),
+                )(payload)
             except GuardrailViolation as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
@@ -691,18 +718,24 @@ async def chat_completions(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-    try:
-        body = await run_before_guardrails(
-            guardrails, payload.model_dump(), auth_headers=auth_headers
-        )
-        payload = chat.RequestPayload(**body)
-    except GuardrailViolation as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
     if payload.stream:
-        # AFTER-stage guardrails are not applied to streaming responses.
+        # Post-LLM guardrails are not applied to streaming responses.
+        # Pre-LLM guardrails run inside the trace as child spans; violations
+        # are surfaced as SSE error chunks via safe_stream.
+        async def _guarded_stream(
+            payload: chat.RequestPayload,
+        ):
+            request_dict = await run_pre_llm_guardrails(
+                guardrails,
+                payload.model_dump(),
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+            async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
+                yield chunk
+
         stream = maybe_traced_gateway_call(
-            provider.chat_stream,
+            _guarded_stream,
             endpoint_config,
             user_metadata,
             output_reducer=aggregate_chat_stream_chunks,
@@ -715,16 +748,35 @@ async def chat_completions(request: Request):
             media_type="text/event-stream",
         )
     else:
-        response = await maybe_traced_gateway_call(
-            provider.chat,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.UNIFIED_CHAT,
-            on_complete=make_budget_on_complete(store, workspace),
-        )(payload)
+
+        async def _guarded_chat(
+            payload: chat.RequestPayload,
+        ) -> chat.ResponsePayload:
+            request_dict = await run_pre_llm_guardrails(
+                guardrails,
+                payload.model_dump(),
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+            modified_payload = chat.RequestPayload(**request_dict)
+            response = await provider.chat(modified_payload)
+            return await run_post_llm_guardrails(
+                guardrails,
+                request_dict,
+                response,
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+
         try:
-            return await run_after_guardrails(guardrails, body, response, auth_headers=auth_headers)
+            return await maybe_traced_gateway_call(
+                _guarded_chat,
+                endpoint_config,
+                user_metadata,
+                request_headers=headers,
+                request_type=GatewayRequestType.UNIFIED_CHAT,
+                on_complete=make_budget_on_complete(store, workspace),
+            )(payload)
         except GuardrailViolation as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -966,6 +1018,7 @@ async def anthropic_passthrough_messages(request: Request):
             yield_stream,
             endpoint_config,
             user_metadata,
+            output_reducer=aggregate_anthropic_messages_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
             on_complete=make_budget_on_complete(store, workspace),

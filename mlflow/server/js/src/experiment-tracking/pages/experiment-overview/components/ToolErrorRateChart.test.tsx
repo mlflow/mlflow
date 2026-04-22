@@ -20,12 +20,13 @@ import { OverviewChartProvider } from '../OverviewChartContext';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
-// Helper to create a data point with time bucket and status
-const createDataPoint = (timeBucket: string, status: string, count: number) => ({
+// Helper to create a data point with time bucket, status, and tool name
+const createDataPoint = (timeBucket: string, status: string, count: number, toolName = 'get_weather') => ({
   metric_name: SpanMetricKey.SPAN_COUNT,
   dimensions: {
     [TIME_BUCKET_DIMENSION_KEY]: timeBucket,
     [SpanDimensionKey.SPAN_STATUS]: status,
+    [SpanDimensionKey.SPAN_NAME]: toolName,
   },
   values: { [AggregationType.COUNT]: count },
 });
@@ -138,7 +139,7 @@ describe('ToolErrorRateChart', () => {
 
   describe('with data', () => {
     it('should render the tool name as title', async () => {
-      setupTraceMetricsHandler([createDataPoint('2025-12-22T10:00:00Z', SpanStatus.OK, 100)]);
+      setupTraceMetricsHandler([createDataPoint('2025-12-22T10:00:00Z', SpanStatus.OK, 100, 'search_documentation')]);
 
       renderComponent({ toolName: 'search_documentation' });
 
@@ -198,7 +199,7 @@ describe('ToolErrorRateChart', () => {
       });
     });
 
-    it('should filter by tool type and tool name', async () => {
+    it('should filter by TOOL type only and request SPAN_NAME + SPAN_STATUS dimensions', async () => {
       let capturedBody: any = null;
 
       server.use(
@@ -215,25 +216,8 @@ describe('ToolErrorRateChart', () => {
       });
 
       expect(capturedBody.filters).toContain(`span.${SpanFilterKey.TYPE} = "${SpanType.TOOL}"`);
-      expect(capturedBody.filters).toContain(`span.${SpanFilterKey.NAME} = "my_custom_tool"`);
-    });
-
-    it('should include span_status dimension', async () => {
-      let capturedBody: any = null;
-
-      server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
-          capturedBody = await req.json();
-          return res(ctx.json({ data_points: [] }));
-        }),
-      );
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(capturedBody).not.toBeNull();
-      });
-
+      expect(capturedBody.filters).not.toContainEqual(expect.stringContaining('span.name'));
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.SPAN_NAME);
       expect(capturedBody.dimensions).toContain(SpanDimensionKey.SPAN_STATUS);
     });
 

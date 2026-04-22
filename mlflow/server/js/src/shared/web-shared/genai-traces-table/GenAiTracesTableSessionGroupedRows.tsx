@@ -254,15 +254,18 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
 
   return (
     <TableRow isHeader>
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, flexShrink: 0 }}>
         {enableRowSelection && (
-          <TableRowSelectCell
-            componentId="mlflow.genai-traces-table.session-header.select-cell"
-            checked={isSessionSelected}
-            indeterminate={isSessionIndeterminate}
-            onChange={handleToggleSelection}
-            isDisabled={isComparing}
-          />
+          // Clip the Ant checkbox's label overhang so its hitbox doesn't extend under the expand toggle.
+          <div css={{ overflow: 'hidden' }}>
+            <TableRowSelectCell
+              componentId="mlflow.genai-traces-table.session-header.select-cell"
+              checked={isSessionSelected}
+              indeterminate={isSessionIndeterminate}
+              onChange={handleToggleSelection}
+              isDisabled={isComparing}
+            />
+          </div>
         )}
         {/* Hide expand/collapse button when comparing - sessions are non-expandable in comparison mode */}
         {!isComparing && (

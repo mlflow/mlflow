@@ -224,7 +224,7 @@ def _call_llm_provider_api(
 
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
-    provider = _get_provider_instance(provider_name, model)
+    provider = _get_provider_instance(provider_name, model, base_url=proxy_url)
 
     if messages is not None:
         payload = {"messages": messages} | eval_parameters
@@ -315,8 +315,20 @@ class _MlflowGatewayProvider(OpenAIProvider):
         return {**(self._extra_headers or {})}
 
 
-def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
-    """Get the provider instance for the given provider name and the model name."""
+def _get_provider_instance(
+    provider: str, model: str, base_url: str | None = None
+) -> "BaseProvider":
+    """Get the provider instance for the given provider name and the model name.
+
+    Args:
+        provider: The provider name (e.g. "openai", "anthropic").
+        model: The model name (e.g. "gpt-4").
+        base_url: When provided for the ``"gateway"`` provider, skips
+            ``_resolve_gateway_uri()`` and constructs the provider directly
+            from this URL. Used when the caller already knows the gateway URL
+            (e.g. inside the gateway server process where ``MLFLOW_TRACKING_URI``
+            points to the backend store, not an HTTP endpoint).
+    """
     from mlflow.gateway.config import Provider
 
     def _get_route_config(config):
@@ -413,10 +425,19 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         return TogetherAIProvider(_get_route_config(config))
 
     elif provider == "gateway":
-        gw_config = get_gateway_config(model)
+        if base_url is not None:
+            # Called from inside the gateway server process where MLFLOW_TRACKING_URI
+            # points to the backend store (e.g. sqlite://), so _resolve_gateway_uri()
+            # would fail. Use the caller-supplied URL directly.
+            api_base = base_url.rstrip("/")
+            extra_headers = None
+        else:
+            gw_config = get_gateway_config(model)
+            api_base = gw_config.api_base.rstrip("/")
+            extra_headers = gw_config.extra_headers
         openai_config = OpenAIConfig(
             openai_api_key="mlflow-gateway-auth",
-            openai_api_base=gw_config.api_base.rstrip("/"),
+            openai_api_base=api_base,
         )
         route_config = EndpointConfig(
             name="gateway",
@@ -427,7 +448,7 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
                 "config": openai_config.model_dump(),
             },
         )
-        return _MlflowGatewayProvider(route_config, extra_headers=gw_config.extra_headers)
+        return _MlflowGatewayProvider(route_config, extra_headers=extra_headers)
 
     elif provider == Provider.GROQ:
         from mlflow.gateway.config import _OpenAICompatibleConfig

@@ -1,4 +1,4 @@
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Tabs } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
@@ -73,7 +73,6 @@ export const RunViewModeSwitch = ({
   const { experimentId, runUuid } = useParams<{ runUuid: string; experimentId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { theme } = useDesignSystemTheme();
   const currentTab = useRunViewActiveTab();
   const [removeTabMargin, setRemoveTabMargin] = useState(TABS_WITHOUT_MARGIN.includes(currentTab));
 
