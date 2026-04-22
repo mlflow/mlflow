@@ -551,7 +551,7 @@ def test_filter_experiment_ids_respects_workspace_permissions(
 
 
 def test_filter_experiment_ids_role_wildcard_grant(workspace_permission_setup, monkeypatch):
-    """Role granting experiment(*) in the active workspace should include all experiments."""
+    # Role granting experiment(*) in the active workspace should include all experiments.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
@@ -571,7 +571,7 @@ def test_filter_experiment_ids_role_wildcard_grant(workspace_permission_setup, m
 
 
 def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, monkeypatch):
-    """Role granting a specific experiment id should include that id only (plus direct grants)."""
+    # Role granting a specific experiment id should include that id only (plus direct grants).
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
@@ -591,7 +591,7 @@ def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, m
 
 
 def test_filter_experiment_ids_workspace_scope_role(workspace_permission_setup, monkeypatch):
-    """Role with (resource_type='workspace', '*', READ) should grant access to all experiments."""
+    # Role with (resource_type='workspace', '*', READ) should grant access to all experiments.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
