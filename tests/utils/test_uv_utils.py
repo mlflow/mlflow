@@ -9,6 +9,7 @@ from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
     _UV_LOCK_FILE,
+    UvConfig,
     copy_uv_project_files,
     create_uv_sync_pyproject,
     detect_uv_project,
@@ -454,8 +455,7 @@ def test_infer_pip_requirements_passes_groups_and_extras_to_uv_export(tmp_path, 
         result = infer_pip_requirements(
             str(tmp_path),
             "sklearn",
-            uv_groups=["serving"],
-            uv_extras=["api"],
+            uv=UvConfig(groups=["serving"], extras=["api"]),
         )
 
         assert "fastapi==0.100.0" in result
@@ -538,7 +538,8 @@ def test_infer_pip_requirements_uses_explicit_uv_project_dir(tmp_path, monkeypat
         mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result),
     ):
-        result = infer_pip_requirements(str(tmp_path), "sklearn", uv_project_dir=uv_project)
+        uv_cfg = UvConfig(project_path=uv_project)
+        result = infer_pip_requirements(str(tmp_path), "sklearn", uv=uv_cfg)
 
         assert "requests==2.28.0" in result
 
@@ -562,7 +563,8 @@ def test_infer_pip_requirements_explicit_uv_project_dir_overrides_disabled_auto_
         mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result),
     ):
-        result = infer_pip_requirements(str(tmp_path), "sklearn", uv_project_dir=uv_project)
+        uv_cfg = UvConfig(project_path=uv_project)
+        result = infer_pip_requirements(str(tmp_path), "sklearn", uv=uv_cfg)
 
         assert "numpy==1.24.0" in result
 
@@ -792,12 +794,11 @@ def test_infer_pip_requirements_warns_when_groups_set_but_no_uv_project(tmp_path
         result = infer_pip_requirements(
             str(tmp_path),
             "sklearn",
-            uv_groups=["serving"],
-            uv_extras=["api"],
+            uv=UvConfig(groups=["serving"], extras=["api"]),
         )
 
         assert "scikit-learn==1.0" in result
         mock_logger.warning.assert_any_call(
-            "uv_groups and/or uv_extras were specified but no uv project was detected. "
+            "UvConfig groups and/or extras were specified but no uv project was detected. "
             "These parameters will be ignored. Falling back to package capture based inference."
         )

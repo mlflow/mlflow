@@ -26,6 +26,7 @@ from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
     _PYTHON_VERSION_FILE,
     _UV_LOCK_FILE,
+    UvConfig,
     is_uv_available,
 )
 
@@ -180,7 +181,7 @@ def test_pyfunc_log_model_with_explicit_uv_project_path_parameter(
         mlflow.pyfunc.log_model(
             name="model",
             python_model=python_model,
-            uv_project_path=tmp_uv_project,
+            uv=UvConfig(project_path=tmp_uv_project),
         )
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -330,7 +331,7 @@ def test_pyfunc_save_model_with_explicit_uv_project_path(
     mlflow.pyfunc.save_model(
         model_path,
         python_model=python_model,
-        uv_project_path=tmp_uv_project,
+        uv=UvConfig(project_path=tmp_uv_project),
     )
 
     assert (model_path / _UV_LOCK_FILE).exists()

@@ -10,13 +10,13 @@ import os
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
 from packaging.version import Version
 
-from mlflow.environment_variables import MLFLOW_LOG_UV_FILES, MLFLOW_UV_AUTO_DETECT
+from mlflow.environment_variables import MLFLOW_LOG_UV_FILES
 
 _logger = logging.getLogger(__name__)
 
@@ -59,21 +59,32 @@ class UvConfig:
     """
 
     project_path: str | Path | None = None
-    groups: list[str] = field(default_factory=list)
-    extras: list[str] = field(default_factory=list)
+    groups: list[str] | None = None
+    extras: list[str] | None = None
 
 
-def resolve_uv_source_dir(uv: UvConfig | None) -> str | Path | None:
-    """Determine the uv project directory from a UvConfig or auto-detection.
+def resolve_uv_params(uv: UvConfig | None = None) -> UvConfig:
+    """Resolve the effective UvConfig for model saving.
 
-    Returns the directory to use for uv export and file copying, or None
-    if uv is not configured and auto-detection is disabled.
+    If an explicit UvConfig is provided, returns it directly. If not, checks
+    ``MLFLOW_UV_AUTO_DETECT`` and returns a UvConfig with ``project_path``
+    set to cwd when auto-detect is enabled. Returns an empty UvConfig when
+    uv is disabled.
+
+    Args:
+        uv: Optional explicit configuration. Returned as-is when provided.
+
+    Returns:
+        A resolved UvConfig instance.
     """
-    if uv is not None and uv.project_path is not None:
-        return uv.project_path
+    if uv is not None:
+        return uv
+
+    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
+
     if MLFLOW_UV_AUTO_DETECT.get():
-        return Path.cwd()
-    return None
+        return UvConfig(project_path=os.getcwd())
+    return UvConfig()
 
 
 def get_uv_version() -> Version | None:
