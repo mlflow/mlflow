@@ -30,6 +30,7 @@ from mlflow.entities import (
     Experiment,
     ExperimentTag,
     Feedback,
+    Link,
     Metric,
     Param,
     RunStatus,
@@ -8259,6 +8260,37 @@ def test_log_spans_multiple_traces(store: SqlAlchemyStore):
 
         span_row2 = session.query(SqlSpan).filter_by(trace_id="tr-multi-2").one()
         assert span_row2.name == "span_trace2"
+
+
+def test_log_spans_persists_links(store: SqlAlchemyStore):
+    trace_id = "tr-links-test"
+    experiment_id = store.create_experiment("test_links_experiment")
+
+    span = create_test_span(trace_id=trace_id)
+    span._links = [
+        Link(trace_id="tr-abc123", span_id="sp-abc123", attributes={"type": "causal"}),
+        Link(trace_id="tr-def456", span_id="sp-def456"),
+    ]
+
+    store.log_spans(experiment_id, [span])
+
+    # Verify the links column is populated in the DB
+    with store.ManagedSessionMaker() as session:
+        span_row = session.query(SqlSpan).filter_by(trace_id=trace_id).one()
+        assert len(span_row.links) == 2
+        assert span_row.links[0]["trace_id"] == "tr-abc123"
+        assert span_row.links[1]["trace_id"] == "tr-def456"
+
+    # Verify links survive the full round-trip via get_trace
+    trace = store.get_trace(trace_id)
+    retrieved_span = trace.data.spans[0]
+    assert len(retrieved_span.links) == 2
+    assert retrieved_span.links[0].trace_id == "tr-abc123"
+    assert retrieved_span.links[0].span_id == "sp-abc123"
+    assert retrieved_span.links[0].attributes == {"type": "causal"}
+    assert retrieved_span.links[1].trace_id == "tr-def456"
+    assert retrieved_span.links[1].span_id == "sp-def456"
+    assert retrieved_span.links[1].attributes is None
 
 
 @pytest.mark.asyncio
