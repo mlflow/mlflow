@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import selectinload, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -944,20 +945,33 @@ class SqlAlchemyStore:
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
 
+    @staticmethod
+    def _get_role_permission(session, role_permission_id: int) -> SqlRolePermission:
+        try:
+            return (
+                session
+                .query(SqlRolePermission)
+                .filter(SqlRolePermission.id == role_permission_id)
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Role permission with id={role_permission_id} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple role permissions with id={role_permission_id}",
+                INVALID_STATE,
+            )
+
+    def get_role_permission(self, role_permission_id: int) -> RolePermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_role_permission(session, role_permission_id).to_mlflow_entity()
+
     def remove_role_permission(self, role_permission_id: int) -> None:
         with self.ManagedSessionMaker() as session:
-            try:
-                rp = (
-                    session
-                    .query(SqlRolePermission)
-                    .filter(SqlRolePermission.id == role_permission_id)
-                    .one()
-                )
-            except NoResultFound:
-                raise MlflowException(
-                    f"Role permission with id={role_permission_id} not found",
-                    RESOURCE_DOES_NOT_EXIST,
-                )
+            rp = self._get_role_permission(session, role_permission_id)
             session.delete(rp)
 
     def list_role_permissions(self, role_id: int) -> list[RolePermission]:
@@ -971,18 +985,7 @@ class SqlAlchemyStore:
     def update_role_permission(self, role_permission_id: int, permission: str) -> RolePermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
-            try:
-                rp = (
-                    session
-                    .query(SqlRolePermission)
-                    .filter(SqlRolePermission.id == role_permission_id)
-                    .one()
-                )
-            except NoResultFound:
-                raise MlflowException(
-                    f"Role permission with id={role_permission_id} not found",
-                    RESOURCE_DOES_NOT_EXIST,
-                )
+            rp = self._get_role_permission(session, role_permission_id)
             rp.permission = permission
             return rp.to_mlflow_entity()
 
@@ -1132,6 +1135,36 @@ class SqlAlchemyStore:
                 .filter(
                     SqlUserRoleAssignment.user_id == user_id,
                     SqlRole.workspace == workspace,
+                    SqlRolePermission.resource_type == "workspace",
+                    SqlRolePermission.resource_pattern == "*",
+                    SqlRolePermission.permission == MANAGE.name,
+                )
+                .first()
+                is not None
+            )
+
+    def is_workspace_admin_of_any_of_users_workspaces(
+        self, admin_user_id: int, target_user_id: int
+    ) -> bool:
+        """
+        True if ``admin_user_id`` is a workspace admin in at least one workspace where
+        ``target_user_id`` has a role assignment. Single SQL query (no N+1).
+        """
+        target_workspaces_subquery = (
+            select(SqlRole.workspace)
+            .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+            .where(SqlUserRoleAssignment.user_id == target_user_id)
+            .distinct()
+        )
+        with self.ManagedSessionMaker() as session:
+            return (
+                session
+                .query(SqlRolePermission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == admin_user_id,
+                    SqlRole.workspace.in_(target_workspaces_subquery),
                     SqlRolePermission.resource_type == "workspace",
                     SqlRolePermission.resource_pattern == "*",
                     SqlRolePermission.permission == MANAGE.name,
