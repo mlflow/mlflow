@@ -3238,8 +3238,8 @@ async def test_real_db_pre_llm_guardrail_blocks(store: SqlAlchemyStore):
 
 @pytest.mark.asyncio
 async def test_real_db_post_llm_guardrail_blocks(store: SqlAlchemyStore):
-    endpoint = _setup_guardrail_endpoint(store, "real-ep-after-block")
-    _setup_db_guardrail(store, "real-ep-after-block", "AFTER", "VALIDATION")
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-post-llm-block")
+    _setup_db_guardrail(store, "real-ep-post-llm-block", "AFTER", "VALIDATION")
 
     mock_response = _make_guardrail_chat_response("Unsafe output")
     mock_request = _make_guardrail_mock_request({
