@@ -134,4 +134,4 @@ To delete multiple guardrails at once, select their checkboxes in the table and 
 
 ## Ordering and Execution
 
-Multiple guardrails on the same endpoint run in the order shown in the table. Pre-LLM-stage guardrails all execute before the request reaches the LLM; post-LLM-stage guardrails execute before the response is returned to the caller. If any guardrail blocks the request, subsequent guardrails in the same stage are skipped.
+Multiple guardrails on the same endpoint run in the order shown in the table. Pre-LLM guardrails all execute before the request reaches the LLM; post-LLM guardrails execute before the response is returned to the caller. If any guardrail blocks the request, subsequent guardrails in the same stage are skipped.
