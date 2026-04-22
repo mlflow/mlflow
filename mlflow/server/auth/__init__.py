@@ -1754,13 +1754,27 @@ def get_auth_func(authorization_function: str) -> Callable[[], Authorization | R
 
 def authenticate_request_basic_auth() -> Authorization | Response:
     """Authenticate the request using basic auth."""
-    if request.authorization is None:
+    authorization = request.authorization
+    if authorization is None:
+        if alt_auth := request.headers.get("X-Mlflow-Authorization"):
+            try:
+                scheme, credentials = alt_auth.split(None, 1)
+                if scheme.lower() == "basic":
+                    decoded = base64.b64decode(credentials).decode("ascii")
+                    username, _, password = decoded.partition(":")
+                    authorization = Authorization(
+                        "basic", {"username": username, "password": password}
+                    )
+            except Exception:
+                pass
+
+    if authorization is None:
         return make_basic_auth_response()
 
-    username = request.authorization.username
-    password = request.authorization.password
+    username = authorization.username
+    password = authorization.password
     if store.authenticate_user(username, password):
-        return request.authorization
+        return authorization
     else:
         # let user attempt login again
         return make_basic_auth_response()
@@ -2953,10 +2967,10 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     Returns:
         User object if authentication succeeds, None otherwise.
     """
-    if "Authorization" not in request.headers:
+    auth = request.headers.get("Authorization") or request.headers.get("X-Mlflow-Authorization")
+    if auth is None:
         return None
 
-    auth = request.headers["Authorization"]
     try:
         scheme, credentials = auth.split()
         if scheme.lower() != "basic":

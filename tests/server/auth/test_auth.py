@@ -104,6 +104,17 @@ def test_authenticate(client, monkeypatch):
         client.search_experiments()
 
 
+def test_x_mlflow_authorization_header(client):
+    username, password = create_user(client.tracking_uri)
+    credentials = base64.b64encode(f"{username}:{password}".encode()).decode("ascii")
+    response = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/experiments/search",
+        headers={"X-Mlflow-Authorization": f"Basic {credentials}"},
+        json={"max_results": 100},
+    )
+    assert response.status_code == 200
+
+
 @pytest.mark.parametrize(
     ("username", "password"),
     [
@@ -3247,3 +3258,47 @@ def test_fastapi_malformed_authorization_header(mock_auth_store, mock_auth_confi
     user = _authenticate_fastapi_request(request)
 
     assert user is None
+
+
+# -- X-Mlflow-Authorization fallback header --
+
+
+def _make_request_with_mlflow_auth_header(path, mlflow_authorization):
+    request = mock.Mock()
+    request.url.path = path
+    request.headers = {"X-Mlflow-Authorization": mlflow_authorization}
+    return request
+
+
+def test_fastapi_x_mlflow_authorization_header_used_when_no_authorization(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request_with_mlflow_auth_header(
+        "/api/3.0/mlflow/experiments/list", f"Basic {credentials}"
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_fastapi_authorization_header_takes_precedence_over_x_mlflow_authorization(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials_alice = base64.b64encode(b"alice:password123").decode("ascii")
+    credentials_bob = base64.b64encode(b"bob:password456").decode("ascii")
+    request = mock.Mock()
+    request.url.path = "/api/3.0/mlflow/experiments/list"
+    request.headers = {
+        "Authorization": f"Basic {credentials_alice}",
+        "X-Mlflow-Authorization": f"Basic {credentials_bob}",
+    }
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
