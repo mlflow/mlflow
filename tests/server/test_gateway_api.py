@@ -3188,8 +3188,8 @@ async def test_invocations_bypass_header_wrong_value_runs_guardrails(store: SqlA
 
 @pytest.mark.asyncio
 async def test_real_db_pre_llm_guardrail_passes(store: SqlAlchemyStore):
-    endpoint = _setup_guardrail_endpoint(store, "real-ep-before-pass")
-    _setup_db_guardrail(store, "real-ep-before-pass", "BEFORE", "VALIDATION")
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-pre-llm-pass")
+    _setup_db_guardrail(store, "real-ep-pre-llm-pass", "BEFORE", "VALIDATION")
 
     mock_response = _make_guardrail_chat_response("Safe response")
     mock_request = _make_guardrail_mock_request({
