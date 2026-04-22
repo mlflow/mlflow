@@ -109,7 +109,7 @@ def test_x_mlflow_authorization_header(client):
     credentials = base64.b64encode(f"{username}:{password}".encode()).decode("ascii")
     response = requests.post(
         f"{client.tracking_uri}/api/2.0/mlflow/experiments/search",
-        headers={"X-Mlflow-Authorization": f"Basic {credentials}"},
+        headers={"x-mlflow-authorization": f"Basic {credentials}"},
         json={"max_results": 100},
     )
     assert response.status_code == 200
@@ -122,7 +122,7 @@ def test_authorization_header_takes_precedence_over_x_mlflow_authorization(clien
         f"{client.tracking_uri}/api/2.0/mlflow/experiments/search",
         headers={
             "Authorization": "Bearer invalid-token",
-            "X-Mlflow-Authorization": f"Basic {credentials}",
+            "x-mlflow-authorization": f"Basic {credentials}",
         },
         json={"max_results": 100},
     )
@@ -3274,7 +3274,7 @@ def test_fastapi_malformed_authorization_header(mock_auth_store, mock_auth_confi
     assert user is None
 
 
-# -- X-Mlflow-Authorization fallback header --
+# -- x-mlflow-authorization fallback header --
 
 
 def test_fastapi_x_mlflow_authorization_header_used_when_no_authorization(
@@ -3283,7 +3283,7 @@ def test_fastapi_x_mlflow_authorization_header_used_when_no_authorization(
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
     request = _make_request("/api/3.0/mlflow/experiments/list")
-    request.headers = {"X-Mlflow-Authorization": f"Basic {credentials}"}
+    request.headers = {"x-mlflow-authorization": f"Basic {credentials}"}
 
     user = _authenticate_fastapi_request(request)
 
@@ -3301,7 +3301,7 @@ def test_fastapi_authorization_header_takes_precedence_over_x_mlflow_authorizati
     request.url.path = "/api/3.0/mlflow/experiments/list"
     request.headers = {
         "Authorization": f"Basic {credentials_alice}",
-        "X-Mlflow-Authorization": f"Basic {credentials_bob}",
+        "x-mlflow-authorization": f"Basic {credentials_bob}",
     }
 
     user = _authenticate_fastapi_request(request)

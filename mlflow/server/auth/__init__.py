@@ -1756,7 +1756,7 @@ def authenticate_request_basic_auth() -> Authorization | Response:
     """Authenticate the request using basic auth."""
     authorization = request.authorization
     if authorization is None and not request.headers.get("Authorization"):
-        if alt_auth := request.headers.get("X-Mlflow-Authorization"):
+        if alt_auth := request.headers.get("x-mlflow-authorization"):
             try:
                 scheme, credentials = alt_auth.split(None, 1)
                 if scheme.lower() == "basic":
@@ -2967,7 +2967,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     Returns:
         User object if authentication succeeds, None otherwise.
     """
-    auth = request.headers.get("Authorization") or request.headers.get("X-Mlflow-Authorization")
+    auth = request.headers.get("Authorization") or request.headers.get("x-mlflow-authorization")
     if auth is None:
         return None
 
