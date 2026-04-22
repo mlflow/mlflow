@@ -24,7 +24,7 @@ export const PipelineStagePicker = ({
         css={{ display: 'block', marginBottom: theme.spacing.sm, fontSize: theme.typography.fontSizeSm }}
       >
         <FormattedMessage
-          defaultMessage="Click on a stage to choose where this guardrail runs."
+          defaultMessage="Click on a stage to choose when this guardrail runs."
           description="Stage help text"
         />
       </Typography.Text>

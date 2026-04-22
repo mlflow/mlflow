@@ -1,9 +1,10 @@
 import type { GuardrailStage } from '../../types';
 
 export const STAGE_HINTS: Record<GuardrailStage, string> = {
-  BEFORE: 'Receives {{ inputs }} (the incoming request). Example: "Is {{ inputs }} free of profanity?"',
+  BEFORE:
+    'Receives {{ inputs }} (the incoming request). Answer yes to pass, no to block/sanitize. Example: "Is {{ inputs }} free of profanity? Answer yes if it is safe, no if it contains profanity."',
   AFTER:
-    'Receives {{ inputs }} (the request) and {{ outputs }} (the response). Example: "Does {{ outputs }} correctly answer {{ inputs }}?"',
+    'Receives {{ inputs }} (the request) and {{ outputs }} (the response). Answer yes to pass, no to block/sanitize. Example: "Does {{ outputs }} correctly answer {{ inputs }}? Answer yes if it does, no if it is off-topic or incorrect."',
 };
 
 /** Returns an error message if instructions are incompatible with the stage, or null if valid. */
