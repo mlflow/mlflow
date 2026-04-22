@@ -659,6 +659,7 @@ class TraceSource(str, Enum):
     """Source of a trace received by the MLflow server."""
 
     MLFLOW_PYTHON_CLIENT = "MLFLOW_PYTHON_CLIENT"
+    EXTERNAL_OTEL_CLIENT = "EXTERNAL_OTEL_CLIENT"
     UNKNOWN = "UNKNOWN"
 
 

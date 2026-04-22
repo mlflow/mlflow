@@ -10,13 +10,12 @@ import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
-import { SpanModelCostBadge } from './SpanModelCostBadge';
 import type { ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
+import { SpanModelCostBadge } from './SpanModelCostBadge';
 import { getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerBadge } from '../ModelTraceExplorerBadge';
 import ModelTraceExplorerResizablePane from '../ModelTraceExplorerResizablePane';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import { AddToDatasetButton } from '../assessments-pane/AddToDatasetButton';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { AssessmentsPane } from '../assessments-pane/AssessmentsPane';
 import { ASSESSMENT_PANE_MIN_WIDTH } from '../assessments-pane/AssessmentsPane.utils';
@@ -87,20 +86,16 @@ function ModelTraceExplorerRightPaneTabsImpl({
       onValueChange={(tab: string) => setActiveTab(tab as ModelTraceExplorerTab)}
     >
       <SpanModelCostBadge activeSpan={activeSpan} />
-      {!displayReadOnlyAssessments && (
+      {!displayReadOnlyAssessments && !assessmentsPaneExpanded && (
         <div
           css={{
             position: 'absolute',
-            right: assessmentsPaneExpanded ? theme.spacing.xs : theme.spacing.md,
+            right: theme.spacing.md,
             top: theme.spacing.xs,
             zIndex: 1,
             backgroundColor: theme.colors.backgroundPrimary,
-            display: 'flex',
-            gap: theme.spacing.sm,
-            alignItems: 'center',
           }}
         >
-          <AddToDatasetButton />
           <AssessmentPaneToggle />
         </div>
       )}

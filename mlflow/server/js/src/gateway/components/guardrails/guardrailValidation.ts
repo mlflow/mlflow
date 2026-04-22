@@ -11,12 +11,12 @@ export const validateStageInstructions = (instructions: string, stage: Guardrail
   if (!instructions.trim()) return null;
   if (stage === 'BEFORE') {
     if (instructions.includes('{{ outputs }}')) {
-      return '{{ outputs }} is not available in BEFORE stage — the LLM has not run yet';
+      return '{{ outputs }} is not available in Pre-LLM Guardrails — the LLM has not run yet';
     }
-    return instructions.includes('{{ inputs }}') ? null : 'BEFORE-stage instructions must reference {{ inputs }}';
+    return instructions.includes('{{ inputs }}') ? null : 'Pre-LLM Guardrails instructions must reference {{ inputs }}';
   }
   // AFTER
   return instructions.includes('{{ inputs }}') || instructions.includes('{{ outputs }}')
     ? null
-    : 'AFTER-stage instructions must reference {{ inputs }} or {{ outputs }}';
+    : 'Post-LLM Guardrails instructions must reference {{ inputs }} or {{ outputs }}';
 };

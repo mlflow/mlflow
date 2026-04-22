@@ -22,6 +22,7 @@ export const ModelTraceExplorerRetrieverFieldRenderer = ({
 
   return (
     <div
+      data-testid="model-trace-explorer-retriever-field-renderer"
       css={{
         backgroundColor: theme.colors.backgroundPrimary,
         borderRadius: theme.borders.borderRadiusSm,

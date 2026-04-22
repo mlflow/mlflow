@@ -148,25 +148,25 @@ describe('AddGuardrailModal', () => {
 
   // ─── Stage-variable validation ────────────────────────────────────────
 
-  test('shows BEFORE-stage hint on instructions field', async () => {
+  test('shows Pre-LLM stage hint on instructions field', async () => {
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Custom Guardrail').closest('[role="option"]')!);
 
-    // Default stage is BEFORE
+    // Default stage is BEFORE (Pre-LLM)
     expect(screen.getByText(/Receives {{ inputs }}/)).toBeInTheDocument();
   });
 
-  test('shows AFTER-stage hint when AFTER stage is selected', async () => {
+  test('shows Post-LLM stage hint when Post-LLM stage is selected', async () => {
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Custom Guardrail').closest('[role="option"]')!);
-    await userEvent.click(screen.getByText('After Guardrails'));
+    await userEvent.click(screen.getByText('Post-LLM Guardrails'));
 
     expect(screen.getByText(/Receives {{ inputs }}.*{{ outputs }}/s)).toBeInTheDocument();
   });
 
-  test('shows error and disables Create when BEFORE-stage instructions lack {{ inputs }}', async () => {
+  test('shows error and disables Create when Pre-LLM stage instructions lack {{ inputs }}', async () => {
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Custom Guardrail').closest('[role="option"]')!);
@@ -177,11 +177,11 @@ describe('AddGuardrailModal', () => {
     const textarea = screen.getByPlaceholderText(instructionsPlaceholder);
     await userEvent.type(textarea, 'Is this safe?');
 
-    expect(screen.getByText('BEFORE-stage instructions must reference {{ inputs }}')).toBeInTheDocument();
+    expect(screen.getByText('Pre-LLM Guardrails instructions must reference {{ inputs }}')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create Guardrail' })).toBeDisabled();
   });
 
-  test('enables Create when BEFORE-stage instructions contain {{ inputs }}', async () => {
+  test('enables Create when Pre-LLM stage instructions contain {{ inputs }}', async () => {
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Custom Guardrail').closest('[role="option"]')!);
@@ -197,7 +197,7 @@ describe('AddGuardrailModal', () => {
     expect(screen.getByRole('button', { name: 'Create Guardrail' })).not.toBeDisabled();
   });
 
-  test('shows error when BEFORE-stage instructions reference {{ outputs }}', async () => {
+  test('shows error when Pre-LLM stage instructions reference {{ outputs }}', async () => {
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Custom Guardrail').closest('[role="option"]')!);
@@ -208,7 +208,7 @@ describe('AddGuardrailModal', () => {
     const textarea = screen.getByPlaceholderText(instructionsPlaceholder);
     fireEvent.change(textarea, { target: { value: 'Is {{ outputs }} appropriate?' } });
 
-    expect(screen.getByText(/{{ outputs }} is not available in BEFORE stage/)).toBeInTheDocument();
+    expect(screen.getByText(/{{ outputs }} is not available in Pre-LLM Guardrails/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create Guardrail' })).toBeDisabled();
   });
 

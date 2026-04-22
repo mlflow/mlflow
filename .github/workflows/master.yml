@@ -322,9 +322,11 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --extra genai
+          # TODO: migrate mlflow/genai/scorers/phoenix to arize-phoenix-evals 3.x API
+          # (removed HallucinationEvaluator/RelevanceEvaluator/etc. and LiteLLMModel)
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas arize-phoenix-evals trulens trulens-providers-litellm guardrails-ai
+            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm guardrails-ai
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run GenAI Tests (OSS)

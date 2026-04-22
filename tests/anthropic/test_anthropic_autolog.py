@@ -192,6 +192,8 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     }
     # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
     span.outputs.pop("container", None)
+    # Remove 'stop_details' key added in anthropic v0.88.0
+    span.outputs.pop("stop_details", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -381,6 +383,8 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     }
     # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
     span.outputs.pop("container", None)
+    # Remove 'stop_details' key added in anthropic v0.88.0
+    span.outputs.pop("stop_details", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -435,18 +439,20 @@ def test_messages_autolog_with_cached_tokens(is_async, mock_litellm_cost):
     assert traces[0].info.status == "OK"
     span = traces[0].data.spans[0]
 
+    # Anthropic's input_tokens (50) excludes cache tokens. After normalization:
+    # input_tokens = 50 + 25 (cache_read) + 15 (cache_creation) = 90
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.INPUT_TOKENS: 90,
         TokenUsageKey.OUTPUT_TOKENS: 20,
-        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.TOTAL_TOKENS: 110,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
     }
 
     assert traces[0].info.token_usage == {
-        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.INPUT_TOKENS: 90,
         TokenUsageKey.OUTPUT_TOKENS: 20,
-        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.TOTAL_TOKENS: 110,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
     }
