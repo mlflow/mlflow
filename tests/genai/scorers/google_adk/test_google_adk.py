@@ -467,7 +467,6 @@ def _create_tool_trace(inputs, outputs, tool_calls):
 
 
 def test_response_match_with_trace():
-    """Drive the scorer with a real trace; no extractor patching."""
     trace = _create_test_trace(
         inputs={"question": "What is MLflow?"},
         outputs={"answer": "MLflow is a platform for ML."},
@@ -617,7 +616,6 @@ def test_map_scorer_inputs_to_invocation_no_expectations():
 
 
 def test_map_scorer_inputs_to_invocation_uses_context_fallback():
-    """`context` key should be respected as a fallback for reference text."""
     from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
 
     _, expected = map_scorer_inputs_to_invocation(
@@ -630,9 +628,6 @@ def test_map_scorer_inputs_to_invocation_uses_context_fallback():
 
 
 def test_extract_actual_tool_calls_from_trace():
-    """Trace-based extraction of actual tool calls goes through the public
-    helper and returns ``{"name", "args"}`` dicts in call order.
-    """
     from mlflow.genai.scorers.google_adk.utils import _extract_actual_tool_calls
 
     trace = _create_tool_trace(
@@ -651,7 +646,6 @@ def test_extract_actual_tool_calls_from_trace():
 
 
 def test_extract_actual_tool_calls_expectation_override():
-    """Explicit ``expectations["actual_tool_calls"]`` wins over trace."""
     from mlflow.genai.scorers.google_adk.utils import _extract_actual_tool_calls
 
     trace = _create_tool_trace(
@@ -667,7 +661,6 @@ def test_extract_actual_tool_calls_expectation_override():
 
 
 def test_extract_actual_tool_calls_no_trace_no_expectation():
-    """With neither trace nor expectation override, returns empty list."""
     from mlflow.genai.scorers.google_adk.utils import _extract_actual_tool_calls
 
     assert _extract_actual_tool_calls(expectations=None, trace=None) == []
@@ -675,7 +668,6 @@ def test_extract_actual_tool_calls_no_trace_no_expectation():
 
 
 def test_map_scorer_inputs_to_invocation_reads_trace_tool_calls():
-    """End-to-end: full helper should populate actual_invocation from the trace."""
     from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
 
     trace = _create_tool_trace(
