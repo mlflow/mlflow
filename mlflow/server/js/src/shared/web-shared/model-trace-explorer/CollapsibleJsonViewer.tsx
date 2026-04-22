@@ -186,6 +186,7 @@ function JsonNode({
     textAlign: 'right' as const,
     color: theme.colors.textSecondary,
     userSelect: 'none' as const,
+    flexShrink: 0,
     ...monoTextStyle,
   };
 
