@@ -19,7 +19,13 @@ jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 jest.mock('../../../experiment-tracking/components/EndpointSelector', () => ({
-  EndpointSelector: ({ onEndpointSelect, disabled }: { onEndpointSelect: (value: string) => void; disabled?: boolean }) => (
+  EndpointSelector: ({
+    onEndpointSelect,
+    disabled,
+  }: {
+    onEndpointSelect: (value: string) => void;
+    disabled?: boolean;
+  }) => (
     <button type="button" onClick={() => onEndpointSelect('judge-endpoint')} disabled={disabled}>
       Select guardrail model
     </button>
