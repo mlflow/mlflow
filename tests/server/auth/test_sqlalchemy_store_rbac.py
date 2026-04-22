@@ -36,7 +36,6 @@ def test_create_role(store):
     assert role.name == "viewer"
     assert role.workspace == "ws1"
     assert role.description == "Read-only access"
-    assert role.is_workspace_admin is False
     assert role.permissions == []
 
 
@@ -50,11 +49,6 @@ def test_create_role_same_name_different_workspace(store):
     r1 = store.create_role(name="viewer", workspace="ws1")
     r2 = store.create_role(name="viewer", workspace="ws2")
     assert r1.id != r2.id
-
-
-def test_create_workspace_admin_role(store):
-    role = store.create_role(name="ws-admin", workspace="ws1", is_workspace_admin=True)
-    assert role.is_workspace_admin is True
 
 
 def test_get_role(store):
@@ -378,11 +372,57 @@ def test_get_role_permission_wildcard_and_specific_union(store, user):
 
 
 def test_get_role_permission_workspace_admin(store, user):
-    role = store.create_role(name="ws-admin", workspace="ws1", is_workspace_admin=True)
+    role = store.create_role(name="ws-admin", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "MANAGE")
     store.assign_role_to_user(user.id, role.id)
 
+    # Workspace-wide MANAGE applies to any resource type.
     result = store.get_role_permission_for_resource(user.id, "experiment", "any-id", "ws1")
     assert result == MANAGE
+
+    result = store.get_role_permission_for_resource(user.id, "registered_model", "m1", "ws1")
+    assert result == MANAGE
+
+
+def test_workspace_permission_applies_across_resource_types(store, user):
+    role = store.create_role(name="reader", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "READ")
+    store.assign_role_to_user(user.id, role.id)
+
+    # READ at the workspace level grants READ on every resource type in the workspace.
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == READ
+    assert store.get_role_permission_for_resource(user.id, "registered_model", "m1", "ws1") == READ
+    assert store.get_role_permission_for_resource(user.id, "gateway_endpoint", "e1", "ws1") == READ
+
+
+def test_workspace_permission_respects_union_with_specific(store, user):
+    role = store.create_role(name="mixed", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "READ")
+    store.add_role_permission(role.id, "experiment", "42", "EDIT")
+    store.assign_role_to_user(user.id, role.id)
+
+    # Experiment 42: max(workspace READ, specific EDIT) = EDIT
+    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == EDIT
+    # Other experiments: just workspace READ
+    assert store.get_role_permission_for_resource(user.id, "experiment", "99", "ws1") == READ
+
+
+def test_is_workspace_admin(store, user):
+    role = store.create_role(name="ws-admin", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.is_workspace_admin(user.id, "ws1") is True
+    assert store.is_workspace_admin(user.id, "ws2") is False
+
+
+def test_is_workspace_admin_requires_manage(store, user):
+    # A non-MANAGE workspace permission does not make the user a WP admin.
+    role = store.create_role(name="ws-reader", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "READ")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.is_workspace_admin(user.id, "ws1") is False
 
 
 def test_get_role_permission_does_not_cross_workspace(store, user):

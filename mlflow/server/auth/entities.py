@@ -364,14 +364,12 @@ class Role:
         name,
         workspace,
         description=None,
-        is_workspace_admin=False,
         permissions=None,
     ):
         self._id = id_
         self._name = name
         self._workspace = workspace
         self._description = description
-        self._is_workspace_admin = is_workspace_admin
         self._permissions = permissions or []
 
     @property
@@ -399,10 +397,6 @@ class Role:
         self._description = description
 
     @property
-    def is_workspace_admin(self):
-        return self._is_workspace_admin
-
-    @property
     def permissions(self):
         return self._permissions
 
@@ -412,7 +406,6 @@ class Role:
             "name": self.name,
             "workspace": self.workspace,
             "description": self.description,
-            "is_workspace_admin": self.is_workspace_admin,
             "permissions": [p.to_json() for p in self.permissions],
         }
 
@@ -423,7 +416,6 @@ class Role:
             name=dictionary["name"],
             workspace=dictionary.get("workspace", DEFAULT_WORKSPACE_NAME),
             description=dictionary.get("description"),
-            is_workspace_admin=dictionary.get("is_workspace_admin", False),
             permissions=[RolePermission.from_json(p) for p in dictionary.get("permissions", [])],
         )
 

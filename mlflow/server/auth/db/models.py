@@ -191,7 +191,6 @@ class SqlRole(Base):
     name = Column(String(255), nullable=False)
     workspace = Column(String(63), nullable=False)
     description = Column(String(1024), nullable=True)
-    is_workspace_admin = Column(Boolean, default=False)
     permissions = relationship("SqlRolePermission", backref="role", cascade="all, delete-orphan")
     user_assignments = relationship(
         "SqlUserRoleAssignment", backref="role", cascade="all, delete-orphan"
@@ -207,7 +206,6 @@ class SqlRole(Base):
             name=self.name,
             workspace=self.workspace,
             description=self.description,
-            is_workspace_admin=self.is_workspace_admin,
             permissions=[p.to_mlflow_entity() for p in self.permissions],
         )
 

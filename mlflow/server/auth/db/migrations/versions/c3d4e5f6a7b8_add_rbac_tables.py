@@ -23,7 +23,6 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("workspace", sa.String(length=63), nullable=False),
         sa.Column("description", sa.String(length=1024), nullable=True),
-        sa.Column("is_workspace_admin", sa.Boolean(), server_default=sa.false()),
         sa.UniqueConstraint("workspace", "name", name="unique_workspace_role_name"),
     )
     op.create_index("idx_roles_workspace", "roles", ["workspace"], unique=False)

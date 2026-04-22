@@ -87,6 +87,10 @@ VALID_RESOURCE_TYPES = frozenset({
     "gateway_secret",
     "gateway_endpoint",
     "gateway_model_definition",
+    # Special: workspace-wide permissions that apply to all resources in the role's workspace.
+    # resource_pattern must be "*". permission=MANAGE additionally grants role/user
+    # management capabilities within the workspace.
+    "workspace",
 })
 
 

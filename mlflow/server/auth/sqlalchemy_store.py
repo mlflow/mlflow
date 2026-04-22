@@ -803,7 +803,6 @@ class SqlAlchemyStore:
         name: str,
         workspace: str,
         description: str | None = None,
-        is_workspace_admin: bool = False,
     ) -> Role:
         with self.ManagedSessionMaker() as session:
             try:
@@ -811,7 +810,6 @@ class SqlAlchemyStore:
                     name=name,
                     workspace=workspace,
                     description=description,
-                    is_workspace_admin=is_workspace_admin,
                 )
                 session.add(role)
                 session.flush()
@@ -1097,10 +1095,16 @@ class SqlAlchemyStore:
 
             best_permission_name: str | None = None
             for role in roles:
-                if role.is_workspace_admin:
-                    return MANAGE
-
                 for rp in role.permissions:
+                    # Workspace-wide permission — applies to every resource type.
+                    if rp.resource_type == "workspace" and rp.resource_pattern == "*":
+                        best_permission_name = (
+                            max_permission(best_permission_name, rp.permission)
+                            if best_permission_name is not None
+                            else rp.permission
+                        )
+                        continue
+                    # Resource-type-specific permission.
                     if rp.resource_type != resource_type:
                         continue
                     if rp.resource_pattern in ("*", resource_id):
@@ -1113,3 +1117,25 @@ class SqlAlchemyStore:
             if best_permission_name is None:
                 return None
             return get_permission(best_permission_name)
+
+    def is_workspace_admin(self, user_id: int, workspace: str) -> bool:
+        """
+        True if the user has a role in the given workspace with
+        (resource_type='workspace', resource_pattern='*', permission=MANAGE).
+        """
+        with self.ManagedSessionMaker() as session:
+            return (
+                session
+                .query(SqlRolePermission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                    SqlRolePermission.resource_type == "workspace",
+                    SqlRolePermission.resource_pattern == "*",
+                    SqlRolePermission.permission == MANAGE.name,
+                )
+                .first()
+                is not None
+            )
