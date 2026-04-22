@@ -3939,6 +3939,10 @@
     "defaultMessage": "Create custom code judge",
     "description": "Title for new custom code judge modal"
   },
+  "N5IyPh": {
+    "defaultMessage": "Click on a stage to choose when this guardrail runs.",
+    "description": "Stage help text"
+  },
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
     "description": "Time duration in months"
@@ -7766,10 +7770,6 @@
   "kCsAho": {
     "defaultMessage": "Correctness",
     "description": "LLM template option"
-  },
-  "kDCMl+": {
-    "defaultMessage": "Click on a stage to choose where this guardrail runs.",
-    "description": "Stage help text"
   },
   "kHDQiE": {
     "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",

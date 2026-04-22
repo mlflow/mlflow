@@ -70,13 +70,15 @@ When you switch between stages, the editor automatically swaps `{{ inputs }}` â†
 
 #### Instructions
 
-Write natural-language instructions for the LLM judge. Instructions describe what the guardrail should look for and how it should respond. The hint text below the label shows an example for the currently selected stage.
+Write natural-language instructions for the LLM judge. Instructions describe what the guardrail should look for and how it should respond.
+
+The judge must reply **yes** to pass the content through, or **no** to trigger the configured action (block or sanitize). The hint text below the label in the UI shows a stage-specific example.
 
 Instructions must contain at least one content variable so the judge receives the actual content to evaluate. Use `{{ inputs }}` to reference the request and `{{ outputs }}` to reference the LLM response â€” Before guardrails typically use `{{ inputs }}`, while After guardrails can use `{{ outputs }}`, `{{ inputs }}`, or both.
 
 Example instructions for a custom toxicity guardrail on the After stage:
 
-```
+```text
 You are a toxicity detector. Review the LLM response below for any harmful,
 offensive, or hateful language. Reply with a JSON object:
 
