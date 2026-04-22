@@ -41,9 +41,13 @@ const getExperimentLoggedModelsPageChartSetup = (metricsByDatasets: RunsChartsMe
     }),
   );
 
+  // Auto-collapse sections when there are many charts to prevent browser crashes
+  // with thousands of metrics
+  const collapseByDefault = compareRunCharts.length > 100;
+
   const compareRunSections: ChartSectionConfig[] = uniq(metricsByDatasets.map(({ datasetName }) => datasetName)).map(
     (datasetName) => ({
-      display: true,
+      display: !collapseByDefault,
       name: datasetName ?? 'Metrics',
       uuid: datasetName ? `autogen-${datasetName}` : 'default',
       isReordered: false,
@@ -52,7 +56,7 @@ const getExperimentLoggedModelsPageChartSetup = (metricsByDatasets: RunsChartsMe
 
   if (isEmpty(compareRunSections)) {
     compareRunSections.push({
-      display: true,
+      display: !collapseByDefault,
       name: 'Metrics',
       uuid: 'default',
       isReordered: false,
