@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useRef, useMemo } from 'react';
 import type { Control, UseFormSetValue, UseFormGetValues } from 'react-hook-form';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
@@ -27,8 +27,12 @@ import { type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE, isGuidelinesTemplate, type JudgeOutputTypeKind, type JudgePrimitiveOutputType } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSection from './EvaluateTracesSection';
-import { ModelSectionRenderer } from './ModelSectionRenderer';
 import OutputTypeSection from './OutputTypeSection';
+import {
+  GenAIModelSelection,
+  type ModelSelectionValues,
+} from '../../components/experiment-page/components/traces-v3/GenAIModelSelection';
+import { formatGatewayModelFromEndpoint } from '../../../gateway/utils/gatewayUtils';
 import { AccordionSection, ScorerFormAccordion, type ScorerFormAccordionHandle } from './ScorerFormAccordion';
 import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
 
@@ -535,6 +539,65 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
   );
 };
 
+interface ModelSectionWithGenAIProps {
+  mode: ScorerFormMode;
+  control: Control<LLMScorerFormData>;
+  setValue: UseFormSetValue<LLMScorerFormData>;
+  onUserSelect?: (fieldName: keyof LLMScorerFormData, value: string) => void;
+}
+
+const ModelSectionWithGenAI: React.FC<ModelSectionWithGenAIProps> = ({ mode, control, setValue, onUserSelect }) => {
+  const currentModel = useWatch({ control, name: 'model' });
+  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY;
+
+  // Compute initial values once at mount from the current model string
+  const initialValues = useMemo((): Partial<ModelSelectionValues> | undefined => {
+    if (!currentModel) return undefined;
+    if (currentModel.startsWith('gateway:/')) {
+      return { mode: 'endpoint', endpointName: currentModel.replace('gateway:/', '') };
+    }
+    const slashIdx = currentModel.indexOf(':/');
+    if (slashIdx !== -1) {
+      return { mode: 'direct', provider: currentModel.slice(0, slashIdx), model: currentModel.slice(slashIdx + 2) };
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — only used as initial value for GenAIModelSelection
+
+  const handleValuesChange = useCallback(
+    (values: ModelSelectionValues) => {
+      let modelValue = '';
+      if (values.mode === 'endpoint' && values.endpointName) {
+        modelValue = formatGatewayModelFromEndpoint(values.endpointName);
+      } else if (values.mode === 'direct' && values.provider && values.model) {
+        modelValue = `${values.provider}:/${values.model}`;
+      }
+      setValue('model', modelValue, { shouldValidate: true, shouldDirty: true });
+      onUserSelect?.('model', modelValue);
+    },
+    [setValue, onUserSelect],
+  );
+
+  const handleValidityChange = useCallback(
+    (isValid: boolean) => {
+      if (!isValid) {
+        setValue('model', '', { shouldValidate: true, shouldDirty: true });
+      }
+    },
+    [setValue],
+  );
+
+  return (
+    <GenAIModelSelection
+      onValidityChange={handleValidityChange}
+      onValuesChange={handleValuesChange}
+      readOnly={isReadOnly}
+      initialValues={initialValues}
+      showCreateEndpoint
+    />
+  );
+};
+
 const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
   mode,
   control,
@@ -571,7 +634,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
       <ScorerFormEvaluationScopeSelect mode={mode} onUserSelect={checkAndProgressGeneral} />
       <NameSection mode={mode} control={control} />
       {isScorerModelSelectionEnabled() && (
-        <ModelSectionRenderer
+        <ModelSectionWithGenAI
           mode={mode}
           control={control}
           setValue={setValue}
@@ -616,7 +679,9 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
         {isScorerOutputTypeSelectorEnabled() && EDITABLE_TEMPLATES.has(selectedTemplate) && (
           <OutputTypeSection mode={mode} control={control} />
         )}
-        {isScorerModelSelectionEnabled() && <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />}
+        {isScorerModelSelectionEnabled() && (
+          <ModelSectionWithGenAI mode={mode} control={control} setValue={setValue} />
+        )}
         <EvaluateTracesSection control={control} mode={mode} setValue={setValue} />
       </div>
     );

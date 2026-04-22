@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button, Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { GatewayGuardrailConfig, GuardrailStage, GuardrailAction } from '../../types';
@@ -6,7 +6,10 @@ import { GatewayApi } from '../../api';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { registerScorer } from '../../../experiment-tracking/pages/experiment-scorers/api';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../../../experiment-tracking/pages/experiment-scorers/prompts';
-import { EndpointSelector } from '../../../experiment-tracking/components/EndpointSelector';
+import {
+  GenAIModelSelection,
+  type ModelSelectionValues,
+} from '../../../experiment-tracking/components/experiment-page/components/traces-v3/GenAIModelSelection';
 import { STAGE_HINTS, validateStageInstructions } from './guardrailValidation';
 import { PipelineStagePicker } from './PipelineStagePicker';
 import { ActionPicker } from './ActionPicker';
@@ -201,6 +204,25 @@ export const GuardrailDetailModal = ({
     onClose,
   ]);
 
+  const genAIInitialValues = useMemo(
+    (): Partial<ModelSelectionValues> | undefined =>
+      initialModelEndpoint ? { mode: 'endpoint', endpointName: initialModelEndpoint } : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [], // intentionally empty — only used as initial value for GenAIModelSelection (key forces remount)
+  );
+
+  const handleModelValuesChange = useCallback((values: ModelSelectionValues) => {
+    if (values.mode === 'endpoint' && values.endpointName) {
+      setModelEndpoint(values.endpointName);
+    }
+  }, []);
+
+  const handleModelValidityChange = useCallback((isValid: boolean) => {
+    if (!isValid) {
+      setModelEndpoint(undefined);
+    }
+  }, []);
+
   const handleDelete = useCallback(() => {
     if (!guardrailConfig) return;
     onDelete(guardrailConfig.guardrail_id);
@@ -303,12 +325,12 @@ export const GuardrailDetailModal = ({
             <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
               <FormattedMessage defaultMessage="Guardrail Model" description="Guardrail model label" />
             </Typography.Text>
-            <EndpointSelector
-              componentIdPrefix="mlflow.gateway.guardrails.detail-model"
-              currentEndpointName={modelEndpoint}
-              onEndpointSelect={setModelEndpoint}
-              showCreateButton={false}
-              excludeEndpointIds={[endpointId]}
+            <GenAIModelSelection
+              key={`${guardrailConfig.guardrail_id}-${open}`}
+              onValidityChange={handleModelValidityChange}
+              onValuesChange={handleModelValuesChange}
+              initialValues={genAIInitialValues}
+              showCreateEndpoint
             />
           </div>
         </div>

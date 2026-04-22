@@ -23,7 +23,10 @@ import type { GatewayGuardrailConfig, GuardrailStage, GuardrailAction } from '..
 import { registerScorer } from '../../../experiment-tracking/pages/experiment-scorers/api';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../../../experiment-tracking/pages/experiment-scorers/prompts';
 import { LLM_TEMPLATE } from '../../../experiment-tracking/pages/experiment-scorers/types';
-import { EndpointSelector } from '../../../experiment-tracking/components/EndpointSelector';
+import {
+  GenAIModelSelection,
+  type ModelSelectionValues,
+} from '../../../experiment-tracking/components/experiment-page/components/traces-v3/GenAIModelSelection';
 import { STAGE_HINTS, validateStageInstructions } from './guardrailValidation';
 import { PipelineStagePicker } from './PipelineStagePicker';
 import { ActionPicker } from './ActionPicker';
@@ -286,6 +289,18 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
     queryClient,
   ]);
 
+  const handleModelValuesChange = useCallback((values: ModelSelectionValues) => {
+    if (values.mode === 'endpoint' && values.endpointName) {
+      setModelEndpoint(values.endpointName);
+    }
+  }, []);
+
+  const handleModelValidityChange = useCallback((isValid: boolean) => {
+    if (!isValid) {
+      setModelEndpoint(undefined);
+    }
+  }, []);
+
   const instructionsError = validateStageInstructions(instructions, stage);
   const isStep2Valid = name.trim().length > 0 && instructionsError === null;
 
@@ -411,12 +426,10 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
               <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
                 <FormattedMessage defaultMessage="Guardrail Model" description="Guardrail model label" />
               </Typography.Text>
-              <EndpointSelector
-                componentIdPrefix="mlflow.gateway.guardrails.config-model"
-                currentEndpointName={modelEndpoint}
-                onEndpointSelect={setModelEndpoint}
-                showCreateButton={false}
-                excludeEndpointIds={[endpointId]}
+              <GenAIModelSelection
+                onValidityChange={handleModelValidityChange}
+                onValuesChange={handleModelValuesChange}
+                showCreateEndpoint
               />
             </div>
           </div>

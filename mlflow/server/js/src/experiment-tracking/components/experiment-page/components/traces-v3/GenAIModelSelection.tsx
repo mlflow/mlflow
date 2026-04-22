@@ -86,6 +86,8 @@ export interface GenAIModelSelectionRef {
 
 interface GenAIModelSelectionProps {
   onValidityChange: (isValid: boolean) => void;
+  /** Called whenever the selection changes and is valid, useful for syncing values when switching between valid states. */
+  onValuesChange?: (values: ModelSelectionValues) => void;
   readOnly?: boolean;
   initialValues?: Partial<ModelSelectionValues>;
   /** Whether to show the "Configure model directly" option in the endpoint dropdown. Defaults to false. */
@@ -96,7 +98,14 @@ interface GenAIModelSelectionProps {
 
 export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModelSelectionProps>(
   function GenAIModelSelection(
-    { onValidityChange, readOnly = false, initialValues, showConfigureDirectly = false, showCreateEndpoint = false },
+    {
+      onValidityChange,
+      onValuesChange,
+      readOnly = false,
+      initialValues,
+      showConfigureDirectly = false,
+      showCreateEndpoint = false,
+    },
     ref,
   ) {
     const { theme } = useDesignSystemTheme();
@@ -264,6 +273,12 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
     useEffect(() => {
       onValidityChange(isValid);
     }, [isValid, onValidityChange]);
+
+    useEffect(() => {
+      if (isValid && onValuesChange) {
+        onValuesChange({ mode, endpointName: selectedEndpointName, provider, model, apiKeyConfig, saveKey });
+      }
+    }, [mode, selectedEndpointName, provider, model, isValid, onValuesChange, apiKeyConfig, saveKey]);
 
     useImperativeHandle(
       ref,
