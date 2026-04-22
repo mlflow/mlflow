@@ -9,8 +9,11 @@ import { GatewayApi } from '../../api';
 const mockEndpoints: Array<{ endpoint_id: string; name: string }> = [];
 
 jest.mock('../../hooks/useCreateGuardrail');
+let mockEndpointsLoading = false;
+let mockEndpointsError: Error | undefined = undefined;
+
 jest.mock('../../hooks/useEndpointsQuery', () => ({
-  useEndpointsQuery: () => ({ data: mockEndpoints }),
+  useEndpointsQuery: () => ({ data: mockEndpoints, isLoading: mockEndpointsLoading, error: mockEndpointsError }),
 }));
 jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
@@ -42,6 +45,8 @@ const setMockEndpoints = (endpoints: Array<{ endpoint_id: string; name: string }
 describe('AddGuardrailModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEndpointsLoading = false;
+    mockEndpointsError = undefined;
     setMockEndpoints([{ endpoint_id: 'e-456', name: 'judge-endpoint' }]);
     jest.mocked(useCreateGuardrail).mockReturnValue({
       mutateAsync: mockCreateGuardrail,
@@ -231,6 +236,28 @@ describe('AddGuardrailModal', () => {
     expect(screen.getByText('You need another endpoint to use guardrails.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Select guardrail model' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Create Guardrail' })).toBeDisabled();
+  });
+
+  test('does not show no-endpoint guidance while endpoints are loading', async () => {
+    mockEndpointsLoading = true;
+    setMockEndpoints([]);
+    renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+
+    expect(screen.queryByText('You need another endpoint to use guardrails.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Select guardrail model' })).not.toBeDisabled();
+  });
+
+  test('does not show no-endpoint guidance when endpoints query fails', async () => {
+    mockEndpointsError = new Error('Network error');
+    setMockEndpoints([]);
+    renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+
+    expect(screen.queryByText('You need another endpoint to use guardrails.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Select guardrail model' })).not.toBeDisabled();
   });
 
   test('shows error when BEFORE-stage instructions reference {{ outputs }}', async () => {

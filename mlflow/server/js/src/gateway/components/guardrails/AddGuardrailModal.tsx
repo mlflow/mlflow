@@ -176,7 +176,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
   const guardrailTypes = getGuardrailTypes(intl);
   const { mutateAsync: createGuardrail } = useCreateGuardrail();
   const queryClient = useQueryClient();
-  const { data: endpoints = [] } = useEndpointsQuery();
+  const { data: endpoints = [], isLoading: isEndpointsLoading, error: endpointsError } = useEndpointsQuery();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState('');
@@ -298,7 +298,9 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
 
   const instructionsError = validateStageInstructions(instructions, stage);
   const isStep2Valid = name.trim().length > 0 && instructionsError === null;
-  const hasAvailableGuardrailModelEndpoint = endpoints.some((endpoint) => endpoint.endpoint_id !== endpointId);
+  const endpointsLoaded = !isEndpointsLoading && !endpointsError;
+  const hasAvailableGuardrailModelEndpoint =
+    !endpointsLoaded || endpoints.some((endpoint) => endpoint.endpoint_id !== endpointId);
   const createButtonTooltip = !hasAvailableGuardrailModelEndpoint
     ? intl.formatMessage({
         defaultMessage: 'You need another endpoint to use guardrails.',
