@@ -468,3 +468,45 @@ def aggregate_anthropic_messages_stream_chunks(
         result["usage"] = usage
 
     return result
+
+
+def aggregate_openai_responses_stream_chunks(
+    chunks: list[bytes],
+) -> dict[str, Any] | None:
+    """
+    Aggregate raw OpenAI Responses API SSE streaming chunks into a single response object.
+
+    The OpenAI Responses streaming API emits a ``response.completed`` event that contains
+    the fully-assembled response object — including all output items, content parts, and
+    token usage. This function locates that event and returns its ``response`` field,
+    giving the same shape as a non-streaming Responses API call::
+
+        {
+            "id": "resp_...",
+            "object": "response",
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "..."}],
+                }
+            ],
+            "usage": {"input_tokens": N, "output_tokens": M, "total_tokens": T},
+            ...
+        }
+
+    Returns ``None`` if *chunks* is empty or contains no ``response.completed`` event.
+    """
+    if not chunks:
+        return None
+
+    # Concatenate before parsing: aiohttp yields arbitrary-sized byte chunks that
+    # can split a single SSE "data:" line across multiple pieces.
+    combined = b"".join(chunks)
+
+    for event in parse_sse_lines(combined):
+        if event.get("type") == "response.completed":
+            return event.get("response")
+
+    return None
