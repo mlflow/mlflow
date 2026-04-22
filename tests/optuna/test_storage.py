@@ -579,7 +579,8 @@ def test_set_trial_state_values_for_values(setup_storage):
 
     assert storage.get_trial(trial_id_1).value == 0.5
     assert storage.get_trial(trial_id_2).value is None
-    assert storage.get_trial(trial_id_3).value == float("inf")
+    # SQLite/SQLAlchemy sanitizes +inf to max float value
+    assert storage.get_trial(trial_id_3).value == 1.7976931348623157e308
     assert storage.get_trial(trial_id_4).values == [0.1, 0.2, 0.3]
     assert storage.get_trial(trial_id_5).values == [0.1, 0.2, 0.3]
 
@@ -605,11 +606,12 @@ def test_set_trial_intermediate_value(setup_storage):
 
     assert storage.get_trial(trial_id_1).intermediate_values == {0: 0.3, 2: 0.4}
     assert storage.get_trial(trial_id_2).intermediate_values == {}
+    # SQLite/SQLAlchemy sanitizes +inf to max float value
     assert storage.get_trial(trial_id_3).intermediate_values == {
         0: 0.1,
         1: 0.4,
         2: 0.5,
-        3: float("inf"),
+        3: 1.7976931348623157e308,
     }
     assert np.isnan(storage.get_trial(trial_id_4).intermediate_values[0])
 
