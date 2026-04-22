@@ -238,6 +238,18 @@ def test_get_provider_config_sagemaker_has_default_chain():
     assert "default_chain" in modes
 
 
+def test_get_provider_config_vertex_ai_has_default_chain():
+    config = get_provider_config_response("vertex_ai")
+    modes = {m["mode"] for m in config["auth_modes"]}
+    assert "default_chain" in modes
+
+    default_chain = next(m for m in config["auth_modes"] if m["mode"] == "default_chain")
+    assert default_chain["display_name"] == "Application Default Credentials"
+    assert default_chain["secret_fields"] == []
+    project_field = next(f for f in default_chain["config_fields"] if f["name"] == "vertex_project")
+    assert project_field["required"] is True
+
+
 _MOCK_PROVIDER_DATA = {
     "test_provider": {
         "test-model": {
