@@ -31,19 +31,19 @@ describe('validateStageInstructions', () => {
   test('BEFORE: returns null when both {{ inputs }} and {{ outputs }} are present (outputs error takes priority)', () => {
     // {{ outputs }} in BEFORE triggers the outputs-unavailable error regardless
     expect(validateStageInstructions('{{ inputs }} and {{ outputs }}', 'BEFORE')).toBe(
-      '{{ outputs }} is not available in BEFORE stage — the LLM has not run yet',
+      '{{ outputs }} is not available in Pre-LLM Guardrails — the LLM has not run yet',
     );
   });
 
   test('BEFORE: returns error when {{ inputs }} is missing', () => {
     expect(validateStageInstructions('Is this safe?', 'BEFORE')).toBe(
-      'BEFORE-stage instructions must reference {{ inputs }}',
+      'Pre-LLM Guardrails instructions must reference {{ inputs }}',
     );
   });
 
   test('BEFORE: returns outputs-unavailable error when {{ outputs }} is referenced', () => {
     expect(validateStageInstructions('Is {{ outputs }} appropriate?', 'BEFORE')).toBe(
-      '{{ outputs }} is not available in BEFORE stage — the LLM has not run yet',
+      '{{ outputs }} is not available in Pre-LLM Guardrails — the LLM has not run yet',
     );
   });
 
@@ -63,7 +63,7 @@ describe('validateStageInstructions', () => {
 
   test('AFTER: returns error when neither variable is referenced', () => {
     expect(validateStageInstructions('Is this safe?', 'AFTER')).toBe(
-      'AFTER-stage instructions must reference {{ inputs }} or {{ outputs }}',
+      'Post-LLM Guardrails instructions must reference {{ inputs }} or {{ outputs }}',
     );
   });
 });

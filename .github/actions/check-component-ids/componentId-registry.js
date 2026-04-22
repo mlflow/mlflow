@@ -1272,6 +1272,7 @@ module.exports = {
   "mlflow.gateway.endpoint-bindings.drawer": "",
   "mlflow.gateway.endpoint-usage-modal": "",
   "mlflow.gateway.endpoint.tabs": "",
+  "mlflow.gateway.endpoint.guardrails-tab-tooltip": "",
   "mlflow.gateway.endpoint.traces-tab-tooltip": "",
   "mlflow.gateway.endpoint.usage-tab-tooltip": "",
   "mlflow.gateway.endpoint.usage.view-full-dashboard": "",

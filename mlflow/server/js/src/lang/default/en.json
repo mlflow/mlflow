@@ -3939,6 +3939,10 @@
     "defaultMessage": "Create custom code judge",
     "description": "Title for new custom code judge modal"
   },
+  "N5IyPh": {
+    "defaultMessage": "Click on a stage to choose when this guardrail runs.",
+    "description": "Stage help text"
+  },
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
     "description": "Time duration in months"
@@ -5179,10 +5183,6 @@
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
   },
-  "V3RNMD": {
-    "defaultMessage": "After Guardrails",
-    "description": "Pipeline AFTER stage label"
-  },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
     "description": "Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
@@ -6215,10 +6215,6 @@
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
   },
-  "bFG2sC": {
-    "defaultMessage": "Before Guardrails",
-    "description": "Pipeline BEFORE stage label"
-  },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
     "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
@@ -6550,6 +6546,10 @@
   "d1Ou4x": {
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
+  },
+  "d2b9xa": {
+    "defaultMessage": "Enable Usage Tracking in the Overview tab to configure guardrails",
+    "description": "Tooltip shown on disabled Guardrails tab explaining that usage tracking must be enabled first"
   },
   "d34yzQ": {
     "defaultMessage": "Rejected",
@@ -6886,6 +6886,10 @@
   "f3LAjV": {
     "defaultMessage": "Select ({count})",
     "description": "Confirm button in the select sessions modal showing number of selected sessions"
+  },
+  "f3cOoh": {
+    "defaultMessage": "Post-LLM Guardrails",
+    "description": "Pipeline AFTER stage label"
   },
   "f4CfIz": {
     "defaultMessage": "(edited)",
@@ -7691,6 +7695,10 @@
     "defaultMessage": "{numValue} for run \"{runName}\"",
     "description": "Error/null assessment tooltip"
   },
+  "jpvRrY": {
+    "defaultMessage": "Pre-LLM Guardrails",
+    "description": "Pipeline BEFORE stage label"
+  },
   "jq95vC": {
     "defaultMessage": "Group: {groupName}",
     "description": "Experiment page > grouped runs table > run group header label"
@@ -7770,10 +7778,6 @@
   "kCsAho": {
     "defaultMessage": "Correctness",
     "description": "LLM template option"
-  },
-  "kDCMl+": {
-    "defaultMessage": "Click on a stage to choose where this guardrail runs.",
-    "description": "Stage help text"
   },
   "kHDQiE": {
     "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
