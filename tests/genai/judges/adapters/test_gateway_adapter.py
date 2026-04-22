@@ -172,6 +172,35 @@ def test_invoke_without_trace_uses_gateway():
     assert result.feedback.value == "yes"
 
 
+def test_invoke_parses_response_with_newlines_in_json_strings():
+    adapter = GatewayAdapter()
+    input_params = AdapterInvocationInput(
+        model_uri="ollama:/llama3.2:3b",
+        prompt=[ChatMessage(role="user", content="test")],
+        assessment_name="test_metric",
+    )
+
+    # Simulate LLM response with literal newlines inside JSON string values
+    response_with_newlines = (
+        '{\n  "rationale": "Let\'s think step by step.\n'
+        'The response is clear.",\n  "result": "yes"\n}'
+    )
+
+    # Verify this response is indeed invalid under strict JSON parsing
+    with pytest.raises(json.JSONDecodeError, match="Invalid control character"):
+        json.loads(response_with_newlines)
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=response_with_newlines,
+    ) as mock_invoke:
+        result = adapter.invoke(input_params)
+
+    mock_invoke.assert_called_once()
+    assert result.feedback.value == "yes"
+    assert "\nThe response is clear." in result.feedback.rationale
+
+
 # --- invoke_with_structured_output tests ---
 
 

@@ -16,6 +16,8 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 import { useMemo } from 'react';
 import GatewayRoutes from '../../routes';
+import Routes from '../../../experiment-tracking/routes';
+import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../../settings/settingsSectionConstants';
 import { GatewayLabel } from '../../../common/components/GatewayNewTag';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
@@ -96,6 +98,7 @@ export interface EditEndpointFormRendererProps {
   onSubmit: (values: EditEndpointFormData) => Promise<void>;
   onCancel: () => void;
   onNameUpdate: (newName: string) => Promise<void>;
+  onUsageTrackingUpdate: (enabled: boolean) => Promise<void>;
 }
 
 export const EditEndpointFormRenderer = ({
@@ -112,6 +115,7 @@ export const EditEndpointFormRenderer = ({
   onSubmit,
   onCancel,
   onNameUpdate,
+  onUsageTrackingUpdate,
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -438,7 +442,7 @@ export const EditEndpointFormRenderer = ({
                         <Link
                           key={secretName}
                           componentId="mlflow.gateway.edit-endpoint.api-key-link"
-                          to={GatewayRoutes.apiKeysPageRoute}
+                          to={Routes.getSettingsSectionRoute(SETTINGS_SECTION_LLM_CONNECTIONS)}
                           css={{
                             fontSize: theme.typography.fontSizeSm,
                             color: theme.colors.actionPrimaryBackgroundDefault,
@@ -481,7 +485,8 @@ export const EditEndpointFormRenderer = ({
                           <Switch
                             componentId="mlflow.gateway.edit-endpoint.usage-tracking.toggle"
                             checked={field.value}
-                            onChange={(checked) => field.onChange(checked)}
+                            onChange={(checked) => void onUsageTrackingUpdate(checked)}
+                            disabled={isSubmitting}
                             aria-label="Enable usage tracking"
                           />
                           <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>

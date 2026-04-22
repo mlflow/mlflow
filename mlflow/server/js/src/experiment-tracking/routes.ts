@@ -147,6 +147,9 @@ export class RoutePaths {
   static get settingsPage() {
     return createMLflowRoutePath('/settings');
   }
+  static get settingsSectionPage() {
+    return createMLflowRoutePath('/settings/:section');
+  }
 }
 
 // Concrete routes and functions for generating parametrized paths
@@ -170,6 +173,10 @@ class Routes {
 
   static get settingsPageRoute() {
     return RoutePaths.settingsPage;
+  }
+
+  static getSettingsSectionRoute(section: string) {
+    return generatePath(RoutePaths.settingsSectionPage, { section });
   }
 
   static getExperimentPageRoute(experimentId: string, isComparingRuns = false, shareState?: string) {

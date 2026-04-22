@@ -167,6 +167,10 @@
     "defaultMessage": "Run",
     "description": "Column header for the run name in the runs table on the logged model details page"
   },
+  "/8HzzV": {
+    "defaultMessage": "Total trace duration",
+    "description": "Tooltip description for the Execution Duration column in the traces table"
+  },
   "/8oFM7": {
     "defaultMessage": "Does the app's response avoid harmful or toxic content?",
     "description": "Hint for Safety template"
@@ -379,6 +383,10 @@
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
   },
+  "0HIfuE": {
+    "defaultMessage": "Outputs of the trace, derived from the root span's outputs",
+    "description": "Tooltip description for the Response column in the traces table"
+  },
   "0HbGko": {
     "defaultMessage": "Model",
     "description": "Run page > Overview > Logged models > Unknown model flavor"
@@ -414,6 +422,10 @@
   "0T1I+b": {
     "defaultMessage": "MLflow documentation",
     "description": "Link to tracing documentation"
+  },
+  "0WzWvy": {
+    "defaultMessage": "Issues detected on the trace by automatic issue detection",
+    "description": "Tooltip description for the Issues column in the traces table"
   },
   "0XZ2zu": {
     "defaultMessage": "No image logged at this step",
@@ -526,6 +538,10 @@
   "1Buj/Q": {
     "defaultMessage": "Alternatively, you can interact with this trace via the MLflow Python SDK, using the {code} function. For more information, please check the {documentation_link}.",
     "description": "Body text for when a trace is too large to display"
+  },
+  "1CPknH": {
+    "defaultMessage": "When the trace was created",
+    "description": "Tooltip description for the Request Time column in the traces table"
   },
   "1Iq+NW": {
     "defaultMessage": "Copy",
@@ -711,10 +727,6 @@
     "defaultMessage": "Created at",
     "description": "Column header for created timestamp in the evaluation runs table"
   },
-  "2PCNVS": {
-    "defaultMessage": "API Keys",
-    "description": "API Keys page title"
-  },
   "2RgAyy": {
     "defaultMessage": "Search",
     "description": "Search placeholder"
@@ -846,6 +858,10 @@
   "3N1zOb": {
     "defaultMessage": "Disabled",
     "description": "Webhook disabled label"
+  },
+  "3PBIB8": {
+    "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
+    "description": "Settings content section subtitle for general preferences including demo data"
   },
   "3Rb4sG": {
     "defaultMessage": "Delete",
@@ -1079,6 +1095,10 @@
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
+  "4ylmh/": {
+    "defaultMessage": "Unique identifier for the trace",
+    "description": "Tooltip description for the Trace ID column in the traces table"
+  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
@@ -1310,6 +1330,10 @@
   "6arejB": {
     "defaultMessage": "Compare",
     "description": "Compare runs button label"
+  },
+  "6atxiB": {
+    "defaultMessage": "Linked prompt versions from Prompt Registry",
+    "description": "Tooltip description for the Linked Prompts column in the traces table"
   },
   "6b6fTN": {
     "defaultMessage": "Select a file to preview",
@@ -1843,10 +1867,6 @@
     "defaultMessage": "MLflow runs:",
     "description": "A label for the associated MLflow runs in the prompt details page"
   },
-  "9ZzOhu": {
-    "defaultMessage": "API Keys",
-    "description": "Sidebar link for gateway API keys"
-  },
   "9cTaBs": {
     "defaultMessage": "Fail",
     "description": "Failing assessment label"
@@ -1874,6 +1894,10 @@
   "9kTEoo": {
     "defaultMessage": "Is the app's response grounded in retrieved information?",
     "description": "Hint for RetrievalGroundedness template"
+  },
+  "9lo9Zg": {
+    "defaultMessage": "LLM Connections",
+    "description": "Settings content section title: LLM connections"
   },
   "9mAGv0": {
     "defaultMessage": "Model name",
@@ -2194,6 +2218,10 @@
   "BZLX5c": {
     "defaultMessage": "Track experiments, parameters, and metrics throughout training.",
     "description": "Home page quick action description for training models"
+  },
+  "BaNRkH": {
+    "defaultMessage": "Webhooks",
+    "description": "Settings content section title: webhooks"
   },
   "Bbm59f": {
     "defaultMessage": "100",
@@ -2727,6 +2755,10 @@
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
   },
+  "F39ONm": {
+    "defaultMessage": "LLM Connections",
+    "description": "Sidebar link: Settings > LLM Connections"
+  },
   "F4K195": {
     "defaultMessage": "No evaluation datasets found",
     "description": "Empty state for the evaluation datasets page"
@@ -3187,6 +3219,10 @@
     "defaultMessage": "Prompt tag deleted",
     "description": "Webhook event label"
   },
+  "IJLNaN": {
+    "defaultMessage": "Name of the trace, derived from the root span's name",
+    "description": "Tooltip description for the Trace Name column in the traces table"
+  },
   "IJbauF": {
     "defaultMessage": "Add tag \"{tagKey}\"",
     "description": "Key-value tag editor modal > Tag dropdown Manage Modal > Add new tag button"
@@ -3194,6 +3230,10 @@
   "IKx3DN": {
     "defaultMessage": "Predict on a Pandas DataFrame.",
     "description": "Code comment which states on how we can predict using pandas DataFrame"
+  },
+  "IMEGsC": {
+    "defaultMessage": "Associated MLflow Run if the trace was generated within an MLflow run context",
+    "description": "Tooltip description for the Run Name column in the traces table"
   },
   "IMkDgM": {
     "defaultMessage": "Experiments",
@@ -3467,6 +3507,10 @@
     "defaultMessage": "Section title loading",
     "description": "Loading skeleton label for overview page section title in Catalog Explorer"
   },
+  "KKE2/K": {
+    "defaultMessage": "Aggregated input/output/total token usage across all spans in the trace",
+    "description": "Tooltip description for the Tokens column in the traces table"
+  },
   "KLTGMn": {
     "defaultMessage": "Full conversation between a user and an assistant",
     "description": "Description for conversation variable"
@@ -3563,6 +3607,10 @@
     "defaultMessage": "Prompt template examples",
     "description": "Experiment page > new run modal > prompt examples > modal title"
   },
+  "KzU2hx": {
+    "defaultMessage": "Trace status: OK, ERROR, or IN_PROGRESS",
+    "description": "Tooltip description for the State column in the traces table"
+  },
   "L/4iQO": {
     "defaultMessage": "Delete",
     "description": "Label for the delete experiments action on the experiments list page"
@@ -3578,6 +3626,10 @@
   "L26D19": {
     "defaultMessage": "X-axis:",
     "description": "Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
+  },
+  "L3sJpt": {
+    "defaultMessage": "Settings",
+    "description": "Settings sub-sidebar: return to main nav (same label as main Settings)"
   },
   "L3szkg": {
     "defaultMessage": "Failed to create assessment. Error: {error}",
@@ -3826,6 +3878,10 @@
   "MhOmZG": {
     "defaultMessage": "Yes",
     "description": "Label for an assessment with a 'yes' value"
+  },
+  "MhccYX": {
+    "defaultMessage": "Associated model version",
+    "description": "Tooltip description for the Logged Model column in the traces table"
   },
   "MhtxHm": {
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
@@ -4226,6 +4282,10 @@
   "PGbCZD": {
     "defaultMessage": "Production",
     "description": "Column title for production phase version in the registered model page"
+  },
+  "PIPzZY": {
+    "defaultMessage": "General",
+    "description": "Sidebar link: Settings > General"
   },
   "PIsgM0": {
     "defaultMessage": "Experiments",
@@ -5083,6 +5143,10 @@
     "defaultMessage": "No API keys created",
     "description": "Empty state title for API keys list"
   },
+  "Uqhamv": {
+    "defaultMessage": "Ground truth values annotated to the trace",
+    "description": "Tooltip description for the Expectation column group in the traces table"
+  },
   "UtUq/x": {
     "defaultMessage": "Registered models",
     "description": "Header title for the registered models column in the logged model list table"
@@ -5538,6 +5602,10 @@
   "XOUsyq": {
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
+  },
+  "XREd2h": {
+    "defaultMessage": "Learn more",
+    "description": "Link text in column header tooltip that opens documentation in a new tab"
   },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
@@ -6207,10 +6275,6 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
-  "bZgVna": {
-    "defaultMessage": "Saved API keys can be managed from the API Keys page",
-    "description": "Tooltip explaining where saved API keys can be found"
-  },
   "ba7/ni": {
     "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
     "description": "Tooltip explaining the demo experiment in the experiments list"
@@ -6555,6 +6619,10 @@
     "defaultMessage": "Failed to load audio attachment",
     "description": "Error message when trace audio attachment fails to load"
   },
+  "dTHmzd": {
+    "defaultMessage": "Saved API keys can be managed in LLM Connections under Settings.",
+    "description": "Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)"
+  },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
@@ -6895,6 +6963,10 @@
     "defaultMessage": "There was an unrecoverable error while loading the chart. Please try to reconfigure the chart and/or reload the window.",
     "description": "Description for the error message when the MLflow chart fails to load"
   },
+  "fjBt8M": {
+    "defaultMessage": "Feedback scores logged to the trace",
+    "description": "Tooltip description for the Assessment column group in the traces table"
+  },
   "fjM/KK": {
     "defaultMessage": "Group by",
     "description": "Experiment page > group by runs control > trigger button label > empty"
@@ -6978,6 +7050,10 @@
   "g56Cuk": {
     "defaultMessage": "Delete {count, plural, one { # trace } other { # traces }}",
     "description": "Experiment page > traces view controls > Delete traces modal > Delete button"
+  },
+  "g5myH8": {
+    "defaultMessage": "Webhooks",
+    "description": "Sidebar link: Settings > Webhooks"
   },
   "g7xNvF": {
     "defaultMessage": "Display points",
@@ -7186,6 +7262,10 @@
   "hN4qL/": {
     "defaultMessage": "Create workspace",
     "description": "Home page workspaces empty state CTA"
+  },
+  "hNmwSr": {
+    "defaultMessage": "General",
+    "description": "Settings content section title: general"
   },
   "hP8kyS": {
     "defaultMessage": "Delete ({count})",
@@ -7579,6 +7659,10 @@
     "defaultMessage": "Models",
     "description": "Models column header"
   },
+  "jhgu6C": {
+    "defaultMessage": "A unique identifier for the session or conversation for grouping traces",
+    "description": "Tooltip description for the Session column in the traces table"
+  },
   "jhjCgW": {
     "defaultMessage": "Agent versions",
     "description": "Label for the agent versions tab in the MLflow experiment navbar"
@@ -7910,6 +7994,10 @@
   "lZPbxb": {
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
+  },
+  "leXUJw": {
+    "defaultMessage": "Create and manage API keys for authenticating to external LLM providers.",
+    "description": "Settings content section subtitle for LLM connections (API keys)"
   },
   "lf2ttL": {
     "defaultMessage": "Sample rate",
@@ -8583,6 +8671,10 @@
     "defaultMessage": "via endpoint:",
     "description": "Gateway > Bindings using key drawer > Via endpoint label"
   },
+  "pdhbzZ": {
+    "defaultMessage": "Return to main navigation",
+    "description": "Tooltip for leaving Settings sub-sidebar to Home and other items"
+  },
   "peyOdH": {
     "defaultMessage": "Cancel",
     "description": "Text for canceling changes on rows in editable form table in MLflow"
@@ -8738,6 +8830,10 @@
   "qZKsz+": {
     "defaultMessage": "Cancel",
     "description": "Cancel webhook form button"
+  },
+  "qaPC/D": {
+    "defaultMessage": "Entry point or script that generated the trace",
+    "description": "Tooltip description for the Source column in the traces table"
   },
   "qbtNJS": {
     "defaultMessage": "Block",
@@ -8939,10 +9035,6 @@
     "defaultMessage": "Created",
     "description": "Secret created label"
   },
-  "retpTK": {
-    "defaultMessage": "API Keys",
-    "description": "Gateway side nav > API Keys tab"
-  },
   "rgSaFx": {
     "defaultMessage": "Span type",
     "description": "Section label for span type filters in the trace explorer."
@@ -9114,6 +9206,10 @@
   "sblqXA": {
     "defaultMessage": "Use the runs difference view to compare model and system metrics, parameters, attributes, and tags across runs.",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > description"
+  },
+  "sfFKw2": {
+    "defaultMessage": "User-defined key-value pairs",
+    "description": "Tooltip description for the Tags column in the traces table"
   },
   "sguNEF": {
     "defaultMessage": "No evaluation tables logged",
@@ -9407,6 +9503,10 @@
     "defaultMessage": "Overall",
     "description": "Evaluation results > known type of evaluation result assessment > overall assessment."
   },
+  "up3hbr": {
+    "defaultMessage": "Receive HTTP notifications when events occur in MLflow.",
+    "description": "Settings content section subtitle for webhooks"
+  },
   "uq6CTI": {
     "defaultMessage": "No profile available",
     "description": "Text for no profile available in the experiment run dataset drawer"
@@ -9646,10 +9746,6 @@
   "wOmMb1": {
     "defaultMessage": "Budget exceeded: {spend} of {limit} spent",
     "description": "Tooltip shown when current spend exceeds the budget limit"
-  },
-  "wRV8PN": {
-    "defaultMessage": "Settings",
-    "description": "Settings page title"
   },
   "wY58OE": {
     "defaultMessage": "Retrieval groundedness",
@@ -10139,6 +10235,10 @@
     "defaultMessage": "An error occurred while updating the API key. Please try again.",
     "description": "Generic error message for API key update"
   },
+  "zUePVd": {
+    "defaultMessage": "Inputs of the trace, derived from the root span's inputs",
+    "description": "Tooltip description for the Inputs column in the traces table"
+  },
   "zUoxV1": {
     "defaultMessage": "Expectations",
     "description": "Label for expectations variable option"
@@ -10182,6 +10282,10 @@
   "zgpnjD": {
     "defaultMessage": "Loading API keys...",
     "description": "Loading message for API keys"
+  },
+  "zhP4fy": {
+    "defaultMessage": "Application user who triggered the trace",
+    "description": "Tooltip description for the User column in the traces table"
   },
   "zhzZUu": {
     "defaultMessage": "An error occured while attempting to delete traces. Please refresh the page and try again.",
