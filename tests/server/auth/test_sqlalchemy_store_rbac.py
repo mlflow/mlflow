@@ -489,6 +489,66 @@ def test_list_workspace_admin_workspaces_ignores_non_manage(store, user):
     assert store.list_workspace_admin_workspaces(user.id) == set()
 
 
+# ---- Legacy workspace_permissions as workspace-admin source ----
+#
+# Pre-RBAC operators relied on `workspace_permissions` MANAGE to convey workspace-wide
+# admin authority. The workspace-admin helpers must still recognize that grant,
+# otherwise operators mid-migration (or just not yet using roles) silently lose admin
+# status behind RBAC-aware validators.
+
+
+def test_is_workspace_admin_honors_legacy_workspace_permissions(store, user):
+    store.set_workspace_permission("ws1", user.username, "MANAGE")
+
+    assert store.is_workspace_admin(user.id, "ws1") is True
+    assert store.is_workspace_admin(user.id, "ws2") is False
+
+
+def test_is_workspace_admin_ignores_non_manage_legacy(store, user):
+    store.set_workspace_permission("ws1", user.username, "READ")
+
+    assert store.is_workspace_admin(user.id, "ws1") is False
+
+
+def test_list_workspace_admin_workspaces_unions_role_and_legacy(store, user):
+    # Role admin in ws1, legacy MANAGE in ws2, legacy READ in ws3 (should not count).
+    role = store.create_role(name="wa1", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+    store.set_workspace_permission("ws2", user.username, "MANAGE")
+    store.set_workspace_permission("ws3", user.username, "READ")
+
+    assert store.list_workspace_admin_workspaces(user.id) == {"ws1", "ws2"}
+
+
+def test_is_workspace_admin_of_any_of_users_workspaces_legacy_admin(store, user, user2):
+    # Admin authority via legacy, target presence via role.
+    store.set_workspace_permission("ws1", user.username, "MANAGE")
+    target_role = store.create_role(name="member", workspace="ws1")
+    store.add_role_permission(target_role.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user2.id, target_role.id)
+
+    assert store.is_workspace_admin_of_any_of_users_workspaces(user.id, user2.id) is True
+
+
+def test_is_workspace_admin_of_any_of_users_workspaces_legacy_target(store, user, user2):
+    # Admin authority via role, target presence via legacy.
+    admin_role = store.create_role(name="wa", workspace="ws1")
+    store.add_role_permission(admin_role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, admin_role.id)
+    store.set_workspace_permission("ws1", user2.username, "READ")
+
+    assert store.is_workspace_admin_of_any_of_users_workspaces(user.id, user2.id) is True
+
+
+def test_is_workspace_admin_of_any_of_users_workspaces_no_overlap(store, user, user2):
+    # Admin in ws1, target present only in ws2 → no intersection.
+    store.set_workspace_permission("ws1", user.username, "MANAGE")
+    store.set_workspace_permission("ws2", user2.username, "READ")
+
+    assert store.is_workspace_admin_of_any_of_users_workspaces(user.id, user2.id) is False
+
+
 def test_get_role_permission_does_not_cross_workspace(store, user):
     role = store.create_role(name="viewer", workspace="ws1")
     store.add_role_permission(role.id, "experiment", "*", "READ")

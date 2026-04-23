@@ -1169,27 +1169,78 @@ class SqlAlchemyStore:
                 return None
             return get_permission(best_permission_name)
 
+    @staticmethod
+    def _workspace_admin_workspaces(session, user_id: int) -> set[str]:
+        """
+        Return the set of workspaces where ``user_id`` is a workspace admin, drawing
+        from BOTH sources of truth:
+
+        - Role-based: a role in the workspace with
+          ``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``.
+        - Legacy: a ``workspace_permissions`` row with ``permission=MANAGE``. Pre-RBAC
+          this was the only way to express workspace-wide admin authority; operators
+          upgrading from pre-RBAC deployments retain that admin status until they
+          migrate the grants into roles.
+        """
+        role_rows = (
+            session
+            .query(SqlRole.workspace)
+            .join(SqlRolePermission, SqlRole.id == SqlRolePermission.role_id)
+            .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+            .filter(
+                SqlUserRoleAssignment.user_id == user_id,
+                SqlRolePermission.resource_type == "workspace",
+                SqlRolePermission.resource_pattern == "*",
+                SqlRolePermission.permission == MANAGE.name,
+            )
+            .distinct()
+            .all()
+        )
+        legacy_rows = (
+            session
+            .query(SqlWorkspacePermission.workspace)
+            .filter(
+                SqlWorkspacePermission.user_id == user_id,
+                SqlWorkspacePermission.permission == MANAGE.name,
+            )
+            .distinct()
+            .all()
+        )
+        return {w for (w,) in role_rows} | {w for (w,) in legacy_rows}
+
+    @staticmethod
+    def _user_present_workspaces(session, user_id: int) -> set[str]:
+        """
+        Return every workspace the user has some presence in — either via a role
+        assignment or via a legacy ``workspace_permissions`` grant (of any level).
+        Used when scoping cross-user authorization decisions.
+        """
+        role_rows = (
+            session
+            .query(SqlRole.workspace)
+            .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+            .filter(SqlUserRoleAssignment.user_id == user_id)
+            .distinct()
+            .all()
+        )
+        legacy_rows = (
+            session
+            .query(SqlWorkspacePermission.workspace)
+            .filter(SqlWorkspacePermission.user_id == user_id)
+            .distinct()
+            .all()
+        )
+        return {w for (w,) in role_rows} | {w for (w,) in legacy_rows}
+
     def is_workspace_admin(self, user_id: int, workspace: str) -> bool:
         """
-        True if the user has a role in the given workspace with
-        (resource_type='workspace', resource_pattern='*', permission=MANAGE).
+        True if the user is a workspace admin in ``workspace``, via either a role
+        (``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``) or
+        a legacy ``workspace_permissions`` MANAGE grant. See
+        ``_workspace_admin_workspaces`` for the consolidation rationale.
         """
         with self.ManagedSessionMaker() as session:
-            return (
-                session
-                .query(SqlRolePermission)
-                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
-                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
-                .filter(
-                    SqlUserRoleAssignment.user_id == user_id,
-                    SqlRole.workspace == workspace,
-                    SqlRolePermission.resource_type == "workspace",
-                    SqlRolePermission.resource_pattern == "*",
-                    SqlRolePermission.permission == MANAGE.name,
-                )
-                .first()
-                is not None
-            )
+            return workspace in self._workspace_admin_workspaces(session, user_id)
 
     def list_role_grants_for_user_in_workspace(
         self, user_id: int, workspace: str, resource_type: str
@@ -1232,53 +1283,26 @@ class SqlAlchemyStore:
 
     def list_workspace_admin_workspaces(self, user_id: int) -> set[str]:
         """
-        Return the set of workspaces where ``user_id`` is a workspace admin — that is, holds a
-        role with ``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``.
-        Single query, suitable for batching authorization decisions.
+        Return the set of workspaces where ``user_id`` is a workspace admin. Includes
+        both role-based admin grants
+        (``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``) and
+        legacy ``workspace_permissions`` MANAGE grants. See
+        ``_workspace_admin_workspaces`` for the consolidation rationale.
         """
         with self.ManagedSessionMaker() as session:
-            rows = (
-                session
-                .query(SqlRole.workspace)
-                .join(SqlRolePermission, SqlRole.id == SqlRolePermission.role_id)
-                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
-                .filter(
-                    SqlUserRoleAssignment.user_id == user_id,
-                    SqlRolePermission.resource_type == "workspace",
-                    SqlRolePermission.resource_pattern == "*",
-                    SqlRolePermission.permission == MANAGE.name,
-                )
-                .distinct()
-                .all()
-            )
-            return {w for (w,) in rows}
+            return self._workspace_admin_workspaces(session, user_id)
 
     def is_workspace_admin_of_any_of_users_workspaces(
         self, admin_user_id: int, target_user_id: int
     ) -> bool:
         """
         True if ``admin_user_id`` is a workspace admin in at least one workspace where
-        ``target_user_id`` has a role assignment. Single SQL query (no N+1).
+        ``target_user_id`` has presence. Both sides consult role assignments AND legacy
+        ``workspace_permissions`` so operators mid-migration see consistent behavior.
         """
-        target_workspaces_subquery = (
-            select(SqlRole.workspace)
-            .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
-            .where(SqlUserRoleAssignment.user_id == target_user_id)
-            .distinct()
-        )
         with self.ManagedSessionMaker() as session:
-            return (
-                session
-                .query(SqlRolePermission)
-                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
-                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
-                .filter(
-                    SqlUserRoleAssignment.user_id == admin_user_id,
-                    SqlRole.workspace.in_(target_workspaces_subquery),
-                    SqlRolePermission.resource_type == "workspace",
-                    SqlRolePermission.resource_pattern == "*",
-                    SqlRolePermission.permission == MANAGE.name,
-                )
-                .first()
-                is not None
-            )
+            admin_workspaces = self._workspace_admin_workspaces(session, admin_user_id)
+            if not admin_workspaces:
+                return False
+            target_workspaces = self._user_present_workspaces(session, target_user_id)
+            return bool(admin_workspaces & target_workspaces)
