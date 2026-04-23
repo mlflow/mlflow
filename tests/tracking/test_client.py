@@ -1393,6 +1393,31 @@ def test_client_search_runs_page_token(mock_store):
     )
 
 
+def test_client_search_runs_warns_when_default_page_is_truncated(mock_store):
+    mock_store.search_runs.return_value = PagedList(
+        [Mock() for _ in range(SEARCH_MAX_RESULTS_DEFAULT)],
+        "next-page-token",
+    )
+
+    with pytest.warns(UserWarning, match="returned only the first page of results"):
+        result = MlflowClient().search_runs([5])
+
+    assert len(result) == SEARCH_MAX_RESULTS_DEFAULT
+    assert result.token == "next-page-token"
+
+
+def test_client_search_runs_no_warning_when_page_token_is_provided(mock_store):
+    mock_store.search_runs.return_value = PagedList(
+        [Mock() for _ in range(SEARCH_MAX_RESULTS_DEFAULT)],
+        "next-page-token",
+    )
+
+    with pytest.warns(None) as record:
+        MlflowClient().search_runs([5], page_token="existing-token")
+
+    assert len(record) == 0
+
+
 def test_update_registered_model(mock_registry_store):
     """
     Update registered model no longer supports name change.

@@ -3858,6 +3858,8 @@ class MlflowClient:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        *,
+        _disable_default_limit_warning: bool = False,
     ) -> PagedList[Run]:
         """
         Search for Runs that fit the specified criteria.
@@ -3939,9 +3941,25 @@ class MlflowClient:
             metrics: {'m': 1.55}
             tags: {'s.release': '1.1.0-RC'}
         """
-        return self._tracking_client.search_runs(
+        runs = self._tracking_client.search_runs(
             experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
         )
+        if (
+            not _disable_default_limit_warning
+            and page_token is None
+            and max_results == SEARCH_MAX_RESULTS_DEFAULT
+            and len(runs) == SEARCH_MAX_RESULTS_DEFAULT
+            and runs.token is not None
+        ):
+            warnings.warn(
+                "MlflowClient.search_runs() returned only the first page of results "
+                f"({SEARCH_MAX_RESULTS_DEFAULT} runs). More runs are available. "
+                "Use the returned page token to fetch additional pages, pass a larger "
+                "`max_results`, or use `mlflow.search_runs()` to retrieve multiple pages.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return runs
 
     # Registry API
 

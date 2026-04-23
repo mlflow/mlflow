@@ -479,6 +479,30 @@ def test_search_registered_models(tmp_path):
     assert [m.name for m in models] == sorted(model_names, reverse=True)[:3]
 
 
+def test_search_runs_suppresses_default_limit_warning_for_internal_pagination():
+    with (
+        mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[]),
+        mock.patch("mlflow.tracking.fluent.MlflowClient.search_runs") as mock_search_runs,
+    ):
+        search_runs(experiment_ids=["123"], output_format="list")
+
+    mock_search_runs.assert_not_called()
+
+    with (
+        mock.patch(
+            "mlflow.tracking.fluent.MlflowClient.search_runs",
+            return_value=PagedList([], None),
+        ) as mock_search_runs,
+        mock.patch(
+            "mlflow.tracking.fluent.get_results_from_paginated_fn",
+            side_effect=lambda pagination_wrapper_func, *_: pagination_wrapper_func(10, None),
+        ),
+    ):
+        search_runs(experiment_ids=["123"], output_format="list")
+
+    assert mock_search_runs.call_args.kwargs["_disable_default_limit_warning"] is True
+
+
 def test_search_model_versions(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
