@@ -1170,6 +1170,7 @@ class SqlAlchemyStore:
 
         Returns a list of ``(resource_pattern, permission)`` tuples.
         """
+        _validate_resource_type(resource_type)
         with self.ManagedSessionMaker() as session:
             rows = (
                 session
@@ -1190,6 +1191,29 @@ class SqlAlchemyStore:
                 .all()
             )
             return [(row.resource_pattern, row.permission) for row in rows]
+
+    def list_workspace_admin_workspaces(self, user_id: int) -> set[str]:
+        """
+        Return the set of workspaces where ``user_id`` is a workspace admin — that is, holds a
+        role with ``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``.
+        Single query, suitable for batching authorization decisions.
+        """
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session
+                .query(SqlRole.workspace)
+                .join(SqlRolePermission, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRolePermission.resource_type == "workspace",
+                    SqlRolePermission.resource_pattern == "*",
+                    SqlRolePermission.permission == MANAGE.name,
+                )
+                .distinct()
+                .all()
+            )
+            return {w for (w,) in rows}
 
     def is_workspace_admin_of_any_of_users_workspaces(
         self, admin_user_id: int, target_user_id: int

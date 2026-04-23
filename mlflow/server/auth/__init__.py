@@ -2200,8 +2200,10 @@ def create_role():
         raise MlflowException.invalid_parameter_value("Role name cannot be empty.")
     if not isinstance(workspace, str) or not workspace.strip():
         raise MlflowException.invalid_parameter_value("Workspace cannot be empty.")
-    body = request.json or {}
+    body = request.get_json(silent=True) or {}
     description = body.get("description")
+    if description is not None and not isinstance(description, str):
+        raise MlflowException.invalid_parameter_value("Role description must be a string or null.")
     role = store.create_role(name, workspace, description)
     return jsonify({"role": role.to_json()})
 
@@ -2223,13 +2225,17 @@ def list_roles():
 @catch_mlflow_exception
 def update_role():
     role_id = int(_get_request_param("role_id"))
-    body = request.json or {}
+    body = request.get_json(silent=True) or {}
     name = body.get("name")
     description = body.get("description")
     if name is None and description is None:
         raise MlflowException.invalid_parameter_value(
             "At least one of 'name' or 'description' must be provided to update a role."
         )
+    if name is not None and (not isinstance(name, str) or not name.strip()):
+        raise MlflowException.invalid_parameter_value("Role name cannot be empty.")
+    if description is not None and not isinstance(description, str):
+        raise MlflowException.invalid_parameter_value("Role description must be a string.")
     role = store.update_role(role_id, name=name, description=description)
     return jsonify({"role": role.to_json()})
 
@@ -2301,10 +2307,12 @@ def list_user_roles():
     # role/workspace membership outside what the caller can see:
     # - Self or super admin: see all of the target's roles.
     # - Workspace admin: see only roles in workspaces where the caller is a WP admin.
+    # Fetch the requester's admin workspaces once rather than querying per role.
     requester = authenticate_request().username
     requester_user = store.get_user(requester)
     if not (requester_user.is_admin or requester == username):
-        roles = [r for r in roles if store.is_workspace_admin(requester_user.id, r.workspace)]
+        admin_workspaces = store.list_workspace_admin_workspaces(requester_user.id)
+        roles = [r for r in roles if r.workspace in admin_workspaces]
 
     return jsonify({"roles": [r.to_json() for r in roles]})
 

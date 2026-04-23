@@ -460,6 +460,35 @@ def test_list_role_grants_for_user_in_workspace_no_roles(store, user):
     assert store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment") == []
 
 
+def test_list_role_grants_for_user_in_workspace_rejects_invalid_resource_type(store, user):
+    with pytest.raises(MlflowException, match="Invalid resource type"):
+        store.list_role_grants_for_user_in_workspace(user.id, "ws1", "not_a_type")
+
+
+def test_list_workspace_admin_workspaces(store, user):
+    # WP admin in ws1 + ws3, regular member in ws2.
+    admin_ws1 = store.create_role(name="wa1", workspace="ws1")
+    store.add_role_permission(admin_ws1.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, admin_ws1.id)
+    admin_ws3 = store.create_role(name="wa3", workspace="ws3")
+    store.add_role_permission(admin_ws3.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, admin_ws3.id)
+    member_ws2 = store.create_role(name="mem", workspace="ws2")
+    store.add_role_permission(member_ws2.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user.id, member_ws2.id)
+
+    assert store.list_workspace_admin_workspaces(user.id) == {"ws1", "ws3"}
+
+
+def test_list_workspace_admin_workspaces_ignores_non_manage(store, user):
+    # A workspace-scope grant with a non-MANAGE permission should not count.
+    role = store.create_role(name="reader", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "READ")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.list_workspace_admin_workspaces(user.id) == set()
+
+
 def test_get_role_permission_does_not_cross_workspace(store, user):
     role = store.create_role(name="viewer", workspace="ws1")
     store.add_role_permission(role.id, "experiment", "*", "READ")
