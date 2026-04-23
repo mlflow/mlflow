@@ -25,7 +25,6 @@ import { useApiKeyConfiguration } from '../../../../../gateway/components/model-
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import { generateRandomName } from '../../../../../common/utils/NameUtils';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
-import { useSecretsConfigQuery } from '../../../../../gateway/hooks/useSecretsConfigQuery';
 import { getEndpointDisplayInfo } from '../../../../../gateway/utils/gatewayUtils';
 
 type ModelConfigMode = 'endpoint' | 'direct';
