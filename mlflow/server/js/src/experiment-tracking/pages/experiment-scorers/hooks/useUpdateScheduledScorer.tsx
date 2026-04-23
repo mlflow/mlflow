@@ -2,8 +2,8 @@ import { useMutation, useQueryClient } from '@databricks/web-shared/query-client
 import type { PredefinedError } from '@databricks/web-shared/errors';
 import type { ScheduledScorer, ScorerConfig } from '../types';
 import { transformScheduledScorer, convertRegisterScorerResponseToConfig } from '../utils/scorerTransformUtils';
-import { updateScheduledScorersCache } from './scheduledScorersCacheUtils';
-import { registerScorer, updateOnlineScoringConfig, type RegisterScorerResponse } from '../api';
+import { updateScheduledScorersCache, invalidateScheduledScorersCache } from './scheduledScorersCacheUtils';
+import { updateScheduledScorers, registerScorer, type RegisterScorerResponse, updateOnlineScoringConfig } from '../api';
 
 // Define request and response types based on monitoring_service.proto
 export type UpdateScheduledScorersRequest = {

@@ -50,6 +50,7 @@ class RenameExperimentModalImpl extends Component<RenameExperimentModalImplProps
 
   render() {
     const { isOpen, experimentName } = this.props;
+    const formRef = React.createRef();
     return (
       <GenericInputModal
         title="Rename Experiment"
@@ -58,12 +59,12 @@ class RenameExperimentModalImpl extends Component<RenameExperimentModalImplProps
         handleSubmit={this.handleRenameExperiment}
         onClose={this.props.onClose}
       >
-        {/* @ts-expect-error TS(2769): No overload matches this call. */}
         <RenameForm
           type="experiment"
-          name={experimentName}
-          visible={isOpen}
+          name={experimentName ?? ''}
+          visible={Boolean(isOpen)}
           validator={this.debouncedExperimentNameValidator}
+          innerRef={formRef}
         />
       </GenericInputModal>
     );

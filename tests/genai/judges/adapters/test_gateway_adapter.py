@@ -172,6 +172,35 @@ def test_invoke_without_trace_uses_gateway():
     assert result.feedback.value == "yes"
 
 
+def test_invoke_parses_response_with_newlines_in_json_strings():
+    adapter = GatewayAdapter()
+    input_params = AdapterInvocationInput(
+        model_uri="ollama:/llama3.2:3b",
+        prompt=[ChatMessage(role="user", content="test")],
+        assessment_name="test_metric",
+    )
+
+    # Simulate LLM response with literal newlines inside JSON string values
+    response_with_newlines = (
+        '{\n  "rationale": "Let\'s think step by step.\n'
+        'The response is clear.",\n  "result": "yes"\n}'
+    )
+
+    # Verify this response is indeed invalid under strict JSON parsing
+    with pytest.raises(json.JSONDecodeError, match="Invalid control character"):
+        json.loads(response_with_newlines)
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=response_with_newlines,
+    ) as mock_invoke:
+        result = adapter.invoke(input_params)
+
+    mock_invoke.assert_called_once()
+    assert result.feedback.value == "yes"
+    assert "\nThe response is clear." in result.feedback.rationale
+
+
 # --- invoke_with_structured_output tests ---
 
 
@@ -584,6 +613,20 @@ def test_get_provider_instance_gateway():
         {"messages": [{"role": "user", "content": "hi"}]}, provider.config
     )
     assert payload["model"] == "my-endpoint"
+
+
+def test_get_provider_instance_gateway_with_base_url():
+    with mock.patch("mlflow.metrics.genai.model_utils.get_gateway_config") as mock_get_config:
+        provider = _get_provider_instance(
+            "gateway",
+            "my-endpoint",
+            base_url="http://localhost:5000/gateway/mlflow/v1/chat/completions",
+        )
+        mock_get_config.assert_not_called()
+
+    assert isinstance(provider, _MlflowGatewayProvider)
+    assert provider.config.model.name == "my-endpoint"
+    assert provider.headers == {}
 
 
 def test_get_provider_unsupported_raises():

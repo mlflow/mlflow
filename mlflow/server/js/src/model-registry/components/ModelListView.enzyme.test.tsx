@@ -75,5 +75,4 @@ describe('ModelListView', () => {
     wrapper = setupModelListViewWithIntl();
     expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('MLflow Models');
   });
-  // eslint-disable-next-line
 });

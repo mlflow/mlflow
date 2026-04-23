@@ -563,6 +563,27 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
             ],
         },
+        "default_chain": {
+            "display_name": "Application Default Credentials",
+            "description": "Use the server's Application Default Credentials "
+            "(GOOGLE_APPLICATION_CREDENTIALS, gcloud auth application-default login, "
+            "or attached GCE/GKE/Cloud Run service account)",
+            "fields": [
+                {
+                    "name": "vertex_project",
+                    "description": "GCP Project ID",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "vertex_location",
+                    "description": "GCP Region (e.g., us-central1)",
+                    "secret": False,
+                    "required": False,
+                    "default": "us-central1",
+                },
+            ],
+        },
     },
     "databricks": {
         "pat_token": {

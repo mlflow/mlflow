@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules import ExceptBoolOp
 
 
-def test_except_bool_op(index_path: Path) -> None:
+def test_except_bool_op(index: SymbolIndex) -> None:
     code = """
 # Bad - or in except
 try:
@@ -44,7 +45,7 @@ except:
     pass
 """
     config = Config(select={ExceptBoolOp.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert all(isinstance(r.rule, ExceptBoolOp) for r in results)
     assert [r.range for r in results] == [
         Range(Position(4, 0)),

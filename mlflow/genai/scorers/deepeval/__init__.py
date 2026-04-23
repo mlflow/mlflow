@@ -43,6 +43,8 @@ from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
 
+_FRAMEWORK_NAME = "deepeval"
+
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
@@ -54,6 +56,8 @@ class DeepEvalScorer(Scorer):
         metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy").
             If not provided, will use the class-level metric_name attribute.
         model: {{ model }}
+        model_kwargs: Parameters for the underlying LLM (e.g., temperature, max_tokens).
+            Ignored for deterministic metrics.
         metric_kwargs: Additional metric-specific parameters
     """
 
@@ -63,6 +67,7 @@ class DeepEvalScorer(Scorer):
         self,
         metric_name: str | None = None,
         model: str | None = None,
+        model_kwargs: dict[str, Any] | None = None,
         **metric_kwargs: Any,
     ):
         # Use class attribute if metric_name not provided
@@ -82,7 +87,7 @@ class DeepEvalScorer(Scorer):
         else:
             model = model or get_default_model()
             self._model_uri = model
-            deepeval_model = create_deepeval_model(model)
+            deepeval_model = create_deepeval_model(model, model_kwargs=model_kwargs)
             self._metric = metric_class(
                 model=deepeval_model,
                 verbose_mode=False,
@@ -193,7 +198,7 @@ class DeepEvalScorer(Scorer):
                 metadata={
                     "score": score,
                     "threshold": self._metric.threshold,
-                    FRAMEWORK_METADATA_KEY: "deepeval",
+                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
                 },
             )
         except Exception as e:
@@ -201,6 +206,7 @@ class DeepEvalScorer(Scorer):
                 name=self.name,
                 error=e,
                 source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
             )
 
     def _validate_kwargs(self, **metric_kwargs):
@@ -216,6 +222,7 @@ class DeepEvalScorer(Scorer):
 def get_scorer(
     metric_name: str,
     model: str | None = None,
+    model_kwargs: dict[str, Any] | None = None,
     **metric_kwargs: Any,
 ) -> DeepEvalScorer:
     """
@@ -224,6 +231,7 @@ def get_scorer(
     Args:
         metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy", "Faithfulness")
         model: {{ model }}
+        model_kwargs: Parameters for the underlying LLM (e.g., temperature, max_tokens)
         metric_kwargs: Additional metric-specific parameters (e.g., threshold, include_reason)
 
     Returns:
@@ -236,12 +244,17 @@ def get_scorer(
         scorer = get_scorer("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
         feedback = scorer(inputs="What is MLflow?", outputs="MLflow is a platform...")
 
-        scorer = get_scorer("Faithfulness", model="openai:/gpt-4")
+        scorer = get_scorer(
+            "Faithfulness",
+            model="openai:/gpt-4",
+            model_kwargs={"temperature": 0.0, "max_tokens": 1024},
+        )
         feedback = scorer(trace=trace)
     """
     return DeepEvalScorer(
         metric_name=metric_name,
         model=model,
+        model_kwargs=model_kwargs,
         **metric_kwargs,
     )
 
