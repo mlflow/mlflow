@@ -114,17 +114,18 @@ const UsersTab = () => {
     );
   }
 
-  const emptyState = (
-    <Empty
-      title={<FormattedMessage defaultMessage="No users" description="Empty state title for users table" />}
-      description={
-        <FormattedMessage
-          defaultMessage="Create a user to get started."
-          description="Empty state description for users table"
-        />
-      }
-    />
-  );
+  const emptyState =
+    users.length === 0 ? (
+      <Empty
+        title={<FormattedMessage defaultMessage="No users" description="Empty state title for users table" />}
+        description={
+          <FormattedMessage
+            defaultMessage="Create a user to get started."
+            description="Empty state description for users table"
+          />
+        }
+      />
+    ) : null;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -311,17 +312,18 @@ const RolesTab = () => {
     );
   }
 
-  const emptyState = (
-    <Empty
-      title={<FormattedMessage defaultMessage="No roles" description="Empty state title for roles table" />}
-      description={
-        <FormattedMessage
-          defaultMessage="Create a role to assign permissions to users."
-          description="Empty state description for roles table"
-        />
-      }
-    />
-  );
+  const emptyState =
+    roles.length === 0 ? (
+      <Empty
+        title={<FormattedMessage defaultMessage="No roles" description="Empty state title for roles table" />}
+        description={
+          <FormattedMessage
+            defaultMessage="Create a role to assign permissions to users."
+            description="Empty state description for roles table"
+          />
+        }
+      />
+    ) : null;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>

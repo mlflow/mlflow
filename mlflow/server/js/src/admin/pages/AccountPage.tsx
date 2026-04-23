@@ -66,9 +66,8 @@ const AccountPage = () => {
     window.location.href = '/';
   };
 
-  const rolesEmptyState = (
-    <Empty title="No roles" description="You have not been assigned to any roles." />
-  );
+  const rolesEmptyState =
+    roles.length === 0 ? <Empty title="No roles" description="You have not been assigned to any roles." /> : null;
 
   return (
     <ScrollablePageWrapper>

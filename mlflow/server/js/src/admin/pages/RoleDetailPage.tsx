@@ -99,12 +99,10 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
     }
   };
 
-  const emptyState = (
-    <Empty
-      title="No permissions"
-      description="Add a permission to grant access to resources via this role."
-    />
-  );
+  const emptyState =
+    permissions.length === 0 ? (
+      <Empty title="No permissions" description="Add a permission to grant access to resources via this role." />
+    ) : null;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -377,12 +375,10 @@ const AssignedUsersSection = ({ roleId }: { roleId: number }) => {
 
   const fetchError = queryError || usersError;
 
-  const emptyState = (
-    <Empty
-      title="No users assigned"
-      description="Assign a user to give them this role's permissions."
-    />
-  );
+  const emptyState =
+    assignments.length === 0 ? (
+      <Empty title="No users assigned" description="Assign a user to give them this role's permissions." />
+    ) : null;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
