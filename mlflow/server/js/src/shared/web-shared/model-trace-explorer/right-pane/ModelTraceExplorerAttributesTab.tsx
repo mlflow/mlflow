@@ -49,7 +49,7 @@ export function ModelTraceExplorerAttributesTab({
         display: 'flex',
         flexDirection: 'column',
         gap: theme.spacing.sm,
-        padding: theme.spacing.md,
+        padding: theme.spacing.sm,
       }}
     >
       {Object.entries(attributes).map(([key, value]) => (
