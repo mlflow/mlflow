@@ -343,6 +343,16 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/codex',
+                  label: 'Codex CLI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/gemini_cli',
+                  label: 'Gemini CLI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/opencode',
                   label: 'OpenCode',
                 },
@@ -350,6 +360,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/openhands',
                   label: 'OpenHands',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/qwen_code',
+                  label: 'Qwen Code',
                 },
               ],
             },

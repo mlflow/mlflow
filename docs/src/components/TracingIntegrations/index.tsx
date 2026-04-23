@@ -415,7 +415,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
   {
     id: 'codex',
     name: 'Codex CLI',
-    logoPath: '/images/logos/openai-logo.svg',
+    logoPath: '/images/logos/openai-logo-only.png',
     link: '/genai/tracing/integrations/listing/codex',
     category: 'Coding Agents',
   },
