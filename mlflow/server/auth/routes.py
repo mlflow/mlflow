@@ -105,8 +105,6 @@ LIST_USER_ROLES = _get_rest_path("/mlflow/users/roles/list", version=3)
 AJAX_LIST_USER_ROLES = _get_ajax_path("/mlflow/users/roles/list", version=3)
 LIST_ROLE_USERS = _get_rest_path("/mlflow/roles/users/list", version=3)
 AJAX_LIST_ROLE_USERS = _get_ajax_path("/mlflow/roles/users/list", version=3)
-LIST_ALL_ROLES = _get_rest_path("/mlflow/admin/roles/list", version=3)
-AJAX_LIST_ALL_ROLES = _get_ajax_path("/mlflow/admin/roles/list", version=3)
 
 # Gateway AJAX-only routes
 GATEWAY_SUPPORTED_PROVIDERS = _get_ajax_path("/mlflow/gateway/supported-providers", version=3)

@@ -1195,10 +1195,16 @@ class SqlAlchemyStore:
         self, user_id: int, workspace: str, resource_type: str
     ) -> list[tuple[str, str]]:
         """
-        Return all role-based permission grants a user has in ``workspace`` that apply to
-        resources of ``resource_type``. Includes both grants on the specific resource_type
-        and workspace-wide grants (``resource_type='workspace'``, ``resource_pattern='*'``)
-        since those apply to every resource type.
+        Return the user's **role-based** permission grants in ``workspace`` that apply
+        to resources of ``resource_type``. Direct per-resource grants (e.g. rows in
+        ``experiment_permissions``) are intentionally **not** included — callers that
+        need the full authorization picture fold them in separately (see
+        ``filter_experiment_ids``, which unions the result of this query with
+        ``list_experiment_permissions`` from the legacy table).
+
+        Includes both grants on the specific resource_type and workspace-wide grants
+        (``resource_type='workspace'``, ``resource_pattern='*'``) since those apply to
+        every resource type.
 
         Returns a list of ``(resource_pattern, permission)`` tuples.
         """

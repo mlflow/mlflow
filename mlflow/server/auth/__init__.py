@@ -190,7 +190,6 @@ from mlflow.server.auth.routes import (
     AJAX_CREATE_ROLE,
     AJAX_DELETE_ROLE,
     AJAX_GET_ROLE,
-    AJAX_LIST_ALL_ROLES,
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
     AJAX_LIST_ROLES,
@@ -239,7 +238,6 @@ from mlflow.server.auth.routes import (
     GET_USER,
     HOME,
     INVOKE_SCORER,
-    LIST_ALL_ROLES,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
@@ -359,7 +357,16 @@ def _get_int_request_param(param: str) -> int:
     Wraps ``_get_request_param`` so non-numeric input produces a 400 instead of bubbling
     up a ``ValueError`` and surfacing as a 500.
     """
-    raw = _get_request_param(param)
+    return _coerce_int_param(param, _get_request_param(param))
+
+
+def _coerce_int_param(param: str, raw: object) -> int:
+    """
+    Convert an already-extracted parameter value to ``int`` or raise
+    ``INVALID_PARAMETER_VALUE`` on non-numeric input. Used by call sites that pick
+    the parameter themselves (e.g. branching on which of several optional keys is
+    present) instead of going through ``_get_request_param``.
+    """
     try:
         return int(raw)
     except (TypeError, ValueError):
@@ -1211,9 +1218,11 @@ def _get_role_workspace_from_request() -> str | None:
     params = _request_params()
     try:
         if "role_id" in params:
-            return store.get_role(int(params["role_id"])).workspace
+            return store.get_role(_coerce_int_param("role_id", params["role_id"])).workspace
         if "role_permission_id" in params:
-            rp = store.get_role_permission(int(params["role_permission_id"]))
+            rp = store.get_role_permission(
+                _coerce_int_param("role_permission_id", params["role_permission_id"])
+            )
             return store.get_role(rp.role_id).workspace
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
@@ -1249,6 +1258,24 @@ def validate_can_view_roles():
         return True
     workspace = _get_role_workspace_from_request()
     if workspace is None:
+        return False
+    return store.user_has_any_role_in_workspace(user.id, workspace)
+
+
+def validate_can_list_roles():
+    """
+    Authorization for the ``/mlflow/roles/list`` endpoint. The endpoint accepts an
+    optional ``workspace`` param: if provided, returns roles in that workspace; if
+    omitted, returns all roles across workspaces. Non-admins must scope the request to
+    a workspace where they hold a role; only super admins can list across workspaces.
+    """
+    username = authenticate_request().username
+    user = store.get_user(username)
+    if user.is_admin:
+        return True
+    params = _request_params()
+    workspace = params.get("workspace")
+    if not isinstance(workspace, str) or not workspace.strip():
         return False
     return store.user_has_any_role_in_workspace(user.id, workspace)
 
@@ -1901,8 +1928,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_CREATE_ROLE, "POST"): validate_can_manage_roles,
     (GET_ROLE, "GET"): validate_can_view_roles,
     (AJAX_GET_ROLE, "GET"): validate_can_view_roles,
-    (LIST_ROLES, "GET"): validate_can_view_roles,
-    (AJAX_LIST_ROLES, "GET"): validate_can_view_roles,
+    (LIST_ROLES, "GET"): validate_can_list_roles,
+    (AJAX_LIST_ROLES, "GET"): validate_can_list_roles,
     (UPDATE_ROLE, "PATCH"): validate_can_manage_roles,
     (AJAX_UPDATE_ROLE, "PATCH"): validate_can_manage_roles,
     (DELETE_ROLE, "DELETE"): validate_can_manage_roles,
@@ -1923,8 +1950,6 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_LIST_USER_ROLES, "GET"): validate_can_view_user_roles,
     (LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
     (AJAX_LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
-    (LIST_ALL_ROLES, "GET"): sender_is_admin,
-    (AJAX_LIST_ALL_ROLES, "GET"): sender_is_admin,
 })
 
 # Flask routes (no proto mapping)
@@ -2268,12 +2293,18 @@ def get_role():
 
 @catch_mlflow_exception
 def list_roles():
-    workspace = _get_request_param("workspace")
-    if not isinstance(workspace, str) or not workspace.strip():
-        raise MlflowException.invalid_parameter_value(
-            "Parameter 'workspace' must be a non-empty string."
-        )
-    roles = store.list_roles(workspace)
+    # Optional ``workspace`` scopes the listing. When omitted, fall back to cross-
+    # workspace listing (admin-only — enforced by validate_can_list_roles).
+    params = _request_params()
+    workspace = params.get("workspace")
+    if workspace is None:
+        roles = store.list_all_roles()
+    else:
+        if not isinstance(workspace, str) or not workspace.strip():
+            raise MlflowException.invalid_parameter_value(
+                "Parameter 'workspace' must be a non-empty string when provided."
+            )
+        roles = store.list_roles(workspace)
     return jsonify({"roles": [r.to_json() for r in roles]})
 
 
@@ -2377,12 +2408,6 @@ def list_role_users():
     role_id = _get_int_request_param("role_id")
     assignments = store.list_role_users(role_id)
     return jsonify({"assignments": [a.to_json() for a in assignments]})
-
-
-@catch_mlflow_exception
-def list_all_roles():
-    roles = store.list_all_roles()
-    return jsonify({"roles": [r.to_json() for r in roles]})
 
 
 def filter_list_workspaces(resp: Response) -> None:
@@ -3675,7 +3700,6 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
     (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
     (list_role_users, "GET", LIST_ROLE_USERS, AJAX_LIST_ROLE_USERS),
-    (list_all_roles, "GET", LIST_ALL_ROLES, AJAX_LIST_ALL_ROLES),
 ]
 
 

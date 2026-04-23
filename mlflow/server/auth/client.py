@@ -40,7 +40,6 @@ from mlflow.server.auth.routes import (
     GET_ROLE,
     GET_SCORER_PERMISSION,
     GET_USER,
-    LIST_ALL_ROLES,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
@@ -1092,5 +1091,7 @@ class AuthServiceClient:
         return [UserRoleAssignment.from_json(a) for a in resp["assignments"]]
 
     def list_all_roles(self) -> list[Role]:
-        resp = self._request(LIST_ALL_ROLES, "GET")
+        # Same endpoint as list_roles; omitting the ``workspace`` param returns the
+        # cross-workspace listing (admin-only, enforced server-side).
+        resp = self._request(LIST_ROLES, "GET")
         return [Role.from_json(r) for r in resp["roles"]]
