@@ -343,8 +343,6 @@ export function ModelTraceExplorerChatMessage({
         display: 'flex',
         flexDirection: 'column',
         width: '100%',
-        borderRadius: theme.borders.borderRadiusSm,
-        border: `1px solid ${theme.colors.border}`,
         backgroundColor: theme.colors.backgroundPrimary,
         overflow: 'hidden',
       }}
@@ -375,20 +373,17 @@ export function ModelTraceExplorerChatMessage({
         )}
       </div>
       {isExpandable && (
-        <Button
+        <Typography.Link
           componentId={
             expanded
               ? 'shared.model-trace-explorer.chat-message-see-less'
               : 'shared.model-trace-explorer.chat-message-see-more'
           }
-          icon={expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
-          type="tertiary"
           onClick={() => setExpanded(!expanded)}
           css={{
+            padding: theme.spacing.sm,
             display: 'flex',
-            width: '100%',
-            padding: theme.spacing.md,
-            borderRadius: '0px !important',
+            alignItems: 'center',
           }}
         >
           {expanded ? (
@@ -402,7 +397,7 @@ export function ModelTraceExplorerChatMessage({
               description="A button label in a message renderer that expands truncated content when clicked."
             />
           )}
-        </Button>
+        </Typography.Link>
       )}
     </div>
   );
