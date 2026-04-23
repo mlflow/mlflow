@@ -194,6 +194,7 @@ def create_test_span(
     span_type="LLM",
     trace_num=12345,
     attributes=None,
+    links=None,
 ) -> Span:
     """
     Create an MLflow span for testing with minimal boilerplate.
@@ -232,7 +233,10 @@ def create_test_span(
         status=trace_api.Status(status, status_desc),
         resource=_OTelResource.get_empty(),
     )
-    return create_mlflow_span(otel_span, trace_id, span_type)
+    span = create_mlflow_span(otel_span, trace_id, span_type)
+    if links:
+        span._links = list(links)
+    return span
 
 
 # Keep the old function for backward compatibility but delegate to new one
@@ -8266,11 +8270,13 @@ def test_log_spans_persists_links(store: SqlAlchemyStore):
     trace_id = "tr-links-test"
     experiment_id = store.create_experiment("test_links_experiment")
 
-    span = create_test_span(trace_id=trace_id)
-    span._links = [
-        Link(trace_id="tr-abc123", span_id="sp-abc123", attributes={"type": "causal"}),
-        Link(trace_id="tr-def456", span_id="sp-def456"),
-    ]
+    span = create_test_span(
+        trace_id=trace_id,
+        links=[
+            Link(trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "causal"}),
+            Link(trace_id="tr-def456", span_id="1122334455667788"),
+        ],
+    )
 
     store.log_spans(experiment_id, [span])
 
@@ -8286,10 +8292,10 @@ def test_log_spans_persists_links(store: SqlAlchemyStore):
     retrieved_span = trace.data.spans[0]
     assert len(retrieved_span.links) == 2
     assert retrieved_span.links[0].trace_id == "tr-abc123"
-    assert retrieved_span.links[0].span_id == "sp-abc123"
+    assert retrieved_span.links[0].span_id == "aabbccddeeff0011"
     assert retrieved_span.links[0].attributes == {"type": "causal"}
     assert retrieved_span.links[1].trace_id == "tr-def456"
-    assert retrieved_span.links[1].span_id == "sp-def456"
+    assert retrieved_span.links[1].span_id == "1122334455667788"
     assert retrieved_span.links[1].attributes is None
 
 

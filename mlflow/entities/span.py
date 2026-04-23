@@ -238,7 +238,7 @@ class Span:
         Returns:
             A list of all links of the span.
         """
-        return self._links
+        return list(self._links)
 
     def __repr__(self):
         return (
