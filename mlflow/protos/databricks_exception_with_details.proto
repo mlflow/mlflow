@@ -21,11 +21,11 @@ package databricks.api;
 
 import "scalapb/scalapb.proto";
 
+option java_generate_equals_and_hash = true;
+option java_multiple_files = true;
+option java_outer_classname = "ExceptionWithDetailsProto";
 option java_package = "com.databricks.api.proto.databricks.jproto";
 option (scalapb.options).flat_package = true;
-option java_generate_equals_and_hash = true;
-option java_outer_classname = "ExceptionWithDetailsProto";
-option java_multiple_files = true;
 option (scalapb.options).package_name = "com.databricks.api.proto.databricks";
 
 // Databricks Error that is returned by all Databricks APIs. Field tags 1–3
