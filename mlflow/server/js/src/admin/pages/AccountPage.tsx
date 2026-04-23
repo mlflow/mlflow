@@ -219,7 +219,7 @@ const AccountPage = () => {
         )}
 
         <div>
-          <Button componentId="account.logout_button" type="tertiary" onClick={handleLogout} danger>
+          <Button componentId="account.logout_button" onClick={handleLogout}>
             <FormattedMessage defaultMessage="Logout" description="Button to logout" />
           </Button>
         </div>
