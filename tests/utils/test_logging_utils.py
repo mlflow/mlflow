@@ -182,7 +182,6 @@ assert logging.getLogger("mlflow").isEnabledFor({expected_level})
 
 
 def test_configure_mlflow_loggers_preserves_existing_handlers():
-    """Regression test for https://github.com/mlflow/mlflow/issues/4957"""
     handler = logging.StreamHandler()
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
