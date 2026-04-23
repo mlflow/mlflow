@@ -35,11 +35,11 @@ def test_spark_udf_spark_connect_unsupported_env_manager(spark, tmp_path, env_ma
         mlflow.pyfunc.spark_udf(spark, str(tmp_path), env_manager=env_manager)
 
 
-def test_spark_udf_spark_connect_with_model_logging(spark, tmp_path):
+def test_spark_udf_spark_connect_with_model_logging(spark, db_uri):
     X, y = load_iris(return_X_y=True, as_frame=True)
     model = LogisticRegression().fit(X, y)
 
-    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
+    mlflow.set_tracking_uri(db_uri)
     mlflow.set_experiment("test")
     with mlflow.start_run():
         signature = mlflow.models.infer_signature(X, y)
