@@ -3266,7 +3266,9 @@ def test_basic_auth_caches_successful_credentials(mock_auth_store, mock_auth_con
 
     assert user_a.username == "alice"
     assert user_b.username == "alice"
+    # Both PBKDF2 check and user fetch should run exactly once across the two requests.
     mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+    mock_auth_store.get_user.assert_called_once_with("alice")
 
 
 def test_basic_auth_cache_does_not_store_failed_credentials(
@@ -3299,3 +3301,25 @@ def test_basic_auth_cache_keyed_by_username_and_password(
         mock.call("bob", "password123"),
         mock.call("alice", "other-password"),
     ]
+
+
+def test_invalidate_user_auth_cache_drops_only_matching_username(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    alice = base64.b64encode(b"alice:password123").decode("ascii")
+    alice_alt = base64.b64encode(b"alice:other-password").decode("ascii")
+    bob = base64.b64encode(b"bob:password123").decode("ascii")
+
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice_alt}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {bob}"))
+    assert mock_auth_store.authenticate_user.call_count == 3
+
+    auth_module._invalidate_user_auth_cache("alice")
+
+    # Alice's two cached credentials are re-checked; bob's cache entry stays hot.
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice_alt}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {bob}"))
+    assert mock_auth_store.authenticate_user.call_count == 5

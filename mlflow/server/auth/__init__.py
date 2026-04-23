@@ -294,6 +294,18 @@ def _auth_cache_key(username: str, password: str) -> tuple[str, bytes]:
     return (username, hashlib.sha256(password.encode("utf-8")).digest())
 
 
+def _invalidate_user_auth_cache(username: str) -> None:
+    """Drop every cached credential for ``username``.
+
+    Called from user-mutation routes (password change, admin flag change, deletion)
+    so those changes take effect immediately instead of after ``auth_cache_ttl_seconds``.
+    """
+    if _USER_AUTH_CACHE is None:
+        return
+    for key in [k for k in _USER_AUTH_CACHE if k[0] == username]:
+        _USER_AUTH_CACHE.pop(key, None)
+
+
 def is_unprotected_route(path: str) -> bool:
     return path.startswith(("/static", "/favicon.ico", "/health"))
 
@@ -2517,6 +2529,7 @@ def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
     store.update_user(username, password=password)
+    _invalidate_user_auth_cache(username)
     return make_response({})
 
 
@@ -2525,6 +2538,7 @@ def update_user_admin():
     username = _get_request_param("username")
     is_admin = _get_request_param("is_admin")
     store.update_user(username, is_admin=is_admin)
+    _invalidate_user_auth_cache(username)
     return make_response({})
 
 
@@ -2532,6 +2546,7 @@ def update_user_admin():
 def delete_user():
     username = _get_request_param("username")
     store.delete_user(username)
+    _invalidate_user_auth_cache(username)
     return make_response({})
 
 
