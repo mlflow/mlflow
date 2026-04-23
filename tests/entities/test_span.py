@@ -806,14 +806,14 @@ def test_live_span_add_link():
 
         link = Link(
             trace_id="tr-abc123",
-            span_id="sp-abc123",
+            span_id="aabbccddeeff0011",
             attributes={"relationship": "triggered_by"},
         )
         span.add_link(link)
 
         assert len(span.links) == 1
         assert span.links[0].trace_id == "tr-abc123"
-        assert span.links[0].span_id == "sp-abc123"
+        assert span.links[0].span_id == "aabbccddeeff0011"
         assert span.links[0].attributes == {"relationship": "triggered_by"}
 
 
@@ -824,7 +824,9 @@ def test_span_to_dict_with_links():
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("test_span") as otel_span:
         live_span = create_mlflow_span(otel_span, trace_id=trace_id)
-        link = Link(trace_id="tr-abc123", span_id="sp-abc123", attributes={"type": "test"})
+        link = Link(
+            trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "test"}
+        )
         live_span.add_link(link)
 
     immutable_span = live_span.to_immutable_span()
@@ -833,7 +835,7 @@ def test_span_to_dict_with_links():
     assert "links" in span_dict
     assert len(span_dict["links"]) == 1
     assert span_dict["links"][0]["trace_id"] == "tr-abc123"
-    assert span_dict["links"][0]["span_id"] == "sp-abc123"
+    assert span_dict["links"][0]["span_id"] == "aabbccddeeff0011"
     assert span_dict["links"][0]["attributes"] == {"type": "test"}
 
 
@@ -844,7 +846,9 @@ def test_span_from_dict_with_links():
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("test_span") as otel_span:
         live_span = create_mlflow_span(otel_span, trace_id=trace_id)
-        link = Link(trace_id="tr-abc123", span_id="sp-abc123", attributes={"type": "test"})
+        link = Link(
+            trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "test"}
+        )
         live_span.add_link(link)
 
     immutable_span = live_span.to_immutable_span()
@@ -853,7 +857,7 @@ def test_span_from_dict_with_links():
     reconstructed_span = Span.from_dict(span_dict)
     assert len(reconstructed_span.links) == 1
     assert reconstructed_span.links[0].trace_id == "tr-abc123"
-    assert reconstructed_span.links[0].span_id == "sp-abc123"
+    assert reconstructed_span.links[0].span_id == "aabbccddeeff0011"
     assert reconstructed_span.links[0].attributes == {"type": "test"}
 
 
@@ -866,9 +870,31 @@ def test_span_from_dict_without_links():
     immutable_span = span.to_immutable_span()
     span_dict = immutable_span.to_dict()
 
-    # Should not have links key in dict if no links
     assert "links" not in span_dict
 
-    # Round trip should work with empty links
     reconstructed_span = Span.from_dict(span_dict)
     assert len(reconstructed_span.links) == 0
+
+
+def test_span_links_otel_proto_roundtrip():
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "test"
+
+    link_trace_bytes = bytes.fromhex("aabbccddeeff00112233445566778899")
+    link_span_bytes = bytes.fromhex("aabbccddeeff0011")
+    proto_link = otel_proto.links.add()
+    proto_link.trace_id = link_trace_bytes
+    proto_link.span_id = link_span_bytes
+    link_attr = proto_link.attributes.add()
+    link_attr.key = "type"
+    _set_otel_proto_anyvalue(link_attr.value, "causal")
+
+    mlflow_span = Span.from_otel_proto(otel_proto)
+    assert len(mlflow_span.links) == 1
+    assert mlflow_span.links[0].attributes == {"type": "causal"}
+
+    rt = mlflow_span.to_otel_proto()
+    assert rt.links[0].trace_id == link_trace_bytes
+    assert rt.links[0].span_id == link_span_bytes

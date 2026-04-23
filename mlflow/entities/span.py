@@ -538,8 +538,10 @@ class Span:
         # Convert links to OTLP proto format
         for link in self.links:
             proto_link = otel_span.links.add()
-            # Convert MLflow trace ID back to OTel format
-            link_trace_id_hex = link.trace_id.removeprefix("tr-")
+            # Convert MLflow trace ID (tr-xxx or trace:/loc/xxx) back to OTel bytes
+            link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
+                TRACE_REQUEST_ID_PREFIX
+            )
             proto_link.trace_id = decode_id(link_trace_id_hex).to_bytes(16, "big")
             proto_link.span_id = bytes.fromhex(link.span_id)
 
