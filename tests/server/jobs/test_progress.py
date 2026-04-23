@@ -84,6 +84,34 @@ def test_job_tracker_writes_structured_progress():
         )
 
 
+def test_job_tracker_preserves_omitted_progress_fields():
+    job_id = "test-job-progress-omit"
+    tracker = JobTracker(job_id)
+
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
+
+        tracker.update_job_progress(progress=JobProgress(phase="scoring"))
+
+        mock_store.update_job_progress.assert_called_once_with(
+            job_id, progress=JobProgress(phase="scoring")
+        )
+
+
+def test_job_tracker_can_clear_progress_fields_explicitly():
+    job_id = "test-job-progress-clear"
+    tracker = JobTracker(job_id)
+
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
+
+        tracker.update_job_progress(message=None, progress=None)
+
+        mock_store.update_job_progress.assert_called_once_with(job_id, message=None, progress=None)
+
+
 def test_noop_tracker_does_nothing():
     tracker = NoOpTracker()
 
@@ -175,6 +203,40 @@ def test_update_job_progress_is_noop_without_tracker():
     _set_job_tracker(None)
 
     update_job_progress(message="noop", progress=JobProgress(phase="ignored"))
+
+
+def test_update_job_progress_preserves_omitted_fields_on_active_tracker():
+    job_id = "test-job-progress-omit-active"
+    tracker = JobTracker(job_id)
+
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
+
+        _set_job_tracker(tracker)
+        update_job_progress(progress=JobProgress(phase="scoring"))
+
+        mock_store.update_job_progress.assert_called_once_with(
+            job_id, progress=JobProgress(phase="scoring")
+        )
+
+    _set_job_tracker(None)
+
+
+def test_update_job_progress_can_clear_fields_on_active_tracker():
+    job_id = "test-job-progress-clear-active"
+    tracker = JobTracker(job_id)
+
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
+
+        _set_job_tracker(tracker)
+        update_job_progress(message=None, progress=None)
+
+        mock_store.update_job_progress.assert_called_once_with(job_id, message=None, progress=None)
+
+    _set_job_tracker(None)
 
 
 def test_update_status_details_with_only_stage():

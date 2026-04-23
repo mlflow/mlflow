@@ -3,7 +3,11 @@
 from typing import Any
 
 from mlflow.entities._job import JobProgress
-from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException
+from mlflow.store.jobs.abstract_store import (
+    _UNSET_JOB_PROGRESS_FIELD,
+    JobTerminalStateUpdateException,
+    _UnsetJobProgressField,
+)
 
 _job_tracker: "JobTracker | NoOpTracker | None" = None
 
@@ -27,18 +31,19 @@ class JobTracker:
 
     def update_job_progress(
         self,
-        message: str | None = None,
-        progress: JobProgress | None = None,
+        message: str | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
+        progress: JobProgress | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
     ) -> None:
         from mlflow.server.handlers import _get_job_store
 
         job_store = _get_job_store()
+        kwargs = {}
+        if message is not _UNSET_JOB_PROGRESS_FIELD:
+            kwargs["message"] = message
+        if progress is not _UNSET_JOB_PROGRESS_FIELD:
+            kwargs["progress"] = progress
         try:
-            job_store.update_job_progress(
-                self.job_id,
-                message=message,
-                progress=progress,
-            )
+            job_store.update_job_progress(self.job_id, **kwargs)
         except JobTerminalStateUpdateException:
             # Progress updates are best-effort. Once the job is already terminal,
             # late heartbeats should be ignored rather than turning into failures.
@@ -53,8 +58,8 @@ class NoOpTracker:
 
     def update_job_progress(
         self,
-        message: str | None = None,
-        progress: JobProgress | None = None,
+        message: str | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
+        progress: JobProgress | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
     ) -> None:
         pass
 
@@ -81,8 +86,8 @@ def update_status_details(status_details: dict[str, Any]) -> None:
 
 
 def update_job_progress(
-    message: str | None = None,
-    progress: JobProgress | None = None,
+    message: str | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
+    progress: JobProgress | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
 ) -> None:
     """
     Update the current job execution structured progress fields.
@@ -92,4 +97,9 @@ def update_job_progress(
     When called outside a job context, does nothing (no-op).
     """
     tracker = _get_job_tracker()
-    tracker.update_job_progress(message=message, progress=progress)
+    kwargs = {}
+    if message is not _UNSET_JOB_PROGRESS_FIELD:
+        kwargs["message"] = message
+    if progress is not _UNSET_JOB_PROGRESS_FIELD:
+        kwargs["progress"] = progress
+    tracker.update_job_progress(**kwargs)
