@@ -51,7 +51,14 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
         });
 
         ws.on('error', () => {
+          setLoading(false);
           setError(true);
+          ws.destroy();
+          wsRef.current = null;
+          if (blobUrl) {
+            URL.revokeObjectURL(blobUrl);
+            blobUrl = undefined;
+          }
         });
 
         wsRef.current = ws;

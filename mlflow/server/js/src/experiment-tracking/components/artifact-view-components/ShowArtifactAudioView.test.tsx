@@ -59,25 +59,22 @@ describe('ShowArtifactAudioView tests', () => {
     });
 
     await waitFor(() => {
-      expect(mockGetArtifact).toHaveBeenCalled();
+      expect(WaveSurfer.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: fakeBlobUrl,
+        }),
+      );
     });
-
-    expect(WaveSurfer.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: fakeBlobUrl,
-      }),
-    );
   });
 
   test('destroys WaveSurfer on component unmount', async () => {
-    let unmount: () => void;
+    let rendered: ReturnType<typeof render> | undefined;
     await act(async () => {
-      const result = render(
+      rendered = render(
         <IntlProvider locale="en">
           <ShowArtifactAudioView {...minimalProps} />
         </IntlProvider>,
       );
-      unmount = result.unmount;
     });
 
     await waitFor(() => {
@@ -89,7 +86,7 @@ describe('ShowArtifactAudioView tests', () => {
     >;
 
     act(() => {
-      unmount();
+      rendered!.unmount();
     });
 
     expect(mockWsInstance.destroy).toHaveBeenCalled();
