@@ -37,7 +37,15 @@ npm install -g @mlflow/qwen-code
 
 ### Step 2: Configure Qwen Code
 
-Add the hook configuration to your Qwen Code settings. This can be in either `~/.qwen/settings.json` (user-level) or `.qwen/settings.json` (project-level):
+Find your global `node_modules` path so you can reference the bundled hook script in the Qwen Code config:
+
+```bash
+npm root -g
+# example output: /usr/local/lib/node_modules
+#                 /Users/you/.nvm/versions/node/v22.22.2/lib/node_modules
+```
+
+Add the hook configuration to your Qwen Code settings, replacing `<npm-root>` with the path above. This can be in either `~/.qwen/settings.json` (user-level) or `.qwen/settings.json` (project-level):
 
 ```json title="~/.qwen/settings.json"
 {
@@ -47,7 +55,7 @@ Add the hook configuration to your Qwen Code settings. This can be in either `~/
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/node_modules/@mlflow/qwen-code/bundle/stop.js"
+            "command": "node <npm-root>/@mlflow/qwen-code/bundle/stop.js"
           }
         ]
       }
@@ -68,7 +76,15 @@ If you use `nvm` or a similar Node version manager, the `command` field should u
 Older Qwen Code versions (prior to 0.14) disabled the hook system by default and required a top-level `"hooksConfig": { "enabled": true }` entry to turn it on. Current versions ignore that setting and run hooks unconditionally — it's safe to leave in if you already have it, but no longer needed.
 :::
 
-### Step 3: Launch Qwen Code with MLflow environment variables
+### Step 3: Start the MLflow Tracking Server
+
+The MLflow server must be running to receive traces. Start it in a separate terminal:
+
+```bash
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+### Step 4: Launch Qwen Code with MLflow environment variables
 
 Export the MLflow tracking URI and experiment ID in your shell, then start `qwen`:
 
@@ -80,7 +96,7 @@ export MLFLOW_EXPERIMENT_ID=0
 qwen
 ```
 
-Traces become visible in the MLflow UI (`mlflow server`) after each turn completes.
+Traces become visible at [http://localhost:5000](http://localhost:5000) after each turn completes.
 
 ## How It Works
 

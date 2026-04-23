@@ -37,10 +37,18 @@ npm install -g @mlflow/codex
 
 ### Step 2: Configure Codex
 
-Add the `notify` hook to your Codex configuration. Codex calls this after every agent turn:
+Find your global `node_modules` path so you can reference the bundled hook script in the Codex config:
+
+```bash
+npm root -g
+# example output: /usr/local/lib/node_modules
+#                 /Users/you/.nvm/versions/node/v22.22.2/lib/node_modules
+```
+
+Add the `notify` hook to your Codex configuration, replacing `<npm-root>` with the path above. Codex calls this after every agent turn:
 
 ```toml title="~/.codex/config.toml"
-notify = ["node", "/path/to/node_modules/@mlflow/codex/bundle/stop.js"]
+notify = ["node", "<npm-root>/@mlflow/codex/bundle/stop.js"]
 ```
 
 ### Step 3: Set Environment Variables
@@ -52,15 +60,22 @@ export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=0
 ```
 
-### Step 4: Use Codex Normally
+### Step 4: Start the MLflow Tracking Server
+
+The MLflow server must be running to receive traces. Start it in a separate terminal:
+
+```bash
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+### Step 5: Use Codex Normally
 
 ```bash
 # Tracing happens automatically on each conversation turn
 codex "help me refactor this function"
-
-# View traces in MLflow UI
-mlflow server
 ```
+
+Traces become visible at [http://localhost:5000](http://localhost:5000) after each turn completes.
 
 ## How It Works
 
