@@ -31,21 +31,21 @@ def _get_workspace_client():
     return WorkspaceClient()
 
 
-def ensure_sql_warehouse_running(warehouse_id: str, *, timeout_seconds: int | None = None) -> None:
+def ensure_sql_warehouse_running(warehouse_id: str) -> None:
     """
     Verify the SQL warehouse is in ``RUNNING`` state, starting it and waiting if necessary.
 
     No-op when ``MLFLOW_SQL_WAREHOUSE_AUTO_START`` is false. Results are cached per-process
     for ``_CACHE_TTL_SECONDS`` to avoid hammering the SDK across closely-spaced calls.
+    The ``start_and_wait`` timeout is taken from
+    ``MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS``.
 
     Args:
         warehouse_id: The Databricks SQL warehouse ID to check.
-        timeout_seconds: Override the timeout (seconds) for ``start_and_wait``. When ``None``,
-            the value of ``MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS`` is used.
 
     Raises:
-        MlflowException: When ``start_and_wait`` times out before the warehouse reaches
-            ``RUNNING`` state.
+        MlflowException: When the warehouse fails to reach ``RUNNING`` (timeout or other
+            SDK error).
     """
     if not MLFLOW_SQL_WAREHOUSE_AUTO_START.get():
         return
@@ -60,27 +60,25 @@ def ensure_sql_warehouse_running(warehouse_id: str, *, timeout_seconds: int | No
     info = client.warehouses.get(warehouse_id)
 
     if info.state != State.RUNNING:
-        resolved_timeout = (
-            timeout_seconds
-            if timeout_seconds is not None
-            else MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS.get()
-        )
+        timeout = MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS.get()
         _logger.info(
-            "SQL warehouse '%s' is %s; starting it and waiting up to %ds for RUNNING.",
-            warehouse_id,
-            info.state.value,
-            resolved_timeout,
+            f"SQL warehouse '{warehouse_id}' is {info.state.value}; starting it and "
+            f"waiting up to {timeout}s for RUNNING."
         )
         try:
-            client.warehouses.start_and_wait(
-                warehouse_id, timeout=timedelta(seconds=resolved_timeout)
-            )
+            client.warehouses.start_and_wait(warehouse_id, timeout=timedelta(seconds=timeout))
         except TimeoutError as e:
             raise MlflowException(
-                f"Timed out after {resolved_timeout}s waiting for SQL warehouse "
-                f"'{warehouse_id}' to reach RUNNING state. Increase the timeout via "
-                f"the `{MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS.name}` "
-                f"environment variable."
+                f"Timed out after {timeout}s waiting for SQL warehouse '{warehouse_id}' to "
+                f"reach RUNNING state. Increase the timeout via the "
+                f"`{MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS.name}` environment "
+                f"variable, or start the warehouse explicitly and retry."
+            ) from e
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to start SQL warehouse '{warehouse_id}': {e}. Start the warehouse "
+                f"explicitly and retry, or set `MLFLOW_SQL_WAREHOUSE_AUTO_START=false` to "
+                f"disable this preflight."
             ) from e
 
     _verified_running[warehouse_id] = time.monotonic() + _CACHE_TTL_SECONDS

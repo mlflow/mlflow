@@ -3,6 +3,7 @@ from datetime import timedelta
 from unittest import mock
 
 import pytest
+from databricks.sdk.service.sql import State
 
 from mlflow.environment_variables import (
     MLFLOW_SQL_WAREHOUSE_AUTO_START,
@@ -21,8 +22,6 @@ def _clear_cache():
 
 
 def _make_mock_client(state_value):
-    from databricks.sdk.service.sql import State
-
     client = mock.MagicMock()
     warehouse_info = mock.MagicMock()
     warehouse_info.state = State[state_value]
@@ -53,7 +52,7 @@ def test_stopped_warehouse_starts_and_waits_with_default_timeout():
         "wh-1", timeout=timedelta(seconds=1200)
     )
     log_info.assert_called_once()
-    rendered = log_info.call_args.args[0] % log_info.call_args.args[1:]
+    rendered = log_info.call_args.args[0]
     assert "wh-1" in rendered
     assert "STOPPED" in rendered
 
@@ -104,20 +103,21 @@ def test_env_var_timeout_is_honored(monkeypatch):
     client.warehouses.start_and_wait.assert_called_once_with("wh-1", timeout=timedelta(seconds=30))
 
 
-def test_explicit_timeout_arg_overrides_env_var(monkeypatch):
-    monkeypatch.setenv(MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS.name, "30")
-    client = _make_mock_client("STOPPED")
-    with _patch_client(client):
-        ensure_sql_warehouse_running("wh-1", timeout_seconds=45)
-    client.warehouses.start_and_wait.assert_called_once_with("wh-1", timeout=timedelta(seconds=45))
-
-
 def test_timeout_error_raises_mlflow_exception():
     client = _make_mock_client("STOPPED")
     client.warehouses.start_and_wait.side_effect = TimeoutError("deadline exceeded")
     with _patch_client(client), pytest.raises(MlflowException, match="wh-1") as exc_info:
-        ensure_sql_warehouse_running("wh-1", timeout_seconds=5)
+        ensure_sql_warehouse_running("wh-1")
     assert MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS.name in str(exc_info.value)
+
+
+def test_generic_sdk_error_raises_mlflow_exception():
+    client = _make_mock_client("STOPPED")
+    client.warehouses.start_and_wait.side_effect = RuntimeError("warehouse not found")
+    with _patch_client(client), pytest.raises(MlflowException, match="wh-1") as exc_info:
+        ensure_sql_warehouse_running("wh-1")
+    assert "warehouse not found" in str(exc_info.value)
+    assert "MLFLOW_SQL_WAREHOUSE_AUTO_START" in str(exc_info.value)
 
 
 def test_auto_start_disabled_is_noop(monkeypatch):
