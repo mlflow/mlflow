@@ -3100,10 +3100,14 @@ def test_webhook_admin_only_permissions(client, monkeypatch):
 
 @pytest.fixture
 def mock_auth_store():
+    if auth_module._USER_AUTH_CACHE is not None:
+        auth_module._USER_AUTH_CACHE.clear()
     with mock.patch("mlflow.server.auth.store") as mock_store:
         mock_store.get_user.side_effect = lambda username: mock.Mock(username=username)
         mock_store.authenticate_user.return_value = True
         yield mock_store
+    if auth_module._USER_AUTH_CACHE is not None:
+        auth_module._USER_AUTH_CACHE.clear()
 
 
 @pytest.fixture
@@ -3247,3 +3251,51 @@ def test_fastapi_malformed_authorization_header(mock_auth_store, mock_auth_confi
     user = _authenticate_fastapi_request(request)
 
     assert user is None
+
+
+# -- Basic auth credential cache --
+
+
+def test_basic_auth_caches_successful_credentials(mock_auth_store, mock_auth_config, monkeypatch):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
+
+    user_a = _authenticate_fastapi_request(request)
+    user_b = _authenticate_fastapi_request(request)
+
+    assert user_a.username == "alice"
+    assert user_b.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_basic_auth_cache_does_not_store_failed_credentials(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    mock_auth_store.authenticate_user.return_value = False
+    credentials = base64.b64encode(b"alice:wrong").decode("ascii")
+    request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
+
+    assert _authenticate_fastapi_request(request) is None
+    assert _authenticate_fastapi_request(request) is None
+    assert mock_auth_store.authenticate_user.call_count == 2
+
+
+def test_basic_auth_cache_keyed_by_username_and_password(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    alice = base64.b64encode(b"alice:password123").decode("ascii")
+    bob = base64.b64encode(b"bob:password123").decode("ascii")
+    alice_wrong = base64.b64encode(b"alice:other-password").decode("ascii")
+
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {bob}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice_wrong}"))
+
+    assert mock_auth_store.authenticate_user.call_args_list == [
+        mock.call("alice", "password123"),
+        mock.call("bob", "password123"),
+        mock.call("alice", "other-password"),
+    ]

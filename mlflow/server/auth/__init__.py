@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import functools
+import hashlib
 import importlib
 import json
 import logging
@@ -274,6 +275,23 @@ _RESOURCE_WORKSPACE_CACHE: TTLCache[str, str | None] = TTLCache(
     maxsize=auth_config.workspace_cache_max_size,
     ttl=auth_config.workspace_cache_ttl_seconds,
 )
+
+# Cache for successful basic-auth credential checks. Keyed by (username, sha256(password))
+# so the password itself is never held in memory. Skipping the PBKDF2 hash comparison
+# inside ``store.authenticate_user`` on cache hits is the dominant cost saving — a single
+# check_password_hash call costs tens of milliseconds by design.
+_USER_AUTH_CACHE: TTLCache[tuple[str, bytes], User] | None = (
+    TTLCache(
+        maxsize=auth_config.auth_cache_max_size,
+        ttl=auth_config.auth_cache_ttl_seconds,
+    )
+    if auth_config.auth_cache_ttl_seconds > 0
+    else None
+)
+
+
+def _auth_cache_key(username: str, password: str) -> tuple[str, bytes]:
+    return (username, hashlib.sha256(password.encode("utf-8")).digest())
 
 
 def is_unprotected_route(path: str) -> bool:
@@ -2978,8 +2996,15 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         ):
             return store.get_user(username)
 
+        cache_key = _auth_cache_key(username, password) if _USER_AUTH_CACHE is not None else None
+        if cache_key is not None and (cached := _USER_AUTH_CACHE.get(cache_key)) is not None:
+            return cached
+
         if store.authenticate_user(username, password):
-            return store.get_user(username)
+            user = store.get_user(username)
+            if cache_key is not None:
+                _USER_AUTH_CACHE[cache_key] = user
+            return user
     except Exception:
         return None
 
