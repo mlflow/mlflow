@@ -1130,9 +1130,7 @@ def test_get_databricks_host_creds_propagates_workspace_id(monkeypatch):
     mock_ws = mock.MagicMock()
     mock_ws.config = mock_config
 
-    with mock.patch(
-        "databricks.sdk.WorkspaceClient", return_value=mock_ws
-    ) as mock_ws_cls:
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_ws) as mock_ws_cls:
         result = get_databricks_host_creds("databricks")
         mock_ws_cls.assert_called_once_with(profile=None)
         assert result.workspace_id == "6051921418418893"
@@ -1150,9 +1148,7 @@ def test_get_databricks_host_creds_workspace_id_none_when_not_set(monkeypatch):
     mock_ws = mock.MagicMock()
     mock_ws.config = mock_config
 
-    with mock.patch(
-        "databricks.sdk.WorkspaceClient", return_value=mock_ws
-    ):
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_ws):
         result = get_databricks_host_creds("databricks")
         assert result.workspace_id is None
 
