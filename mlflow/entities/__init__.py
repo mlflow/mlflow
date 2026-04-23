@@ -53,6 +53,7 @@ from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.link import Link
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.logged_model_output import LoggedModelOutput
@@ -72,7 +73,6 @@ from mlflow.entities.run_tag import RunTag
 from mlflow.entities.scorer import ScorerVersion
 from mlflow.entities.session import Session
 from mlflow.entities.source_type import SourceType
-from mlflow.entities.link import Link
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode

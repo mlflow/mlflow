@@ -211,6 +211,7 @@ def create_test_span(
         span_type: Span type (default: "LLM")
         trace_num: Trace ID number for context (default: 12345)
         attributes: Attributes dictionary
+        links: List of Link objects to attach to the span
 
     Returns:
         MLflow Span object ready for use in tests

@@ -824,9 +824,7 @@ def test_span_to_dict_with_links():
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("test_span") as otel_span:
         live_span = create_mlflow_span(otel_span, trace_id=trace_id)
-        link = Link(
-            trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "test"}
-        )
+        link = Link(trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "test"})
         live_span.add_link(link)
 
     immutable_span = live_span.to_immutable_span()
@@ -846,9 +844,7 @@ def test_span_from_dict_with_links():
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("test_span") as otel_span:
         live_span = create_mlflow_span(otel_span, trace_id=trace_id)
-        link = Link(
-            trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "test"}
-        )
+        link = Link(trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "test"})
         live_span.add_link(link)
 
     immutable_span = live_span.to_immutable_span()
