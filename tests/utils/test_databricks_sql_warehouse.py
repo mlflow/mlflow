@@ -49,7 +49,9 @@ def test_stopped_warehouse_starts_and_waits_with_default_timeout():
         mock.patch.object(databricks_sql_warehouse._logger, "info") as log_info,
     ):
         ensure_sql_warehouse_running("wh-1")
-    client.warehouses.start_and_wait.assert_called_once_with("wh-1", timeout=timedelta(seconds=600))
+    client.warehouses.start_and_wait.assert_called_once_with(
+        "wh-1", timeout=timedelta(seconds=1200)
+    )
     log_info.assert_called_once()
     rendered = log_info.call_args.args[0] % log_info.call_args.args[1:]
     assert "wh-1" in rendered

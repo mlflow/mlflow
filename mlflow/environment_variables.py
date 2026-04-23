@@ -1173,9 +1173,9 @@ MLFLOW_SQL_WAREHOUSE_AUTO_START = _BooleanEnvironmentVariable(
 
 #: Maximum number of seconds MLflow waits for the SQL warehouse to reach the ``RUNNING`` state
 #: when auto-starting it. Applies only when ``MLFLOW_SQL_WAREHOUSE_AUTO_START`` is enabled.
-#: (default: ``600``)
+#: (default: ``1200``)
 MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS = _EnvironmentVariable(
-    "MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS", int, 600
+    "MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS", int, 1200
 )
 
 #: Specifies whether to export spans incrementally as they complete, in addition to
