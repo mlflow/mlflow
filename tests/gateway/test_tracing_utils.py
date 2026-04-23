@@ -977,16 +977,18 @@ def test_aggregate_gemini_stream_chunks_text():
 def test_aggregate_gemini_stream_chunks_tool_call():
     chunks = [
         _gemini_sse({
-            "candidates": [{
-                "content": {
-                    "parts": [
-                        {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
-                    ],
-                    "role": "model",
-                },
-                "finishReason": "STOP",
-                "index": 0,
-            }]
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
+                        ],
+                        "role": "model",
+                    },
+                    "finishReason": "STOP",
+                    "index": 0,
+                }
+            ]
         }),
         _gemini_sse({
             "usageMetadata": {
