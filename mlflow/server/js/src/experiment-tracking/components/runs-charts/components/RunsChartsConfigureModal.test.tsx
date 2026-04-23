@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
+import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 
 // Larger timeout for integration testing (form rendering)
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
@@ -48,6 +49,7 @@ const sampleLineChartConfig: RunsChartsLineCardConfig = {
 
 describe('RunsChartsConfigureModal', () => {
   const renderTestComponent = (onSubmit?: () => void) => {
+    const queryClient = new QueryClient();
     render(
       <RunsChartsConfigureModal
         config={sampleLineChartConfig}
@@ -62,15 +64,17 @@ describe('RunsChartsConfigureModal', () => {
         wrapper: ({ children }) => (
           <DesignSystemProvider>
             <TestApolloProvider>
-              <MockedReduxStoreProvider
-                state={{
-                  entities: {
-                    metricsByRunUuid: {},
-                  },
-                }}
-              >
-                <IntlProvider locale="en">{children}</IntlProvider>
-              </MockedReduxStoreProvider>
+              <QueryClientProvider client={queryClient}>
+                <MockedReduxStoreProvider
+                  state={{
+                    entities: {
+                      metricsByRunUuid: {},
+                    },
+                  }}
+                >
+                  <IntlProvider locale="en">{children}</IntlProvider>
+                </MockedReduxStoreProvider>
+              </QueryClientProvider>
             </TestApolloProvider>
           </DesignSystemProvider>
         ),

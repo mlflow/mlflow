@@ -6,6 +6,7 @@ from typing import Any, AsyncIterable
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
+from mlflow.gateway.providers.anthropic import _normalize_anthropic_input_tokens
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import parse_sse_lines
@@ -273,7 +274,8 @@ class LiteLLMProvider(BaseProvider):
             cache_read_key="cache_read_input_tokens",
             cache_creation_key="cache_creation_input_tokens",
         ):
-            return token_usage
+            # Anthropic reports input_tokens excluding cache tokens — normalize.
+            return _normalize_anthropic_input_tokens(token_usage)
 
         # Try Gemini format
         return self._extract_token_usage_from_dict(

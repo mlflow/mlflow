@@ -6,7 +6,7 @@ from mlflow.transformers.flavor_config import (
     build_flavor_config,
     update_flavor_conf_to_persist_pretrained_model,
 )
-from mlflow.transformers.hub_utils import is_valid_hf_repo_id
+from mlflow.utils.huggingface_utils import is_valid_hf_repo_id
 
 from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, IS_TRANSFORMERS_V5_OR_LATER
 

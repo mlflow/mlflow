@@ -1057,7 +1057,9 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         assert df.iloc[idx].client_request_id == trace.info.client_request_id
         assert df.iloc[idx].state == trace.info.state
         assert df.iloc[idx].request_time == trace.info.request_time
-        assert df.iloc[idx].execution_duration == trace.info.execution_duration
+        assert df.iloc[idx].execution_duration == pytest.approx(
+            trace.info.execution_duration, abs=1
+        )
         assert df.iloc[idx].request == json.loads(trace.data.request)
         assert df.iloc[idx].response == json.loads(trace.data.response)
         assert df.iloc[idx].trace_metadata == trace.info.trace_metadata

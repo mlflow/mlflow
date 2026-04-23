@@ -70,7 +70,6 @@ jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
   ),
   shouldEnableTagGrouping: jest.fn().mockReturnValue(true),
 }));
-
 jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
   MlflowService: {
     getExperimentTraceInfoV3: jest.fn(),

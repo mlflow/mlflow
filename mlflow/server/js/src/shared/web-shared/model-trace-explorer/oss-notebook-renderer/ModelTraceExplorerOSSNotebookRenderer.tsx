@@ -12,7 +12,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import type { ModelTrace } from '../ModelTrace.types';
 import { ModelTraceExplorer } from '../ModelTraceExplorer';
 import { getTraceArtifact } from './mlflow-fetch-utils';
-import { getActiveWorkspace } from '@mlflow/mlflow/src/workspaces/utils/WorkspaceUtils';
+import { getActiveWorkspace } from '../RoutingUtils';
 
 const MLFLOW_DOCS_URI = 'https://mlflow.org/docs/latest/llms/tracing/index.html?ref=jupyter-notebook-widget';
 
