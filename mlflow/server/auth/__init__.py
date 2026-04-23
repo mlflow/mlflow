@@ -17,6 +17,7 @@ import json
 import logging
 import re
 import secrets
+import threading
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -288,10 +289,43 @@ _USER_AUTH_CACHE: TTLCache[tuple[str, bytes], User] | None = (
     if auth_config.auth_cache_ttl_seconds > 0
     else None
 )
+# cachetools.TTLCache is not thread-safe — Flask handlers run under gunicorn's thread
+# pool, so every touch of the cache needs to hold this lock.
+_USER_AUTH_CACHE_LOCK = threading.Lock()
 
 
 def _auth_cache_key(username: str, password: str) -> tuple[str, bytes]:
     return (username, hashlib.sha256(password.encode("utf-8")).digest())
+
+
+def _authenticate_cached(username: str, password: str) -> User | None:
+    """Run basic-auth verification with the credential cache in front of it.
+
+    Used by both the Flask (``authenticate_request_basic_auth``) and FastAPI
+    (``_authenticate_fastapi_request``) auth paths so neither pays the PBKDF2
+    cost twice for the same credential within ``auth_cache_ttl_seconds``.
+
+    Returns the ``User`` on success, or ``None`` when the credential is invalid.
+    """
+    if _USER_AUTH_CACHE is None:
+        if store.authenticate_user(username, password):
+            return store.get_user(username)
+        return None
+
+    key = _auth_cache_key(username, password)
+    with _USER_AUTH_CACHE_LOCK:
+        cached = _USER_AUTH_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    # Keep the PBKDF2 comparison outside the lock so concurrent verifications for
+    # *different* credentials still run in parallel.
+    if not store.authenticate_user(username, password):
+        return None
+    user = store.get_user(username)
+    with _USER_AUTH_CACHE_LOCK:
+        _USER_AUTH_CACHE[key] = user
+    return user
 
 
 def _invalidate_user_auth_cache(username: str) -> None:
@@ -302,8 +336,9 @@ def _invalidate_user_auth_cache(username: str) -> None:
     """
     if _USER_AUTH_CACHE is None:
         return
-    for key in [k for k in _USER_AUTH_CACHE if k[0] == username]:
-        _USER_AUTH_CACHE.pop(key, None)
+    with _USER_AUTH_CACHE_LOCK:
+        for key in [k for k in _USER_AUTH_CACHE if k[0] == username]:
+            _USER_AUTH_CACHE.pop(key, None)
 
 
 def is_unprotected_route(path: str) -> bool:
@@ -1787,13 +1822,10 @@ def authenticate_request_basic_auth() -> Authorization | Response:
     if request.authorization is None:
         return make_basic_auth_response()
 
-    username = request.authorization.username
-    password = request.authorization.password
-    if store.authenticate_user(username, password):
+    if _authenticate_cached(request.authorization.username, request.authorization.password):
         return request.authorization
-    else:
-        # let user attempt login again
-        return make_basic_auth_response()
+    # let user attempt login again
+    return make_basic_auth_response()
 
 
 def _find_validator(req: Request) -> Callable[[], bool] | None:
@@ -3011,19 +3043,9 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         ):
             return store.get_user(username)
 
-        cache_key = _auth_cache_key(username, password) if _USER_AUTH_CACHE is not None else None
-        if cache_key is not None and (cached := _USER_AUTH_CACHE.get(cache_key)) is not None:
-            return cached
-
-        if store.authenticate_user(username, password):
-            user = store.get_user(username)
-            if cache_key is not None:
-                _USER_AUTH_CACHE[cache_key] = user
-            return user
+        return _authenticate_cached(username, password)
     except Exception:
         return None
-
-    return None
 
 
 def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> str | None:

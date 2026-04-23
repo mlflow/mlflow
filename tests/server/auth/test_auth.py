@@ -3303,6 +3303,27 @@ def test_basic_auth_cache_keyed_by_username_and_password(
     ]
 
 
+def test_flask_basic_auth_shares_cache_with_fastapi_path(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    # Prime the cache via the FastAPI path.
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {credentials}"))
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+    # A subsequent Flask-side call for the same credentials must be served from
+    # cache — no second PBKDF2 verification, no second user fetch.
+    fake_flask_request = mock.Mock()
+    fake_flask_request.authorization.username = "alice"
+    fake_flask_request.authorization.password = "password123"
+    with mock.patch("mlflow.server.auth.request", fake_flask_request):
+        result = auth_module.authenticate_request_basic_auth()
+
+    assert result is fake_flask_request.authorization
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
 def test_invalidate_user_auth_cache_drops_only_matching_username(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
