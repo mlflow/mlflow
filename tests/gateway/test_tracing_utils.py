@@ -10,6 +10,7 @@ from mlflow.gateway.tracing_utils import (
     _get_model_span_info,
     aggregate_anthropic_messages_stream_chunks,
     aggregate_chat_stream_chunks,
+    aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
@@ -842,3 +843,80 @@ def test_aggregate_anthropic_messages_stream_chunks_cache_tokens():
         "cache_creation_input_tokens": 2,
         "output_tokens": 8,
     }
+
+
+# ---------------------------------------------------------------------------
+# Tests for aggregate_openai_responses_stream_chunks
+# ---------------------------------------------------------------------------
+
+_RESPONSES_CREATED = (
+    b'data: {"type":"response.created","response":{"id":"resp_1","object":"response",'
+    b'"created_at":1741290958,"status":"in_progress","output":[],"usage":null}}\n'
+)
+_RESPONSES_TEXT_DELTA = (
+    b'data: {"type":"response.output_text.delta","item_id":"msg_1",'
+    b'"output_index":0,"content_index":0,"delta":"Hi"}\n'
+)
+_RESPONSES_TEXT_DONE = (
+    b'data: {"type":"response.output_text.done","item_id":"msg_1",'
+    b'"output_index":0,"content_index":0,"text":"Hi there!"}\n'
+)
+_RESPONSES_COMPLETED = (
+    b'data: {"type":"response.completed","response":{"id":"resp_1","object":"response",'
+    b'"created_at":1741290958,"status":"completed",'
+    b'"output":[{"id":"msg_1","type":"message","status":"completed","role":"assistant",'
+    b'"content":[{"type":"output_text","text":"Hi there!","annotations":[]}]}],'
+    b'"usage":{"input_tokens":37,"output_tokens":11,"total_tokens":48}}}\n'
+)
+
+
+def test_aggregate_openai_responses_stream_chunks_empty():
+    assert aggregate_openai_responses_stream_chunks([]) is None
+
+
+def test_aggregate_openai_responses_stream_chunks_no_completed_event():
+    chunks = [_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA]
+    assert aggregate_openai_responses_stream_chunks(chunks) is None
+
+
+def test_aggregate_openai_responses_stream_chunks_basic():
+    chunks = [
+        _RESPONSES_CREATED,
+        _RESPONSES_TEXT_DELTA,
+        _RESPONSES_TEXT_DONE,
+        _RESPONSES_COMPLETED,
+    ]
+    result = aggregate_openai_responses_stream_chunks(chunks)
+
+    assert result["id"] == "resp_1"
+    assert result["object"] == "response"
+    assert result["status"] == "completed"
+    assert len(result["output"]) == 1
+    assert result["output"][0]["role"] == "assistant"
+    assert result["output"][0]["content"][0]["text"] == "Hi there!"
+    assert result["usage"] == {"input_tokens": 37, "output_tokens": 11, "total_tokens": 48}
+
+
+def test_aggregate_openai_responses_stream_chunks_split_sse_lines():
+    # Simulate aiohttp yielding a chunk that splits the data: line mid-way.
+    mid = len(_RESPONSES_COMPLETED) // 2
+    chunks = [
+        _RESPONSES_CREATED,
+        _RESPONSES_COMPLETED[:mid],
+        _RESPONSES_COMPLETED[mid:],
+    ]
+    result = aggregate_openai_responses_stream_chunks(chunks)
+
+    assert result is not None
+    assert result["id"] == "resp_1"
+    assert result["status"] == "completed"
+
+
+def test_aggregate_openai_responses_stream_chunks_returns_completed_response():
+    # When multiple events are packed into a single bytes chunk, the
+    # completed response is still extracted correctly.
+    combined = _RESPONSES_CREATED + _RESPONSES_TEXT_DELTA + _RESPONSES_COMPLETED
+    result = aggregate_openai_responses_stream_chunks([combined])
+
+    assert result["status"] == "completed"
+    assert result["usage"]["total_tokens"] == 48

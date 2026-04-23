@@ -468,3 +468,58 @@ def aggregate_anthropic_messages_stream_chunks(
         result["usage"] = usage
 
     return result
+
+
+def aggregate_openai_responses_stream_chunks(
+    chunks: list[bytes],
+) -> dict[str, Any] | None:
+    """
+    Aggregate raw OpenAI Responses API SSE streaming chunks into a single response object.
+
+    The OpenAI Responses streaming API emits a ``response.completed`` event that contains
+    the fully-assembled response object — including all output items, content parts, and
+    token usage. This function locates that event and returns its ``response`` field,
+    giving the same shape as a non-streaming Responses API call::
+
+        {
+            "id": "resp_...",
+            "object": "response",
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "..."}],
+                }
+            ],
+            "usage": {"input_tokens": N, "output_tokens": M, "total_tokens": T},
+            ...
+        }
+
+    Returns ``None`` if *chunks* is empty or contains no ``response.completed`` event.
+    """
+    if not chunks:
+        return None
+
+    # Scan chunks incrementally to avoid materializing a second full copy of the
+    # stream bytes.  aiohttp yields arbitrary-sized byte chunks that can bisect a
+    # ``data:`` line, so we carry any trailing incomplete line into the next
+    # iteration rather than joining everything up front.
+    leftover = b""
+    for chunk in chunks:
+        data = leftover + chunk
+        # Split on newlines, keeping the last (potentially incomplete) segment.
+        lines = data.split(b"\n")
+        leftover = lines[-1]
+        complete = b"\n".join(lines[:-1]) + b"\n"
+        for event in parse_sse_lines(complete):
+            if event.get("type") == "response.completed":
+                return event.get("response")
+
+    # Flush any remaining bytes that were not followed by a newline.
+    if leftover:
+        for event in parse_sse_lines(leftover):
+            if event.get("type") == "response.completed":
+                return event.get("response")
+
+    return None
