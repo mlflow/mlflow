@@ -84,6 +84,8 @@ class BaseProvider(ABC):
 
         self.config = config
         self._enable_tracing = enable_tracing
+        provider = config.model.provider
+        self._provider_name = provider.value if isinstance(provider, Enum) else str(provider)
 
     def get_endpoint_url(self, route_type: str) -> str:
         """Return the full endpoint URL for the given route type.
@@ -150,11 +152,6 @@ class BaseProvider(ABC):
     # -------------------------------------------------------------------------
     # Public methods (with optional tracing)
     # -------------------------------------------------------------------------
-
-    @property
-    def _provider_name(self) -> str:
-        provider = self.config.model.provider
-        return provider.value if isinstance(provider, Enum) else str(provider)
 
     async def chat_stream(
         self, payload: chat.RequestPayload
