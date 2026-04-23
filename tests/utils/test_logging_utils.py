@@ -189,7 +189,7 @@ def test_configure_mlflow_loggers_preserves_existing_handlers():
     try:
         logging_utils._configure_mlflow_loggers(root_module_name="mlflow")
         assert handler in root_logger.handlers
-        assert not handler.stream.closed
+        assert any(ref() is handler for ref in logging._handlerList)
     finally:
         root_logger.removeHandler(handler)
 
