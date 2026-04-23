@@ -2262,9 +2262,9 @@ def test_get_trace_info_v4_ensures_warehouse_running(sql_warehouse_id, mock_ensu
 
 def test_search_traces_v4_ensures_warehouse_running(sql_warehouse_id, mock_ensure_running):
     store = _store()
-    from mlflow.protos.databricks_tracing_pb2 import SearchTraces
+    from mlflow.protos.databricks_tracing_pb2 import SearchTracesOperation
 
-    mock_response = SearchTraces.Response()
+    mock_response = SearchTracesOperation(done=True)
     with mock.patch.object(store, "_call_endpoint", return_value=mock_response):
         store.search_traces(locations=["catalog.schema"])
     mock_ensure_running.assert_called_once_with(sql_warehouse_id)
