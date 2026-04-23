@@ -273,7 +273,12 @@ export const GuardrailDetailModal = ({
             </Typography.Text>
             <Typography.Text
               color="secondary"
-              css={{ display: 'block', marginBottom: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
+              css={{
+                display: 'block',
+                marginBottom: theme.spacing.xs,
+                fontSize: theme.typography.fontSizeSm,
+                whiteSpace: 'pre-line',
+              }}
             >
               {STAGE_HINTS[stage]}
             </Typography.Text>

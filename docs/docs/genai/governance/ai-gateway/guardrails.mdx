@@ -37,11 +37,11 @@ Click **Create Guardrail** to open the creation wizard.
 
 Several built-in types are available:
 
-| Type                 | Description                                                                                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Safety**           | Pre-loaded instructions for detecting harmful, offensive, or toxic content. Defaults to the _After_ stage to check LLM responses.                                              |
-| **PII Detection**    | Pre-loaded instructions for detecting names, emails, phone numbers, and other personally identifiable information. Defaults to the _Before_ stage to screen incoming requests. |
-| **Custom Guardrail** | Start from a blank slate with your own name and instructions.                                                                                                                  |
+| Type                 | Description                                                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Safety**           | Pre-loaded instructions for detecting harmful, offensive, or toxic content. Defaults to the _Post-LLM_ stage to check LLM responses.                                            |
+| **PII Detection**    | Pre-loaded instructions for detecting names, emails, phone numbers, and other personally identifiable information. Defaults to the _Pre-LLM_ stage to screen incoming requests. |
+| **Custom Guardrail** | Start from a blank slate with your own name and instructions.                                                                                                                   |
 
 Selecting a built-in type pre-populates the name and instructions on the next step, saving you time.
 
@@ -58,25 +58,27 @@ Give your guardrail a descriptive name that identifies its purpose (e.g., `PII D
 The stage controls **when** the guardrail runs in the request-response pipeline:
 
 ```
-Request  >  Before Guardrails  >  LLM  >  After Guardrails  >  Response
+Request  >  Pre-LLM Guardrails  >  LLM  >  Post-LLM Guardrails  >  Response
 ```
 
-Click **Before Guardrails** or **After Guardrails** to select where this guardrail runs:
+Click **Pre-LLM Guardrails** or **Post-LLM Guardrails** to select where this guardrail runs:
 
-- **Before Guardrails**: evaluates the incoming request before it reaches the LLM. Use `{{ inputs }}` in your instructions to reference the request content.
-- **After Guardrails**: evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content, or `{{ inputs }}` to reference the original request. After guardrails are **not triggered for streaming requests** — only non-streaming responses are evaluated.
+- **Pre-LLM Guardrails**: evaluates the incoming request before it reaches the LLM. Use `{{ inputs }}` in your instructions to reference the request content.
+- **Post-LLM Guardrails**: evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content, or `{{ inputs }}` to reference the original request. Post-LLM guardrails are **not triggered for streaming requests** — only non-streaming responses are evaluated.
 
 When you switch between stages, the editor automatically swaps `{{ inputs }}` ↔ `{{ outputs }}` in your instructions so they remain correct.
 
 #### Instructions
 
-Write natural-language instructions for the LLM judge. Instructions describe what the guardrail should look for and how it should respond. The hint text below the label shows an example for the currently selected stage.
+Write natural-language instructions for the LLM judge. Instructions describe what the guardrail should look for and how it should respond.
 
-Instructions must contain at least one content variable so the judge receives the actual content to evaluate. Use `{{ inputs }}` to reference the request and `{{ outputs }}` to reference the LLM response — Before guardrails typically use `{{ inputs }}`, while After guardrails can use `{{ outputs }}`, `{{ inputs }}`, or both.
+The judge must reply **yes** to pass the content through, or **no** to trigger the configured action (block or sanitize). The hint text below the label in the UI shows a stage-specific example.
 
-Example instructions for a custom toxicity guardrail on the After stage:
+Instructions must contain at least one content variable so the judge receives the actual content to evaluate. Use `{{ inputs }}` to reference the request and `{{ outputs }}` to reference the LLM response — pre-LLM guardrails typically use `{{ inputs }}`, while post-LLM guardrails can use `{{ outputs }}`, `{{ inputs }}`, or both.
 
-```
+Example instructions for a custom toxicity guardrail on the Post-LLM stage:
+
+```text
 You are a toxicity detector. Review the LLM response below for any harmful,
 offensive, or hateful language. Reply with a JSON object:
 
@@ -124,7 +126,7 @@ The `detail.message` field contains the guardrail name and the judge's rationale
 
 Click any row in the guardrails table to open the detail panel for that guardrail. You can update the stage, instructions, guardrail model, and action. Changes are saved by clicking **Save** — this registers a new scorer version under the hood and atomically replaces the guardrail on the endpoint so that no requests are dropped during the update.
 
-The **Save** button is disabled until you make a change, and it remains disabled if instructions contain a validation error (for example, if you switch to the After stage but the instructions still reference `{{ inputs }}`).
+The **Save** button is disabled until you make a change, and it remains disabled if instructions contain a validation error (for example, if you switch to the Post-LLM stage but the instructions reference neither `{{ inputs }}` nor `{{ outputs }}`).
 
 ## Deleting a Guardrail
 
@@ -134,4 +136,4 @@ To delete multiple guardrails at once, select their checkboxes in the table and 
 
 ## Ordering and Execution
 
-Multiple guardrails on the same endpoint run in the order shown in the table. Before-stage guardrails all execute before the request reaches the LLM; after-stage guardrails execute before the response is returned to the caller. If any guardrail blocks the request, subsequent guardrails in the same stage are skipped.
+Multiple guardrails on the same endpoint run in the order shown in the table. Pre-LLM guardrails all execute before the request reaches the LLM; post-LLM guardrails execute before the response is returned to the caller. If any guardrail blocks the request, subsequent guardrails in the same stage are skipped.

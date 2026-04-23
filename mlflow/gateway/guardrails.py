@@ -414,15 +414,14 @@ class JudgeGuardrail(Guardrail):
 
         # Inside the server process MLFLOW_TRACKING_URI points to the backend store
         # (e.g. sqlite://), so _resolve_gateway_uri() would fail for gateway:/ URIs.
-        # Rewrite to openai:/ with an explicit base_url derived from the HTTP request
-        # URL so the judge calls the gateway directly without touching the tracking URI.
+        # Pass base_url explicitly so _get_provider_instance can skip _resolve_gateway_uri().
         if server_url and isinstance(scorer, InstructionsJudge) and scorer.model:
             provider, endpoint_name = _parse_model_uri(scorer.model)
             if provider == "gateway":
                 scorer = InstructionsJudge(
                     name=scorer.name,
                     instructions=scorer._instructions,
-                    model=f"openai:/{endpoint_name}",
+                    model=f"gateway:/{endpoint_name}",
                     base_url=f"{server_url.rstrip('/')}/gateway/mlflow/v1/chat/completions",
                     feedback_value_type=scorer._feedback_value_type,
                     inference_params=scorer._inference_params,

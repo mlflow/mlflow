@@ -706,11 +706,8 @@ def test_invalid_page_tokens(page_token, error_message):
         SearchUtils.paginate([], page_token, 1)
 
 
-def test_like_pattern_with_plus_character(tmp_path):
+def test_like_pattern_with_plus_character():
     import mlflow
-
-    tracking_dir = tmp_path / "mlruns"
-    mlflow.set_tracking_uri(tracking_dir.as_uri())
 
     name = "jamie-foo C+W bar"
     mlflow.create_experiment(name)
