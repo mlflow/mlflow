@@ -1,5 +1,6 @@
 import assessments_pb2 as _assessments_pb2
 import databricks_pb2 as _databricks_pb2
+import databricks_exception_with_details_pb2 as _databricks_exception_with_details_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -286,14 +287,6 @@ class SearchTracesOperationMetadata(_message.Message):
     state: SearchTracesOperationMetadata.State
     def __init__(self, start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., state: _Optional[_Union[SearchTracesOperationMetadata.State, str]] = ...) -> None: ...
 
-class OperationError(_message.Message):
-    __slots__ = ("error_code", "message")
-    ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
-    MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    error_code: str
-    message: str
-    def __init__(self, error_code: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...
-
 class Operation(_message.Message):
     __slots__ = ("name", "metadata", "done", "error", "response")
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -304,9 +297,9 @@ class Operation(_message.Message):
     name: str
     metadata: SearchTracesOperationMetadata
     done: bool
-    error: OperationError
+    error: _databricks_exception_with_details_pb2.DatabricksServiceExceptionWithDetailsProto
     response: SearchTraces.Response
-    def __init__(self, name: _Optional[str] = ..., metadata: _Optional[_Union[SearchTracesOperationMetadata, _Mapping]] = ..., done: bool = ..., error: _Optional[_Union[OperationError, _Mapping]] = ..., response: _Optional[_Union[SearchTraces.Response, _Mapping]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., metadata: _Optional[_Union[SearchTracesOperationMetadata, _Mapping]] = ..., done: bool = ..., error: _Optional[_Union[_databricks_exception_with_details_pb2.DatabricksServiceExceptionWithDetailsProto, _Mapping]] = ..., response: _Optional[_Union[SearchTraces.Response, _Mapping]] = ...) -> None: ...
 
 class CreateTraceUCStorageLocation(_message.Message):
     __slots__ = ("uc_schema", "sql_warehouse_id")

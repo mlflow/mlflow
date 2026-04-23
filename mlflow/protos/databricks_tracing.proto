@@ -6,6 +6,7 @@ package mlflow.databricks;
 
 import "assessments.proto";
 import "databricks.proto";
+import "databricks_exception_with_details.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
@@ -653,17 +654,12 @@ message SearchTracesOperationMetadata {
   optional State state = 2;
 }
 
-// Error payload for a failed long-running operation. Matches the JSON shape
-// MLflow's REST layer already returns for Databricks errors.
-message OperationError {
-  optional string error_code = 1;
-  optional string message = 2;
-}
-
 // Long-running operation resource, mirroring google.longrunning.Operation but
 // specialized for SearchTracesLongRunning — `metadata` and `response` carry the
 // concrete types directly (instead of google.protobuf.Any) so JSON bodies
-// from the REST layer deserialize without needing @type URLs.
+// from the REST layer deserialize without needing @type URLs. `error` uses the
+// verbatim `databricks.api.DatabricksServiceExceptionWithDetailsProto` so the
+// wire shape matches universe's `databricks.longrunning.Operation`.
 message Operation {
   // Server-assigned name of the form "operations/{unique_id}".
   optional string name = 1;
@@ -676,7 +672,7 @@ message Operation {
   optional bool done = 3;
 
   oneof result {
-    OperationError error = 4;
+    .databricks.api.DatabricksServiceExceptionWithDetailsProto error = 4;
     SearchTraces.Response response = 5;
   }
 }
