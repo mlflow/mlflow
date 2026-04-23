@@ -45,6 +45,7 @@ from mlflow.environment_variables import (
     _MLFLOW_SGI_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_RBAC_UNIFIED_READS,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
 from mlflow.protos.databricks_pb2 import (
@@ -281,6 +282,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 try:
     from flask_wtf.csrf import CSRFProtect
@@ -383,16 +385,43 @@ def _get_permission_from_store_or_default(
     """
     Resolve a permission from the auth store, with optional role-based and workspace fallbacks.
 
-    Resolution order:
+    Resolution order (legacy mode):
     1. If role_permission_func is provided and returns a non-None/non-NO_PERMISSIONS result,
        combine it with any direct resource permission (take the higher of the two).
     2. If a direct (resource-level) permission exists, it is returned.
     3. If no direct permission exists and workspaces are enabled, check workspace-level permission.
     4. Fall back to auth_config.default_permission.
+
+    When ``MLFLOW_RBAC_UNIFIED_READS`` is enabled, ``role_permission_func`` is the sole
+    source of truth: the direct and workspace-level callbacks are skipped. This requires
+    the Phase 2 M2 backfill (Alembic revision ``d4e5f6a7b8c9``) — otherwise legacy grants
+    exist only in the per-resource tables and would not be visible.
     """
-    # Check the direct resource permission first. A direct MANAGE grant is already the
-    # ceiling — a role grant can't raise it — so we can skip the role lookup (one DB
-    # query) in the common admin/owner case. For any lower permission we still need to
+    if MLFLOW_RBAC_UNIFIED_READS.get():
+        if role_permission_func is not None:
+            role_perm = role_permission_func()
+            # Under unified reads, `role_permissions` is the sole source of truth. Any
+            # non-None result — including NO_PERMISSIONS — is the authoritative answer.
+            # Explicit NO_PERMISSIONS represents a denial that the dual-write mirrored
+            # from the legacy table; in legacy mode this case fell through to the direct
+            # permission (which held NO_PERMISSIONS) to reach the same outcome.
+            if role_perm is not None:
+                return role_perm
+        # Workspace fallback still applies when the user has no role in the resource's
+        # workspace. Under the unified-reads flag, ``_workspace_permission`` routes to
+        # ``get_workspace_permission_via_roles`` so it still consults ``role_permissions``.
+        # Crucially, when workspaces are enabled this returns ``NO_PERMISSIONS`` (not
+        # ``None``) for a user with no grant in the workspace — preserving the
+        # "deny by default" cross-workspace isolation.
+        if workspace_level_permission_func is not None:
+            workspace_permission = workspace_level_permission_func()
+            if workspace_permission is not None:
+                return workspace_permission
+        return get_permission(auth_config.default_permission)
+
+    # Legacy mode. Check the direct resource permission first — a direct MANAGE grant
+    # is already the ceiling (a role grant can't raise it) so we can skip the role
+    # lookup in the common admin/owner case. For any lower permission we still need to
     # consult roles so the `max(direct, role)` semantics below hold.
     direct_perm = None
     try:
@@ -455,7 +484,10 @@ def _workspace_permission(
         return NO_PERMISSIONS
 
     try:
-        permission = store.get_workspace_permission(workspace_name, username)
+        if MLFLOW_RBAC_UNIFIED_READS.get():
+            permission = store.get_workspace_permission_via_roles(username, workspace_name)
+        else:
+            permission = store.get_workspace_permission(workspace_name, username)
         if permission is not None:
             return permission
 
@@ -588,6 +620,39 @@ def _workspace_permission_for_registered_model(
     )
 
 
+def _active_role_workspace_for_filters() -> str | None:
+    """
+    Workspace to scope role-grant queries for the search/filter code paths. With
+    workspaces disabled, grants live under ``DEFAULT_WORKSPACE_NAME``; with workspaces
+    enabled, use the request's active workspace (which may still be None if unset).
+    """
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        return workspace_context.get_request_workspace()
+    return DEFAULT_WORKSPACE_NAME
+
+
+def _role_can_read_map(user_id: int, resource_type: str) -> tuple[dict[str, bool], bool]:
+    """
+    Build a ``{resource_pattern: can_read}`` map from the user's role grants in the active
+    workspace plus a ``wildcard_allows_all`` flag (True when any matching wildcard grant
+    has ``can_read``). Callers that hit the wildcard flag should skip per-resource filtering.
+    """
+    workspace = _active_role_workspace_for_filters()
+    if not workspace:
+        return {}, False
+    grants = store.list_role_grants_for_user_in_workspace(user_id, workspace, resource_type)
+    can_read: dict[str, bool] = {}
+    wildcard_allows_all = False
+    for pattern, permission in grants:
+        if pattern == "*":
+            if get_permission(permission).can_read:
+                wildcard_allows_all = True
+            continue
+        existing = can_read.get(pattern, False)
+        can_read[pattern] = existing or get_permission(permission).can_read
+    return can_read, wildcard_allows_all
+
+
 def _has_resource_read_access(
     resource_id: str,
     username: str | None,
@@ -710,12 +775,7 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
     username = authenticate_request().username
 
     if experiment_id := _get_experiment_id_from_view_args():
-        return _get_permission_from_store_or_default(
-            lambda: store.get_experiment_permission(experiment_id, username).permission,
-            workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-                username, experiment_id
-            ),
-        )
+        return _get_experiment_permission(experiment_id, username)
 
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():
@@ -736,42 +796,23 @@ def _get_permission_from_experiment_name() -> Permission:
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
     username = authenticate_request().username
-
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(store_exp.experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, store_exp.experiment_id
-        ),
-    )
+    return _get_experiment_permission(store_exp.experiment_id, username)
 
 
 def _get_permission_from_run_id() -> Permission:
     # run permissions inherit from parent resource (experiment)
-    # so we just get the experiment permission
     run_id = _get_request_param("run_id")
     run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-    )
+    return _get_experiment_permission(run.info.experiment_id, username)
 
 
 def _get_permission_from_model_id() -> Permission:
     # logged model permissions inherit from parent resource (experiment)
     model_id = _get_request_param("model_id")
     model = _get_tracking_store().get_logged_model(model_id)
-    experiment_id = model.experiment_id
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-    )
+    return _get_experiment_permission(model.experiment_id, username)
 
 
 def _get_permission_from_prompt_optimization_job_id() -> Permission:
@@ -781,17 +822,10 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
     params = json.loads(job_entity.params)
     experiment_id = params.get("experiment_id")
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-    )
+    return _get_experiment_permission(experiment_id, username)
 
 
-def _get_permission_from_registered_model_name() -> Permission:
-    name = _get_request_param("name")
-    username = authenticate_request().username
+def _get_registered_model_permission(name: str, username: str) -> Permission:
     return _get_permission_from_store_or_default(
         lambda: store.get_registered_model_permission(name, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_registered_model(
@@ -806,6 +840,12 @@ def _get_permission_from_registered_model_name() -> Permission:
             workspace_label="registered model",
         ),
     )
+
+
+def _get_permission_from_registered_model_name() -> Permission:
+    name = _get_request_param("name")
+    username = authenticate_request().username
+    return _get_registered_model_permission(name, username)
 
 
 def _get_permission_from_scorer_name() -> Permission:
@@ -1112,7 +1152,10 @@ def validate_can_view_workspace() -> bool:
         if default_workspace and workspace_name == default_workspace.name:
             return True
 
-    names = set(store.list_accessible_workspace_names(username))
+    if MLFLOW_RBAC_UNIFIED_READS.get():
+        names = store.list_accessible_workspace_names_via_roles(username)
+    else:
+        names = set(store.list_accessible_workspace_names(username))
 
     return workspace_name in names
 
@@ -1321,9 +1364,40 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
             return experiment_ids
 
         username = authenticate_request().username
+        default_can_read = get_permission(auth_config.default_permission).can_read
+
+        # Workspace to scope role grants against. With workspaces disabled, grants
+        # live under DEFAULT_WORKSPACE_NAME.
+        workspace_name = (
+            workspace_context.get_request_workspace()
+            if MLFLOW_ENABLE_WORKSPACES.get()
+            else DEFAULT_WORKSPACE_NAME
+        )
+
+        if MLFLOW_RBAC_UNIFIED_READS.get():
+            # Unified reads: role_permissions is the sole source of truth. Includes mirrored
+            # direct grants plus any wildcard / workspace-wide grants.
+            if not workspace_name:
+                return [exp_id for exp_id in experiment_ids if default_can_read]
+            user = store.get_user(username)
+            role_grants = store.list_role_grants_for_user_in_workspace(
+                user.id, workspace_name, "experiment"
+            )
+            role_can_read: dict[str, bool] = {}
+            for resource_pattern, permission in role_grants:
+                if resource_pattern == "*":
+                    if get_permission(permission).can_read:
+                        return experiment_ids
+                    continue
+                existing = role_can_read.get(resource_pattern, False)
+                role_can_read[resource_pattern] = existing or get_permission(permission).can_read
+            return [
+                exp_id for exp_id in experiment_ids if role_can_read.get(exp_id, default_can_read)
+            ]
+
+        # Legacy mode: consult direct per-resource table plus role-based grants.
         perms = store.list_experiment_permissions(username)
         can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
-        default_can_read = get_permission(auth_config.default_permission).can_read
 
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return [exp_id for exp_id in experiment_ids if can_read.get(exp_id, default_can_read)]
@@ -1331,7 +1405,6 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
         # With workspaces enabled, the tracking store will filter to the active workspace
         # after this function returns. Since experiments outside the active workspace
         # will be excluded anyway, we only need ONE workspace permission check here.
-        workspace_name = workspace_context.get_request_workspace()
         workspace_perm = (
             _workspace_permission(username, workspace_name) if workspace_name else NO_PERMISSIONS
         )
@@ -1345,7 +1418,7 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
             role_grants = store.list_role_grants_for_user_in_workspace(
                 user.id, workspace_name, "experiment"
             )
-            role_can_read: dict[str, bool] = {}
+            role_can_read = {}
             for resource_pattern, permission in role_grants:
                 if resource_pattern == "*":
                     if get_permission(permission).can_read:
@@ -1462,6 +1535,14 @@ def validate_can_create_gateway_model_definition():
         workspace_level_permission_func=lambda: _workspace_permission_for_gateway_secret(
             username, secret_id
         ),
+        role_permission_func=_role_permission_for(
+            username,
+            "gateway_secret",
+            secret_id,
+            secret_id,
+            lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+            "gateway secret",
+        ),
     )
     return permission.can_use
 
@@ -1489,6 +1570,14 @@ def validate_can_update_gateway_model_definition():
         workspace_level_permission_func=lambda: _workspace_permission_for_gateway_secret(
             username, secret_id
         ),
+        role_permission_func=_role_permission_for(
+            username,
+            "gateway_secret",
+            secret_id,
+            secret_id,
+            lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+            "gateway secret",
+        ),
     )
     return permission.can_use
 
@@ -1513,12 +1602,24 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
     username = authenticate_request().username
     # Reassign to a shorter name for line length limits
     ws_func = _workspace_permission_for_gateway_model_definition
+
+    def md_getter(mdid):
+        return _get_tracking_store().get_gateway_model_definition(model_definition_id=mdid)
+
     for model_def_id in model_def_ids:
         permission = _get_permission_from_store_or_default(
             lambda md_id=model_def_id: (
                 store.get_gateway_model_definition_permission(md_id, username).permission
             ),
             workspace_level_permission_func=lambda md_id=model_def_id: ws_func(username, md_id),
+            role_permission_func=_role_permission_for(
+                username,
+                "gateway_model_definition",
+                model_def_id,
+                model_def_id,
+                md_getter,
+                "gateway model definition",
+            ),
         )
         if not permission.can_use:
             return False
@@ -1579,14 +1680,8 @@ def _get_permission_from_run_id_or_uuid() -> Permission:
             INVALID_PARAMETER_VALUE,
         )
     run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-    )
+    return _get_experiment_permission(run.info.experiment_id, username)
 
 
 def validate_can_read_run_artifact():
@@ -1611,12 +1706,7 @@ def _get_permission_from_model_version() -> Permission:
             INVALID_PARAMETER_VALUE,
         )
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(name, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_registered_model(
-            username, name
-        ),
-    )
+    return _get_registered_model_permission(name, username)
 
 
 def validate_can_read_model_version_artifact():
@@ -1637,14 +1727,8 @@ def _get_permission_from_trace_request_id() -> Permission:
         )
     # Get the trace to find its experiment
     trace = _get_tracking_store().get_trace_info(request_id)
-    experiment_id = trace.experiment_id
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-    )
+    return _get_experiment_permission(trace.experiment_id, username)
 
 
 def validate_can_read_trace_artifact():
@@ -1672,16 +1756,7 @@ def validate_can_read_metric_history_bulk(run_ids=None):
 
     for run_id in run_ids:
         run = tracking_store.get_run(run_id)
-        experiment_id = run.info.experiment_id
-
-        def get_workspace_perm(eid=experiment_id):
-            return _workspace_permission_for_experiment(username, eid)
-
-        permission = _get_permission_from_store_or_default(
-            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission,
-            workspace_level_permission_func=get_workspace_perm,
-        )
-        if not permission.can_read:
+        if not _get_experiment_permission(run.info.experiment_id, username).can_read:
             return False
 
     return True
@@ -1714,17 +1789,8 @@ def validate_can_search_datasets():
 
     username = authenticate_request().username
 
-    # Check permission for each experiment
     for experiment_id in experiment_ids:
-
-        def get_workspace_perm(eid=experiment_id):
-            return _workspace_permission_for_experiment(username, eid)
-
-        permission = _get_permission_from_store_or_default(
-            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission,
-            workspace_level_permission_func=get_workspace_perm,
-        )
-        if not permission.can_read:
+        if not _get_experiment_permission(experiment_id, username).can_read:
             return False
 
     return True
@@ -1741,13 +1807,7 @@ def validate_can_create_promptlab_run():
         )
 
     username = authenticate_request().username
-    permission = _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-    )
-    return permission.can_update
+    return _get_experiment_permission(experiment_id, username).can_update
 
 
 def validate_gateway_proxy():
@@ -2420,7 +2480,10 @@ def filter_list_workspaces(resp: Response) -> None:
 
     allowed: set[str] = set()
     if username is not None:
-        allowed = set(store.list_accessible_workspace_names(username))
+        if MLFLOW_RBAC_UNIFIED_READS.get():
+            allowed = store.list_accessible_workspace_names_via_roles(username)
+        else:
+            allowed = set(store.list_accessible_workspace_names(username))
         if auth_config.grant_default_workspace_access:
             default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
             if default_workspace:
@@ -2468,9 +2531,16 @@ def filter_search_experiments(resp: Response):
 
     # fetch permissions
     username = authenticate_request().username
-    perms = store.list_experiment_permissions(username)
-    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
+    if MLFLOW_RBAC_UNIFIED_READS.get():
+        user = store.get_user(username)
+        can_read, wildcard_allows_all = _role_can_read_map(user.id, "experiment")
+        if wildcard_allows_all:
+            resp.data = message_to_json(response_message)
+            return
+    else:
+        perms = store.list_experiment_permissions(username)
+        can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
     # filter out unreadable
     for e in list(response_message.experiments):
         if not _has_experiment_read_access(username, e.experiment_id, can_read, default_can_read):
@@ -2525,9 +2595,16 @@ def filter_search_logged_models(resp: Response) -> None:
 
     # fetch permissions
     username = authenticate_request().username
-    perms = store.list_experiment_permissions(username)
-    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
+    if MLFLOW_RBAC_UNIFIED_READS.get():
+        user = store.get_user(username)
+        can_read, wildcard_allows_all = _role_can_read_map(user.id, "experiment")
+        if wildcard_allows_all:
+            resp.data = message_to_json(response_proto)
+            return
+    else:
+        perms = store.list_experiment_permissions(username)
+        can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
     # Remove unreadable models
     for m in list(response_proto.models):
         if not _has_experiment_read_access(
@@ -2597,9 +2674,16 @@ def filter_search_registered_models(resp: Response):
 
     # fetch permissions
     username = authenticate_request().username
-    perms = store.list_registered_model_permissions(username)
-    can_read = {p.name: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
+    if MLFLOW_RBAC_UNIFIED_READS.get():
+        user = store.get_user(username)
+        can_read, wildcard_allows_all = _role_can_read_map(user.id, "registered_model")
+        if wildcard_allows_all:
+            resp.data = message_to_json(response_message)
+            return
+    else:
+        perms = store.list_registered_model_permissions(username)
+        can_read = {p.name: get_permission(p.permission).can_read for p in perms}
     # filter out unreadable
     for rm in list(response_message.registered_models):
         if not _has_registered_model_read_access(username, rm.name, can_read, default_can_read):
@@ -2652,9 +2736,16 @@ def filter_search_model_versions(resp: Response):
 
     # fetch permissions
     username = authenticate_request().username
-    perms = store.list_registered_model_permissions(username)
-    can_read = {p.name: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
+    if MLFLOW_RBAC_UNIFIED_READS.get():
+        user = store.get_user(username)
+        can_read, wildcard_allows_all = _role_can_read_map(user.id, "registered_model")
+        if wildcard_allows_all:
+            resp.data = message_to_json(response_message)
+            return
+    else:
+        perms = store.list_registered_model_permissions(username)
+        can_read = {p.name: get_permission(p.permission).can_read for p in perms}
     # filter out model versions whose parent model is unreadable
     for mv in list(response_message.model_versions):
         if not _has_registered_model_read_access(username, mv.name, can_read, default_can_read):
@@ -3229,32 +3320,16 @@ def is_auth_enabled() -> bool:
 
 
 def _graphql_get_permission_for_experiment(experiment_id: str, username: str) -> Permission:
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-    )
+    return _get_experiment_permission(experiment_id, username)
 
 
 def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
     run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-    )
+    return _get_experiment_permission(run.info.experiment_id, username)
 
 
 def _graphql_get_permission_for_model(model_name: str, username: str) -> Permission:
-    return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(model_name, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_registered_model(
-            username, model_name
-        ),
-    )
+    return _get_registered_model_permission(model_name, username)
 
 
 def _graphql_can_read_experiment(experiment_id: str, username: str) -> bool:
@@ -3508,6 +3583,14 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
             workspace_level_permission_func=lambda: _workspace_permission_for_gateway_endpoint(
                 username, endpoint_id
             ),
+            role_permission_func=_role_permission_for(
+                username,
+                "gateway_endpoint",
+                endpoint_id,
+                endpoint_id,
+                lambda eid: tracking_store.get_gateway_endpoint(endpoint_id=eid),
+                "gateway endpoint",
+            ),
         )
         return permission.can_use
     except MlflowException:
@@ -3703,6 +3786,51 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
 ]
 
 
+_UNIFIED_READS_MIN_REVISION = "d4e5f6a7b8c9"
+
+
+def _assert_unified_reads_preconditions() -> None:
+    """
+    When ``MLFLOW_RBAC_UNIFIED_READS`` is on, the auth server must be running against a DB
+    that has the Phase 2 backfill applied. Otherwise legacy grants exist only in the
+    per-resource tables and unified reads would silently deny access. Fail fast on startup
+    with a clear pointer to ``alembic upgrade head``.
+    """
+    if not MLFLOW_RBAC_UNIFIED_READS.get():
+        return
+    from alembic.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+
+    from mlflow.server.auth.db.utils import _get_alembic_config
+
+    alembic_cfg = _get_alembic_config(store.engine.url.render_as_string(hide_password=False))
+    script_dir = ScriptDirectory.from_config(alembic_cfg)
+    with store.engine.begin() as conn:
+        context = MigrationContext.configure(conn, opts={"version_table": "alembic_version_auth"})
+        current = context.get_current_revision()
+    if current is None:
+        raise MlflowException(
+            "MLFLOW_RBAC_UNIFIED_READS is enabled but the auth database has no Alembic "
+            "revision recorded. Run `mlflow-auth db upgrade` (or `alembic upgrade head`) "
+            f"to apply the Phase 2 backfill (revision {_UNIFIED_READS_MIN_REVISION}) "
+            "before enabling unified reads."
+        )
+    # The backfill has been applied iff _UNIFIED_READS_MIN_REVISION appears in the
+    # ancestry of the current revision. Iterate from current back to base; if we hit
+    # the required revision along the way, current >= required.
+    required_found = any(
+        rev.revision == _UNIFIED_READS_MIN_REVISION
+        for rev in script_dir.iterate_revisions(current, "base")
+    )
+    if not required_found:
+        raise MlflowException(
+            "MLFLOW_RBAC_UNIFIED_READS is enabled but the auth database is at Alembic "
+            f"revision '{current}', which precedes the Phase 2 backfill "
+            f"(revision {_UNIFIED_READS_MIN_REVISION}). Run `mlflow-auth db upgrade` "
+            "(or `alembic upgrade head`) before enabling unified reads."
+        )
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -3742,6 +3870,7 @@ def create_app(app: Flask = app):
     csrf.init_app(app)
 
     store.init_db(auth_config.database_uri)
+    _assert_unified_reads_preconditions()
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
 
     _auth_initialized = True

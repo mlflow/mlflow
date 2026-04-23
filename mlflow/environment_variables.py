@@ -115,6 +115,12 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: When ``True``, MLflow's auth layer resolves permissions solely from the unified
+#: ``role_permissions`` table instead of the legacy per-resource permission tables.
+#: Requires Alembic revision ``d4e5f6a7b8c9`` (the Phase 2 M2 backfill) to be applied.
+#: (default: ``False``)
+MLFLOW_RBAC_UNIFIED_READS = _BooleanEnvironmentVariable("MLFLOW_RBAC_UNIFIED_READS", False)
+
 #: Specifies the active workspace for client operations.
 #: (default: ``None``)
 MLFLOW_WORKSPACE = _EnvironmentVariable("MLFLOW_WORKSPACE", str, None)

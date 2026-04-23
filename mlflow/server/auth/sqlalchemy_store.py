@@ -681,6 +681,61 @@ class SqlAlchemyStore:
                 return get_permission(entity.permission)
         return None
 
+    def get_workspace_permission_via_roles(
+        self, username: str, workspace_name: str
+    ) -> Permission | None:
+        """
+        Role-table analog of ``get_workspace_permission``. Returns the union of
+        ``(resource_type='*', resource_pattern='*')`` and
+        ``(resource_type='workspace', resource_pattern='*')`` grants the user holds in
+        ``workspace_name``. Used by the unified-reads code path.
+        """
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            rows = (
+                session
+                .query(SqlRolePermission.permission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user.id,
+                    SqlRole.workspace == workspace_name,
+                    SqlRolePermission.resource_type.in_(("*", "workspace")),
+                    SqlRolePermission.resource_pattern == "*",
+                )
+                .all()
+            )
+        if not rows:
+            return None
+        best: str | None = None
+        for (perm,) in rows:
+            best = perm if best is None else max_permission(best, perm)
+        return get_permission(best) if best is not None else None
+
+    def list_accessible_workspace_names_via_roles(self, username: str | None) -> set[str]:
+        """
+        Role-table analog of ``list_accessible_workspace_names``. Returns every workspace
+        in which the user has at least one ``can_read``-capable ``role_permissions`` row,
+        regardless of resource_type. Used by the unified-reads code path.
+        """
+        if username is None:
+            return set()
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            rows = (
+                session
+                .query(SqlRole.workspace, SqlRolePermission.permission)
+                .join(SqlRolePermission, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(SqlUserRoleAssignment.user_id == user.id)
+                .all()
+            )
+        accessible: set[str] = set()
+        for workspace, permission in rows:
+            if get_permission(permission).can_read:
+                accessible.add(workspace)
+        return accessible
+
     def create_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str
     ) -> ScorerPermission:

@@ -290,8 +290,14 @@ def test_workspace_permission_grants_default_access(monkeypatch):
         def get_workspace_permission(self, workspace_name, username):
             return None
 
+        def get_workspace_permission_via_roles(self, username, workspace_name):
+            return None
+
         def list_accessible_workspace_names(self, username):
             return []
+
+        def list_accessible_workspace_names_via_roles(self, username):
+            return set()
 
     dummy_store = DummyStore()
     monkeypatch.setattr(auth_module, "store", dummy_store, raising=False)
@@ -342,6 +348,9 @@ def test_filter_list_workspaces_includes_default_when_autogrant(monkeypatch):
         def list_accessible_workspace_names(self, username):
             return []
 
+        def list_accessible_workspace_names_via_roles(self, username):
+            return set()
+
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
     response = Response(
@@ -375,6 +384,9 @@ def test_filter_list_workspaces_filters_to_allowed(monkeypatch):
     class DummyStore:
         def list_accessible_workspace_names(self, username):
             return ["team-a"]
+
+        def list_accessible_workspace_names_via_roles(self, username):
+            return {"team-a"}
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
@@ -415,6 +427,9 @@ def test_validate_can_view_workspace_allows_default_autogrant(monkeypatch):
     class DummyStore:
         def list_accessible_workspace_names(self, username):
             return []
+
+        def list_accessible_workspace_names_via_roles(self, username):
+            return set()
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
