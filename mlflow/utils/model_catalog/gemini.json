@@ -8,12 +8,12 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_token": 7.5e-8,
-        "output_per_token": 0,
+        "input_per_million_tokens": 0.075,
+        "output_per_million_tokens": 0,
         "long_context": [
           {
             "threshold_tokens": 128000,
-            "input_per_token": 1.5e-7
+            "input_per_million_tokens": 0.15
           }
         ]
       },
@@ -212,9 +212,9 @@
         "max_tokens": 65535
       },
       "pricing": {
-        "input_per_token": 1e-7,
-        "output_per_token": 4e-7,
-        "cache_read_per_token": 2.5e-8,
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.025,
         "modality": {
           "audio": {
             "input_per_million_tokens": 0.5
@@ -459,26 +459,26 @@
         "max_tokens": 65535
       },
       "pricing": {
-        "input_per_token": 2e-6,
-        "output_per_token": 1.2e-5,
-        "cache_read_per_token": 2e-7,
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.2,
         "service_tiers": {
           "batch": {
-            "input_per_token": 1e-6,
-            "output_per_token": 6e-6
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 6.0
           },
           "priority": {
-            "input_per_token": 3.6e-6,
-            "output_per_token": 2.16e-5,
-            "cache_read_per_token": 3.6e-7
+            "input_per_million_tokens": 3.6,
+            "output_per_million_tokens": 21.6,
+            "cache_read_per_million_tokens": 0.36
           }
         },
         "long_context": [
           {
             "threshold_tokens": 200000,
-            "cache_read_per_token": 4e-7,
-            "input_per_token": 4e-6,
-            "output_per_token": 1.8e-5
+            "cache_read_per_million_tokens": 0.4,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 18.0
           }
         ]
       },
