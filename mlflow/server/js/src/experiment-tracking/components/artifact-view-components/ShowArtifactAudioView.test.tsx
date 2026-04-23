@@ -84,7 +84,9 @@ describe('ShowArtifactAudioView tests', () => {
       expect(WaveSurfer.create).toHaveBeenCalled();
     });
 
-    const mockWsInstance = (WaveSurfer.create as jest.Mock).mock.results[0]?.value;
+    const mockWsInstance = jest.mocked(WaveSurfer.create).mock.results[0]?.value as ReturnType<
+      typeof WaveSurfer.create
+    >;
 
     act(() => {
       unmount();
@@ -108,6 +110,6 @@ describe('ShowArtifactAudioView tests', () => {
       expect(failingGetArtifact).toHaveBeenCalled();
     });
 
-    expect(screen.getByTestId('audio-artifact-preview')).toBeInTheDocument();
+    expect(await screen.findByText('Loading artifact failed')).toBeInTheDocument();
   });
 });

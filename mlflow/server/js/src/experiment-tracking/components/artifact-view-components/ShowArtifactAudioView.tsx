@@ -26,6 +26,9 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
   useEffect(() => {
     if (!containerRef.current) return;
 
+    setLoading(true);
+    setError(false);
+
     let blobUrl: string | undefined;
     let cancelled = false;
 
