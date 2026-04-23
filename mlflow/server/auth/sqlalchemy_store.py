@@ -141,27 +141,196 @@ class SqlAlchemyStore:
     def delete_user(self, username: str):
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username)
+            # Clean up synthetic per-user roles created by the Phase 2 M1 dual-write so their
+            # role_permissions / user_role_assignments rows don't leak (and don't hit FK errors
+            # on backends that enforce referential integrity).
+            synthetic_name = self._synthetic_user_role_name(user.id)
+            synthetic_roles = session.query(SqlRole).filter(SqlRole.name == synthetic_name).all()
+            for role in synthetic_roles:
+                session.delete(role)
+            session.flush()
             session.delete(user)
+
+    # ---- Synthetic user-role helpers (Phase 2 M1 dual-write) ----
+    #
+    # Per-resource grants (experiment_permissions, registered_model_permissions, ...) are
+    # mirrored into `role_permissions` under a synthetic role named `__user_<user_id>__`
+    # scoped to the resource's workspace. Reads still go through the per-resource tables;
+    # the mirrored grants make `get_role_permission_for_resource` a valid source of truth
+    # in parallel so later phases can flip reads over.
+    _SYNTHETIC_ROLE_PREFIX = "__user_"
+    _SYNTHETIC_ROLE_SUFFIX = "__"
+
+    @classmethod
+    def _synthetic_user_role_name(cls, user_id: int) -> str:
+        return f"{cls._SYNTHETIC_ROLE_PREFIX}{user_id}{cls._SYNTHETIC_ROLE_SUFFIX}"
+
+    def _get_or_create_synthetic_user_role(self, session, user_id: int, workspace: str) -> SqlRole:
+        name = self._synthetic_user_role_name(user_id)
+        role = (
+            session
+            .query(SqlRole)
+            .filter(SqlRole.workspace == workspace, SqlRole.name == name)
+            .first()
+        )
+        if role is None:
+            role = SqlRole(name=name, workspace=workspace, description=None)
+            session.add(role)
+            session.flush()
+        assignment = (
+            session
+            .query(SqlUserRoleAssignment)
+            .filter(
+                SqlUserRoleAssignment.user_id == user_id,
+                SqlUserRoleAssignment.role_id == role.id,
+            )
+            .first()
+        )
+        if assignment is None:
+            session.add(SqlUserRoleAssignment(user_id=user_id, role_id=role.id))
+            session.flush()
+        return role
+
+    def _mirror_user_grant(
+        self,
+        session,
+        user_id: int,
+        workspace: str,
+        resource_type: str,
+        resource_pattern: str,
+        permission: str,
+    ) -> None:
+        role = self._get_or_create_synthetic_user_role(session, user_id, workspace)
+        rp = (
+            session
+            .query(SqlRolePermission)
+            .filter(
+                SqlRolePermission.role_id == role.id,
+                SqlRolePermission.resource_type == resource_type,
+                SqlRolePermission.resource_pattern == resource_pattern,
+            )
+            .first()
+        )
+        if rp is None:
+            session.add(
+                SqlRolePermission(
+                    role_id=role.id,
+                    resource_type=resource_type,
+                    resource_pattern=resource_pattern,
+                    permission=permission,
+                )
+            )
+        else:
+            rp.permission = permission
+        session.flush()
+
+    def _unmirror_user_grant(
+        self,
+        session,
+        user_id: int,
+        workspace: str,
+        resource_type: str,
+        resource_pattern: str,
+    ) -> None:
+        name = self._synthetic_user_role_name(user_id)
+        role = (
+            session
+            .query(SqlRole)
+            .filter(SqlRole.workspace == workspace, SqlRole.name == name)
+            .first()
+        )
+        if role is None:
+            return
+        (
+            session
+            .query(SqlRolePermission)
+            .filter(
+                SqlRolePermission.role_id == role.id,
+                SqlRolePermission.resource_type == resource_type,
+                SqlRolePermission.resource_pattern == resource_pattern,
+            )
+            .delete(synchronize_session=False)
+        )
+        session.flush()
+
+    def _unmirror_resource(
+        self,
+        session,
+        resource_type: str,
+        resource_pattern: str,
+        workspace: str | None = None,
+    ) -> None:
+        # Delete all mirrored role_permissions rows for one resource across users.
+        # `workspace=None` is used when the underlying resource ID is globally unique
+        # (scorer, gateway_*), so mirrored rows are removed regardless of which
+        # synthetic role holds them.
+        query = session.query(SqlRolePermission).filter(
+            SqlRolePermission.resource_type == resource_type,
+            SqlRolePermission.resource_pattern == resource_pattern,
+        )
+        if workspace is not None:
+            role_ids = [
+                rid
+                for (rid,) in (
+                    session.query(SqlRole.id).filter(SqlRole.workspace == workspace).all()
+                )
+            ]
+            if not role_ids:
+                return
+            query = query.filter(SqlRolePermission.role_id.in_(role_ids))
+        query.delete(synchronize_session=False)
+        session.flush()
+
+    def _rename_mirrored_resource(
+        self,
+        session,
+        workspace: str,
+        resource_type: str,
+        old_pattern: str,
+        new_pattern: str,
+    ) -> None:
+        role_ids = [
+            rid
+            for (rid,) in (session.query(SqlRole.id).filter(SqlRole.workspace == workspace).all())
+        ]
+        if not role_ids:
+            return
+        (
+            session
+            .query(SqlRolePermission)
+            .filter(
+                SqlRolePermission.role_id.in_(role_ids),
+                SqlRolePermission.resource_type == resource_type,
+                SqlRolePermission.resource_pattern == old_pattern,
+            )
+            .update({SqlRolePermission.resource_pattern: new_pattern}, synchronize_session=False)
+        )
+        session.flush()
 
     def create_experiment_permission(
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             try:
-                user = self._get_user(session, username=username)
                 perm = SqlExperimentPermission(
                     experiment_id=experiment_id, user_id=user.id, permission=permission
                 )
                 session.add(perm)
                 session.flush()
-                return perm.to_mlflow_entity()
+                entity = perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
                     f"Experiment permission (experiment_id={experiment_id}, username={username}) "
                     f"already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
+            self._mirror_user_grant(
+                session, user.id, workspace_name, "experiment", experiment_id, permission
+            )
+            return entity
 
     def _get_experiment_permission(
         self, session, experiment_id: str, username: str
@@ -214,12 +383,20 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_experiment_permission(session, experiment_id, username)
             perm.permission = permission
+            workspace_name = self._get_active_workspace_name()
+            self._mirror_user_grant(
+                session, perm.user_id, workspace_name, "experiment", experiment_id, permission
+            )
             return perm.to_mlflow_entity()
 
     def delete_experiment_permission(self, experiment_id: str, username: str):
         with self.ManagedSessionMaker() as session:
             perm = self._get_experiment_permission(session, experiment_id, username)
+            user_id = perm.user_id
+            workspace_name = self._get_active_workspace_name()
             session.delete(perm)
+            session.flush()
+            self._unmirror_user_grant(session, user_id, workspace_name, "experiment", experiment_id)
 
     def delete_workspace_permissions_for_workspace(self, workspace_name: str) -> None:
         with self.ManagedSessionMaker() as session:
@@ -232,9 +409,9 @@ class SqlAlchemyStore:
     ) -> RegisteredModelPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             try:
-                user = self._get_user(session, username=username)
-                workspace_name = self._get_active_workspace_name()
                 perm = SqlRegisteredModelPermission(
                     workspace=workspace_name,
                     name=name,
@@ -243,7 +420,7 @@ class SqlAlchemyStore:
                 )
                 session.add(perm)
                 session.flush()
-                return perm.to_mlflow_entity()
+                entity = perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
                     "Registered model permission "
@@ -251,6 +428,10 @@ class SqlAlchemyStore:
                     f"already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
+            self._mirror_user_grant(
+                session, user.id, workspace_name, "registered_model", name, permission
+            )
+            return entity
 
     def _get_registered_model_permission(
         self, session, name: str, username: str
@@ -310,12 +491,19 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_registered_model_permission(session, name, username)
             perm.permission = permission
+            self._mirror_user_grant(
+                session, perm.user_id, perm.workspace, "registered_model", name, permission
+            )
             return perm.to_mlflow_entity()
 
     def delete_registered_model_permission(self, name: str, username: str):
         with self.ManagedSessionMaker() as session:
             perm = self._get_registered_model_permission(session, name, username)
+            user_id = perm.user_id
+            workspace_name = perm.workspace
             session.delete(perm)
+            session.flush()
+            self._unmirror_user_grant(session, user_id, workspace_name, "registered_model", name)
 
     def delete_registered_model_permissions(self, name: str) -> None:
         """
@@ -332,6 +520,7 @@ class SqlAlchemyStore:
                 SqlRegisteredModelPermission.workspace == workspace_name,
                 SqlRegisteredModelPermission.name == name,
             ).delete(synchronize_session=False)
+            self._unmirror_resource(session, "registered_model", name, workspace=workspace_name)
 
     def rename_registered_model_permissions(self, old_name: str, new_name: str):
         with self.ManagedSessionMaker() as session:
@@ -347,6 +536,9 @@ class SqlAlchemyStore:
             )
             for perm in perms:
                 perm.name = new_name
+            self._rename_mirrored_resource(
+                session, workspace_name, "registered_model", old_name, new_name
+            )
 
     def list_workspace_permissions(self, workspace_name: str) -> list[WorkspacePermission]:
         with self.ManagedSessionMaker() as session:
@@ -444,8 +636,9 @@ class SqlAlchemyStore:
     ) -> ScorerPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             try:
-                user = self._get_user(session, username=username)
                 perm = SqlScorerPermission(
                     experiment_id=experiment_id,
                     scorer_name=scorer_name,
@@ -454,13 +647,22 @@ class SqlAlchemyStore:
                 )
                 session.add(perm)
                 session.flush()
-                return perm.to_mlflow_entity()
+                entity = perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
                     f"Scorer permission (experiment_id={experiment_id}, scorer_name={scorer_name}, "
                     f"username={username}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
+            self._mirror_user_grant(
+                session,
+                user.id,
+                workspace_name,
+                "scorer",
+                f"{experiment_id}/{scorer_name}",
+                permission,
+            )
+            return entity
 
     def _get_scorer_permission(
         self, session, experiment_id: str, scorer_name: str, username: str
@@ -516,12 +718,31 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_scorer_permission(session, experiment_id, scorer_name, username)
             perm.permission = permission
+            workspace_name = self._get_active_workspace_name()
+            self._mirror_user_grant(
+                session,
+                perm.user_id,
+                workspace_name,
+                "scorer",
+                f"{experiment_id}/{scorer_name}",
+                permission,
+            )
             return perm.to_mlflow_entity()
 
     def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
         with self.ManagedSessionMaker() as session:
             perm = self._get_scorer_permission(session, experiment_id, scorer_name, username)
+            user_id = perm.user_id
+            workspace_name = self._get_active_workspace_name()
             session.delete(perm)
+            session.flush()
+            self._unmirror_user_grant(
+                session,
+                user_id,
+                workspace_name,
+                "scorer",
+                f"{experiment_id}/{scorer_name}",
+            )
 
     def delete_scorer_permissions_for_scorer(self, experiment_id: str, scorer_name: str):
         with self.ManagedSessionMaker() as session:
@@ -529,26 +750,32 @@ class SqlAlchemyStore:
                 SqlScorerPermission.experiment_id == experiment_id,
                 SqlScorerPermission.scorer_name == scorer_name,
             ).delete()
+            self._unmirror_resource(session, "scorer", f"{experiment_id}/{scorer_name}")
 
     def create_gateway_secret_permission(
         self, secret_id: str, username: str, permission: str
     ) -> GatewaySecretPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             try:
-                user = self._get_user(session, username=username)
                 perm = SqlGatewaySecretPermission(
                     secret_id=secret_id, user_id=user.id, permission=permission
                 )
                 session.add(perm)
                 session.flush()
-                return perm.to_mlflow_entity()
+                entity = perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
                     f"Gateway secret permission (secret_id={secret_id}, username={username}) "
                     f"already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
+            self._mirror_user_grant(
+                session, user.id, workspace_name, "gateway_secret", secret_id, permission
+            )
+            return entity
 
     def _get_gateway_secret_permission(
         self, session, secret_id: str, username: str
@@ -603,38 +830,52 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_gateway_secret_permission(session, secret_id, username)
             perm.permission = permission
+            workspace_name = self._get_active_workspace_name()
+            self._mirror_user_grant(
+                session, perm.user_id, workspace_name, "gateway_secret", secret_id, permission
+            )
             return perm.to_mlflow_entity()
 
     def delete_gateway_secret_permission(self, secret_id: str, username: str):
         with self.ManagedSessionMaker() as session:
             perm = self._get_gateway_secret_permission(session, secret_id, username)
+            user_id = perm.user_id
+            workspace_name = self._get_active_workspace_name()
             session.delete(perm)
+            session.flush()
+            self._unmirror_user_grant(session, user_id, workspace_name, "gateway_secret", secret_id)
 
     def delete_gateway_secret_permissions_for_secret(self, secret_id: str):
         with self.ManagedSessionMaker() as session:
             session.query(SqlGatewaySecretPermission).filter(
                 SqlGatewaySecretPermission.secret_id == secret_id,
             ).delete()
+            self._unmirror_resource(session, "gateway_secret", secret_id)
 
     def create_gateway_endpoint_permission(
         self, endpoint_id: str, username: str, permission: str
     ) -> GatewayEndpointPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             try:
-                user = self._get_user(session, username=username)
                 perm = SqlGatewayEndpointPermission(
                     endpoint_id=endpoint_id, user_id=user.id, permission=permission
                 )
                 session.add(perm)
                 session.flush()
-                return perm.to_mlflow_entity()
+                entity = perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
                     f"Gateway endpoint permission (endpoint_id={endpoint_id}, username={username}) "
                     f"already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
+            self._mirror_user_grant(
+                session, user.id, workspace_name, "gateway_endpoint", endpoint_id, permission
+            )
+            return entity
 
     def _get_gateway_endpoint_permission(
         self, session, endpoint_id: str, username: str
@@ -689,32 +930,44 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_gateway_endpoint_permission(session, endpoint_id, username)
             perm.permission = permission
+            workspace_name = self._get_active_workspace_name()
+            self._mirror_user_grant(
+                session, perm.user_id, workspace_name, "gateway_endpoint", endpoint_id, permission
+            )
             return perm.to_mlflow_entity()
 
     def delete_gateway_endpoint_permission(self, endpoint_id: str, username: str):
         with self.ManagedSessionMaker() as session:
             perm = self._get_gateway_endpoint_permission(session, endpoint_id, username)
+            user_id = perm.user_id
+            workspace_name = self._get_active_workspace_name()
             session.delete(perm)
+            session.flush()
+            self._unmirror_user_grant(
+                session, user_id, workspace_name, "gateway_endpoint", endpoint_id
+            )
 
     def delete_gateway_endpoint_permissions_for_endpoint(self, endpoint_id: str):
         with self.ManagedSessionMaker() as session:
             session.query(SqlGatewayEndpointPermission).filter(
                 SqlGatewayEndpointPermission.endpoint_id == endpoint_id,
             ).delete()
+            self._unmirror_resource(session, "gateway_endpoint", endpoint_id)
 
     def create_gateway_model_definition_permission(
         self, model_definition_id: str, username: str, permission: str
     ) -> GatewayModelDefinitionPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             try:
-                user = self._get_user(session, username=username)
                 perm = SqlGatewayModelDefinitionPermission(
                     model_definition_id=model_definition_id, user_id=user.id, permission=permission
                 )
                 session.add(perm)
                 session.flush()
-                return perm.to_mlflow_entity()
+                entity = perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
                     f"Gateway model definition permission "
@@ -722,6 +975,15 @@ class SqlAlchemyStore:
                     f"already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
+            self._mirror_user_grant(
+                session,
+                user.id,
+                workspace_name,
+                "gateway_model_definition",
+                model_definition_id,
+                permission,
+            )
+            return entity
 
     def _get_gateway_model_definition_permission(
         self, session, model_definition_id: str, username: str
@@ -780,6 +1042,15 @@ class SqlAlchemyStore:
                 session, model_definition_id, username
             )
             perm.permission = permission
+            workspace_name = self._get_active_workspace_name()
+            self._mirror_user_grant(
+                session,
+                perm.user_id,
+                workspace_name,
+                "gateway_model_definition",
+                model_definition_id,
+                permission,
+            )
             return perm.to_mlflow_entity()
 
     def delete_gateway_model_definition_permission(self, model_definition_id: str, username: str):
@@ -787,7 +1058,17 @@ class SqlAlchemyStore:
             perm = self._get_gateway_model_definition_permission(
                 session, model_definition_id, username
             )
+            user_id = perm.user_id
+            workspace_name = self._get_active_workspace_name()
             session.delete(perm)
+            session.flush()
+            self._unmirror_user_grant(
+                session,
+                user_id,
+                workspace_name,
+                "gateway_model_definition",
+                model_definition_id,
+            )
 
     def delete_gateway_model_definition_permissions_for_model_definition(
         self, model_definition_id: str
@@ -796,6 +1077,7 @@ class SqlAlchemyStore:
             session.query(SqlGatewayModelDefinitionPermission).filter(
                 SqlGatewayModelDefinitionPermission.model_definition_id == model_definition_id,
             ).delete()
+            self._unmirror_resource(session, "gateway_model_definition", model_definition_id)
 
     # ---- Role CRUD ----
 
