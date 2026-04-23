@@ -295,3 +295,76 @@ def test_is_synthetic_role_name_rejects_edge_cases():
     assert SqlAlchemyStore._is_synthetic_role_name("_user_1__") is False
     assert SqlAlchemyStore._is_synthetic_role_name("__user_1_") is False
     assert SqlAlchemyStore._is_synthetic_role_name(None) is False
+
+
+# ---- workspace_permissions dual-write (resource_type='*') ----
+#
+# The legacy ``workspace_permissions`` table expresses "user has permission X on every
+# resource of every type in this workspace." We mirror those grants as
+# ``(resource_type='*', resource_pattern='*', permission)`` rows on the synthetic role,
+# and the resolver treats type-wildcard rows as a match for any resource_type.
+
+
+def test_workspace_permission_dual_write_applies_to_every_type(store, user):
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, user.username, READ.name)
+
+    # A type-wildcard grant matches every resource type.
+    for resource_type in (
+        "experiment",
+        "registered_model",
+        "scorer",
+        "gateway_secret",
+        "gateway_endpoint",
+        "gateway_model_definition",
+    ):
+        _assert_role_permission(store, user.id, resource_type, "any-id", READ)
+
+
+def test_workspace_permission_dual_write_update_and_delete(store, user):
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, user.username, READ.name)
+    _assert_role_permission(store, user.id, "experiment", "exp1", READ)
+
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, user.username, EDIT.name)
+    _assert_role_permission(store, user.id, "experiment", "exp1", EDIT)
+
+    store.delete_workspace_permission(DEFAULT_WORKSPACE_NAME, user.username)
+    _assert_role_permission(store, user.id, "experiment", "exp1", None)
+
+
+def test_workspace_permissions_bulk_delete_unmirrors(store, user, user2):
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, user.username, READ.name)
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, user2.username, EDIT.name)
+
+    store.delete_workspace_permissions_for_workspace(DEFAULT_WORKSPACE_NAME)
+
+    _assert_role_permission(store, user.id, "experiment", "exp1", None)
+    _assert_role_permission(store, user2.id, "experiment", "exp1", None)
+
+
+def test_type_wildcard_unions_with_specific_grant(store, user):
+    # A type-wildcard READ on the workspace + a specific experiment MANAGE grant should
+    # resolve to MANAGE (higher of the two).
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, user.username, READ.name)
+    store.create_experiment_permission("exp1", user.username, MANAGE.name)
+
+    _assert_role_permission(store, user.id, "experiment", "exp1", MANAGE)
+    # Other experiments still see only the type-wildcard grant.
+    _assert_role_permission(store, user.id, "experiment", "exp2", READ)
+
+
+def test_type_wildcard_and_workspace_admin_coexist(store, user):
+    # A user can hold both a workspace-admin grant (role/user management) and a separate
+    # type-wildcard permission. Both rows apply and the resolver unions them.
+    admin_role = store.create_role(name="ws-admin", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(admin_role.id, "workspace", "*", MANAGE.name)
+    store.assign_role_to_user(user.id, admin_role.id)
+
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, user.username, READ.name)
+
+    _assert_role_permission(store, user.id, "experiment", "exp1", MANAGE)
+
+
+def test_add_role_permission_type_wildcard_requires_pattern_wildcard(store):
+    role = store.create_role(name="r", workspace=DEFAULT_WORKSPACE_NAME)
+    with pytest.raises(MlflowException, match=r"resource_type='\*' requires"):
+        store.add_role_permission(role.id, "*", "exp1", READ.name)

@@ -449,6 +449,7 @@ class SqlAlchemyStore:
             session.query(SqlWorkspacePermission).filter(
                 SqlWorkspacePermission.workspace == workspace_name
             ).delete(synchronize_session=False)
+            self._unmirror_resource(session, "*", "*", workspace=workspace_name)
 
     def create_registered_model_permission(
         self, name: str, username: str, permission: str
@@ -628,6 +629,7 @@ class SqlAlchemyStore:
             else:
                 entity.permission = permission
             session.flush()
+            self._mirror_user_grant(session, user.id, workspace_name, "*", "*", permission)
             return entity.to_mlflow_entity()
 
     def delete_workspace_permission(self, workspace_name: str, username: str) -> None:
@@ -646,6 +648,8 @@ class SqlAlchemyStore:
                     RESOURCE_DOES_NOT_EXIST,
                 )
             session.delete(entity)
+            session.flush()
+            self._unmirror_user_grant(session, user.id, workspace_name, "*", "*")
 
     def list_accessible_workspace_names(self, username: str | None) -> set[str]:
         if username is None:
@@ -1276,12 +1280,11 @@ class SqlAlchemyStore:
     ) -> RolePermission:
         _validate_permission(permission)
         _validate_resource_type(resource_type)
-        # Workspace-scope grants only support the "*" pattern (apply to every resource in
-        # the role's workspace). Any other pattern would be silently ignored by the
-        # resolver, so reject it up front.
-        if resource_type == "workspace" and resource_pattern != "*":
+        # Workspace-scope and type-wildcard grants only support the "*" pattern. Any other
+        # pattern would be silently ignored by the resolver, so reject it up front.
+        if resource_type in ("workspace", "*") and resource_pattern != "*":
             raise MlflowException.invalid_parameter_value(
-                "resource_type='workspace' requires resource_pattern='*'. "
+                f"resource_type='{resource_type}' requires resource_pattern='*'. "
                 f"Got resource_pattern='{resource_pattern}'."
             )
         with self.ManagedSessionMaker() as session:
@@ -1478,8 +1481,11 @@ class SqlAlchemyStore:
             best_permission_name: str | None = None
             for role in roles:
                 for rp in role.permissions:
-                    # Workspace-wide permission — applies to every resource type.
-                    if rp.resource_type == "workspace" and rp.resource_pattern == "*":
+                    # Workspace-wide permission — applies to every resource type. Both
+                    # ``resource_type='workspace'`` (workspace admin) and ``resource_type='*'``
+                    # (type-wildcard, mirrors the legacy workspace_permissions table) match
+                    # every resource in the role's workspace.
+                    if rp.resource_type in ("workspace", "*") and rp.resource_pattern == "*":
                         best_permission_name = (
                             max_permission(best_permission_name, rp.permission)
                             if best_permission_name is not None
@@ -1584,9 +1590,10 @@ class SqlAlchemyStore:
         ``filter_experiment_ids``, which unions the result of this query with
         ``list_experiment_permissions`` from the legacy table).
 
-        Includes both grants on the specific resource_type and workspace-wide grants
-        (``resource_type='workspace'``, ``resource_pattern='*'``) since those apply to
-        every resource type.
+        Includes grants on the specific resource_type plus workspace-wide grants that
+        match every resource type: ``resource_type='workspace'`` (workspace admin) and
+        ``resource_type='*'`` (type-wildcard mirroring the legacy
+        ``workspace_permissions`` table).
 
         Returns a list of ``(resource_pattern, permission)`` tuples.
         """
@@ -1603,7 +1610,7 @@ class SqlAlchemyStore:
                     or_(
                         SqlRolePermission.resource_type == resource_type,
                         and_(
-                            SqlRolePermission.resource_type == "workspace",
+                            SqlRolePermission.resource_type.in_(("workspace", "*")),
                             SqlRolePermission.resource_pattern == "*",
                         ),
                     ),
