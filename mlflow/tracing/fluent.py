@@ -1073,12 +1073,12 @@ def search_traces(
         locations = _get_search_locations(locations)
 
     if locations and any("." in loc for loc in locations) and (
-        not filter_string or "timestamp" not in filter_string.lower()
+        not filter_string or "trace.timestamp_ms" not in filter_string.lower()
     ):
         warnings.warn(
-            "Searching traces without a time range constraint on UC table locations can be "
-            "slow and expensive. Consider adding a `timestamp` filter to your `filter_string` "
-            "to limit the scan, e.g. filter_string=\"timestamp > '2024-01-01'\".",
+            "Searching traces without a time range constraint on UC table locations can be slow "
+            "and expensive. Consider adding a `trace.timestamp_ms` filter to your `filter_string` "
+            "to limit the scan, e.g. filter_string=\"trace.timestamp_ms > '2024-01-01'\".",
             category=UserWarning,
             stacklevel=2,
         )

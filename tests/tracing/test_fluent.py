@@ -1042,7 +1042,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
     ("locations", "filter_string", "expect_warning"),
     [
         (["catalog.schema.prefix"], None, True),
-        (["catalog.schema.prefix"], "timestamp > '2024-01-01'", False),
+        (["catalog.schema.prefix"], "trace.timestamp_ms > '2024-01-01'", False),
         (["123"], None, False),
     ],
 )
@@ -1055,8 +1055,13 @@ def test_search_traces_warns_on_uc_location_without_time_range(
         warnings.simplefilter("always")
         mlflow.search_traces(locations=locations, filter_string=filter_string)
 
-    uc_warnings = [w for w in caught if issubclass(w.category, UserWarning) and "timestamp" in str(w.message)]
+    uc_warnings = [
+        w
+        for w in caught
+        if issubclass(w.category, UserWarning) and "trace.timestamp_ms" in str(w.message)
+    ]
     assert bool(uc_warnings) == expect_warning
+
 
 @skip_when_testing_trace_sdk
 def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
