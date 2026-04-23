@@ -916,10 +916,23 @@ class SqlAlchemyStore:
             session.delete(role)
 
     def delete_roles_for_workspace(self, workspace_name: str) -> None:
+        # Batch delete: ORM-level ``cascade="all, delete-orphan"`` only fires when calling
+        # ``session.delete(instance)``, so for a bulk delete we must explicitly remove
+        # child rows (``role_permissions``, ``user_role_assignments``) before the roles
+        # themselves. The FK doesn't declare ``ON DELETE CASCADE`` at the DB level.
         with self.ManagedSessionMaker() as session:
-            roles = session.query(SqlRole).filter(SqlRole.workspace == workspace_name).all()
-            for role in roles:
-                session.delete(role)
+            role_id_subq = (
+                session.query(SqlRole.id).filter(SqlRole.workspace == workspace_name).subquery()
+            )
+            session.query(SqlRolePermission).filter(
+                SqlRolePermission.role_id.in_(select(role_id_subq))
+            ).delete(synchronize_session=False)
+            session.query(SqlUserRoleAssignment).filter(
+                SqlUserRoleAssignment.role_id.in_(select(role_id_subq))
+            ).delete(synchronize_session=False)
+            session.query(SqlRole).filter(SqlRole.workspace == workspace_name).delete(
+                synchronize_session=False
+            )
 
     # ---- RolePermission CRUD ----
 
@@ -1081,6 +1094,25 @@ class SqlAlchemyStore:
             )
             return [r.to_mlflow_entity() for r in roles]
 
+    def user_has_any_role_in_workspace(self, user_id: int, workspace: str) -> bool:
+        """
+        Lightweight existence check — returns True iff the user has at least one role
+        assignment in the given workspace. Used by validators that only need membership,
+        not the full role entities.
+        """
+        with self.ManagedSessionMaker() as session:
+            return (
+                session
+                .query(SqlUserRoleAssignment.id)
+                .join(SqlRole, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                )
+                .first()
+                is not None
+            )
+
     def list_role_users(self, role_id: int) -> list[UserRoleAssignment]:
         with self.ManagedSessionMaker() as session:
             self._get_role(session, role_id)
@@ -1174,7 +1206,7 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             rows = (
                 session
-                .query(SqlRolePermission)
+                .query(SqlRolePermission.resource_pattern, SqlRolePermission.permission)
                 .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(
@@ -1190,7 +1222,7 @@ class SqlAlchemyStore:
                 )
                 .all()
             )
-            return [(row.resource_pattern, row.permission) for row in rows]
+            return [(pattern, permission) for pattern, permission in rows]
 
     def list_workspace_admin_workspaces(self, user_id: int) -> set[str]:
         """

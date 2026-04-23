@@ -352,6 +352,22 @@ def _get_request_param(param: str) -> str:
     return args[param]
 
 
+def _get_int_request_param(param: str) -> int:
+    """
+    Extract an integer request parameter or raise ``INVALID_PARAMETER_VALUE``.
+
+    Wraps ``_get_request_param`` so non-numeric input produces a 400 instead of bubbling
+    up a ``ValueError`` and surfacing as a 500.
+    """
+    raw = _get_request_param(param)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        raise MlflowException.invalid_parameter_value(
+            f"Parameter '{param}' must be an integer. Got: {raw!r}"
+        )
+
+
 def _get_permission_from_store_or_default(
     store_permission_func: Callable[[], str],
     workspace_level_permission_func: Callable[[], Permission | None] | None = None,
@@ -1165,9 +1181,8 @@ def sender_is_admin():
     return store.get_user(username).is_admin
 
 
-def _is_workspace_admin(username: str, workspace: str) -> bool:
-    user = store.get_user(username)
-    return store.is_workspace_admin(user.id, workspace)
+def _is_workspace_admin(user_id: int, workspace: str) -> bool:
+    return store.is_workspace_admin(user_id, workspace)
 
 
 def _request_params() -> dict[str, object]:
@@ -1218,12 +1233,13 @@ def _get_role_workspace_from_request() -> str | None:
 
 def validate_can_manage_roles():
     username = authenticate_request().username
-    if store.get_user(username).is_admin:
+    user = store.get_user(username)
+    if user.is_admin:
         return True
     workspace = _get_role_workspace_from_request()
     if workspace is None:
         return False
-    return _is_workspace_admin(username, workspace)
+    return _is_workspace_admin(user.id, workspace)
 
 
 def validate_can_view_roles():
@@ -1234,8 +1250,7 @@ def validate_can_view_roles():
     workspace = _get_role_workspace_from_request()
     if workspace is None:
         return False
-    roles = store.list_user_roles_for_workspace(user.id, workspace)
-    return len(roles) > 0
+    return store.user_has_any_role_in_workspace(user.id, workspace)
 
 
 def validate_can_view_user_roles():
@@ -1279,7 +1294,6 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
             return experiment_ids
 
         username = authenticate_request().username
-        user = store.get_user(username)
         perms = store.list_experiment_permissions(username)
         can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
         default_can_read = get_permission(auth_config.default_permission).can_read
@@ -1300,6 +1314,7 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
         # {experiment_id -> can_read} map; wildcard/workspace grants short-circuit to
         # return all experiment_ids.
         if workspace_name:
+            user = store.get_user(username)
             role_grants = store.list_role_grants_for_user_in_workspace(
                 user.id, workspace_name, "experiment"
             )
@@ -2246,7 +2261,7 @@ def create_role():
 
 @catch_mlflow_exception
 def get_role():
-    role_id = int(_get_request_param("role_id"))
+    role_id = _get_int_request_param("role_id")
     role = store.get_role(role_id)
     return jsonify({"role": role.to_json()})
 
@@ -2254,13 +2269,17 @@ def get_role():
 @catch_mlflow_exception
 def list_roles():
     workspace = _get_request_param("workspace")
+    if not isinstance(workspace, str) or not workspace.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Parameter 'workspace' must be a non-empty string."
+        )
     roles = store.list_roles(workspace)
     return jsonify({"roles": [r.to_json() for r in roles]})
 
 
 @catch_mlflow_exception
 def update_role():
-    role_id = int(_get_request_param("role_id"))
+    role_id = _get_int_request_param("role_id")
     body = request.get_json(silent=True) or {}
     name = body.get("name")
     description = body.get("description")
@@ -2278,14 +2297,14 @@ def update_role():
 
 @catch_mlflow_exception
 def delete_role():
-    role_id = int(_get_request_param("role_id"))
+    role_id = _get_int_request_param("role_id")
     store.delete_role(role_id)
     return make_response({})
 
 
 @catch_mlflow_exception
 def add_role_permission():
-    role_id = int(_get_request_param("role_id"))
+    role_id = _get_int_request_param("role_id")
     resource_type = _get_request_param("resource_type")
     resource_pattern = _get_request_param("resource_pattern")
     permission = _get_request_param("permission")
@@ -2295,21 +2314,21 @@ def add_role_permission():
 
 @catch_mlflow_exception
 def remove_role_permission():
-    role_permission_id = int(_get_request_param("role_permission_id"))
+    role_permission_id = _get_int_request_param("role_permission_id")
     store.remove_role_permission(role_permission_id)
     return make_response({})
 
 
 @catch_mlflow_exception
 def list_role_permissions():
-    role_id = int(_get_request_param("role_id"))
+    role_id = _get_int_request_param("role_id")
     perms = store.list_role_permissions(role_id)
     return jsonify({"role_permissions": [p.to_json() for p in perms]})
 
 
 @catch_mlflow_exception
 def update_role_permission():
-    role_permission_id = int(_get_request_param("role_permission_id"))
+    role_permission_id = _get_int_request_param("role_permission_id")
     permission = _get_request_param("permission")
     rp = store.update_role_permission(role_permission_id, permission)
     return jsonify({"role_permission": rp.to_json()})
@@ -2318,7 +2337,7 @@ def update_role_permission():
 @catch_mlflow_exception
 def assign_role():
     username = _get_request_param("username")
-    role_id = int(_get_request_param("role_id"))
+    role_id = _get_int_request_param("role_id")
     user = store.get_user(username)
     assignment = store.assign_role_to_user(user.id, role_id)
     return jsonify({"assignment": assignment.to_json()})
@@ -2327,7 +2346,7 @@ def assign_role():
 @catch_mlflow_exception
 def unassign_role():
     username = _get_request_param("username")
-    role_id = int(_get_request_param("role_id"))
+    role_id = _get_int_request_param("role_id")
     user = store.get_user(username)
     store.unassign_role_from_user(user.id, role_id)
     return make_response({})
@@ -2355,7 +2374,7 @@ def list_user_roles():
 
 @catch_mlflow_exception
 def list_role_users():
-    role_id = int(_get_request_param("role_id"))
+    role_id = _get_int_request_param("role_id")
     assignments = store.list_role_users(role_id)
     return jsonify({"assignments": [a.to_json() for a in assignments]})
 
