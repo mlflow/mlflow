@@ -1,4 +1,5 @@
 import json
+from typing import ClassVar
 from unittest.mock import Mock, patch
 
 import pytest
@@ -753,6 +754,29 @@ def test_third_party_scorer_class_not_found():
         return_value=Mock(spec=[]),
     ):
         with pytest.raises(MlflowException, match="not found in module"):
+            Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_metric_name_mismatch_with_classvar():
+    class RenamedScorer:
+        metric_name: ClassVar[str] = "NewName"
+
+    fake_module = Mock(RenamedScorer=RenamedScorer)
+    payload = SerializedScorer(
+        name="stale",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "RenamedScorer",
+            "metric_name": "OldName",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        return_value=fake_module,
+    ):
+        with pytest.raises(MlflowException, match="does not match class"):
             Scorer.model_validate(payload)
 
 

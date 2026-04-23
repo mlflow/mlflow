@@ -453,15 +453,20 @@ class Scorer(BaseModel):
                     f"found in module '{module_path}'."
                 )
             init_kwargs: dict[str, Any] = dict(data.get("kwargs") or {})
-            # Two shapes of third-party class exist: (a) the base wrapper
-            # (`RagasScorer`, `DeepEvalScorer`, …) has no `metric_name` ClassVar
-            # and expects `metric_name=` as an argument, and (b) concrete
-            # subclasses like `ExactMatch` pin `metric_name: ClassVar[str] =
-            # "ExactMatch"` and forward to `super().__init__` internally, so
-            # passing it again raises "multiple values for keyword argument".
-            # Only pass the kwarg when the class hasn't already pinned it.
-            if getattr(scorer_class, "metric_name", None) != metric_name:
+            # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)
+            # have no `metric_name` ClassVar — pass it as a kwarg; (b) concrete
+            # subclasses (`ExactMatch`) pin it via ClassVar and forward to
+            # `super().__init__`, so re-passing raises "multiple values".
+            class_metric_name = getattr(scorer_class, "metric_name", None)
+            if class_metric_name is None:
                 init_kwargs["metric_name"] = metric_name
+            elif class_metric_name != metric_name:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': stored metric_name "
+                    f"'{metric_name}' does not match class {module_path}.{class_name} "
+                    f"(ClassVar metric_name='{class_metric_name}'). The class may "
+                    f"have been renamed."
+                )
             model = data.get("model")
             if model is not None:
                 init_kwargs["model"] = model
