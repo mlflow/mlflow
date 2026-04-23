@@ -181,6 +181,19 @@ assert logging.getLogger("mlflow").isEnabledFor({expected_level})
     )
 
 
+def test_configure_mlflow_loggers_preserves_existing_handlers():
+    """Regression test for https://github.com/mlflow/mlflow/issues/4957"""
+    handler = logging.StreamHandler()
+    root_logger = logging.getLogger()
+    root_logger.addHandler(handler)
+    try:
+        logging_utils._configure_mlflow_loggers(root_module_name="mlflow")
+        assert handler in root_logger.handlers
+        assert not handler.stream.closed
+    finally:
+        root_logger.removeHandler(handler)
+
+
 @pytest.mark.parametrize("configure_logging", ["0", "1"])
 def test_alembic_logging_respects_configure_flag(configure_logging: str, tmp_sqlite_uri: str):
     user_specified_format = "CUSTOM: %(name)s - %(message)s"

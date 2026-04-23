@@ -1,6 +1,5 @@
 import contextlib
 import logging
-import logging.config
 import re
 import sys
 
@@ -120,55 +119,25 @@ class SuppressLogFilter(logging.Filter):
 
 def _configure_mlflow_loggers(root_module_name):
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
-    # For alembic, use WARNING minimum to reduce noise, but respect higher levels
     alembic_level = log_level if log_level in ("WARNING", "ERROR", "CRITICAL") else "WARNING"
 
-    logging.config.dictConfig({
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "mlflow_formatter": {
-                "()": MlflowFormatter,
-                "format": LOGGING_LINE_FORMAT,
-                "datefmt": LOGGING_DATETIME_FORMAT,
-            },
-        },
-        "handlers": {
-            "mlflow_handler": {
-                "formatter": "mlflow_formatter",
-                "class": "logging.StreamHandler",
-                "stream": MLFLOW_LOGGING_STREAM,
-                "filters": ["suppress_in_thread"],
-            },
-        },
-        "loggers": {
-            root_module_name: {
-                "handlers": ["mlflow_handler"],
-                "level": get_mlflow_log_level(),
-                "propagate": False,
-            },
-            "sqlalchemy.engine": {
-                "handlers": ["mlflow_handler"],
-                "level": "WARN",
-                "propagate": False,
-            },
-            "alembic": {
-                "handlers": ["mlflow_handler"],
-                "level": alembic_level,
-                "propagate": False,
-            },
-            "huey": {
-                "handlers": ["mlflow_handler"],
-                "level": alembic_level,
-                "propagate": False,
-            },
-        },
-        "filters": {
-            "suppress_in_thread": {
-                "()": SuppressLogFilter,
-            }
-        },
-    })
+    formatter = MlflowFormatter(fmt=LOGGING_LINE_FORMAT, datefmt=LOGGING_DATETIME_FORMAT)
+
+    handler = logging.StreamHandler(MLFLOW_LOGGING_STREAM)
+    handler.setFormatter(formatter)
+    handler.addFilter(SuppressLogFilter())
+
+    for name, level in (
+        (root_module_name, get_mlflow_log_level()),
+        ("sqlalchemy.engine", "WARN"),
+        ("alembic", alembic_level),
+        ("huey", alembic_level),
+    ):
+        logger = logging.getLogger(name)
+        logger.handlers.clear()
+        logger.addHandler(handler)
+        logger.setLevel(level)
+        logger.propagate = False
 
 
 def eprint(*args, **kwargs):
