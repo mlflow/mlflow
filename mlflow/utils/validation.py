@@ -235,7 +235,9 @@ def _validate_metric(key, value, timestamp, step, path=""):
     # Warn if value is NaN or infinite, as these may not be stored accurately.
     # Infinity values are replaced with max/min float by SQL-based stores,
     # and NaN may cause unexpected behavior in the UI and downstream analysis.
-    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+    # We check with math.isnan/isinf directly as they work on both Python floats
+    # and numpy floating types (e.g. np.float32, np.float64).
+    if _is_numeric(value) and (math.isnan(value) or math.isinf(value)):
         warnings.warn(
             f"MLflow metric '{key}' has value '{value}' which may not be stored accurately. "
             "Infinity values are replaced with max/min float values by SQL-based stores. "
