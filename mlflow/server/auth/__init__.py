@@ -367,18 +367,24 @@ def _get_permission_from_store_or_default(
     3. If no direct permission exists and workspaces are enabled, check workspace-level permission.
     4. Fall back to auth_config.default_permission.
     """
-    # Check role-based permissions
-    role_perm = None
-    if role_permission_func is not None:
-        role_perm = role_permission_func()
-
-    # Check direct resource permission
+    # Check the direct resource permission first. A direct MANAGE grant is already the
+    # ceiling — a role grant can't raise it — so we can skip the role lookup (one DB
+    # query) in the common admin/owner case. For any lower permission we still need to
+    # consult roles so the `max(direct, role)` semantics below hold.
     direct_perm = None
     try:
         direct_perm = get_permission(store_permission_func())
     except MlflowException as e:
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
+
+    if direct_perm is not None and direct_perm.name == MANAGE.name:
+        return direct_perm
+
+    # Check role-based permissions
+    role_perm = None
+    if role_permission_func is not None:
+        role_perm = role_permission_func()
 
     # If we have both, take the higher
     if role_perm is not None and role_perm != NO_PERMISSIONS and direct_perm is not None:
@@ -655,12 +661,12 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
             username, experiment_id
         ),
         role_permission_func=_role_permission_for(
-            username,
-            "experiment",
-            experiment_id,
-            experiment_id,
-            _get_tracking_store().get_experiment,
-            "experiment",
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -769,12 +775,12 @@ def _get_permission_from_registered_model_name() -> Permission:
             username, name
         ),
         role_permission_func=_role_permission_for(
-            username,
-            "registered_model",
-            name,
-            name,
-            _get_model_registry_store().get_registered_model,
-            "registered model",
+            username=username,
+            resource_type="registered_model",
+            resource_key=name,
+            workspace_lookup_id=name,
+            workspace_fetcher=_get_model_registry_store().get_registered_model,
+            workspace_label="registered model",
         ),
     )
 
@@ -789,12 +795,12 @@ def _get_permission_from_scorer_name() -> Permission:
             username, experiment_id
         ),
         role_permission_func=_role_permission_for(
-            username,
-            "scorer",
-            f"{experiment_id}/{name}",
-            experiment_id,
-            _get_tracking_store().get_experiment,
-            "experiment",
+            username=username,
+            resource_type="scorer",
+            resource_key=f"{experiment_id}/{name}",
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -809,12 +815,12 @@ def _get_permission_from_scorer_permission_request() -> Permission:
             username, experiment_id
         ),
         role_permission_func=_role_permission_for(
-            username,
-            "scorer",
-            f"{experiment_id}/{scorer_name}",
-            experiment_id,
-            _get_tracking_store().get_experiment,
-            "experiment",
+            username=username,
+            resource_type="scorer",
+            resource_key=f"{experiment_id}/{scorer_name}",
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -885,12 +891,12 @@ def _get_permission_from_gateway_secret_id() -> Permission:
             username, secret_id
         ),
         role_permission_func=_role_permission_for(
-            username,
-            "gateway_secret",
-            secret_id,
-            secret_id,
-            lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-            "gateway secret",
+            username=username,
+            resource_type="gateway_secret",
+            resource_key=secret_id,
+            workspace_lookup_id=secret_id,
+            workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+            workspace_label="gateway secret",
         ),
     )
 
@@ -904,12 +910,14 @@ def _get_permission_from_gateway_endpoint_id() -> Permission:
             username, endpoint_id
         ),
         role_permission_func=_role_permission_for(
-            username,
-            "gateway_endpoint",
-            endpoint_id,
-            endpoint_id,
-            lambda eid: _get_tracking_store().get_gateway_endpoint(endpoint_id=eid),
-            "gateway endpoint",
+            username=username,
+            resource_type="gateway_endpoint",
+            resource_key=endpoint_id,
+            workspace_lookup_id=endpoint_id,
+            workspace_fetcher=lambda eid: _get_tracking_store().get_gateway_endpoint(
+                endpoint_id=eid
+            ),
+            workspace_label="gateway endpoint",
         ),
     )
 
@@ -925,14 +933,14 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
             username, model_definition_id
         ),
         role_permission_func=_role_permission_for(
-            username,
-            "gateway_model_definition",
-            model_definition_id,
-            model_definition_id,
-            lambda mdid: _get_tracking_store().get_gateway_model_definition(
+            username=username,
+            resource_type="gateway_model_definition",
+            resource_key=model_definition_id,
+            workspace_lookup_id=model_definition_id,
+            workspace_fetcher=lambda mdid: _get_tracking_store().get_gateway_model_definition(
                 model_definition_id=mdid
             ),
-            "gateway model definition",
+            workspace_label="gateway model definition",
         ),
     )
 
@@ -3632,6 +3640,26 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         return await call_next(request)
 
 
+# Role management routes (RBAC). Each route is exposed at both the REST path (Python
+# client) and the AJAX path (MLflow frontend). Registration loop lives inside create_app.
+_RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
+    (create_role, "POST", CREATE_ROLE, AJAX_CREATE_ROLE),
+    (get_role, "GET", GET_ROLE, AJAX_GET_ROLE),
+    (list_roles, "GET", LIST_ROLES, AJAX_LIST_ROLES),
+    (update_role, "PATCH", UPDATE_ROLE, AJAX_UPDATE_ROLE),
+    (delete_role, "DELETE", DELETE_ROLE, AJAX_DELETE_ROLE),
+    (add_role_permission, "POST", ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION),
+    (remove_role_permission, "DELETE", REMOVE_ROLE_PERMISSION, AJAX_REMOVE_ROLE_PERMISSION),
+    (list_role_permissions, "GET", LIST_ROLE_PERMISSIONS, AJAX_LIST_ROLE_PERMISSIONS),
+    (update_role_permission, "PATCH", UPDATE_ROLE_PERMISSION, AJAX_UPDATE_ROLE_PERMISSION),
+    (assign_role, "POST", ASSIGN_ROLE, AJAX_ASSIGN_ROLE),
+    (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
+    (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
+    (list_role_users, "GET", LIST_ROLE_USERS, AJAX_LIST_ROLE_USERS),
+    (list_all_roles, "GET", LIST_ALL_ROLES, AJAX_LIST_ALL_ROLES),
+]
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -3859,26 +3887,8 @@ def create_app(app: Flask = app):
         view_func=list_user_workspace_permissions,
         methods=["GET"],
     )
-    # Role management routes (RBAC). Register each route at both the REST and AJAX paths
-    # so the Python client (`/api/3.0/mlflow/roles/...`) and the frontend
-    # (`/ajax-api/3.0/mlflow/roles/...`) can both reach them.
-    _rbac_routes = [
-        (create_role, "POST", CREATE_ROLE, AJAX_CREATE_ROLE),
-        (get_role, "GET", GET_ROLE, AJAX_GET_ROLE),
-        (list_roles, "GET", LIST_ROLES, AJAX_LIST_ROLES),
-        (update_role, "PATCH", UPDATE_ROLE, AJAX_UPDATE_ROLE),
-        (delete_role, "DELETE", DELETE_ROLE, AJAX_DELETE_ROLE),
-        (add_role_permission, "POST", ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION),
-        (remove_role_permission, "DELETE", REMOVE_ROLE_PERMISSION, AJAX_REMOVE_ROLE_PERMISSION),
-        (list_role_permissions, "GET", LIST_ROLE_PERMISSIONS, AJAX_LIST_ROLE_PERMISSIONS),
-        (update_role_permission, "PATCH", UPDATE_ROLE_PERMISSION, AJAX_UPDATE_ROLE_PERMISSION),
-        (assign_role, "POST", ASSIGN_ROLE, AJAX_ASSIGN_ROLE),
-        (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
-        (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
-        (list_role_users, "GET", LIST_ROLE_USERS, AJAX_LIST_ROLE_USERS),
-        (list_all_roles, "GET", LIST_ALL_ROLES, AJAX_LIST_ALL_ROLES),
-    ]
-    for view_func, method, rest_path, ajax_path in _rbac_routes:
+    # Role management routes (RBAC) — see _RBAC_ROUTES at module scope.
+    for view_func, method, rest_path, ajax_path in _RBAC_ROUTES:
         for path in (rest_path, ajax_path):
             app.add_url_rule(rule=path, view_func=view_func, methods=[method])
 
