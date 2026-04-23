@@ -55,6 +55,7 @@ export interface TokenUsage {
 export interface MessageContent {
   role: 'user' | 'assistant';
   content: string | ContentBlock[];
+  id?: string;
   model?: string;
   usage?: TokenUsage;
 }

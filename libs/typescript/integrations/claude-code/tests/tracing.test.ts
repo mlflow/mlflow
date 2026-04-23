@@ -335,6 +335,25 @@ describe('processTranscript', () => {
   });
 
   // --------------------------------------------------------------------------
+  // Parallel tool_uses in one assistant turn (split across JSONL entries)
+  // --------------------------------------------------------------------------
+
+  describe('parallel tool_uses in single turn', () => {
+    it('creates a tool span for every parallel sub-agent call', async () => {
+      await processTranscript(
+        resolve(FIXTURES_DIR, 'with-parallel-subagents.jsonl'),
+        'test-parallel'
+      );
+
+      const taskTools = getSpansByName('tool_Task');
+      expect(taskTools).toHaveLength(4);
+
+      const outputs = taskTools.map((s) => (s.outputs as { result: string }).result).sort();
+      expect(outputs).toEqual(['A done', 'B done', 'C done', 'D done']);
+    });
+  });
+
+  // --------------------------------------------------------------------------
   // Sub-agent (file-based)
   // --------------------------------------------------------------------------
 

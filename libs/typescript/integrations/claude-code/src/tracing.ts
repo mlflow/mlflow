@@ -84,10 +84,17 @@ function findToolResults(
   startIdx: number
 ): Record<string, ToolResultInfo> {
   const results: Record<string, ToolResultInfo> = {};
+  // Claude Code splits a single assistant turn into multiple JSONL entries
+  // (one per content block) that share the same message.id. Treat them as
+  // one turn so parallel tool_uses in the same turn all find their results.
+  const currentMessageId = transcript[startIdx]?.message?.id;
 
   for (let i = startIdx + 1; i < transcript.length; i++) {
     const entry = transcript[i];
-    if (entry.type === 'assistant') {break;}
+    if (entry.type === 'assistant') {
+      if (currentMessageId && entry.message?.id === currentMessageId) {continue;}
+      break;
+    }
     if (entry.type !== 'user') {continue;}
 
     // Entry-level toolUseResult (used in real Claude Code transcripts)
