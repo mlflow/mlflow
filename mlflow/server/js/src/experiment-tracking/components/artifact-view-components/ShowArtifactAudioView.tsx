@@ -58,6 +58,7 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
       })
       .catch(() => {
         if (!cancelled) {
+          setLoading(false);
           setError(true);
         }
       });
