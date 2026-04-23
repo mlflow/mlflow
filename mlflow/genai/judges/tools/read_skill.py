@@ -1,0 +1,46 @@
+from typing import Any
+
+from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.skills import SkillSet
+from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
+
+
+class ReadSkillTool(JudgeTool):
+    """Tool that reads the body content of a skill by name.
+
+    Returns the markdown body of the skill's SKILL.md file, giving the judge
+    access to domain knowledge, evaluation rubrics, or reference material.
+    """
+
+    @property
+    def name(self) -> str:
+        return "read_skill_markdown_content"
+
+    def get_definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            function=FunctionToolDefinition(
+                name="read_skill_markdown_content",
+                description=(
+                    "Read the full content of a skill to get detailed domain knowledge, "
+                    "rubrics, or reference material relevant to your evaluation. "
+                    "Use this when a skill's description suggests it contains information "
+                    "that would help you evaluate the current trace."
+                ),
+                parameters=ToolParamsSchema(
+                    properties={
+                        "skill_name": {
+                            "type": "string",
+                            "description": "Name of the skill to read",
+                        }
+                    },
+                    required=["skill_name"],
+                ),
+            )
+        )
+
+    def invoke(self, skills: SkillSet, skill_name: str, **kwargs) -> Any:
+        skill = skills.get_skill(skill_name)
+        if not skill:
+            available = [s.name for s in skills.skills]
+            return f"Error: No skill named '{skill_name}'. Available skills: {available}"
+        return skill.body

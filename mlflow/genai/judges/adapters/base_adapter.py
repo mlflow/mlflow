@@ -9,6 +9,7 @@ import pydantic
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
+    from mlflow.genai.skills import SkillSet
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
@@ -48,6 +49,7 @@ class AdapterInvocationInput:
     response_format: type[pydantic.BaseModel] | None = None
     use_case: str | None = None
     inference_params: dict[str, Any] | None = None
+    skills: SkillSet | None = None
     base_url: str | None = None
     extra_headers: dict[str, str] | None = None
 

@@ -4,6 +4,7 @@ Tool registry for MLflow GenAI judges.
 This module provides a registry system for managing and invoking JudgeTool instances.
 """
 
+import inspect
 import json
 import logging
 from typing import Any
@@ -13,6 +14,7 @@ from mlflow.entities import SpanType, Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.skills.parsing import SkillSet
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
 _logger = logging.getLogger(__name__)
@@ -33,13 +35,16 @@ class JudgeToolRegistry:
         """
         self._tools[tool.name] = tool
 
-    def invoke(self, tool_call: Any, trace: Trace) -> Any:
+    def invoke(
+        self, tool_call: Any, trace: Trace | None = None, skills: SkillSet | None = None
+    ) -> Any:
         """
-        Invoke a tool using a ToolCall instance and trace.
+        Invoke a tool using a ToolCall instance and context objects.
 
         Args:
             tool_call: The ToolCall containing function name and arguments
-            trace: The MLflow trace object to analyze
+            trace: Optional MLflow trace object to analyze
+            skills: Optional SkillSet for skill-based tools
 
         Returns:
             The result of the tool execution
@@ -70,7 +75,8 @@ class JudgeToolRegistry:
                 tool_func = mlflow.trace(name=tool.name, span_type=SpanType.TOOL)(tool.invoke)
             else:
                 tool_func = tool.invoke
-            result = tool_func(trace, **arguments)
+            context = _build_tool_context(tool, trace=trace, skills=skills)
+            result = tool_func(**context, **arguments)
             _logger.debug(f"Tool '{function_name}' returned: {result}")
             return result
         except TypeError as e:
@@ -89,6 +95,21 @@ class JudgeToolRegistry:
         return list(self._tools.values())
 
 
+def _build_tool_context(
+    tool: JudgeTool, trace: Trace | None = None, skills: SkillSet | None = None
+) -> dict[str, Any]:
+    sig = inspect.signature(tool.invoke)
+    context = {}
+    for param_name, param in sig.parameters.items():
+        if param_name in ("self", "kwargs"):
+            continue
+        if param_name == "trace" and trace is not None:
+            context["trace"] = trace
+        elif param_name == "skills" and skills is not None:
+            context["skills"] = skills
+    return context
+
+
 _judge_tool_registry = JudgeToolRegistry()
 
 
@@ -102,18 +123,21 @@ def register_judge_tool(tool: JudgeTool) -> None:
     _judge_tool_registry.register(tool)
 
 
-def invoke_judge_tool(tool_call: Any, trace: Trace) -> Any:
+def invoke_judge_tool(
+    tool_call: Any, trace: Trace, skills: SkillSet | None = None
+) -> Any:
     """
-    Invoke a judge tool using a ToolCall instance and trace.
+    Invoke a judge tool using a ToolCall instance and context objects.
 
     Args:
         tool_call: The ToolCall containing function name and arguments
-        trace: The MLflow trace object to analyze
+        trace: Optional MLflow trace object to analyze
+        skills: Optional SkillSet for skill-based tools
 
     Returns:
         The result of the tool execution
     """
-    return _judge_tool_registry.invoke(tool_call, trace)
+    return _judge_tool_registry.invoke(tool_call, trace=trace, skills=skills)
 
 
 def list_judge_tools() -> list[JudgeTool]:
@@ -143,3 +167,9 @@ _judge_tool_registry.register(GetSpanTool())
 _judge_tool_registry.register(ListSpansTool())
 _judge_tool_registry.register(SearchTraceRegexTool())
 _judge_tool_registry.register(GetSpanPerformanceAndTimingReportTool())
+
+from mlflow.genai.judges.tools.read_skill import ReadSkillTool
+from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
+
+_judge_tool_registry.register(ReadSkillTool())
+_judge_tool_registry.register(ReadSkillFileTool())

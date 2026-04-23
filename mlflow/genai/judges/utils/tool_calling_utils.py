@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
+    from mlflow.genai.skills.parsing import SkillSet
     from mlflow.types.llm import ChatMessage, ToolCall
 
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
@@ -38,6 +39,7 @@ def _raise_iteration_limit_exceeded(max_iterations: int) -> NoReturn:
 def _process_tool_calls(
     tool_calls: list[ToolCall],
     trace: Trace | None,
+    skills: SkillSet | None = None,
 ) -> list[ChatMessage]:
     """
     Process tool calls and return tool response messages.
@@ -54,7 +56,7 @@ def _process_tool_calls(
     tool_response_messages = []
     for tool_call in tool_calls:
         try:
-            result = _judge_tool_registry.invoke(tool_call=tool_call, trace=trace)
+            result = _judge_tool_registry.invoke(tool_call=tool_call, trace=trace, skills=skills)
         except Exception as e:
             tool_response_messages.append(
                 _create_tool_response_message(

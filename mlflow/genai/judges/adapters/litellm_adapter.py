@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     import litellm
 
     from mlflow.entities.trace import Trace
+    from mlflow.genai.skills import SkillSet
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
@@ -28,6 +29,7 @@ from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationOutput,
     BaseJudgeAdapter,
 )
+from mlflow.genai.judges.tools.constants import SKILL_TOOL_NAMES
 from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
@@ -222,6 +224,7 @@ def _invoke_litellm_and_handle_tools(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
+    skills: SkillSet | None = None,
     base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> InvokeLiteLLMOutput:
@@ -283,6 +286,13 @@ def _invoke_litellm_and_handle_tools(
     if trace is not None:
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
+    elif skills is not None:
+        # When skills are provided without a trace, only expose skill-related
+        # tools so the LLM can read skill content during evaluation.
+        judge_tools = list_judge_tools()
+        tools = [
+            tool.get_definition().to_dict() for tool in judge_tools if tool.name in SKILL_TOOL_NAMES
+        ]
 
     def _prune_messages_for_context_window() -> list[litellm.Message] | None:
         if provider == "gateway":
@@ -392,7 +402,9 @@ def _invoke_litellm_and_handle_tools(
                 )
                 for tc in message.tool_calls
             ]
-            tool_response_messages = _process_tool_calls(tool_calls=mlflow_tool_calls, trace=trace)
+            tool_response_messages = _process_tool_calls(
+                tool_calls=mlflow_tool_calls, trace=trace, skills=skills
+            )
             # Convert ChatMessage responses back to litellm Messages for the conversation
             litellm_tool_messages = [
                 litellm.Message(
@@ -583,6 +595,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
             num_retries=input_params.num_retries,
             response_format=input_params.response_format,
             inference_params=input_params.inference_params,
+            skills=input_params.skills,
             base_url=input_params.base_url,
             extra_headers=input_params.extra_headers,
         )

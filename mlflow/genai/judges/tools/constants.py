@@ -16,5 +16,12 @@ class ToolNames:
     LIST_SPANS = "list_spans"
     SEARCH_TRACE_REGEX = "search_trace_regex"
     GET_SPAN_PERFORMANCE_AND_TIMING_REPORT = "get_span_performance_and_timing_report"
+    READ_SKILL_MARKDOWN_CONTENT = "read_skill_markdown_content"
+    READ_SKILL_COMPANION_FILE = "read_skill_companion_file"
     _GET_TRACES_IN_SESSION = "_get_traces_in_session"
     _SEARCH_TRACES = "_search_traces"
+
+
+# Tool names for skill-related tools. Used by adapters to filter which tools
+# are exposed when skills are provided without a trace.
+SKILL_TOOL_NAMES = {ToolNames.READ_SKILL_MARKDOWN_CONTENT, ToolNames.READ_SKILL_COMPANION_FILE}

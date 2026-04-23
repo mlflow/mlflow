@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
+    from mlflow.genai.skills import SkillSet
     from mlflow.types.llm import ChatMessage, ToolDefinition
 
 T = TypeVar("T")  # Generic type for agentic loop return value
@@ -24,6 +25,7 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
+from mlflow.genai.judges.tools.constants import SKILL_TOOL_NAMES
 from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
@@ -235,6 +237,7 @@ def _run_databricks_agentic_loop(
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
     use_case: str | None = None,
+    skills: SkillSet | None = None,
 ) -> T:
     """
     Run an agentic loop with Databricks chat completions.
@@ -261,6 +264,12 @@ def _run_databricks_agentic_loop(
         from mlflow.genai.judges.tools import list_judge_tools
 
         tools = [tool.get_definition() for tool in list_judge_tools()]
+    elif skills is not None:
+        from mlflow.genai.judges.tools import list_judge_tools
+
+        tools = [
+            tool.get_definition() for tool in list_judge_tools() if tool.name in SKILL_TOOL_NAMES
+        ]
 
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
@@ -305,6 +314,7 @@ def _run_databricks_agentic_loop(
             tool_response_messages = _process_tool_calls(
                 tool_calls=message.tool_calls,
                 trace=trace,
+                skills=skills,
             )
             messages.extend(tool_response_messages)
         except Exception:
@@ -317,6 +327,7 @@ def _invoke_databricks_default_judge(
     assessment_name: str,
     trace: "Trace | None" = None,
     use_case: str | None = None,
+    skills: "SkillSet | None" = None,
 ) -> Feedback:
     """
     Invoke the Databricks default judge with agentic tool calling support.
@@ -349,7 +360,9 @@ def _invoke_databricks_default_judge(
         def parse_judge_response(content: str | None) -> Feedback:
             return _parse_databricks_judge_response(content, assessment_name, trace)
 
-        return _run_databricks_agentic_loop(messages, trace, parse_judge_response, use_case)
+        return _run_databricks_agentic_loop(
+            messages, trace, parse_judge_response, use_case, skills=skills
+        )
 
     except Exception as e:
         _logger.debug(f"Failed to invoke Databricks judge: {e}", exc_info=True)
@@ -388,5 +401,6 @@ class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
             assessment_name=input_params.assessment_name,
             trace=input_params.trace,
             use_case=input_params.use_case,
+            skills=input_params.skills,
         )
         return AdapterInvocationOutput(feedback=feedback)

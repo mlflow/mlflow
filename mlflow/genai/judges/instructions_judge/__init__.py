@@ -1,6 +1,7 @@
 import json
 import logging
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse, urlunparse
 
@@ -35,6 +36,7 @@ from mlflow.genai.scorers.base import (
     ScorerKind,
     SerializedScorer,
 )
+from mlflow.genai.skills.parsing import SkillSet
 from mlflow.genai.utils.trace_utils import (
     resolve_conversation_from_session,
     resolve_expectations_from_session,
@@ -46,6 +48,7 @@ from mlflow.genai.utils.trace_utils import (
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
 
@@ -87,6 +90,7 @@ class InstructionsJudge(Judge):
     _generate_rationale_first: bool = PrivateAttr(default=False)
     _include_tool_calls_in_conversation: bool = PrivateAttr(default=False)
     _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
+    _skills: SkillSet | None = PrivateAttr(default=None)
     _base_url: str | None = PrivateAttr(default=None)
     _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
     _include_timing_in_conversation: bool = PrivateAttr(default=False)
@@ -101,6 +105,7 @@ class InstructionsJudge(Judge):
         generate_rationale_first: bool = False,
         include_tool_calls_in_conversation: bool = False,
         inference_params: dict[str, Any] | None = None,
+        skills: list[str | Path] | None = None,
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
         include_timing_in_conversation: bool = False,
@@ -124,6 +129,10 @@ class InstructionsJudge(Judge):
             inference_params: Optional dictionary of inference parameters to pass to the
                            model (e.g., temperature, top_p, max_tokens). These parameters
                            allow fine-grained control over the model's behavior.
+            skills: Optional list of skill paths (directories containing SKILL.md or
+                           direct paths to SKILL.md files). When provided, the judge runs
+                           a tool-calling loop so the LLM can read skill content during
+                           evaluation.
             base_url: Optional base URL to route requests through. When specified, all
                            requests to the LLM provider will be routed through this URL.
                            Useful for enterprise environments requiring LLM access through
@@ -207,6 +216,14 @@ class InstructionsJudge(Judge):
                 f"Only the following variables are allowed: {allowed_vars}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+        if skills is not None:
+            skill_set = skills if isinstance(skills, SkillSet) else SkillSet(skills)
+            # Treat an empty skill set as no skills to avoid enabling
+            # tool-calling behavior with no available content.
+            self._skills = skill_set if skill_set.skills else None
+        else:
+            self._skills = None
 
         self._validate_model_format()
         self._validate_instructions_template()
@@ -379,7 +396,7 @@ class InstructionsJudge(Judge):
                 f"- {field.name} ({format_type(field.value_type)}): {field.description}"
                 for field in output_fields
             ])
-            return INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
+            system_content = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields,
                 instructions=self._instructions,
             )
@@ -387,7 +404,14 @@ class InstructionsJudge(Judge):
             base_prompt = format_prompt(
                 INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
             )
-            return add_output_format_instructions(base_prompt, output_fields=output_fields)
+            system_content = add_output_format_instructions(
+                base_prompt, output_fields=output_fields
+            )
+
+        if self._skills:
+            system_content += "\n\n" + self._skills.to_prompt()
+
+        return system_content
 
     def get_output_fields(self) -> list[JudgeField]:
         """Get the output fields for this judge."""
@@ -621,8 +645,6 @@ class InstructionsJudge(Judge):
         system_content = self._build_system_message(is_trace_based)
         user_content = self._build_user_message(inputs, outputs, expectations, conversation)
 
-        from mlflow.types.llm import ChatMessage
-
         messages = [
             ChatMessage(role="system", content=system_content),
             ChatMessage(role="user", content=user_content),
@@ -638,6 +660,7 @@ class InstructionsJudge(Judge):
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
             inference_params=self._inference_params,
+            skills=self._skills,
             base_url=self._base_url,
             extra_headers=self._extra_headers,
         )
@@ -875,6 +898,19 @@ class InstructionsJudge(Judge):
         if self._inference_params is not None:
             pydantic_data["inference_params"] = self._inference_params
 
+        skill_contents = None
+        if self._skills:
+            skill_contents = [
+                {
+                    "name": skill.name,
+                    "description": skill.description,
+                    "metadata": skill.metadata,
+                    "body": skill.body,
+                    "files": skill.files,
+                }
+                for skill in self._skills.skills
+            ]
+
         serialized_scorer = SerializedScorer(
             name=self.name,
             description=self.description,
@@ -888,6 +924,7 @@ class InstructionsJudge(Judge):
             call_source=None,
             call_signature=None,
             original_func_name=None,
+            skill_contents=skill_contents,
         )
         return asdict(serialized_scorer)
 

@@ -114,6 +114,9 @@ class SerializedScorer:
     # MemoryAugmentedJudge fields (for aligned judges)
     memory_augmented_judge_data: dict[str, Any] | None = None
 
+    # Skill contents for skills-empowered judges
+    skill_contents: list[dict[str, Any]] | None = None
+
     def __post_init__(self):
         """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
@@ -370,6 +373,12 @@ class Scorer(BaseModel):
                     data["feedback_value_type"]
                 )
 
+            skills = None
+            if serialized.skill_contents:
+                from mlflow.genai.skills.parsing import SkillSet
+
+                skills = SkillSet.from_contents(serialized.skill_contents)
+
             try:
                 return InstructionsJudge(
                     name=serialized.name,
@@ -377,6 +386,7 @@ class Scorer(BaseModel):
                     instructions=data["instructions"],
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
+                    skills=skills,
                     inference_params=data.get("inference_params"),
                     aggregations=serialized.aggregations,
                 )

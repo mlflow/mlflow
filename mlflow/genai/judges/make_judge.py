@@ -1,4 +1,5 @@
 import types
+from pathlib import Path
 from typing import Any, Literal, Union, get_args, get_origin
 
 from mlflow.genai.judges.base import Judge
@@ -117,6 +118,7 @@ def make_judge(
     description: str | None = None,
     feedback_value_type: Any = None,
     inference_params: dict[str, Any] | None = None,
+    skills: list[str | Path] | None = None,
     base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
     include_timing_in_conversation: bool = False,
@@ -163,6 +165,10 @@ def make_judge(
                         fine-grained control over the model's behavior during evaluation.
                         For example, setting a lower temperature can produce more
                         deterministic and reproducible evaluation results.
+        skills: Optional list of skill paths (directories containing SKILL.md files or
+                        direct paths to SKILL.md files). Skills provide reusable evaluation
+                        criteria that the judge can load on demand via tool calls during
+                        evaluation.
         base_url: Optional base URL to route requests through. When specified, all
                         requests to the LLM provider will be routed through this URL.
                         This is useful when LLM access must go through an internal gateway,
@@ -287,6 +293,7 @@ def make_judge(
         aggregations=default_aggregations,
         include_timing_in_conversation=include_timing_in_conversation,
         inference_params=inference_params,
+        skills=skills,
         base_url=base_url,
         extra_headers=extra_headers,
     )

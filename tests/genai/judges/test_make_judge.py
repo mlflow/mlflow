@@ -124,6 +124,7 @@ def mock_invoke_judge_model(monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        skills=None,
         base_url=None,
         extra_headers=None,
     ):
@@ -140,6 +141,7 @@ def mock_invoke_judge_model(monkeypatch):
             "response_format": response_format,
             "use_case": use_case,
             "inference_params": inference_params,
+            "skills": skills,
             "base_url": base_url,
             "extra_headers": extra_headers,
         })
@@ -660,6 +662,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        skills=None,
         base_url=None,
         extra_headers=None,
     ):
@@ -672,6 +675,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
             "response_format": response_format,
             "use_case": use_case,
             "inference_params": inference_params,
+            "skills": skills,
         })
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
 
@@ -1528,6 +1532,7 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        skills=None,
         base_url=None,
         extra_headers=None,
     ):
