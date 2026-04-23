@@ -260,6 +260,30 @@ describe('processTranscript (with successful tool call)', () => {
     });
   });
 
+  it('aggregates token usage using the last prompt count, not a naive sum', async () => {
+    await processTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'), 'test-session-002');
+
+    // Fixture: asst-001 {prompt=200, candidates=30}, asst-002 {prompt=230, candidates=20}.
+    // Summing prompts (200+230=430) would double-count the cumulative context;
+    // take the last prompt (230) + sum of candidates (30+20=50).
+    const root = getRootSpan();
+    expect(root.setAttribute).toHaveBeenCalledWith(
+      'mlflow.chat.tokenUsage',
+      expect.objectContaining({ input_tokens: 230, output_tokens: 50, total_tokens: 280 }),
+    );
+
+    // Per-span usage still reflects each individual API call.
+    const [first, second] = getSpansByType('LLM');
+    expect(first.setAttribute).toHaveBeenCalledWith(
+      'mlflow.chat.tokenUsage',
+      expect.objectContaining({ input_tokens: 200, output_tokens: 30 }),
+    );
+    expect(second.setAttribute).toHaveBeenCalledWith(
+      'mlflow.chat.tokenUsage',
+      expect.objectContaining({ input_tokens: 230, output_tokens: 20 }),
+    );
+  });
+
   it('span timings reflect real work windows and bracket under the root span', async () => {
     await processTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'), 'test-session-002');
 
@@ -415,13 +439,42 @@ describe('reconstructMessages', () => {
     expect(toolMsg.content).toContain('fileName');
   });
 
-  it('skips system records', () => {
-    const turn: ChatRecord[] = [
+  it('skips empty framing system records but preserves non-empty system messages', () => {
+    const framing: ChatRecord[] = [
       rec({ type: 'user', message: { role: 'user', parts: [{ text: 'q' }] } }),
       rec({ type: 'system' }),
       rec({ type: 'assistant', message: { role: 'model', parts: [{ text: 'a' }] } }),
     ];
-    expect(reconstructMessages(turn, 2)).toEqual([{ role: 'user', content: 'q' }]);
+    expect(reconstructMessages(framing, 2)).toEqual([{ role: 'user', content: 'q' }]);
+
+    const withInstructions: ChatRecord[] = [
+      rec({ type: 'user', message: { role: 'user', parts: [{ text: 'q' }] } }),
+      rec({
+        type: 'system',
+        message: { role: 'system', parts: [{ text: 'You are a concise assistant.' }] },
+      }),
+      rec({ type: 'assistant', message: { role: 'model', parts: [{ text: 'a' }] } }),
+    ];
+    expect(reconstructMessages(withInstructions, 2)).toEqual([
+      { role: 'user', content: 'q' },
+      { role: 'system', content: 'You are a concise assistant.' },
+    ]);
+  });
+
+  it('uses functionResponse.response when tool_result has no resultDisplay', () => {
+    const turn: ChatRecord[] = [
+      rec({ type: 'user', message: { role: 'user', parts: [{ text: 'q' }] } }),
+      rec({
+        type: 'tool_result',
+        toolCallResult: { callId: 'c1', status: 'success' },
+        message: {
+          role: 'user',
+          parts: [{ functionResponse: { id: 'c1', name: 'ls', response: { output: 'raw' } } }],
+        },
+      }),
+    ];
+    const [, toolMsg] = reconstructMessages(turn, 2);
+    expect(toolMsg).toEqual({ role: 'tool', tool_call_id: 'c1', content: '{"output":"raw"}' });
   });
 });
 

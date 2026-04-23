@@ -5,10 +5,10 @@ export {
   parseTimestampToNs,
   getMessageText,
   getFunctionCalls,
-  findLastUserRecord,
   getLastTurnRecords,
   buildToolResultMap,
   getTokenUsage,
+  getToolOutput,
   formatResultDisplay,
 } from './transcript.js';
 export type {

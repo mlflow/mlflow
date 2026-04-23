@@ -2,12 +2,12 @@ import { resolve } from 'path';
 
 import {
   buildToolResultMap,
-  findLastUserRecord,
   formatResultDisplay,
   getFunctionCalls,
   getLastTurnRecords,
   getMessageText,
   getTokenUsage,
+  getToolOutput,
   isFunctionCallPart,
   isTextPart,
   parseTimestampToNs,
@@ -163,6 +163,47 @@ describe('formatResultDisplay', () => {
   });
 });
 
+describe('getToolOutput', () => {
+  function toolResult(overrides: Partial<ChatRecord>): ChatRecord {
+    return {
+      uuid: 't',
+      parentUuid: null,
+      sessionId: 's',
+      timestamp: '',
+      type: 'tool_result',
+      ...overrides,
+    } as ChatRecord;
+  }
+
+  it('prefers toolCallResult.resultDisplay', () => {
+    const record = toolResult({
+      toolCallResult: { callId: 'c1', status: 'success', resultDisplay: 'shown' },
+      message: {
+        role: 'user',
+        parts: [{ functionResponse: { id: 'c1', name: 'ls', response: { output: 'raw' } } }],
+      },
+    });
+    expect(getToolOutput(record)).toBe('shown');
+  });
+
+  it('falls back to message.parts[].functionResponse.response when resultDisplay is missing', () => {
+    const record = toolResult({
+      toolCallResult: { callId: 'c1', status: 'success' },
+      message: {
+        role: 'user',
+        parts: [{ functionResponse: { id: 'c1', name: 'ls', response: { output: 'raw' } } }],
+      },
+    });
+    expect(getToolOutput(record)).toBe('{"output":"raw"}');
+  });
+
+  it('returns empty string when neither resultDisplay nor functionResponse is available', () => {
+    expect(getToolOutput(toolResult({ toolCallResult: { callId: 'c1', status: 'success' } }))).toBe(
+      '',
+    );
+  });
+});
+
 describe('readTranscript + turn slicing', () => {
   const basicRecords = readTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'));
   const toolRecords = readTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'));
@@ -173,12 +214,6 @@ describe('readTranscript + turn slicing', () => {
 
   it('reads tool-call transcript', () => {
     expect(toolRecords.length).toBeGreaterThan(3);
-  });
-
-  it('finds the last user record (skipping any system framing)', () => {
-    const record = findLastUserRecord(basicRecords);
-    expect(record).not.toBeNull();
-    expect(getMessageText(record!)).toBe('what is 2+2');
   });
 
   it('getLastTurnRecords starts at the last user record', () => {

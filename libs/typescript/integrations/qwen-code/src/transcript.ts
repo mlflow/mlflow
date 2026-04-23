@@ -104,16 +104,6 @@ function isGeminiMessage(msg: unknown): msg is GeminiMessage {
   );
 }
 
-/** Find the last user record in the transcript (start of the current turn). */
-export function findLastUserRecord(records: ChatRecord[]): ChatRecord | null {
-  for (let i = records.length - 1; i >= 0; i--) {
-    if (records[i].type === 'user' && getMessageText(records[i]).trim()) {
-      return records[i];
-    }
-  }
-  return null;
-}
-
 /**
  * Return the records belonging to the last turn (from the last user record
  * through end-of-file), in chronological order.
@@ -167,4 +157,27 @@ export function formatResultDisplay(display: unknown): string {
     return display;
   }
   return JSON.stringify(display);
+}
+
+/**
+ * Return a string rendering of a tool_result record's output. Prefers
+ * `toolCallResult.resultDisplay` (the user-facing rendering) and falls back
+ * to the raw `functionResponse.response` payload embedded in `message.parts`
+ * when `resultDisplay` is omitted. Returns an empty string if neither is
+ * available.
+ */
+export function getToolOutput(record: ChatRecord): string {
+  const display = record.toolCallResult?.resultDisplay;
+  if (display != null) {
+    return formatResultDisplay(display);
+  }
+  const msg = record.message;
+  if (isGeminiMessage(msg)) {
+    for (const part of msg.parts) {
+      if (isFunctionResponsePart(part) && part.functionResponse.response != null) {
+        return formatResultDisplay(part.functionResponse.response);
+      }
+    }
+  }
+  return '';
 }

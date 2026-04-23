@@ -33,11 +33,11 @@ import {
 import type { ChatMessage, ChatRecord, FunctionCall, ToolCall } from './types.js';
 import {
   buildToolResultMap,
-  formatResultDisplay,
   getFunctionCalls,
   getLastTurnRecords,
   getMessageText,
   getTokenUsage,
+  getToolOutput,
   parseTimestampToNs,
   readTranscript,
 } from './transcript.js';
@@ -69,7 +69,7 @@ export async function processTranscript(
   const toolResults = buildToolResultMap(turn);
 
   const userRecord = turn[0];
-  const userPrompt = getMessageText(userRecord, true);
+  const userPrompt = getMessageText(userRecord);
   const resolvedSessionId = sessionId ?? userRecord.sessionId ?? `qwen-${Date.now()}`;
   const model = firstAssistantModel(turn) ?? 'unknown';
 
@@ -197,15 +197,7 @@ function createLlmSpan(
   functionCalls: FunctionCall[],
 ): void {
   const messages = reconstructMessages(turn, assistantIndex);
-
-  const toolCalls: ToolCall[] = functionCalls.map((call) => ({
-    id: call.id,
-    type: 'function',
-    function: {
-      name: call.name,
-      arguments: JSON.stringify(call.args ?? {}),
-    },
-  }));
+  const toolCalls = toOpenAIToolCalls(functionCalls);
 
   const assistantOutput: ChatMessage = {
     role: 'assistant',
@@ -265,11 +257,23 @@ function createToolSpan(
     toolSpan.setStatus(SpanStatusCode.ERROR, `Tool call ${status}`);
   }
 
-  const output = formatResultDisplay(resultRecord?.toolCallResult?.resultDisplay);
+  const output = resultRecord ? getToolOutput(resultRecord) : '';
   toolSpan.end({
     outputs: { result: output },
     endTimeNs: endTimeNs ?? callTimestampNs,
   });
+}
+
+/** Convert Qwen's Gemini-shaped function calls into OpenAI chat tool_calls. */
+function toOpenAIToolCalls(calls: FunctionCall[]): ToolCall[] {
+  return calls.map((call) => ({
+    id: call.id,
+    type: 'function',
+    function: {
+      name: call.name,
+      arguments: JSON.stringify(call.args ?? {}),
+    },
+  }));
 }
 
 /**
@@ -289,12 +293,7 @@ export function reconstructMessages(turn: ChatRecord[], uptoIndex: number): Chat
       }
     } else if (record.type === 'assistant') {
       const text = getMessageText(record);
-      const calls = getFunctionCalls(record);
-      const toolCalls: ToolCall[] = calls.map((c) => ({
-        id: c.id,
-        type: 'function',
-        function: { name: c.name, arguments: JSON.stringify(c.args ?? {}) },
-      }));
+      const toolCalls = toOpenAIToolCalls(getFunctionCalls(record));
       if (text.trim() || toolCalls.length > 0) {
         messages.push({
           role: 'assistant',
@@ -306,10 +305,17 @@ export function reconstructMessages(turn: ChatRecord[], uptoIndex: number): Chat
       messages.push({
         role: 'tool',
         tool_call_id: record.toolCallResult.callId,
-        content: formatResultDisplay(record.toolCallResult.resultDisplay),
+        content: getToolOutput(record),
       });
+    } else if (record.type === 'system') {
+      // Most system records are internal framing (context/tool_approval) with
+      // no message payload. Preserve the content if present so model-visible
+      // system instructions aren't dropped from the reconstructed history.
+      const content = getMessageText(record).trim();
+      if (content) {
+        messages.push({ role: 'system', content });
+      }
     }
-    // `system` records are internal framing — skipped.
   }
   return messages;
 }
@@ -337,13 +343,23 @@ function findFinalAssistantText(turn: ChatRecord[]): string | null {
   return null;
 }
 
-/** Sum token usage across all assistant records in the turn. */
+/**
+ * Aggregate token usage across all assistant records in a turn.
+ *
+ * Qwen's `promptTokenCount` is cumulative — each assistant record reports the
+ * full prompt the model saw for that call, which already includes earlier
+ * user/assistant/tool context. Summing naively would 2–3x inflate input
+ * tokens on multi-tool turns. We instead take the LAST assistant's
+ * `promptTokenCount` (= final cumulative prompt the model processed) and
+ * sum `candidatesTokenCount` for total generated output. Per-span usage on
+ * each `llm_call` is left untouched and still reflects that API call's
+ * billable amount.
+ */
 function aggregateTokenUsage(
   turn: ChatRecord[],
 ): { input: number; output: number; total: number } | null {
-  let input = 0;
+  let lastInput: number | null = null;
   let output = 0;
-  let total = 0;
   let any = false;
   for (const record of turn) {
     if (record.type !== 'assistant') {
@@ -351,11 +367,14 @@ function aggregateTokenUsage(
     }
     const usage = getTokenUsage(record.usageMetadata);
     if (usage) {
-      input += usage.input;
+      lastInput = usage.input;
       output += usage.output;
-      total += usage.total;
       any = true;
     }
   }
-  return any ? { input, output, total } : null;
+  if (!any) {
+    return null;
+  }
+  const input = lastInput ?? 0;
+  return { input, output, total: input + output };
 }
