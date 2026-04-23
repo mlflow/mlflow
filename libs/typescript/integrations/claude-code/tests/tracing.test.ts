@@ -1,6 +1,5 @@
 import { resolve } from 'node:path';
-import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 import type { TranscriptEntry } from '../src/types';
@@ -48,7 +47,7 @@ jest.mock('@mlflow/core', () => {
     init: jest.fn(),
     startSpan: jest.fn((options: any) => {
       const id = `span-${++spanCounter}`;
-      const parentId = options.parent ? (options.parent as any).spanId : null;
+      const parentId = options.parent ? options.parent.spanId : null;
       const span = {
         name: options.name,
         traceId: 'mock-trace-id',

@@ -50,7 +50,9 @@ describe('parseTimestampToNs', () => {
   });
 
   it('returns nanoseconds as-is for large numbers', () => {
-    const nsTs = 1705312245123456789;
+    // Use a value that's >= 1e13 (routes through the ns branch) and
+    // below Number.MAX_SAFE_INTEGER (~9e15) so no precision is lost.
+    const nsTs = 1705312245123456;
     const result = parseTimestampToNs(nsTs);
     expect(result).toBe(Math.floor(nsTs));
   });
