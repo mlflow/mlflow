@@ -31,6 +31,10 @@ spec:
         {{- end }}
     spec:
       serviceAccountName: {{ include "mlflow.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{ if .Values.migrate.enabled -}}
       initContainers:
         - name: db-migrate
@@ -79,20 +83,36 @@ spec:
           envFrom:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if .Values.storage.enabled }}
+          {{- if or .Values.storage.enabled .Values.securityContext.readOnlyRootFilesystem }}
           volumeMounts:
+            {{- if .Values.storage.enabled }}
             - name: mlflow-storage
               mountPath: {{ .Values.storage.mountPath }}
+            {{- end }}
+            {{- if .Values.securityContext.readOnlyRootFilesystem }}
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
           {{- end }}
-      {{- if .Values.storage.enabled }}
+      {{- if or .Values.storage.enabled .Values.securityContext.readOnlyRootFilesystem }}
       volumes:
+        {{- if .Values.storage.enabled }}
         - name: mlflow-storage
           persistentVolumeClaim:
             claimName: {{ include "mlflow.fullname" . }}
+        {{- end }}
+        {{- if .Values.securityContext.readOnlyRootFilesystem }}
+        - name: tmp
+          emptyDir: {}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

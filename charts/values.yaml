@@ -59,6 +59,18 @@ env: []
 # Extra envFrom sources (ConfigMaps, Secrets).
 envFrom: []
 
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
 serviceAccount:
   create: true
   name: ""
