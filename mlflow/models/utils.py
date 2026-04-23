@@ -1348,8 +1348,11 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
     try:
         pd_series = _enforce_mlflow_datatype("", pd_series, dtype)
     except MlflowException:
+        # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
         raise MlflowException(
-            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`"
+            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`",
+            error_code=INVALID_PARAMETER_VALUE,
+            error_class="SCHEMA_ENFORCEMENT_FAILED",
         )
     return pd_series[0]
 

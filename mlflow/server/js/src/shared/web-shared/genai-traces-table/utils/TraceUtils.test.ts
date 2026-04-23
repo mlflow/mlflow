@@ -532,6 +532,159 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
       result[0].responseAssessmentsByName[KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT][0].stringValue,
     ).toBe('pass');
   });
+
+  it('should include session-level assessments in responseAssessmentsByName for table display', () => {
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace_session',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp_session' } },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      client_request_id: 'client_session',
+      request: '{}',
+      response: '{}',
+      tags: {},
+      trace_metadata: {},
+      assessments: [
+        // Trace-level expectation assessment
+        {
+          assessment_id: 'exp_trace',
+          trace_id: 'trace_session',
+          create_time: '2023-10-01T00:00:00Z',
+          last_update_time: '2023-10-01T00:00:00Z',
+          assessment_name: 'traceLevelExpectation',
+          expectation: { value: 'Should be included' },
+          feedback: undefined,
+          error: undefined,
+          metadata: {},
+          rationale: '',
+        } as any,
+        // Session-level expectation assessment
+        {
+          assessment_id: 'exp_session',
+          trace_id: 'trace_session',
+          create_time: '2023-10-01T00:00:00Z',
+          last_update_time: '2023-10-01T00:00:00Z',
+          assessment_name: 'sessionLevelExpectation',
+          expectation: { value: 'Session level target' },
+          feedback: undefined,
+          error: undefined,
+          metadata: {
+            'mlflow.trace.session': 'session-123',
+          },
+          rationale: '',
+        } as any,
+        // Trace-level feedback assessment
+        {
+          assessment_id: 'feed_trace',
+          trace_id: 'trace_session',
+          create_time: '2023-10-01T00:00:00Z',
+          last_update_time: '2023-10-01T00:00:00Z',
+          assessment_name: 'traceLevelFeedback',
+          expectation: undefined,
+          feedback: { value: 'good' },
+          error: undefined,
+          metadata: {},
+          rationale: '',
+          source: {
+            source_type: 'HUMAN',
+            source_id: 'user1',
+          },
+        },
+        // Session-level feedback assessment
+        {
+          assessment_id: 'feed_session',
+          trace_id: 'trace_session',
+          create_time: '2023-10-01T00:00:00Z',
+          last_update_time: '2023-10-01T00:00:00Z',
+          assessment_name: 'sessionLevelFeedback',
+          expectation: undefined,
+          feedback: { value: 'bad' },
+          error: undefined,
+          metadata: {
+            'mlflow.trace.session': 'session-123',
+          },
+          rationale: '',
+          source: {
+            source_type: 'HUMAN',
+            source_id: 'user1',
+          },
+        },
+        // Trace-level overall assessment
+        {
+          assessment_id: 'overall_trace',
+          trace_id: 'trace_session',
+          create_time: '2023-10-01T00:00:00Z',
+          last_update_time: '2023-10-01T00:00:00Z',
+          assessment_name: KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT,
+          expectation: undefined,
+          feedback: { value: 'pass' },
+          error: undefined,
+          metadata: {},
+          rationale: 'Looks good',
+          source: {
+            source_type: 'AI_JUDGE',
+            source_id: 'judge1',
+          },
+        },
+        // Session-level overall assessment
+        {
+          assessment_id: 'overall_session',
+          trace_id: 'trace_session',
+          create_time: '2023-10-01T00:00:00Z',
+          last_update_time: '2023-10-01T00:00:00Z',
+          assessment_name: KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT,
+          expectation: undefined,
+          feedback: { value: 'fail' },
+          error: undefined,
+          metadata: {
+            'mlflow.trace.session': 'session-456',
+          },
+          rationale: 'Session level issue',
+          source: {
+            source_type: 'AI_JUDGE',
+            source_id: 'judge1',
+          },
+        },
+      ],
+    };
+
+    const evalEntry: RunEvaluationTracesDataEntry = {
+      ...baseEvalEntry,
+      traceInfo,
+    };
+
+    const result = applyTraceInfoV3ToEvalEntry([evalEntry]);
+
+    // Trace-level expectation should be in targets
+    expect(result[0].targets['traceLevelExpectation']).toBe('Should be included');
+
+    // Session-level expectation should also be in targets
+    expect(result[0].targets['sessionLevelExpectation']).toBe('Session level target');
+
+    // Trace-level feedback should be in responseAssessmentsByName
+    expect(result[0].responseAssessmentsByName['traceLevelFeedback']).toHaveLength(1);
+    expect(result[0].responseAssessmentsByName['traceLevelFeedback'][0].stringValue).toBe('good');
+
+    // Session-level feedback should also be in responseAssessmentsByName
+    expect(result[0].responseAssessmentsByName['sessionLevelFeedback']).toHaveLength(1);
+    expect(result[0].responseAssessmentsByName['sessionLevelFeedback'][0].stringValue).toBe('bad');
+
+    // Both trace-level and session-level overall assessments should be present
+    expect(result[0].overallAssessments).toHaveLength(2);
+    expect(result[0].overallAssessments[0].stringValue).toBe('pass');
+    expect(result[0].overallAssessments[0].rationale).toBe('Looks good');
+    expect(result[0].overallAssessments[1].stringValue).toBe('fail');
+    expect(result[0].overallAssessments[1].rationale).toBe('Session level issue');
+
+    // Both overall assessments should also be in responseAssessmentsByName
+    expect(result[0].responseAssessmentsByName[KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]).toHaveLength(2);
+    expect(
+      result[0].responseAssessmentsByName[KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT][0].stringValue,
+    ).toBe('pass');
+    expect(
+      result[0].responseAssessmentsByName[KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT][1].stringValue,
+    ).toBe('fail');
+  });
 });
 
 describe('convertTraceInfoV3ToRunEvalEntry', () => {

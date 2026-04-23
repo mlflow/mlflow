@@ -1,6 +1,6 @@
 import { trace as otelTrace, context, Span as ApiSpan, INVALID_TRACEID } from '@opentelemetry/api';
 import { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
-import { DEFAULT_SPAN_NAME, SpanType } from './constants';
+import { DEFAULT_SPAN_NAME, SpanType, TraceMetadataKey } from './constants';
 import { createMlflowSpan, LiveSpan, NoOpSpan } from './entities/span';
 import { getTracer } from './provider';
 import { InMemoryTraceManager } from './trace_manager';
@@ -495,6 +495,18 @@ export interface UpdateCurrentTraceOptions {
   metadata?: Record<string, string>;
 
   /**
+   * Session ID to associate with the trace. Stored as metadata under the
+   * `mlflow.trace.session` key.
+   */
+  sessionId?: string;
+
+  /**
+   * User identifier to associate with the trace. Stored as metadata under the
+   * `mlflow.trace.user` key.
+   */
+  user?: string;
+
+  /**
    * Client supplied request ID to associate with the trace. This is useful for linking
    * the trace back to a specific request in your application or external system.
    */
@@ -542,12 +554,12 @@ export interface UpdateCurrentTraceOptions {
  * ```
  *
  * @example
- * Updating source information of the trace:
+ * Updating user, session, and source information of the trace:
  * ```typescript
  * updateCurrentTrace({
+ *   sessionId: "session-4f855da00427",
+ *   user: "user-id-cc156f29bcfb",
  *   metadata: {
- *     "mlflow.trace.session": "session-4f855da00427",
- *     "mlflow.trace.user": "user-id-cc156f29bcfb",
  *     "mlflow.source.name": "inference.ts",
  *     "mlflow.source.git.commit": "1234567890",
  *     "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow"
@@ -558,6 +570,8 @@ export interface UpdateCurrentTraceOptions {
 export function updateCurrentTrace({
   tags,
   metadata,
+  sessionId,
+  user,
   clientRequestId,
   requestPreview,
   responsePreview,
@@ -589,6 +603,15 @@ export function updateCurrentTrace({
     return;
   }
 
+  // Inject sessionId and user into metadata
+  const mergedMetadata = { ...metadata };
+  if (sessionId !== undefined) {
+    mergedMetadata[TraceMetadataKey.TRACE_SESSION] = sessionId;
+  }
+  if (user !== undefined) {
+    mergedMetadata[TraceMetadataKey.TRACE_USER] = user;
+  }
+
   // Update trace info properties
   if (requestPreview !== undefined) {
     trace.info.requestPreview = requestPreview;
@@ -599,8 +622,8 @@ export function updateCurrentTrace({
   if (tags !== undefined) {
     Object.assign(trace.info.tags, tags);
   }
-  if (metadata !== undefined) {
-    Object.assign(trace.info.traceMetadata, metadata);
+  if (Object.keys(mergedMetadata).length > 0) {
+    Object.assign(trace.info.traceMetadata, mergedMetadata);
   }
   if (clientRequestId !== undefined) {
     trace.info.clientRequestId = String(clientRequestId);

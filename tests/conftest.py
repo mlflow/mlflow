@@ -28,6 +28,7 @@ from opentelemetry import trace as trace_api
 import mlflow
 from mlflow.environment_variables import (
     _MLFLOW_TESTING,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_URI,
     MLFLOW_WORKSPACE,
@@ -881,6 +882,16 @@ def reset_tracing():
     # Reset opentelemetry tracer provider as well
     trace_api._TRACER_PROVIDER_SET_ONCE._done = False
     trace_api._TRACER_PROVIDER = None
+
+
+@pytest.fixture(autouse=True)
+def disable_async_trace_logging(monkeypatch):
+    """Disable async trace logging for all tests by default to avoid timing issues.
+
+    Tests that explicitly verify async behaviour should use the `async_logging_enabled`
+    fixture from tests/tracing/conftest.py, which overrides this setting.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, "false")
 
 
 def _is_span_active():

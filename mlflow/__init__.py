@@ -67,6 +67,7 @@ autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
+diffusers = LazyLoader("mlflow.diffusers", globals(), "mlflow.diffusers")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
@@ -78,7 +79,6 @@ langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
-llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
@@ -122,6 +122,7 @@ if TYPE_CHECKING:
         bedrock,
         catboost,
         crewai,
+        diffusers,
         dspy,
         gemini,
         groq,
@@ -133,7 +134,6 @@ if TYPE_CHECKING:
         lightgbm,
         litellm,
         llama_index,
-        llm,
         metrics,
         mistral,
         onnx,

@@ -30,7 +30,6 @@ import {
   TracesTableColumnType,
   useSearchMlflowTraces,
   useSelectedColumns,
-  getEvalTabTotalTracesLimit,
   GenAITracesTableProvider,
   useFilters,
   getTracesTagKeys,
@@ -45,13 +44,14 @@ import {
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
   ISSUES_COLUMN_ID,
+  getSimulationColumnsToAdd,
+  isSqlWarehouseTimeoutError,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   GenAiTraceTableRowSelectionProvider,
   useIsInsideGenAiTraceTableRowSelectionProvider,
-} from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+} from '@databricks/web-shared/genai-traces-table';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
-import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
 import { useIntl } from '@databricks/i18n';
@@ -69,6 +69,8 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
+import { useCountInfo } from './hooks/useCountInfo';
+import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
 
 const JudgeContextProvider = ({
   children,
@@ -163,7 +165,7 @@ const TracesV3LogsImpl = React.memo(
     );
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
-    const enableTraceInsights = shouldEnableTraceInsights();
+    const enableTraceInsights = false;
     const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
 
@@ -186,7 +188,7 @@ const TracesV3LogsImpl = React.memo(
     );
 
     const isQueryDisabled = false;
-    const usesV4APIs = true;
+    const usesV4APIs = shouldUseTracesV4API();
 
     const getTrace = getTraceV3;
 
@@ -286,6 +288,9 @@ const TracesV3LogsImpl = React.memo(
       isLoading: traceInfosLoading,
       isFetching: traceInfosFetching,
       error: traceInfosError,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage,
     } = useSearchMlflowTraces({
       locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
@@ -355,14 +360,20 @@ const TracesV3LogsImpl = React.memo(
       RunJudgesModal,
     ]);
 
-    const countInfo = useMemo(() => {
-      return {
-        currentCount: traceInfos?.length,
-        logCountLoading: traceInfosLoading,
-        totalCount: totalCount,
-        maxAllowedCount: getEvalTabTotalTracesLimit(),
-      };
-    }, [traceInfos, totalCount, traceInfosLoading]);
+    const countInfo = useCountInfo({
+      experimentIds,
+      timeRange,
+      traceInfosCount: traceInfos?.length,
+      traceInfosLoading,
+      metadataTotalCount: totalCount,
+      disabled: isQueryDisabled,
+    });
+
+    const assessmentCountMetrics = useAssessmentCountMetrics({
+      experimentIds,
+      timeRange,
+      disabled: isQueryDisabled,
+    });
 
     // Loading state:
     // - Show skeleton only during initial metadata loading (or initial time filter loading for empty check)
@@ -373,7 +384,9 @@ const TracesV3LogsImpl = React.memo(
 
     const tableError = traceInfosError || metadataError;
     const isTableEmpty = isEmpty && !showInitialSkeleton && !traceInfosLoading && !traceInfosFetching && !tableError;
-    const isTableLoading = !showInitialSkeleton && (traceInfosLoading || traceInfosFetching);
+    // When fetching the next page of infinite results, keep the existing rows visible
+    // and preserve scroll position instead of showing the loading skeleton.
+    const isTableLoading = !showInitialSkeleton && (traceInfosLoading || (traceInfosFetching && !isFetchingNextPage));
 
     // Helper function to render the main content based on current state
     const renderMainContent = () => {
@@ -405,12 +418,16 @@ const TracesV3LogsImpl = React.memo(
                 isTableLoading={isTableLoading}
                 isGroupedBySession={forceGroupBySession || isGroupedBySession}
                 searchQuery={searchQuery}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+                assessmentCountMetrics={assessmentCountMetrics}
               />
             </div>
           </>
         );
       }
-      // Default traces view with optional navigation
+      // Default traces view
       return (
         <div
           css={{
@@ -444,7 +461,16 @@ const TracesV3LogsImpl = React.memo(
                     defaultMessage: 'Fetching traces failed',
                     description: 'Evaluation review > evaluations list > error state title',
                   })}
-                  description={tableError.message}
+                  description={
+                    isSqlWarehouseTimeoutError(tableError)
+                      ? intl.formatMessage({
+                          defaultMessage:
+                            'The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.',
+                          description:
+                            'Evaluation review > evaluations list > SQL warehouse timeout error description with CTA to select larger warehouse',
+                        })
+                      : tableError.message
+                  }
                 />
               </div>
             ) : (
@@ -468,6 +494,10 @@ const TracesV3LogsImpl = React.memo(
                   isTableLoading={isTableLoading}
                   isGroupedBySession={forceGroupBySession || isGroupedBySession}
                   searchQuery={searchQuery}
+                  fetchNextPage={fetchNextPage}
+                  hasNextPage={hasNextPage}
+                  isFetchingNextPage={isFetchingNextPage}
+                  assessmentCountMetrics={assessmentCountMetrics}
                 />
               </ContextProviders>
             )}
@@ -485,11 +515,12 @@ const TracesV3LogsImpl = React.memo(
       >
         <GenAITracesTableProvider
           experimentId={singleExperimentId}
+          getTrace={getTrace}
           isGroupedBySession={forceGroupBySession || isGroupedBySession}
         >
           <div
             css={{
-              overflowY: 'hidden',
+              overflow: 'hidden',
               height: '100%',
               display: 'flex',
               flexDirection: 'column',

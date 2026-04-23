@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.test_name_typo import TestNameTypo
 
 
-def test_test_name_typo(index_path: Path) -> None:
+def test_test_name_typo(index: SymbolIndex) -> None:
     code = """import pytest
 
 # Bad - starts with 'test' but missing underscore
@@ -29,7 +30,7 @@ def tset_something():
     pass
 """
     config = Config(select={TestNameTypo.name})
-    violations = lint_file(Path("test_something.py"), code, config, index_path)
+    violations = lint_file(Path("test_something.py"), code, config, index)
     assert len(violations) == 2
     assert all(isinstance(v.rule, TestNameTypo) for v in violations)
     assert violations[0].range == Range(Position(3, 0))

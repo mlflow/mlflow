@@ -31,6 +31,7 @@ export const ExperimentViewInferredKindModal = ({
           description="A label for the dismissal button in the modal displayed when the experiment type could not be inferred"
         />
       }
+      // eslint-disable-next-line @databricks/no-passive-modal-button-labels -- TODO: Update button text to match guidelines at go/dubois/Modal
       okText={
         <FormattedMessage
           defaultMessage="Confirm"

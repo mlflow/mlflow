@@ -549,4 +549,45 @@ describe('normalizeConversation', () => {
       }),
     ]);
   });
+
+  it('should fall back to OpenAI parser when data is in OpenAI format', () => {
+    const openaiFormatInput = {
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Describe this image.' },
+            { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,abc123' } },
+          ],
+        },
+      ],
+    };
+    const result = normalizeConversation(openaiFormatInput, 'langchain');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({ role: 'user' });
+    expect(result![0].content).toContain('Describe this image.');
+    expect(result![0].content).toContain('data:image/jpeg;base64,abc123');
+  });
+
+  it('should fall back to OpenAI parser for choices output in langchain format', () => {
+    const openaiFormatOutput = {
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'This is a photo of a cable car.',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    };
+    const result = normalizeConversation(openaiFormatOutput, 'langchain');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      role: 'assistant',
+      content: 'This is a photo of a cable car.',
+    });
+  });
 });

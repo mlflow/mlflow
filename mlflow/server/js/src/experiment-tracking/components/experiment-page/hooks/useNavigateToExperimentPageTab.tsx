@@ -7,6 +7,7 @@ import { useExperimentKind } from '../../../utils/ExperimentKindUtils';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { shouldEnableExperimentOverviewTab } from '../../../../common/utils/FeatureUtils';
 import { useIsFileStore } from '../../../hooks/useServerInfo';
+import { useExperimentHasV4Location } from '../../../hooks/useExperimentHasV4Location';
 
 /**
  * This hook navigates user to the appropriate tab in the experiment page based on the experiment kind.
@@ -30,9 +31,11 @@ export const useNavigateToExperimentPageTab = ({
 
   const experimentTags = useMemo(() => {
     if (!experiment) return [];
-    return experiment && 'tags' in experiment ? experiment?.tags : [];
+    const tags = experiment && 'tags' in experiment ? experiment?.tags : [];
+    return tags;
   }, [experiment]);
 
+  const hasV4Location = useExperimentHasV4Location(experimentTags);
   const experimentKindFromContext = useExperimentKind(experimentTags);
 
   const experimentKind = useMemo(() => {
@@ -58,13 +61,13 @@ export const useNavigateToExperimentPageTab = ({
     // otherwise Traces tab.
     if (experimentKind === ExperimentKind.GENAI_DEVELOPMENT) {
       targetTab =
-        shouldEnableExperimentOverviewTab() && isFileStore === false
+        shouldEnableExperimentOverviewTab(hasV4Location) && isFileStore === false
           ? ExperimentPageTabName.Overview
           : ExperimentPageTabName.Traces;
     }
 
     navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), { replace: true });
-  }, [navigate, experimentId, enabled, experimentKind, isFileStore]);
+  }, [navigate, experimentId, enabled, experimentKind, isFileStore, hasV4Location]);
 
   return {
     isEnabled: enabled,

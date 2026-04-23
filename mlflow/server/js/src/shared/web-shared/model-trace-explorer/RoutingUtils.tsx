@@ -21,6 +21,7 @@ import {
   BrowserRouter,
   type To,
 } from 'react-router-dom';
+import { Typography } from '@databricks/design-system';
 
 /**
  * Workspace utilities — minimal self-contained copies for web-shared.
@@ -37,11 +38,12 @@ const WORKSPACE_QUERY_PARAM = 'workspace';
  * Mirrors getActiveWorkspace() from WorkspaceUtils.ts — uses the same storage key
  * that the main app writes to, so it reads the correct value at runtime.
  */
-const getActiveWorkspace = (): string | null => {
+export const getActiveWorkspace = (): string | null => {
   if (typeof window === 'undefined') {
     return null;
   }
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
   } catch {
     return null;
