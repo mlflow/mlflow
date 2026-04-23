@@ -38,15 +38,17 @@ By default, MLflow automatically detects base64-encoded binary content in span i
 
 The following patterns are detected and extracted automatically:
 
-| Pattern                  | Example Source                                                             | Extracted As                          |
-| ------------------------ | -------------------------------------------------------------------------- | ------------------------------------- |
-| Base64 data URIs         | `data:image/png;base64,...`                                                | `image/png` attachment                |
-| OpenAI `input_audio`     | `{"type": "input_audio", "input_audio": {"data": "...", "format": "wav"}}` | `audio/wav` attachment                |
-| DALL-E `b64_json` output | `{"b64_json": "...", "revised_prompt": "..."}`                             | `image/png` attachment                |
-| OpenAI audio response    | `{"audio": {"data": "...", "transcript": "..."}}`                          | `audio/wav` attachment                |
-| Anthropic image source   | `{"type": "image", "source": {"type": "base64", "data": "..."}}`           | Attachment with original `media_type` |
-| Bedrock image            | `{"image": {"format": "png", "source": {"bytes": "..."}}}`                 | `image/<format>` attachment           |
-| Gemini inline data       | `{"inline_data": {"mime_type": "image/png", "data": "..."}}`               | Attachment with original `mime_type`  |
+| Pattern                         | Example Source                                                               | Extracted As                          |
+| ------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------- |
+| Base64 data URIs                | `data:image/png;base64,...`                                                  | `image/png` attachment                |
+| OpenAI `input_audio`            | `{"type": "input_audio", "input_audio": {"data": "...", "format": "wav"}}`   | `audio/wav` attachment                |
+| DALL-E `b64_json` output        | `{"b64_json": "...", "revised_prompt": "..."}`                               | `image/png` attachment                |
+| OpenAI audio response           | `{"audio": {"data": "...", "transcript": "..."}}`                            | `audio/wav` attachment                |
+| Responses API image generation  | `{"type": "image_generation_call", "result": "...", "output_format": "png"}` | `image/<format>` attachment           |
+| Anthropic image source          | `{"type": "image", "source": {"type": "base64", "data": "..."}}`             | Attachment with original `media_type` |
+| Bedrock image                   | `{"image": {"format": "png", "source": {"bytes": "..."}}}`                   | `image/<format>` attachment           |
+| Gemini inline data              | `{"inline_data": {"mime_type": "image/png", "data": "..."}}`                 | Attachment with original `mime_type`  |
+| Gemini inline data (bytes repr) | `{"inline_data": {"mime_type": "image/png", "data": "b'\\x89PNG...'"}}`      | Attachment with original `mime_type`  |
 
 After extraction, the base64 data in the span is replaced with a lightweight `mlflow-attachment://` reference URI. The MLflow UI resolves these URIs and renders supported content types (images, audio, PDFs) inline.
 
@@ -63,13 +65,13 @@ export MLFLOW_TRACE_EXTRACT_ATTACHMENTS=false
 
 When using [auto-instrumentation](/genai/tracing/app-instrumentation/automatic), multimodal content is captured automatically. MLflow normalizes provider-specific formats into the standard schema described above, and base64 content is extracted into attachments.
 
-| Framework | Images | Audio | Notes                                                   |
-| --------- | :----: | :---: | ------------------------------------------------------- |
-| OpenAI    |   ✓    |   ✓   | Chat Completions, Responses API, and Images.generate    |
-| Anthropic |   ✓    |   ✗   | Native image blocks normalized to `image_url`           |
-| Bedrock   |   ✓    |   ✗   | Image content extracted into attachments                |
-| Gemini    |   ✓    |   ✗   | `inline_data` extracted into attachments                |
-| LangChain |   ✓    |   ✓   | Audio format normalized from LangChain to OpenAI schema |
+| Framework | Images | Audio | Files | Notes                                                                         |
+| --------- | :----: | :---: | :---: | ----------------------------------------------------------------------------- |
+| OpenAI    |   ✓    |   ✓   |   ✓   | Chat Completions, Responses API (including `input_file`), and Images.generate |
+| Anthropic |   ✓    |   ✗   |   ✗   | Native image blocks normalized to `image_url`                                 |
+| Bedrock   |   ✓    |   ✗   |   ✗   | Image content extracted into attachments                                      |
+| Gemini    |   ✓    |   ✗   |   ✗   | `inline_data` extracted (base64 and Python bytes repr)                        |
+| LangChain |   ✓    |   ✓   |   ✗   | Audio format normalized from LangChain to OpenAI schema                       |
 
 ### OpenAI — Image (URL)
 
@@ -269,10 +271,13 @@ Base64 data URIs in `image_url.url` fields and `input_audio.data` fields are aut
 
 ## Viewing in the UI
 
-The MLflow trace viewer renders multimodal content in the **Chat** tab:
+The MLflow trace viewer renders multimodal content in the UI:
 
-- **Images** -- displayed inline, whether provided as URLs or attachment references
+- **Images** -- displayed inline with click-to-expand for a full-size preview
 - **Audio** -- rendered with a built-in audio player for playback directly in the UI
+- **PDFs** -- displayed in an embedded viewer
+
+Image URLs render in the **Chat** view. Trace attachments (images, audio, PDFs) render inline across all views -- **Chat**, **Details**, and **Timeline**.
 
 <div className="flex-container" style={{ display: "flex", flexDirection: "row", gap: "1.5rem", alignItems: "flex-start" }}>
   <ImageBox src="/images/llms/tracing/trace-image-content.png" alt="Image content rendered inline in the trace viewer" />
@@ -280,6 +285,14 @@ The MLflow trace viewer renders multimodal content in the **Chat** tab:
 </div>
 
 When base64 content has been extracted into attachments, the **Content** tab shows lightweight `mlflow-attachment://` reference URIs instead of large base64 payloads. The UI automatically fetches and renders the attachment content.
+
+Very large attachments are shown as a download link instead of rendering inline to prevent browser performance issues. The thresholds are:
+
+| Content Type      | Max Inline Size |
+| ----------------- | --------------- |
+| `image/*`         | 10 MB           |
+| `audio/*`         | 50 MB           |
+| `application/pdf` | 20 MB           |
 
 ## Trace Attachments
 
@@ -299,14 +312,14 @@ This means trace JSON stays small regardless of attachment size, and the MLflow 
 
 ### Supported Content Types
 
-Attachments support any binary content type. The MLflow UI renders the following types inline:
+Attachments support any binary content type. The MLflow UI renders the following types inline (files exceeding the size threshold show a download link instead):
 
-| Content Type      | UI Rendering        |
-| ----------------- | ------------------- |
-| `image/*`         | Inline image        |
-| `audio/*`         | Inline audio player |
-| `application/pdf` | Embedded PDF viewer |
-| Other             | Download link       |
+| Content Type      | UI Rendering        | Max Inline Size |
+| ----------------- | ------------------- | --------------- |
+| `image/*`         | Inline image        | 10 MB           |
+| `audio/*`         | Inline audio player | 50 MB           |
+| `application/pdf` | Embedded PDF viewer | 20 MB           |
+| Other             | Download link       | --              |
 
 ### Creating Attachments
 
@@ -397,3 +410,4 @@ If you are using auto-tracing with OpenAI, Anthropic, or LangChain, images and a
 ## Limitations
 
 - **Video** is not supported -- video content is not captured or rendered
+- **Large attachments** are shown as download links rather than rendered inline when they exceed the size thresholds listed in [Viewing in the UI](#viewing-in-the-ui)
