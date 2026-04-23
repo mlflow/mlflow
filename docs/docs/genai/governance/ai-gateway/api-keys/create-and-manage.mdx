@@ -1,6 +1,6 @@
 ---
 title: Create and Manage LLM Connections
-description: Centrally store and manage LLM provider API keys in MLflow AI Gateway. Create reusable, encrypted LLM connections to share securely across multiple endpoints.
+description: Centrally store and manage LLM provider API keys in MLflow AI Gateway. Create reusable, encrypted credentials to share securely across multiple endpoints.
 ---
 
 # Create and Manage LLM Connections
@@ -20,7 +20,7 @@ Navigate to `http://localhost:5000/#/settings` and click on the **LLM Connection
 3. Select your provider from the dropdown (OpenAI, Anthropic, Google Gemini, etc.)
 4. Choose the authentication method if multiple options are available
    - For example, OpenAI supports both standard API key authentication and Azure-specific authentication
-5. Enter your API key (displayed as a masked input for security)
+5. Enter your credentials (displayed as masked inputs for security)
 6. Fill in any provider-specific configuration fields:
    - **Azure**: Endpoint URL
    - **GCP**: Project ID
@@ -36,11 +36,11 @@ The LLM Connections page displays all your configured connections along with imp
 - **Last updated**: When the credentials were last modified
 - **Created date**: When the connection was originally created
 
-The API key values remain masked for security.
+The credential values remain masked for security.
 
 ### Editing Connections
 
-To update the API key for a provider:
+To update credentials for a provider:
 
 1. Locate the connection in the LLM Connections list
 2. Click the **Edit** button
