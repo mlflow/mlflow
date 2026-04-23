@@ -185,7 +185,21 @@ from mlflow.server.auth.permissions import (
 )
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
+    AJAX_ADD_ROLE_PERMISSION,
+    AJAX_ASSIGN_ROLE,
+    AJAX_CREATE_ROLE,
+    AJAX_DELETE_ROLE,
+    AJAX_GET_ROLE,
+    AJAX_LIST_ALL_ROLES,
+    AJAX_LIST_ROLE_PERMISSIONS,
+    AJAX_LIST_ROLE_USERS,
+    AJAX_LIST_ROLES,
+    AJAX_LIST_USER_ROLES,
     AJAX_LIST_USERS,
+    AJAX_REMOVE_ROLE_PERMISSION,
+    AJAX_UNASSIGN_ROLE,
+    AJAX_UPDATE_ROLE,
+    AJAX_UPDATE_ROLE_PERMISSION,
     ASSIGN_ROLE,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
@@ -1861,19 +1875,33 @@ BEFORE_REQUEST_VALIDATORS.update({
 # Role management routes (RBAC)
 BEFORE_REQUEST_VALIDATORS.update({
     (CREATE_ROLE, "POST"): validate_can_manage_roles,
+    (AJAX_CREATE_ROLE, "POST"): validate_can_manage_roles,
     (GET_ROLE, "GET"): validate_can_view_roles,
+    (AJAX_GET_ROLE, "GET"): validate_can_view_roles,
     (LIST_ROLES, "GET"): validate_can_view_roles,
+    (AJAX_LIST_ROLES, "GET"): validate_can_view_roles,
     (UPDATE_ROLE, "PATCH"): validate_can_manage_roles,
+    (AJAX_UPDATE_ROLE, "PATCH"): validate_can_manage_roles,
     (DELETE_ROLE, "DELETE"): validate_can_manage_roles,
+    (AJAX_DELETE_ROLE, "DELETE"): validate_can_manage_roles,
     (ADD_ROLE_PERMISSION, "POST"): validate_can_manage_roles,
+    (AJAX_ADD_ROLE_PERMISSION, "POST"): validate_can_manage_roles,
     (REMOVE_ROLE_PERMISSION, "DELETE"): validate_can_manage_roles,
+    (AJAX_REMOVE_ROLE_PERMISSION, "DELETE"): validate_can_manage_roles,
     (LIST_ROLE_PERMISSIONS, "GET"): validate_can_view_roles,
+    (AJAX_LIST_ROLE_PERMISSIONS, "GET"): validate_can_view_roles,
     (UPDATE_ROLE_PERMISSION, "PATCH"): validate_can_manage_roles,
+    (AJAX_UPDATE_ROLE_PERMISSION, "PATCH"): validate_can_manage_roles,
     (ASSIGN_ROLE, "POST"): validate_can_manage_roles,
+    (AJAX_ASSIGN_ROLE, "POST"): validate_can_manage_roles,
     (UNASSIGN_ROLE, "DELETE"): validate_can_manage_roles,
+    (AJAX_UNASSIGN_ROLE, "DELETE"): validate_can_manage_roles,
     (LIST_USER_ROLES, "GET"): validate_can_view_user_roles,
+    (AJAX_LIST_USER_ROLES, "GET"): validate_can_view_user_roles,
     (LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
+    (AJAX_LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
     (LIST_ALL_ROLES, "GET"): sender_is_admin,
+    (AJAX_LIST_ALL_ROLES, "GET"): sender_is_admin,
 })
 
 # Flask routes (no proto mapping)
@@ -3831,25 +3859,28 @@ def create_app(app: Flask = app):
         view_func=list_user_workspace_permissions,
         methods=["GET"],
     )
-    # Role management routes (RBAC)
-    app.add_url_rule(rule=CREATE_ROLE, view_func=create_role, methods=["POST"])
-    app.add_url_rule(rule=GET_ROLE, view_func=get_role, methods=["GET"])
-    app.add_url_rule(rule=LIST_ROLES, view_func=list_roles, methods=["GET"])
-    app.add_url_rule(rule=UPDATE_ROLE, view_func=update_role, methods=["PATCH"])
-    app.add_url_rule(rule=DELETE_ROLE, view_func=delete_role, methods=["DELETE"])
-    app.add_url_rule(rule=ADD_ROLE_PERMISSION, view_func=add_role_permission, methods=["POST"])
-    app.add_url_rule(
-        rule=REMOVE_ROLE_PERMISSION, view_func=remove_role_permission, methods=["DELETE"]
-    )
-    app.add_url_rule(rule=LIST_ROLE_PERMISSIONS, view_func=list_role_permissions, methods=["GET"])
-    app.add_url_rule(
-        rule=UPDATE_ROLE_PERMISSION, view_func=update_role_permission, methods=["PATCH"]
-    )
-    app.add_url_rule(rule=ASSIGN_ROLE, view_func=assign_role, methods=["POST"])
-    app.add_url_rule(rule=UNASSIGN_ROLE, view_func=unassign_role, methods=["DELETE"])
-    app.add_url_rule(rule=LIST_USER_ROLES, view_func=list_user_roles, methods=["GET"])
-    app.add_url_rule(rule=LIST_ROLE_USERS, view_func=list_role_users, methods=["GET"])
-    app.add_url_rule(rule=LIST_ALL_ROLES, view_func=list_all_roles, methods=["GET"])
+    # Role management routes (RBAC). Register each route at both the REST and AJAX paths
+    # so the Python client (`/api/3.0/mlflow/roles/...`) and the frontend
+    # (`/ajax-api/3.0/mlflow/roles/...`) can both reach them.
+    _rbac_routes = [
+        (create_role, "POST", CREATE_ROLE, AJAX_CREATE_ROLE),
+        (get_role, "GET", GET_ROLE, AJAX_GET_ROLE),
+        (list_roles, "GET", LIST_ROLES, AJAX_LIST_ROLES),
+        (update_role, "PATCH", UPDATE_ROLE, AJAX_UPDATE_ROLE),
+        (delete_role, "DELETE", DELETE_ROLE, AJAX_DELETE_ROLE),
+        (add_role_permission, "POST", ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION),
+        (remove_role_permission, "DELETE", REMOVE_ROLE_PERMISSION, AJAX_REMOVE_ROLE_PERMISSION),
+        (list_role_permissions, "GET", LIST_ROLE_PERMISSIONS, AJAX_LIST_ROLE_PERMISSIONS),
+        (update_role_permission, "PATCH", UPDATE_ROLE_PERMISSION, AJAX_UPDATE_ROLE_PERMISSION),
+        (assign_role, "POST", ASSIGN_ROLE, AJAX_ASSIGN_ROLE),
+        (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
+        (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
+        (list_role_users, "GET", LIST_ROLE_USERS, AJAX_LIST_ROLE_USERS),
+        (list_all_roles, "GET", LIST_ALL_ROLES, AJAX_LIST_ALL_ROLES),
+    ]
+    for view_func, method, rest_path, ajax_path in _rbac_routes:
+        for path in (rest_path, ajax_path):
+            app.add_url_rule(rule=path, view_func=view_func, methods=[method])
 
     app.before_request(_before_request)
     app.after_request(_after_request)

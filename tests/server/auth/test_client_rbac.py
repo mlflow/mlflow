@@ -2,6 +2,7 @@ import os
 from contextlib import contextmanager
 
 import pytest
+import requests
 
 from mlflow import MlflowException
 from mlflow.environment_variables import (
@@ -324,3 +325,33 @@ def test_list_all_roles_admin_only(client, monkeypatch):
 
     with User(username, password, monkeypatch), assert_unauthorized():
         client.list_all_roles()
+
+
+# ---- /api/ and /ajax-api/ path parity ----
+
+
+@pytest.mark.parametrize("api_prefix", ["api", "ajax-api"])
+def test_rbac_endpoints_reachable_at_both_path_prefixes(client, monkeypatch, api_prefix):
+    # The MLflow frontend hits /ajax-api/ paths; the Python client hits /api/ paths.
+    # Every RBAC route must be reachable at both (see handlers._get_paths).
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        created = client.create_role(workspace="path-parity", name=f"r-{api_prefix}")
+
+    # GET list endpoint.
+    resp = requests.get(
+        f"{client.tracking_uri}/{api_prefix}/3.0/mlflow/roles/list",
+        params={"workspace": "path-parity"},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert resp.status_code == 200, resp.text
+    names = {r["name"] for r in resp.json()["roles"]}
+    assert created.name in names
+
+    # GET single role by id.
+    resp = requests.get(
+        f"{client.tracking_uri}/{api_prefix}/3.0/mlflow/roles/get",
+        params={"role_id": str(created.id)},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["role"]["id"] == created.id
