@@ -1,5 +1,6 @@
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.server.auth.permissions import EDIT, MANAGE, READ, get_permission
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -217,3 +218,80 @@ def test_legacy_and_role_views_agree(store, user):
             store.create_experiment_permission("exp1", user.username, permission_name)
         legacy = store.get_experiment_permission("exp1", user.username).permission
         _assert_role_permission(store, user.id, "experiment", "exp1", get_permission(legacy))
+
+
+# ---- Synthetic-role scoping invariants ----
+#
+# The synthetic `__user_<id>__` namespace is reserved. Bulk cleanup/rename helpers must
+# never touch admin-created roles even when the (resource_type, resource_pattern) match.
+
+
+def test_bulk_delete_does_not_touch_admin_created_roles(store, user):
+    # Admin creates a regular role with a registered_model grant; user also has a
+    # mirrored registered_model permission. Bulk delete must only remove the mirror.
+    admin_role = store.create_role(name="team-editor", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(admin_role.id, "registered_model", "model_a", EDIT.name)
+    store.create_registered_model_permission("model_a", user.username, READ.name)
+
+    store.delete_registered_model_permissions("model_a")
+
+    _assert_role_permission(store, user.id, "registered_model", "model_a", None)
+    admin_perms = store.list_role_permissions(admin_role.id)
+    assert len(admin_perms) == 1
+    assert admin_perms[0].resource_pattern == "model_a"
+    assert admin_perms[0].permission == EDIT.name
+
+
+def test_bulk_rename_does_not_touch_admin_created_roles(store, user):
+    admin_role = store.create_role(name="team-editor", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(admin_role.id, "registered_model", "old_name", EDIT.name)
+    store.create_registered_model_permission("old_name", user.username, READ.name)
+
+    store.rename_registered_model_permissions("old_name", "new_name")
+
+    # User's mirror was renamed.
+    _assert_role_permission(store, user.id, "registered_model", "new_name", READ)
+    _assert_role_permission(store, user.id, "registered_model", "old_name", None)
+    # Admin-created role's permission pattern unchanged.
+    admin_perms = store.list_role_permissions(admin_role.id)
+    assert len(admin_perms) == 1
+    assert admin_perms[0].resource_pattern == "old_name"
+
+
+def test_scorer_bulk_delete_does_not_touch_admin_created_roles(store, user):
+    # Workspace=None bulk path (used by scorer/gateway_*) must also be synthetic-only.
+    admin_role = store.create_role(name="scorer-admin", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(admin_role.id, "scorer", "exp1/judge", EDIT.name)
+    store.create_scorer_permission("exp1", "judge", user.username, READ.name)
+
+    store.delete_scorer_permissions_for_scorer("exp1", "judge")
+
+    _assert_role_permission(store, user.id, "scorer", "exp1/judge", None)
+    admin_perms = store.list_role_permissions(admin_role.id)
+    assert len(admin_perms) == 1
+    assert admin_perms[0].permission == EDIT.name
+
+
+def test_create_role_rejects_synthetic_name_pattern(store):
+    with pytest.raises(MlflowException, match="reserved synthetic pattern"):
+        store.create_role(name="__user_42__", workspace=DEFAULT_WORKSPACE_NAME)
+    # Non-integer suffix is allowed — only the exact pattern is reserved.
+    store.create_role(name="__user_foo__", workspace=DEFAULT_WORKSPACE_NAME)
+
+
+def test_update_role_rejects_synthetic_name_pattern(store):
+    role = store.create_role(name="normal", workspace=DEFAULT_WORKSPACE_NAME)
+    with pytest.raises(MlflowException, match="reserved synthetic pattern"):
+        store.update_role(role.id, name="__user_7__")
+
+
+def test_is_synthetic_role_name_rejects_edge_cases():
+    assert SqlAlchemyStore._is_synthetic_role_name("__user_1__") is True
+    assert SqlAlchemyStore._is_synthetic_role_name("__user_99999__") is True
+    # Wrong surroundings or missing id:
+    assert SqlAlchemyStore._is_synthetic_role_name("__user__") is False
+    assert SqlAlchemyStore._is_synthetic_role_name("__user_abc__") is False
+    assert SqlAlchemyStore._is_synthetic_role_name("user_1") is False
+    assert SqlAlchemyStore._is_synthetic_role_name("_user_1__") is False
+    assert SqlAlchemyStore._is_synthetic_role_name("__user_1_") is False
+    assert SqlAlchemyStore._is_synthetic_role_name(None) is False

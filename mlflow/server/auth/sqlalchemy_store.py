@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import selectinload, sessionmaker
@@ -158,14 +160,40 @@ class SqlAlchemyStore:
     # scoped to the resource's workspace. Reads still go through the per-resource tables;
     # the mirrored grants make `get_role_permission_for_resource` a valid source of truth
     # in parallel so later phases can flip reads over.
+    #
+    # The synthetic namespace (``__user_<int>__``) is RESERVED: ``create_role`` and
+    # ``update_role`` reject names matching the pattern so an API consumer can't hijack a
+    # synthetic role to receive another user's mirrored grants. Bulk cleanup / rename
+    # helpers (``_unmirror_resource``, ``_rename_mirrored_resource``) also restrict their
+    # scope to synthetic roles so they never touch admin-created roles that happen to
+    # hold overlapping grants.
     _SYNTHETIC_ROLE_PREFIX = "__user_"
     _SYNTHETIC_ROLE_SUFFIX = "__"
+    _SYNTHETIC_ROLE_NAME_RE = re.compile(r"^__user_\d+__$")
 
     @classmethod
     def _synthetic_user_role_name(cls, user_id: int) -> str:
         return f"{cls._SYNTHETIC_ROLE_PREFIX}{user_id}{cls._SYNTHETIC_ROLE_SUFFIX}"
 
+    @classmethod
+    def _is_synthetic_role_name(cls, name: str | None) -> bool:
+        return name is not None and cls._SYNTHETIC_ROLE_NAME_RE.match(name) is not None
+
+    @classmethod
+    def _reject_synthetic_role_name(cls, name: str) -> None:
+        """Guard user-facing role CRUD against the reserved synthetic pattern."""
+        if cls._is_synthetic_role_name(name):
+            raise MlflowException.invalid_parameter_value(
+                f"Role name {name!r} matches the reserved synthetic pattern "
+                f"'__user_<id>__' used by Phase 2 dual-write. Choose a different name."
+            )
+
     def _get_or_create_synthetic_user_role(self, session, user_id: int, workspace: str) -> SqlRole:
+        # Race-proof: two concurrent permission mutations for the same (user, workspace)
+        # can both see "role doesn't exist yet" and both try to INSERT. Wrap the INSERT
+        # in a SAVEPOINT so the UniqueConstraint violation rolls back only that nested
+        # scope and we can recover by re-querying the winner's row. Same pattern for
+        # the user->role assignment.
         name = self._synthetic_user_role_name(user_id)
         role = (
             session
@@ -174,9 +202,18 @@ class SqlAlchemyStore:
             .first()
         )
         if role is None:
-            role = SqlRole(name=name, workspace=workspace, description=None)
-            session.add(role)
-            session.flush()
+            try:
+                with session.begin_nested():
+                    role = SqlRole(name=name, workspace=workspace, description=None)
+                    session.add(role)
+                    session.flush()
+            except IntegrityError:
+                role = (
+                    session
+                    .query(SqlRole)
+                    .filter(SqlRole.workspace == workspace, SqlRole.name == name)
+                    .one()
+                )
         assignment = (
             session
             .query(SqlUserRoleAssignment)
@@ -187,8 +224,13 @@ class SqlAlchemyStore:
             .first()
         )
         if assignment is None:
-            session.add(SqlUserRoleAssignment(user_id=user_id, role_id=role.id))
-            session.flush()
+            try:
+                with session.begin_nested():
+                    session.add(SqlUserRoleAssignment(user_id=user_id, role_id=role.id))
+                    session.flush()
+            except IntegrityError:
+                # Another concurrent write already assigned the user.
+                pass
         return role
 
     def _mirror_user_grant(
@@ -253,6 +295,17 @@ class SqlAlchemyStore:
         )
         session.flush()
 
+    def _synthetic_role_ids(self, session, workspace: str | None = None) -> list[int]:
+        """
+        Return ids of synthetic ``__user_<id>__`` roles, optionally scoped to
+        ``workspace``. Callers of bulk cleanup/rename helpers route through this so they
+        never touch admin-created roles that happen to share a grant.
+        """
+        query = session.query(SqlRole.id, SqlRole.name)
+        if workspace is not None:
+            query = query.filter(SqlRole.workspace == workspace)
+        return [rid for (rid, name) in query.all() if self._is_synthetic_role_name(name)]
+
     def _unmirror_resource(
         self,
         session,
@@ -263,22 +316,16 @@ class SqlAlchemyStore:
         # Delete all mirrored role_permissions rows for one resource across users.
         # `workspace=None` is used when the underlying resource ID is globally unique
         # (scorer, gateway_*), so mirrored rows are removed regardless of which
-        # synthetic role holds them.
-        query = session.query(SqlRolePermission).filter(
+        # synthetic role holds them. Restricted to synthetic roles so admin-created
+        # roles with an overlapping grant are never touched.
+        role_ids = self._synthetic_role_ids(session, workspace=workspace)
+        if not role_ids:
+            return
+        session.query(SqlRolePermission).filter(
+            SqlRolePermission.role_id.in_(role_ids),
             SqlRolePermission.resource_type == resource_type,
             SqlRolePermission.resource_pattern == resource_pattern,
-        )
-        if workspace is not None:
-            role_ids = [
-                rid
-                for (rid,) in (
-                    session.query(SqlRole.id).filter(SqlRole.workspace == workspace).all()
-                )
-            ]
-            if not role_ids:
-                return
-            query = query.filter(SqlRolePermission.role_id.in_(role_ids))
-        query.delete(synchronize_session=False)
+        ).delete(synchronize_session=False)
         session.flush()
 
     def _rename_mirrored_resource(
@@ -289,10 +336,8 @@ class SqlAlchemyStore:
         old_pattern: str,
         new_pattern: str,
     ) -> None:
-        role_ids = [
-            rid
-            for (rid,) in (session.query(SqlRole.id).filter(SqlRole.workspace == workspace).all())
-        ]
+        # Synthetic-role-only, same rationale as _unmirror_resource above.
+        role_ids = self._synthetic_role_ids(session, workspace=workspace)
         if not role_ids:
             return
         (
@@ -1087,6 +1132,7 @@ class SqlAlchemyStore:
         workspace: str,
         description: str | None = None,
     ) -> Role:
+        self._reject_synthetic_role_name(name)
         with self.ManagedSessionMaker() as session:
             try:
                 role = SqlRole(
@@ -1168,6 +1214,8 @@ class SqlAlchemyStore:
         name: str | None = None,
         description: str | None = None,
     ) -> Role:
+        if name is not None:
+            self._reject_synthetic_role_name(name)
         with self.ManagedSessionMaker() as session:
             role = self._get_role(session, role_id)
             if name is not None:
