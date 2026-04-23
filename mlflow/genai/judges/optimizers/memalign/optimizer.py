@@ -147,6 +147,7 @@ class MemoryAugmentedJudge(Judge):
         )
 
         self._base_judge = effective_base_judge
+        self._base_instructions = effective_base_judge.instructions
         self._retrieval_k = retrieval_k
         self._reflection_lm = reflection_lm if reflection_lm is not None else get_default_model()
         self._embedding_model = (
@@ -267,7 +268,7 @@ class MemoryAugmentedJudge(Judge):
 
     @property
     def instructions(self) -> str:
-        instructions = self._base_judge.instructions
+        instructions = self._base_instructions
         if self._semantic_memory:
             instructions += f"\n\nDistilled Guidelines ({len(self._semantic_memory)}):\n"
             for guideline in self._semantic_memory:

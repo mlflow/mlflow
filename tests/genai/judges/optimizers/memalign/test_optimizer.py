@@ -348,6 +348,34 @@ def test_incremental_alignment_redistills_guidelines(sample_judge, sample_traces
         assert "Guideline B" in guideline_texts
 
 
+def test_multiple_align_calls_single_distilled_guidelines_section(sample_judge, sample_traces):
+    """Test that calling align() multiple times doesn't accumulate 'Distilled Guidelines' sections."""
+    # First alignment: distills 8 guidelines
+    with mock_apis(guidelines=[f"Guideline {i}" for i in range(8)]):
+        optimizer = MemAlignOptimizer()
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
+        assert len(judge_v2._semantic_memory) == 8
+
+        # Check instructions only has one "Distilled Guidelines" section
+        instructions_v2 = judge_v2.instructions
+        assert instructions_v2.count("Distilled Guidelines") == 1
+        assert "Distilled Guidelines (8):" in instructions_v2
+
+    # Second alignment: distills 6 more guidelines
+    with mock_apis(guidelines=[f"Guideline New {i}" for i in range(6)]):
+        judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
+        # Should have 8 + 6 = 14 guidelines total
+        assert len(judge_v3._semantic_memory) == 14
+
+        # Check instructions still only has ONE "Distilled Guidelines" section
+        instructions_v3 = judge_v3.instructions
+        assert instructions_v3.count("Distilled Guidelines") == 1
+        assert "Distilled Guidelines (14):" in instructions_v3
+
+        # Verify the base instructions are still present
+        assert sample_judge.instructions in instructions_v3
+
+
 def test_unalign_filters_guidelines_by_source_ids(sample_judge, sample_traces):
     # Test that unalign() filters guidelines based on source_ids
     with mock_apis(guidelines=["Guideline 1", "Guideline 2"]):
