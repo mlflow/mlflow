@@ -295,6 +295,7 @@ class MemoryAugmentedJudge(Judge):
 
         memory_augmented_data = {
             "base_judge": base_judge_data,
+            "base_instructions": self._base_instructions,
             "episodic_trace_ids": self._episodic_trace_ids,
             "semantic_memory": [g.model_dump() for g in self._semantic_memory],
             **{field: getattr(self, f"_{field}") for field in _CONFIG_FIELDS},
@@ -337,6 +338,11 @@ class MemoryAugmentedJudge(Judge):
         instance._semantic_memory = [Guideline(**g) for g in data["semantic_memory"]]
         instance._episodic_trace_ids = data.get("episodic_trace_ids") or []
 
+        # Restore base_instructions if present (for backward compatibility with old serialized judges)
+        if "base_instructions" in data:
+            instance._base_instructions = data["base_instructions"]
+        # else: _base_instructions is already set from base_judge.instructions in __init__
+
         return instance
 
     def _create_copy(self) -> "MemoryAugmentedJudge":
@@ -358,6 +364,7 @@ class MemoryAugmentedJudge(Judge):
         )
         judge_copy._semantic_memory = copy.deepcopy(self._semantic_memory)
         judge_copy._episodic_trace_ids = self._episodic_trace_ids.copy()
+        judge_copy._base_instructions = self._base_instructions
 
         return judge_copy
 

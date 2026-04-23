@@ -536,6 +536,35 @@ def test_memory_augmented_judge_round_trip_serialization(sample_judge, sample_tr
         assert set(restored_judge._episodic_trace_ids) == set(original_judge._episodic_trace_ids)
 
 
+def test_base_instructions_preserved_after_serialization(sample_judge, sample_traces):
+    """Test that _base_instructions is preserved through serialization to prevent accumulation."""
+    with mock_apis(guidelines=["Guideline A", "Guideline B"]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:2])
+
+        # Store original base instructions
+        original_base_instructions = aligned_judge._base_instructions
+
+        # Verify instructions has one "Distilled Guidelines" section
+        assert aligned_judge.instructions.count("Distilled Guidelines") == 1
+        assert "Distilled Guidelines (2):" in aligned_judge.instructions
+
+        # Serialize and deserialize
+        dumped = aligned_judge.model_dump()
+        serialized = SerializedScorer(**dumped)
+        restored_judge = MemoryAugmentedJudge._from_serialized(serialized)
+
+        # Verify _base_instructions is preserved exactly
+        assert restored_judge._base_instructions == original_base_instructions
+
+        # Verify instructions property still works correctly with single section
+        assert restored_judge.instructions.count("Distilled Guidelines") == 1
+        assert "Distilled Guidelines (2):" in restored_judge.instructions
+
+        # Verify base instructions are present in the final instructions
+        assert sample_judge.instructions in restored_judge.instructions
+
+
 def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample_traces):
     with mock_apis(guidelines=[]):
         optimizer = MemAlignOptimizer()
