@@ -18,6 +18,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s:%s" .Values.image.repository $tag }}
 {{- end }}
 
+{{- define "mlflow.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- .Values.serviceAccount.name | default (include "mlflow.fullname" .) }}
+{{- else }}
+{{- .Values.serviceAccount.name | default "default" }}
+{{- end }}
+{{- end }}
+
 {{/*
 Build mlflow server args from .Values.server.
   value_options: map of key/value pairs rendered as --key=value (empty values skipped).

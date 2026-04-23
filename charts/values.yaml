@@ -59,6 +59,15 @@ env: []
 # Extra envFrom sources (ConfigMaps, Secrets).
 envFrom: []
 
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+rbac:
+  create: false
+  extraRules: []
+
 storage:
   enabled: false
   size: 10Gi
