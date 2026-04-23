@@ -1,14 +1,14 @@
 const path = require('path');
 
+const MLFLOW_PACKAGE_NAME = '@mlflow/mlflow';
 const WEB_SHARED_PATH_SEGMENT = `${path.sep}src${path.sep}shared${path.sep}web-shared${path.sep}`;
 
-const isPathWithin = (candidatePath, parentPath) => {
-  const relativePath = path.relative(parentPath, candidatePath);
+const isPathWithinDirectory = (childPath, parentDirectory) => {
+  const relativePath = path.relative(parentDirectory, childPath);
   return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
 };
 
-const getWebSharedContext = (filename) => {
-  const normalizedFilename = path.normalize(filename);
+const getWebSharedContext = (normalizedFilename) => {
   const segmentIndex = normalizedFilename.indexOf(WEB_SHARED_PATH_SEGMENT);
   if (segmentIndex === -1) {
     return null;
@@ -21,7 +21,8 @@ const getWebSharedContext = (filename) => {
   };
 };
 
-const isMlflowImport = (importPath) => importPath === '@mlflow/mlflow' || importPath.startsWith('@mlflow/mlflow/');
+const isMlflowImport = (importPath) =>
+  importPath === MLFLOW_PACKAGE_NAME || importPath.startsWith(`${MLFLOW_PACKAGE_NAME}/`);
 
 module.exports = {
   meta: {
@@ -39,7 +40,8 @@ module.exports = {
   },
   create(context) {
     const filename = context.getFilename();
-    const webSharedContext = getWebSharedContext(filename);
+    const normalizedFilename = path.normalize(filename);
+    const webSharedContext = getWebSharedContext(normalizedFilename);
     if (!webSharedContext) {
       return {};
     }
@@ -61,10 +63,10 @@ module.exports = {
         return;
       }
 
-      const resolvedImportPath = path.resolve(path.dirname(path.normalize(filename)), importPath);
+      const resolvedImportPath = path.resolve(path.dirname(normalizedFilename), importPath);
       if (
-        isPathWithin(resolvedImportPath, webSharedContext.jsRoot) &&
-        !isPathWithin(resolvedImportPath, webSharedContext.webSharedRoot)
+        isPathWithinDirectory(resolvedImportPath, webSharedContext.jsRoot) &&
+        !isPathWithinDirectory(resolvedImportPath, webSharedContext.webSharedRoot)
       ) {
         context.report({
           node,
