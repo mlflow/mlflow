@@ -33,10 +33,6 @@ DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR = (
     "3. Use built-in scorers or make_judge() scorers instead."
 )
 
-# Error message used by Scorer._check_can_be_registered when a user attempts to register
-# a third-party scorer (RAGAS, DeepEval, TruLens, Phoenix) against a Databricks tracking
-# URI. Third-party scorers can be registered against OSS MLflow backends but are not yet
-# supported by the Databricks scorer hosting layer.
 THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (
     "Third-party scorer registration (e.g., RAGAS, DeepEval, TruLens, Phoenix) is not "
     "supported when using a Databricks tracking URI. Third-party scorers are only "
@@ -45,10 +41,8 @@ THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (
     "`mlflow.genai.evaluate(..., scorers=[...])` without calling `.register()`."
 )
 
-# Known module paths for first-party third-party scorer integrations. Used by
-# `Scorer.model_validate` when deserializing a third-party scorer to restrict
-# dynamic imports to this closed set and avoid turning deserialization into an
-# arbitrary-import vector.
+# Restricts dynamic imports during third-party scorer deserialization to this
+# closed set so a malicious payload can't turn `model_validate` into arbitrary import.
 THIRD_PARTY_SCORER_ALLOWED_MODULES = frozenset({
     "mlflow.genai.scorers.ragas",
     "mlflow.genai.scorers.deepeval",

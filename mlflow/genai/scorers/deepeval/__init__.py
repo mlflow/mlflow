@@ -64,6 +64,7 @@ class DeepEvalScorer(Scorer):
     _metric: Any = PrivateAttr()
     _metric_kwargs: dict[str, Any] = PrivateAttr(default_factory=dict)
     _metric_name: str = PrivateAttr(default="")
+    _model: str | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -72,7 +73,6 @@ class DeepEvalScorer(Scorer):
         model_kwargs: dict[str, Any] | None = None,
         **metric_kwargs: Any,
     ):
-        # Use class attribute if metric_name not provided
         if metric_name is None:
             metric_name = self.metric_name
 
@@ -81,20 +81,15 @@ class DeepEvalScorer(Scorer):
         metric_class = get_metric_class(metric_name)
 
         self._is_deterministic = is_deterministic_metric(metric_name)
-        # Preserve the intrinsic DeepEval metric identifier separately from `self.name`,
-        # which users can rebind at register-time via `register(name=...)`.
         self._metric_name = metric_name
-        # Snapshot the user-supplied metric kwargs so we can round-trip them through
-        # register() -> serialize -> model_validate without re-wrapping the LLM.
         self._metric_kwargs = dict(metric_kwargs)
 
         if self._is_deterministic:
-            # Deterministic metrics don't need a model
             self._metric = metric_class(**metric_kwargs)
-            self._model_uri = None
+            self._model = None
         else:
             model = model or get_default_model()
-            self._model_uri = model
+            self._model = model
             deepeval_model = create_deepeval_model(model, model_kwargs=model_kwargs)
             self._metric = metric_class(
                 model=deepeval_model,
@@ -106,13 +101,6 @@ class DeepEvalScorer(Scorer):
     @property
     def kind(self) -> ScorerKind:
         return ScorerKind.THIRD_PARTY
-
-    def model_dump(self, **kwargs) -> dict[str, Any]:
-        return self._build_third_party_dump(
-            metric_name=self._metric_name,
-            model=self._model_uri,
-            metric_kwargs=self._metric_kwargs,
-        )
 
     def align(self, **kwargs):
         raise MlflowException.invalid_parameter_value(
@@ -153,7 +141,7 @@ class DeepEvalScorer(Scorer):
             source_id = None
         else:
             source_type = AssessmentSourceType.LLM_JUDGE
-            source_id = self._model_uri
+            source_id = self._model
 
         assessment_source = AssessmentSource(
             source_type=source_type,

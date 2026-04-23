@@ -64,11 +64,7 @@ class PhoenixScorer(Scorer):
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
-        # Preserve the intrinsic Phoenix metric identifier separately from `self.name`,
-        # which users can rebind at register-time via `register(name=...)`.
         self._metric_name = metric_name
-        # Snapshot the user-supplied evaluator kwargs so we can round-trip them through
-        # register() -> serialize -> model_validate without re-wrapping the LLM.
         self._metric_kwargs = dict(evaluator_kwargs)
         phoenix_model = create_phoenix_model(model)
         evaluator_class = get_evaluator_class(metric_name)
@@ -77,13 +73,6 @@ class PhoenixScorer(Scorer):
     @property
     def kind(self) -> ScorerKind:
         return ScorerKind.THIRD_PARTY
-
-    def model_dump(self, **kwargs) -> dict[str, Any]:
-        return self._build_third_party_dump(
-            metric_name=self._metric_name,
-            model=self._model,
-            metric_kwargs=self._metric_kwargs,
-        )
 
     def __call__(
         self,

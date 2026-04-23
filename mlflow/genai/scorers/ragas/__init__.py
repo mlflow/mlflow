@@ -86,25 +86,16 @@ class RagasScorer(Scorer):
 
         self._validate_args(metric_name, model)
         super().__init__(name=metric_name)
-        # Preserve the intrinsic RAGAS metric identifier separately from `self.name`,
-        # which users can rebind at register-time via `register(name=...)`.
         self._metric_name = metric_name
-        # Snapshot the user-supplied metric kwargs so we can round-trip them through
-        # register() -> serialize -> model_validate without re-wrapping the LLM/embeddings.
         self._metric_kwargs = dict(metric_kwargs)
-        # Deterministic RAGAS metrics (e.g. `ExactMatch`) reject `model=` in their
-        # constructor via `_validate_args`; leave `_model` as None for them so
-        # serialization round-trips and `_create_copy` reconstruct cleanly.
-        metric_accepts_model = requires_llm_in_constructor(
+        # Deterministic metrics reject `model=` via `_validate_args`; keep `_model`
+        # None for them so serialization and `_create_copy` round-trip.
+        accepts_model = requires_llm_in_constructor(metric_name) or requires_llm_at_score_time(
             metric_name
-        ) or requires_llm_at_score_time(metric_name)
-        if metric_accepts_model:
-            model = model or get_default_model()
-            self._model = model
-        else:
-            self._model = None
+        )
+        self._model = (model or get_default_model()) if accepts_model else None
         metric_class = get_metric_class(metric_name)
-        ragas_llm = create_ragas_model(model) if metric_accepts_model else None
+        ragas_llm = create_ragas_model(self._model) if accepts_model else None
         constructor_kwargs = dict(metric_kwargs)
 
         if requires_llm_in_constructor(metric_name):
@@ -122,13 +113,6 @@ class RagasScorer(Scorer):
     @property
     def kind(self) -> ScorerKind:
         return ScorerKind.THIRD_PARTY
-
-    def model_dump(self, **kwargs) -> dict[str, Any]:
-        return self._build_third_party_dump(
-            metric_name=self._metric_name,
-            model=self._model,
-            metric_kwargs=self._metric_kwargs,
-        )
 
     def align(self, **kwargs):
         raise MlflowException.invalid_parameter_value(

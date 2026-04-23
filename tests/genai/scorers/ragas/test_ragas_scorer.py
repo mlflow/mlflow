@@ -258,11 +258,10 @@ def test_ragas_scorer_serialization_round_trip():
 
 def test_ragas_scorer_serialization_round_trip_preserves_register_name():
     scorer = ExactMatch()
-    # Simulate what `register(name=...)` does: renames before serialization.
-    renamed = scorer._rebuild_third_party_copy()
+    renamed = scorer._create_copy()
     renamed.name = "exact_match_v1"
     dump = renamed.model_dump()
-    # `metric_name` must remain the underlying RAGAS class name, not the rename.
+    # metric_name stays bound to the RAGAS class, not the registered name.
     assert dump["third_party_scorer_data"]["metric_name"] == "ExactMatch"
 
     from mlflow.genai.scorers.base import Scorer
