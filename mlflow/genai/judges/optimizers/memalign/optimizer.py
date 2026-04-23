@@ -508,7 +508,7 @@ class MemoryAugmentedJudge(Judge):
         existing_guideline_texts = [g.guideline_text for g in self._semantic_memory]
         new_guidelines = distill_guidelines(
             examples=new_examples,
-            judge_instructions=self._base_judge.instructions,
+            judge_instructions=self._base_instructions,
             reflection_lm=self._reflection_lm,
             existing_guidelines=existing_guideline_texts,
         )
