@@ -18,7 +18,7 @@ export type ShowArtifactAudioViewProps = {
 
 const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }: ShowArtifactAudioViewProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [waveSurfer, setWaveSurfer] = useState<WaveSurfer | null>(null);
+  const wsRef = useRef<WaveSurfer | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<boolean>(false);
@@ -26,27 +26,50 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const ws = WaveSurfer.create({
-      mediaControls: true,
-      container: containerRef.current,
-      ...waveSurferStyling,
-      url: getArtifactLocationUrl(path, runUuid),
-    });
+    let blobUrl: string | undefined;
+    let cancelled = false;
 
-    ws.on('ready', () => {
-      setLoading(false);
-    });
+    const artifactUrl = getArtifactLocationUrl(path, runUuid);
+    getArtifact(artifactUrl)
+      .then((blob: Blob) => {
+        if (cancelled || !containerRef.current) return;
 
-    ws.on('error', () => {
-      setError(true);
-    });
+        blobUrl = URL.createObjectURL(blob);
 
-    setWaveSurfer(ws);
+        const ws = WaveSurfer.create({
+          mediaControls: true,
+          container: containerRef.current,
+          ...waveSurferStyling,
+          url: blobUrl,
+        });
+
+        ws.on('ready', () => {
+          setLoading(false);
+        });
+
+        ws.on('error', () => {
+          setError(true);
+        });
+
+        wsRef.current = ws;
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError(true);
+        }
+      });
 
     return () => {
-      ws.destroy();
+      cancelled = true;
+      if (wsRef.current) {
+        wsRef.current.destroy();
+        wsRef.current = null;
+      }
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
     };
-  }, [containerRef, path, runUuid]);
+  }, [containerRef, path, runUuid, getArtifact]);
 
   const showLoading = loading && !error;
 
