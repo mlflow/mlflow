@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.nested_mock_patch import NestedMockPatch
 
 
-def test_nested_mock_patch_unittest_mock(index_path: Path) -> None:
+def test_nested_mock_patch_unittest_mock(index: SymbolIndex) -> None:
     code = """
 import unittest.mock
 
@@ -15,13 +16,13 @@ def test_foo():
             ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
     assert violations[0].range == Range(Position(4, 4))
 
 
-def test_nested_mock_patch_from_unittest_import_mock(index_path: Path) -> None:
+def test_nested_mock_patch_from_unittest_import_mock(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -31,13 +32,13 @@ def test_foo():
             ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
     assert violations[0].range == Range(Position(4, 4))
 
 
-def test_nested_mock_patch_object(index_path: Path) -> None:
+def test_nested_mock_patch_object(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -47,13 +48,13 @@ def test_foo():
             ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
     assert violations[0].range == Range(Position(4, 4))
 
 
-def test_nested_mock_patch_dict(index_path: Path) -> None:
+def test_nested_mock_patch_dict(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -63,13 +64,13 @@ def test_foo():
             ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
     assert violations[0].range == Range(Position(4, 4))
 
 
-def test_nested_mock_patch_mixed(index_path: Path) -> None:
+def test_nested_mock_patch_mixed(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -79,13 +80,13 @@ def test_foo():
             ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
     assert violations[0].range == Range(Position(4, 4))
 
 
-def test_multiple_context_managers_is_ok(index_path: Path) -> None:
+def test_multiple_context_managers_is_ok(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -94,11 +95,11 @@ def test_foo():
         ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_multiple_context_managers_with_object_is_ok(index_path: Path) -> None:
+def test_multiple_context_managers_with_object_is_ok(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -107,11 +108,11 @@ def test_foo():
         ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_nested_with_but_not_mock_patch_is_ok(index_path: Path) -> None:
+def test_nested_with_but_not_mock_patch_is_ok(index: SymbolIndex) -> None:
     code = """
 def test_foo():
     with open("file.txt"):
@@ -119,11 +120,11 @@ def test_foo():
             ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_nested_with_only_one_mock_patch_is_ok(index_path: Path) -> None:
+def test_nested_with_only_one_mock_patch_is_ok(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -133,11 +134,11 @@ def test_foo():
             ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_non_nested_mock_patches_are_ok(index_path: Path) -> None:
+def test_non_nested_mock_patches_are_ok(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -148,11 +149,11 @@ def test_foo():
         pass
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_non_test_file_not_checked(index_path: Path) -> None:
+def test_non_test_file_not_checked(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -162,11 +163,11 @@ def foo():
             ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("nested_mock_patch.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_nested_with_code_after_is_ok(index_path: Path) -> None:
+def test_nested_with_code_after_is_ok(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -178,11 +179,11 @@ def test_foo():
         assert True
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_deeply_nested_mock_patch(index_path: Path) -> None:
+def test_deeply_nested_mock_patch(index: SymbolIndex) -> None:
     code = """
 from unittest import mock
 
@@ -193,7 +194,7 @@ def test_foo():
                 ...
 """
     config = Config(select={NestedMockPatch.name})
-    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
+    violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index)
     # Should detect both levels of nesting
     assert len(violations) == 2
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)

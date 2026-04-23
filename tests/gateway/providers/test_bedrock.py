@@ -464,6 +464,31 @@ def _converse_response():
     }
 
 
+def _converse_response_with_tool_use():
+    return {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "toolUse": {
+                            "toolUseId": "tool_abc123",
+                            "name": "add",
+                            "input": {"a": 17, "b": 25},
+                        }
+                    }
+                ],
+            }
+        },
+        "stopReason": "tool_use",
+        "usage": {
+            "inputTokens": 30,
+            "outputTokens": 10,
+            "totalTokens": 40,
+        },
+    }
+
+
 def _converse_stream_response():
     return {
         "stream": iter([
@@ -568,3 +593,19 @@ async def test_bedrock_converse_with_system_message():
     call_kwargs = mock_client.converse.call_args.kwargs
     assert call_kwargs["system"] == [{"text": "You are helpful"}]
     assert len(call_kwargs["messages"]) == 1  # only user message
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_with_tool_call():
+
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response_with_tool_use()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "add 17 and 25"}])
+        response = await provider.chat(payload)
+
+    result = jsonable_encoder(response)
+    tool_calls = result["choices"][0]["message"]["tool_calls"]
+    assert tool_calls[0]["function"]["name"] == "add"

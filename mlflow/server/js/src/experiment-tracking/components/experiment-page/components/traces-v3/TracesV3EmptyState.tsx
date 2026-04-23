@@ -3,6 +3,7 @@ import {
   createTraceLocationForExperiment,
   GenAITracesTableBodySkeleton,
   useSearchMlflowTraces,
+  isSqlWarehouseTimeoutError,
 } from '@databricks/web-shared/genai-traces-table';
 import { FormattedMessage } from '@databricks/i18n';
 import { Button, DangerIcon, Empty, ParagraphSkeleton, SearchIcon } from '@databricks/design-system';
@@ -17,12 +18,11 @@ import {
 import { TracesViewTableNoTracesQuickstart } from '../../../traces/quickstart/TracesViewTableNoTracesQuickstart';
 import {
   shouldEnableTracesTableStatePersistence,
-  type ModelTraceLocationMlflowExperiment,
-  type ModelTraceLocationUcSchema,
+  type ModelTraceSearchLocation,
 } from '@databricks/web-shared/model-trace-explorer';
 
 export const TracesV3EmptyState = (props: {
-  traceSearchLocations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  traceSearchLocations: ModelTraceSearchLocation[];
   experimentIds: string[];
   loggedModelId?: string;
   isCallDisabled?: boolean;
@@ -71,13 +71,23 @@ export const TracesV3EmptyState = (props: {
   }
 
   if (error) {
+    const errorAsError = error instanceof Error ? error : new Error(String(error));
     return (
       <Empty
         image={<DangerIcon />}
         title={
           <FormattedMessage defaultMessage="Fetching traces failed" description="Fetching traces failed message" />
         }
-        description={String(error)}
+        description={
+          isSqlWarehouseTimeoutError(errorAsError)
+            ? intl.formatMessage({
+                defaultMessage:
+                  'The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.',
+                description:
+                  'Traces empty state > SQL warehouse timeout error description with CTA to select larger warehouse',
+              })
+            : String(error)
+        }
       />
     );
   }

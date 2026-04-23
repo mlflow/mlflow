@@ -38,8 +38,8 @@ from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.guardrail_utils import (
     extract_auth_headers,
     load_guardrails,
-    run_after_guardrails,
-    run_before_guardrails,
+    run_post_llm_guardrails,
+    run_pre_llm_guardrails,
 )
 from mlflow.gateway.guardrails import (
     _SANITIZE_BYPASS_HEADER,
@@ -56,7 +56,13 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
+from mlflow.gateway.tracing_utils import (
+    aggregate_anthropic_messages_stream_chunks,
+    aggregate_chat_stream_chunks,
+    aggregate_gemini_stream_generate_content_chunks,
+    aggregate_openai_responses_stream_chunks,
+    maybe_traced_gateway_call,
+)
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -584,13 +590,13 @@ async def invocations(endpoint_name: str, request: Request):
         )
 
         if payload.stream:
-            # AFTER-stage guardrails are not applied to streaming responses.
-            # BEFORE guardrails run inside the trace as child spans; violations
+            # Post-LLM guardrails are not applied to streaming responses.
+            # Pre-LLM guardrails run inside the trace as child spans; violations
             # are surfaced as SSE error chunks via safe_stream.
             async def _guarded_stream(
                 payload: chat.RequestPayload,
             ):
-                request_dict = await run_before_guardrails(
+                request_dict = await run_pre_llm_guardrails(
                     guardrails,
                     payload.model_dump(),
                     auth_headers=auth_headers,
@@ -617,7 +623,7 @@ async def invocations(endpoint_name: str, request: Request):
             async def _guarded_chat(
                 payload: chat.RequestPayload,
             ) -> chat.ResponsePayload:
-                request_dict = await run_before_guardrails(
+                request_dict = await run_pre_llm_guardrails(
                     guardrails,
                     payload.model_dump(),
                     auth_headers=auth_headers,
@@ -625,7 +631,7 @@ async def invocations(endpoint_name: str, request: Request):
                 )
                 modified_payload = chat.RequestPayload(**request_dict)
                 response = await provider.chat(modified_payload)
-                return await run_after_guardrails(
+                return await run_post_llm_guardrails(
                     guardrails,
                     request_dict,
                     response,
@@ -715,13 +721,13 @@ async def chat_completions(request: Request):
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
     if payload.stream:
-        # AFTER-stage guardrails are not applied to streaming responses.
-        # BEFORE guardrails run inside the trace as child spans; violations
+        # Post-LLM guardrails are not applied to streaming responses.
+        # Pre-LLM guardrails run inside the trace as child spans; violations
         # are surfaced as SSE error chunks via safe_stream.
         async def _guarded_stream(
             payload: chat.RequestPayload,
         ):
-            request_dict = await run_before_guardrails(
+            request_dict = await run_pre_llm_guardrails(
                 guardrails,
                 payload.model_dump(),
                 auth_headers=auth_headers,
@@ -748,7 +754,7 @@ async def chat_completions(request: Request):
         async def _guarded_chat(
             payload: chat.RequestPayload,
         ) -> chat.ResponsePayload:
-            request_dict = await run_before_guardrails(
+            request_dict = await run_pre_llm_guardrails(
                 guardrails,
                 payload.model_dump(),
                 auth_headers=auth_headers,
@@ -756,7 +762,7 @@ async def chat_completions(request: Request):
             )
             modified_payload = chat.RequestPayload(**request_dict)
             response = await provider.chat(modified_payload)
-            return await run_after_guardrails(
+            return await run_post_llm_guardrails(
                 guardrails,
                 request_dict,
                 response,
@@ -943,6 +949,7 @@ async def openai_passthrough_responses(request: Request):
             yield_stream,
             endpoint_config,
             user_metadata,
+            output_reducer=aggregate_openai_responses_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
             on_complete=make_budget_on_complete(store, workspace),
@@ -1014,6 +1021,7 @@ async def anthropic_passthrough_messages(request: Request):
             yield_stream,
             endpoint_config,
             user_metadata,
+            output_reducer=aggregate_anthropic_messages_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
             on_complete=make_budget_on_complete(store, workspace),
@@ -1132,6 +1140,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         yield_stream,
         endpoint_config,
         user_metadata,
+        output_reducer=aggregate_gemini_stream_generate_content_chunks,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
         on_complete=make_budget_on_complete(store, workspace),

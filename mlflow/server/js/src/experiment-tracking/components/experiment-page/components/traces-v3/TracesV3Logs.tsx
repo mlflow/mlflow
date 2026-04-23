@@ -44,13 +44,14 @@ import {
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
   ISSUES_COLUMN_ID,
+  getSimulationColumnsToAdd,
+  isSqlWarehouseTimeoutError,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   GenAiTraceTableRowSelectionProvider,
   useIsInsideGenAiTraceTableRowSelectionProvider,
-} from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+} from '@databricks/web-shared/genai-traces-table';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
-import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
 import { useIntl } from '@databricks/i18n';
@@ -164,7 +165,7 @@ const TracesV3LogsImpl = React.memo(
     );
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
-    const enableTraceInsights = shouldEnableTraceInsights();
+    const enableTraceInsights = false;
     const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
 
@@ -187,7 +188,7 @@ const TracesV3LogsImpl = React.memo(
     );
 
     const isQueryDisabled = false;
-    const usesV4APIs = true;
+    const usesV4APIs = shouldUseTracesV4API();
 
     const getTrace = getTraceV3;
 
@@ -426,7 +427,7 @@ const TracesV3LogsImpl = React.memo(
           </>
         );
       }
-      // Default traces view with optional navigation
+      // Default traces view
       return (
         <div
           css={{
@@ -460,7 +461,16 @@ const TracesV3LogsImpl = React.memo(
                     defaultMessage: 'Fetching traces failed',
                     description: 'Evaluation review > evaluations list > error state title',
                   })}
-                  description={tableError.message}
+                  description={
+                    isSqlWarehouseTimeoutError(tableError)
+                      ? intl.formatMessage({
+                          defaultMessage:
+                            'The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.',
+                          description:
+                            'Evaluation review > evaluations list > SQL warehouse timeout error description with CTA to select larger warehouse',
+                        })
+                      : tableError.message
+                  }
                 />
               </div>
             ) : (
@@ -505,11 +515,12 @@ const TracesV3LogsImpl = React.memo(
       >
         <GenAITracesTableProvider
           experimentId={singleExperimentId}
+          getTrace={getTrace}
           isGroupedBySession={forceGroupBySession || isGroupedBySession}
         >
           <div
             css={{
-              overflowY: 'hidden',
+              overflow: 'hidden',
               height: '100%',
               display: 'flex',
               flexDirection: 'column',

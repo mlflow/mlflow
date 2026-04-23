@@ -185,6 +185,12 @@ def _parse_usage(output: Any) -> dict[str, int] | None:
                 usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
             if (created := getattr(usage, "cache_creation_input_tokens", None)) is not None:
                 usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+            # Anthropic reports input_tokens excluding cache tokens. Normalize to
+            # include them, consistent with OpenAI/Gemini and cost_per_token().
+            # Same logic as _normalize_anthropic_input_tokens in gateway/providers/anthropic.py.
+            if cache_total := (cached or 0) + (created or 0):
+                usage_dict[TokenUsageKey.INPUT_TOKENS] += cache_total
+                usage_dict[TokenUsageKey.TOTAL_TOKENS] += cache_total
             return usage_dict
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")

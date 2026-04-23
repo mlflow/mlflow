@@ -10,7 +10,7 @@ import type {
   HealthCheckResult,
   InstallSkillsResponse,
 } from './types';
-import { getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
@@ -56,27 +56,19 @@ const processContentBlocks = (
  * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
  */
 export const checkProviderHealth = async (provider: string): Promise<HealthCheckResult> => {
-  const response = await fetch(`${API_BASE}/providers/${provider}/health`, {
-    headers: { ...getDefaultHeaders(document.cookie) },
-  });
-  if (response.ok) {
+  try {
+    await fetchAPI(getAjaxUrl(`${API_BASE}/providers/${provider}/health`));
     return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Unknown error', status: error.status };
   }
-  const data = await response.json();
-  return { ok: false, error: data.detail || 'Unknown error', status: response.status };
 };
 
 /**
  * Get the assistant configuration.
  */
 export const getConfig = async (): Promise<AssistantConfig> => {
-  const response = await fetch(`${API_BASE}/config`, {
-    headers: { ...getDefaultHeaders(document.cookie) },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to get config: ${response.statusText}`);
-  }
-  return response.json();
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/config`));
 };
 
 /**
@@ -84,16 +76,10 @@ export const getConfig = async (): Promise<AssistantConfig> => {
  * Pass null for a project to remove it.
  */
 export const updateConfig = async (config: AssistantConfigUpdate): Promise<AssistantConfig> => {
-  const response = await fetch(`${API_BASE}/config`, {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/config`), {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...getDefaultHeaders(document.cookie) },
     body: JSON.stringify(config),
   });
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.detail || 'Failed to update config');
-  }
-  return response.json();
 };
 
 /**
@@ -107,20 +93,10 @@ export const createEventSource = (sessionId: string): EventSource => {
  * Cancel an active session by terminating the backend process.
  */
 export const cancelSession = async (sessionId: string): Promise<{ message: string }> => {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}`), {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getDefaultHeaders(document.cookie),
-    },
     body: JSON.stringify({ status: 'cancelled' }),
   });
-
-  if (!response.ok) {
-    throw new Error('Failed to cancel session');
-  }
-
-  return response.json();
 };
 
 export interface SendMessageStreamCallbacks {
@@ -239,7 +215,6 @@ export const sendMessageStream = async (
         onDone();
         eventSource.close();
       } catch (err) {
-        // fail silently
         onToolUse?.([]);
         onDone();
         eventSource.close();
@@ -284,20 +259,12 @@ export const installSkills = async (
   customPath?: string,
   experimentId?: string,
 ): Promise<InstallSkillsResponse> => {
-  const response = await fetch(`${API_BASE}/skills/install`, {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/skills/install`), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getDefaultHeaders(document.cookie) },
     body: JSON.stringify({
       type,
       custom_path: customPath,
       experiment_id: experimentId,
     }),
   });
-  if (!response.ok) {
-    const data = await response.json();
-    const error = new Error(data.detail || 'Failed to install skills');
-    (error as any).status = response.status;
-    throw error;
-  }
-  return response.json();
 };
