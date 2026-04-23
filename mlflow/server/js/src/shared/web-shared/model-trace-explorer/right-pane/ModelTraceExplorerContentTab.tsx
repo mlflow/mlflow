@@ -48,7 +48,7 @@ export function ModelTraceExplorerContentTab({
           paddingInline: theme.spacing.sm,
         }}
       >
-        <SpanModelCostBadge css={{ justifySelf: 'flex-start' }} activeSpan={activeSpan} />
+        <SpanModelCostBadge css={{ marginRight: 'auto' }} activeSpan={activeSpan} />
         <SegmentedControlGroup
           name="content-tab-render-mode"
           componentId="shared.model-trace-explorer.content-tab.render-mode"
