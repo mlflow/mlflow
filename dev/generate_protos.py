@@ -179,8 +179,7 @@ python_gencode_replacements = [
         "from . import prompt_optimization_pb2 as prompt__optimization__pb2",
     ),
     (
-        "import databricks_exception_with_details_pb2 as databricks__exception__with__"
-        "details__pb2",
+        "import databricks_exception_with_details_pb2 as databricks__exception__with__details__pb2",
         "from . import databricks_exception_with_details_pb2 as databricks_exception_"
         "with_details_pb2",
     ),
