@@ -189,11 +189,23 @@ def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
             total_tokens = input_tokens + output_tokens
 
         if input_tokens and output_tokens and total_tokens:
-            return {
+            usage = {
                 TokenUsageKey.INPUT_TOKENS: input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: output_tokens,
                 TokenUsageKey.TOTAL_TOKENS: total_tokens,
             }
+
+            cache_read = _parse_int_attribute(translator.get_cache_read_input_tokens(attributes))
+            if cache_read is not None:
+                usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+
+            cache_creation = _parse_int_attribute(
+                translator.get_cache_creation_input_tokens(attributes)
+            )
+            if cache_creation is not None:
+                usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+
+            return usage
 
 
 def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | None = None) -> Any:
