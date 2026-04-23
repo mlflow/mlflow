@@ -9,7 +9,7 @@ from mlflow.server.jobs.progress import (
     NoOpTracker,
     _get_job_tracker,
     _set_job_tracker,
-    report_job_progress,
+    update_job_progress,
     update_status_details,
 )
 from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException
@@ -72,12 +72,12 @@ def test_job_tracker_writes_structured_progress():
         mock_store = mock.Mock()
         mock_get_store.return_value = mock_store
 
-        tracker.report_job_progress(
+        tracker.update_job_progress(
             message="Processing traces",
             progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
         )
 
-        mock_store.report_job_progress.assert_called_once_with(
+        mock_store.update_job_progress.assert_called_once_with(
             job_id,
             message="Processing traces",
             progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
@@ -89,7 +89,7 @@ def test_noop_tracker_does_nothing():
 
     tracker.update({"stage": "stage1"})
     tracker.update({"stage": "stage2", "key": "value"})
-    tracker.report_job_progress(message="noop", progress=JobProgress(phase="ignored"))
+    tracker.update_job_progress(message="noop", progress=JobProgress(phase="ignored"))
 
 
 def test_get_job_tracker_returns_noop_by_default():
@@ -148,7 +148,7 @@ def test_update_status_details_is_noop_without_tracker():
     update_status_details({"stage": "stage2", "key": "value"})
 
 
-def test_report_job_progress_uses_active_tracker():
+def test_update_job_progress_uses_active_tracker():
     job_id = "test-job-progress-xyz"
     tracker = JobTracker(job_id)
 
@@ -157,12 +157,12 @@ def test_report_job_progress_uses_active_tracker():
         mock_get_store.return_value = mock_store
 
         _set_job_tracker(tracker)
-        report_job_progress(
+        update_job_progress(
             message="Processing traces",
             progress=JobProgress(phase="scoring", completed=2, total=5, unit="traces"),
         )
 
-        mock_store.report_job_progress.assert_called_once_with(
+        mock_store.update_job_progress.assert_called_once_with(
             job_id,
             message="Processing traces",
             progress=JobProgress(phase="scoring", completed=2, total=5, unit="traces"),
@@ -171,10 +171,10 @@ def test_report_job_progress_uses_active_tracker():
     _set_job_tracker(None)
 
 
-def test_report_job_progress_is_noop_without_tracker():
+def test_update_job_progress_is_noop_without_tracker():
     _set_job_tracker(None)
 
-    report_job_progress(message="noop", progress=JobProgress(phase="ignored"))
+    update_job_progress(message="noop", progress=JobProgress(phase="ignored"))
 
 
 def test_update_status_details_with_only_stage():
@@ -235,14 +235,14 @@ def test_job_tracker_ignores_already_finalized_error_for_structured_progress():
 
     with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
         mock_store = mock.Mock()
-        mock_store.report_job_progress.side_effect = JobTerminalStateUpdateException(
+        mock_store.update_job_progress.side_effect = JobTerminalStateUpdateException(
             job_id, "SUCCEEDED"
         )
         mock_get_store.return_value = mock_store
 
-        tracker.report_job_progress(message="late-heartbeat", progress=JobProgress(phase="done"))
+        tracker.update_job_progress(message="late-heartbeat", progress=JobProgress(phase="done"))
 
-        mock_store.report_job_progress.assert_called_once_with(
+        mock_store.update_job_progress.assert_called_once_with(
             job_id, message="late-heartbeat", progress=JobProgress(phase="done")
         )
 
@@ -268,12 +268,12 @@ def test_job_tracker_reraises_other_mlflow_errors_for_structured_progress():
 
     with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
         mock_store = mock.Mock()
-        mock_store.report_job_progress.side_effect = MlflowException.invalid_parameter_value(
+        mock_store.update_job_progress.side_effect = MlflowException.invalid_parameter_value(
             "bad progress payload"
         )
         mock_get_store.return_value = mock_store
 
         with pytest.raises(MlflowException, match="bad progress payload"):
-            tracker.report_job_progress(
+            tracker.update_job_progress(
                 message="late-heartbeat", progress=JobProgress(phase="done")
             )

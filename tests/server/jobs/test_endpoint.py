@@ -178,7 +178,7 @@ def test_job_submit(client: Client):
         "retry_count": 0,
         "status_details": None,
         "status_message": None,
-        "progress_payload": None,
+        "progress": None,
         "progress_updated_at": None,
     }
 
@@ -213,7 +213,7 @@ def test_job_cancel(client: Client):
         "retry_count": 0,
         "status_details": None,
         "status_message": None,
-        "progress_payload": None,
+        "progress": None,
         "progress_updated_at": None,
     }
 
@@ -364,5 +364,5 @@ def test_job_status_details_in_api_response(client: Client):
     assert job_json["result"] == "completed"
     assert job_json["error_message"] is None
     assert job_json["status_message"] is None
-    assert job_json["progress_payload"] is None
+    assert job_json["progress"] is None
     assert job_json["progress_updated_at"] is None

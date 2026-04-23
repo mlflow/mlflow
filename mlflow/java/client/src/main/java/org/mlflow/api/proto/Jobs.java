@@ -1477,7 +1477,7 @@ public final class Jobs {
 
     /**
      * <pre>
-     * Latest best-effort in-flight status message.
+     * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
      * </pre>
      *
      * <code>optional string status_message = 4;</code>
@@ -1486,7 +1486,7 @@ public final class Jobs {
     boolean hasStatusMessage();
     /**
      * <pre>
-     * Latest best-effort in-flight status message.
+     * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
      * </pre>
      *
      * <code>optional string status_message = 4;</code>
@@ -1495,7 +1495,7 @@ public final class Jobs {
     java.lang.String getStatusMessage();
     /**
      * <pre>
-     * Latest best-effort in-flight status message.
+     * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
      * </pre>
      *
      * <code>optional string status_message = 4;</code>
@@ -1506,30 +1506,30 @@ public final class Jobs {
 
     /**
      * <pre>
-     * Latest best-effort structured progress payload.
+     * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
      * </pre>
      *
-     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
-     * @return Whether the progressPayload field is set.
+     * <code>optional .mlflow.JobProgress progress = 5;</code>
+     * @return Whether the progress field is set.
      */
-    boolean hasProgressPayload();
+    boolean hasProgress();
     /**
      * <pre>
-     * Latest best-effort structured progress payload.
+     * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
      * </pre>
      *
-     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
-     * @return The progressPayload.
+     * <code>optional .mlflow.JobProgress progress = 5;</code>
+     * @return The progress.
      */
-    org.mlflow.api.proto.Jobs.JobProgress getProgressPayload();
+    org.mlflow.api.proto.Jobs.JobProgress getProgress();
     /**
      * <pre>
-     * Latest best-effort structured progress payload.
+     * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
      * </pre>
      *
-     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+     * <code>optional .mlflow.JobProgress progress = 5;</code>
      */
-    org.mlflow.api.proto.Jobs.JobProgressOrBuilder getProgressPayloadOrBuilder();
+    org.mlflow.api.proto.Jobs.JobProgressOrBuilder getProgressOrBuilder();
 
     /**
      * <pre>
@@ -1644,12 +1644,12 @@ public final class Jobs {
             case 42: {
               org.mlflow.api.proto.Jobs.JobProgress.Builder subBuilder = null;
               if (((bitField0_ & 0x00000008) != 0)) {
-                subBuilder = progressPayload_.toBuilder();
+                subBuilder = progress_.toBuilder();
               }
-              progressPayload_ = input.readMessage(org.mlflow.api.proto.Jobs.JobProgress.PARSER, extensionRegistry);
+              progress_ = input.readMessage(org.mlflow.api.proto.Jobs.JobProgress.PARSER, extensionRegistry);
               if (subBuilder != null) {
-                subBuilder.mergeFrom(progressPayload_);
-                progressPayload_ = subBuilder.buildPartial();
+                subBuilder.mergeFrom(progress_);
+                progress_ = subBuilder.buildPartial();
               }
               bitField0_ |= 0x00000008;
               break;
@@ -1896,7 +1896,7 @@ public final class Jobs {
     private volatile java.lang.Object statusMessage_;
     /**
      * <pre>
-     * Latest best-effort in-flight status message.
+     * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
      * </pre>
      *
      * <code>optional string status_message = 4;</code>
@@ -1908,7 +1908,7 @@ public final class Jobs {
     }
     /**
      * <pre>
-     * Latest best-effort in-flight status message.
+     * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
      * </pre>
      *
      * <code>optional string status_message = 4;</code>
@@ -1931,7 +1931,7 @@ public final class Jobs {
     }
     /**
      * <pre>
-     * Latest best-effort in-flight status message.
+     * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
      * </pre>
      *
      * <code>optional string status_message = 4;</code>
@@ -1952,42 +1952,42 @@ public final class Jobs {
       }
     }
 
-    public static final int PROGRESS_PAYLOAD_FIELD_NUMBER = 5;
-    private org.mlflow.api.proto.Jobs.JobProgress progressPayload_;
+    public static final int PROGRESS_FIELD_NUMBER = 5;
+    private org.mlflow.api.proto.Jobs.JobProgress progress_;
     /**
      * <pre>
-     * Latest best-effort structured progress payload.
+     * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
      * </pre>
      *
-     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
-     * @return Whether the progressPayload field is set.
+     * <code>optional .mlflow.JobProgress progress = 5;</code>
+     * @return Whether the progress field is set.
      */
     @java.lang.Override
-    public boolean hasProgressPayload() {
+    public boolean hasProgress() {
       return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
-     * Latest best-effort structured progress payload.
+     * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
      * </pre>
      *
-     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
-     * @return The progressPayload.
+     * <code>optional .mlflow.JobProgress progress = 5;</code>
+     * @return The progress.
      */
     @java.lang.Override
-    public org.mlflow.api.proto.Jobs.JobProgress getProgressPayload() {
-      return progressPayload_ == null ? org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progressPayload_;
+    public org.mlflow.api.proto.Jobs.JobProgress getProgress() {
+      return progress_ == null ? org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progress_;
     }
     /**
      * <pre>
-     * Latest best-effort structured progress payload.
+     * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
      * </pre>
      *
-     * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+     * <code>optional .mlflow.JobProgress progress = 5;</code>
      */
     @java.lang.Override
-    public org.mlflow.api.proto.Jobs.JobProgressOrBuilder getProgressPayloadOrBuilder() {
-      return progressPayload_ == null ? org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progressPayload_;
+    public org.mlflow.api.proto.Jobs.JobProgressOrBuilder getProgressOrBuilder() {
+      return progress_ == null ? org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progress_;
     }
 
     public static final int PROGRESS_UPDATED_AT_FIELD_NUMBER = 6;
@@ -2047,7 +2047,7 @@ public final class Jobs {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, statusMessage_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        output.writeMessage(5, getProgressPayload());
+        output.writeMessage(5, getProgress());
       }
       if (((bitField0_ & 0x00000010) != 0)) {
         output.writeInt64(6, progressUpdatedAt_);
@@ -2083,7 +2083,7 @@ public final class Jobs {
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(5, getProgressPayload());
+          .computeMessageSize(5, getProgress());
       }
       if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.CodedOutputStream
@@ -2120,10 +2120,10 @@ public final class Jobs {
         if (!getStatusMessage()
             .equals(other.getStatusMessage())) return false;
       }
-      if (hasProgressPayload() != other.hasProgressPayload()) return false;
-      if (hasProgressPayload()) {
-        if (!getProgressPayload()
-            .equals(other.getProgressPayload())) return false;
+      if (hasProgress() != other.hasProgress()) return false;
+      if (hasProgress()) {
+        if (!getProgress()
+            .equals(other.getProgress())) return false;
       }
       if (hasProgressUpdatedAt() != other.hasProgressUpdatedAt()) return false;
       if (hasProgressUpdatedAt()) {
@@ -2157,9 +2157,9 @@ public final class Jobs {
         hash = (37 * hash) + STATUS_MESSAGE_FIELD_NUMBER;
         hash = (53 * hash) + getStatusMessage().hashCode();
       }
-      if (hasProgressPayload()) {
-        hash = (37 * hash) + PROGRESS_PAYLOAD_FIELD_NUMBER;
-        hash = (53 * hash) + getProgressPayload().hashCode();
+      if (hasProgress()) {
+        hash = (37 * hash) + PROGRESS_FIELD_NUMBER;
+        hash = (53 * hash) + getProgress().hashCode();
       }
       if (hasProgressUpdatedAt()) {
         hash = (37 * hash) + PROGRESS_UPDATED_AT_FIELD_NUMBER;
@@ -2321,7 +2321,7 @@ public final class Jobs {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
-          getProgressPayloadFieldBuilder();
+          getProgressFieldBuilder();
         }
       }
       @java.lang.Override
@@ -2334,10 +2334,10 @@ public final class Jobs {
         internalGetMutableMetadata().clear();
         statusMessage_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
-        if (progressPayloadBuilder_ == null) {
-          progressPayload_ = null;
+        if (progressBuilder_ == null) {
+          progress_ = null;
         } else {
-          progressPayloadBuilder_.clear();
+          progressBuilder_.clear();
         }
         bitField0_ = (bitField0_ & ~0x00000010);
         progressUpdatedAt_ = 0L;
@@ -2385,10 +2385,10 @@ public final class Jobs {
         }
         result.statusMessage_ = statusMessage_;
         if (((from_bitField0_ & 0x00000010) != 0)) {
-          if (progressPayloadBuilder_ == null) {
-            result.progressPayload_ = progressPayload_;
+          if (progressBuilder_ == null) {
+            result.progress_ = progress_;
           } else {
-            result.progressPayload_ = progressPayloadBuilder_.build();
+            result.progress_ = progressBuilder_.build();
           }
           to_bitField0_ |= 0x00000008;
         }
@@ -2460,8 +2460,8 @@ public final class Jobs {
           statusMessage_ = other.statusMessage_;
           onChanged();
         }
-        if (other.hasProgressPayload()) {
-          mergeProgressPayload(other.getProgressPayload());
+        if (other.hasProgress()) {
+          mergeProgress(other.getProgress());
         }
         if (other.hasProgressUpdatedAt()) {
           setProgressUpdatedAt(other.getProgressUpdatedAt());
@@ -2832,7 +2832,7 @@ public final class Jobs {
       private java.lang.Object statusMessage_ = "";
       /**
        * <pre>
-       * Latest best-effort in-flight status message.
+       * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
        * </pre>
        *
        * <code>optional string status_message = 4;</code>
@@ -2843,7 +2843,7 @@ public final class Jobs {
       }
       /**
        * <pre>
-       * Latest best-effort in-flight status message.
+       * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
        * </pre>
        *
        * <code>optional string status_message = 4;</code>
@@ -2865,7 +2865,7 @@ public final class Jobs {
       }
       /**
        * <pre>
-       * Latest best-effort in-flight status message.
+       * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
        * </pre>
        *
        * <code>optional string status_message = 4;</code>
@@ -2886,7 +2886,7 @@ public final class Jobs {
       }
       /**
        * <pre>
-       * Latest best-effort in-flight status message.
+       * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
        * </pre>
        *
        * <code>optional string status_message = 4;</code>
@@ -2905,7 +2905,7 @@ public final class Jobs {
       }
       /**
        * <pre>
-       * Latest best-effort in-flight status message.
+       * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
        * </pre>
        *
        * <code>optional string status_message = 4;</code>
@@ -2919,7 +2919,7 @@ public final class Jobs {
       }
       /**
        * <pre>
-       * Latest best-effort in-flight status message.
+       * Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
        * </pre>
        *
        * <code>optional string status_message = 4;</code>
@@ -2937,160 +2937,160 @@ public final class Jobs {
         return this;
       }
 
-      private org.mlflow.api.proto.Jobs.JobProgress progressPayload_;
+      private org.mlflow.api.proto.Jobs.JobProgress progress_;
       private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Jobs.JobProgress, org.mlflow.api.proto.Jobs.JobProgress.Builder, org.mlflow.api.proto.Jobs.JobProgressOrBuilder> progressPayloadBuilder_;
+          org.mlflow.api.proto.Jobs.JobProgress, org.mlflow.api.proto.Jobs.JobProgress.Builder, org.mlflow.api.proto.Jobs.JobProgressOrBuilder> progressBuilder_;
       /**
        * <pre>
-       * Latest best-effort structured progress payload.
+       * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
        * </pre>
        *
-       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
-       * @return Whether the progressPayload field is set.
+       * <code>optional .mlflow.JobProgress progress = 5;</code>
+       * @return Whether the progress field is set.
        */
-      public boolean hasProgressPayload() {
+      public boolean hasProgress() {
         return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
-       * Latest best-effort structured progress payload.
+       * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
        * </pre>
        *
-       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
-       * @return The progressPayload.
+       * <code>optional .mlflow.JobProgress progress = 5;</code>
+       * @return The progress.
        */
-      public org.mlflow.api.proto.Jobs.JobProgress getProgressPayload() {
-        if (progressPayloadBuilder_ == null) {
-          return progressPayload_ == null ? org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progressPayload_;
+      public org.mlflow.api.proto.Jobs.JobProgress getProgress() {
+        if (progressBuilder_ == null) {
+          return progress_ == null ? org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progress_;
         } else {
-          return progressPayloadBuilder_.getMessage();
+          return progressBuilder_.getMessage();
         }
       }
       /**
        * <pre>
-       * Latest best-effort structured progress payload.
+       * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
        * </pre>
        *
-       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       * <code>optional .mlflow.JobProgress progress = 5;</code>
        */
-      public Builder setProgressPayload(org.mlflow.api.proto.Jobs.JobProgress value) {
-        if (progressPayloadBuilder_ == null) {
+      public Builder setProgress(org.mlflow.api.proto.Jobs.JobProgress value) {
+        if (progressBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
           }
-          progressPayload_ = value;
+          progress_ = value;
           onChanged();
         } else {
-          progressPayloadBuilder_.setMessage(value);
+          progressBuilder_.setMessage(value);
         }
         bitField0_ |= 0x00000010;
         return this;
       }
       /**
        * <pre>
-       * Latest best-effort structured progress payload.
+       * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
        * </pre>
        *
-       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       * <code>optional .mlflow.JobProgress progress = 5;</code>
        */
-      public Builder setProgressPayload(
+      public Builder setProgress(
           org.mlflow.api.proto.Jobs.JobProgress.Builder builderForValue) {
-        if (progressPayloadBuilder_ == null) {
-          progressPayload_ = builderForValue.build();
+        if (progressBuilder_ == null) {
+          progress_ = builderForValue.build();
           onChanged();
         } else {
-          progressPayloadBuilder_.setMessage(builderForValue.build());
+          progressBuilder_.setMessage(builderForValue.build());
         }
         bitField0_ |= 0x00000010;
         return this;
       }
       /**
        * <pre>
-       * Latest best-effort structured progress payload.
+       * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
        * </pre>
        *
-       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       * <code>optional .mlflow.JobProgress progress = 5;</code>
        */
-      public Builder mergeProgressPayload(org.mlflow.api.proto.Jobs.JobProgress value) {
-        if (progressPayloadBuilder_ == null) {
+      public Builder mergeProgress(org.mlflow.api.proto.Jobs.JobProgress value) {
+        if (progressBuilder_ == null) {
           if (((bitField0_ & 0x00000010) != 0) &&
-              progressPayload_ != null &&
-              progressPayload_ != org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance()) {
-            progressPayload_ =
-              org.mlflow.api.proto.Jobs.JobProgress.newBuilder(progressPayload_).mergeFrom(value).buildPartial();
+              progress_ != null &&
+              progress_ != org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance()) {
+            progress_ =
+              org.mlflow.api.proto.Jobs.JobProgress.newBuilder(progress_).mergeFrom(value).buildPartial();
           } else {
-            progressPayload_ = value;
+            progress_ = value;
           }
           onChanged();
         } else {
-          progressPayloadBuilder_.mergeFrom(value);
+          progressBuilder_.mergeFrom(value);
         }
         bitField0_ |= 0x00000010;
         return this;
       }
       /**
        * <pre>
-       * Latest best-effort structured progress payload.
+       * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
        * </pre>
        *
-       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       * <code>optional .mlflow.JobProgress progress = 5;</code>
        */
-      public Builder clearProgressPayload() {
-        if (progressPayloadBuilder_ == null) {
-          progressPayload_ = null;
+      public Builder clearProgress() {
+        if (progressBuilder_ == null) {
+          progress_ = null;
           onChanged();
         } else {
-          progressPayloadBuilder_.clear();
+          progressBuilder_.clear();
         }
         bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
       /**
        * <pre>
-       * Latest best-effort structured progress payload.
+       * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
        * </pre>
        *
-       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       * <code>optional .mlflow.JobProgress progress = 5;</code>
        */
-      public org.mlflow.api.proto.Jobs.JobProgress.Builder getProgressPayloadBuilder() {
+      public org.mlflow.api.proto.Jobs.JobProgress.Builder getProgressBuilder() {
         bitField0_ |= 0x00000010;
         onChanged();
-        return getProgressPayloadFieldBuilder().getBuilder();
+        return getProgressFieldBuilder().getBuilder();
       }
       /**
        * <pre>
-       * Latest best-effort structured progress payload.
+       * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
        * </pre>
        *
-       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       * <code>optional .mlflow.JobProgress progress = 5;</code>
        */
-      public org.mlflow.api.proto.Jobs.JobProgressOrBuilder getProgressPayloadOrBuilder() {
-        if (progressPayloadBuilder_ != null) {
-          return progressPayloadBuilder_.getMessageOrBuilder();
+      public org.mlflow.api.proto.Jobs.JobProgressOrBuilder getProgressOrBuilder() {
+        if (progressBuilder_ != null) {
+          return progressBuilder_.getMessageOrBuilder();
         } else {
-          return progressPayload_ == null ?
-              org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progressPayload_;
+          return progress_ == null ?
+              org.mlflow.api.proto.Jobs.JobProgress.getDefaultInstance() : progress_;
         }
       }
       /**
        * <pre>
-       * Latest best-effort structured progress payload.
+       * Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
        * </pre>
        *
-       * <code>optional .mlflow.JobProgress progress_payload = 5;</code>
+       * <code>optional .mlflow.JobProgress progress = 5;</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
           org.mlflow.api.proto.Jobs.JobProgress, org.mlflow.api.proto.Jobs.JobProgress.Builder, org.mlflow.api.proto.Jobs.JobProgressOrBuilder> 
-          getProgressPayloadFieldBuilder() {
-        if (progressPayloadBuilder_ == null) {
-          progressPayloadBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+          getProgressFieldBuilder() {
+        if (progressBuilder_ == null) {
+          progressBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
               org.mlflow.api.proto.Jobs.JobProgress, org.mlflow.api.proto.Jobs.JobProgress.Builder, org.mlflow.api.proto.Jobs.JobProgressOrBuilder>(
-                  getProgressPayload(),
+                  getProgress(),
                   getParentForChildren(),
                   isClean());
-          progressPayload_ = null;
+          progress_ = null;
         }
-        return progressPayloadBuilder_;
+        return progressBuilder_;
       }
 
       private long progressUpdatedAt_ ;
@@ -3227,19 +3227,19 @@ public final class Jobs {
       "\n\njobs.proto\022\006mlflow\032\025scalapb/scalapb.pr" +
       "oto\"L\n\013JobProgress\022\r\n\005phase\030\001 \001(\t\022\021\n\tcom" +
       "pleted\030\002 \001(\003\022\r\n\005total\030\003 \001(\003\022\014\n\004unit\030\004 \001(" +
-      "\t\"\213\002\n\010JobState\022!\n\006status\030\001 \001(\0162\021.mlflow." +
+      "\t\"\203\002\n\010JobState\022!\n\006status\030\001 \001(\0162\021.mlflow." +
       "JobStatus\022\025\n\rerror_message\030\002 \001(\t\0220\n\010meta" +
       "data\030\003 \003(\0132\036.mlflow.JobState.MetadataEnt" +
-      "ry\022\026\n\016status_message\030\004 \001(\t\022-\n\020progress_p" +
-      "ayload\030\005 \001(\0132\023.mlflow.JobProgress\022\033\n\023pro" +
-      "gress_updated_at\030\006 \001(\003\032/\n\rMetadataEntry\022" +
-      "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001*\304\001\n\tJobS" +
-      "tatus\022\032\n\026JOB_STATUS_UNSPECIFIED\020\000\022\026\n\022JOB" +
-      "_STATUS_PENDING\020\001\022\032\n\026JOB_STATUS_IN_PROGR" +
-      "ESS\020\002\022\030\n\024JOB_STATUS_COMPLETED\020\003\022\025\n\021JOB_S" +
-      "TATUS_FAILED\020\004\022\027\n\023JOB_STATUS_CANCELED\020\005\022" +
-      "\035\n\031JOB_STATUS_NEEDS_RECOVERY\020\006B\036\n\024org.ml" +
-      "flow.api.proto\220\001\001\342?\002\020\001"
+      "ry\022\026\n\016status_message\030\004 \001(\t\022%\n\010progress\030\005" +
+      " \001(\0132\023.mlflow.JobProgress\022\033\n\023progress_up" +
+      "dated_at\030\006 \001(\003\032/\n\rMetadataEntry\022\013\n\003key\030\001" +
+      " \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001*\304\001\n\tJobStatus\022\032\n" +
+      "\026JOB_STATUS_UNSPECIFIED\020\000\022\026\n\022JOB_STATUS_" +
+      "PENDING\020\001\022\032\n\026JOB_STATUS_IN_PROGRESS\020\002\022\030\n" +
+      "\024JOB_STATUS_COMPLETED\020\003\022\025\n\021JOB_STATUS_FA" +
+      "ILED\020\004\022\027\n\023JOB_STATUS_CANCELED\020\005\022\035\n\031JOB_S" +
+      "TATUS_NEEDS_RECOVERY\020\006B\036\n\024org.mlflow.api" +
+      ".proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -3257,7 +3257,7 @@ public final class Jobs {
     internal_static_mlflow_JobState_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_JobState_descriptor,
-        new java.lang.String[] { "Status", "ErrorMessage", "Metadata", "StatusMessage", "ProgressPayload", "ProgressUpdatedAt", });
+        new java.lang.String[] { "Status", "ErrorMessage", "Metadata", "StatusMessage", "Progress", "ProgressUpdatedAt", });
     internal_static_mlflow_JobState_MetadataEntry_descriptor =
       internal_static_mlflow_JobState_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_JobState_MetadataEntry_fieldAccessorTable = new

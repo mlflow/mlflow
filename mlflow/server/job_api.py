@@ -53,7 +53,7 @@ class Job(BaseModel):
     last_update_time: int
     status_details: dict[str, Any] | None = None
     status_message: str | None = None
-    progress_payload: JobProgressResponse | None = None
+    progress: JobProgressResponse | None = None
     progress_updated_at: int | None = None
 
     @classmethod
@@ -71,9 +71,9 @@ class Job(BaseModel):
             last_update_time=job.last_update_time,
             status_details=job.status_details,
             status_message=job.status_message,
-            progress_payload=(
-                JobProgressResponse.from_job_progress(job.progress_payload)
-                if isinstance(job.progress_payload, JobProgress)
+            progress=(
+                JobProgressResponse.from_job_progress(job.progress)
+                if isinstance(job.progress, JobProgress)
                 else None
             ),
             progress_updated_at=job.progress_updated_at,

@@ -37,7 +37,7 @@ class JobProgress(_message.Message):
     def __init__(self, phase: _Optional[str] = ..., completed: _Optional[int] = ..., total: _Optional[int] = ..., unit: _Optional[str] = ...) -> None: ...
 
 class JobState(_message.Message):
-    __slots__ = ("status", "error_message", "metadata", "status_message", "progress_payload", "progress_updated_at")
+    __slots__ = ("status", "error_message", "metadata", "status_message", "progress", "progress_updated_at")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -49,12 +49,12 @@ class JobState(_message.Message):
     ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
     STATUS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    PROGRESS_PAYLOAD_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_FIELD_NUMBER: _ClassVar[int]
     PROGRESS_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     status: JobStatus
     error_message: str
     metadata: _containers.ScalarMap[str, str]
     status_message: str
-    progress_payload: JobProgress
+    progress: JobProgress
     progress_updated_at: int
-    def __init__(self, status: _Optional[_Union[JobStatus, str]] = ..., error_message: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., status_message: _Optional[str] = ..., progress_payload: _Optional[_Union[JobProgress, _Mapping]] = ..., progress_updated_at: _Optional[int] = ...) -> None: ...
+    def __init__(self, status: _Optional[_Union[JobStatus, str]] = ..., error_message: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., status_message: _Optional[str] = ..., progress: _Optional[_Union[JobProgress, _Mapping]] = ..., progress_updated_at: _Optional[int] = ...) -> None: ...

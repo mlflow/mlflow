@@ -336,7 +336,7 @@ def _create_mock_job(
     status_details=None,
     error_message=None,
     status_message=None,
-    progress_payload=None,
+    progress=None,
     progress_updated_at=None,
 ):
     from mlflow.entities._job import Job
@@ -362,7 +362,7 @@ def _create_mock_job(
         status_details=status_details,
         error_message=error_message,
         status_message=status_message,
-        progress_payload=progress_payload,
+        progress=progress,
         progress_updated_at=progress_updated_at,
     )
 
@@ -4208,7 +4208,7 @@ def test_get_prompt_optimization_job_includes_structured_progress_fields(mock_tr
         status_name="RUNNING",
         params={"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1"},
         status_message="Scoring traces",
-        progress_payload={
+        progress={
             "phase": "scoring",
             "completed": 42,
             "total": 100,
@@ -4226,7 +4226,7 @@ def test_get_prompt_optimization_job_includes_structured_progress_fields(mock_tr
             state = data["job"]["state"]
             assert state["status"] == "JOB_STATUS_IN_PROGRESS"
             assert state["status_message"] == "Scoring traces"
-            assert state["progress_payload"] == {
+            assert state["progress"] == {
                 "phase": "scoring",
                 "completed": 42,
                 "total": 100,
@@ -4240,7 +4240,7 @@ def test_get_prompt_optimization_job_preserves_empty_string_progress_fields(mock
         status_name="RUNNING",
         params={"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1"},
         status_message="",
-        progress_payload={"phase": "", "unit": ""},
+        progress={"phase": "", "unit": ""},
         progress_updated_at=1234567894321,
     )
 
@@ -4253,7 +4253,29 @@ def test_get_prompt_optimization_job_preserves_empty_string_progress_fields(mock
             state = data["job"]["state"]
             assert state["status"] == "JOB_STATUS_IN_PROGRESS"
             assert state["status_message"] == ""
-            assert state["progress_payload"] == {"phase": "", "unit": ""}
+            assert state["progress"] == {"phase": "", "unit": ""}
+            assert state["progress_updated_at"] == 1234567894321
+
+
+def test_get_prompt_optimization_job_omits_empty_progress_payload(mock_tracking_store):
+    mock_job = _create_mock_job(
+        status_name="RUNNING",
+        params={"experiment_id": "exp-123", "prompt_uri": "prompts:/my-prompt/1"},
+        status_message="Scoring traces",
+        progress={},
+        progress_updated_at=1234567894321,
+    )
+
+    with mock.patch("mlflow.server.jobs.get_job", return_value=mock_job):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/prompt-optimization/jobs/job-123")
+            assert response.status_code == 200
+
+            data = response.get_json()
+            state = data["job"]["state"]
+            assert state["status"] == "JOB_STATUS_IN_PROGRESS"
+            assert state["status_message"] == "Scoring traces"
+            assert "progress" not in state
             assert state["progress_updated_at"] == 1234567894321
 
 
@@ -5395,11 +5417,11 @@ def test_get_job_success(mock_job_store):
         assert json_response["status_details"] is None
         assert json_response["error_message"] is None
         assert json_response["status_message"] is None
-        assert json_response["progress_payload"] is None
+        assert json_response["progress"] is None
         assert json_response["progress_updated_at"] is None
 
 
-def test_get_job_with_structured_progress_payload(mock_job_store):
+def test_get_job_with_structured_progress(mock_job_store):
     mock_job = JobEntity(
         job_id="job-running",
         creation_time=1234567890000,
@@ -5412,7 +5434,7 @@ def test_get_job_with_structured_progress_payload(mock_job_store):
         last_update_time=1234567891000,
         status_details={"stage": "processing"},
         status_message="Processing traces",
-        progress_payload={
+        progress={
             "phase": "scoring",
             "completed": 42,
             "total": 100,
@@ -5431,7 +5453,7 @@ def test_get_job_with_structured_progress_payload(mock_job_store):
 
         assert json_response["status"] == "RUNNING"
         assert json_response["status_message"] == "Processing traces"
-        assert json_response["progress_payload"] == {
+        assert json_response["progress"] == {
             "phase": "scoring",
             "completed": 42,
             "total": 100,
@@ -5467,7 +5489,7 @@ def test_get_job_pending(mock_job_store):
         assert json_response["status_details"] is None
         assert json_response["error_message"] is None
         assert json_response["status_message"] is None
-        assert json_response["progress_payload"] is None
+        assert json_response["progress"] is None
         assert json_response["progress_updated_at"] is None
 
 
@@ -5499,7 +5521,7 @@ def test_get_job_timeout_without_timeout_message(mock_job_store):
         assert json_response["status_details"] is None
         assert json_response["error_message"] is None
         assert json_response["status_message"] is None
-        assert json_response["progress_payload"] is None
+        assert json_response["progress"] is None
         assert json_response["progress_updated_at"] is None
 
 
@@ -5530,7 +5552,7 @@ def test_get_job_needs_recovery(mock_job_store):
         assert json_response["status_details"] is None
         assert json_response["error_message"] is None
         assert json_response["status_message"] is None
-        assert json_response["progress_payload"] is None
+        assert json_response["progress"] is None
         assert json_response["progress_updated_at"] is None
 
 

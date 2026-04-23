@@ -57,11 +57,11 @@ message JobState {
   // Can be used to store job-specific state information.
   map<string, string> metadata = 3;
 
-  // Latest best-effort in-flight status message.
+  // Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
   optional string status_message = 4;
 
-  // Latest best-effort structured progress payload.
-  optional JobProgress progress_payload = 5;
+  // Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
+  optional JobProgress progress = 5;
 
   // Timestamp of the latest progress update in milliseconds since epoch.
   optional int64 progress_updated_at = 6;

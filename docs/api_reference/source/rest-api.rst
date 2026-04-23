@@ -7090,9 +7090,9 @@ Provides a unified way to represent job state across different job types.
 +---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
 | metadata            | An array of :ref:`mlflowjobstatemetadataentry` | Additional metadata as key-value pairs. Can be used to store job-specific state information. |
 +---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
-| status_message      | ``STRING``                                     | Latest best-effort in-flight status message.                                                 |
+| status_message      | ``STRING``                                     | Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.           |
 +---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
-| progress_payload    | :ref:`mlflowjobprogress`                       | Latest best-effort structured progress payload.                                              |
+| progress            | :ref:`mlflowjobprogress`                       | Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.              |
 +---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
 | progress_updated_at | ``INT64``                                      | Timestamp of the latest progress update in milliseconds since epoch.                         |
 +---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+

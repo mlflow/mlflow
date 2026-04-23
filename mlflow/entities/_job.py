@@ -127,17 +127,17 @@ class JobScopedPermission:
         return payload
 
 
-def _normalize_progress_payload(
-    progress_payload: JobProgress | dict[str, Any] | None,
+def _normalize_progress(
+    progress: JobProgress | dict[str, Any] | None,
 ) -> JobProgress | None:
-    if progress_payload is None:
+    if progress is None:
         return None
-    if isinstance(progress_payload, JobProgress):
-        return progress_payload
-    if isinstance(progress_payload, dict):
-        return JobProgress.from_dict(progress_payload)
+    if isinstance(progress, JobProgress):
+        return progress
+    if isinstance(progress, dict):
+        return JobProgress.from_dict(progress)
     raise MlflowException.invalid_parameter_value(
-        "`progress_payload` must be a JobProgress, dict, or None."
+        "`progress` must be a JobProgress, dict, or None."
     )
 
 
@@ -183,7 +183,7 @@ class Job(_MlflowObject):
         executor_backend: str | None = None,
         lease_expires_at: int | None = None,
         status_message: str | None = None,
-        progress_payload: JobProgress | dict[str, Any] | None = None,
+        progress: JobProgress | dict[str, Any] | None = None,
         progress_updated_at: int | None = None,
         token_hash: str | None = None,
         scoped_permissions: list[JobScopedPermission | dict[str, Any]] | None = None,
@@ -204,7 +204,7 @@ class Job(_MlflowObject):
         self._executor_backend = executor_backend
         self._lease_expires_at = lease_expires_at
         self._status_message = status_message
-        self._progress_payload = _normalize_progress_payload(progress_payload)
+        self._progress = _normalize_progress(progress)
         self._progress_updated_at = progress_updated_at
         self._token_hash = token_hash
         self._scoped_permissions = _normalize_scoped_permissions(scoped_permissions)
@@ -334,21 +334,21 @@ class Job(_MlflowObject):
 
         This is the lightweight plain-text progress channel for operators and
         simple UI surfaces. It exists so jobs can report useful progress text
-        even when they do not emit a structured `progress_payload`.
+        even when they do not emit structured `progress`.
         """
         return self._status_message
 
     @property
-    def progress_payload(self) -> JobProgress | None:
+    def progress(self) -> JobProgress | None:
         """
-        Latest best-effort structured progress payload.
+        Latest best-effort structured progress.
 
         This is intentionally distinct from `status_message`: the string message
-        is the plain-text progress channel, while `progress_payload` is the
+        is the plain-text progress channel, while `progress` is the
         machine-readable form that can carry fields such as phase, completed,
         total, and unit for richer shared progress UIs.
         """
-        return self._progress_payload
+        return self._progress
 
     @property
     def progress_updated_at(self) -> int | None:

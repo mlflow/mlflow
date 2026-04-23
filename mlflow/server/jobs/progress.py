@@ -25,7 +25,7 @@ class JobTracker:
             # late heartbeats should be ignored rather than turning into failures.
             pass
 
-    def report_job_progress(
+    def update_job_progress(
         self,
         message: str | None = None,
         progress: JobProgress | None = None,
@@ -34,7 +34,7 @@ class JobTracker:
 
         job_store = _get_job_store()
         try:
-            job_store.report_job_progress(
+            job_store.update_job_progress(
                 self.job_id,
                 message=message,
                 progress=progress,
@@ -51,7 +51,7 @@ class NoOpTracker:
     def update(self, status_details: dict[str, Any]) -> None:
         pass
 
-    def report_job_progress(
+    def update_job_progress(
         self,
         message: str | None = None,
         progress: JobProgress | None = None,
@@ -80,7 +80,7 @@ def update_status_details(status_details: dict[str, Any]) -> None:
     tracker.update(status_details)
 
 
-def report_job_progress(
+def update_job_progress(
     message: str | None = None,
     progress: JobProgress | None = None,
 ) -> None:
@@ -92,4 +92,4 @@ def report_job_progress(
     When called outside a job context, does nothing (no-op).
     """
     tracker = _get_job_tracker()
-    tracker.report_job_progress(message=message, progress=progress)
+    tracker.update_job_progress(message=message, progress=progress)
