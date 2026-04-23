@@ -179,7 +179,7 @@ describe('findLastUserMessageIndex', () => {
 
     const idx = findLastUserMessageIndex(transcript);
     expect(idx).toBe(0);
-    expect((transcript[idx!].message!.content as string)).toBe('Enable tracing on the agent.');
+    expect(transcript[idx!].message!.content as string).toBe('Enable tracing on the agent.');
   });
 
   it('skips compaction summary messages', () => {

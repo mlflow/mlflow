@@ -33,12 +33,16 @@ export function readTranscript(path: string): TranscriptEntry[] {
  * Handles ISO strings, Unix seconds, milliseconds, and nanoseconds.
  */
 export function parseTimestampToNs(timestamp: string | number | undefined | null): number | null {
-  if (!timestamp) {return null;}
+  if (!timestamp) {
+    return null;
+  }
 
   if (typeof timestamp === 'string') {
     try {
       const dt = new Date(timestamp);
-      if (isNaN(dt.getTime())) {return null;}
+      if (isNaN(dt.getTime())) {
+        return null;
+      }
       return Math.floor(dt.getTime() * NANOSECONDS_PER_MS);
     } catch {
       return null;
@@ -76,7 +80,7 @@ export function extractTextContent(content: unknown): string {
           typeof part === 'object' &&
           part != null &&
           'type' in part &&
-          (part as { type: string }).type === 'text'
+          (part as { type: string }).type === 'text',
       )
       .map((part) => part.text);
     return textParts.join('\n');
@@ -117,7 +121,9 @@ export function findLastUserMessageIndex(transcript: TranscriptEntry[]): number 
     }
 
     const msg = entry.message;
-    if (!msg) {continue;}
+    if (!msg) {
+      continue;
+    }
     const content = msg.content;
 
     // Skip tool result messages
@@ -150,16 +156,20 @@ export function findLastUserMessageIndex(transcript: TranscriptEntry[]): number 
  */
 export function findFinalAssistantResponse(
   transcript: TranscriptEntry[],
-  startIdx: number
+  startIdx: number,
 ): string | null {
   let finalResponse: string | null = null;
 
   for (let i = startIdx; i < transcript.length; i++) {
     const entry = transcript[i];
-    if (entry.type !== 'assistant') {continue;}
+    if (entry.type !== 'assistant') {
+      continue;
+    }
 
     const content = entry.message?.content;
-    if (!Array.isArray(content)) {continue;}
+    if (!Array.isArray(content)) {
+      continue;
+    }
 
     for (const part of content) {
       if (
@@ -185,7 +195,7 @@ export function findFinalAssistantResponse(
  */
 export function getNextTimestampNs(
   transcript: TranscriptEntry[],
-  currentIdx: number
+  currentIdx: number,
 ): number | null {
   for (let i = currentIdx + 1; i < transcript.length; i++) {
     const ts = transcript[i].timestamp;

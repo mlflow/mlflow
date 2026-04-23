@@ -342,7 +342,7 @@ describe('processTranscript', () => {
     it('creates a tool span for every parallel sub-agent call', async () => {
       await processTranscript(
         resolve(FIXTURES_DIR, 'with-parallel-subagents.jsonl'),
-        'test-parallel'
+        'test-parallel',
       );
 
       const taskTools = getSpansByName('tool_Task');
@@ -371,7 +371,7 @@ describe('processTranscript', () => {
 
       const subagentContent = readFileSync(
         resolve(FIXTURES_DIR, 'subagent-abc1234.jsonl'),
-        'utf-8'
+        'utf-8',
       );
       writeFileSync(resolve(subagentDir, 'agent-abc1234.jsonl'), subagentContent);
 
@@ -528,9 +528,7 @@ describe('processTranscript', () => {
         role: string;
         content: unknown;
       }>;
-      const steerMessages = inputMessages.filter(
-        (m) => m.content === 'also tell me about Java'
-      );
+      const steerMessages = inputMessages.filter((m) => m.content === 'also tell me about Java');
       expect(steerMessages).toHaveLength(1);
       expect(steerMessages[0].role).toBe('user');
     });

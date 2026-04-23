@@ -45,7 +45,7 @@ const METADATA_KEY_CLAUDE_CODE_VERSION = 'mlflow.claude_code_version';
  * Separate text content from tool_use blocks in an assistant response.
  */
 function extractContentAndTools(
-  content: string | ContentBlock[]
+  content: string | ContentBlock[],
 ): [string, Array<{ type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }>] {
   let textContent = '';
   const toolUses: Array<{
@@ -55,15 +55,19 @@ function extractContentAndTools(
     input: Record<string, unknown>;
   }> = [];
 
-  if (!Array.isArray(content)) {return [typeof content === 'string' ? content : '', toolUses];}
+  if (!Array.isArray(content)) {
+    return [typeof content === 'string' ? content : '', toolUses];
+  }
 
   for (const part of content) {
-    if (typeof part !== 'object' || part == null || !('type' in part)) {continue;}
+    if (typeof part !== 'object' || part == null || !('type' in part)) {
+      continue;
+    }
     if (part.type === 'text' && 'text' in part) {
       textContent += (part as { type: 'text'; text: string }).text;
     } else if (part.type === 'tool_use') {
       toolUses.push(
-        part as { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
+        part as { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> },
       );
     }
   }
@@ -81,7 +85,7 @@ function extractContentAndTools(
  */
 function findToolResults(
   transcript: TranscriptEntry[],
-  startIdx: number
+  startIdx: number,
 ): Record<string, ToolResultInfo> {
   const results: Record<string, ToolResultInfo> = {};
   // Claude Code splits a single assistant turn into multiple JSONL entries
@@ -92,21 +96,31 @@ function findToolResults(
   for (let i = startIdx + 1; i < transcript.length; i++) {
     const entry = transcript[i];
     if (entry.type === 'assistant') {
-      if (currentMessageId && entry.message?.id === currentMessageId) {continue;}
+      if (currentMessageId && entry.message?.id === currentMessageId) {
+        continue;
+      }
       break;
     }
-    if (entry.type !== 'user') {continue;}
+    if (entry.type !== 'user') {
+      continue;
+    }
 
     // Entry-level toolUseResult (used in real Claude Code transcripts)
     const entryToolUseResult =
       entry.toolUseResult && typeof entry.toolUseResult === 'object' ? entry.toolUseResult : {};
 
     const content = entry.message?.content;
-    if (!Array.isArray(content)) {continue;}
+    if (!Array.isArray(content)) {
+      continue;
+    }
 
     for (const part of content) {
-      if (typeof part !== 'object' || part == null || !('type' in part)) {continue;}
-      if (part.type !== 'tool_result') {continue;}
+      if (typeof part !== 'object' || part == null || !('type' in part)) {
+        continue;
+      }
+      if (part.type !== 'tool_result') {
+        continue;
+      }
 
       const toolResult = part as {
         type: 'tool_result';
@@ -117,7 +131,9 @@ function findToolResults(
       };
 
       const toolUseId = toolResult.tool_use_id;
-      if (!toolUseId) {continue;}
+      if (!toolUseId) {
+        continue;
+      }
 
       // Check both entry-level and content-level toolUseResult for agentId
       const partToolUseResult = toolResult.toolUseResult ?? {};
@@ -144,7 +160,7 @@ function findToolResults(
  */
 function getInputMessages(
   transcript: TranscriptEntry[],
-  currentIdx: number
+  currentIdx: number,
 ): Array<{ role: string; content: unknown }> {
   const messages: Array<{ role: string; content: unknown }> = [];
 
@@ -160,10 +176,12 @@ function getInputMessages(
         hasText = content.trim().length > 0;
       } else if (Array.isArray(content)) {
         hasText = content.some(
-          (p) => typeof p === 'object' && p != null && 'type' in p && p.type === 'text'
+          (p) => typeof p === 'object' && p != null && 'type' in p && p.type === 'text',
         );
       }
-      if (hasText) {break;}
+      if (hasText) {
+        break;
+      }
     }
 
     // Include steer messages (queue-operation enqueue) as user messages
@@ -189,7 +207,9 @@ function getInputMessages(
  * Set token usage on a span. Input = input_tokens + cache_creation (cache_read excluded).
  */
 function setTokenUsageAttribute(span: LiveSpan, usage: TokenUsage | undefined): void {
-  if (!usage) {return;}
+  if (!usage) {
+    return;
+  }
 
   const inputTokens = (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
   const outputTokens = usage.output_tokens ?? 0;
@@ -210,19 +230,25 @@ function setTokenUsageAttribute(span: LiveSpan, usage: TokenUsage | undefined): 
  */
 function collectSubagentGroups(
   transcript: TranscriptEntry[],
-  startIdx: number
+  startIdx: number,
 ): Record<string, SubagentGroup> {
   const groups: Record<string, SubagentGroup> = {};
 
   for (let i = startIdx; i < transcript.length; i++) {
     const entry = transcript[i];
-    if (entry.type !== 'progress') {continue;}
+    if (entry.type !== 'progress') {
+      continue;
+    }
 
     const data = entry.data;
-    if (!data?.message || typeof data.message !== 'object') {continue;}
+    if (!data?.message || typeof data.message !== 'object') {
+      continue;
+    }
 
     const parentToolId = entry.parentToolUseID;
-    if (!parentToolId) {continue;}
+    if (!parentToolId) {
+      continue;
+    }
 
     if (!groups[parentToolId]) {
       groups[parentToolId] = {
@@ -243,9 +269,11 @@ function collectSubagentGroups(
  */
 function getSubagentTranscriptPath(
   transcriptPath: string | undefined,
-  agentId: string | undefined
+  agentId: string | undefined,
 ): string | null {
-  if (!transcriptPath || !agentId) {return null;}
+  if (!transcriptPath || !agentId) {
+    return null;
+  }
 
   // Session dir = main transcript path without .jsonl extension
   const dir = dirname(transcriptPath);
@@ -264,7 +292,7 @@ function getSubagentTranscriptPath(
 function createAgentWrapperSpan(
   parentSpan: LiveSpan,
   toolInput: Record<string, unknown>,
-  startNs: number
+  startNs: number,
 ): LiveSpan {
   const subagentType = (toolInput.subagent_type as string) ?? '';
   const description = (toolInput.description as string) ?? '';
@@ -289,10 +317,12 @@ function createSubagentSpans(
   group: SubagentGroup,
   startNs: number,
   totalDurationNs: number,
-  toolInput: Record<string, unknown>
+  toolInput: Record<string, unknown>,
 ): void {
   const innerMessages = group.messages;
-  if (!innerMessages.length) {return;}
+  if (!innerMessages.length) {
+    return;
+  }
 
   const agentSpan = createAgentWrapperSpan(parentSpan, toolInput, startNs);
 
@@ -317,11 +347,13 @@ function createSubagentSpansFromFile(
   subagentTranscriptPath: string,
   startNs: number,
   totalDurationNs: number,
-  toolInput: Record<string, unknown>
+  toolInput: Record<string, unknown>,
 ): void {
   try {
     const subagentTranscript = readTranscript(subagentTranscriptPath);
-    if (!subagentTranscript.length) {return;}
+    if (!subagentTranscript.length) {
+      return;
+    }
 
     const agentSpan = createAgentWrapperSpan(parentSpan, toolInput, startNs);
 
@@ -336,7 +368,10 @@ function createSubagentSpansFromFile(
     createLlmAndToolSpans(agentSpan, subagentTranscript, firstAssistantIdx, subagentTranscriptPath);
     agentSpan.end({ endTimeNs: startNs + totalDurationNs });
   } catch (err) {
-    console.error(`[mlflow] Failed to process sub-agent transcript ${subagentTranscriptPath}:`, err);
+    console.error(
+      `[mlflow] Failed to process sub-agent transcript ${subagentTranscriptPath}:`,
+      err,
+    );
   }
 }
 
@@ -351,16 +386,20 @@ function createLlmAndToolSpans(
   parentSpan: LiveSpan,
   transcript: TranscriptEntry[],
   startIdx: number,
-  transcriptPath?: string
+  transcriptPath?: string,
 ): void {
   const subagentGroups = collectSubagentGroups(transcript, startIdx);
 
   for (let i = startIdx; i < transcript.length; i++) {
     const entry = transcript[i];
-    if (entry.type !== 'assistant') {continue;}
+    if (entry.type !== 'assistant') {
+      continue;
+    }
 
     const timestampNs = parseTimestampToNs(entry.timestamp);
-    if (!timestampNs) {continue;}
+    if (!timestampNs) {
+      continue;
+    }
 
     const nextTimestampNs = getNextTimestampNs(transcript, i);
     const durationNs = nextTimestampNs
@@ -368,7 +407,9 @@ function createLlmAndToolSpans(
       : Math.floor(1000 * NANOSECONDS_PER_MS); // 1 second default
 
     const msg = entry.message;
-    if (!msg) {continue;}
+    if (!msg) {
+      continue;
+    }
     const content = msg.content ?? [];
     const usage = msg.usage;
 
@@ -438,7 +479,7 @@ function createLlmAndToolSpans(
             subagentPath,
             toolStartNs,
             toolDurationNs,
-            toolInput
+            toolInput,
           );
         } else if (subagentGroups[toolUseId]) {
           createSubagentSpans(
@@ -446,7 +487,7 @@ function createLlmAndToolSpans(
             subagentGroups[toolUseId],
             toolStartNs,
             toolDurationNs,
-            toolInput
+            toolInput,
           );
         }
 
@@ -470,10 +511,7 @@ function createLlmAndToolSpans(
 /**
  * Process a Claude conversation transcript and create an MLflow trace with spans.
  */
-export async function processTranscript(
-  transcriptPath: string,
-  sessionId?: string
-): Promise<void> {
+export async function processTranscript(transcriptPath: string, sessionId?: string): Promise<void> {
   try {
     const transcript = readTranscript(transcriptPath);
     if (!transcript.length) {
@@ -538,7 +576,7 @@ export async function processTranscript(
         // Extract Claude Code version from transcript entries
         const claudeCodeVersion = transcript.reduce<string | undefined>(
           (found, entry) => found ?? entry.version,
-          undefined
+          undefined,
         );
         if (claudeCodeVersion) {
           metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = claudeCodeVersion;

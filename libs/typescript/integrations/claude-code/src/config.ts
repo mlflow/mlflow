@@ -15,7 +15,9 @@ export function isTracingEnabled(): boolean {
  * No-ops if already initialized or if required env vars are missing.
  */
 export function ensureInitialized(): boolean {
-  if (initialized) {return true;}
+  if (initialized) {
+    return true;
+  }
 
   const trackingUri = process.env.MLFLOW_TRACKING_URI;
   if (!trackingUri) {
