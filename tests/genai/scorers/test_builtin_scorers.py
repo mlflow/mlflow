@@ -2,6 +2,7 @@ import json
 from unittest import mock
 from unittest.mock import Mock, call, patch
 
+import pydantic
 import pytest
 
 import mlflow
@@ -2644,7 +2645,6 @@ def test_rule_based_scorers_dont_call_llm():
 
 
 def test_rule_based_scorer_serialization_roundtrip():
-    """BuiltInScorer.model_dump / model_validate should preserve rule config."""
     scorer = RegexMatch(pattern=r"^Answer:", match_type="fullmatch", case_insensitive=True)
     serialized = scorer.model_dump()
     restored = BuiltInScorer.model_validate(serialized)
@@ -2730,7 +2730,6 @@ def test_response_length_empty_string():
 
 
 def test_rule_based_scorers_accept_non_string_outputs():
-    """Non-string outputs should be coerced via parse_outputs_to_str."""
     # Dict output (e.g., chat completions response shape)
     chat_output = {"choices": [{"message": {"content": "Answer: 42"}}]}
 
@@ -2744,7 +2743,6 @@ def test_rule_based_scorers_accept_non_string_outputs():
 
 
 def test_response_length_words_with_punctuation():
-    """Whitespace-split treats 'hello,world' as one word."""
     scorer = ResponseLength(min_length=2, unit="words")
 
     feedback = scorer(outputs="hello,world")
@@ -2755,7 +2753,6 @@ def test_response_length_words_with_punctuation():
 
 
 def test_pii_detection_unicode_and_boundaries():
-    """Ensure PII patterns handle non-ASCII text without crashing."""
     scorer = PIIDetection()
 
     # Emoji around email should still match
@@ -2767,13 +2764,37 @@ def test_pii_detection_unicode_and_boundaries():
     assert feedback.value == CategoricalRating.YES
 
 
+def test_pii_detection_amex_card():
+    scorer = PIIDetection(pii_types=["credit_card"])
+    feedback = scorer(outputs="Amex card: 3782 822463 10005")
+    assert feedback.value == CategoricalRating.NO
+    assert "credit_card" in feedback.rationale
+
+
+def test_pii_detection_empty_pii_types_checks_nothing():
+    scorer = PIIDetection(pii_types=[])
+    feedback = scorer(outputs="Email alice@example.com, SSN 123-45-6789")
+    assert feedback.value == CategoricalRating.YES
+
+
+@pytest.mark.parametrize("value", [-1, -100])
+def test_response_length_rejects_negative_min_length(value):
+    with pytest.raises(pydantic.ValidationError, match="non-negative"):
+        ResponseLength(min_length=value)
+
+
+@pytest.mark.parametrize("value", [-1, -100])
+def test_response_length_rejects_negative_max_length(value):
+    with pytest.raises(pydantic.ValidationError, match="non-negative"):
+        ResponseLength(max_length=value)
+
+
 # ---------------------------------------------------------------------------
 # Rule-based scorer evaluate() integration
 # ---------------------------------------------------------------------------
 
 
 def test_rule_based_scorers_in_evaluate(is_in_databricks):
-    """End-to-end smoke test: run all three rule-based scorers through evaluate()."""
     import pandas as pd
 
     data = pd.DataFrame({

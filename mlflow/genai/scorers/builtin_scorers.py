@@ -3181,8 +3181,10 @@ _PII_PATTERNS: dict[str, str] = {
     "phone": r"(?:(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+[1-9]\d{1,14})",
     "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
     "credit_card": (
-        r"\b(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))"
-        r"[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b"
+        r"\b(?:"
+        r"(?:4\d{3}|5[1-5]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}"
+        r"|3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5}"
+        r")\b"
     ),
     "ip_address": r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b",
 }
@@ -3381,7 +3383,7 @@ class PIIDetection(BuiltInScorer):
 
     @property
     def instructions(self) -> str:
-        types = self.pii_types or list(_PII_PATTERNS.keys())
+        types = self.pii_types if self.pii_types is not None else list(_PII_PATTERNS.keys())
         return f"Check whether the output contains any of the PII types: {types}."
 
     def get_input_fields(self) -> list[JudgeField]:
@@ -3399,7 +3401,9 @@ class PIIDetection(BuiltInScorer):
         trace: Trace | None = None,
     ) -> Feedback:
         outputs_str = _resolve_output_text(outputs, trace, "PIIDetection")
-        types_to_check = self.pii_types or list(_PII_PATTERNS.keys())
+        types_to_check = (
+            self.pii_types if self.pii_types is not None else list(_PII_PATTERNS.keys())
+        )
 
         detected: list[str] = [
             pii_type
@@ -3475,6 +3479,10 @@ class ResponseLength(BuiltInScorer):
             raise ValueError(
                 "ResponseLength requires at least one of `min_length` or `max_length`."
             )
+        if self.min_length is not None and self.min_length < 0:
+            raise ValueError(f"`min_length` must be non-negative, got {self.min_length}.")
+        if self.max_length is not None and self.max_length < 0:
+            raise ValueError(f"`max_length` must be non-negative, got {self.max_length}.")
         if (
             self.min_length is not None
             and self.max_length is not None
