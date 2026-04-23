@@ -1,0 +1,12 @@
+{
+  "name": "mlflow-tracing",
+  "version": "0.2.0",
+  "description": "MLflow tracing integration for Claude Code — exports conversation traces to MLflow",
+  "author": {
+    "name": "MLflow",
+    "url": "https://mlflow.org/"
+  },
+  "homepage": "https://mlflow.org/",
+  "license": "Apache-2.0",
+  "keywords": ["mlflow", "tracing", "observability", "llm"]
+}

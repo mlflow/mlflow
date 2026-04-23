@@ -190,6 +190,12 @@ def test_add_role_permission_invalid_resource_type(store):
         store.add_role_permission(role.id, "invalid_type", "123", "READ")
 
 
+def test_add_role_permission_workspace_requires_wildcard(store):
+    role = store.create_role(name="ws-role", workspace="ws1")
+    with pytest.raises(MlflowException, match="resource_type='workspace' requires"):
+        store.add_role_permission(role.id, "workspace", "42", "MANAGE")
+
+
 def test_add_role_permission_nonexistent_role(store):
     with pytest.raises(MlflowException, match="not found"):
         store.add_role_permission(99999, "experiment", "123", "READ")
@@ -423,6 +429,124 @@ def test_is_workspace_admin_requires_manage(store, user):
     store.assign_role_to_user(user.id, role.id)
 
     assert store.is_workspace_admin(user.id, "ws1") is False
+
+
+def test_list_role_grants_for_user_in_workspace(store, user):
+    # Role with specific + wildcard experiment grants + workspace-wide grant.
+    role = store.create_role(name="multi", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "42", "EDIT")
+    store.add_role_permission(role.id, "experiment", "*", "READ")
+    store.add_role_permission(role.id, "workspace", "*", "READ")
+    # Unrelated grant on another resource type.
+    store.add_role_permission(role.id, "registered_model", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    grants = store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment")
+    # Should include specific experiment grant, wildcard experiment grant,
+    # and the workspace-wide grant. Should NOT include the registered_model grant.
+    assert sorted(grants) == sorted([("42", "EDIT"), ("*", "READ"), ("*", "READ")])
+
+
+def test_list_role_grants_for_user_in_workspace_cross_workspace(store, user):
+    # Grants in ws2 should not surface when querying ws1.
+    role = store.create_role(name="other-ws", workspace="ws2")
+    store.add_role_permission(role.id, "experiment", "99", "EDIT")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment") == []
+
+
+def test_list_role_grants_for_user_in_workspace_no_roles(store, user):
+    assert store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment") == []
+
+
+def test_list_role_grants_for_user_in_workspace_rejects_invalid_resource_type(store, user):
+    with pytest.raises(MlflowException, match="Invalid resource type"):
+        store.list_role_grants_for_user_in_workspace(user.id, "ws1", "not_a_type")
+
+
+def test_list_workspace_admin_workspaces(store, user):
+    # WP admin in ws1 + ws3, regular member in ws2.
+    admin_ws1 = store.create_role(name="wa1", workspace="ws1")
+    store.add_role_permission(admin_ws1.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, admin_ws1.id)
+    admin_ws3 = store.create_role(name="wa3", workspace="ws3")
+    store.add_role_permission(admin_ws3.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, admin_ws3.id)
+    member_ws2 = store.create_role(name="mem", workspace="ws2")
+    store.add_role_permission(member_ws2.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user.id, member_ws2.id)
+
+    assert store.list_workspace_admin_workspaces(user.id) == {"ws1", "ws3"}
+
+
+def test_list_workspace_admin_workspaces_ignores_non_manage(store, user):
+    # A workspace-scope grant with a non-MANAGE permission should not count.
+    role = store.create_role(name="reader", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "READ")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.list_workspace_admin_workspaces(user.id) == set()
+
+
+# ---- Legacy workspace_permissions as workspace-admin source ----
+#
+# Pre-RBAC operators relied on `workspace_permissions` MANAGE to convey workspace-wide
+# admin authority. The workspace-admin helpers must still recognize that grant,
+# otherwise operators mid-migration (or just not yet using roles) silently lose admin
+# status behind RBAC-aware validators.
+
+
+def test_is_workspace_admin_honors_legacy_workspace_permissions(store, user):
+    store.set_workspace_permission("ws1", user.username, "MANAGE")
+
+    assert store.is_workspace_admin(user.id, "ws1") is True
+    assert store.is_workspace_admin(user.id, "ws2") is False
+
+
+def test_is_workspace_admin_ignores_non_manage_legacy(store, user):
+    store.set_workspace_permission("ws1", user.username, "READ")
+
+    assert store.is_workspace_admin(user.id, "ws1") is False
+
+
+def test_list_workspace_admin_workspaces_unions_role_and_legacy(store, user):
+    # Role admin in ws1, legacy MANAGE in ws2, legacy READ in ws3 (should not count).
+    role = store.create_role(name="wa1", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+    store.set_workspace_permission("ws2", user.username, "MANAGE")
+    store.set_workspace_permission("ws3", user.username, "READ")
+
+    assert store.list_workspace_admin_workspaces(user.id) == {"ws1", "ws2"}
+
+
+def test_is_workspace_admin_of_any_of_users_workspaces_legacy_admin(store, user, user2):
+    # Admin authority via legacy, target presence via role.
+    store.set_workspace_permission("ws1", user.username, "MANAGE")
+    target_role = store.create_role(name="member", workspace="ws1")
+    store.add_role_permission(target_role.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user2.id, target_role.id)
+
+    assert store.is_workspace_admin_of_any_of_users_workspaces(user.id, user2.id) is True
+
+
+def test_is_workspace_admin_of_any_of_users_workspaces_legacy_target(store, user, user2):
+    # Admin authority via role, target presence via legacy.
+    admin_role = store.create_role(name="wa", workspace="ws1")
+    store.add_role_permission(admin_role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, admin_role.id)
+    store.set_workspace_permission("ws1", user2.username, "READ")
+
+    assert store.is_workspace_admin_of_any_of_users_workspaces(user.id, user2.id) is True
+
+
+def test_is_workspace_admin_of_any_of_users_workspaces_no_overlap(store, user, user2):
+    # Admin in ws1, target present only in ws2 → no intersection.
+    store.set_workspace_permission("ws1", user.username, "MANAGE")
+    store.set_workspace_permission("ws2", user2.username, "READ")
+
+    assert store.is_workspace_admin_of_any_of_users_workspaces(user.id, user2.id) is False
 
 
 def test_get_role_permission_does_not_cross_workspace(store, user):
