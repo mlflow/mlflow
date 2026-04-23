@@ -21,8 +21,6 @@ from mlflow.gateway.tracing_utils import (
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.telemetry.events import GatewayBudgetExceededEvent
-from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
 from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -211,14 +209,6 @@ def make_budget_on_complete(
             maybe_refresh_budget_policies(store)
             tracker = get_budget_tracker()
             if newly_exceeded := tracker.record_cost(total_cost, workspace=workspace):
-                for window in newly_exceeded:
-                    _record_event(
-                        GatewayBudgetExceededEvent,
-                        params={
-                            "budget_action": window.policy.budget_action.value,
-                            "target_scope": window.policy.target_scope.value,
-                        },
-                    )
                 if registry_store:
                     fire_budget_exceeded_webhooks(newly_exceeded, workspace, registry_store)
         except Exception:

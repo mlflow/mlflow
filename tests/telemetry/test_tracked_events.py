@@ -1,6 +1,5 @@
 import json
 import time
-from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -35,8 +34,6 @@ from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
-from mlflow.gateway.budget import make_budget_on_complete
-from mlflow.gateway.budget_tracker import BudgetWindow
 from mlflow.gateway.cli import start
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas import chat
@@ -78,7 +75,6 @@ from mlflow.telemetry.events import (
     CreateWebhookEvent,
     DiscoverIssuesEvent,
     EvaluateEvent,
-    GatewayBudgetExceededEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateGuardrailEvent,
@@ -2353,55 +2349,6 @@ async def test_gateway_invocation_telemetry(
     assert params["caller"] == "judge"
     assert params["has_traceparent"] is True
     assert params["auth_enabled"] is True
-
-
-def test_gateway_budget_exceeded_telemetry(
-    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
-):
-    db_path = tmp_path / "mlflow.db"
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
-    mock_telemetry_client.flush()
-    mock_requests.clear()
-
-    # Test make_budget_on_complete emits telemetry for newly exceeded windows
-    mock_policy_alert = MagicMock()
-    mock_policy_alert.budget_action = BudgetAction.ALERT
-    mock_policy_alert.target_scope = BudgetTargetScope.WORKSPACE
-
-    mock_window_alert = BudgetWindow(
-        policy=mock_policy_alert,
-        window_start=datetime(2025, 1, 1, tzinfo=timezone.utc),
-        window_end=datetime(2025, 1, 2, tzinfo=timezone.utc),
-    )
-
-    mock_tracker_on_complete = MagicMock()
-    mock_tracker_on_complete.needs_refresh.return_value = False
-    mock_tracker_on_complete.record_cost.return_value = [mock_window_alert]
-
-    mock_span = MagicMock()
-    mock_span.trace_id = "test-trace-id"
-
-    with (
-        patch("mlflow.gateway.budget.get_budget_tracker", return_value=mock_tracker_on_complete),
-        patch("mlflow.gateway.budget.mlflow.get_current_active_span", return_value=mock_span),
-        patch("mlflow.gateway.budget._compute_cost_from_child_spans", return_value=5.0),
-        patch(
-            "mlflow.server.handlers._get_model_registry_store",
-            side_effect=Exception("no store"),
-        ),
-    ):
-        on_complete = make_budget_on_complete(store, workspace="test-ws")
-        on_complete()
-
-    data = validate_telemetry_record(
-        mock_telemetry_client,
-        mock_requests,
-        GatewayBudgetExceededEvent.name,
-        check_params=False,
-    )
-    params = json.loads(data["params"])
-    assert params["budget_action"] == "ALERT"
-    assert params["target_scope"] == "WORKSPACE"
 
 
 def test_tracing_context_propagation_get_and_set_success(

@@ -224,7 +224,7 @@ def _set_gateway_telemetry_state(request: Request, endpoint_config) -> None:
     """Set endpoint_id and provider on request.state for telemetry attribution."""
     request.state.endpoint_id = endpoint_config.endpoint_id
     if endpoint_config.models:
-        telemetry_model = next(
+        primary_model = next(
             (
                 m
                 for m in endpoint_config.models
@@ -232,7 +232,7 @@ def _set_gateway_telemetry_state(request: Request, endpoint_config) -> None:
             ),
             endpoint_config.models[0],
         )
-        request.state.provider = str(telemetry_model.provider)
+        request.state.provider = str(primary_model.provider)
 
 
 def _build_openai_compatible_config(model_config: "GatewayModelConfig"):
