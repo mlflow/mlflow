@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import {
-  Button,
-  Input,
-  Typography,
-  useDesignSystemTheme,
   Alert,
+  Button,
+  Empty,
+  Input,
   Spinner,
-  LegacyTable,
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
   Tag,
+  Typography,
+  UserIcon,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { useUpdatePassword, useUserRolesQuery } from '../hooks';
-import type { Role } from '../types';
 import { isWorkspaceAdminRole } from '../types';
 
 const AccountPage = () => {
@@ -31,6 +35,7 @@ const AccountPage = () => {
       ?.substring('mlflow_user='.length) ?? '';
 
   const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
+  const roles = rolesData?.roles ?? [];
 
   const handleChangePassword = async () => {
     setError(null);
@@ -61,35 +66,35 @@ const AccountPage = () => {
     window.location.href = '/';
   };
 
-  const roleColumns = [
-    {
-      title: 'Role',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Workspace',
-      dataIndex: 'workspace',
-      key: 'workspace',
-    },
-    {
-      title: 'Admin',
-      key: 'is_workspace_admin',
-      render: (_: unknown, record: Role) =>
-        isWorkspaceAdminRole(record) ? (
-          <Tag componentId="account.role_admin_tag" color="indigo">
-            Admin
-          </Tag>
-        ) : null,
-    },
-  ];
+  const rolesEmptyState = (
+    <Empty title="No roles" description="You have not been assigned to any roles." />
+  );
 
   return (
     <ScrollablePageWrapper>
-      <div css={{ padding: theme.spacing.lg, maxWidth: 600 }}>
-        <Typography.Title level={2} css={{ marginBottom: theme.spacing.lg }}>
-          <FormattedMessage defaultMessage="Account" description="Account page title" />
-        </Typography.Title>
+      <div css={{ padding: theme.spacing.md, display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+            <div
+              css={{
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+                display: 'flex',
+              }}
+            >
+              <UserIcon />
+            </div>
+            <Typography.Title withoutMargins level={2}>
+              <FormattedMessage defaultMessage="Account" description="Account page title" />
+            </Typography.Title>
+          </div>
+          {username && (
+            <Typography.Text color="secondary">
+              Logged in as <strong>{username}</strong>
+            </Typography.Text>
+          )}
+        </div>
 
         {!username && (
           <Alert
@@ -97,14 +102,7 @@ const AccountPage = () => {
             type="warning"
             message="Not logged in"
             description="Could not determine the current user. Please log in again."
-            css={{ marginBottom: theme.spacing.md }}
           />
-        )}
-
-        {username && (
-          <Typography.Text css={{ marginBottom: theme.spacing.lg, display: 'block' }}>
-            Logged in as <strong>{username}</strong>
-          </Typography.Text>
         )}
 
         {error && (
@@ -114,7 +112,6 @@ const AccountPage = () => {
             message={error}
             closable
             onClose={() => setError(null)}
-            css={{ marginBottom: theme.spacing.md }}
           />
         )}
         {successMessage && (
@@ -124,33 +121,34 @@ const AccountPage = () => {
             message={successMessage}
             closable
             onClose={() => setSuccessMessage(null)}
-            css={{ marginBottom: theme.spacing.md }}
           />
         )}
 
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-            <Typography.Title level={4}>Change Password</Typography.Title>
-            <div>
-              <Typography.Text bold>New Password</Typography.Text>
-              <Input
-                componentId="account.new_password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
-              />
-            </div>
-            <div>
-              <Typography.Text bold>Confirm Password</Typography.Text>
-              <Input
-                componentId="account.confirm_password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
-              />
-            </div>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, maxWidth: 600 }}>
+          <Typography.Title withoutMargins level={4}>
+            Change Password
+          </Typography.Title>
+          <div>
+            <Typography.Text bold>New Password</Typography.Text>
+            <Input
+              componentId="account.new_password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password"
+            />
+          </div>
+          <div>
+            <Typography.Text bold>Confirm Password</Typography.Text>
+            <Input
+              componentId="account.confirm_password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm new password"
+            />
+          </div>
+          <div>
             <Button
               componentId="account.change_password_button"
               type="primary"
@@ -161,28 +159,70 @@ const AccountPage = () => {
               <FormattedMessage defaultMessage="Update Password" description="Button to update password" />
             </Button>
           </div>
+        </div>
 
-          {username && (
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              <Typography.Title level={4}>My Roles</Typography.Title>
-              {rolesLoading ? (
+        {username && (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            <Typography.Title withoutMargins level={4}>
+              My Roles
+            </Typography.Title>
+            {rolesLoading ? (
+              <div
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: theme.spacing.sm,
+                  padding: theme.spacing.lg,
+                  minHeight: 200,
+                }}
+              >
                 <Spinner size="small" />
-              ) : (
-                <LegacyTable
-                  dataSource={rolesData?.roles ?? []}
-                  columns={roleColumns}
-                  rowKey="id"
-                  pagination={false}
-                />
-              )}
-            </div>
-          )}
-
-          <div>
-            <Button componentId="account.logout_button" type="tertiary" onClick={handleLogout} danger>
-              <FormattedMessage defaultMessage="Logout" description="Button to logout" />
-            </Button>
+              </div>
+            ) : (
+              <Table
+                scrollable
+                noMinHeight
+                empty={rolesEmptyState}
+                css={{
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.general.borderRadiusBase,
+                  overflow: 'hidden',
+                }}
+              >
+                <TableRow isHeader>
+                  <TableHeader componentId="account.roles.name_header" css={{ flex: 2 }}>
+                    Role
+                  </TableHeader>
+                  <TableHeader componentId="account.roles.workspace_header" css={{ flex: 1 }}>
+                    Workspace
+                  </TableHeader>
+                  <TableHeader componentId="account.roles.admin_header" css={{ flex: 1 }}>
+                    Admin
+                  </TableHeader>
+                </TableRow>
+                {roles.map((role) => (
+                  <TableRow key={role.id}>
+                    <TableCell css={{ flex: 2 }}>{role.name}</TableCell>
+                    <TableCell css={{ flex: 1 }}>{role.workspace}</TableCell>
+                    <TableCell css={{ flex: 1 }}>
+                      {isWorkspaceAdminRole(role) ? (
+                        <Tag componentId="account.role_admin_tag" color="indigo">
+                          Admin
+                        </Tag>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Table>
+            )}
           </div>
+        )}
+
+        <div>
+          <Button componentId="account.logout_button" type="tertiary" onClick={handleLogout} danger>
+            <FormattedMessage defaultMessage="Logout" description="Button to logout" />
+          </Button>
         </div>
       </div>
     </ScrollablePageWrapper>

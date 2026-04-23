@@ -1,18 +1,23 @@
 import { useMemo, useState } from 'react';
 import {
+  Alert,
   Button,
+  Empty,
   Input,
   Modal,
+  PlusIcon,
   Spinner,
   Switch,
-  Typography,
-  useDesignSystemTheme,
-  PlusIcon,
-  TrashIcon,
-  LegacyTable,
-  Tag,
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
   Tabs,
-  Alert,
+  Tag,
+  TrashIcon,
+  Typography,
+  UserIcon,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
@@ -27,7 +32,7 @@ import {
   useCreateRole,
   useDeleteRole,
 } from '../hooks';
-import type { CreateRoleRequest, User, Role } from '../types';
+import type { CreateRoleRequest } from '../types';
 import { isWorkspaceAdminRole } from '../types';
 
 const UsersTab = () => {
@@ -83,7 +88,16 @@ const UsersTab = () => {
 
   if (isLoading) {
     return (
-      <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.lg }}>
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: theme.spacing.sm,
+          padding: theme.spacing.lg,
+          minHeight: 200,
+        }}
+      >
         <Spinner size="small" />
       </div>
     );
@@ -100,40 +114,17 @@ const UsersTab = () => {
     );
   }
 
-  const columns = [
-    {
-      title: 'Username',
-      dataIndex: 'username',
-      key: 'username',
-    },
-    {
-      title: 'Admin',
-      dataIndex: 'is_admin',
-      key: 'is_admin',
-      render: (_: unknown, record: User) => (
-        <Switch
-          componentId="admin.users.toggle_admin"
-          checked={record.is_admin}
-          onChange={() => handleToggleAdmin(record.username, record.is_admin)}
-          label=""
-          aria-label={`Toggle admin for ${record.username}`}
+  const emptyState = (
+    <Empty
+      title={<FormattedMessage defaultMessage="No users" description="Empty state title for users table" />}
+      description={
+        <FormattedMessage
+          defaultMessage="Create a user to get started."
+          description="Empty state description for users table"
         />
-      ),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_: unknown, record: User) => (
-        <Button
-          componentId="admin.users.delete_button"
-          type="tertiary"
-          icon={<TrashIcon />}
-          onClick={() => setDeleteTarget(record.username)}
-          danger
-        />
-      ),
-    },
-  ];
+      }
+    />
+  );
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -150,7 +141,51 @@ const UsersTab = () => {
           <FormattedMessage defaultMessage="Create User" description="Button to create a new user" />
         </Button>
       </div>
-      <LegacyTable dataSource={users} columns={columns} rowKey="username" pagination={false} />
+      <Table
+        scrollable
+        noMinHeight
+        empty={emptyState}
+        css={{
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.general.borderRadiusBase,
+          overflow: 'hidden',
+        }}
+      >
+        <TableRow isHeader>
+          <TableHeader componentId="admin.users.username_header" css={{ flex: 2 }}>
+            <FormattedMessage defaultMessage="Username" description="Users table username header" />
+          </TableHeader>
+          <TableHeader componentId="admin.users.admin_header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Admin" description="Users table admin header" />
+          </TableHeader>
+          <TableHeader componentId="admin.users.actions_header" css={{ flex: 0, minWidth: 80, maxWidth: 80 }}>
+            <FormattedMessage defaultMessage="Actions" description="Users table actions header" />
+          </TableHeader>
+        </TableRow>
+        {users.map((user) => (
+          <TableRow key={user.username}>
+            <TableCell css={{ flex: 2 }}>{user.username}</TableCell>
+            <TableCell css={{ flex: 1 }}>
+              <Switch
+                componentId="admin.users.toggle_admin"
+                checked={user.is_admin}
+                onChange={() => handleToggleAdmin(user.username, user.is_admin)}
+                label=""
+                aria-label={`Toggle admin for ${user.username}`}
+              />
+            </TableCell>
+            <TableCell css={{ flex: 0, minWidth: 80, maxWidth: 80 }}>
+              <Button
+                componentId="admin.users.delete_button"
+                type="tertiary"
+                icon={<TrashIcon />}
+                onClick={() => setDeleteTarget(user.username)}
+                danger
+              />
+            </TableCell>
+          </TableRow>
+        ))}
+      </Table>
       <Modal
         componentId="admin.users.create_modal"
         title="Create User"
@@ -250,7 +285,16 @@ const RolesTab = () => {
 
   if (isLoading) {
     return (
-      <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.lg }}>
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: theme.spacing.sm,
+          padding: theme.spacing.lg,
+          minHeight: 200,
+        }}
+      >
         <Spinner size="small" />
       </div>
     );
@@ -267,52 +311,17 @@ const RolesTab = () => {
     );
   }
 
-  const columns = [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      render: (_: unknown, record: Role) => (
-        <Link componentId="admin.roles.name_link" to={AdminRoutes.getRoleDetailRoute(record.id)}>
-          {record.name}
-        </Link>
-      ),
-    },
-    {
-      title: 'Workspace',
-      dataIndex: 'workspace',
-      key: 'workspace',
-    },
-    {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
-      render: (text: string | null) => text || '-',
-    },
-    {
-      title: 'Admin Role',
-      key: 'is_workspace_admin',
-      render: (_: unknown, record: Role) =>
-        isWorkspaceAdminRole(record) ? (
-          <Tag componentId="admin.roles.admin_tag" color="indigo">
-            Admin
-          </Tag>
-        ) : null,
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_: unknown, record: Role) => (
-        <Button
-          componentId="admin.roles.delete_button"
-          type="tertiary"
-          icon={<TrashIcon />}
-          onClick={() => setDeleteTarget({ id: record.id, name: record.name })}
-          danger
+  const emptyState = (
+    <Empty
+      title={<FormattedMessage defaultMessage="No roles" description="Empty state title for roles table" />}
+      description={
+        <FormattedMessage
+          defaultMessage="Create a role to assign permissions to users."
+          description="Empty state description for roles table"
         />
-      ),
-    },
-  ];
+      }
+    />
+  );
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -329,7 +338,61 @@ const RolesTab = () => {
           <FormattedMessage defaultMessage="Create Role" description="Button to create a new role" />
         </Button>
       </div>
-      <LegacyTable dataSource={roles} columns={columns} rowKey="id" pagination={false} />
+      <Table
+        scrollable
+        noMinHeight
+        empty={emptyState}
+        css={{
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.general.borderRadiusBase,
+          overflow: 'hidden',
+        }}
+      >
+        <TableRow isHeader>
+          <TableHeader componentId="admin.roles.name_header" css={{ flex: 2 }}>
+            <FormattedMessage defaultMessage="Name" description="Roles table name header" />
+          </TableHeader>
+          <TableHeader componentId="admin.roles.workspace_header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Workspace" description="Roles table workspace header" />
+          </TableHeader>
+          <TableHeader componentId="admin.roles.description_header" css={{ flex: 2 }}>
+            <FormattedMessage defaultMessage="Description" description="Roles table description header" />
+          </TableHeader>
+          <TableHeader componentId="admin.roles.admin_role_header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Admin Role" description="Roles table admin role header" />
+          </TableHeader>
+          <TableHeader componentId="admin.roles.actions_header" css={{ flex: 0, minWidth: 80, maxWidth: 80 }}>
+            <FormattedMessage defaultMessage="Actions" description="Roles table actions header" />
+          </TableHeader>
+        </TableRow>
+        {roles.map((role) => (
+          <TableRow key={role.id}>
+            <TableCell css={{ flex: 2 }}>
+              <Link componentId="admin.roles.name_link" to={AdminRoutes.getRoleDetailRoute(role.id)}>
+                {role.name}
+              </Link>
+            </TableCell>
+            <TableCell css={{ flex: 1 }}>{role.workspace}</TableCell>
+            <TableCell css={{ flex: 2 }}>{role.description || '-'}</TableCell>
+            <TableCell css={{ flex: 1 }}>
+              {isWorkspaceAdminRole(role) ? (
+                <Tag componentId="admin.roles.admin_tag" color="indigo">
+                  Admin
+                </Tag>
+              ) : null}
+            </TableCell>
+            <TableCell css={{ flex: 0, minWidth: 80, maxWidth: 80 }}>
+              <Button
+                componentId="admin.roles.delete_button"
+                type="tertiary"
+                icon={<TrashIcon />}
+                onClick={() => setDeleteTarget({ id: role.id, name: role.name })}
+                danger
+              />
+            </TableCell>
+          </TableRow>
+        ))}
+      </Table>
       <Modal
         componentId="admin.roles.create_modal"
         title="Create Role"
@@ -373,7 +436,8 @@ const RolesTab = () => {
             />
           </div>
           <Typography.Paragraph css={{ color: theme.colors.textSecondary, marginTop: theme.spacing.sm }}>
-            To make this a workspace admin role, add a permission with resource type <strong>workspace</strong>, resource pattern <strong>*</strong>, and permission <strong>MANAGE</strong> after creation.
+            To make this a workspace admin role, add a permission with resource type <strong>workspace</strong>,
+            resource pattern <strong>*</strong>, and permission <strong>MANAGE</strong> after creation.
           </Typography.Paragraph>
         </div>
       </Modal>
@@ -400,23 +464,69 @@ const AdminPage = () => {
 
   return (
     <ScrollablePageWrapper>
-      <div css={{ padding: theme.spacing.lg }}>
-        <Typography.Title level={2} css={{ marginBottom: theme.spacing.lg }}>
-          <FormattedMessage defaultMessage="Platform Admin" description="Admin page title" />
-        </Typography.Title>
-        <Tabs.Root componentId="admin.tabs" valueHasNoPii defaultValue="users">
-          <Tabs.List>
-            <Tabs.Trigger value="users">
-              <FormattedMessage defaultMessage="Users" description="Admin users tab" />
-            </Tabs.Trigger>
-            <Tabs.Trigger value="roles">
-              <FormattedMessage defaultMessage="Roles" description="Admin roles tab" />
-            </Tabs.Trigger>
-          </Tabs.List>
-          <Tabs.Content value="users" css={{ paddingTop: theme.spacing.md }}>
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <div css={{ padding: theme.spacing.md, paddingBottom: 0 }}>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.xs,
+              marginBottom: theme.spacing.md,
+            }}
+          >
+            <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+              <div
+                css={{
+                  borderRadius: theme.borders.borderRadiusSm,
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  padding: theme.spacing.sm,
+                  display: 'flex',
+                }}
+              >
+                <UserIcon />
+              </div>
+              <Typography.Title withoutMargins level={2}>
+                <FormattedMessage defaultMessage="Platform Admin" description="Admin page title" />
+              </Typography.Title>
+            </div>
+          </div>
+        </div>
+        <Tabs.Root
+          componentId="admin.tabs"
+          valueHasNoPii
+          defaultValue="users"
+          css={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        >
+          <div css={{ paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }}>
+            <Tabs.List>
+              <Tabs.Trigger value="users">
+                <FormattedMessage defaultMessage="Users" description="Admin users tab" />
+              </Tabs.Trigger>
+              <Tabs.Trigger value="roles">
+                <FormattedMessage defaultMessage="Roles" description="Admin roles tab" />
+              </Tabs.Trigger>
+            </Tabs.List>
+          </div>
+          <Tabs.Content
+            value="users"
+            css={{
+              flex: 1,
+              overflow: 'auto',
+              padding: theme.spacing.md,
+              paddingTop: theme.spacing.md,
+            }}
+          >
             <UsersTab />
           </Tabs.Content>
-          <Tabs.Content value="roles" css={{ paddingTop: theme.spacing.md }}>
+          <Tabs.Content
+            value="roles"
+            css={{
+              flex: 1,
+              overflow: 'auto',
+              padding: theme.spacing.md,
+              paddingTop: theme.spacing.md,
+            }}
+          >
             <RolesTab />
           </Tabs.Content>
         </Tabs.Root>
