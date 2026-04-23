@@ -59,6 +59,13 @@ env: []
 # Extra envFrom sources (ConfigMaps, Secrets).
 envFrom: []
 
+storage:
+  enabled: false
+  size: 10Gi
+  accessMode: ReadWriteOnce
+  storageClassName: ""
+  mountPath: /mlflow
+
 resources: {}
   # limits:
   #   cpu: 500m

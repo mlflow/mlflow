@@ -73,6 +73,17 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if .Values.storage.enabled }}
+          volumeMounts:
+            - name: mlflow-storage
+              mountPath: {{ .Values.storage.mountPath }}
+          {{- end }}
+      {{- if .Values.storage.enabled }}
+      volumes:
+        - name: mlflow-storage
+          persistentVolumeClaim:
+            claimName: {{ include "mlflow.fullname" . }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
