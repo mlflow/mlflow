@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import mlflow
@@ -18,6 +19,10 @@ from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
+_logger = logging.getLogger(__name__)
+
+_DEMO_CREATED_BY = "demo"
+
 DEMO_ISSUE_DETECTION_RUN_NAME = "Demo Issue Detection"
 _MAX_TRACES_PER_ISSUE = 5
 
@@ -32,7 +37,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.ISSUES
-    version = 3
+    version = 4
 
     def generate(self) -> DemoResult:
         store = _get_store()
@@ -97,7 +102,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                     severity=issue_config["severity"],
                     root_causes=issue_config["root_causes"],
                     categories=issue_config["categories"],
-                    created_by="demo",
+                    created_by=_DEMO_CREATED_BY,
                     source_run_id=run_id,
                 )
                 created_issue_ids.append(issue.issue_id)
@@ -210,5 +215,18 @@ class IssuesDemoGenerator(BaseDemoGenerator):
         for _, run in runs.iterrows():
             mlflow.delete_run(run.run_id)
 
-        # TODO: Delete issues explicitly once delete_issue API is available
+        # No delete_issue API exists yet. Without cleanup here, regeneration would
+        # pile new PENDING issues on top of the old ones (same names, same
+        # experiment) and the UI would show duplicates. Mark the old demo issues
+        # as REJECTED so they're hidden from the default "active issues" view —
+        # this is also semantically correct since these issues referenced traces
+        # that have just been deleted as part of the demo refresh.
+        try:
+            issues = store.search_issues(experiment_id=experiment.experiment_id)
+            for issue in issues:
+                if issue.created_by == _DEMO_CREATED_BY and issue.status == IssueStatus.PENDING:
+                    store.update_issue(issue_id=issue.issue_id, status=IssueStatus.REJECTED)
+        except Exception:
+            _logger.debug("Failed to reject old demo issues", exc_info=True)
+
         # Note: Issues are also automatically deleted when the experiment is deleted.

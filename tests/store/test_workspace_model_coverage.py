@@ -20,10 +20,10 @@ from mlflow.store.db.base_sql_model import Base
 # store paths resolve correctly regardless of the pytest working directory.
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
-# Every workspace store that provides a ``_get_query`` override.
+# Every store that provides a ``_get_query`` with workspace filtering.
 WORKSPACE_STORE_PATHS = [
     "mlflow/store/tracking/sqlalchemy_workspace_store.py",
-    "mlflow/store/model_registry/sqlalchemy_workspace_store.py",
+    "mlflow/store/model_registry/sqlalchemy_store.py",
     "mlflow/store/jobs/sqlalchemy_workspace_store.py",
 ]
 

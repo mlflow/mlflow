@@ -9,22 +9,28 @@ import { useChartColors } from '../utils/chartUtils';
 import { QualityTabEmptyState } from './QualityTabEmptyState';
 import { AssessmentSummaryTable } from './AssessmentSummaryTable';
 
-/**
- * Component that fetches available feedback assessments and renders a chart for each one.
- */
-export const AssessmentChartsSection: React.FC = () => {
+interface AssessmentChartsSectionProps {
+  enableTraceNavigation?: boolean;
+}
+
+export const AssessmentChartsSection: React.FC<AssessmentChartsSectionProps> = ({ enableTraceNavigation }) => {
   const { theme } = useDesignSystemTheme();
 
-  // Fetch and process assessment data
-  const { assessmentNames, avgValuesByName, countsByName, isLoading, error, hasData } =
-    useAssessmentChartsSectionData();
+  const {
+    assessmentNames,
+    avgValuesByName,
+    countsByName,
+    timeSeriesChartDataByName,
+    distributionChartDataByName,
+    isLoading,
+    error,
+    hasData,
+  } = useAssessmentChartsSectionData();
 
-  // Check if there are assessments outside the time range (only when no data in current range)
   const { hasAssessmentsOutsideTimeRange, isLoading: isLoadingOutsideRange } = useHasAssessmentsOutsideTimeRange(
     !hasData && !isLoading,
   );
 
-  // Get chart colors for consistent coloring
   const { getChartColor } = useChartColors();
 
   if (isLoading || (!hasData && isLoadingOutsideRange)) {
@@ -41,7 +47,6 @@ export const AssessmentChartsSection: React.FC = () => {
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      {/* Section header */}
       <div>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}>
           <SparkleIcon css={{ color: theme.colors.yellow500 }} />
@@ -60,20 +65,21 @@ export const AssessmentChartsSection: React.FC = () => {
         </Typography.Text>
       </div>
 
-      {/* Assessment summary table */}
       <AssessmentSummaryTable
         assessmentNames={assessmentNames}
         countsByName={countsByName}
         avgValuesByName={avgValuesByName}
       />
 
-      {/* Assessment charts - one row per scorer */}
       {assessmentNames.map((name, index) => (
         <div key={name} id={`assessment-chart-${name}`}>
           <LazyTraceAssessmentChart
             assessmentName={name}
             lineColor={getChartColor(index)}
             avgValue={avgValuesByName.get(name)}
+            timeSeriesChartData={timeSeriesChartDataByName.get(name) ?? []}
+            distributionChartData={distributionChartDataByName.get(name) ?? []}
+            enableTraceNavigation={enableTraceNavigation}
           />
         </div>
       ))}

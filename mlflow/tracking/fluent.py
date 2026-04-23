@@ -3882,7 +3882,9 @@ def set_active_model(*, name: str | None = None, model_id: str | None = None) ->
 
 
         predict("abc")
-        traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
+        traces = mlflow.search_traces(
+            model_id=mlflow.get_active_model_id(), return_type="list", flush=True
+        )
         assert len(traces) == 1
     """
     return _set_active_model(name=name, model_id=model_id, set_by_user=True)

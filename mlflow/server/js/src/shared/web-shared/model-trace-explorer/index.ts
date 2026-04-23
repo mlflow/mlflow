@@ -39,6 +39,7 @@ export {
   ASSESSMENT_SESSION_METADATA_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
 } from './constants';
 export {
   shouldEnableTracesTabLabelingSchemas,

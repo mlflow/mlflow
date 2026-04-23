@@ -29,6 +29,10 @@ uv run run.py --instances 8 --workers 8
 # Benchmark an existing endpoint directly (skips all setup)
 uv run run.py --url http://your-server/gateway/my-endpoint/mlflow/invocations
 
+# Basic-auth enabled (starts MLflow with --app-name=basic-auth,
+# sends Authorization: Basic on every request)
+uv run run.py --instances 1 --auth
+
 ```
 
 ## What is measured
@@ -40,12 +44,12 @@ Connection pooling and HTTP keep-alive are enabled, so TCP handshake cost is amo
 
 ### What is NOT measured
 
-| Factor             | In this benchmark                          | In production               |
-| ------------------ | ------------------------------------------ | --------------------------- |
-| Network latency    | ~0 ms (loopback)                           | 1–100 ms per hop            |
-| TLS/SSL            | None (plain HTTP)                          | ~5–20 ms per new connection |
-| Provider inference | Fixed fake delay (`--fake-delay-ms`)       | Variable (50 ms – 60 s+)    |
-| Authentication     | Disabled (`--disable-security-middleware`) | Token validation, RBAC      |
+| Factor             | In this benchmark                              | In production               |
+| ------------------ | ---------------------------------------------- | --------------------------- |
+| Network latency    | ~0 ms (loopback)                               | 1–100 ms per hop            |
+| TLS/SSL            | None (plain HTTP)                              | ~5–20 ms per new connection |
+| Provider inference | Fixed fake delay (`--fake-delay-ms`)           | Variable (50 ms – 60 s+)    |
+| Authentication     | Off by default; basic-auth opt-in via `--auth` | Token validation, RBAC      |
 
 ## What MLflow does per request
 
@@ -89,27 +93,31 @@ DB schema before the others join. All instances share one PostgreSQL database.
 
 ## Options
 
-| Flag                          | Default  | Description                                                             |
-| ----------------------------- | -------- | ----------------------------------------------------------------------- |
-| `--url URL`                   | —        | Benchmark this URL directly, skip all setup                             |
-| `--instances N`               | 4        | MLflow instances. Use 1 for single-instance (no nginx, optional SQLite) |
-| `--workers N`                 | 4        | MLflow worker processes per instance                                    |
-| `--database sqlite\|postgres` | `sqlite` | Database to use — only applies when `--instances 1`                     |
-| `--no-usage-tracking`         | —        | Disable usage tracking (tracing) on the endpoint                        |
-| `--port N`                    | 5731     | Port to benchmark (MLflow port for single, nginx LB port for multi)     |
-| `--base-port N`               | 5800     | First MLflow instance port in multi mode (rest are +1, +2, …)           |
-| `--fake-server-port N`        | 9137     | Fake OpenAI server port                                                 |
-| `--requests N`                | 2000     | Requests per run                                                        |
-| `--max-concurrent N`          | 50       | Max concurrent requests                                                 |
-| `--runs N`                    | 3        | Number of benchmark runs                                                |
-| `--fake-delay-ms N`           | 50       | Simulated provider latency in ms                                        |
-| `--min-rps N`                 | —        | Fail (exit 1) if average throughput falls below N req/s                 |
-| `--max-p50-ms N`              | —        | Fail (exit 1) if average P50 latency exceeds N ms (CI threshold)        |
-| `--max-p99-ms N`              | —        | Fail (exit 1) if average P99 latency exceeds N ms (CI threshold)        |
+| Flag                          | Default        | Description                                                             |
+| ----------------------------- | -------------- | ----------------------------------------------------------------------- |
+| `--url URL`                   | —              | Benchmark this URL directly, skip all setup                             |
+| `--instances N`               | 4              | MLflow instances. Use 1 for single-instance (no nginx, optional SQLite) |
+| `--workers N`                 | 4              | MLflow worker processes per instance                                    |
+| `--database sqlite\|postgres` | `sqlite`       | Database to use — only applies when `--instances 1`                     |
+| `--no-usage-tracking`         | —              | Disable usage tracking (tracing) on the endpoint                        |
+| `--port N`                    | 5731           | Port to benchmark (MLflow port for single, nginx LB port for multi)     |
+| `--base-port N`               | 5800           | First MLflow instance port in multi mode (rest are +1, +2, …)           |
+| `--fake-server-port N`        | 9137           | Fake OpenAI server port                                                 |
+| `--requests N`                | 2000           | Requests per run                                                        |
+| `--max-concurrent N`          | 50             | Max concurrent requests                                                 |
+| `--runs N`                    | 3              | Number of benchmark runs                                                |
+| `--fake-delay-ms N`           | 50             | Simulated provider latency in ms                                        |
+| `--min-rps N`                 | —              | Fail (exit 1) if average throughput falls below N req/s                 |
+| `--max-p50-ms N`              | —              | Fail (exit 1) if average P50 latency exceeds N ms (CI threshold)        |
+| `--max-p99-ms N`              | —              | Fail (exit 1) if average P99 latency exceeds N ms (CI threshold)        |
+| `--auth`                      | off            | Start MLflow with `--app-name=basic-auth`; send Basic auth on requests  |
+| `--auth-username USER`        | `admin`        | Basic-auth username (matches `mlflow/server/auth/basic_auth.ini`)       |
+| `--auth-password PASS`        | `password1234` | Basic-auth password (matches `mlflow/server/auth/basic_auth.ini`)       |
 
 All flags can also be set via environment variables (same name, uppercased):
 `INSTANCES`, `WORKERS_PER_INSTANCE`, `REQUESTS`, `MAX_CONCURRENT`, `RUNS`,
-`FAKE_RESPONSE_DELAY_MS`, `MLFLOW_PORT`, `BASE_PORT`, `FAKE_SERVER_PORT`.
+`FAKE_RESPONSE_DELAY_MS`, `MLFLOW_PORT`, `BASE_PORT`, `FAKE_SERVER_PORT`,
+`AUTH`, `AUTH_USERNAME`, `AUTH_PASSWORD`.
 
 To avoid conflicts with a local PostgreSQL instance, override the port via `GATEWAY_BENCH_POSTGRES_PORT` (default: 5432).
 
@@ -121,8 +129,9 @@ To avoid conflicts with a local PostgreSQL instance, override the port via `GATE
   add TLS termination overhead.
 - **Fixed provider latency** — `fake_server.py` always responds in exactly `--fake-delay-ms`.
   Real providers have high variance (P99 often 5–10× P50).
-- **No auth** — token validation and RBAC are disabled. Auth middleware adds latency
-  proportional to token lookup strategy.
+- **Basic-auth is opt-in, no RBAC** — `--auth` enables `basic-auth` with the default
+  admin user (full permissions), which measures the cost of HTTP Basic authentication
+  and user lookup but not fine-grained RBAC checks against non-admin users.
 - **Single machine resource contention** — with multiple instances, all MLflow instances, nginx,
   PostgreSQL, and the benchmark client share CPU/memory. On a server with dedicated resources
   per instance, throughput will be higher.

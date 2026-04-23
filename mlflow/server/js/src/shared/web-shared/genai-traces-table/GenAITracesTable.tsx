@@ -422,58 +422,55 @@ function GenAiTracesTableImpl({
                         gap: theme.spacing.md,
                       }}
                     >
-                      {selectedAssessmentInfos
-                        // For now, we don't support filtering on numeric values.
-                        .filter((info) => info.dtype !== 'numeric')
-                        .map((assessmentInfo) => (
+                      {selectedAssessmentInfos.map((assessmentInfo) => (
+                        <div
+                          css={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: theme.spacing.sm,
+                          }}
+                          key={assessmentInfo.name}
+                        >
                           <div
                             css={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: theme.spacing.sm,
+                              fontWeight: 500,
                             }}
-                            key={assessmentInfo.name}
                           >
+                            {assessmentInfo.displayName}
+                          </div>
+                          {currentRunDisplayName && (
+                            <AssessmentsFilterSelector
+                              assessmentLabel={assessmentInfo.displayName}
+                              assessmentName={assessmentInfo.name}
+                              assessmentInfo={assessmentInfo}
+                              assessmentFilter={getAssessmentFilter(assessmentInfo.name, currentRunDisplayName)}
+                              updateAssessmentFilter={updateAssessmentFilter}
+                              removeAssessmentFilter={removeAssessmentFilter}
+                              run={currentRunDisplayName}
+                            />
+                          )}
+                          {compareToRunUuid && compareToRunDisplayName && (
                             <div
                               css={{
-                                fontWeight: 500,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: theme.spacing.xs,
                               }}
                             >
-                              {assessmentInfo.displayName}
-                            </div>
-                            {currentRunDisplayName && (
+                              <Typography.Hint>{compareToRunDisplayName}</Typography.Hint>
                               <AssessmentsFilterSelector
                                 assessmentLabel={assessmentInfo.displayName}
                                 assessmentName={assessmentInfo.name}
                                 assessmentInfo={assessmentInfo}
-                                assessmentFilter={getAssessmentFilter(assessmentInfo.name, currentRunDisplayName)}
+                                assessmentFilter={getAssessmentFilter(assessmentInfo.name, compareToRunDisplayName)}
                                 updateAssessmentFilter={updateAssessmentFilter}
                                 removeAssessmentFilter={removeAssessmentFilter}
-                                run={currentRunDisplayName}
+                                run={compareToRunDisplayName}
                               />
-                            )}
-                            {compareToRunUuid && compareToRunDisplayName && (
-                              <div
-                                css={{
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: theme.spacing.xs,
-                                }}
-                              >
-                                <Typography.Hint>{compareToRunDisplayName}</Typography.Hint>
-                                <AssessmentsFilterSelector
-                                  assessmentLabel={assessmentInfo.displayName}
-                                  assessmentName={assessmentInfo.name}
-                                  assessmentInfo={assessmentInfo}
-                                  assessmentFilter={getAssessmentFilter(assessmentInfo.name, compareToRunDisplayName)}
-                                  updateAssessmentFilter={updateAssessmentFilter}
-                                  removeAssessmentFilter={removeAssessmentFilter}
-                                  run={compareToRunDisplayName}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </DialogComboboxContent>
                 </DialogCombobox>
@@ -730,5 +727,8 @@ export interface SampleInfo {
   maxAllowedCount?: number;
 }
 
+/**
+ * @deprecated Use `GenAITracesTableBodyContainer` and `GenAITracesTableToolbar` instead for new use cases.
+ */
 // TODO: Add an error boundary to the OSS trace table
-export const GenAiTracesTable = GenAiTracesTableImpl;
+export const GenAiTracesTableDeprecated = GenAiTracesTableImpl;

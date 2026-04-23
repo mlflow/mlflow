@@ -200,6 +200,8 @@ jobs:
         with:
           name: ${{ github.run_id }}.diff
           path: ${{ github.run_id }}.diff
+          retention-days: 1
+          if-no-files-found: ignore
 
   push:
     runs-on: ubuntu-slim

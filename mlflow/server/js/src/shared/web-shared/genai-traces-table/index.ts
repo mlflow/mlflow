@@ -19,7 +19,10 @@ export {
 
 export { useTableSort } from './hooks/useTableSort';
 
-export { GenAiTracesTable } from './GenAITracesTable';
+/**
+ * @deprecated Use `GenAITracesTableBodyContainer` and `GenAITracesTableToolbar` instead for new use cases.
+ */
+export { GenAiTracesTableDeprecated } from './GenAITracesTable';
 export { useGenAiExperimentRunsForComparison } from './hooks/useGenAiExperimentRunsForComparison';
 export { useGenAiTraceEvaluationArtifacts } from './hooks/useGenAiTraceEvaluationArtifacts';
 export {
@@ -70,6 +73,8 @@ export {
   RUN_EVALUATION_RESULTS_TAB_SINGLE_RUN,
 } from './utils/EvaluationLogging';
 
+export { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGroupingUtils';
+
 export {
   getTracesTagKeys,
   getTraceInfoInputs,
@@ -109,8 +114,19 @@ export {
   createTestColumns,
 } from './test-fixtures/EvaluatedTraceTestUtils';
 
-export { shouldUseTracesV4API, shouldUseLongRunningTracesAPI } from './utils/FeatureUtils';
-export { createTraceLocationForExperiment, createTraceLocationForUCSchema } from './utils/TraceLocationUtils';
+export {
+  shouldUseTracesV4API,
+  shouldUseLongRunningTracesAPI,
+  shouldUseInfinitePaginatedTraces,
+} from './utils/FeatureUtils';
+export {
+  createTraceLocationForExperiment,
+  createTraceLocationForUCSchema,
+  createTraceLocationForUCTablePrefix,
+  createTraceLocationForDestinationPath,
+  isTablePrefixDestinationPath,
+  isV4TraceLocation,
+} from './utils/TraceLocationUtils';
 export type { GetTraceFunction } from './hooks/useGetTrace';
 export { useFetchTraceV4LazyQuery, useFetchTraceV4Query, getTraceV4QueryKey } from './hooks/useFetchTraceV4';
 export { doesTraceSupportV4API } from './utils/TraceLocationUtils';
@@ -119,8 +135,10 @@ export { groupTracesBySession } from './sessions-table/utils';
 export { GenAITracesTableBodySkeleton } from './GenAITracesTableBodySkeleton';
 export { useGetTraces } from './hooks/useGetTraces';
 export { useGetTrace } from './hooks/useGetTrace';
-export { ActiveEvaluationContext } from './hooks/useActiveEvaluation';
+export { ActiveEvaluationContext, useActiveEvaluation } from './hooks/useActiveEvaluation';
+export { isSqlWarehouseTimeoutError } from './utils/ErrorUtils';
 export {
   GenAiTraceTableRowSelectionProvider,
   useGenAiTraceTableRowSelection,
+  useIsInsideGenAiTraceTableRowSelectionProvider,
 } from './hooks/useGenAiTraceTableRowSelection';

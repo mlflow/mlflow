@@ -4,10 +4,15 @@ import pytest
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.databricks import DatabricksConfig, DatabricksProvider
 from mlflow.gateway.schemas import chat, embeddings
 
-from tests.gateway.tools import MockAsyncResponse, mock_http_client
+from tests.gateway.tools import (
+    MockAsyncResponse,
+    MockAsyncStreamingResponse,
+    mock_http_client,
+)
 
 
 def _mock_workspace_client(host="https://my-workspace.databricks.com"):
@@ -180,3 +185,170 @@ def test_config_all_optional():
     assert config.token is None
     assert config.client_id is None
     assert config.client_secret is None
+
+
+@pytest.mark.parametrize(
+    ("route_type", "expected_suffix"),
+    [
+        ("llm/v1/chat", "chat/completions"),
+        ("llm/v1/completions", "completions"),
+        ("llm/v1/embeddings", "embeddings"),
+    ],
+)
+def test_get_endpoint_url(route_type: str, expected_suffix: str):
+    provider = _make_provider()
+    url = provider.get_endpoint_url(route_type)
+    assert url == f"https://my-workspace.databricks.com/serving-endpoints/{expected_suffix}"
+
+
+def test_get_endpoint_url_unsupported():
+    provider = _make_provider()
+    with pytest.raises(ValueError, match="Unsupported route_type"):
+        provider.get_endpoint_url("llm/v1/unsupported")
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_chat():
+    provider = _make_provider()
+    mock_client = mock_http_client(MockAsyncResponse(_chat_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.passthrough(
+            action=PassthroughAction.OPENAI_CHAT,
+            payload={"messages": [{"role": "user", "content": "Hello"}]},
+        )
+
+    assert result["id"] == "chatcmpl-db-123"
+    mock_client.post.assert_called_once()
+    call_args = mock_client.post.call_args
+    assert call_args[0][0] == (
+        "https://my-workspace.databricks.com/serving-endpoints/chat/completions"
+    )
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_chat_streaming():
+    provider = _make_provider()
+    chunk_data = (
+        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'
+        b'"model":"databricks-dbrx-instruct","choices":[{"index":0,"delta":{"content":"Hi"},'
+        b'"finish_reason":null}]}\n\n'
+    )
+    chunks = [chunk_data, b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.passthrough(
+            action=PassthroughAction.OPENAI_CHAT,
+            payload={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "stream": True,
+            },
+        )
+        collected = [chunk async for chunk in result]
+
+    assert len(collected) > 0
+    mock_client.post.assert_called_once()
+    call_args = mock_client.post.call_args
+    assert call_args[0][0] == (
+        "https://my-workspace.databricks.com/serving-endpoints/chat/completions"
+    )
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_embeddings():
+    provider = _make_provider()
+    mock_client = mock_http_client(MockAsyncResponse(_embeddings_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.passthrough(
+            action=PassthroughAction.OPENAI_EMBEDDINGS,
+            payload={"input": "Test text"},
+        )
+
+    assert result["data"][0]["embedding"] == [0.1, 0.2, 0.3]
+    mock_client.post.assert_called_once()
+    call_args = mock_client.post.call_args
+    assert call_args[0][0] == ("https://my-workspace.databricks.com/serving-endpoints/embeddings")
+
+
+@pytest.mark.asyncio
+async def test_passthrough_anthropic_messages():
+    provider = _make_provider()
+    anthropic_response = {
+        "id": "msg-123",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": "Hello!"}],
+        "model": "claude-3-5-sonnet",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+        "headers": {"Content-Type": "application/json"},
+    }
+    mock_client = mock_http_client(MockAsyncResponse(anthropic_response))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.passthrough(
+            action=PassthroughAction.ANTHROPIC_MESSAGES,
+            payload={"messages": [{"role": "user", "content": "Hello"}]},
+        )
+
+    assert result["id"] == "msg-123"
+    mock_client.post.assert_called_once()
+    call_args = mock_client.post.call_args
+    assert call_args[0][0] == (
+        "https://my-workspace.databricks.com/serving-endpoints/anthropic/v1/messages"
+    )
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_generate_content():
+    provider = _make_provider()
+    gemini_response = {
+        "candidates": [
+            {
+                "content": {"parts": [{"text": "Hello!"}], "role": "model"},
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 5, "candidatesTokenCount": 3},
+        "headers": {"Content-Type": "application/json"},
+    }
+    mock_client = mock_http_client(MockAsyncResponse(gemini_response))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.passthrough(
+            action=PassthroughAction.GEMINI_GENERATE_CONTENT,
+            payload={"contents": [{"parts": [{"text": "Hello"}]}]},
+        )
+
+    assert result["candidates"][0]["content"]["parts"][0]["text"] == "Hello!"
+    mock_client.post.assert_called_once()
+    call_args = mock_client.post.call_args
+    # {model} should be formatted with the actual model name
+    assert call_args[0][0] == (
+        "https://my-workspace.databricks.com/serving-endpoints/"
+        "gemini/v1beta/models/databricks-dbrx-instruct:generateContent"
+    )
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_streaming():
+    provider = _make_provider()
+    chunk_data = b'data: {"candidates":[{"content":{"parts":[{"text":"Hi"}],"role":"model"}}]}\n\n'
+    chunks = [chunk_data, b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.passthrough(
+            action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT,
+            payload={"contents": [{"parts": [{"text": "Hello"}]}]},
+        )
+        collected = [chunk async for chunk in result]
+
+    assert len(collected) > 0
+    mock_client.post.assert_called_once()
+    call_args = mock_client.post.call_args
+    assert call_args[0][0] == (
+        "https://my-workspace.databricks.com/serving-endpoints/"
+        "gemini/v1beta/models/databricks-dbrx-instruct:streamGenerateContent"
+    )
