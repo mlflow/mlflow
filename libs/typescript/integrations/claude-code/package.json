@@ -55,6 +55,7 @@
   "files": [
     "dist/",
     "bundle/",
-    "hooks/"
+    "hooks/",
+    ".claude-plugin/"
   ]
 }
