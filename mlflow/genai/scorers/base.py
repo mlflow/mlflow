@@ -1022,15 +1022,23 @@ class Scorer(BaseModel):
         )
 
         if self.kind == ScorerKind.THIRD_PARTY:
-            # Rebuild via `__init__` rather than `model_copy(deep=True)`: some
-            # third-party metric instances (notably RAGAS metrics, which hold an
-            # `instructor`-wrapped LLM client) contain objects whose `__getattr__`
-            # recurses into themselves when deepcopy walks them, overflowing the
-            # stack. Re-running `__init__` with the stored args produces a clean
-            # wrapper without touching the underlying metric's state.
+            # Rebuild via __init__ — some third-party metrics (e.g. RAGAS) hold
+            # `instructor`-wrapped clients whose __getattr__ recurses infinitely
+            # on deepcopy.
             init_kwargs = dict(self._metric_kwargs)
-            if getattr(type(self), "metric_name", None) != self._metric_name:
+            # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)
+            # have no `metric_name` ClassVar — pass it as a kwarg; (b) concrete
+            # subclasses (`ExactMatch`) pin it via ClassVar and forward to
+            # `super().__init__`, so re-passing raises "multiple values".
+            class_metric_name = getattr(type(self), "metric_name", None)
+            if class_metric_name is None:
                 init_kwargs["metric_name"] = self._metric_name
+            elif class_metric_name != self._metric_name:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer {type(self).__name__}: instance "
+                    f"`_metric_name='{self._metric_name}'` does not match class "
+                    f"ClassVar `metric_name='{class_metric_name}'`."
+                )
             if self._model is not None:
                 init_kwargs["model"] = self._model
             copy = type(self)(**init_kwargs)
