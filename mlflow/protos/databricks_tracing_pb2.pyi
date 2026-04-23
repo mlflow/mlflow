@@ -287,7 +287,7 @@ class SearchTracesOperationMetadata(_message.Message):
     state: SearchTracesOperationMetadata.State
     def __init__(self, start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., state: _Optional[_Union[SearchTracesOperationMetadata.State, str]] = ...) -> None: ...
 
-class Operation(_message.Message):
+class SearchTracesOperation(_message.Message):
     __slots__ = ("name", "metadata", "done", "error", "response")
     NAME_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]

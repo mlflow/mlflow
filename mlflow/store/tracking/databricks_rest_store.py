@@ -57,8 +57,8 @@ from mlflow.protos.databricks_tracing_pb2 import (
     GetTraceInfo,
     LinkExperimentToUCTraceLocation,
     LinkTraceLocation,
-    Operation,
     SearchTracesLongRunning,
+    SearchTracesOperation,
     SetTraceTag,
     UnLinkExperimentToUCTraceLocation,
     UpdateAssessment,
@@ -491,7 +491,7 @@ class DatabricksTracingRestStore(RestStore):
                 SearchTracesLongRunning,
                 req_body,
                 endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search-long-running",
-                response_proto=Operation(),
+                response_proto=SearchTracesOperation(),
             )
         except MlflowException as e:
             # There are 2 expected failure cases:
@@ -534,21 +534,21 @@ class DatabricksTracingRestStore(RestStore):
 
     def _poll_search_traces_operation(
         self,
-        operation: Operation,
+        operation: SearchTracesOperation,
         *,
         poll_interval_seconds: float = _SEARCH_TRACES_POLL_INTERVAL_SECONDS,
-    ) -> Operation:
+    ) -> SearchTracesOperation:
         while not operation.done:
             time.sleep(poll_interval_seconds)
             operation = self._call_endpoint(
                 GetOperationRequest,
                 None,
                 endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search/operations/{operation.name}",
-                response_proto=Operation(),
+                response_proto=SearchTracesOperation(),
             )
         if operation.HasField("error"):
             raise MlflowException(
-                operation.error.message or "SearchTracesLongRunning failed.",
+                operation.error.message or "Failed to search traces",
                 error_code=operation.error.error_code or ErrorCode.Name(INTERNAL_ERROR),
             )
         return operation

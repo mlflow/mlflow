@@ -123,9 +123,9 @@ service DatabricksTrackingService {
     };
   }
 
-  // Long-running equivalent of searchTraces. Returns an Operation immediately;
-  // callers poll getOperation until Operation.done is true.
-  rpc searchTracesLongRunning(SearchTracesLongRunning) returns (Operation) {
+  // Long-running equivalent of searchTraces. Returns a SearchTracesOperation
+  // immediately; callers poll getSearchTracesOperation until done is true.
+  rpc searchTracesLongRunning(SearchTracesLongRunning) returns (SearchTracesOperation) {
     option (rpc) = {
       endpoints: [
         {
@@ -143,7 +143,7 @@ service DatabricksTrackingService {
   }
 
   // Poll a long-running search-traces Operation.
-  rpc getOperation(GetOperationRequest) returns (Operation) {
+  rpc getSearchTracesOperation(GetOperationRequest) returns (SearchTracesOperation) {
     option (rpc) = {
       endpoints: [
         {
@@ -660,7 +660,7 @@ message SearchTracesOperationMetadata {
 // from the REST layer deserialize without needing @type URLs. `error` uses the
 // verbatim `databricks.api.DatabricksServiceExceptionWithDetailsProto` so the
 // wire shape matches universe's `databricks.longrunning.Operation`.
-message Operation {
+message SearchTracesOperation {
   // Server-assigned name of the form "operations/{unique_id}".
   optional string name = 1;
 
