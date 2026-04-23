@@ -118,8 +118,10 @@ MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES
 #: When ``True``, MLflow's auth layer resolves permissions solely from the unified
 #: ``role_permissions`` table instead of the legacy per-resource permission tables.
 #: Requires Alembic revision ``d4e5f6a7b8c9`` (the Phase 2 M2 backfill) to be applied.
-#: (default: ``False``)
-MLFLOW_RBAC_UNIFIED_READS = _BooleanEnvironmentVariable("MLFLOW_RBAC_UNIFIED_READS", False)
+#: Set to ``False`` to revert to the hybrid resolver that consults both legacy tables
+#: and ``role_permissions`` (useful as an emergency rollback).
+#: (default: ``True``)
+MLFLOW_RBAC_UNIFIED_READS = _BooleanEnvironmentVariable("MLFLOW_RBAC_UNIFIED_READS", True)
 
 #: Specifies the active workspace for client operations.
 #: (default: ``None``)

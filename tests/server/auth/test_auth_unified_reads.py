@@ -185,7 +185,8 @@ def test_startup_assertion_accepts_post_backfill_revision(tmp_path, monkeypatch)
 def test_startup_assertion_noop_when_flag_off(tmp_path, monkeypatch):
     store = _make_store_at_revision(tmp_path / "auth.db", "c3d4e5f6a7b8")
     monkeypatch.setattr(auth_module, "store", store, raising=False)
-    monkeypatch.delenv(MLFLOW_RBAC_UNIFIED_READS.name, raising=False)
+    # Explicitly force the flag off (default is True in 3.13+).
+    monkeypatch.setenv(MLFLOW_RBAC_UNIFIED_READS.name, "false")
 
     auth_module._assert_unified_reads_preconditions()
     store.engine.dispose()
