@@ -1154,7 +1154,6 @@ def test_get_databricks_host_creds_workspace_id_none_when_not_set(monkeypatch):
 
 
 def test_get_databricks_host_creds_workspace_id_from_config_on_sdk_failure(monkeypatch):
-    """When WorkspaceClient auth fails, workspace_id is still read from SDK Config."""
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
     monkeypatch.setenv("DATABRICKS_HOST", "https://spog.databricks.com")
     monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
@@ -1178,7 +1177,6 @@ def test_get_databricks_host_creds_workspace_id_from_config_on_sdk_failure(monke
 
 
 def test_get_databricks_host_creds_workspace_id_none_on_full_failure(monkeypatch):
-    """When both WorkspaceClient and Config fail, workspace_id is None."""
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
     monkeypatch.setenv("DATABRICKS_HOST", "https://workspace.databricks.com")
     monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
