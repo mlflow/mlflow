@@ -183,9 +183,11 @@ function JsonNode({
     minWidth: 11 * maxLineNumberDigits + theme.spacing.xs,
     paddingLeft: theme.spacing.sm,
     paddingRight: theme.spacing.xs,
+    paddingTop: 2,
     textAlign: 'right' as const,
     color: theme.colors.textSecondary,
     userSelect: 'none' as const,
+    alignSelf: 'flex-start' as const,
     flexShrink: 0,
     ...monoTextStyle,
   };
