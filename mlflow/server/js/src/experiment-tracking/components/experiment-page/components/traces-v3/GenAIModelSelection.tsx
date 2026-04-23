@@ -92,11 +92,26 @@ interface GenAIModelSelectionProps {
   showConfigureDirectly?: boolean;
   /** Whether to show the "Create Gateway endpoint" option in the endpoint dropdown. Defaults to false. */
   showCreateEndpoint?: boolean;
+  /** Called whenever the selection changes (mode, endpoint, provider, model, etc.). */
+  onSelectionChange?: (values: ModelSelectionValues) => void;
+  /** Telemetry component ID prefix used for all child elements. */
+  componentId: string;
+  /** Subtitle shown below the "Select Model" heading. */
+  description: React.ReactNode;
 }
 
 export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModelSelectionProps>(
   function GenAIModelSelection(
-    { onValidityChange, readOnly = false, initialValues, showConfigureDirectly = false, showCreateEndpoint = false },
+    {
+      onValidityChange,
+      readOnly = false,
+      initialValues,
+      showConfigureDirectly = false,
+      showCreateEndpoint = false,
+      onSelectionChange,
+      componentId,
+      description,
+    },
     ref,
   ) {
     const { theme } = useDesignSystemTheme();
@@ -166,7 +181,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
 
     // Get display value for the dropdown
     const dropdownDisplayValue = useMemo(() => {
-      if (hasInitializedMode && mode === 'direct') {
+      if (hasInitializedMode && mode === 'direct' && showConfigureDirectly) {
         return intl.formatMessage({
           defaultMessage: 'Configure model directly',
           description: 'Option to configure model directly instead of using an endpoint',
@@ -178,7 +193,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
       // No endpoint selected yet - return empty to show placeholder
       return '';
-    }, [mode, selectedEndpointName, endpointOptions, intl, hasInitializedMode]);
+    }, [mode, selectedEndpointName, endpointOptions, intl, hasInitializedMode, showConfigureDirectly]);
 
     // Handle selection from dropdown
     const handleDropdownSelect = useCallback((value: string) => {
@@ -274,6 +289,10 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       onValidityChange(isValid);
     }, [isValid, onValidityChange]);
 
+    useEffect(() => {
+      onSelectionChange?.({ mode, endpointName: selectedEndpointName, provider, model, apiKeyConfig, saveKey });
+    }, [mode, selectedEndpointName, provider, model, apiKeyConfig, saveKey, onSelectionChange]);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -300,22 +319,19 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                 defaultMessage="Select Model"
                 description="Header for the model selection step in issue detection modal"
               />{' '}
-              <Tooltip
-                componentId="mlflow.traces.issue-detection-modal.endpoint-tip-tooltip"
-                content={intl.formatMessage({
-                  defaultMessage: 'Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here',
-                  description: 'Tooltip suggesting to create an endpoint for reuse',
-                })}
-              >
-                <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help', verticalAlign: 'middle' }} />
-              </Tooltip>
+              {!showCreateEndpoint && (
+                <Tooltip
+                  componentId={`${componentId}.endpoint-tip-tooltip`}
+                  content={intl.formatMessage({
+                    defaultMessage: 'Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here',
+                    description: 'Tooltip suggesting to create an endpoint for reuse',
+                  })}
+                >
+                  <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help', verticalAlign: 'middle' }} />
+                </Tooltip>
+              )}
             </Typography.Title>
-            <Typography.Text color="secondary">
-              <FormattedMessage
-                defaultMessage="Configure the model to power issue detection"
-                description="Description for the model selection step"
-              />
-            </Typography.Text>
+            <Typography.Text color="secondary">{description}</Typography.Text>
           </div>
 
           {/* Model source selector - only show dropdown when there are endpoints */}
@@ -329,10 +345,10 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           ) : (
             (hasEndpoints || showCreateEndpoint) && (
               <DialogCombobox
-                componentId="mlflow.traces.issue-detection-modal.model-source"
-                id="mlflow.traces.issue-detection-modal.model-source"
+                componentId={`${componentId}.model-source`}
+                id={`${componentId}.model-source`}
                 value={
-                  hasInitializedMode && mode === 'direct'
+                  hasInitializedMode && mode === 'direct' && showConfigureDirectly
                     ? [CONFIGURE_DIRECTLY_VALUE]
                     : selectedEndpointName
                       ? [selectedEndpointName]
@@ -411,12 +427,12 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           )}
 
           {/* Direct provider/model configuration - shown when 'Configure model directly' is selected */}
-          {mode === 'direct' && (
+          {mode === 'direct' && showConfigureDirectly && (
             <>
               <div>
                 <DialogCombobox
-                  componentId="mlflow.traces.issue-detection-modal.provider"
-                  id="mlflow.traces.issue-detection-modal.provider"
+                  componentId={`${componentId}.provider`}
+                  id={`${componentId}.provider`}
                   value={provider ? [provider] : []}
                 >
                   <DialogComboboxTrigger
@@ -456,13 +472,13 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                 {provider && DEFAULT_MODEL_BY_PROVIDER[provider] && (
                   <div css={{ marginTop: theme.spacing.xs }}>
                     <Tooltip
-                      componentId="mlflow.traces.issue-detection-modal.default-model-tooltip"
+                      componentId={`${componentId}.default-model-tooltip`}
                       content={intl.formatMessage({
                         defaultMessage: 'You can change this model in advanced settings',
                         description: 'Tooltip suggesting users can change the default model in advanced settings',
                       })}
                     >
-                      <Tag componentId="mlflow.traces.issue-detection-modal.default-model-tag" css={{ cursor: 'help' }}>
+                      <Tag componentId={`${componentId}.default-model-tag`} css={{ cursor: 'help' }}>
                         <FormattedMessage
                           defaultMessage="Model: {model}"
                           description="Display of default model for selected provider"
@@ -478,7 +494,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                       provider={provider}
                       value={model}
                       onChange={setModel}
-                      componentId="mlflow.traces.issue-detection-modal.model"
+                      componentId={`${componentId}.model`}
                       label={
                         <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
                           <FormattedMessage
@@ -516,7 +532,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                         }}
                       >
                         <Tooltip
-                          componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
+                          componentId={`${componentId}.save-key-tooltip`}
                           content={intl.formatMessage({
                             defaultMessage: 'Saved API keys can be managed in LLM Connections under Settings.',
                             description:
@@ -536,7 +552,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                           <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
                         </Typography.Text>
                         <Input
-                          componentId="mlflow.traces.issue-detection-modal.api-key-name"
+                          componentId={`${componentId}.api-key-name`}
                           value={apiKeyConfig.newSecret.name}
                           onChange={(e) =>
                             setApiKeyConfig({
@@ -567,9 +583,9 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           />
         )}
 
-        {mode === 'direct' && shouldShowAdvancedSettings && !readOnly && (
+        {mode === 'direct' && showConfigureDirectly && shouldShowAdvancedSettings && !readOnly && (
           <Accordion
-            componentId="mlflow.traces.issue-detection-modal.advanced-settings"
+            componentId={`${componentId}.advanced-settings`}
             activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}
             onChange={(keys) => setIsAdvancedSettingsExpanded(Array.isArray(keys) ? keys.includes('advanced') : false)}
             dangerouslyAppendEmotionCSS={{

@@ -35,6 +35,8 @@ const mockEndpointQueryResult = (data: any[], isLoading = false) =>
 describe('GenAIModelSelection', () => {
   const defaultProps = {
     onValidityChange: jest.fn(),
+    variant: 'issue-detection-modal' as const,
+    description: 'Configure the model',
   };
 
   beforeEach(() => {

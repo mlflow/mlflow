@@ -282,6 +282,13 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
               ref={modelSelectionRef}
               onValidityChange={handleModelSelectionValidityChange}
               showConfigureDirectly
+              componentId="mlflow.traces.issue-detection-modal"
+              description={
+                <FormattedMessage
+                  defaultMessage="Configure the model to power issue detection"
+                  description="Description for the model selection step in issue detection modal"
+                />
+              }
             />
           </div>
         )}
