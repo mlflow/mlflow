@@ -98,7 +98,7 @@ export function extractTextContent(content: unknown): string {
 export function findLastUserMessageIndex(transcript: TranscriptEntry[]): number | null {
   for (let i = transcript.length - 1; i >= 0; i--) {
     const entry = transcript[i];
-    if (entry.type !== 'user' || entry.toolUseResult) {
+    if (entry.type !== 'user' || entry.toolUseResult || entry.isCompactSummary) {
       continue;
     }
 

@@ -76,6 +76,7 @@ export interface TranscriptEntry {
   operation?: string;
   content?: string;
   agentId?: string;
+  isCompactSummary?: boolean;
 }
 
 export interface ToolUseResultInfo {

@@ -182,6 +182,30 @@ describe('findLastUserMessageIndex', () => {
     expect((transcript[idx!].message!.content as string)).toBe('Enable tracing on the agent.');
   });
 
+  it('skips compaction summary messages', () => {
+    const transcript: TranscriptEntry[] = [
+      {
+        type: 'user',
+        message: { role: 'user', content: 'Real question after context reset' },
+        timestamp: '2025-01-01T00:00:00Z',
+      },
+      {
+        type: 'assistant',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'Answer' }] },
+        timestamp: '2025-01-01T00:00:01Z',
+      },
+      {
+        type: 'user',
+        isCompactSummary: true,
+        message: { role: 'user', content: 'Summary of prior conversation...' },
+        timestamp: '2025-01-01T00:00:02Z',
+      },
+    ];
+
+    const idx = findLastUserMessageIndex(transcript);
+    expect(idx).toBe(0);
+  });
+
   it('returns null for empty transcript', () => {
     expect(findLastUserMessageIndex([])).toBeNull();
   });
