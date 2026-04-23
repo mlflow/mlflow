@@ -6,6 +6,15 @@ metadata:
     {{- include "mlflow.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    {{- if .Values.storage.enabled }}
+    type: Recreate
+    {{- else }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    {{- end }}
   selector:
     matchLabels:
       {{- include "mlflow.selectorLabels" . | nindent 6 }}
