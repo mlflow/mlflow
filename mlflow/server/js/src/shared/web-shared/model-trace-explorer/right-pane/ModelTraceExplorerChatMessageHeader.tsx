@@ -1,10 +1,4 @@
-import {
-  ChevronRightIcon,
-  ChevronDownIcon,
-  Typography,
-  useDesignSystemTheme,
-  Tooltip,
-} from '@databricks/design-system';
+import { Typography, useDesignSystemTheme, Tooltip } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceChatMessage } from '../ModelTrace.types';

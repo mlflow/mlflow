@@ -10,7 +10,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-09T01:40:05.487966547Z"
+exclude-newer = "2026-04-10T01:44:23.222204Z"
 exclude-newer-span = "P14D"
 
 [options.exclude-newer-package]
@@ -4285,6 +4285,7 @@ dependencies = [
     { name = "skops" },
     { name = "sqlalchemy" },
     { name = "sqlparse" },
+    { name = "starlette" },
     { name = "typing-extensions" },
     { name = "uvicorn" },
     { name = "waitress", marker = "sys_platform == 'win32'" },
@@ -4536,6 +4537,7 @@ requires-dist = [
     { name = "slowapi", marker = "extra == 'genai'", specifier = ">=0.1.9,<1" },
     { name = "sqlalchemy", specifier = ">=1.4.0,<3" },
     { name = "sqlparse", specifier = ">=0.4.0,<1" },
+    { name = "starlette", specifier = "<1" },
     { name = "tiktoken", marker = "extra == 'gateway'", specifier = "<1" },
     { name = "tiktoken", marker = "extra == 'genai'", specifier = "<1" },
     { name = "typing-extensions", specifier = ">=4.0.0,<5" },

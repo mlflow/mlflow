@@ -33,13 +33,19 @@ export function ModelTraceExplorerContentTab({
     <div
       css={{
         overflowY: 'auto',
-        padding: theme.spacing.md,
         paddingTop: theme.spacing.sm,
       }}
       className={className}
       data-testid="model-trace-explorer-content-tab"
     >
-      <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginBottom: theme.spacing.sm,
+          paddingInline: theme.spacing.sm,
+        }}
+      >
         <SegmentedControlGroup
           name="content-tab-render-mode"
           componentId="shared.model-trace-explorer.content-tab.render-mode"
