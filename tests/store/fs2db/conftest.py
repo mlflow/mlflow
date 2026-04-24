@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import warnings
 from collections.abc import Generator
 from pathlib import Path
 
@@ -43,6 +44,8 @@ def clients(
 
     mlruns = _resolve_mlruns(Path(source))
     monkeypatch_module.setenv("MLFLOW_ALLOW_FILE_STORE", "true")
-    src = MlflowClient(tracking_uri=mlruns.as_uri())
-    dst = MlflowClient(tracking_uri=target_uri)
-    return src, dst
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", module="mlflow")
+        src = MlflowClient(tracking_uri=mlruns.as_uri())
+        dst = MlflowClient(tracking_uri=target_uri)
+        yield src, dst
