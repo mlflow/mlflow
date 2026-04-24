@@ -35,32 +35,37 @@ Traces are created after each conversation turn — no need to wait for the sess
 npm install -g @mlflow/codex
 ```
 
-### Step 2: Register the Codex Hook
+If you'd rather not install globally, you can invoke the bin through `npx` (e.g. `npx @mlflow/codex setup`) — everything below works the same way.
 
-Run the bundled setup command to add the `notify` hook to `~/.codex/config.toml`:
+### Step 2: Run the Setup Command
 
 ```bash
 mlflow-codex setup
 ```
 
-This writes `notify = ["mlflow-codex"]` to your Codex config. If you prefer to edit the file yourself, add the same line manually:
+`setup` prompts you for the MLflow tracking URI (default `http://localhost:5000`) and experiment ID (default `0`), then writes two files:
+
+- `~/.codex/config.toml` — adds `notify = ["mlflow-codex", "notify-hook"]` so Codex invokes the hook after every turn.
+- `~/.codex/mlflow-tracing.json` — persists your MLflow config so the hook can run without shell exports.
+
+Pass `--project` (or `-p`) to write to `./.codex/` (project-level) instead of your user-level config. Pass `--non-interactive` to skip the prompts and accept defaults, or supply `--tracking-uri <url>` and `--experiment-id <id>` to bypass individual prompts.
+
+If you prefer to edit the files manually, the equivalent entries are:
 
 ```toml title="~/.codex/config.toml"
-notify = ["mlflow-codex"]
+notify = ["mlflow-codex", "notify-hook"]
 ```
 
-Codex invokes this command after every agent turn.
-
-### Step 3: Set Environment Variables
-
-Set these in your shell before launching Codex:
-
-```bash
-export MLFLOW_TRACKING_URI=http://localhost:5000
-export MLFLOW_EXPERIMENT_ID=0
+```json title="~/.codex/mlflow-tracing.json"
+{
+  "trackingUri": "http://localhost:5000",
+  "experimentId": "0"
+}
 ```
 
-### Step 4: Start the MLflow Tracking Server
+Setup refuses to overwrite a pre-existing `notify = ...` entry so your manual Codex config is never mangled — edit it yourself if a different notifier is already registered.
+
+### Step 3: Start the MLflow Tracking Server
 
 The MLflow server must be running to receive traces. Start it in a separate terminal:
 
@@ -68,14 +73,17 @@ The MLflow server must be running to receive traces. Start it in a separate term
 mlflow server --host 0.0.0.0 --port 5000
 ```
 
-### Step 5: Use Codex Normally
+### Step 4: Use Codex Normally
 
 ```bash
-# Tracing happens automatically on each conversation turn
 codex "help me refactor this function"
 ```
 
 Traces become visible at [http://localhost:5000](http://localhost:5000) after each turn completes.
+
+:::note
+`MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` environment variables (if set in the shell that launched `codex`) override the values written to `mlflow-tracing.json`. This is convenient for one-off overrides in CI or when switching between local and Databricks endpoints.
+:::
 
 ## How It Works
 
@@ -86,14 +94,20 @@ Traces become visible at [http://localhost:5000](http://localhost:5000) after ea
 
 ## Configuration Examples
 
-```bash
-# Local MLflow server
-export MLFLOW_TRACKING_URI=http://localhost:5000
-export MLFLOW_EXPERIMENT_ID=0
+Write these values via `mlflow-codex setup` or by editing `~/.codex/mlflow-tracing.json` directly:
 
-# Databricks MLflow
-export MLFLOW_TRACKING_URI=databricks
-export MLFLOW_EXPERIMENT_ID=123456789
+```json title="Local MLflow server"
+{ "trackingUri": "http://localhost:5000", "experimentId": "0" }
+```
+
+```json title="Databricks MLflow"
+{ "trackingUri": "databricks", "experimentId": "123456789" }
+```
+
+Per-run overrides via environment variables (take precedence over the config file):
+
+```bash
+MLFLOW_TRACKING_URI=databricks MLFLOW_EXPERIMENT_ID=123456789 codex "..."
 ```
 
 ## OTLP Tracing (Suitable for Operational Monitoring)
@@ -129,10 +143,10 @@ Cost is computed based on API pricing. If you are using Codex with a subscriptio
 
 **Tracing not working:**
 
-- Verify the `notify = ["mlflow-codex"]` entry is in `~/.codex/config.toml`
+- Verify the `notify = ["mlflow-codex", "notify-hook"]` entry is in `~/.codex/config.toml`
 - Confirm `mlflow-codex` is on PATH: run `which mlflow-codex` (should resolve after `npm install -g @mlflow/codex`)
+- Confirm `~/.codex/mlflow-tracing.json` exists and contains a valid `trackingUri`. Re-run `mlflow-codex setup` if the file is missing or stale.
 - Check that Node.js 18+ is being used (required for `fetch` support)
-- Verify environment variables are set: `MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_ID`
 - Check the MLflow tracking server is accessible
 
 **Missing traces:**

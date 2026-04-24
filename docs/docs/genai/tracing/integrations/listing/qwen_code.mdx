@@ -35,33 +35,41 @@ Traces are created after each conversation turn.
 npm install -g @mlflow/qwen-code
 ```
 
-### Step 2: Register the Qwen Code Hook
+If you'd rather not install globally, you can invoke the bin through `npx` (e.g. `npx @mlflow/qwen-code setup`) — everything below works the same way.
 
-Run the bundled setup command to add a `Stop` hook to `~/.qwen/settings.json`:
+### Step 2: Run the Setup Command
 
 ```bash
 mlflow-qwen-code setup
 ```
 
-Pass `--project` to write to `./.qwen/settings.json` (project-level) instead of your user-level config.
+`setup` prompts you for the MLflow tracking URI (default `http://localhost:5000`) and experiment ID (default `0`), then writes two files:
 
-If you prefer to edit the file manually, the equivalent entry is:
+- `~/.qwen/settings.json` — registers the Stop hook with Qwen Code.
+- `~/.qwen/mlflow-tracing.json` — persists your MLflow config so the hook can run without shell exports.
+
+Pass `--project` (or `-p`) to write to `./.qwen/` (project-level) instead of your user-level config. Pass `--non-interactive` to skip the prompts and accept defaults, or supply `--tracking-uri <url>` and `--experiment-id <id>` to bypass individual prompts.
+
+If you prefer to edit the files manually, the equivalent entries are:
 
 ```json title="~/.qwen/settings.json"
 {
   "hooks": {
     "Stop": [
       {
-        "hooks": [{ "type": "command", "command": "mlflow-qwen-code" }]
+        "hooks": [{ "type": "command", "command": "mlflow-qwen-code stop-hook" }]
       }
     ]
   }
 }
 ```
 
-:::warning
-Qwen Code's `settings.json` also supports an `env` block, but those variables do **not** propagate to hook subprocesses. MLflow configuration must be exported in the shell before launching `qwen` (see Step 4).
-:::
+```json title="~/.qwen/mlflow-tracing.json"
+{
+  "trackingUri": "http://localhost:5000",
+  "experimentId": "0"
+}
+```
 
 :::note
 Older Qwen Code versions (prior to 0.14) disabled the hook system by default and required a top-level `"hooksConfig": { "enabled": true }` entry to turn it on. Current versions ignore that setting and run hooks unconditionally — it's safe to leave in if you already have it, but no longer needed.
@@ -75,19 +83,17 @@ The MLflow server must be running to receive traces. Start it in a separate term
 mlflow server --host 0.0.0.0 --port 5000
 ```
 
-### Step 4: Launch Qwen Code with MLflow environment variables
-
-Export the MLflow tracking URI and experiment ID in your shell, then start `qwen`:
+### Step 4: Launch Qwen Code
 
 ```bash
-export MLFLOW_TRACKING_URI=http://localhost:5000
-export MLFLOW_EXPERIMENT_ID=0
-
-# Tracing happens automatically on each conversation turn
 qwen
 ```
 
 Traces become visible at [http://localhost:5000](http://localhost:5000) after each turn completes.
+
+:::note
+`MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` environment variables (if set in the shell that launched `qwen`) override the values written to `mlflow-tracing.json`. This is convenient for one-off overrides in CI or when switching between local and Databricks endpoints.
+:::
 
 ## How It Works
 
@@ -98,14 +104,20 @@ Traces become visible at [http://localhost:5000](http://localhost:5000) after ea
 
 ## Configuration Examples
 
-```bash
-# Local MLflow server
-export MLFLOW_TRACKING_URI=http://localhost:5000
-export MLFLOW_EXPERIMENT_ID=0
+Write these values via `mlflow-qwen-code setup` or by editing `~/.qwen/mlflow-tracing.json` directly:
 
-# Databricks MLflow
-export MLFLOW_TRACKING_URI=databricks
-export MLFLOW_EXPERIMENT_ID=123456789
+```json title="Local MLflow server"
+{ "trackingUri": "http://localhost:5000", "experimentId": "0" }
+```
+
+```json title="Databricks MLflow"
+{ "trackingUri": "databricks", "experimentId": "123456789" }
+```
+
+Per-run overrides via environment variables (take precedence over the config file):
+
+```bash
+MLFLOW_TRACKING_URI=databricks MLFLOW_EXPERIMENT_ID=123456789 qwen
 ```
 
 ## Token Usage and Cost
@@ -118,8 +130,8 @@ MLflow automatically tracks token usage for each LLM call within Qwen Code conve
 
 **Tracing not working:**
 
-- Confirm `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` are exported in the shell that launched `qwen` — the `env` block in `settings.json` is **not** propagated to hook subprocesses
 - Confirm `mlflow-qwen-code` is on PATH: run `which mlflow-qwen-code` (should resolve after `npm install -g @mlflow/qwen-code`)
+- Confirm `~/.qwen/mlflow-tracing.json` exists and contains a valid `trackingUri`. Re-run `mlflow-qwen-code setup` if the file is missing or stale.
 - Verify Node.js 18+ is being used (required for `fetch` support)
 - On Qwen Code versions older than 0.14, hooks are disabled by default — add a top-level `"hooksConfig": { "enabled": true }` entry to enable them
 
