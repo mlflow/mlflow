@@ -38,21 +38,25 @@ def test_sanitize_judge_name(sample_trace_with_assessment, mock_judge):
         judge1 = MockJudge(name="  mock_judge  ")
         judge2 = MockJudge(name="Mock_Judge")
         judge3 = MockJudge(name="MOCK_JUDGE")
-        assert trace_to_dspy_example(sample_trace_with_assessment, judge1) is not None
-        assert trace_to_dspy_example(sample_trace_with_assessment, judge2) is not None
-        assert trace_to_dspy_example(sample_trace_with_assessment, judge3) is not None
+        # trace_to_dspy_example now returns a list
+        assert len(trace_to_dspy_example(sample_trace_with_assessment, judge1)) > 0
+        assert len(trace_to_dspy_example(sample_trace_with_assessment, judge2)) > 0
+        assert len(trace_to_dspy_example(sample_trace_with_assessment, judge3)) > 0
 
 
 def test_trace_to_dspy_example_two_human_assessments(trace_with_two_human_assessments, mock_judge):
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
     trace = trace_with_two_human_assessments
-    result = trace_to_dspy_example(trace, mock_judge)
+    results = trace_to_dspy_example(trace, mock_judge)
 
-    assert isinstance(result, dspy.Example)
-    # Should use the newer assessment with value="pass" and specific rationale
-    assert result["result"] == "pass"
-    assert result["rationale"] == "Second assessment - should be used (more recent)"
+    # The fixture has conflicting labels (fail vs pass), so tie-breaking applies
+    # The newer assessment (pass) wins
+    assert isinstance(results, list)
+    assert len(results) == 1
+    assert isinstance(results[0], dspy.Example)
+    assert results[0]["result"] == "pass"
+    assert results[0]["rationale"] == "Second assessment - should be used (more recent)"
 
 
 def test_trace_to_dspy_example_human_vs_llm_priority(
@@ -61,12 +65,15 @@ def test_trace_to_dspy_example_human_vs_llm_priority(
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
     trace = trace_with_human_and_llm_assessments
-    result = trace_to_dspy_example(trace, mock_judge)
+    results = trace_to_dspy_example(trace, mock_judge)
 
-    assert isinstance(result, dspy.Example)
-    # Should use the HUMAN assessment despite being older
-    assert result["result"] == "fail"
-    assert result["rationale"] == "Human assessment - should be prioritized"
+    # LLM assessments are filtered out, only the human assessment is returned
+    assert isinstance(results, list)
+    assert len(results) == 1
+    assert isinstance(results[0], dspy.Example)
+    # Should use the HUMAN assessment (LLM assessments are not considered)
+    assert results[0]["result"] == "fail"
+    assert results[0]["rationale"] == "Human assessment - should be prioritized"
 
 
 @pytest.mark.parametrize(
@@ -120,8 +127,12 @@ def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, 
     judge = TestJudge(required_fields)
 
     # Use real DSPy since we've skipped if it's not available
-    result = trace_to_dspy_example(trace, judge)
+    results = trace_to_dspy_example(trace, judge)
 
+    # Should return a list with one example (single assessment in fixture)
+    assert isinstance(results, list)
+    assert len(results) == 1
+    result = results[0]
     assert isinstance(result, dspy.Example)
 
     # Build expected kwargs based on required fields
@@ -178,18 +189,19 @@ def test_trace_to_dspy_example_missing_required_fields(request, trace_fixture, r
 
     judge = TestJudge(required_fields)
 
-    result = trace_to_dspy_example(trace, judge)
-    assert result is None
+    # trace_to_dspy_example now returns empty list when fields are missing
+    results = trace_to_dspy_example(trace, judge)
+    assert results == []
 
 
 def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment, mock_judge):
     # Use the fixture for trace without assessment
     trace = sample_trace_without_assessment
 
-    # This should return None since there's no matching assessment
-    result = trace_to_dspy_example(trace, mock_judge)
+    # Should return empty list since there's no matching assessment
+    results = trace_to_dspy_example(trace, mock_judge)
 
-    assert result is None
+    assert results == []
 
 
 def test_create_dspy_signature(mock_judge):

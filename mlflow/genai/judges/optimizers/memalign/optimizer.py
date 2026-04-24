@@ -366,7 +366,8 @@ class MemoryAugmentedJudge(Judge):
         for trace_id in self._episodic_trace_ids:
             trace = mlflow.get_trace(trace_id, silent=True)
             if trace is not None:
-                if example := trace_to_dspy_example(trace, self._base_judge):
+                trace_examples = trace_to_dspy_example(trace, self._base_judge)
+                for example in trace_examples:
                     example._trace_id = trace.info.trace_id
                     examples.append(example)
             else:
@@ -650,8 +651,8 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             new_examples = []
             for trace in traces:
-                example = trace_to_dspy_example(trace, judge)
-                if example is not None:
+                examples = trace_to_dspy_example(trace, judge)
+                for example in examples:
                     example._trace_id = trace.info.trace_id
                     new_examples.append(example)
 

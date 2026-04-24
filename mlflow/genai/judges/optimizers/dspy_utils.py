@@ -335,9 +335,125 @@ def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
         raise MlflowException(f"Failed to convert LiteLLM format to MLflow URI: {e}")
 
 
-def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"]:
+def _format_assessment_details(assessment) -> str:
+    """Format assessment details for warning messages."""
+    parts = []
+    if hasattr(assessment, "assessment_id") and assessment.assessment_id:
+        parts.append(f"assessment_id='{assessment.assessment_id}'")
+    if hasattr(assessment, "feedback") and assessment.feedback:
+        parts.append(f"label='{assessment.feedback.value}'")
+    if hasattr(assessment, "source") and assessment.source:
+        parts.append(f"source_id='{assessment.source.source_id}'")
+    if hasattr(assessment, "create_time_ms") and assessment.create_time_ms:
+        parts.append(f"create_time_ms={assessment.create_time_ms}")
+    return ", ".join(parts)
+
+
+def _get_assessment_timestamp(assessment) -> int:
+    """Get the timestamp of an assessment, defaulting to 0 if not available."""
+    if hasattr(assessment, "create_time_ms") and assessment.create_time_ms:
+        return assessment.create_time_ms
+    return 0
+
+
+def _resolve_assessment_conflicts(
+    assessments: list, trace_id: str, judge_name: str
+) -> list:
+    """
+    Resolve conflicts when multiple assessments have different labels.
+
+    Args:
+        assessments: List of matching human assessments (already filtered by judge name)
+        trace_id: Trace ID for logging
+        judge_name: Judge name for logging
+
+    Returns:
+        List of assessments to use (majority label, or most recent group on tie)
+    """
+    if not assessments:
+        return []
+
+    # Group assessments by their feedback value (label)
+    from collections import defaultdict
+
+    groups: dict[str, list] = defaultdict(list)
+    for assessment in assessments:
+        if assessment.feedback:
+            label = str(assessment.feedback.value).lower()
+            groups[label].append(assessment)
+
+    # If only one unique label, no conflict - return all
+    if len(groups) == 1:
+        return assessments
+
+    # Find the maximum count (majority)
+    max_count = max(len(group) for group in groups.values())
+
+    # Find all labels that have the max count (could be a tie)
+    majority_labels = [label for label, group in groups.items() if len(group) == max_count]
+
+    if len(majority_labels) == 1:
+        # Clear majority - use that group
+        winning_label = majority_labels[0]
+        winning_assessments = groups[winning_label]
+        discarded_assessments = [a for a in assessments if a not in winning_assessments]
+
+        # Build label counts for warning message
+        label_counts = ", ".join(
+            f"{len(group)} with label '{label}'" for label, group in sorted(groups.items())
+        )
+
+        discarded_details = "\n  - ".join(
+            _format_assessment_details(a) for a in discarded_assessments
+        )
+
+        _logger.warning(
+            f"Found conflicting assessments for judge '{judge_name}' in trace '{trace_id}': "
+            f"{label_counts}. Using majority label '{winning_label}'. "
+            f"Discarded {len(discarded_assessments)} assessment(s):\n  - {discarded_details}"
+        )
+
+        return winning_assessments
+
+    else:
+        # Tie between multiple labels - use the group with the most recent assessment
+        def get_group_max_timestamp(label: str) -> int:
+            return max(_get_assessment_timestamp(a) for a in groups[label])
+
+        # Sort tied labels by their most recent assessment timestamp (descending)
+        sorted_labels = sorted(
+            majority_labels, key=get_group_max_timestamp, reverse=True
+        )
+        winning_label = sorted_labels[0]
+        winning_assessments = groups[winning_label]
+        discarded_assessments = [a for a in assessments if a not in winning_assessments]
+
+        # Build label counts for warning message
+        label_counts = ", ".join(
+            f"{len(group)} with label '{label}'" for label, group in sorted(groups.items())
+        )
+
+        discarded_details = "\n  - ".join(
+            _format_assessment_details(a) for a in discarded_assessments
+        )
+
+        _logger.warning(
+            f"Found tie between assessment labels for judge '{judge_name}' in trace '{trace_id}': "
+            f"{label_counts}. Breaking tie by recency: using label '{winning_label}'. "
+            f"Discarded {len(discarded_assessments)} assessment(s):\n  - {discarded_details}"
+        )
+
+        return winning_assessments
+
+
+def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
     """
     Convert MLflow trace to DSPy example format.
+
+    When multiple human assessments with the same judge name exist on a trace:
+    - If all assessments agree on the label: returns an example for each assessment
+    - If there's a conflict: returns examples only for the majority label
+    - If there's a tie: returns examples for the group with the most recent assessment
 
     Extracts:
     - inputs/outputs from trace spans
@@ -349,7 +465,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         judge: Judge instance to find assessments for
 
     Returns:
-        DSPy example object or None if conversion fails
+        List of DSPy example objects (empty list if no valid assessments found)
     """
     try:
         judge_input_fields = judge.get_input_fields()
@@ -368,55 +484,44 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         # Check for missing required fields
         if not request and judge_requires_inputs:
             _logger.warning(f"Missing required request in trace {trace.info.trace_id}")
-            return None
+            return []
         elif not response and judge_requires_outputs:
             _logger.warning(f"Missing required response in trace {trace.info.trace_id}")
-            return None
+            return []
         elif not expectations and judge_requires_expectations:
             _logger.warning(f"Missing required expectations in trace {trace.info.trace_id}")
-            return None
+            return []
 
-        # Find human assessment for this judge
-        expected_result = None
+        # Find all human assessments for this judge
+        matching_assessments = []
 
         if trace.info.assessments:
-            # Sort assessments by creation time (most recent first) then process
-            sorted_assessments = sorted(
-                trace.info.assessments,
-                key=lambda a: (
-                    a.create_time_ms if hasattr(a, "create_time_ms") and a.create_time_ms else 0
-                ),
-                reverse=True,
-            )
             sanitized_judge_name = _sanitize_assessment_name(judge.name)
             matching_assessments = [
                 a
-                for a in sorted_assessments
+                for a in trace.info.assessments
                 if _sanitize_assessment_name(a.name) == sanitized_judge_name
                 and a.source.source_type == AssessmentSourceType.HUMAN
             ]
 
-            if len(matching_assessments) > 1:
-                _logger.warning(
-                    f"Found {len(matching_assessments)} human assessments with name "
-                    f"'{judge.name}' in trace {trace.info.trace_id}. "
-                    f"Only the most recent one will be used for alignment."
-                )
-
-            if matching_assessments:
-                expected_result = matching_assessments[0]
-
-        if not expected_result:
+        if not matching_assessments:
             _logger.warning(
                 f"No human assessment found for judge '{judge.name}' in trace {trace.info.trace_id}"
             )
-            return None
+            return []
 
-        if not expected_result.feedback:
-            _logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
-            return None
+        # Filter out assessments without feedback
+        assessments_with_feedback = [a for a in matching_assessments if a.feedback]
+        if not assessments_with_feedback:
+            _logger.warning(f"No feedback found in assessments for trace {trace.info.trace_id}")
+            return []
 
-        # Create DSPy example
+        # Resolve conflicts if multiple assessments exist
+        resolved_assessments = _resolve_assessment_conflicts(
+            assessments_with_feedback, trace.info.trace_id, judge.name
+        )
+
+        # Build example kwargs (same for all examples from this trace)
         example_kwargs = {}
         example_inputs = []
         if judge_requires_trace:
@@ -431,18 +536,22 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         if judge_requires_expectations:
             example_kwargs["expectations"] = expectations
             example_inputs.append("expectations")
-        example = dspy.Example(
-            result=str(expected_result.feedback.value).lower(),
-            rationale=expected_result.rationale or "",
-            **example_kwargs,
-        )
 
-        # Set inputs (what the model should use as input)
-        return example.with_inputs(*example_inputs)
+        # Create a DSPy example for each resolved assessment
+        examples = []
+        for assessment in resolved_assessments:
+            example = dspy.Example(
+                result=str(assessment.feedback.value).lower(),
+                rationale=assessment.rationale or "",
+                **example_kwargs,
+            )
+            examples.append(example.with_inputs(*example_inputs))
+
+        return examples
 
     except Exception as e:
         _logger.error(f"Failed to create DSPy example from trace: {e}")
-        return None
+        return []
 
 
 def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
