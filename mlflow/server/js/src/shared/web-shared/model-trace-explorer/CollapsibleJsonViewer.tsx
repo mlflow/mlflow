@@ -139,6 +139,7 @@ function calculateLineNumbers(
 interface JsonNodeProps {
   nodeKey?: string;
   value: unknown;
+  endLine: number;
   depth: number;
   isLast: boolean;
   initialExpanded?: boolean;
@@ -152,6 +153,7 @@ function JsonNode({
   nodeKey,
   value,
   depth,
+  endLine,
   isLast,
   initialExpanded = false,
   colors,
@@ -169,6 +171,7 @@ function JsonNode({
 
   const lineInfo = lineMap.get(path) || { lineNumber: 1, startLine: 1, endLine: 1 };
   const displayLine = collapsed && lineInfo.endLine !== lineInfo.startLine ? lineInfo.endLine : lineInfo.lineNumber;
+  const maxLineNumberDigits = Math.floor(Math.log10(endLine)) + 1;
 
   const monoTextStyle: CSSObject = {
     fontFamily: 'monospace',
@@ -177,27 +180,41 @@ function JsonNode({
   };
 
   const lineNumberStyle: CSSObject = {
-    minWidth: 40,
-    paddingRight: theme.spacing.sm,
+    minWidth: 11 * maxLineNumberDigits + theme.spacing.xs,
+    paddingLeft: theme.spacing.sm,
+    paddingRight: theme.spacing.xs,
+    paddingTop: 2,
     textAlign: 'right' as const,
     color: theme.colors.textSecondary,
     userSelect: 'none' as const,
+    alignSelf: 'flex-start' as const,
+    flexShrink: 0,
     ...monoTextStyle,
   };
 
   const lineWrapperStyle: CSSObject = {
     display: 'flex',
-    paddingTop: 2,
-    paddingBottom: 2,
+    alignItems: 'center',
+    minHeight: theme.typography.lineHeightLg,
+  };
+
+  const expandStyle: CSSObject = {
+    minWidth: 20,
+    borderRight: `1px solid ${theme.colors.actionDisabledBorder}`,
+    display: 'inline-flex',
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    cursor: isExpandable ? 'pointer' : 'default',
   };
 
   if (depth > MAX_DEPTH) {
     return (
       <div css={lineWrapperStyle}>
         <span css={lineNumberStyle}>{displayLine}</span>
+        <span css={expandStyle} />
         <div
           css={{
-            paddingLeft: depth * indentSize,
+            paddingLeft: depth * indentSize + theme.spacing.sm,
             color: theme.colors.textSecondary,
             fontStyle: 'italic',
             ...monoTextStyle,
@@ -226,19 +243,14 @@ function JsonNode({
 
   if (isPrimitive) {
     return (
-      <div
-        css={{
-          display: 'flex',
-          paddingTop: 2,
-          paddingBottom: 2,
-        }}
-      >
+      <div css={lineWrapperStyle}>
         <span css={lineNumberStyle}>{displayLine}</span>
+        <span css={expandStyle} />
         <div
           css={{
             display: 'flex',
             alignItems: 'flex-start',
-            paddingLeft: depth * indentSize,
+            paddingLeft: depth * indentSize + theme.spacing.sm,
             ...monoTextStyle,
           }}
         >
@@ -259,35 +271,12 @@ function JsonNode({
 
   return (
     <div>
-      <div
-        css={{
-          display: 'flex',
-          paddingTop: 2,
-          paddingBottom: 2,
-        }}
-      >
+      <div css={lineWrapperStyle}>
         <span css={lineNumberStyle}>{displayLine}</span>
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            paddingLeft: depth * indentSize,
-            cursor: isExpandable ? 'pointer' : 'default',
-            borderRadius: theme.borders.borderRadiusSm,
-            marginLeft: -theme.spacing.xs,
-            marginRight: -theme.spacing.xs,
-            paddingRight: theme.spacing.xs,
-            ...monoTextStyle,
-          }}
-          onClick={() => isExpandable && setCollapsed(!collapsed)}
-        >
-          {isExpandable ? (
+        <span css={expandStyle} role="button" onClick={() => isExpandable && setCollapsed(!collapsed)}>
+          {isExpandable && (
             <span
               css={{
-                marginRight: 4,
-                marginLeft: theme.spacing.xs,
-                display: 'flex',
-                alignItems: 'center',
                 color: theme.colors.textSecondary,
               }}
             >
@@ -297,9 +286,18 @@ function JsonNode({
                 <ChevronDownIcon css={{ fontSize: theme.spacing.mid }} />
               )}
             </span>
-          ) : (
-            <span css={{ marginLeft: theme.spacing.xs }} />
           )}
+        </span>
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            paddingLeft: depth * indentSize + theme.spacing.sm,
+            borderRadius: theme.borders.borderRadiusSm,
+            paddingRight: theme.spacing.xs,
+            ...monoTextStyle,
+          }}
+        >
           {nodeKey !== undefined && (
             <>
               <span css={{ color: colors.key }}>"{nodeKey}"</span>
@@ -342,6 +340,7 @@ function JsonNode({
                   nodeKey={isArrayValue ? undefined : String(key)}
                   value={val}
                   depth={depth + 1}
+                  endLine={endLine}
                   isLast={index === entries.length - 1}
                   initialExpanded={depth < INITIAL_EXPAND_DEPTH}
                   colors={colors}
@@ -352,17 +351,12 @@ function JsonNode({
               </Fragment>
             );
           })}
-          <div
-            css={{
-              display: 'flex',
-              paddingTop: 2,
-              paddingBottom: 2,
-            }}
-          >
+          <div css={lineWrapperStyle}>
             <span css={lineNumberStyle}>{lineInfo.endLine}</span>
+            <span css={expandStyle} />
             <div
               css={{
-                paddingLeft: depth * indentSize,
+                paddingLeft: depth * indentSize + theme.spacing.sm,
                 color: colors.punctuation,
                 ...monoTextStyle,
               }}
@@ -385,13 +379,14 @@ interface IdeJsonViewerProps {
 }
 
 function IdeJsonViewer({ parsedData, initialExpanded, colors, theme }: IdeJsonViewerProps) {
-  const { lineMap } = useMemo(() => calculateLineNumbers(parsedData), [parsedData]);
+  const { lineMap, endLine } = useMemo(() => calculateLineNumbers(parsedData), [parsedData]);
 
   return (
     <div css={{ paddingRight: theme.spacing.md * 2 }}>
       <JsonNode
         value={parsedData}
         depth={0}
+        endLine={endLine}
         isLast
         initialExpanded={initialExpanded}
         colors={colors}
@@ -558,7 +553,7 @@ function JsonTable({ rows, colors, theme, initialExpanded }: JsonTableProps) {
         <Fragment key={row.id}>
           <tr
             css={{
-              borderBottom: `1px solid ${theme.isDarkMode ? theme.colors.grey650 : theme.colors.grey200}`,
+              borderBottom: `1px solid ${theme.colors.actionDisabledBorder}`,
             }}
           >
             <td css={pathCellStyle}>
@@ -613,7 +608,7 @@ function JsonTable({ rows, colors, theme, initialExpanded }: JsonTableProps) {
         <thead>
           <tr
             css={{
-              borderBottom: `1px solid ${theme.isDarkMode ? theme.colors.grey650 : theme.colors.grey200}`,
+              borderBottom: `1px solid ${theme.colors.actionDisabledBorder}`,
               backgroundColor: theme.colors.backgroundSecondary,
             }}
           >
@@ -779,7 +774,6 @@ export function CollapsibleJsonViewer({
     <div
       css={{
         backgroundColor: theme.colors.backgroundSecondary,
-        padding: theme.spacing.sm,
         position: 'relative',
         borderRadius: theme.borders.borderRadiusSm,
       }}

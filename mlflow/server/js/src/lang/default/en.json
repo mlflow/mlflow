@@ -4187,6 +4187,10 @@
     "defaultMessage": "View chat session",
     "description": "Tooltip for the session id tag"
   },
+  "OW3pF8": {
+    "defaultMessage": "Show {count} more intermediate {count, plural, =1 {step} other {steps}}",
+    "description": "Link that expands a collapsed list of intermediate function execution steps when clicked"
+  },
   "OWCfFp": {
     "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
     "description": "Modal title to promote the model to a different registered model"
@@ -7038,10 +7042,6 @@
   "g+YDB/": {
     "defaultMessage": "Group by",
     "description": "Label for the grouping selector button in the logged model list page when no grouping is selected"
-  },
-  "g/6rnt": {
-    "defaultMessage": "Show {count} more intermediate steps",
-    "description": "Link that expands a collapsed list of intermediate function execution steps when clicked"
   },
   "g0tloS": {
     "defaultMessage": "Context sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",

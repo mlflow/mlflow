@@ -271,6 +271,7 @@ async def test_chat():
             "object": "chat.completion",
             "created": 1677858242,
             "model": "claude-2.1",
+            "provider": "anthropic",
             "choices": [
                 {
                     "message": {
@@ -391,6 +392,7 @@ async def test_chat_function_calling():
             "object": "chat.completion",
             "created": 1677858242,
             "model": "claude-2.1",
+            "provider": "anthropic",
             "choices": [
                 {
                     "index": 0,
@@ -551,6 +553,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -569,6 +572,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -587,6 +591,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -605,6 +610,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -695,6 +701,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -720,6 +727,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -745,6 +753,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -770,6 +779,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,

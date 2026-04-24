@@ -15,10 +15,6 @@ jest.mock('../../../../../common/utils/RoutingUtils', () => ({
   useNavigate: jest.fn(),
   useLocation: jest.fn(),
 }));
-jest.mock('./IssueDetectionAdvancedSettings', () => ({
-  IssueDetectionAdvancedSettings: () => <div data-testid="advanced-settings">Advanced Settings</div>,
-}));
-
 let mockModelSelectionValues: {
   mode: 'direct' | 'endpoint';
   provider: string;
@@ -47,10 +43,10 @@ let mockModelSelectionValues: {
 };
 let mockModelSelectionValid = false;
 
-jest.mock('./IssueDetectionModelSelection', () => {
+jest.mock('./GenAIModelSelection', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
-    IssueDetectionModelSelection: React.forwardRef(function IssueDetectionModelSelection(
+    GenAIModelSelection: React.forwardRef(function GenAIModelSelection(
       {
         selectedTraceIds,
         onSelectTracesClick,
