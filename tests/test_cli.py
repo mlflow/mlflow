@@ -416,6 +416,7 @@ def sqlite_store(db_uri: str, tmp_path: Path) -> tuple[SqlAlchemyStore, str]:
 
 @pytest.fixture
 def file_store():
+    pytest.skip("FileStore is no longer supported.")
     ROOT_LOCATION = os.path.join(tempfile.gettempdir(), "test_mlflow_gc")
     file_store_uri = f"file:///{ROOT_LOCATION}"
     yield (FileStore(ROOT_LOCATION), file_store_uri)
@@ -612,6 +613,9 @@ def test_mlflow_gc_file_store_older_than(file_store):
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_experiments(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
+
     def invoke_gc(*args):
         return CliRunner().invoke(gc, args, catch_exceptions=False)
 
@@ -945,9 +949,7 @@ def test_doctor():
 
 def test_env_file_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Setup: Create an experiment using the Python SDK
-    # Use file:// URI format for cross-platform compatibility
-    mlruns_path = tmp_path / "mlruns"
-    test_tracking_uri = mlruns_path.as_uri()  # This creates proper file:// URI
+    test_tracking_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     test_experiment_name = "test_experiment_from_env"
 
     # Create experiment using SDK

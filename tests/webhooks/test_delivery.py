@@ -12,6 +12,7 @@ from mlflow.webhooks.delivery import test_webhook as send_test_webhook
 
 @pytest.fixture
 def file_store(tmp_path: Path) -> FileStore:
+    pytest.skip("FileStore is no longer supported.")
     return FileStore(str(tmp_path))
 
 

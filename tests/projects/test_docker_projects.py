@@ -111,6 +111,7 @@ def test_docker_project_tracking_uri_propagation(
     expected_command_segment,
     docker_example_base_image,
 ):
+    pytest.skip("FileStore is no longer supported.")
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = DatabricksConfig.from_password(
         "host", "user", "pass", insecure=True

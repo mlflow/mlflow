@@ -183,6 +183,7 @@ def _assert_artifact_uri(expected_artifact_path: pathlib.Path, test_artifact):
 
 
 def test_default_relative_artifact_uri_resolves(text_artifact, tmp_path, monkeypatch):
+    pytest.skip("FileStore is no longer supported.")
     tracking_uri = path_to_local_file_uri(text_artifact.tmp_path.joinpath("mlruns"))
     mlflow.set_tracking_uri(tracking_uri)
     monkeypatch.chdir(tmp_path)
