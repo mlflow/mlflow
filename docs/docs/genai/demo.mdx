@@ -20,27 +20,27 @@ The demo environment includes sample data across four areas:
 <CardGroup>
   <TitleCard
     title="Observability"
-    icon={Binoculars}
+    headerRight={<Binoculars />}
     description="Explore dashboard, traces and sessions from a sample LLM application. Inspect spans, inputs/outputs, latency, token usage, and nested call hierarchies."
-    href="https://demo.mlflow.org/#/experiments/1/overview"
+    link="https://demo.mlflow.org/#/experiments/1/overview"
   />
   <TitleCard
     title="Evaluation"
-    icon={FlaskConical}
+    headerRight={<FlaskConical />}
     description="Browse pre-configured judges, datasets, and evaluation runs with judge-scored quality metrics across sample traces."
-    href="https://demo.mlflow.org/#/experiments/1/judges"
+    link="https://demo.mlflow.org/#/experiments/1/judges"
   />
   <TitleCard
     title="Issue Detection"
-    icon={ShieldAlert}
-    description="See automatically detected issues surfaced from trace data and issue detection run, showing how MLflow flags quality and reliability problems in production."
-    href="https://demo.mlflow.org/#/experiments/1/evaluation-runs/e50e393c385c4c9cb8b30e09cbb6f141"
+    headerRight={<ShieldAlert />}
+    description="See automatically detected issues surfaced from trace data and an issue detection run, showing how MLflow flags quality and reliability problems in production."
+    link="https://demo.mlflow.org/#/experiments/1/evaluation-runs/e50e393c385c4c9cb8b30e09cbb6f141"
   />
   <TitleCard
     title="Prompts"
-    icon={BookOpen}
+    headerRight={<BookOpen />}
     description="Browse versioned prompts used by the demo application, with full edit history and linked traces."
-    href="https://demo.mlflow.org/#/experiments/1/prompts"
+    link="https://demo.mlflow.org/#/experiments/1/prompts"
   />
 </CardGroup>
 
