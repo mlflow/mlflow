@@ -39,37 +39,32 @@ If you'd rather not install globally, you can invoke the bin through `npx` (e.g.
 
 ### Step 2: Run the Setup Command
 
-```bash
-mlflow-qwen-code setup
+Running `mlflow-qwen-code setup` starts an interactive flow for setting up the tracing hook.
+
+```text
+~/my-project $ mlflow-qwen-code setup
+
+Configure MLflow tracing for Qwen Code
+? Where should MLflow tracing be installed?
+  ● Project  ./.qwen/  (default)
+  ○ User  ~/.qwen/
+
+  ↑/↓ to move, enter to select
+
+✓ Registered Stop hook in /path/to/project/.qwen/settings.json
+
+  MLflow tracking URI [http://localhost:5000] http://localhost:5000
+  MLflow experiment ID [0] 1
+
+✓ Wrote tracing config to /path/to/project/.qwen/mlflow-tracing.json
+
+Next steps
+  1. Start the MLflow tracking server in a separate terminal:
+       mlflow server --port 5000
+  2. Launch qwen — traces appear at http://localhost:5000 after each turn.
 ```
 
-`setup` prompts you for the MLflow tracking URI (default `http://localhost:5000`) and experiment ID (default `0`), then writes two files:
-
-- `~/.qwen/settings.json` — registers the Stop hook with Qwen Code.
-- `~/.qwen/mlflow-tracing.json` — persists your MLflow config so the hook can run without shell exports.
-
-Pass `--project` (or `-p`) to write to `./.qwen/` (project-level) instead of your user-level config. Pass `--non-interactive` to skip the prompts and accept defaults, or supply `--tracking-uri <url>` and `--experiment-id <id>` to bypass individual prompts.
-
-If you prefer to edit the files manually, the equivalent entries are:
-
-```json title="~/.qwen/settings.json"
-{
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [{ "type": "command", "command": "mlflow-qwen-code stop-hook" }]
-      }
-    ]
-  }
-}
-```
-
-```json title="~/.qwen/mlflow-tracing.json"
-{
-  "trackingUri": "http://localhost:5000",
-  "experimentId": "0"
-}
-```
+Pass `--non-interactive` / `-y` to skip the interactive flow and use the default values.
 
 :::note
 Older Qwen Code versions (prior to 0.14) disabled the hook system by default and required a top-level `"hooksConfig": { "enabled": true }` entry to turn it on. Current versions ignore that setting and run hooks unconditionally — it's safe to leave in if you already have it, but no longer needed.
@@ -80,7 +75,7 @@ Older Qwen Code versions (prior to 0.14) disabled the hook system by default and
 The MLflow server must be running to receive traces. Start it in a separate terminal:
 
 ```bash
-mlflow server --host 0.0.0.0 --port 5000
+mlflow server --port 5000
 ```
 
 ### Step 4: Launch Qwen Code

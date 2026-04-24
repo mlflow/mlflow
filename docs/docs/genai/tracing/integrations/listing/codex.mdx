@@ -39,38 +39,43 @@ If you'd rather not install globally, you can invoke the bin through `npx` (e.g.
 
 ### Step 2: Run the Setup Command
 
-```bash
-mlflow-codex setup
+Running `mlflow-codex setup` starts an interactive flow for setting up the tracing hook.
+
+```text
+~/my-project $ mlflow-codex setup
+
+Configure MLflow tracing for Codex CLI
+? Where should MLflow tracing be installed?
+  ● Project  ./.codex/  (default)
+  ○ User  ~/.codex/
+
+  ↑/↓ to move, enter to select
+
+✓ Created /path/to/project/.codex/config.toml with notify hook
+
+  MLflow tracking URI [http://localhost:5000] http://localhost:5000
+  MLflow experiment ID [0] 1
+
+✓ Wrote tracing config to /path/to/project/.codex/mlflow-tracing.json
+
+Next steps
+  1. Start the MLflow tracking server in a separate terminal:
+       mlflow server --port 5000
+  2. Launch codex — traces appear at http://localhost:5000 after each turn.
 ```
 
-`setup` prompts you for the MLflow tracking URI (default `http://localhost:5000`) and experiment ID (default `0`), then writes two files:
+Pass `--non-interactive` / `-y` to skip the interactive flow and use the default values.
 
-- `~/.codex/config.toml` — adds `notify = ["mlflow-codex", "notify-hook"]` so Codex invokes the hook after every turn.
-- `~/.codex/mlflow-tracing.json` — persists your MLflow config so the hook can run without shell exports.
-
-Pass `--project` (or `-p`) to write to `./.codex/` (project-level) instead of your user-level config. Pass `--non-interactive` to skip the prompts and accept defaults, or supply `--tracking-uri <url>` and `--experiment-id <id>` to bypass individual prompts.
-
-If you prefer to edit the files manually, the equivalent entries are:
-
-```toml title="~/.codex/config.toml"
-notify = ["mlflow-codex", "notify-hook"]
-```
-
-```json title="~/.codex/mlflow-tracing.json"
-{
-  "trackingUri": "http://localhost:5000",
-  "experimentId": "0"
-}
-```
-
-Setup refuses to overwrite a pre-existing `notify = ...` entry so your manual Codex config is never mangled — edit it yourself if a different notifier is already registered.
+:::warning
+Setup refuses to overwrite a pre-existing `notify = ...` entry so your Codex config is never mangled — edit `config.toml` yourself if a different notifier is already registered.
+:::
 
 ### Step 3: Start the MLflow Tracking Server
 
 The MLflow server must be running to receive traces. Start it in a separate terminal:
 
 ```bash
-mlflow server --host 0.0.0.0 --port 5000
+mlflow server --port 5000
 ```
 
 ### Step 4: Use Codex Normally
@@ -94,14 +99,22 @@ Traces become visible at [http://localhost:5000](http://localhost:5000) after ea
 
 ## Configuration Examples
 
-Write these values via `mlflow-codex setup` or by editing `~/.codex/mlflow-tracing.json` directly:
+The `setup` command writes two configuration files:
 
-```json title="Local MLflow server"
-{ "trackingUri": "http://localhost:5000", "experimentId": "0" }
+- `./.codex/config.toml` — adds `notify = ["mlflow-codex", "notify-hook"]` so Codex invokes the hook after every turn.
+- `./.codex/mlflow-tracing.json` — persists your MLflow config so the hook can run without shell exports.
+
+If you prefer to edit these manually, the equivalent entries are:
+
+```toml title="config.toml"
+notify = ["mlflow-codex", "notify-hook"]
 ```
 
-```json title="Databricks MLflow"
-{ "trackingUri": "databricks", "experimentId": "123456789" }
+```json title="mlflow-tracing.json"
+{
+  "trackingUri": "http://localhost:5000",
+  "experimentId": "0"
+}
 ```
 
 Per-run overrides via environment variables (take precedence over the config file):
