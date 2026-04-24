@@ -1138,6 +1138,7 @@ class NoOpSpan(Span):
     def __init__(self, otel_span=None):
         self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
+        self._links = []
 
     @property
     def trace_id(self):
