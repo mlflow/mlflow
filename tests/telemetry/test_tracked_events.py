@@ -91,6 +91,7 @@ from mlflow.telemetry.events import (
     GatewayListSecretsEvent,
     GatewayStartEvent,
     GatewayUpdateBudgetPolicyEvent,
+    TrackingServerStartEvent,
     GatewayUpdateEndpointEvent,
     GatewayUpdateGuardrailEvent,
     GatewayUpdateSecretEvent,
@@ -1180,6 +1181,86 @@ endpoints:
     runner = CliRunner(catch_exceptions=False)
     with mock.patch("mlflow.gateway.cli.run_app", side_effect=assert_event_recorded_before_run_app):
         runner.invoke(start, ["--config-path", str(config)])
+
+
+@pytest.mark.parametrize(
+    ("cli_args", "expected_params"),
+    [
+        (
+            ["--backend-store-uri", "sqlite:///test.db"],
+            {
+                "auth_enabled": False,
+                "app_name": None,
+                "backend_store_type": "sqlite",
+                "serve_artifacts": True,
+                "artifacts_only": False,
+                "expose_prometheus": False,
+                "enable_workspaces": False,
+                "workers": None,
+                "dev": False,
+            },
+        ),
+        (
+            ["--backend-store-uri", "sqlite:///test.db", "--app-name", "basic-auth"],
+            {
+                "auth_enabled": True,
+                "app_name": "basic-auth",
+                "backend_store_type": "sqlite",
+                "serve_artifacts": True,
+                "artifacts_only": False,
+                "expose_prometheus": False,
+                "enable_workspaces": False,
+                "workers": None,
+                "dev": False,
+            },
+        ),
+        (
+            [
+                "--backend-store-uri",
+                "sqlite:///test.db",
+                "--no-serve-artifacts",
+                "--expose-prometheus",
+                "/tmp/metrics",
+                "--enable-workspaces",
+            ],
+            {
+                "auth_enabled": False,
+                "app_name": None,
+                "backend_store_type": "sqlite",
+                "serve_artifacts": False,
+                "artifacts_only": False,
+                "expose_prometheus": True,
+                "enable_workspaces": True,
+                "workers": None,
+                "dev": False,
+            },
+        ),
+    ],
+)
+def test_tracking_server_start(
+    tmp_path,
+    mock_requests,
+    mock_telemetry_client: TelemetryClient,
+    cli_args,
+    expected_params,
+):
+    from mlflow.cli import server
+
+    def assert_event_recorded_before_run_server(**kwargs):
+        mock_telemetry_client.flush()
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            TrackingServerStartEvent.name,
+            expected_params,
+        )
+
+    runner = CliRunner(catch_exceptions=False)
+    with (
+        mock.patch("mlflow.server._run_server", side_effect=assert_event_recorded_before_run_server),
+        mock.patch("mlflow.server.handlers.initialize_backend_stores"),
+    ):
+        runner.invoke(server, cli_args)
 
 
 def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
