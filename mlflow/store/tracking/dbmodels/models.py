@@ -301,6 +301,7 @@ class SqlRun(Base):
             end_time=self.end_time,
             lifecycle_stage=self.lifecycle_stage,
             artifact_uri=self.artifact_uri,
+            workspace=self.experiment.workspace if self.experiment else None,
         )
 
         tags = [t.to_mlflow_entity() for t in self.tags]

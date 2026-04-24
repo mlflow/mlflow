@@ -1,4 +1,5 @@
 from mlflow.entities import RunInfo
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 def _check(
@@ -11,6 +12,7 @@ def _check(
     end_time,
     lifecycle_stage,
     artifact_uri,
+    workspace=DEFAULT_WORKSPACE_NAME,
 ):
     assert isinstance(ri, RunInfo)
     assert ri.run_id == run_id
@@ -21,6 +23,7 @@ def _check(
     assert ri.end_time == end_time
     assert ri.lifecycle_stage == lifecycle_stage
     assert ri.artifact_uri == artifact_uri
+    assert ri.workspace == workspace
 
 
 def test_creation_and_hydration(run_info):
@@ -57,6 +60,7 @@ def test_creation_and_hydration(run_info):
         "end_time": end_time,
         "lifecycle_stage": lifecycle_stage,
         "artifact_uri": artifact_uri,
+        "workspace": DEFAULT_WORKSPACE_NAME,
     }
     assert dict(ri1) == as_dict
 
@@ -100,6 +104,21 @@ def test_creation_and_hydration(run_info):
         lifecycle_stage,
         artifact_uri,
     )
+
+
+def test_workspace_round_trips_through_proto():
+    run_info = RunInfo(
+        run_id="run-id",
+        experiment_id="123",
+        user_id="user",
+        status="RUNNING",
+        start_time=1,
+        end_time=None,
+        lifecycle_stage="active",
+        workspace="team-a",
+    )
+
+    assert RunInfo.from_proto(run_info.to_proto()).workspace == "team-a"
 
 
 def test_searchable_attributes():

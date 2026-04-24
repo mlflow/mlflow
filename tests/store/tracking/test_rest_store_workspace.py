@@ -2,7 +2,9 @@ from unittest import mock
 
 import pytest
 
+from mlflow.entities import Experiment, Run, RunData, RunInfo, RunStatus
 from mlflow.exceptions import MlflowException
+from mlflow.protos.service_pb2 import GetExperiment, GetRun
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
 
@@ -108,3 +110,45 @@ def test_workspace_guard_blocks_log_spans(monkeypatch):
 
     with pytest.raises(MlflowException, match="does not support workspaces"):
         store.log_spans("exp-1", spans)
+
+
+def test_get_experiment_preserves_workspace_from_response():
+    store = RestStore(lambda: MlflowHostCreds("https://workspace-host"))
+    response = GetExperiment.Response(
+        experiment=Experiment(
+            experiment_id="123",
+            name="exp",
+            artifact_location="/tmp/exp",
+            lifecycle_stage="active",
+            workspace=ACTIVE_WORKSPACE,
+        ).to_proto()
+    )
+
+    with mock.patch.object(store, "_call_endpoint", return_value=response):
+        experiment = store.get_experiment("123")
+
+    assert experiment.workspace == ACTIVE_WORKSPACE
+
+
+def test_get_run_preserves_workspace_from_response():
+    store = RestStore(lambda: MlflowHostCreds("https://workspace-host"))
+    response = GetRun.Response(
+        run=Run(
+            RunInfo(
+                run_id="run-id",
+                experiment_id="123",
+                user_id="user",
+                status=RunStatus.to_string(RunStatus.RUNNING),
+                start_time=1,
+                end_time=None,
+                lifecycle_stage="active",
+                workspace=ACTIVE_WORKSPACE,
+            ),
+            RunData(),
+        ).to_proto()
+    )
+
+    with mock.patch.object(store, "_call_endpoint", return_value=response):
+        run = store.get_run("run-id")
+
+    assert run.info.workspace == ACTIVE_WORKSPACE

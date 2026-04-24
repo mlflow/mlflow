@@ -139,7 +139,7 @@ class Experiment(_MlflowObject):
             # `last_update_time` if they are non-zero.
             creation_time=proto.creation_time or None,
             last_update_time=proto.last_update_time or None,
-            workspace=None,
+            workspace=proto.workspace or None,
         )
         for proto_tag in proto.tags:
             experiment._add_tag(ExperimentTag.from_proto(proto_tag))
@@ -158,4 +158,6 @@ class Experiment(_MlflowObject):
         experiment.tags.extend([
             ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()
         ])
+        if self.workspace is not None:
+            experiment.workspace = self.workspace
         return experiment

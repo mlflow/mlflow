@@ -2791,6 +2791,9 @@ message RunInfo {
 
   // Current life cycle stage of the experiment : OneOf("active", "deleted")
   optional string lifecycle_stage = 14;
+
+  // Workspace that owns the run.
+  optional string workspace = 16;
 }
 
 // Experiment
@@ -2816,6 +2819,9 @@ message Experiment {
 
   // Tags: Additional metadata key-value pairs.
   repeated ExperimentTag tags = 7;
+
+  // Workspace that owns the experiment.
+  optional string workspace = 8;
 }
 
 // DatasetInput. Represents a dataset and input tags.
