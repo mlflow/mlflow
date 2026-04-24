@@ -36,6 +36,8 @@ from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
 )
 from mlflow.store.workspace.utils import get_default_workspace_optional
+from mlflow.telemetry.events import TrackingServerStartEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracking import _get_store
 from mlflow.tracking._tracking_service.utils import (
     _get_default_tracking_uri,
@@ -48,8 +50,6 @@ from mlflow.utils.logging_utils import eprint
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import ShellCommandException
-from mlflow.telemetry.events import TrackingServerStartEvent
-from mlflow.telemetry.track import _record_event
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
     assert_server_workspace_env_unset,
@@ -685,18 +685,16 @@ def server(
 
     _record_event(
         TrackingServerStartEvent,
-        TrackingServerStartEvent.parse(
-            {
-                "backend_store_uri": backend_store_uri,
-                "serve_artifacts": serve_artifacts,
-                "artifacts_only": artifacts_only,
-                "expose_prometheus": expose_prometheus,
-                "app_name": app_name,
-                "enable_workspaces": enable_workspaces,
-                "workers": workers,
-                "dev": dev,
-            }
-        )
+        TrackingServerStartEvent.parse({
+            "backend_store_uri": backend_store_uri,
+            "serve_artifacts": serve_artifacts,
+            "artifacts_only": artifacts_only,
+            "expose_prometheus": expose_prometheus,
+            "app_name": app_name,
+            "enable_workspaces": enable_workspaces,
+            "workers": workers,
+            "dev": dev,
+        })
         or {},
     )
 
