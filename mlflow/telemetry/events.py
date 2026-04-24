@@ -416,16 +416,14 @@ class TrackingServerStartEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         backend_store_uri = arguments.get("backend_store_uri") or ""
         scheme = urlparse(backend_store_uri).scheme
-        if not scheme:
-            backend_store_type = "file"
-        elif scheme in ("sqlite", "postgresql", "mysql", "mssql"):
-            backend_store_type = scheme
-        else:
-            backend_store_type = scheme
+        # Treat empty schemes (relative paths) and single-letter schemes
+        # (Windows drive letters like C:\) as local file storage.
+        # Strip SQLAlchemy driver suffixes (e.g. mysql+pymysql → mysql).
+        backend_store_type = "file" if not scheme or len(scheme) == 1 else scheme.split("+")[0]
 
         app_name = arguments.get("app_name")
         return {
-            "auth_enabled": app_name is not None,
+            "auth_enabled": app_name == "basic-auth",
             "app_name": app_name,
             "backend_store_type": backend_store_type,
             "serve_artifacts": bool(arguments.get("serve_artifacts")),

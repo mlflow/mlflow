@@ -1241,10 +1241,23 @@ def test_tracking_server_start(
     tmp_path,
     mock_requests,
     mock_telemetry_client: TelemetryClient,
+    monkeypatch,
     cli_args,
     expected_params,
 ):
+
     from mlflow.cli import server
+
+    # Isolate env vars that server() mutates so they don't leak into other tests
+    for key in (
+        "MLFLOW_ENABLE_WORKSPACES",
+        "MLFLOW_WORKSPACE_STORE_URI",
+        "MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE",
+        "MLFLOW_SERVER_ALLOWED_HOSTS",
+        "MLFLOW_SERVER_CORS_ALLOWED_ORIGINS",
+        "MLFLOW_SERVER_X_FRAME_OPTIONS",
+    ):
+        monkeypatch.delenv(key, raising=False)
 
     def assert_event_recorded_before_run_server(**kwargs):
         mock_telemetry_client.flush()
