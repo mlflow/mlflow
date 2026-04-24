@@ -462,7 +462,7 @@ def test_convert_sets_last_updated_at_for_new_models(tmp_path):
     convert(input_data, output_dir)
 
     catalog = json.loads((output_dir / "openai.json").read_text())
-    assert "last_updated_at" in catalog["models"]["gpt-4o"]
+    assert catalog["models"]["gpt-4o"]["last_updated_at"] == date.today().isoformat()
 
 
 def test_convert_preserves_last_updated_at_when_entry_unchanged(tmp_path):
