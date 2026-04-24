@@ -273,7 +273,7 @@ function JsonNode({
     <div>
       <div css={lineWrapperStyle}>
         <span css={lineNumberStyle}>{displayLine}</span>
-        <span css={expandStyle} onClick={() => isExpandable && setCollapsed(!collapsed)}>
+        <span css={expandStyle} role="button" onClick={() => isExpandable && setCollapsed(!collapsed)}>
           {isExpandable && (
             <span
               css={{
