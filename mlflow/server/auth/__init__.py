@@ -310,7 +310,12 @@ _RESOURCE_WORKSPACE_CACHE: TTLCache[str, str | None] = TTLCache(
 
 
 def is_unprotected_route(path: str) -> bool:
-    return path.startswith(("/static", "/favicon.ico", "/health"))
+    # /logout is intentionally unauthenticated: it always returns 401 with
+    # WWW-Authenticate so the browser drops cached Basic Auth credentials.
+    # Running it through the auth middleware would cause a prompt loop (valid
+    # creds pass middleware, handler returns 401, browser re-auths with same
+    # creds, middleware passes, handler 401s again).
+    return path.startswith(("/static", "/favicon.ico", "/health")) or path == LOGOUT
 
 
 def make_basic_auth_response() -> Response:
@@ -2860,13 +2865,21 @@ def alert(href: str):
 
 
 def logout():
-    # Returning 401 with WWW-Authenticate triggers the browser to forget its
-    # cached Basic Auth credentials and prompt for new ones on the next
-    # request. There is no server-side session to clear — auth is stateless.
-    res = make_response(
-        "You have been logged out. Reload the page to sign in with a different account.",
-        401,
+    # Basic Auth has no server-side session. To "log out" we return 401 with
+    # WWW-Authenticate, which convinces the browser to drop its cached
+    # credentials for this realm. The body is a small HTML page that lets the
+    # user proceed back to the app (where the next fetch will trigger a fresh
+    # auth prompt).
+    body = (
+        "<!DOCTYPE html>"
+        "<html><head><title>Logged out</title></head>"
+        "<body style='font-family: sans-serif; padding: 2rem;'>"
+        "<h2>You have been logged out.</h2>"
+        "<p><a href='/'>Return to MLflow</a> to sign in as a different user.</p>"
+        "</body></html>"
     )
+    res = make_response(body, 401)
+    res.headers["Content-Type"] = "text/html; charset=utf-8"
     res.headers["WWW-Authenticate"] = 'Basic realm="mlflow"'
     return res
 

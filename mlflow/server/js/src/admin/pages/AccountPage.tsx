@@ -63,20 +63,21 @@ const AccountPage = () => {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     const expired = 'expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     document.cookie = `mlflow_user=; ${expired}`;
     // Also clear the dev-switcher auth header cookie if it was set
     document.cookie = `mlflow-request-header-Authorization=; ${expired}`;
 
-    // Hit /logout so the server returns 401 with WWW-Authenticate, causing the
-    // browser to forget its cached Basic Auth credentials.
-    await fetch('/logout', { credentials: 'include' }).catch(() => {});
-
-    // Drop cached React Query data so stale admin/user info doesn't linger.
+    // Drop cached React Query data so stale admin/user info doesn't linger
+    // if the user navigates back.
     queryClient.clear();
 
-    window.location.href = '/';
+    // Navigate (not fetch) to /logout. The server returns 401 with
+    // WWW-Authenticate, which triggers the browser to drop its cached Basic
+    // Auth credentials. The response page has a link back to the app where
+    // the next request will prompt for fresh credentials.
+    window.location.href = '/logout';
   };
 
   const rolesEmptyState =
