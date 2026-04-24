@@ -202,6 +202,15 @@ const UsersTab = () => {
         confirmLoading={createUser.isLoading}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {error && (
+            <Alert
+              componentId="admin.users.create_modal.error"
+              type="error"
+              message={error}
+              closable
+              onClose={() => setError(null)}
+            />
+          )}
           <div>
             <Typography.Text bold>Username</Typography.Text>
             <Input
@@ -236,9 +245,20 @@ const UsersTab = () => {
         okButtonProps={{ danger: true }}
         confirmLoading={deleteUser.isLoading}
       >
-        <Typography.Text>
-          Are you sure you want to delete user <strong>{deleteTarget}</strong>? This action cannot be undone.
-        </Typography.Text>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {error && (
+            <Alert
+              componentId="admin.users.delete_modal.error"
+              type="error"
+              message={error}
+              closable
+              onClose={() => setError(null)}
+            />
+          )}
+          <Typography.Text>
+            Are you sure you want to delete user <strong>{deleteTarget}</strong>? This action cannot be undone.
+          </Typography.Text>
+        </div>
       </Modal>
     </div>
   );
