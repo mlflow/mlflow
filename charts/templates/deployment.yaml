@@ -59,20 +59,29 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             {{- include "mlflow.serverArgs" . | nindent 12 }}
+            {{- if .Values.tls.enabled }}
+            - --uvicorn-opts=--ssl-keyfile=/etc/tls/private/tls.key --ssl-certfile=/etc/tls/private/tls.crt --proxy-headers
+            {{- end }}
           ports:
-            - name: http
+            - name: {{ if .Values.tls.enabled }}https{{ else }}http{{ end }}
               containerPort: {{ .Values.server.value_options.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
               path: /health
-              port: http
+              port: {{ if .Values.tls.enabled }}https{{ else }}http{{ end }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: 15
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /health
-              port: http
+              port: {{ if .Values.tls.enabled }}https{{ else }}http{{ end }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: 5
             periodSeconds: 10
           {{- with .Values.env }}
@@ -91,7 +100,7 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or .Values.storage.enabled .Values.securityContext.readOnlyRootFilesystem }}
+          {{- if or .Values.storage.enabled .Values.securityContext.readOnlyRootFilesystem .Values.tls.enabled }}
           volumeMounts:
             {{- if .Values.storage.enabled }}
             - name: mlflow-storage
@@ -101,8 +110,13 @@ spec:
             - name: tmp
               mountPath: /tmp
             {{- end }}
+            {{- if .Values.tls.enabled }}
+            - name: tls
+              mountPath: /etc/tls/private
+              readOnly: true
+            {{- end }}
           {{- end }}
-      {{- if or .Values.storage.enabled .Values.securityContext.readOnlyRootFilesystem }}
+      {{- if or .Values.storage.enabled .Values.securityContext.readOnlyRootFilesystem .Values.tls.enabled }}
       volumes:
         {{- if .Values.storage.enabled }}
         - name: mlflow-storage
@@ -112,6 +126,11 @@ spec:
         {{- if .Values.securityContext.readOnlyRootFilesystem }}
         - name: tmp
           emptyDir: {}
+        {{- end }}
+        {{- if .Values.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.secretName }}
         {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}

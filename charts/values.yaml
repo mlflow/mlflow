@@ -59,6 +59,10 @@ env: []
 # Extra envFrom sources (ConfigMaps, Secrets).
 envFrom: []
 
+tls:
+  enabled: false
+  secretName: mlflow-tls
+
 podSecurityContext:
   runAsNonRoot: true
   seccompProfile:
