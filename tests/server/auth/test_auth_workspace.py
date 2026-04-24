@@ -121,8 +121,7 @@ class _TrackingStore:
         # For test simplicity we treat ``name`` as a synonym for ``endpoint_id``
         # (our fixture data uses the same string for both). This mirrors how the
         # real store resolves a name → id lookup before returning the endpoint.
-        lookup_id = endpoint_id or name
-        if lookup_id:
+        if lookup_id := (endpoint_id or name):
             if lookup_id not in self._gateway_endpoint_workspaces:
                 raise MlflowException(
                     f"GatewayEndpoint not found ({lookup_id})",
