@@ -13,7 +13,6 @@ import {
   getLoggedModelArtifactLocationUrl,
 } from '../../../common/utils/ArtifactUtils';
 import { ImagePreviewGroup, Image } from '../../../shared/building_blocks/Image';
-import { DownloadLink, exceedsRenderSizeLimit } from '../../../shared/web-shared/media-rendering-utils';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
@@ -35,9 +34,6 @@ const ShowArtifactImageView = ({
   const [isLoading, setIsLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [imageUrl, setImageUrl] = useState(null);
-  const [contentLength, setContentLength] = useState(0);
-
-  const contentType = path.toLowerCase().endsWith('.svg') ? 'image/svg+xml' : 'image/png';
 
   useEffect(() => {
     setIsLoading(true);
@@ -56,26 +52,11 @@ const ShowArtifactImageView = ({
       getArtifact,
     ).then((result: any) => {
       const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
-      const blob = new Blob([new Uint8Array(result)], options);
-      setContentLength(blob.size);
       // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
-      setImageUrl(URL.createObjectURL(blob));
+      setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
       setIsLoading(false);
     });
   }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
-
-  if (exceedsRenderSizeLimit(contentType, contentLength) && imageUrl) {
-    return (
-      <div css={{ padding: '10px' }}>
-        <DownloadLink
-          url={imageUrl}
-          contentType={contentType}
-          contentLength={contentLength}
-          filename={path.split('/').pop()}
-        />
-      </div>
-    );
-  }
 
   return (
     imageUrl && (

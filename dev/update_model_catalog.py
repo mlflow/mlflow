@@ -279,6 +279,55 @@ def _transform_entry(info: dict[str, Any]) -> dict[str, Any] | None:
     return entry
 
 
+_LEGACY_PRICING_KEY_MAP = {
+    "input_per_token": "input_per_million_tokens",
+    "output_per_token": "output_per_million_tokens",
+    "cache_read_per_token": "cache_read_per_million_tokens",
+    "cache_write_per_token": "cache_write_per_million_tokens",
+}
+
+
+def _migrate_pricing_block(pricing: dict[str, Any]) -> dict[str, Any]:
+    """Convert legacy *_per_token keys to *_per_million_tokens in a flat pricing block."""
+    result = {}
+    for k, v in pricing.items():
+        if k in _LEGACY_PRICING_KEY_MAP:
+            result[_LEGACY_PRICING_KEY_MAP[k]] = _to_per_million(v)
+        else:
+            result[k] = v
+    return result
+
+
+def _migrate_legacy_pricing(entry: dict[str, Any]) -> dict[str, Any]:
+    """Migrate legacy *_per_token pricing keys to *_per_million_tokens in a catalog entry.
+
+    Applies the migration at the top level of the pricing block and recursively within
+    service_tiers, long_context, and modality sub-sections.
+    """
+    if "pricing" not in entry:
+        return entry
+
+    entry = {**entry}
+    pricing = _migrate_pricing_block(entry["pricing"])
+
+    if "service_tiers" in pricing:
+        pricing["service_tiers"] = {
+            tier: _migrate_pricing_block(tier_data)
+            for tier, tier_data in pricing["service_tiers"].items()
+        }
+
+    if "long_context" in pricing:
+        pricing["long_context"] = [_migrate_pricing_block(ctx) for ctx in pricing["long_context"]]
+
+    if "modality" in pricing:
+        pricing["modality"] = {
+            mod: _migrate_pricing_block(mod_data) for mod, mod_data in pricing["modality"].items()
+        }
+
+    entry["pricing"] = pricing
+    return entry
+
+
 _LITELLM_URL = (
     "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 )
@@ -343,7 +392,7 @@ def convert(raw: dict[str, Any], output_dir: Path) -> dict[str, int]:
             continue
         for model_name, entry in existing.get("models", {}).items():
             if model_name not in providers.get(provider, {}):
-                providers.setdefault(provider, {})[model_name] = entry
+                providers.setdefault(provider, {})[model_name] = _migrate_legacy_pricing(entry)
 
     stats = {}
     for provider, models in sorted(providers.items()):

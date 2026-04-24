@@ -627,6 +627,10 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
+  "1oofcq": {
+    "defaultMessage": "Show less",
+    "description": "Link that collapses an expanded list when clicked"
+  },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
     "description": "Issue detection summary > View issues button"
@@ -4183,6 +4187,10 @@
     "defaultMessage": "View chat session",
     "description": "Tooltip for the session id tag"
   },
+  "OW3pF8": {
+    "defaultMessage": "Show {count} more intermediate {count, plural, =1 {step} other {steps}}",
+    "description": "Link that expands a collapsed list of intermediate function execution steps when clicked"
+  },
   "OWCfFp": {
     "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
     "description": "Modal title to promote the model to a different registered model"
@@ -5390,6 +5398,10 @@
   "W99FRU": {
     "defaultMessage": "Model Name",
     "description": "Label for model name input in model config form"
+  },
+  "WDmiPW": {
+    "defaultMessage": "You need another endpoint to use guardrails.",
+    "description": "Tooltip shown when no alternate endpoint exists for guardrail model selection"
   },
   "WDqWWa": {
     "defaultMessage": "Show all runs",
@@ -8775,6 +8787,10 @@
     "defaultMessage": "{registeredCount}/{loggedCount} logged models are registered",
     "description": "Run page > Header > Register model dropdown > Button tooltip"
   },
+  "qEq4S6": {
+    "defaultMessage": "You need another endpoint to use guardrails.",
+    "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
+  },
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
@@ -8902,6 +8918,10 @@
   "r/mP0/": {
     "defaultMessage": "Add rationale (optional)",
     "description": "Evaluation review > assessments > rationale input placeholder"
+  },
+  "r0J+Jm": {
+    "defaultMessage": "Selected guardrail model endpoint is unavailable. Please choose another endpoint.",
+    "description": "Error shown when selected guardrail model endpoint is no longer available"
   },
   "r0mM8+": {
     "defaultMessage": "An error occurred while creating the API key. Please try again.",
@@ -9294,6 +9314,10 @@
   "tD0/e2": {
     "defaultMessage": "Model {modelName} does not exist",
     "description": "Sub-message text for error message on overall model page"
+  },
+  "tEX/Gk": {
+    "defaultMessage": "Select a Guardrail Model endpoint to create this guardrail.",
+    "description": "Tooltip shown when create button is disabled because guardrail model is not selected"
   },
   "tEwQWS": {
     "defaultMessage": "Active",
