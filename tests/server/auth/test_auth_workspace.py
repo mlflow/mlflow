@@ -131,7 +131,7 @@ def test_seed_default_workspace_roles_happy_path(monkeypatch):
     # resource_type in VALID_RESOURCE_TYPES). The permission level differentiates them.
     assert [(p["resource_type"], p["permission"]) for p in added_perms] == [
         ("workspace", MANAGE.name),
-        ("workspace", "EDIT"),
+        ("workspace", EDIT.name),
         ("workspace", READ.name),
     ]
     assert all(p["resource_pattern"] == "*" for p in added_perms)
