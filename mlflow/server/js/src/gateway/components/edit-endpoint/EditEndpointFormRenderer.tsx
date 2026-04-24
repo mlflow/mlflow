@@ -3,7 +3,7 @@ import {
   Alert,
   Breadcrumb,
   Button,
-  InfoFillIcon,
+  InfoTooltip,
   Spinner,
   Switch,
   Tabs,
@@ -133,6 +133,7 @@ export const EditEndpointFormRenderer = ({
   const experimentId = form.watch('experimentId');
 
   // Don't disable tabs that were requested via URL query param
+  const isGuardrailsTabDisabled = !experimentId && activeTab !== 'guardrails';
   const isUsageTabDisabled = !experimentId && activeTab !== 'usage';
   const isTracesTabDisabled = !experimentId && activeTab !== 'traces';
 
@@ -246,9 +247,24 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Trigger value="overview">
               <FormattedMessage defaultMessage="Overview" description="Tab label for endpoint overview" />
             </Tabs.Trigger>
-            <Tabs.Trigger value="guardrails">
-              <FormattedMessage defaultMessage="Guardrails" description="Tab label for endpoint guardrails" />
-            </Tabs.Trigger>
+            {isGuardrailsTabDisabled ? (
+              <Tooltip
+                componentId="mlflow.gateway.endpoint.guardrails-tab-tooltip"
+                content={intl.formatMessage({
+                  defaultMessage: 'Enable Usage Tracking in the Overview tab to configure guardrails',
+                  description:
+                    'Tooltip shown on disabled Guardrails tab explaining that usage tracking must be enabled first',
+                })}
+              >
+                <Tabs.Trigger value="guardrails" disabled>
+                  <FormattedMessage defaultMessage="Guardrails" description="Tab label for endpoint guardrails" />
+                </Tabs.Trigger>
+              </Tooltip>
+            ) : (
+              <Tabs.Trigger value="guardrails">
+                <FormattedMessage defaultMessage="Guardrails" description="Tab label for endpoint guardrails" />
+              </Tabs.Trigger>
+            )}
             {isUsageTabDisabled ? (
               <Tooltip
                 componentId="mlflow.gateway.endpoint.usage-tab-tooltip"
@@ -464,18 +480,14 @@ export const EditEndpointFormRenderer = ({
                           description="Label for usage tracking toggle in sidebar"
                         />
                       </Typography.Text>
-                      <Tooltip
+                      <InfoTooltip
                         componentId="mlflow.gateway.edit-endpoint.usage-tracking-info"
                         content={intl.formatMessage({
                           defaultMessage:
                             'When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.',
                           description: 'Tooltip explaining what usage tracking does',
                         })}
-                      >
-                        <InfoFillIcon
-                          css={{ width: 14, height: 14, color: theme.colors.textSecondary, cursor: 'help' }}
-                        />
-                      </Tooltip>
+                      />
                     </div>
                     <Controller
                       control={form.control}

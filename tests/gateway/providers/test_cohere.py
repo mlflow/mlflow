@@ -77,6 +77,7 @@ async def test_chat():
             "object": "chat.completion",
             "created": 1677858242,
             "model": "command",
+            "provider": "cohere",
             "choices": [
                 {
                     "message": {
@@ -207,6 +208,7 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "id": None,
                 "model": "command",
+                "provider": "cohere",
                 "object": "chat.completion.chunk",
                 "usage": {
                     "prompt_tokens": None,
@@ -229,6 +231,7 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "id": None,
                 "model": "command",
+                "provider": "cohere",
                 "object": "chat.completion.chunk",
                 "usage": {
                     "prompt_tokens": None,
@@ -251,6 +254,7 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "id": "test-id1",
                 "model": "command",
+                "provider": "cohere",
                 "object": "chat.completion.chunk",
                 "usage": {
                     "prompt_tokens": 83,

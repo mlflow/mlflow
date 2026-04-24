@@ -69,8 +69,8 @@ describe('GuardrailDetailModal', () => {
     renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} />);
 
     // Stage and action are custom div selectors, not <select> elements
-    expect(screen.getByText('Before Guardrails')).toBeInTheDocument();
-    expect(screen.getByText('After Guardrails')).toBeInTheDocument();
+    expect(screen.getByText('Pre-LLM Guardrails')).toBeInTheDocument();
+    expect(screen.getByText('Post-LLM Guardrails')).toBeInTheDocument();
     expect(screen.getByText('Block')).toBeInTheDocument();
     expect(screen.getByText('Sanitize')).toBeInTheDocument();
   });
@@ -122,7 +122,7 @@ describe('GuardrailDetailModal', () => {
     renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} />);
 
     // Change stage by clicking the custom div selector
-    await userEvent.click(screen.getByText('After Guardrails'));
+    await userEvent.click(screen.getByText('Post-LLM Guardrails'));
 
     await userEvent.click(screen.getByRole('button', { name: /Save/ }));
 
@@ -142,29 +142,29 @@ describe('GuardrailDetailModal', () => {
 
   // ─── Stage-variable validation ────────────────────────────────────────
 
-  test('shows BEFORE-stage hint below instructions field', () => {
+  test('shows Pre-LLM stage hint below instructions field', () => {
     renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} />);
 
     expect(screen.getByText(/Receives {{ inputs }}/)).toBeInTheDocument();
   });
 
-  test('shows error when BEFORE-stage instructions reference {{ outputs }}', async () => {
+  test('shows error when Pre-LLM stage instructions reference {{ outputs }}', async () => {
     renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} />);
 
     const textarea = screen.getByRole('textbox');
     fireEvent.change(textarea, { target: { value: 'Is {{ outputs }} appropriate?' } });
 
-    expect(screen.getByText(/{{ outputs }} is not available in BEFORE stage/)).toBeInTheDocument();
+    expect(screen.getByText(/{{ outputs }} is not available in Pre-LLM Guardrails/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
   });
 
-  test('shows error when BEFORE-stage instructions lack {{ inputs }}', async () => {
+  test('shows error when Pre-LLM stage instructions lack {{ inputs }}', async () => {
     renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} />);
 
     const textarea = screen.getByRole('textbox');
     await userEvent.type(textarea, 'Is this safe?');
 
-    expect(screen.getByText('BEFORE-stage instructions must reference {{ inputs }}')).toBeInTheDocument();
+    expect(screen.getByText('Pre-LLM Guardrails instructions must reference {{ inputs }}')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
   });
 });

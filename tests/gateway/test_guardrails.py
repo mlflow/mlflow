@@ -429,9 +429,9 @@ def test_from_entity_with_action_endpoint():
 
 
 def test_from_entity_rewrites_gateway_model_uri():
-    """gateway:/ model URIs must be rewritten to openai:/ with an explicit base_url so
-    the judge doesn't hit _resolve_gateway_uri(), which fails when MLFLOW_TRACKING_URI
-    is the backend store URI (e.g. sqlite://) inside the server process.
+    """gateway:/ model URIs are kept as gateway:/ but given an explicit base_url so
+    _get_provider_instance can skip _resolve_gateway_uri(), which fails when
+    MLFLOW_TRACKING_URI is the backend store URI (e.g. sqlite://) inside the server process.
     """
     from mlflow.genai.judges.instructions_judge import InstructionsJudge
 
@@ -455,7 +455,7 @@ def test_from_entity_rewrites_gateway_model_uri():
         guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
 
     assert isinstance(guard.scorer, InstructionsJudge)
-    assert guard.scorer.model == "openai:/my-judge-ep"
+    assert guard.scorer.model == "gateway:/my-judge-ep"
     assert guard.scorer._base_url == "http://localhost:5000/gateway/mlflow/v1/chat/completions"
 
 

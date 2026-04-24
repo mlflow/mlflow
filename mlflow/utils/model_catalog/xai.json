@@ -85,8 +85,8 @@
         "max_tokens": 32768
       },
       "pricing": {
-        "input_per_token": 2e-6,
-        "output_per_token": 1e-5
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0
       },
       "capabilities": {
         "function_calling": true,
@@ -224,9 +224,9 @@
         "max_tokens": 131072
       },
       "pricing": {
-        "input_per_token": 3e-7,
-        "output_per_token": 5e-7,
-        "cache_read_per_token": 7.5e-8
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.075
       },
       "capabilities": {
         "function_calling": true,
@@ -245,9 +245,9 @@
         "max_tokens": 131072
       },
       "pricing": {
-        "input_per_token": 3e-7,
-        "output_per_token": 5e-7,
-        "cache_read_per_token": 7.5e-8
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.075
       },
       "capabilities": {
         "function_calling": true,

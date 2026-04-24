@@ -12,6 +12,7 @@ from update_model_catalog import (
     _extract_service_tiers,
     _extract_tool_pricing,
     _is_deprecated,
+    _migrate_legacy_pricing,
     _normalize_provider,
     _transform_entry,
     convert,
@@ -445,3 +446,180 @@ def test_convert_upstream_overrides_existing_model(tmp_path):
     catalog = json.loads((output_dir / "openai.json").read_text())
     # Upstream price should win
     assert catalog["models"]["gpt-4o"]["pricing"]["input_per_million_tokens"] == pytest.approx(9.99)
+
+
+def test_migrate_legacy_pricing_top_level():
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_token": 3e-6,
+            "output_per_token": 1.5e-5,
+            "cache_read_per_token": 3e-7,
+            "cache_write_per_token": 3.75e-6,
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    assert result["pricing"] == {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3,
+        "cache_write_per_million_tokens": 3.75,
+    }
+
+
+def test_migrate_legacy_pricing_service_tiers():
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_token": 2e-6,
+            "output_per_token": 8e-6,
+            "service_tiers": {
+                "batch": {
+                    "input_per_token": 1e-6,
+                    "output_per_token": 4e-6,
+                },
+                "priority": {
+                    "input_per_token": 3e-6,
+                    "output_per_token": 1.2e-5,
+                    "cache_read_per_token": 3e-7,
+                },
+            },
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    assert result["pricing"]["input_per_million_tokens"] == pytest.approx(2.0)
+    tiers = result["pricing"]["service_tiers"]
+    assert tiers["batch"] == {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 4.0,
+    }
+    assert tiers["priority"] == {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.3,
+    }
+
+
+def test_migrate_legacy_pricing_long_context():
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_token": 1e-6,
+            "output_per_token": 4e-6,
+            "long_context": [
+                {
+                    "threshold_tokens": 200000,
+                    "input_per_token": 2e-6,
+                    "output_per_token": 8e-6,
+                    "cache_read_per_token": 2e-7,
+                }
+            ],
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    ctx = result["pricing"]["long_context"]
+    assert len(ctx) == 1
+    assert ctx[0] == {
+        "threshold_tokens": 200000,
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 8.0,
+        "cache_read_per_million_tokens": 0.2,
+    }
+
+
+def test_migrate_legacy_pricing_modality():
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_token": 1e-7,
+            "output_per_token": 4e-7,
+            "modality": {
+                "audio": {
+                    "input_per_token": 7e-7,
+                    "output_per_token": 1.1e-6,
+                }
+            },
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    assert result["pricing"]["modality"] == {
+        "audio": {
+            "input_per_million_tokens": 0.7,
+            "output_per_million_tokens": 1.1,
+        }
+    }
+
+
+def test_migrate_legacy_pricing_noop_when_already_normalized():
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 10.0,
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    assert result["pricing"] == {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0,
+    }
+
+
+def test_migrate_legacy_pricing_noop_when_no_pricing():
+    entry = {"mode": "chat", "capabilities": {}}
+    assert _migrate_legacy_pricing(entry) is entry
+
+
+def test_convert_migrates_legacy_pricing_in_preserved_models(tmp_path):
+    input_data = {
+        "gpt-4o": {
+            "litellm_provider": "openai",
+            "mode": "chat",
+            "input_cost_per_token": 2.5e-6,
+        },
+    }
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Pre-populate with a community model that uses the legacy per-token format
+    existing_catalog = {
+        "schema_version": "1.0",
+        "models": {
+            "legacy-model": {
+                "mode": "chat",
+                "pricing": {
+                    "input_per_token": 3e-6,
+                    "output_per_token": 1.5e-5,
+                    "cache_read_per_token": 3e-7,
+                    "service_tiers": {
+                        "batch": {
+                            "input_per_token": 1.5e-6,
+                            "output_per_token": 7.5e-6,
+                        }
+                    },
+                },
+                "capabilities": {
+                    "function_calling": False,
+                    "vision": False,
+                    "reasoning": False,
+                    "prompt_caching": True,
+                    "response_schema": False,
+                },
+            }
+        },
+    }
+    (output_dir / "openai.json").write_text(json.dumps(existing_catalog))
+
+    convert(input_data, output_dir)
+
+    catalog = json.loads((output_dir / "openai.json").read_text())
+    legacy_pricing = catalog["models"]["legacy-model"]["pricing"]
+    assert "input_per_token" not in legacy_pricing
+    assert legacy_pricing["input_per_million_tokens"] == pytest.approx(3.0)
+    assert legacy_pricing["output_per_million_tokens"] == pytest.approx(15.0)
+    assert legacy_pricing["cache_read_per_million_tokens"] == pytest.approx(0.3)
+    batch = legacy_pricing["service_tiers"]["batch"]
+    assert "input_per_token" not in batch
+    assert batch["input_per_million_tokens"] == pytest.approx(1.5)
+    assert batch["output_per_million_tokens"] == pytest.approx(7.5)

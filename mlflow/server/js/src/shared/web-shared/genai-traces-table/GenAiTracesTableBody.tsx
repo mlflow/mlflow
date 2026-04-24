@@ -590,7 +590,7 @@ export const GenAiTracesTableBody = React.memo(
       if (container.scrollHeight <= container.clientHeight) {
         fetchNextPage();
       }
-    }, [fetchNextPage, hasNextPage, isFetchingNextPage, evaluations.length, virtualizerRowCount]);
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage, virtualizerTotalSize]);
 
     return (
       <>

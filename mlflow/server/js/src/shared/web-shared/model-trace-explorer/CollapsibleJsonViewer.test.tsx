@@ -229,8 +229,8 @@ describe('CollapsibleJsonViewer', () => {
 
       expect(screen.getByText('"a"')).toBeInTheDocument();
 
-      const itemsKey = screen.getByText('"items"');
-      await user.click(itemsKey.closest('div')!);
+      // Click the first collapse button
+      await user.click(screen.getAllByRole('button')[0]);
 
       expect(screen.queryByText('"a"')).not.toBeInTheDocument();
     });
