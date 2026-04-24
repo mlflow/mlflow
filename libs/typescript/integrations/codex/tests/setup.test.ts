@@ -1,37 +1,36 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createInterface } from 'node:readline';
 
 import { runSetup } from '../src/commands/setup';
+import { selectPrompt } from '../src/ui-select';
 
 jest.mock('node:readline', () => ({ createInterface: jest.fn() }));
 jest.mock('../src/ui-select', () => ({ selectPrompt: jest.fn() }));
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { createInterface } = require('node:readline') as {
-  createInterface: jest.Mock;
-};
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { selectPrompt } = require('../src/ui-select') as {
-  selectPrompt: jest.Mock;
-};
+const createInterfaceMock = jest.mocked(createInterface);
+const selectPromptMock = jest.mocked(selectPrompt);
 
 function mockTextPrompts(answers: string[]): void {
   const queue = [...answers];
-  createInterface.mockImplementation(() => ({
-    question: (_prompt: string, cb: (answer: string) => void) => {
-      const next = queue.shift();
-      if (next === undefined) {
-        throw new Error('mockTextPrompts: ran out of answers');
-      }
-      cb(next);
-    },
-    close: () => {},
-  }));
+  createInterfaceMock.mockImplementation(
+    () =>
+      ({
+        question: (_prompt: string, cb: (answer: string) => void) => {
+          const next = queue.shift();
+          if (next === undefined) {
+            throw new Error('mockTextPrompts: ran out of answers');
+          }
+          cb(next);
+        },
+        close: () => {},
+      }) as unknown as ReturnType<typeof createInterface>,
+  );
 }
 
 beforeEach(() => {
-  selectPrompt.mockReset();
-  createInterface.mockReset();
+  selectPromptMock.mockReset();
+  createInterfaceMock.mockReset();
 });
 
 const HOOK_LINE = 'notify = ["mlflow-codex", "notify-hook"]';
@@ -174,11 +173,11 @@ describe('runSetup', () => {
   it('interactive scope prompt picks project-local when the user selects Project', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'codex-interactive-project-'));
     try {
-      selectPrompt.mockResolvedValueOnce(true);
+      selectPromptMock.mockResolvedValueOnce(true);
       mockTextPrompts(['', '']);
       await runSetup([], { home: tmpHome, cwd });
 
-      expect(selectPrompt).toHaveBeenCalledTimes(1);
+      expect(selectPromptMock).toHaveBeenCalledTimes(1);
       expect(existsSync(join(cwd, '.codex', 'config.toml'))).toBe(true);
       expect(existsSync(join(cwd, '.codex', 'mlflow-tracing.json'))).toBe(true);
       expect(existsSync(join(tmpHome, '.codex', 'config.toml'))).toBe(false);
@@ -190,7 +189,7 @@ describe('runSetup', () => {
   it('interactive scope prompt writes user-level when the user selects User', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'codex-interactive-user-'));
     try {
-      selectPrompt.mockResolvedValueOnce(false);
+      selectPromptMock.mockResolvedValueOnce(false);
       mockTextPrompts(['', '']);
       await runSetup([], { home: tmpHome, cwd });
 
@@ -208,7 +207,7 @@ describe('runSetup', () => {
       mockTextPrompts(['', '']);
       await runSetup(['--project'], { home: tmpHome, cwd });
 
-      expect(selectPrompt).not.toHaveBeenCalled();
+      expect(selectPromptMock).not.toHaveBeenCalled();
       expect(existsSync(join(cwd, '.codex', 'config.toml'))).toBe(true);
       expect(existsSync(join(tmpHome, '.codex', 'config.toml'))).toBe(false);
     } finally {
@@ -221,7 +220,7 @@ describe('runSetup', () => {
     try {
       await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd });
 
-      expect(selectPrompt).not.toHaveBeenCalled();
+      expect(selectPromptMock).not.toHaveBeenCalled();
       expect(existsSync(join(tmpHome, '.codex', 'config.toml'))).toBe(true);
       expect(existsSync(join(cwd, '.codex', 'config.toml'))).toBe(false);
     } finally {
