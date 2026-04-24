@@ -69,6 +69,11 @@ env: []
 # Extra envFrom sources (ConfigMaps, Secrets).
 envFrom: []
 
+extraVolumes: []
+extraVolumeMounts: []
+extraInitContainers: []
+extraContainers: []
+
 tls:
   enabled: false
   secretName: mlflow-tls
