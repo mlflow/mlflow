@@ -44,9 +44,20 @@ spec:
             - sh
             - -c
             - mlflow db upgrade {{ if .Values.server.value_options.backend_store_uri }}{{ .Values.server.value_options.backend_store_uri | quote }}{{ else }}"$MLFLOW_BACKEND_STORE_URI"{{ end }}
-          {{- with .Values.env }}
+          {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.env }}
           env:
+            {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom }}
+            - name: MLFLOW_BACKEND_STORE_URI
+              {{- if .Values.mlflow.backendStoreUriFrom }}
+              valueFrom:
+                {{- toYaml .Values.mlflow.backendStoreUriFrom | nindent 16 }}
+              {{- else }}
+              value: {{ .Values.mlflow.backendStoreUri | quote }}
+              {{- end }}
+            {{- end }}
+            {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
           {{- with .Values.envFrom }}
           envFrom:
@@ -87,9 +98,29 @@ spec:
               {{- end }}
             initialDelaySeconds: 5
             periodSeconds: 10
-          {{- with .Values.env }}
+          {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.mlflow.registryStoreUri .Values.mlflow.registryStoreUriFrom .Values.env }}
           env:
+            {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom }}
+            - name: MLFLOW_BACKEND_STORE_URI
+              {{- if .Values.mlflow.backendStoreUriFrom }}
+              valueFrom:
+                {{- toYaml .Values.mlflow.backendStoreUriFrom | nindent 16 }}
+              {{- else }}
+              value: {{ .Values.mlflow.backendStoreUri | quote }}
+              {{- end }}
+            {{- end }}
+            {{- if or .Values.mlflow.registryStoreUri .Values.mlflow.registryStoreUriFrom }}
+            - name: MLFLOW_REGISTRY_STORE_URI
+              {{- if .Values.mlflow.registryStoreUriFrom }}
+              valueFrom:
+                {{- toYaml .Values.mlflow.registryStoreUriFrom | nindent 16 }}
+              {{- else }}
+              value: {{ .Values.mlflow.registryStoreUri | quote }}
+              {{- end }}
+            {{- end }}
+            {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
           {{- with .Values.envFrom }}
           envFrom:
