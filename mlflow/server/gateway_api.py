@@ -958,26 +958,22 @@ async def openai_passthrough_embeddings(request: Request):
             auth_headers=auth_headers,
             usage_tracking=endpoint_config.usage_tracking,
         )
-        traced_passthrough = maybe_traced_gateway_call(
-            provider.passthrough,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS,
-            on_complete=make_budget_on_complete(store, workspace),
-        )
-        response = await traced_passthrough(
-            action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
-        )
-        return await run_post_llm_guardrails_passthrough(
-            guardrails,
-            body,
-            response,
-            auth_headers=auth_headers,
-            usage_tracking=endpoint_config.usage_tracking,
-        )
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    traced_passthrough = maybe_traced_gateway_call(
+        provider.passthrough,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS,
+        on_complete=make_budget_on_complete(store, workspace),
+    )
+    # Post-LLM guardrails are skipped for embeddings: responses are float vectors
+    # that content judges cannot meaningfully evaluate.
+    return await traced_passthrough(
+        action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)

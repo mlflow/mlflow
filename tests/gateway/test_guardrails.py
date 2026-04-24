@@ -248,6 +248,24 @@ async def test_sanitization_uses_json_object_response_format():
     }
 
 
+def _make_full_response(text="I'm a helpful assistant."):
+    """Return a response dict that satisfies ChatCompletionResponse validation."""
+    return {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "created": 123,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": text},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10},
+    }
+
+
 @pytest.mark.asyncio
 async def test_sanitization_uses_response_format_for_chat_response():
     scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
@@ -259,7 +277,7 @@ async def test_sanitization_uses_response_format_for_chat_response():
         action_llm_url="http://localhost:5000",
         action_endpoint_name="ep-sanitizer",
     )
-    sanitized = _make_response("cleaned")
+    sanitized = _make_full_response("cleaned")
     captured: list[dict[str, Any]] = []
 
     async def capture_send_request(*args, **kwargs):
@@ -267,7 +285,7 @@ async def test_sanitization_uses_response_format_for_chat_response():
         return {"choices": [{"message": {"content": json.dumps(sanitized)}}]}
 
     with mock.patch("mlflow.gateway.guardrails.send_request", side_effect=capture_send_request):
-        await guard.process_response(_make_request(), _make_response("bad"))
+        await guard.process_response(_make_request(), _make_full_response("bad"))
 
     assert captured[0]["payload"]["response_format"]["json_schema"]["schema"] == (
         ChatCompletionResponse.model_json_schema()
@@ -314,10 +332,7 @@ def test_infer_chat_model_identifies_request():
 
 
 def test_infer_chat_model_identifies_response():
-    payload = {
-        "choices": [{"message": {"role": "assistant", "content": "hi"}, "finish_reason": "stop"}],
-        "usage": {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10},
-    }
+    payload = _make_full_response("hi")
     assert JudgeGuardrail._infer_chat_model(payload) is ChatCompletionResponse
 
 

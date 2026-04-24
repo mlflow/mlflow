@@ -7,6 +7,7 @@ from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 import mlflow
 from mlflow.entities import SpanType
@@ -216,7 +217,7 @@ class JudgeGuardrail(Guardrail):
             try:
                 model.model_validate(payload)
                 return model
-            except Exception:
+            except ValidationError:
                 pass
         return None
 
