@@ -4,6 +4,7 @@ import sys
 from collections import Counter
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 from mlflow.entities import Feedback
 from mlflow.entities.issue import IssueSeverity, IssueStatus
@@ -413,8 +414,6 @@ class TrackingServerStartEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        from urllib.parse import urlparse
-
         backend_store_uri = arguments.get("backend_store_uri") or ""
         scheme = urlparse(backend_store_uri).scheme
         if not scheme:

@@ -91,7 +91,6 @@ from mlflow.telemetry.events import (
     GatewayListSecretsEvent,
     GatewayStartEvent,
     GatewayUpdateBudgetPolicyEvent,
-    TrackingServerStartEvent,
     GatewayUpdateEndpointEvent,
     GatewayUpdateGuardrailEvent,
     GatewayUpdateSecretEvent,
@@ -113,6 +112,7 @@ from mlflow.telemetry.events import (
     SimulateConversationEvent,
     StartTraceEvent,
     TracingContextPropagation,
+    TrackingServerStartEvent,
     UpdateIssueEvent,
 )
 from mlflow.tracing.distributed import (
@@ -1257,7 +1257,9 @@ def test_tracking_server_start(
 
     runner = CliRunner(catch_exceptions=False)
     with (
-        mock.patch("mlflow.server._run_server", side_effect=assert_event_recorded_before_run_server),
+        mock.patch(
+            "mlflow.server._run_server", side_effect=assert_event_recorded_before_run_server
+        ),
         mock.patch("mlflow.server.handlers.initialize_backend_stores"),
     ):
         runner.invoke(server, cli_args)
