@@ -392,7 +392,11 @@ const TracesV3LogsImpl = React.memo(
       viewType: MetricViewType.TRACES,
       metricName: TraceMetricKey.TRACE_COUNT,
       aggregations: [{ aggregation_type: AggregationType.COUNT }],
-      enabled: shouldUseInfinitePaginatedTraces() && !isQueryDisabled && !!singleExperimentId,
+      enabled:
+        shouldUseInfinitePaginatedTraces() &&
+        !isQueryDisabled &&
+        !!singleExperimentId &&
+        !firedCountTelemetryForExperiments.has(singleExperimentId),
     });
     const allTimeTotalCount = allTimeTraceCountMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT];
 
