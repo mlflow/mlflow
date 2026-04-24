@@ -152,6 +152,7 @@ class TraceExperimentTagKey:
 
 class TraceArchivalFailureReason(str, Enum):
     MALFORMED_TRACE = "MALFORMED_TRACE"
+    UNSUPPORTED_ARCHIVE_REPOSITORY = "UNSUPPORTED_ARCHIVE_REPOSITORY"
 
 
 class AssessmentMetadataKey:

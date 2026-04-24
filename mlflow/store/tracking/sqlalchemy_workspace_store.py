@@ -415,6 +415,9 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             self._get_active_workspace(),
         )
 
+    def _get_trace_archival_workspace_name(self) -> str | None:
+        return self._get_active_workspace()
+
     def _ensure_default_workspace_experiment(self) -> None:
         """
         Ensure the default experiment exists in the provider's default workspace when enabled.

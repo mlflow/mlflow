@@ -78,6 +78,8 @@ MAX_INPUT_TAG_VALUE_SIZE = 500
 MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
+MAX_TRACE_ARCHIVAL_RETENTION_LENGTH = 32
+_TRACE_ARCHIVAL_RETENTION_REGEX = re.compile(r"^[1-9][0-9]*[mhd]$")
 
 PARAM_VALIDATION_MSG = """
 
@@ -130,6 +132,105 @@ def not_integer_value(path, value):
 
 def exceeds_maximum_length(path, limit):
     return f"'{path}' exceeds the maximum length of {limit} characters"
+
+
+def _validate_trace_archival_retention_string(
+    value: Any, *, parameter_name: str | None = None
+) -> str:
+    if not is_string_type(value):
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a duration in the form "
+                "`<int><unit>`, where unit is one of 'm', 'h', or 'd' (for example '30d' or "
+                "'12h')."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival retention must be in the form `<int><unit>`, "
+            "where unit is one of 'm', 'h', or 'd'."
+        )
+
+    trimmed = value.strip()
+    if len(trimmed) > MAX_TRACE_ARCHIVAL_RETENTION_LENGTH:
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Maximum length is 32 characters."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival duration must be at most 32 characters."
+        )
+
+    if _TRACE_ARCHIVAL_RETENTION_REGEX.fullmatch(trimmed) is None:
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a duration in the form "
+                "`<int><unit>`, where unit is one of 'm', 'h', or 'd' (for example '30d' or "
+                "'12h')."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival retention must be in the form `<int><unit>`, "
+            "where unit is one of 'm', 'h', or 'd'."
+        )
+
+    return trimmed
+
+
+def _validate_trace_archival_location(value: Any, *, parameter_name: str | None = None) -> str:
+    if not is_string_type(value):
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a URI string."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival location must be a URI string."
+        )
+
+    trimmed = value.strip()
+    parsed = urllib.parse.urlparse(trimmed)
+    if parsed.scheme == "mlflow-artifacts":
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Trace archival location cannot use "
+                "the proxy-only `mlflow-artifacts:` scheme."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival location cannot use the proxy-only `mlflow-artifacts:` scheme."
+        )
+
+    return trimmed
+
+
+def _parse_trace_archival_duration_config(
+    value: str | None,
+    *,
+    duration_key: str,
+    expected_type: str | None = None,
+    allow_missing_duration: bool = False,
+) -> str | None:
+    if value is None:
+        return None
+
+    try:
+        payload = json.loads(value)
+    except Exception as e:
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival config must be encoded as a JSON object."
+        ) from e
+
+    if not isinstance(payload, dict):
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival config must be encoded as a JSON object."
+        )
+
+    if expected_type is not None and payload.get("type") != expected_type:
+        raise MlflowException.invalid_parameter_value(
+            f"Trace archival config must use type '{expected_type}'."
+        )
+
+    duration_value = payload.get(duration_key)
+    if duration_value is None and allow_missing_duration:
+        return None
+
+    return _validate_trace_archival_retention_string(duration_value)
 
 
 def append_to_json_path(currentPath, value):

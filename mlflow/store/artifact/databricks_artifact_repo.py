@@ -27,6 +27,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
@@ -269,7 +270,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 raise MlflowTraceDataCorrupted(request_id=self.resource.id) from e
 
     def download_archived_trace_data(self) -> TraceData:
-        raise MlflowException.invalid_parameter_value(
+        raise MlflowNotImplementedException(
             "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
         )
 
@@ -305,12 +306,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 self._signed_url_upload_file(cred, temp_file)
 
     def upload_archived_trace_data(self, trace_data: TraceData) -> None:
-        raise MlflowException.invalid_parameter_value(
+        raise MlflowNotImplementedException(
             "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
         )
 
     def upload_archived_trace_data_bytes(self, data: bytes) -> None:
-        raise MlflowException.invalid_parameter_value(
+        raise MlflowNotImplementedException(
             "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
         )
 
