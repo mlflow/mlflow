@@ -390,10 +390,10 @@ def convert(raw: dict[str, Any], output_dir: Path) -> dict[str, int]:
         # Determine last_updated_at: carry over existing date if entry is unchanged
         existing_entry = existing_catalogs.get(provider, {}).get(model_name)
         if existing_entry is not None:
-            existing_without_ts = {
+            existing_without_last_updated_at = {
                 k: v for k, v in existing_entry.items() if k != "last_updated_at"
             }
-            if entry == existing_without_ts:
+            if entry == existing_without_last_updated_at:
                 # Entry is unchanged; preserve existing last_updated_at if present
                 if existing_last_updated := existing_entry.get("last_updated_at"):
                     entry["last_updated_at"] = existing_last_updated
