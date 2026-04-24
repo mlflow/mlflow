@@ -2440,17 +2440,34 @@ def filter_list_workspaces(resp: Response) -> None:
 # ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is on. The creating user is assigned to the
 # admin entry below so they retain authority over the workspace they just made.
 #
-# ``workspace-admin`` uses ``resource_type='workspace'`` because that conveys the
-# workspace-admin capability (role / user management within the workspace) on top
-# of the workspace-wide MANAGE. ``editor`` / ``viewer`` use ``resource_type='*'``,
-# the generic per-user workspace-wide grant — users assigned those roles get
-# EDIT / READ on every resource in the workspace but do not gain admin authority.
+# All three roles use ``(resource_type='workspace', resource_pattern='*')`` — the
+# workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``. The permission
+# level differentiates them: only ``MANAGE`` additionally grants workspace-admin
+# capability (role/user management within the workspace); ``EDIT`` / ``READ`` give
+# workspace-wide resource access without admin authority.
 _DEFAULT_WORKSPACE_ROLES = (
-    ("workspace-admin", "workspace", MANAGE.name, "Full MANAGE authority over the workspace."),
-    ("editor", "*", EDIT.name, "EDIT access to every resource in the workspace."),
-    ("viewer", "*", READ.name, "READ access to every resource in the workspace."),
+    ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
+    ("editor", EDIT.name, "EDIT access to every resource in the workspace."),
+    ("viewer", READ.name, "READ access to every resource in the workspace."),
 )
 _WORKSPACE_ADMIN_ROLE_NAME = _DEFAULT_WORKSPACE_ROLES[0][0]
+
+
+def _grant_direct_workspace_manage_to_creator(workspace_name: str, username: str) -> None:
+    """Fallback path used whenever the role-based grant can't be established. Logs
+    on failure rather than raising so the caller's workspace creation response still
+    reaches the client.
+    """
+    try:
+        store.set_workspace_permission(workspace_name, username, MANAGE.name)
+    except MlflowException as e:
+        _logger.error(
+            "Failed to grant fallback workspace MANAGE to creator '%s' on workspace "
+            "'%s': %s. A super admin must grant access manually.",
+            username,
+            workspace_name,
+            e,
+        )
 
 
 def _seed_default_workspace_roles_and_grant_creator(resp: Response) -> None:
@@ -2459,9 +2476,10 @@ def _seed_default_workspace_roles_and_grant_creator(resp: Response) -> None:
     authority over it. Partial failures are logged rather than raised — the
     workspace creation has already succeeded at this point.
 
-    When ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is disabled, the creator still gets a
-    direct workspace MANAGE grant (via ``set_workspace_permission``) so they are
-    never locked out of a workspace they just created.
+    When ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is disabled, or when any step of the
+    role-based path fails, the creator falls back to a direct
+    ``set_workspace_permission(..., MANAGE)`` grant so they are never locked out of
+    a workspace they just created.
     """
     response_message = CreateWorkspace.Response()
     parse_dict(resp.json, response_message)
@@ -2469,50 +2487,53 @@ def _seed_default_workspace_roles_and_grant_creator(resp: Response) -> None:
     username = authenticate_request().username
 
     if not MLFLOW_RBAC_SEED_DEFAULT_ROLES.get():
-        try:
-            store.set_workspace_permission(workspace_name, username, MANAGE.name)
-        except MlflowException as e:
-            _logger.error(
-                "Failed to grant workspace MANAGE to creator '%s' on workspace '%s': %s. "
-                "The workspace exists but the creator has no permissions on it; a super "
-                "admin must grant access manually.",
-                username,
-                workspace_name,
-                e,
-            )
+        _grant_direct_workspace_manage_to_creator(workspace_name, username)
         return
 
     admin_role_id: int | None = None
-    for role_name, resource_type, permission, description in _DEFAULT_WORKSPACE_ROLES:
+    for role_name, permission, description in _DEFAULT_WORKSPACE_ROLES:
         try:
             role = store.create_role(
                 name=role_name, workspace=workspace_name, description=description
             )
-            store.add_role_permission(role.id, resource_type, "*", permission)
         except MlflowException as e:
             _logger.error(
-                "Failed to seed default role '%s' for workspace '%s': %s",
+                "Failed to create default role '%s' for workspace '%s': %s",
                 role_name,
                 workspace_name,
                 e,
             )
             continue
+        try:
+            store.add_role_permission(role.id, "workspace", "*", permission)
+        except MlflowException as e:
+            _logger.error(
+                "Failed to add permission to default role '%s' for workspace '%s': %s. "
+                "Rolling back the orphan role.",
+                role_name,
+                workspace_name,
+                e,
+            )
+            # Remove the orphan role so the workspace doesn't end up with a named
+            # role that grants nothing. Best-effort: log on failure.
+            try:
+                store.delete_role(role.id)
+            except MlflowException as delete_err:
+                _logger.error(
+                    "Failed to roll back orphan role '%s' (id=%s) for workspace '%s': %s",
+                    role_name,
+                    role.id,
+                    workspace_name,
+                    delete_err,
+                )
+            continue
         if role_name == _WORKSPACE_ADMIN_ROLE_NAME:
             admin_role_id = role.id
 
     if admin_role_id is None:
-        # ``workspace-admin`` creation failed — fall back to a direct MANAGE grant
-        # so the creator isn't locked out.
-        try:
-            store.set_workspace_permission(workspace_name, username, MANAGE.name)
-        except MlflowException as e:
-            _logger.error(
-                "Failed to grant fallback workspace MANAGE to creator '%s' on "
-                "workspace '%s': %s. A super admin must grant access manually.",
-                username,
-                workspace_name,
-                e,
-            )
+        # ``workspace-admin`` wasn't created (or its permission couldn't be added) —
+        # fall back to a direct MANAGE grant so the creator isn't locked out.
+        _grant_direct_workspace_manage_to_creator(workspace_name, username)
         return
 
     try:
@@ -2521,12 +2542,12 @@ def _seed_default_workspace_roles_and_grant_creator(resp: Response) -> None:
     except MlflowException as e:
         _logger.error(
             "Failed to assign creator '%s' to workspace-admin on workspace '%s': %s. "
-            "The role exists but the creator has no assignment; a super admin must "
-            "assign them manually.",
+            "Falling back to a direct workspace MANAGE grant.",
             username,
             workspace_name,
             e,
         )
+        _grant_direct_workspace_manage_to_creator(workspace_name, username)
 
 
 def _cleanup_workspace_permissions(resp: Response) -> None:

@@ -7,6 +7,7 @@ from mlflow import MlflowException
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
     MLFLOW_WORKSPACE_STORE_URI,
@@ -45,6 +46,8 @@ def workspace_client(tmp_path):
             MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key",
             MLFLOW_ENABLE_WORKSPACES.name: "true",
             MLFLOW_WORKSPACE_STORE_URI.name: backend_uri,
+            # Force seeding on so tests don't depend on the caller's shell env.
+            MLFLOW_RBAC_SEED_DEFAULT_ROLES.name: "true",
         },
         server_type="flask",
     ) as url:
@@ -197,6 +200,9 @@ def _graphql_search_model_versions(
 
 
 def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
+    # The workspace_client fixture forces ``MLFLOW_RBAC_SEED_DEFAULT_ROLES=true`` in
+    # the server subprocess so this test is deterministic regardless of the caller's
+    # shell environment.
     client, tracking_uri = workspace_client
     workspace_name = f"team-{random_str(10)}"
     _create_workspace(tracking_uri, workspace_name)
@@ -214,14 +220,17 @@ def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
         editor_perms = client.list_role_permissions(by_name["editor"].id)
         viewer_perms = client.list_role_permissions(by_name["viewer"].id)
 
+    # All three roles use resource_type='workspace' (the workspace-wide grant form).
+    # MANAGE additionally grants workspace-admin capability; EDIT/READ are pure
+    # workspace-wide resource access.
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in admin_perms] == [
         ("workspace", "*", "MANAGE")
     ]
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in editor_perms] == [
-        ("*", "*", "EDIT")
+        ("workspace", "*", "EDIT")
     ]
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in viewer_perms] == [
-        ("*", "*", "READ")
+        ("workspace", "*", "READ")
     ]
 
 

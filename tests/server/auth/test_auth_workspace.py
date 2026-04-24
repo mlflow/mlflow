@@ -127,11 +127,12 @@ def test_seed_default_workspace_roles_happy_path(monkeypatch):
     assert names == ["workspace-admin", "editor", "viewer"]
     assert all(r["workspace"] == workspace_name for r in created_roles)
 
-    # workspace-admin → (workspace, *, MANAGE); editor → (*, *, EDIT); viewer → (*, *, READ)
+    # All three roles use resource_type='workspace' (the only supported workspace-wide
+    # resource_type in VALID_RESOURCE_TYPES). The permission level differentiates them.
     assert [(p["resource_type"], p["permission"]) for p in added_perms] == [
         ("workspace", MANAGE.name),
-        ("*", "EDIT"),
-        ("*", READ.name),
+        ("workspace", "EDIT"),
+        ("workspace", READ.name),
     ]
     assert all(p["resource_pattern"] == "*" for p in added_perms)
 
@@ -204,6 +205,99 @@ def test_seed_default_workspace_roles_admin_creation_fails_falls_back(monkeypatc
     # Creator was never assigned to workspace-admin (creation failed).
     mock_assign_role_to_user.assert_not_called()
     # Fallback direct MANAGE grant so creator isn't locked out.
+    mock_set_workspace_permission.assert_called_once_with(workspace_name, creator, MANAGE.name)
+
+
+def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monkeypatch):
+    # create_role succeeds but add_role_permission raises — the orphan role must be
+    # deleted so the workspace doesn't end up with a named role that grants nothing.
+    monkeypatch.setenv("MLFLOW_RBAC_SEED_DEFAULT_ROLES", "true")
+    workspace_name = f"team-{random_str(10)}"
+    creator = f"creator-{random_str(10)}"
+    _stub_authenticated_user(monkeypatch, creator, user_id=55)
+
+    def fake_create_role(name, workspace, description=None):
+        return SimpleNamespace(
+            id={"workspace-admin": 1, "editor": 2, "viewer": 3}[name],
+            name=name,
+            workspace=workspace,
+        )
+
+    def fake_add_role_permission(role_id, resource_type, resource_pattern, permission):
+        if role_id == 1:  # workspace-admin
+            raise MlflowException("simulated add_role_permission failure")
+        return SimpleNamespace(id=role_id)
+
+    mock_delete_role = Mock()
+    mock_assign_role_to_user = Mock()
+    mock_set_workspace_permission = Mock()
+
+    monkeypatch.setattr(auth_module.store, "create_role", fake_create_role, raising=True)
+    monkeypatch.setattr(
+        auth_module.store, "add_role_permission", fake_add_role_permission, raising=True
+    )
+    monkeypatch.setattr(auth_module.store, "delete_role", mock_delete_role, raising=True)
+    monkeypatch.setattr(
+        auth_module.store, "assign_role_to_user", mock_assign_role_to_user, raising=True
+    )
+    monkeypatch.setattr(
+        auth_module.store,
+        "set_workspace_permission",
+        mock_set_workspace_permission,
+        raising=True,
+    )
+
+    with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
+        auth_module._seed_default_workspace_roles_and_grant_creator(
+            _create_workspace_response(workspace_name)
+        )
+
+    # Orphan workspace-admin role (id=1) was rolled back.
+    mock_delete_role.assert_called_once_with(1)
+    # Creator was never assigned a role (admin creation failed). Fallback MANAGE grant.
+    mock_assign_role_to_user.assert_not_called()
+    mock_set_workspace_permission.assert_called_once_with(workspace_name, creator, MANAGE.name)
+
+
+def test_seed_default_workspace_roles_assign_fails_falls_back_to_direct_grant(monkeypatch):
+    # All three roles seed successfully, but assigning the creator to workspace-admin
+    # raises — we must still fall back to a direct MANAGE grant to keep the creator
+    # from being locked out.
+    monkeypatch.setenv("MLFLOW_RBAC_SEED_DEFAULT_ROLES", "true")
+    workspace_name = f"team-{random_str(10)}"
+    creator = f"creator-{random_str(10)}"
+    _stub_authenticated_user(monkeypatch, creator, user_id=77)
+
+    role_ids = {"workspace-admin": 1, "editor": 2, "viewer": 3}
+
+    def fake_create_role(name, workspace, description=None):
+        return SimpleNamespace(id=role_ids[name], name=name, workspace=workspace)
+
+    def fake_assign_role_to_user(user_id, role_id):
+        raise MlflowException("simulated assign_role_to_user failure")
+
+    mock_add_role_permission = Mock(return_value=SimpleNamespace(id=0))
+    mock_set_workspace_permission = Mock()
+
+    monkeypatch.setattr(auth_module.store, "create_role", fake_create_role, raising=True)
+    monkeypatch.setattr(
+        auth_module.store, "add_role_permission", mock_add_role_permission, raising=True
+    )
+    monkeypatch.setattr(
+        auth_module.store, "assign_role_to_user", fake_assign_role_to_user, raising=True
+    )
+    monkeypatch.setattr(
+        auth_module.store,
+        "set_workspace_permission",
+        mock_set_workspace_permission,
+        raising=True,
+    )
+
+    with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
+        auth_module._seed_default_workspace_roles_and_grant_creator(
+            _create_workspace_response(workspace_name)
+        )
+
     mock_set_workspace_permission.assert_called_once_with(workspace_name, creator, MANAGE.name)
 
 
