@@ -1,7 +1,7 @@
 from mlflow.entities.link import Link
 
 TRACE_ID = "tr-abc123"
-SPAN_ID = "sp-abc123"
+SPAN_ID = "aabbccddeeff0011"
 
 
 def test_link_to_dict():

@@ -4583,8 +4583,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         dimension_attributes[key] = _try_parse_json_string(value)
 
                 links_data = None
-                if span.links:
-                    links_data = [link.to_dict() for link in span.links]
+                links = span.links
+                if links:
+                    links_data = [link.to_dict() for link in links]
 
                 # experiment_id filled in after we resolve trace infos
                 all_span_rows.append({
