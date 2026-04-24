@@ -25,6 +25,7 @@ from urllib3.util.retry import Retry
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_WEBHOOK_CACHE_TTL,
     MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS,
     MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES,
@@ -156,6 +157,7 @@ def _send_webhook_request(
         "entity": event.entity.value,
         "action": event.action.value,
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        **({"workspace": webhook.workspace} if MLFLOW_ENABLE_WORKSPACES.get() else {}),
         "data": payload,
     }
 
