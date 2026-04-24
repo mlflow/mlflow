@@ -31,7 +31,7 @@ dependencies = [
   "databricks-sdk<1,>=0.20.0",
   "fastapi<1",
   "gitpython<4,>=3.1.9",
-  "importlib_metadata<9,>=3.7.0,!=4.7.0",
+  "importlib_metadata<10,>=3.7.0,!=4.7.0",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-proto<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
@@ -42,7 +42,7 @@ dependencies = [
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
   "sqlparse<1,>=0.4.0",
-  "starlette<1",
+  "starlette<2",
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
 ]
