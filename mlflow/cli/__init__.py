@@ -1332,6 +1332,14 @@ try:
 except ImportError:
     pass
 
+# Add Kiro CLI integration commands
+try:
+    import mlflow.kiro.cli
+
+    cli.add_command(mlflow.kiro.cli.commands)
+except ImportError:
+    pass
+
 # Add Assistant CLI commands
 try:
     import mlflow.assistant.cli
