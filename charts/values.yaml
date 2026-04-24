@@ -63,6 +63,13 @@ tls:
   enabled: false
   secretName: mlflow-tls
 
+metrics:
+  enabled: false
+  path: /metrics
+
+serviceMonitor:
+  enabled: false
+
 podSecurityContext:
   runAsNonRoot: true
   seccompProfile:

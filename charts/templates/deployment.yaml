@@ -62,6 +62,9 @@ spec:
             {{- if .Values.tls.enabled }}
             - --uvicorn-opts=--ssl-keyfile=/etc/tls/private/tls.key --ssl-certfile=/etc/tls/private/tls.crt --proxy-headers
             {{- end }}
+            {{- if .Values.metrics.enabled }}
+            - --expose-prometheus={{ .Values.metrics.path }}
+            {{- end }}
           ports:
             - name: {{ if .Values.tls.enabled }}https{{ else }}http{{ end }}
               containerPort: {{ .Values.server.value_options.port }}
