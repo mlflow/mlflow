@@ -157,9 +157,10 @@ def _send_webhook_request(
         "entity": event.entity.value,
         "action": event.action.value,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        **({"workspace": webhook.workspace} if MLFLOW_ENABLE_WORKSPACES.get() else {}),
-        "data": payload,
     }
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        webhook_payload["workspace"] = webhook.workspace
+    webhook_payload["data"] = payload
 
     payload_json = json.dumps(webhook_payload)
     payload_bytes = payload_json.encode("utf-8")
