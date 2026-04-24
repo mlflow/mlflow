@@ -19,7 +19,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "MiniMax-M2.1": {
       "mode": "chat",
@@ -39,7 +40,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "MiniMax-M2.1-lightning": {
       "mode": "chat",
@@ -59,7 +61,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "MiniMax-M2.5": {
       "mode": "chat",
@@ -79,7 +82,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "MiniMax-M2.5-lightning": {
       "mode": "chat",
@@ -99,7 +103,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

@@ -437,6 +437,37 @@ def test_flatten_catalog_entry():
     assert info["deprecation_date"] == "2026-01-01"
 
 
+def test_flatten_catalog_entry_with_last_updated_at():
+    entry = {
+        "mode": "chat",
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+        "last_updated_at": "2025-01-15",
+    }
+    info = _flatten_catalog_entry(entry)
+    assert info["last_updated_at"] == "2025-01-15"
+
+
+def test_flatten_catalog_entry_without_last_updated_at():
+    entry = {
+        "mode": "chat",
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert "last_updated_at" not in info
+
+
 def test_load_bundled_provider_returns_data():
     _load_bundled_provider.cache_clear()
     result = _load_bundled_provider("openai")

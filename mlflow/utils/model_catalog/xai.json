@@ -18,7 +18,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-2-1212": {
       "mode": "chat",
@@ -37,7 +38,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-2-latest": {
       "mode": "chat",
@@ -56,7 +58,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-2-vision": {
       "mode": "chat",
@@ -75,7 +78,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-2-vision-1212": {
       "mode": "chat",
@@ -95,7 +99,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "deprecation_date": "2026-02-28"
+      "deprecation_date": "2026-02-28",
+      "last_updated_at": "2026-04-24"
     },
     "grok-2-vision-latest": {
       "mode": "chat",
@@ -114,7 +119,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3": {
       "mode": "chat",
@@ -132,9 +138,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-beta": {
       "mode": "chat",
@@ -152,9 +159,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-fast-beta": {
       "mode": "chat",
@@ -172,9 +180,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-fast-latest": {
       "mode": "chat",
@@ -192,9 +201,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-latest": {
       "mode": "chat",
@@ -212,9 +222,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-mini": {
       "mode": "chat",
@@ -235,7 +246,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "deprecation_date": "2026-02-28"
+      "deprecation_date": "2026-02-28",
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-mini-beta": {
       "mode": "chat",
@@ -256,7 +268,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "deprecation_date": "2026-02-28"
+      "deprecation_date": "2026-02-28",
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-mini-fast": {
       "mode": "chat",
@@ -274,9 +287,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-mini-fast-beta": {
       "mode": "chat",
@@ -294,9 +308,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-mini-fast-latest": {
       "mode": "chat",
@@ -314,9 +329,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-mini-latest": {
       "mode": "chat",
@@ -334,9 +350,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4": {
       "mode": "chat",
@@ -353,9 +370,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-0709": {
       "mode": "chat",
@@ -379,9 +397,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-1-fast": {
       "mode": "chat",
@@ -406,9 +425,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-1-fast-non-reasoning": {
       "mode": "chat",
@@ -433,9 +453,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-1-fast-non-reasoning-latest": {
       "mode": "chat",
@@ -460,9 +481,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-1-fast-reasoning": {
       "mode": "chat",
@@ -487,9 +509,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-1-fast-reasoning-latest": {
       "mode": "chat",
@@ -514,9 +537,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-fast-non-reasoning": {
       "mode": "chat",
@@ -541,9 +565,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-fast-reasoning": {
       "mode": "chat",
@@ -568,9 +593,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-latest": {
       "mode": "chat",
@@ -594,9 +620,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4.20-0309-reasoning": {
       "mode": "chat",
@@ -616,7 +643,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4.20-beta-0309-non-reasoning": {
       "mode": "chat",
@@ -634,9 +662,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4.20-beta-0309-reasoning": {
       "mode": "chat",
@@ -654,9 +683,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4.20-multi-agent-beta-0309": {
       "mode": "chat",
@@ -674,9 +704,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-beta": {
       "mode": "chat",
@@ -695,7 +726,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-code-fast": {
       "mode": "chat",
@@ -713,9 +745,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-code-fast-1": {
       "mode": "chat",
@@ -733,9 +766,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-code-fast-1-0825": {
       "mode": "chat",
@@ -753,9 +787,10 @@
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-vision-beta": {
       "mode": "chat",
@@ -774,7 +809,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

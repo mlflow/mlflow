@@ -47,7 +47,7 @@ function getSelectedAuthMode(
   return authModes.find((m) => m.mode === defaultAuthMode) ?? authModes[0];
 }
 
-interface IssueDetectionApiKeyConfiguratorProps {
+interface GenAIApiKeyConfiguratorProps {
   value: ApiKeyConfiguration;
   onChange: (value: ApiKeyConfiguration) => void;
   provider: string;
@@ -59,10 +59,10 @@ interface IssueDetectionApiKeyConfiguratorProps {
 }
 
 /**
- * Main API key configurator for issue detection.
+ * Main API key configurator for GenAI model selection.
  * Shows the new/existing mode selector and required credential fields.
  */
-export function IssueDetectionApiKeyConfigurator({
+export function GenAIApiKeyConfigurator({
   value,
   onChange,
   provider,
@@ -71,7 +71,7 @@ export function IssueDetectionApiKeyConfigurator({
   isLoadingProviderConfig,
   hasExistingSecrets,
   disabled,
-}: IssueDetectionApiKeyConfiguratorProps) {
+}: GenAIApiKeyConfiguratorProps) {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { data: secrets } = useSecretsQuery({ provider });
@@ -261,7 +261,7 @@ export function IssueDetectionApiKeyConfigurator({
   );
 }
 
-interface IssueDetectionAdvancedApiKeySettingsProps {
+interface GenAIAdvancedApiKeySettingsProps {
   value: ApiKeyConfiguration;
   onChange: (value: ApiKeyConfiguration) => void;
   provider: string;
@@ -271,17 +271,17 @@ interface IssueDetectionAdvancedApiKeySettingsProps {
 }
 
 /**
- * Advanced API key settings for issue detection.
+ * Advanced API key settings for GenAI model selection.
  * Shows optional credential fields only.
  */
-export function IssueDetectionAdvancedApiKeySettings({
+export function GenAIAdvancedApiKeySettings({
   value,
   onChange,
   provider,
   authModes,
   defaultAuthMode,
   disabled,
-}: IssueDetectionAdvancedApiKeySettingsProps) {
+}: GenAIAdvancedApiKeySettingsProps) {
   const { theme } = useDesignSystemTheme();
 
   const selectedAuthMode = useMemo(
