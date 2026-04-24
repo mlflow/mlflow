@@ -801,10 +801,10 @@ def _deduplicate_requirements(requirements):
           Output: ["packageA==1.0"]
 
         - Input: ["packageX>1.0", "packageX[extras]", "packageX<2.0"]
-          Output: ["packageX[extras]>1.0,<2.0"]
+          Output: ["packageX[extras]<2.0,>1.0"]
 
         - Input: ["markdown[extra1]>=3.5.1", "markdown[extra2]<4", "markdown"]
-          Output: ["markdown[extra1,extra2]>=3.5.1,<4"]
+          Output: ["markdown[extra1,extra2]<4,>=3.5.1"]
 
         - Input: ["scikit-learn==1.1", "scikit-learn<1"]
           Raises MlflowException indicating incompatible versions.
@@ -852,7 +852,13 @@ def _deduplicate_requirements(requirements):
                         != bool(_get_local_version_label(new_specs[0].version))
                     ):
                         # Keep whichever specifier has no local label (PyPI-installable)
-                        if _get_local_version_label(new_specs[0].version):
+                        if local_label := _get_local_version_label(new_specs[0].version):
+                            _logger.debug(
+                                f"Dropping local version label (+{local_label}) from "
+                                f"'{parsed_req.name}=={new_specs[0].version}' to keep the "
+                                f"PyPI-installable version "
+                                f"'{parsed_req.name}=={existing_specs[0].version}'."
+                            )
                             parsed_req.specifier = existing_req.specifier
                     else:
                         _validate_version_constraints([str(existing_req), req])
