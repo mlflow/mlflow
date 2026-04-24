@@ -394,8 +394,9 @@ def _get_permission_from_store_or_default(
 
     When ``MLFLOW_RBAC_UNIFIED_READS`` is enabled, ``role_permission_func`` is the sole
     source of truth: the direct and workspace-level callbacks are skipped. This requires
-    the Phase 2 M2 backfill (Alembic revision ``d4e5f6a7b8c9``) — otherwise legacy grants
-    exist only in the per-resource tables and would not be visible.
+    the role_permissions backfill migration (Alembic revision ``d4e5f6a7b8c9``) —
+    otherwise pre-existing legacy grants only live in the per-resource tables and would
+    not be visible.
     """
     if MLFLOW_RBAC_UNIFIED_READS.get():
         if role_permission_func is not None:
@@ -3792,9 +3793,9 @@ _UNIFIED_READS_MIN_REVISION = "d4e5f6a7b8c9"
 def _assert_unified_reads_preconditions() -> None:
     """
     When ``MLFLOW_RBAC_UNIFIED_READS`` is on, the auth server must be running against a DB
-    that has the Phase 2 backfill applied. Otherwise legacy grants exist only in the
-    per-resource tables and unified reads would silently deny access. Fail fast on startup
-    with a clear pointer to ``alembic upgrade head``.
+    that has the role_permissions backfill migration applied. Otherwise pre-existing
+    legacy grants only live in the per-resource tables and unified reads would silently
+    deny access. Fail fast on startup with a clear pointer to ``alembic upgrade head``.
     """
     if not MLFLOW_RBAC_UNIFIED_READS.get():
         return
@@ -3812,7 +3813,7 @@ def _assert_unified_reads_preconditions() -> None:
         raise MlflowException(
             "MLFLOW_RBAC_UNIFIED_READS is enabled but the auth database has no Alembic "
             "revision recorded. Run `mlflow-auth db upgrade` (or `alembic upgrade head`) "
-            f"to apply the Phase 2 backfill (revision {_UNIFIED_READS_MIN_REVISION}) "
+            f"to apply the role_permissions backfill (revision {_UNIFIED_READS_MIN_REVISION}) "
             "before enabling unified reads."
         )
     # The backfill has been applied iff _UNIFIED_READS_MIN_REVISION appears in the
@@ -3825,7 +3826,7 @@ def _assert_unified_reads_preconditions() -> None:
     if not required_found:
         raise MlflowException(
             "MLFLOW_RBAC_UNIFIED_READS is enabled but the auth database is at Alembic "
-            f"revision '{current}', which precedes the Phase 2 backfill "
+            f"revision '{current}', which precedes the role_permissions backfill "
             f"(revision {_UNIFIED_READS_MIN_REVISION}). Run `mlflow-auth db upgrade` "
             "(or `alembic upgrade head`) before enabling unified reads."
         )

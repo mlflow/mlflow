@@ -167,7 +167,7 @@ def test_startup_assertion_rejects_pre_backfill_revision(tmp_path, monkeypatch):
     monkeypatch.setattr(auth_module, "store", store, raising=False)
     monkeypatch.setenv(MLFLOW_RBAC_UNIFIED_READS.name, "true")
 
-    with pytest.raises(MlflowException, match="Phase 2 backfill"):
+    with pytest.raises(MlflowException, match="role_permissions backfill"):
         auth_module._assert_unified_reads_preconditions()
 
     store.engine.dispose()
