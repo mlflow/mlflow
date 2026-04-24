@@ -336,100 +336,25 @@ def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
         raise MlflowException(f"Failed to convert LiteLLM format to MLflow URI: {e}")
 
 
-def _format_assessment_details(assessment) -> str:
-    """Format assessment details for warning messages."""
-    parts = []
-    if assessment_id := getattr(assessment, "assessment_id", None):
-        parts.append(f"assessment_id='{assessment_id}'")
-    if feedback := getattr(assessment, "feedback", None):
-        parts.append(f"label='{feedback.value}'")
-    if source := getattr(assessment, "source", None):
-        parts.append(f"source_id='{source.source_id}'")
-    if create_time_ms := getattr(assessment, "create_time_ms", None):
-        parts.append(f"create_time_ms={create_time_ms}")
-    return ", ".join(parts)
-
-
-def _get_assessment_timestamp(assessment) -> int:
-    """Get the timestamp of an assessment, defaulting to 0 if not available."""
-    return getattr(assessment, "create_time_ms", None) or 0
-
-
-def _log_conflict_warning(
-    groups: dict[str, list],
-    winning_label: str,
-    discarded: list,
-    judge_name: str,
-    trace_id: str,
-    is_tie: bool,
-) -> None:
-    """Log a warning about conflicting or tied assessments."""
-    label_counts = ", ".join(
-        f"{len(group)} with label '{label}'" for label, group in sorted(groups.items())
-    )
-    discarded_details = "\n  - ".join(_format_assessment_details(a) for a in discarded)
-
-    if is_tie:
-        prefix = f"Found tie between assessment labels for judge '{judge_name}' in trace '{trace_id}'"
-        resolution = f"Breaking tie by recency: using label '{winning_label}'"
-    else:
-        prefix = f"Found conflicting assessments for judge '{judge_name}' in trace '{trace_id}'"
-        resolution = f"Using majority label '{winning_label}'"
-
-    _logger.warning(
-        f"{prefix}: {label_counts}. {resolution}. "
-        f"Discarded {len(discarded)} assessment(s):\n  - {discarded_details}"
-    )
-
-
-def _resolve_assessment_conflicts(
-    assessments: list, trace_id: str, judge_name: str
-) -> list:
-    """
-    Resolve conflicts when multiple assessments have different labels.
-
-    Args:
-        assessments: List of matching human assessments (already filtered by judge name)
-        trace_id: Trace ID for logging
-        judge_name: Judge name for logging
-
-    Returns:
-        List of assessments to use (majority label, or most recent group on tie)
-    """
+def _resolve_assessment_conflicts(assessments: list) -> list:
     if not assessments:
         return []
 
-    # Group assessments by their feedback value (label)
     groups: dict[str, list] = defaultdict(list)
     for assessment in assessments:
         if assessment.feedback:
             label = str(assessment.feedback.value).lower()
             groups[label].append(assessment)
 
-    # If only one unique label, no conflict - return all
     if len(groups) == 1:
         return assessments
 
-    # Find the maximum count (majority)
-    max_count = max(len(group) for group in groups.values())
-    majority_labels = [label for label, group in groups.items() if len(group) == max_count]
+    def group_priority(label: str) -> tuple[int, int]:
+        group = groups[label]
+        return len(group), max(a.create_time_ms or 0 for a in group)
 
-    is_tie = len(majority_labels) > 1
-    if is_tie:
-        # Tie - use the group with the most recent assessment
-        def get_group_max_timestamp(label: str) -> int:
-            return max(_get_assessment_timestamp(a) for a in groups[label])
-
-        winning_label = max(majority_labels, key=get_group_max_timestamp)
-    else:
-        winning_label = majority_labels[0]
-
-    winning_assessments = groups[winning_label]
-    discarded = [a for a in assessments if a not in winning_assessments]
-
-    _log_conflict_warning(groups, winning_label, discarded, judge_name, trace_id, is_tie)
-
-    return winning_assessments
+    winning_label = max(groups, key=group_priority)
+    return groups[winning_label]
 
 
 def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
@@ -496,16 +421,19 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
             )
             return []
 
-        # Filter out assessments without feedback
         assessments_with_feedback = [a for a in matching_assessments if a.feedback]
         if not assessments_with_feedback:
             _logger.warning(f"No feedback found in assessments for trace {trace.info.trace_id}")
             return []
 
-        # Resolve conflicts if multiple assessments exist
-        resolved_assessments = _resolve_assessment_conflicts(
-            assessments_with_feedback, trace.info.trace_id, judge.name
-        )
+        resolved_assessments = _resolve_assessment_conflicts(assessments_with_feedback)
+
+        if len(resolved_assessments) < len(assessments_with_feedback):
+            discarded_count = len(assessments_with_feedback) - len(resolved_assessments)
+            _logger.warning(
+                f"Discarded {discarded_count} conflicting assessment(s) for judge "
+                f"'{judge.name}' in trace '{trace.info.trace_id}'"
+            )
 
         # Build example kwargs (same for all examples from this trace)
         example_kwargs = {}
