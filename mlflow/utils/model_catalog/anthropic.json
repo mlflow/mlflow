@@ -9,10 +9,10 @@
         "max_tokens": 64000
       },
       "pricing": {
-        "input_per_token": 3e-6,
-        "output_per_token": 1.5e-5,
-        "cache_read_per_token": 3e-7,
-        "cache_write_per_token": 3.75e-6,
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3,
+        "cache_write_per_million_tokens": 3.75,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,

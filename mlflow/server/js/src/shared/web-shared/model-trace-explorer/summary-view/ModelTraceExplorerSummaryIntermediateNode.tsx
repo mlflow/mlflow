@@ -18,15 +18,14 @@ import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceEx
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { spanTimeFormatter } from '../timeline-tree/TimelineTree.utils';
 
-const CONNECTOR_WIDTH = 12;
-const ROW_HEIGHT = 48;
-
 export const ModelTraceExplorerSummaryIntermediateNode = ({
   node,
   renderMode,
+  className,
 }: {
   node: ModelTraceSpanNode;
   renderMode: 'default' | 'json' | 'table';
+  className?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
@@ -51,14 +50,16 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
 
   return (
     <div
+      className={className}
       css={{
         display: 'flex',
         flexDirection: 'row',
-        minHeight: ROW_HEIGHT,
         flexShrink: 0,
+        padding: theme.spacing.sm,
+        paddingRight: theme.spacing.md,
       }}
     >
-      <div css={{ height: ROW_HEIGHT, display: 'flex', alignItems: 'center' }}>
+      <div css={{ display: 'flex', alignItems: 'flex-start' }}>
         <Button
           size="small"
           data-testid={`toggle-span-expanded-${node.key}`}
@@ -68,32 +69,16 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
           componentId="shared.model-trace-explorer.toggle-span"
         />
       </div>
-      <div
-        css={{
-          position: 'relative',
-          boxSizing: 'border-box',
-          height: ROW_HEIGHT,
-          borderLeft: `2px solid ${theme.colors.border}`,
-          width: CONNECTOR_WIDTH,
-        }}
-      >
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
         <div
           css={{
-            position: 'absolute',
-            left: -2,
-            top: 14,
-            height: CONNECTOR_WIDTH,
-            width: CONNECTOR_WIDTH,
-            boxSizing: 'border-box',
-            borderBottomLeftRadius: theme.borders.borderRadiusMd,
-            borderBottom: `2px solid ${theme.colors.border}`,
-            borderLeft: `2px solid ${theme.colors.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: expanded ? theme.spacing.sm : 0,
           }}
-        />
-      </div>
-      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-        <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography.Text color="secondary" css={{ display: 'inline-flex', alignItems: 'center', height: ROW_HEIGHT }}>
+        >
+          <Typography.Text color="secondary" css={{ display: 'inline-flex', alignItems: 'center' }}>
             <FormattedMessage
               defaultMessage="{spanName} was called"
               description="Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
@@ -137,7 +122,6 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
               >
                 <div
                   css={{
-                    paddingLeft: theme.spacing.lg,
                     marginBottom: theme.spacing.sm,
                   }}
                 >
@@ -176,7 +160,6 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
               >
                 <div
                   css={{
-                    paddingLeft: theme.spacing.lg,
                     marginBottom: theme.spacing.sm,
                   }}
                 >

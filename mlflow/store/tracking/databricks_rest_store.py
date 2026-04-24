@@ -164,6 +164,20 @@ class DatabricksTracingRestStore(RestStore):
     def __init__(self, get_host_creds):
         super().__init__(get_host_creds)
 
+    def _resolve_sql_warehouse_id(self, explicit: str | None = None) -> str | None:
+        """
+        Return the SQL warehouse id to use for a tracing RPC, ensuring the warehouse is RUNNING.
+
+        Used exclusively by V4/V5 MLflow tracing endpoints that pass a warehouse id to the
+        backend. Non-tracing and /api/2.0 endpoints do not route through this method.
+        """
+        wh_id = explicit or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+        if wh_id:
+            from mlflow.utils.databricks_sql_warehouse import ensure_sql_warehouse_running
+
+            ensure_sql_warehouse_running(wh_id)
+        return wh_id
+
     def _call_endpoint(
         self,
         api,
@@ -216,7 +230,7 @@ class DatabricksTracingRestStore(RestStore):
     ) -> UnityCatalogEntity:
         request_proto = CreateLocation(
             uc_table_prefix=uc_table_prefix_location_to_proto(location),
-            sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            sql_warehouse_id=self._resolve_sql_warehouse_id(sql_warehouse_id),
         )
         req_body = message_to_json(request_proto)
         response_proto = self._call_endpoint(
@@ -304,7 +318,7 @@ class DatabricksTracingRestStore(RestStore):
             BatchGetTraces(
                 location_id=location,
                 trace_ids=trace_ids,
-                sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                sql_warehouse_id=self._resolve_sql_warehouse_id(),
             )
         )
         response_proto = self._call_endpoint(
@@ -331,7 +345,7 @@ class DatabricksTracingRestStore(RestStore):
         """
         location, trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
-            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+            sql_warehouse_id = self._resolve_sql_warehouse_id()
             trace_v4_req_body = message_to_json(
                 GetTraceInfo(
                     trace_id=trace_id, location=location, sql_warehouse_id=sql_warehouse_id
@@ -464,7 +478,7 @@ class DatabricksTracingRestStore(RestStore):
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
-            sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            sql_warehouse_id=self._resolve_sql_warehouse_id(),
         )
         req_body = message_to_json(request)
         try:
@@ -566,7 +580,7 @@ class DatabricksTracingRestStore(RestStore):
         req_body = message_to_json(
             CreateTraceUCStorageLocation(
                 uc_schema=uc_schema_location_to_proto(location),
-                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                sql_warehouse_id=self._resolve_sql_warehouse_id(sql_warehouse_id),
             )
         )
         try:
@@ -1180,6 +1194,6 @@ class DatabricksTracingRestStore(RestStore):
         raise MlflowNotImplementedException("Issue management is not supported in Databricks")
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
-        if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
+        if sql_warehouse_id := self._resolve_sql_warehouse_id():
             return f"{endpoint}?sql_warehouse_id={sql_warehouse_id}"
         return endpoint

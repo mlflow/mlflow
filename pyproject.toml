@@ -61,6 +61,7 @@ dependencies = [
   "skops<1",
   "sqlalchemy<3,>=1.4.0",
   "sqlparse<1,>=0.4.0",
+  "starlette<1",
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
   "waitress<4; platform_system == 'Windows'",

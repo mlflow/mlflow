@@ -31,6 +31,7 @@ class MockProvider(BaseProvider):
         self.config = mock.MagicMock()
         self.config.model.name = "mock-model"
         self._enable_tracing = enable_tracing
+        self._provider_name = "mock"
         # These will be set by tests to control behavior
         self._chat_response = None
         self._chat_stream_chunks = None
