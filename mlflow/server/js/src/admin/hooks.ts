@@ -27,21 +27,22 @@ export const DEV_USER_SWITCHER_ENABLED: boolean = getLocalStorageItem(
 );
 
 /**
- * Returns whether the current user is an admin.
- *
- * Listing users is an admin-only endpoint (validate_can_list_users returns false
- * for non-admins; admins bypass the validator). A successful response therefore
- * implies the current user is admin; a 403 implies they're not.
+ * Fetches the currently authenticated user's identity (id, username, is_admin)
+ * from the backend. Works with HTTP Basic Auth since the backend reads
+ * request.authorization.username; no identifying cookie needed.
  */
-export const useCurrentUserIsAdmin = () => {
-  const { data, error } = useQuery({
-    queryKey: ['admin_current_user_is_admin'],
-    queryFn: AdminApi.listUsers,
+export const useCurrentUserQuery = () => {
+  return useQuery({
+    queryKey: ['admin_current_user'],
+    queryFn: AdminApi.getCurrentUser,
     retry: false,
     refetchOnWindowFocus: false,
   });
+};
 
-  return !error && Boolean(data?.users);
+export const useCurrentUserIsAdmin = () => {
+  const { data } = useCurrentUserQuery();
+  return Boolean(data?.user?.is_admin);
 };
 
 export const AdminQueryKeys = {

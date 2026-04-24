@@ -17,7 +17,7 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { useUpdatePassword, useUserRolesQuery } from '../hooks';
+import { useCurrentUserQuery, useUpdatePassword, useUserRolesQuery } from '../hooks';
 import { isWorkspaceAdminRole } from '../types';
 
 const AccountPage = () => {
@@ -29,12 +29,8 @@ const AccountPage = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const updatePassword = useUpdatePassword();
-
-  const username =
-    document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('mlflow_user='))
-      ?.substring('mlflow_user='.length) ?? '';
+  const { data: currentUserData } = useCurrentUserQuery();
+  const username = currentUserData?.user?.username ?? '';
 
   const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
   const roles = rolesData?.roles ?? [];

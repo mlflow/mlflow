@@ -173,6 +173,13 @@ export const AdminApi = {
   },
 
   // Existing User APIs (v2)
+  getCurrentUser: () => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/2.0/mlflow/users/current',
+      error: defaultErrorHandler,
+    }) as Promise<UserResponse>;
+  },
+
   listUsers: () => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/2.0/mlflow/users/list',

@@ -191,6 +191,7 @@ from mlflow.server.auth.routes import (
     AJAX_CREATE_USER,
     AJAX_DELETE_ROLE,
     AJAX_DELETE_USER,
+    AJAX_GET_CURRENT_USER,
     AJAX_GET_ROLE,
     AJAX_GET_USER,
     AJAX_LIST_ROLE_PERMISSIONS,
@@ -229,6 +230,7 @@ from mlflow.server.auth.routes import (
     GATEWAY_SUPPORTED_MODELS,
     GATEWAY_SUPPORTED_PROVIDERS,
     GET_ARTIFACT,
+    GET_CURRENT_USER,
     GET_EXPERIMENT_PERMISSION,
     GET_GATEWAY_ENDPOINT_PERMISSION,
     GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -1887,6 +1889,10 @@ BEFORE_REQUEST_VALIDATORS.update({
     (SIGNUP, "GET"): validate_can_create_user,
     (GET_USER, "GET"): validate_can_read_user,
     (AJAX_GET_USER, "GET"): validate_can_read_user,
+    # /current returns only the authenticated user's own identity — any
+    # authenticated user may read it.
+    (GET_CURRENT_USER, "GET"): lambda: True,
+    (AJAX_GET_CURRENT_USER, "GET"): lambda: True,
     (LIST_USERS, "GET"): validate_can_list_users,
     (AJAX_LIST_USERS, "GET"): validate_can_list_users,
     (CREATE_USER, "POST"): validate_can_create_user,
@@ -2865,22 +2871,28 @@ def alert(href: str):
 
 
 def logout():
-    # Basic Auth has no server-side session. To "log out" we return 401 with
-    # WWW-Authenticate, which convinces the browser to drop its cached
-    # credentials for this realm. The body is a small HTML page that lets the
-    # user proceed back to the app (where the next fetch will trigger a fresh
-    # auth prompt).
+    # HTTP Basic Auth has no server-side session that we can invalidate.
+    # Return 401 WITHOUT a WWW-Authenticate header: browsers see the 401 as
+    # "the credentials you had don't work here", which signals the password
+    # store to drop the cached creds for this origin. Omitting
+    # WWW-Authenticate avoids an immediate prompt on this very page (which
+    # would loop: browser prompts, sends creds, handler 401s again, ad
+    # infinitum — the handler intentionally always 401s). Omitting it also
+    # prevents the browser from caching the freshly-typed creds as "valid".
     body = (
         "<!DOCTYPE html>"
         "<html><head><title>Logged out</title></head>"
         "<body style='font-family: sans-serif; padding: 2rem;'>"
         "<h2>You have been logged out.</h2>"
         "<p><a href='/'>Return to MLflow</a> to sign in as a different user.</p>"
+        "<p style='color: #888; font-size: 0.9em;'>"
+        "If the browser auto-signs you back in, close this window entirely "
+        "and open a new one — HTTP Basic Auth is cached per browser session."
+        "</p>"
         "</body></html>"
     )
     res = make_response(body, 401)
     res.headers["Content-Type"] = "text/html; charset=utf-8"
-    res.headers["WWW-Authenticate"] = 'Basic realm="mlflow"'
     return res
 
 
@@ -3012,6 +3024,17 @@ def list_users():
     return jsonify(
         {"users": [{"id": u.id, "username": u.username, "is_admin": u.is_admin} for u in users]}
     )
+
+
+@catch_mlflow_exception
+def get_current_user():
+    # HTTP Basic Auth doesn't set any identifying cookie, so the frontend has
+    # no way to know *which* user the browser authenticated as. This endpoint
+    # returns minimal identity info (no password hash, no permission arrays)
+    # for the currently authenticated user.
+    username = authenticate_request().username
+    user = store.get_user(username)
+    return jsonify({"user": {"id": user.id, "username": user.username, "is_admin": user.is_admin}})
 
 
 @catch_mlflow_exception
@@ -3812,6 +3835,12 @@ def create_app(app: Flask = app):
         app.add_url_rule(
             rule=rule,
             view_func=list_users,
+            methods=["GET"],
+        )
+    for rule in [GET_CURRENT_USER, AJAX_GET_CURRENT_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=get_current_user,
             methods=["GET"],
         )
     for rule in [UPDATE_USER_PASSWORD, AJAX_UPDATE_USER_PASSWORD]:
