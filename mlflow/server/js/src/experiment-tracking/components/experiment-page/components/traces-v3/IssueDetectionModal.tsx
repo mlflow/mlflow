@@ -260,6 +260,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
               <div css={{ marginTop: theme.spacing.sm }}>
                 <Button
                   componentId="mlflow.traces.issue-detection-modal.select-traces"
+                  data-testid="select-traces"
                   onClick={() => setIsSelectTracesModalOpen(true)}
                 >
                   {selectedTraceIds.length > 0 ? (

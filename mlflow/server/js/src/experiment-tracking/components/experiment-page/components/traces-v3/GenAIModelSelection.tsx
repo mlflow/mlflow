@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo, useRef } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
@@ -100,7 +100,9 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
     // If initialValues provides a mode, use it directly and skip the endpoint-loading effect.
     const [mode, setMode] = useState<ModelConfigMode>(initialValues?.mode ?? 'direct');
     const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>(initialValues?.endpointName);
-    const [hasInitializedMode, setHasInitializedMode] = useState(initialValues?.mode != null);
+    const [hasInitializedMode, setHasInitializedMode] = useState(
+      initialValues?.mode != null || initialValues?.endpointName != null,
+    );
 
     // Set initial mode based on whether endpoints are available, and auto-select first endpoint
     useEffect(() => {
@@ -126,8 +128,11 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           },
         },
     );
-    const [saveKey] = useState(true);
+    const [saveKey] = useState(initialValues?.saveKey ?? true);
     const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
+
+    // Track whether caller provided an initial apiKeyConfig to prevent auto-switching it
+    const hasInitialApiKeyConfig = useRef(initialValues?.apiKeyConfig != null);
 
     const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
       provider,
@@ -173,8 +178,10 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
     }, []);
 
-    // Update API key mode to 'existing' and auto-select first secret when secrets become available
+    // Update API key mode to 'existing' and auto-select first secret when secrets become available.
+    // Skip when readOnly or when initialValues.apiKeyConfig was provided to preserve round-trip fidelity.
     useEffect(() => {
+      if (readOnly || hasInitialApiKeyConfig.current) return;
       if (provider && existingSecrets.length > 0) {
         setApiKeyConfig((prev) => {
           // Only update if currently in 'new' mode with no fields filled
@@ -184,7 +191,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           return prev;
         });
       }
-    }, [provider, existingSecrets]);
+    }, [readOnly, provider, existingSecrets]);
 
     const handleProviderChange = useCallback((newProvider: string) => {
       setProvider(newProvider);
