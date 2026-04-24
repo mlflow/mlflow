@@ -94,6 +94,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
           id: 'security/kubernetes',
           label: 'Kubernetes Authentication',
         },
+        {
+          type: 'doc',
+          id: 'security/secure-installs',
+          label: 'Secure Installs',
+        },
       ],
     },
     {
@@ -104,6 +109,16 @@ const sidebarsSelfHosting: SidebarsConfig = {
           type: 'doc',
           id: 'deploy-to-cloud/aws',
           label: 'AWS',
+        },
+        {
+          type: 'doc',
+          id: 'deploy-to-cloud/azure',
+          label: 'Azure',
+        },
+        {
+          type: 'doc',
+          id: 'deploy-to-cloud/gcp',
+          label: 'GCP',
         },
       ],
     },

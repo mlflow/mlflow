@@ -21,6 +21,8 @@ import { useModelTraceExplorerRunJudgesContext } from '../../model-trace-explore
 
 import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
+import { ExecutionDurationTag } from './ExecutionDurationTag';
+import { IssuesCell } from './IssuesCell';
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
 import { RunName } from './RunName';
@@ -64,7 +66,7 @@ import {
 import type { AssessmentInfo, EvalTraceComparisonEntry } from '../types';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
-import { highlightSearchInText, timeSinceStr } from '../utils/DisplayUtils';
+import { highlightSearchInText, normalizeDurationString, timeSinceStr } from '../utils/DisplayUtils';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
   getCustomMetadataKeyFromColumnId,
@@ -420,13 +422,14 @@ export const inputColumnCellRenderer = (
         {displayContent ? (
           displayContent
         ) : (
-          <span
+          <Typography.Text
+            color="secondary"
             css={{
               fontStyle: 'italic',
             }}
           >
             null
-          </span>
+          </Typography.Text>
         )}
       </Typography.Link>
       {isComparing && (
@@ -873,7 +876,17 @@ export const traceInfoCellRenderer = (
               {displayValue}
             </div>
           ) : (
-            <NullCell isComparing={isComparing} />
+            <Typography.Text
+              color="secondary"
+              css={{
+                fontStyle: 'italic',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              null
+            </Typography.Text>
           )
         }
         second={
@@ -883,7 +896,17 @@ export const traceInfoCellRenderer = (
               {displayOtherValue}
             </div>
           ) : (
-            <NullCell isComparing={isComparing} />
+            <Typography.Text
+              color="secondary"
+              css={{
+                fontStyle: 'italic',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              null
+            </Typography.Text>
           ))
         }
       />
@@ -902,29 +925,7 @@ export const traceInfoCellRenderer = (
   } else if (colId === ISSUES_COLUMN_ID) {
     const issues = comparisonEntry.currentRunValue?.issues;
     const otherIssues = comparisonEntry.otherRunValue?.issues;
-
-    const renderIssues = (issueList: string[] | undefined) => {
-      if (!issueList || issueList.length === 0) {
-        return <NullCell isComparing={isComparing} />;
-      }
-
-      return (
-        <Overflow>
-          {issueList.map((issueName, index) => (
-            <Tag
-              key={index}
-              componentId="mlflow.genai-traces-table.issue-tag"
-              color="coral"
-              css={{ width: 'min-content', maxWidth: '100%' }}
-            >
-              {issueName}
-            </Tag>
-          ))}
-        </Overflow>
-      );
-    };
-
-    return <StackedComponents first={renderIssues(issues)} second={isComparing && renderIssues(otherIssues)} />;
+    return <IssuesCell issues={issues} otherIssues={otherIssues} isComparing={isComparing} />;
   } else if (colId.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
     const metadataKey = getCustomMetadataKeyFromColumnId(colId);
     if (!metadataKey) {
@@ -956,46 +957,15 @@ export const traceInfoCellRenderer = (
       />
     );
   } else if (colId === EXECUTION_DURATION_COLUMN_ID) {
-    // Parse and reformat time values from the backend. Keep up to 3 decimal places for float values,
-    // trim trailing zeros and the dot if there are no decimal places
-    const normalizeFloatValue = (val?: string) => {
-      if (val === undefined) {
-        return undefined;
-      }
-      const floatVal = parseFloat(val);
-      const unit = val
-        ?.replace?.(/[0-9.]/g, '')
-        .trim()
-        .toLowerCase();
-      if (isNil(floatVal) || isNaN(floatVal)) {
-        return undefined;
-      }
-      return [floatVal.toFixed(3).replace(/\.?0+$/, ''), unit].filter(Boolean).join('');
-    };
-
-    const value = normalizeFloatValue(currentTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
-    const otherValue = normalizeFloatValue(otherTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
+    const value = normalizeDurationString(currentTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
+    const otherValue = normalizeDurationString(otherTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
 
     return (
       <StackedComponents
-        first={
-          !isNil(value) ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={value}>
-              {value}
-            </div>
-          ) : (
-            <NullCell isComparing={isComparing} />
-          )
-        }
+        first={!isNil(value) ? <ExecutionDurationTag value={value} /> : <NullCell isComparing={isComparing} />}
         second={
           isComparing &&
-          (!isNil(otherValue) ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={otherValue}>
-              {otherValue}
-            </div>
-          ) : (
-            <NullCell isComparing={isComparing} />
-          ))
+          (!isNil(otherValue) ? <ExecutionDurationTag value={otherValue} /> : <NullCell isComparing={isComparing} />)
         }
       />
     );

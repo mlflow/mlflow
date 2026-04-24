@@ -30,17 +30,17 @@ class _Trace {
 
     const root_span = traceData.spans.find((span) => span.parentId == null);
     if (root_span) {
-      // Accessing the OTel span directly get serialized value directly.
-      // TODO: Implement the smart truncation logic.
       // Only set previews if they haven't been explicitly set by updateCurrentTrace
       if (!this.info.requestPreview) {
-        this.info.requestPreview = getPreviewString(
+        this.info.requestPreview = getTruncatedPreview(
           root_span._span.attributes[SpanAttributeKey.INPUTS] as string,
+          'user',
         );
       }
       if (!this.info.responsePreview) {
-        this.info.responsePreview = getPreviewString(
+        this.info.responsePreview = getTruncatedPreview(
           root_span._span.attributes[SpanAttributeKey.OUTPUTS] as string,
+          'assistant',
         );
       }
 
@@ -54,15 +54,123 @@ class _Trace {
   }
 }
 
-function getPreviewString(inputsOrOutputs: string): string {
+/**
+ * Generate a truncated preview string from span inputs/outputs.
+ * Extracts message text content from known chat formats (OpenAI messages,
+ * choices, Responses API) before truncating, so the preview shows readable
+ * text instead of cut-off JSON.
+ *
+ * Mirrors the Python SDK's `_get_truncated_preview` in
+ * `mlflow/tracing/utils/truncation.py`.
+ */
+function getTruncatedPreview(inputsOrOutputs: string, role: string): string {
   if (!inputsOrOutputs) {
     return '';
   }
 
-  if (inputsOrOutputs.length > REQUEST_RESPONSE_PREVIEW_MAX_LENGTH) {
-    return inputsOrOutputs.slice(0, REQUEST_RESPONSE_PREVIEW_MAX_LENGTH - 3) + '...';
+  const maxLength = REQUEST_RESPONSE_PREVIEW_MAX_LENGTH;
+  let content: string | null = null;
+
+  try {
+    const obj = JSON.parse(inputsOrOutputs);
+    if (obj && typeof obj === 'object') {
+      const messages = tryExtractMessages(obj as Record<string, unknown>);
+      if (messages && messages.length > 0) {
+        const msg = getLastMessageByRole(messages, role);
+        content = getTextContentFromMessage(msg);
+      }
+    }
+  } catch {
+    // Not valid JSON — use as-is
   }
-  return inputsOrOutputs;
+
+  const preview = content || inputsOrOutputs;
+  if (preview.length <= maxLength) {
+    return preview;
+  }
+  return preview.slice(0, maxLength - 3) + '...';
+}
+
+function tryExtractMessages(obj: Record<string, unknown>): Record<string, unknown>[] | null {
+  // OpenAI ChatCompletion request format: { messages: [...] }
+  if (Array.isArray(obj.messages)) {
+    return obj.messages.filter(isMessage);
+  }
+
+  // OpenAI ChatCompletion response format: { choices: [{ message: {...} }] }
+  if (
+    Array.isArray(obj.choices) &&
+    obj.choices.length > 0 &&
+    typeof obj.choices[0] === 'object' &&
+    obj.choices[0] != null
+  ) {
+    const msg = (obj.choices[0] as Record<string, unknown>).message;
+    if (isMessage(msg)) {
+      return [msg];
+    }
+  }
+
+  // OpenAI Responses API request format: { input: [...] }
+  if (Array.isArray(obj.input)) {
+    return obj.input.filter(isMessage);
+  }
+
+  // OpenAI Responses API response format: { output: [...] }
+  if (Array.isArray(obj.output)) {
+    return obj.output.filter(isMessage);
+  }
+
+  // ResponsesAgent input: { request: { ... } }
+  if (obj.request && typeof obj.request === 'object') {
+    return tryExtractMessages(obj.request as Record<string, unknown>);
+  }
+
+  return null;
+}
+
+function isMessage(item: unknown): item is Record<string, unknown> {
+  return (
+    item != null &&
+    typeof item === 'object' &&
+    'role' in (item as Record<string, unknown>) &&
+    'content' in (item as Record<string, unknown>)
+  );
+}
+
+function getLastMessageByRole(
+  messages: Record<string, unknown>[],
+  role: string,
+): Record<string, unknown> {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === role) {
+      return messages[i];
+    }
+  }
+  return messages[messages.length - 1];
+}
+
+function getTextContentFromMessage(message: Record<string, unknown>): string | null {
+  const content = message.content;
+  if (typeof content === 'string') {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    for (const part of content) {
+      if (typeof part === 'string') {
+        return part;
+      }
+      if (
+        part &&
+        typeof part === 'object' &&
+        'type' in (part as Record<string, unknown>) &&
+        ((part as Record<string, unknown>).type === 'text' ||
+          (part as Record<string, unknown>).type === 'output_text')
+      ) {
+        return (part as Record<string, unknown>).text as string;
+      }
+    }
+  }
+  return null;
 }
 
 /**

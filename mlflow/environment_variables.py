@@ -659,6 +659,15 @@ MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
 #: (default: ``None`` — uses in-memory tracker)
 MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_REDIS_URL", str, None)
 
+#: Comma-separated list of provider names that are allowed in the AI Gateway.
+#: When set, only these providers will be available for endpoint creation and discovery.
+#: All other providers are rejected.
+#: Example: ``openai,anthropic,gemini``
+#: (default: ``None`` — all providers are allowed)
+MLFLOW_GATEWAY_ALLOWED_PROVIDERS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_ALLOWED_PROVIDERS", str, None
+)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
@@ -709,6 +718,22 @@ MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_
 # How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
+#: When enabled, automatically extracts base64-encoded multimodal content (images, audio) from
+#: span inputs/outputs and stores them as separate trace attachments. This keeps trace JSON
+#: lightweight while preserving the binary content as downloadable artifacts.
+#: (default: ``True``)
+MLFLOW_TRACE_EXTRACT_ATTACHMENTS = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_EXTRACT_ATTACHMENTS", True
+)
+
+#: Maximum size in bytes for a single trace attachment. When set, attachments
+#: exceeding this limit are discarded and replaced with an error message.
+#: Only applies to trace attachments, not artifact uploads.
+#: (default: unset — no limit)
+MLFLOW_TRACE_MAX_ATTACHMENT_SIZE = _EnvironmentVariable(
+    "MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", int, None
+)
+
 #: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.
 #: This cache improves performance by avoiding repeated network calls for the same prompt version.
 #: (default: ``128``)
@@ -753,6 +778,27 @@ MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORK
 MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
 )
+
+#: Maximum predict_fn calls per second during mlflow.genai.evaluate. A token-bucket
+#: rate limiter throttles predict_fn invocations across all worker threads.
+#: Accepted values: ``auto`` (adaptive rate starting at 10 rps), a positive number
+#: (fixed rate), or ``0`` to disable rate limiting. (default: ``auto``)
+MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", str, "auto"
+)
+
+#: Maximum scorer calls per second during mlflow.genai.evaluate. A token-bucket
+#: rate limiter throttles individual scorer invocations across all worker threads.
+#: Accepted values: a positive number (fixed rate) or ``0`` to disable.
+#: When unset, the scorer rate is auto-derived as predict_rate x num_scorers.
+MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", str, None
+)
+
+#: Maximum number of retries for rate-limit (429) errors during evaluate.
+#: Applies to both predict_fn and scorer calls. Set to 0 to disable retries.
+#: (default: ``3``)
+MLFLOW_GENAI_EVAL_MAX_RETRIES = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_RETRIES", int, 3)
 
 #: Maximum number of workers to use for running conversation simulations in parallel.
 #: Controls concurrency when simulating multiple test cases and fetching traces.
@@ -893,6 +939,28 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 #: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
 
+#: Whether to enable TCP keepalive on HTTP connections. When enabled, keepalive probes detect
+#: stale/dead connections faster than waiting for the default TCP timeout (e.g., 120 seconds).
+#: (default: ``True``)
+MLFLOW_HTTP_TCP_KEEPALIVE = _BooleanEnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE", True)
+
+#: Time in seconds a connection must be idle before TCP keepalive probes are sent.
+#: Only effective when ``MLFLOW_HTTP_TCP_KEEPALIVE`` is enabled.
+#: (default: ``30``)
+MLFLOW_HTTP_TCP_KEEPALIVE_IDLE = _EnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE_IDLE", int, 30)
+
+#: Interval in seconds between TCP keepalive probes.
+#: Only effective when ``MLFLOW_HTTP_TCP_KEEPALIVE`` is enabled.
+#: (default: ``10``)
+MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL", int, 10
+)
+
+#: Number of failed TCP keepalive probes before the connection is considered dead.
+#: Only effective when ``MLFLOW_HTTP_TCP_KEEPALIVE`` is enabled.
+#: (default: ``3``)
+MLFLOW_HTTP_TCP_KEEPALIVE_COUNT = _EnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE_COUNT", int, 3)
+
 #: (Deprecated) Enable Unity Catalog integration for MLflow AI Gateway.
 #: This feature is deprecated and will be removed in a future release.
 #: (default: ``False``)
@@ -942,6 +1010,15 @@ MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION = _BooleanEnvironmentVaria
 # ``mlflow.pyfunc.spark_udf``. (default: ``None``)
 MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
     "MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR", str, None
+)
+
+# Temporary workaround: on Databricks Serverless, artifacts uploaded via spark.addArtifact
+# may not be visible inside the UDF executor sandbox. Set to True to skip the addArtifact
+# path and let each executor fetch the model directly from the artifact store instead.
+# Once the Serverless platform fixes the sandbox visibility issue, this flag can be removed.
+# (default: ``False``)
+_MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT = _BooleanEnvironmentVariable(
+    "_MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT", False
 )
 
 # Specifies whether to log environment variable names used during model logging.
@@ -1038,7 +1115,6 @@ _MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_
 #######################################################################################
 
 #: Specifies whether to enable async trace logging to Databricks Tracing Server.
-#: TODO: Update OSS MLflow Server to logging async by default
 #: Default: ``True``.
 MLFLOW_ENABLE_ASYNC_TRACE_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", True
@@ -1087,11 +1163,40 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
 
+#: When ``True``, MLflow verifies that the SQL warehouse referenced by
+#: ``MLFLOW_TRACING_SQL_WAREHOUSE_ID`` is running before making V4/V5 MLflow tracing API calls that
+#: require it, and starts it and waits for it to reach the ``RUNNING`` state if not.
+#: (default: ``True``)
+MLFLOW_SQL_WAREHOUSE_AUTO_START = _BooleanEnvironmentVariable(
+    "MLFLOW_SQL_WAREHOUSE_AUTO_START", True
+)
 
+#: Maximum number of seconds MLflow waits for the SQL warehouse to reach the ``RUNNING`` state
+#: when auto-starting it. Applies only when ``MLFLOW_SQL_WAREHOUSE_AUTO_START`` is enabled.
+#: (default: ``1200``)
+MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS", int, 1200
+)
+
+#: Specifies whether to export spans incrementally as they complete, in addition to
+#: exporting the full trace. When enabled, spans are written to the tracking store
+#: individually via ``log_spans`` as each span finishes. This provides real-time span
+#: visibility for long-running traces but adds extra DB round-trips that may increase
+#: latency under high concurrency. When disabled, spans are batch-written to the database
 #: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
 #: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
 #: (default: ``None`` (an active MLflow experiment will be used))
 MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", str, None)
+
+#: When set to ``True``, use OTel BatchSpanProcessor to export spans in a background thread
+#: instead of inline during on_end. This decouples trace export from request handling under
+#: concurrent load. Takes effect whenever async trace logging is active (i.e. when
+#: ``MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`` is ``True``, which is the default for OSS MLflow
+#: and Databricks non-notebook workloads).
+#: (default: ``True``)
+MLFLOW_USE_BATCH_SPAN_PROCESSOR = _BooleanEnvironmentVariable(
+    "MLFLOW_USE_BATCH_SPAN_PROCESSOR", True
+)
 
 
 #######################################################################################
@@ -1371,6 +1476,22 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
 )
+
+
+#: Base URI to fetch the latest model catalog from. Each provider file is fetched
+#: as ``{uri}/{provider}.json``. Supports http(s):// and file:// schemes.
+#: Set to an empty string to disable remote fetch.
+#: (default: ``https://github.com/mlflow/mlflow/releases/download/model-catalog%2Flatest``)
+MLFLOW_MODEL_CATALOG_URI = _EnvironmentVariable(
+    "MLFLOW_MODEL_CATALOG_URI",
+    str,
+    "https://github.com/mlflow/mlflow/releases/download/model-catalog%2Flatest",
+)
+
+
+#: TTL in seconds for the local model catalog cache. Set to 0 to disable caching.
+#: (default: ``86400`` — 24 hours)
+MLFLOW_MODEL_CATALOG_CACHE_TTL = _EnvironmentVariable("MLFLOW_MODEL_CATALOG_CACHE_TTL", int, 86400)
 
 
 #: Specifies whether to enable automatic UV project detection during model logging.

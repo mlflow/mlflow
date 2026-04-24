@@ -101,7 +101,7 @@ def test_cli_creates_traces():
 
     # Filter for demo traces only (exclude evaluation traces created by evaluate())
     demo_traces = [t for t in all_traces if t.info.trace_metadata.get(DEMO_VERSION_TAG)]
-    assert len(demo_traces) == 34
+    assert len(demo_traces) == 42
 
 
 def test_cli_creates_evaluation_datasets():

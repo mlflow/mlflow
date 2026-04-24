@@ -12,11 +12,18 @@ export type GetScheduledScorersResponse = {
   scheduled_scorers?: {
     scorers: ScorerConfig[];
   };
+  next_page_token?: string;
 };
 
 export interface ScheduledScorersResponse {
   experimentId: string;
   scheduledScorers: ScheduledScorer[];
+  nextPageToken?: string;
+}
+
+export interface PaginationParams {
+  pageSize?: number;
+  pageToken?: string;
 }
 
 /* eslint-disable react-hooks/rules-of-hooks */

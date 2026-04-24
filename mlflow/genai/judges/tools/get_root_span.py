@@ -11,10 +11,8 @@ from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.genai.judges.tools.get_span import GetSpanTool
 from mlflow.genai.judges.tools.types import SpanResult
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 class GetRootSpanTool(JudgeTool):
     """
     Tool for retrieving the root span from a trace.

@@ -1067,17 +1067,17 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
 
 
 def test_start_run_or_reuse_active_run():
-    with _start_run_or_reuse_active_run() as run_id:
-        assert mlflow.active_run().info.run_id == run_id
+    with _start_run_or_reuse_active_run() as run:
+        assert mlflow.active_run().info.run_id == run.info.run_id
 
     with mlflow.start_run() as run:
         active_run_id = run.info.run_id
 
-        with _start_run_or_reuse_active_run() as run_id:
-            assert run_id == active_run_id
+        with _start_run_or_reuse_active_run() as run:
+            assert run.info.run_id == active_run_id
 
-        with _start_run_or_reuse_active_run() as run_id:
-            assert run_id == active_run_id
+        with _start_run_or_reuse_active_run() as run:
+            assert run.info.run_id == active_run_id
 
 
 def test_resolve_evaluators_and_configs():

@@ -1,7 +1,14 @@
-import React, { useContext } from 'react';
-import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import React, { useCallback, useContext } from 'react';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  TableSkeleton,
+  TitleSkeleton,
+  Typography,
+  useDesignSystemEventComponentCallbacks,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
 import { OverviewChartContext } from '../OverviewChartContext';
 import Routes from '../../../routes';
@@ -14,10 +21,10 @@ import {
   SPAN_STATUS_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 
-export const DEFAULT_CHART_HEIGHT = 280;
+const DEFAULT_CHART_HEIGHT = 280;
 export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
-export const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
-export const DEFAULT_LEGEND_MAX_HEIGHT = 60;
+const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
+const DEFAULT_LEGEND_MAX_HEIGHT = 60;
 
 interface OverviewChartHeaderProps {
   /** Icon component to display before the title */
@@ -272,8 +279,6 @@ type TooltipLinkComponentId =
 
 /** Optional link configuration for ScrollableTooltip */
 interface TooltipLinkConfig {
-  /** Component ID for telemetry tracking */
-  componentId: TooltipLinkComponentId;
   /** Custom link text. When provided, shows this text instead of the default */
   linkText?: React.ReactNode;
   /**
@@ -296,6 +301,7 @@ interface ScrollableTooltipProps {
   formatter: (value: number, name: string) => [string | number, string];
   /** Optional link configuration. When provided, shows a link to view traces */
   linkConfig?: TooltipLinkConfig;
+  componentId: TooltipLinkComponentId;
 }
 
 /**
@@ -315,13 +321,19 @@ interface ScrollableTooltipProps {
  *       linkConfig={{
  *         experimentId,
  *         timeIntervalSeconds,
- *         componentId: 'mlflow.overview.usage.traces.view_traces_link',
  *       }}
  *     />
  *   }
  * />
  */
-export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
+export function ScrollableTooltip({
+  active,
+  payload,
+  label,
+  formatter,
+  linkConfig,
+  componentId,
+}: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
   const { hideTooltipLinks, tooltipLinkUrlBuilder, tooltipLinkText } = useContext(OverviewChartContext) ?? {};
@@ -339,14 +351,18 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
 
   const handleLinkClick = () => {
     if (hasCustomLinkClick) {
-      linkConfig.onLinkClick!(label, dataPoint);
+      linkConfig.onLinkClick?.(label, dataPoint);
     } else if (hasTimeBasedNavigation) {
       const url = tooltipLinkUrlBuilder
-        ? tooltipLinkUrlBuilder(linkConfig.experimentId!, dataPoint.timestampMs!, linkConfig.timeIntervalSeconds!)
+        ? tooltipLinkUrlBuilder(
+            linkConfig.experimentId ?? '',
+            dataPoint.timestampMs ?? 0,
+            linkConfig.timeIntervalSeconds ?? 0,
+          )
         : getTracesFilteredByTimeRangeUrl(
-            linkConfig.experimentId!,
-            dataPoint.timestampMs!,
-            linkConfig.timeIntervalSeconds!,
+            linkConfig.experimentId ?? '',
+            dataPoint.timestampMs ?? 0,
+            linkConfig.timeIntervalSeconds ?? 0,
           );
       navigate(url);
     }
@@ -416,7 +432,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
           }}
         >
           <Typography.Link
-            componentId={linkConfig?.componentId ?? 'mlflow.overview.usage.traces.view_traces_link'}
+            componentId={componentId ?? 'mlflow.overview.usage.traces.view_traces_link'}
             onClick={handleLinkClick}
             css={{
               cursor: 'pointer',
@@ -525,7 +541,21 @@ interface OverviewChartContainerProps extends React.HTMLAttributes<HTMLDivElemen
  */
 export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children, componentId, ...rest }) => {
   const { theme } = useDesignSystemTheme();
-  const interactionProps = useChartInteractionTelemetry(componentId);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Card,
+    componentId,
+    analyticsEvents: [DesignSystemEventProviderAnalyticsEventTypes.OnClick],
+  });
+
+  const onClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!componentId) {
+        return;
+      }
+      eventContext?.onClick(e);
+    },
+    [componentId, eventContext],
+  );
 
   return (
     <div
@@ -535,7 +565,7 @@ export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ 
         padding: theme.spacing.lg,
         backgroundColor: theme.colors.backgroundPrimary,
       }}
-      {...interactionProps}
+      onClick={onClick}
       {...rest}
     >
       {children}

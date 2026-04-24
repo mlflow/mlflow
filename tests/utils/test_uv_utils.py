@@ -31,13 +31,13 @@ def test_get_uv_version_returns_none_when_uv_not_installed():
 
 def test_get_uv_version_returns_version_when_uv_installed():
     mock_result = mock.Mock()
-    mock_result.stdout = "uv 0.5.0 (abc123 2024-01-01)"
+    mock_result.stdout = "uv 0.6.10 (abc123 2024-01-01)"
     with (
         mock.patch("mlflow.utils.uv_utils.shutil.which", return_value="/usr/bin/uv"),
         mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result) as mock_run,
     ):
         version = get_uv_version()
-        assert version == Version("0.5.0")
+        assert version == Version("0.6.10")
         mock_run.assert_called_once()
 
 
@@ -80,7 +80,7 @@ def test_is_uv_available_returns_false_when_version_below_minimum():
         assert is_uv_available() is False
 
 
-@pytest.mark.parametrize("version_str", ["0.5.0", "1.0.0"])
+@pytest.mark.parametrize("version_str", ["0.6.10", "1.0.0"])
 def test_is_uv_available_returns_true_when_version_meets_or_exceeds_minimum(version_str):
     mock_result = mock.Mock()
     mock_result.stdout = f"uv {version_str} (abc123 2024-01-01)"

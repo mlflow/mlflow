@@ -1,10 +1,17 @@
+import time
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from typing import Any, AsyncGenerator
 
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
 from mlflow.utils.uri import append_to_uri_path
+
+# Accumulates the total time (ms) spent waiting for provider HTTP responses in the current
+# request context. Reset to 0.0 at the start of each request by the gateway timing middleware
+# (add_gateway_timing_middleware in fastapi_app.py).
+provider_call_duration_ms: ContextVar[float] = ContextVar("provider_call_duration_ms", default=0.0)
 
 # Request gzip/deflate only so upstream never sends Brotli; aiohttp fails to decode
 # Content-Encoding: br without the optional brotli package.
@@ -45,24 +52,31 @@ async def send_request(headers: dict[str, str], base_url: str, path: str, payloa
     import aiohttp
     from fastapi import HTTPException
 
-    async with _aiohttp_post(headers, base_url, path, payload) as response:
-        content_type = response.headers.get("Content-Type")
-        if content_type and "application/json" in content_type:
-            js = await response.json()
-        elif content_type and "text/plain" in content_type:
-            js = {"message": await response.text()}
-        else:
-            raise HTTPException(
-                status_code=502,
-                detail=f"The returned data type from the route service is not supported. "
-                f"Received content type: {content_type}",
-            )
-        try:
-            response.raise_for_status()
-        except aiohttp.ClientResponseError as e:
-            detail = js.get("error", {}).get("message", e.message) if "error" in js else js
-            raise HTTPException(status_code=e.status, detail=detail)
-        return js
+    start = time.perf_counter()
+    try:
+        async with _aiohttp_post(headers, base_url, path, payload) as response:
+            content_type = response.headers.get("Content-Type")
+            if content_type and "application/json" in content_type:
+                js = await response.json()
+            elif content_type and "text/plain" in content_type:
+                js = {"message": await response.text()}
+            else:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"The returned data type from the route service is not supported. "
+                    f"Received content type: {content_type}",
+                )
+            try:
+                response.raise_for_status()
+            except aiohttp.ClientResponseError as e:
+                detail = js.get("error", {}).get("message", e.message) if "error" in js else js
+                raise HTTPException(status_code=e.status, detail=detail)
+    finally:
+        # Record full provider HTTP time for non-streaming, even when raising.
+        provider_call_duration_ms.set(
+            provider_call_duration_ms.get() + (time.perf_counter() - start) * 1000
+        )
+    return js
 
 
 async def send_stream_request(

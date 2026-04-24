@@ -16,7 +16,7 @@ defaults:
 jobs:
   review:
     runs-on: ubuntu-slim
-    if: ${{ github.event.label.name == 'team-review' }}
+    if: github.event.label.name == 'team-review'
     timeout-minutes: 5
     permissions:
       pull-requests: write
@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           sparse-checkout: .github/workflows
 
       - name: Select reviewers

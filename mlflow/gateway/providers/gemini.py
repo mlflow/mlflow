@@ -618,7 +618,7 @@ class GeminiAdapter(ProviderAdapter):
 
 
 class GeminiProvider(BaseProvider):
-    NAME = "Gemini"
+    DISPLAY_NAME = "Gemini"
     CONFIG_TYPE = GeminiConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {
@@ -669,6 +669,14 @@ class GeminiProvider(BaseProvider):
     @property
     def adapter_class(self):
         return GeminiAdapter
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        model_name = self.config.model.name
+        if route_type in ("llm/v1/chat", "llm/v1/completions"):
+            return f"{self.base_url}/{model_name}:generateContent"
+        elif route_type == "llm/v1/embeddings":
+            return f"{self.base_url}/{model_name}:embedContent"
+        raise ValueError(f"Invalid route type {route_type}")
 
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(

@@ -16,9 +16,10 @@ import {
 } from '@databricks/design-system';
 import type { ColumnDef, HeaderContext } from '@tanstack/react-table';
 import { DatasetSourceTypes, RunEntity } from '../../types';
-import { Link, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Link, useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
+import { getTimeRangeQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
@@ -33,8 +34,9 @@ import {
   shouldEnableImprovedEvalRunsComparison,
   shouldShowEvalRunsIssuesPanel,
 } from '../../../common/utils/FeatureUtils';
-import { MLFLOW_RUN_IS_ISSUE_DETECTION_TAG } from '../../constants';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
+import { RunStatusIcon } from '../../components/RunStatusIcon';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -69,6 +71,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const saveRunColor = useSaveExperimentRunColor();
   const getRunColor = useGetExperimentRunColor();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   if ('subRuns' in row.original) {
     return <div>-</div>;
@@ -77,14 +80,18 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const runUuid = row.original.info.runUuid;
   const experimentId = row.original.info.experimentId;
   const tags = row.original.data?.tags ?? [];
-  const isIssueDetectionRun = tags.some((tag) => tag.key === MLFLOW_RUN_IS_ISSUE_DETECTION_TAG);
+  const isIssueDetectionRun = tags.some(
+    (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+  );
   const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
     if (isIssueDetectionRun && showIssuesPanelFlag) {
-      navigate(Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid));
+      const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
+      const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
+      navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
       return;
     }
     // Otherwise follow old behavior - open the right-side panel
@@ -346,12 +353,27 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
   const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
   return (
-    <Icon
-      onClick={(e: React.MouseEvent) => {
-        e.stopPropagation();
-        toggleRowVisibility(runUuid);
-      }}
-      css={{ cursor: 'pointer' }}
-    />
+    <div css={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+      <Icon
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          toggleRowVisibility(runUuid);
+        }}
+        css={{ cursor: 'pointer' }}
+      />
+    </div>
   );
+};
+
+export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+
+  const status = row.original.info.status;
+  if (!status) {
+    return <div>-</div>;
+  }
+
+  return <RunStatusIcon status={status} />;
 };

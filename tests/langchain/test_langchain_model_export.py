@@ -38,6 +38,7 @@ from langchain_core.tools import Tool
 from langchain_openai import ChatOpenAI
 from langchain_text_splitters.character import CharacterTextSplitter
 from packaging import version
+from pydantic import BaseModel
 from pyspark.sql import SparkSession
 
 import mlflow
@@ -88,7 +89,7 @@ LANGCHAIN_V1_SKIP_REASON = "Pickle serialization is not supported for LangChain 
 skip_if_v1 = pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
 
 # The mock OAI completion endpoint returns payload as it is
-TEST_CONTENT = '[{"role": "user", "content": "What is MLflow?"}]'
+TEST_CONTENT = [{"role": "user", "content": "What is MLflow?"}]
 
 SIMPLE_MODEL_CODE_PATH = "tests/langchain/sample_code/simple_runnable.py"
 
@@ -184,7 +185,7 @@ def test_langchain_native_log_and_load_model():
     # Predict
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     result = loaded_model.predict([{"product": "MLflow"}])
-    assert result == [TEST_CONTENT]
+    assert result == [json.dumps(TEST_CONTENT)]
 
     # Predict stream
     result = loaded_model.predict_stream([{"product": "MLflow"}])
@@ -284,7 +285,6 @@ def test_log_and_load_retriever_chain(tmp_path):
     def load_retriever(persist_directory):
         import numpy as np
         from langchain.embeddings.base import Embeddings
-        from pydantic import BaseModel
 
         class DeterministicDummyEmbeddings(Embeddings, BaseModel):
             size: int
@@ -591,7 +591,7 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
 @skip_if_v1
 def test_save_load_runnable_parallel():
     runnable = RunnableParallel({"llm": create_openai_runnable()})
-    expected_result = {"llm": TEST_CONTENT}
+    expected_result = {"llm": json.dumps(TEST_CONTENT)}
     assert runnable.invoke({"product": "MLflow"}) == expected_result
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
@@ -1230,7 +1230,7 @@ def test_save_load_chain_as_code(chain_path, model_config, monkeypatch):
 
     request_id = "mock_request_id"
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
-    input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
+    input_example = {"messages": [{"role": "user", "content": json.dumps(TEST_CONTENT)}]}
     response = pyfunc_loaded_model._model_impl._predict_with_callbacks(
         data=input_example, callback_handlers=[tracer]
     )

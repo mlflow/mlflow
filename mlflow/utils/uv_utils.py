@@ -6,6 +6,7 @@ via ``uv export`` for automatic dependency inference during model logging.
 """
 
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -19,7 +20,7 @@ from mlflow.environment_variables import MLFLOW_LOG_UV_FILES
 _logger = logging.getLogger(__name__)
 
 # Minimum uv version required for ``uv export`` functionality
-_MIN_UV_VERSION = Version("0.5.0")
+_MIN_UV_VERSION = Version("0.6.10")
 
 # File names used for uv project detection and artifacts
 _UV_LOCK_FILE = "uv.lock"
@@ -76,7 +77,7 @@ def is_uv_available() -> bool:
     Check if uv is installed and meets the minimum version requirement.
 
     Returns:
-        True if uv is installed and version >= 0.5.0, False otherwise.
+        True if uv is installed and version >= 0.6.10, False otherwise.
     """
     return _get_uv_binary() is not None
 
@@ -447,6 +448,9 @@ def run_uv_sync(
             capture_output=capture_output,
             check=True,
             text=True,
+            # Set UV_PROJECT_ENVIRONMENT to install packages into python environment at
+            # `project_dir` path instead of the default `{cwd}/.venv` path.
+            env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(project_dir)},
         )
 
         _logger.info("uv sync completed successfully")

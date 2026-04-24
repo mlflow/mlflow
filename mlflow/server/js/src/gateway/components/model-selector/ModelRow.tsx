@@ -3,6 +3,7 @@ import { Radio, Tooltip, Typography, useDesignSystemTheme, WarningFillIcon } fro
 import { CostIndicator } from './CostIndicator';
 import { formatTokens } from '../../utils/formatters';
 import type { ProviderModel } from '../../types';
+import { getModelCapabilities } from '../../utils/getModelCapabilities';
 
 interface ModelRowProps {
   model: ProviderModel;
@@ -64,14 +65,7 @@ export const ModelRow = ({ model, isSelected, onSelect }: ModelRowProps) => {
           )}
         </div>
         <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm, display: 'block' }}>
-          {[
-            model.supports_function_calling && 'Tools',
-            model.supports_reasoning && 'Reasoning',
-            model.supports_prompt_caching && 'Caching',
-            model.supports_response_schema && 'Structured',
-          ]
-            .filter(Boolean)
-            .join(', ') || '\u00A0'}
+          {getModelCapabilities(model).join(', ') || '\u00A0'}
         </Typography.Text>
       </div>
       <div css={{ textAlign: 'right' }}>

@@ -322,8 +322,9 @@ def test_is_in_databricks_runtime(monkeypatch):
     assert not databricks_utils.is_in_databricks_runtime()
 
 
-def test_is_in_databricks_model_serving_environment(monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+@pytest.mark.parametrize("val", ["true", "1"])
+def test_is_in_databricks_model_serving_environment(monkeypatch, val):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", val)
     assert databricks_utils.is_in_databricks_model_serving_environment()
 
     monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
@@ -352,10 +353,27 @@ def test_get_repl_id():
     # Outside of Databricks environments, the Databricks REPL ID should be absent
     assert databricks_utils.get_repl_id() is None
 
+    mock_client = mock.MagicMock()
+    mock_client.getReplId.return_value = "testReplId1"
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_runtime_integration_client",
+        return_value=mock_client,
+    ):
+        assert databricks_utils.get_repl_id() == "testReplId1"
+        mock_client.getReplId.assert_called_once()
+
+    # When runtime_integration_client is unavailable, fall back to entry_point.
     mock_dbutils = mock.MagicMock()
     mock_dbutils.entry_point.getReplId.return_value = "testReplId1"
-    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+    ):
         assert databricks_utils.get_repl_id() == "testReplId1"
+        mock_dbutils.entry_point.getReplId.assert_called_once()
 
     mock_sparkcontext_inst = mock.MagicMock()
     mock_sparkcontext_inst.getLocalProperty.return_value = "testReplId2"
@@ -1039,3 +1057,140 @@ token = test-token
     result = get_databricks_host_creds("databricks")
     assert result.host == "https://test-workspace.databricks.com"
     assert result.token == "test-token"
+
+
+def test_get_databricks_nfs_temp_dir():
+    mock_dbutils = mock.MagicMock()
+    mock_client = mock.MagicMock()
+    mock_client.getUserNFSTempDir.return_value = "/nfs/user/grpc"
+
+    # When runtime_integration_client is available, use getUserNFSTempDir from client
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            return_value=mock_client,
+        ),
+    ):
+        assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user/grpc"
+        mock_client.getUserNFSTempDir.assert_called_once()
+
+    # When runtime_integration_client raises, fall back to entry_point.getUserNFSTempDir
+    mock_dbutils2 = mock.MagicMock()
+    mock_dbutils2.entry_point.getUserNFSTempDir.return_value = "/nfs/user"
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+    ):
+        assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user"
+        mock_dbutils2.entry_point.getUserNFSTempDir.assert_called_once()
+
+
+def test_get_databricks_local_temp_dir():
+    mock_dbutils = mock.MagicMock()
+    mock_client = mock.MagicMock()
+    mock_client.getUserLocalTempDir.return_value = "/local/user/grpc"
+
+    # When runtime_integration_client is available, use getUserLocalTempDir from client
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            return_value=mock_client,
+        ),
+    ):
+        assert databricks_utils.get_databricks_local_temp_dir() == "/local/user/grpc"
+        mock_client.getUserLocalTempDir.assert_called_once()
+
+    # When runtime_integration_client raises, fall back to entry_point.getUserLocalTempDir
+    mock_dbutils2 = mock.MagicMock()
+    mock_dbutils2.entry_point.getUserLocalTempDir.return_value = "/local/user"
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+    ):
+        assert databricks_utils.get_databricks_local_temp_dir() == "/local/user"
+        mock_dbutils2.entry_point.getUserLocalTempDir.assert_called_once()
+
+
+def test_get_databricks_host_creds_propagates_workspace_id(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://spog.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    mock_config = mock.MagicMock()
+    mock_config.workspace_id = "6051921418418893"
+
+    mock_ws = mock.MagicMock()
+    mock_ws.config = mock_config
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_ws) as mock_ws_cls:
+        result = get_databricks_host_creds("databricks")
+        mock_ws_cls.assert_called_once_with(profile=None)
+        assert result.workspace_id == "6051921418418893"
+        assert result.use_databricks_sdk
+
+
+def test_get_databricks_host_creds_workspace_id_none_when_not_set(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    mock_config = mock.MagicMock()
+    mock_config.workspace_id = None
+
+    mock_ws = mock.MagicMock()
+    mock_ws.config = mock_config
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_ws):
+        result = get_databricks_host_creds("databricks")
+        assert result.workspace_id is None
+
+
+def test_get_databricks_host_creds_workspace_id_from_config_on_sdk_failure(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://spog.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    mock_config = mock.MagicMock()
+    mock_config.workspace_id = "6051921418418893"
+
+    with (
+        mock.patch(
+            "databricks.sdk.WorkspaceClient",
+            side_effect=Exception("SDK auth failed"),
+        ),
+        mock.patch(
+            "databricks.sdk.config.Config",
+            return_value=mock_config,
+        ),
+    ):
+        result = get_databricks_host_creds("databricks")
+        assert result.workspace_id == "6051921418418893"
+        assert not result.use_databricks_sdk
+
+
+def test_get_databricks_host_creds_workspace_id_none_on_full_failure(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    with (
+        mock.patch(
+            "databricks.sdk.WorkspaceClient",
+            side_effect=Exception("SDK auth failed"),
+        ),
+        mock.patch(
+            "databricks.sdk.config.Config",
+            side_effect=Exception("Config failed"),
+        ),
+    ):
+        result = get_databricks_host_creds("databricks")
+        assert result.workspace_id is None
+        assert not result.use_databricks_sdk

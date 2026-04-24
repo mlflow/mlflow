@@ -6,7 +6,7 @@ export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 export const INFERENCE_TABLE_RESPONSE_COLUMN_KEY = 'response';
 export const INFERENCE_TABLE_TRACE_COLUMN_KEY = 'trace';
 
-export type ModelTraceExplorerRenderMode = 'default' | 'json';
+export type ModelTraceExplorerRenderMode = 'default' | 'json' | 'table';
 
 export enum ModelSpanType {
   LLM = 'LLM',
@@ -198,10 +198,25 @@ export type ModelTraceLocationUcSchema = {
   uc_schema: { catalog_name: string; schema_name: string };
 };
 
+export type ModelTraceLocationUcTablePrefix = {
+  type: 'UC_TABLE_PREFIX';
+  uc_table_prefix: { catalog_name: string; schema_name: string; table_prefix: string };
+};
+
 export type ModelTraceLocation =
   | ModelTraceLocationMlflowExperiment
   | ModelTraceLocationInferenceTable
-  | ModelTraceLocationUcSchema;
+  | ModelTraceLocationUcSchema
+  | ModelTraceLocationUcTablePrefix;
+
+/**
+ * Subset of ModelTraceLocation used for trace search operations.
+ * Excludes INFERENCE_TABLE which is not used in search APIs.
+ */
+export type ModelTraceSearchLocation =
+  | ModelTraceLocationMlflowExperiment
+  | ModelTraceLocationUcSchema
+  | ModelTraceLocationUcTablePrefix;
 
 export type ModelTraceInfoV3 = {
   trace_id: string;
@@ -334,6 +349,7 @@ export interface RetrieverDocument {
 export enum CodeSnippetRenderMode {
   JSON = 'json',
   TEXT = 'text',
+  TABLE = 'table',
   MARKDOWN = 'markdown',
   PYTHON = 'python',
 }
@@ -363,10 +379,20 @@ type ModelTraceAudioContentPart = {
   input_audio: ModelTraceInputAudio;
 };
 
+type ModelTraceAnthropicImageContentPart = {
+  type: 'image';
+  source: {
+    type: 'base64';
+    media_type: string;
+    data: string;
+  };
+};
+
 export type ModelTraceContentParts =
   | ModelTraceTextContentPart
   | ModelTraceImageContentPart
-  | ModelTraceAudioContentPart;
+  | ModelTraceAudioContentPart
+  | ModelTraceAnthropicImageContentPart;
 
 export type ModelTraceContentType = string | ModelTraceContentParts[];
 

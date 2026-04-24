@@ -79,8 +79,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     await createBudgetPolicy({
       budget_unit: 'USD',
       budget_amount: parseFloat(formData.budgetAmount),
-      duration_unit: unit,
-      duration_value: value,
+      duration: { unit, value },
       target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
       budget_action: formData.budgetAction,
     }).then(() => {

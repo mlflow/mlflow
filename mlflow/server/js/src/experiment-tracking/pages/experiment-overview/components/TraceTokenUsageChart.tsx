@@ -85,10 +85,10 @@ export const TraceTokenUsageChart: React.FC = () => {
                 content={
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
+                    componentId="mlflow.overview.usage.token_usage.view_traces_link"
                     linkConfig={{
                       experimentId: experimentIds[0],
                       timeIntervalSeconds,
-                      componentId: 'mlflow.overview.usage.token_usage.view_traces_link',
                     }}
                   />
                 }

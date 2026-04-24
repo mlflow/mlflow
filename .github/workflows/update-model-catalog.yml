@@ -1,0 +1,87 @@
+name: Update Model Catalog
+
+on:
+  schedule:
+    # Run weekly on Monday at 00:00 UTC
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  update-model-catalog:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: true
+
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Fetch and transform model catalog
+        run: uv run python dev/update_model_catalog.py
+
+      - name: Run pre-commit on generated files
+        run: |
+          uv sync --locked --only-group lint
+          uv run --no-sync pre-commit install --install-hooks
+          uv run --no-sync pre-commit run install-bin -a -v
+          # pre-commit exits 1 when it auto-fixes files (e.g. prettier reformats JSON).
+          # That's expected — the fixes are picked up by the subsequent git diff.
+          uv run --no-sync pre-commit run --files mlflow/utils/model_catalog/*.json || true
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet mlflow/utils/model_catalog/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update model-catalog/latest tag
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git fetch origin master --depth=1
+          git tag -f model-catalog/latest origin/master
+          git push -f origin refs/tags/model-catalog/latest
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          branch="update-model-catalog-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$branch"
+          git add mlflow/utils/model_catalog/
+          git commit -m "Update model catalog from upstream sources"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "Update model catalog from upstream sources" \
+            --body "Weekly refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
+            --label "team-review"
+
+      - name: Publish to GitHub Releases
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: bash dev/publish_model_catalog.sh

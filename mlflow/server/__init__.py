@@ -10,6 +10,7 @@ import tempfile
 import textwrap
 import types
 import warnings
+from pathlib import Path
 
 _logger = logging.getLogger("mlflow.server")
 
@@ -292,11 +293,16 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
+_UVICORN_LOG_CONFIG = Path(__file__).parent / "uvicorn_log_config.yaml"
+
+
 def _build_uvicorn_command(
     uvicorn_opts, host, port, workers, app_name, env_file=None, is_factory=False
 ):
     """Build command to run uvicorn server."""
     opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
+    if not any(o == "--log-config" or o.startswith("--log-config=") for o in opts):
+        opts.extend(["--log-config", str(_UVICORN_LOG_CONFIG)])
     cmd = [
         sys.executable,
         "-m",

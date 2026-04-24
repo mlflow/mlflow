@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -22,8 +23,7 @@ from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 def _make_policy(
     budget_policy_id="bp-test",
     budget_amount=100.0,
-    duration_unit=BudgetDurationUnit.DAYS,
-    duration_value=1,
+    duration=None,
     target_scope=BudgetTargetScope.GLOBAL,
     budget_action=BudgetAction.ALERT,
     workspace=None,
@@ -32,8 +32,7 @@ def _make_policy(
         budget_policy_id=budget_policy_id,
         budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_unit=duration_unit,
-        duration_value=duration_value,
+        duration=duration or BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=target_scope,
         budget_action=budget_action,
         created_at=0,
@@ -47,19 +46,19 @@ def _make_policy(
 
 def test_compute_window_start_minutes():
     now = datetime(2025, 6, 15, 10, 37, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationUnit.MINUTES, 15, now)
+    start = _compute_window_start(BudgetDuration(unit=BudgetDurationUnit.MINUTES, value=15), now)
     assert start == datetime(2025, 6, 15, 10, 30, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_start_hours():
     now = datetime(2025, 6, 15, 10, 30, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationUnit.HOURS, 2, now)
+    start = _compute_window_start(BudgetDuration(unit=BudgetDurationUnit.HOURS, value=2), now)
     assert start == datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_start_days():
     now = datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationUnit.DAYS, 7, now)
+    start = _compute_window_start(BudgetDuration(unit=BudgetDurationUnit.DAYS, value=7), now)
     epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
     days_since_epoch = (now - epoch).days
     window_index = days_since_epoch // 7
@@ -70,25 +69,25 @@ def test_compute_window_start_days():
 def test_compute_window_start_weeks():
     # June 15, 2025 is a Sunday — window should start on that Sunday
     now = datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationUnit.WEEKS, 1, now)
+    start = _compute_window_start(BudgetDuration(unit=BudgetDurationUnit.WEEKS, value=1), now)
     assert start == datetime(2025, 6, 15, 0, 0, 0, tzinfo=timezone.utc)
     assert start.weekday() == 6  # Sunday
 
     # Wednesday mid-week — window should start on preceding Sunday
     now = datetime(2025, 6, 18, 14, 30, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationUnit.WEEKS, 1, now)
+    start = _compute_window_start(BudgetDuration(unit=BudgetDurationUnit.WEEKS, value=1), now)
     assert start == datetime(2025, 6, 15, 0, 0, 0, tzinfo=timezone.utc)
     assert start.weekday() == 6  # Sunday
 
     # Multi-week (2-week) windows also start on Sundays
     now = datetime(2025, 6, 20, 0, 0, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationUnit.WEEKS, 2, now)
+    start = _compute_window_start(BudgetDuration(unit=BudgetDurationUnit.WEEKS, value=2), now)
     assert start.weekday() == 6  # Sunday
 
 
 def test_compute_window_start_months():
     now = datetime(2025, 8, 15, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationUnit.MONTHS, 3, now)
+    start = _compute_window_start(BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=3), now)
     # Total months from epoch: (2025-1970)*12 + (8-1) = 660 + 7 = 667
     # Window index: 667 // 3 = 222, window_start_months = 666
     # start_year = 1970 + 666//12 = 1970 + 55 = 2025, start_month = (666%12)+1 = 7
@@ -100,37 +99,37 @@ def test_compute_window_start_months():
 
 def test_compute_window_end_minutes():
     start = datetime(2025, 6, 15, 10, 30, 0, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationUnit.MINUTES, 15, start)
+    end = _compute_window_end(BudgetDuration(unit=BudgetDurationUnit.MINUTES, value=15), start)
     assert end == datetime(2025, 6, 15, 10, 45, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_hours():
     start = datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationUnit.HOURS, 2, start)
+    end = _compute_window_end(BudgetDuration(unit=BudgetDurationUnit.HOURS, value=2), start)
     assert end == datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_days():
     start = datetime(2025, 6, 15, 0, 0, 0, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationUnit.DAYS, 7, start)
+    end = _compute_window_end(BudgetDuration(unit=BudgetDurationUnit.DAYS, value=7), start)
     assert end == datetime(2025, 6, 22, 0, 0, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_weeks():
     start = datetime(2025, 6, 12, 0, 0, 0, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationUnit.WEEKS, 2, start)
+    end = _compute_window_end(BudgetDuration(unit=BudgetDurationUnit.WEEKS, value=2), start)
     assert end == datetime(2025, 6, 26, 0, 0, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_months():
     start = datetime(2025, 7, 1, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationUnit.MONTHS, 3, start)
+    end = _compute_window_end(BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=3), start)
     assert end == datetime(2025, 10, 1, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_months_crosses_year():
     start = datetime(2025, 11, 1, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationUnit.MONTHS, 3, start)
+    end = _compute_window_end(BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=3), start)
     assert end == datetime(2026, 2, 1, tzinfo=timezone.utc)
 
 
@@ -255,8 +254,7 @@ def test_window_resets_on_expiry():
     tracker = InMemoryBudgetTracker()
     policy = _make_policy(
         budget_amount=100.0,
-        duration_unit=BudgetDurationUnit.MINUTES,
-        duration_value=5,
+        duration=BudgetDuration(unit=BudgetDurationUnit.MINUTES, value=5),
     )
     tracker.refresh_policies([policy])
     tracker.record_cost(80.0)
@@ -355,8 +353,9 @@ def test_workspace_scoped_cost_recording():
 @pytest.mark.parametrize("duration_unit", list(BudgetDurationUnit))
 def test_all_duration_units_window_consistency(duration_unit):
     now = datetime(2025, 6, 15, 10, 30, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(duration_unit, 1, now)
-    end = _compute_window_end(duration_unit, 1, start)
+    duration = BudgetDuration(unit=duration_unit, value=1)
+    start = _compute_window_start(duration, now)
+    end = _compute_window_end(duration, start)
     assert start < end
     assert start <= now < end
 
@@ -364,38 +363,39 @@ def test_all_duration_units_window_consistency(duration_unit):
 # --- refresh_policies return value tests ---
 
 
-def test_refresh_policies_returns_new_windows():
+def test_refresh_policies_returns_all_windows():
     tracker = InMemoryBudgetTracker()
     policy1 = _make_policy(budget_policy_id="bp-1")
     policy2 = _make_policy(budget_policy_id="bp-2")
 
-    new_windows = tracker.refresh_policies([policy1, policy2])
-    assert len(new_windows) == 2
-    ids = {w.policy.budget_policy_id for w in new_windows}
+    windows = tracker.refresh_policies([policy1, policy2])
+    assert len(windows) == 2
+    ids = {w.policy.budget_policy_id for w in windows}
     assert ids == {"bp-1", "bp-2"}
 
 
-def test_refresh_policies_returns_empty_on_reload():
+def test_refresh_policies_returns_all_windows_on_reload():
     tracker = InMemoryBudgetTracker()
     policy = _make_policy()
 
-    new_windows = tracker.refresh_policies([policy])
-    assert len(new_windows) == 1
+    windows = tracker.refresh_policies([policy])
+    assert len(windows) == 1
 
-    # Reload same policy within same window — no new windows
-    new_windows = tracker.refresh_policies([policy])
-    assert new_windows == []
+    # Reload same policy within same window — still returns the existing window
+    windows = tracker.refresh_policies([policy])
+    assert len(windows) == 1
 
 
-def test_refresh_policies_returns_only_new_on_mixed():
+def test_refresh_policies_returns_all_windows_on_mixed():
     tracker = InMemoryBudgetTracker()
     policy1 = _make_policy(budget_policy_id="bp-1")
     tracker.refresh_policies([policy1])
 
     policy2 = _make_policy(budget_policy_id="bp-2")
-    new_windows = tracker.refresh_policies([policy1, policy2])
-    assert len(new_windows) == 1
-    assert new_windows[0].policy.budget_policy_id == "bp-2"
+    windows = tracker.refresh_policies([policy1, policy2])
+    assert len(windows) == 2
+    ids = {w.policy.budget_policy_id for w in windows}
+    assert ids == {"bp-1", "bp-2"}
 
 
 # --- backfill_spend tests ---
@@ -436,6 +436,18 @@ def test_backfill_spend_nonexistent_is_noop():
     tracker.refresh_policies([_make_policy()])
     # Should not raise
     tracker.backfill_spend({"nonexistent-policy": 50.0})
+
+
+def test_backfill_spend_uses_max_to_protect_in_process_spend():
+    # Simulate trace-flush lag: in-process spend is ahead of what DB reports.
+    # backfill_spend must not decrease cumulative_spend below the in-process value.
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+    tracker.record_cost(30.0)  # in-process spend = 30
+
+    tracker.backfill_spend({"bp-test": 10.0})  # DB is behind
+    window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 30.0  # in-process value preserved
 
 
 # --- get_all_windows tests ---

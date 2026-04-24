@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 // list of packages that contain `@mlflow/core` in peerDependencies
-const INTEGRATION_PACKAGES = ['openai', 'anthropic', 'gemini'];
+const INTEGRATION_PACKAGES = ['openai', 'anthropic', 'gemini', 'vercel'];
 
 interface PackageJson {
   name: string;

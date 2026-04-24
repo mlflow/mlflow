@@ -1,11 +1,9 @@
 from mlflow.haystack.autolog import setup_haystack_tracing, teardown_haystack_tracing
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 
 FLAVOR_NAME = "haystack"
 
 
-@experimental(version="3.4.0")
 def autolog(
     log_traces: bool = True,
     disable: bool = False,

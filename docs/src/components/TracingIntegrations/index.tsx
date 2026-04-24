@@ -390,20 +390,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/togetherai',
     category: 'Model Providers',
   },
-  // Tools
-  {
-    id: 'instructor',
-    name: 'Instructor',
-    logoPath: '/images/logos/instructor-logo.svg',
-    link: '/genai/tracing/integrations/listing/instructor',
-    category: 'Tools',
-  },
+  // Coding Agents
   {
     id: 'claude_code',
     name: 'Claude Code',
     logoPath: '/images/logos/claude-code-logo.png',
     link: '/genai/tracing/integrations/listing/claude_code',
-    category: 'Tools',
+    category: 'Coding Agents',
   },
   {
     id: 'cursor',
@@ -414,9 +407,23 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
   },
   {
     id: 'opencode',
-    name: 'Opencode',
+    name: 'OpenCode',
     logoPath: '/images/logos/opencode-logo.png',
     link: '/genai/tracing/integrations/listing/opencode',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'openhands',
+    name: 'OpenHands',
+    logoPath: '/images/logos/openhands-logo.png',
+    link: '/genai/tracing/integrations/listing/openhands',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'instructor',
+    name: 'Instructor',
+    logoPath: '/images/logos/instructor-logo.svg',
+    link: '/genai/tracing/integrations/listing/instructor',
     category: 'Tools',
   },
   {
@@ -432,6 +439,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/arize-phoenix-logo.png',
     link: '/genai/tracing/integrations/listing/arize',
     category: 'Tools',
+  },
+  {
+    id: 'goose',
+    name: 'Goose',
+    logoPath: '/images/logos/goose-logo.png',
+    link: '/genai/tracing/integrations/listing/goose',
+    category: 'No-Code',
   },
   // Gateways
   {

@@ -31,7 +31,7 @@ pyyaml:
 protobuf:
   pip_release: protobuf
   minimum: "3.12.0"
-  max_major_version: 6
+  max_major_version: 7
 
 requests:
   pip_release: requests
@@ -97,6 +97,10 @@ typing-extensions:
 
 fastapi:
   pip_release: fastapi
+  max_major_version: 0
+
+starlette:
+  pip_release: starlette
   max_major_version: 0
 
 uvicorn:

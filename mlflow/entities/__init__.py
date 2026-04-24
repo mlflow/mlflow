@@ -24,6 +24,7 @@ from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -41,6 +42,12 @@ from mlflow.entities.gateway_endpoint import (
     GatewayModelLinkageType,
     GatewayResourceType,
     RoutingStrategy,
+)
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
 )
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
@@ -154,6 +161,7 @@ __all__ = [
     "DatasetRecordSourceType",
     "EntityAssociationType",
     "BudgetAction",
+    "BudgetDuration",
     "BudgetDurationUnit",
     "BudgetTargetScope",
     "BudgetUnit",
@@ -176,6 +184,10 @@ __all__ = [
     "WebhookTestResult",
     "Workspace",
     "WorkspaceDeletionMode",
+    "GatewayGuardrail",
+    "GatewayGuardrailConfig",
+    "GuardrailAction",
+    "GuardrailStage",
 ]
 
 

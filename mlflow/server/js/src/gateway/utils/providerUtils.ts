@@ -1,66 +1,19 @@
-export const COMMON_PROVIDERS = ['openai', 'anthropic', 'databricks', 'bedrock', 'gemini', 'vertex_ai', 'xai'] as const;
-
-export interface ProviderGroup {
-  groupId: string;
-  displayName: string;
-  defaultProvider: string;
-  providers: string[];
-}
-
-export const PROVIDER_GROUPS = {
-  openai_azure: {
-    groupId: 'openai_azure',
-    displayName: 'OpenAI / Azure OpenAI',
-    defaultProvider: 'openai',
-  },
-};
-
-export function getProviderGroupId(provider: string): string | null {
-  if (provider === 'openai' || provider === 'azure') {
-    return 'openai_azure';
-  }
-  return null;
-}
-
-export function buildProviderGroups(providers: string[]): {
-  groups: ProviderGroup[];
-  ungroupedProviders: string[];
-} {
-  const groupedProviders = new Map<keyof typeof PROVIDER_GROUPS, string[]>();
-  const ungroupedProviders: string[] = [];
-
-  for (const provider of providers) {
-    const groupId = getProviderGroupId(provider);
-    if (groupId) {
-      const existing = groupedProviders.get(groupId as keyof typeof PROVIDER_GROUPS) ?? [];
-      existing.push(provider);
-      groupedProviders.set(groupId as keyof typeof PROVIDER_GROUPS, existing);
-    } else {
-      ungroupedProviders.push(provider);
-    }
-  }
-
-  const groups: ProviderGroup[] = [];
-
-  const openaiAzureProviders = groupedProviders.get('openai_azure');
-  if (openaiAzureProviders && openaiAzureProviders.length > 0) {
-    const preferredOrder = ['openai', 'azure'];
-    openaiAzureProviders.sort((a, b) => {
-      const aIndex = preferredOrder.indexOf(a);
-      const bIndex = preferredOrder.indexOf(b);
-      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-      return a.localeCompare(b);
-    });
-    groups.push({
-      ...PROVIDER_GROUPS['openai_azure'],
-      providers: openaiAzureProviders,
-    });
-  }
-
-  return { groups, ungroupedProviders };
-}
+export const COMMON_PROVIDERS = [
+  'openai',
+  'azure',
+  'anthropic',
+  'databricks',
+  'bedrock',
+  'gemini',
+  'vertex_ai',
+  'xai',
+  'mistral',
+  'groq',
+  'deepseek',
+  'openrouter',
+  'ollama',
+  'together_ai',
+] as const;
 
 const PROVIDER_DISPLAY_NAMES = {
   openai: 'OpenAI',
@@ -83,6 +36,9 @@ const PROVIDER_DISPLAY_NAMES = {
   deepinfra: 'DeepInfra',
   nvidia_nim: 'NVIDIA NIM',
   cerebras: 'Cerebras',
+  deepseek: 'DeepSeek',
+  openrouter: 'OpenRouter',
+  ollama: 'Ollama',
 } satisfies Record<string, string>;
 
 export function formatProviderName(provider: string): string {

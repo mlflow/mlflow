@@ -68,10 +68,10 @@ export const TraceLatencyChart: React.FC = () => {
                 content={
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
+                    componentId="mlflow.overview.usage.latency.view_traces_link"
                     linkConfig={{
                       experimentId: experimentIds[0],
                       timeIntervalSeconds,
-                      componentId: 'mlflow.overview.usage.latency.view_traces_link',
                     }}
                   />
                 }

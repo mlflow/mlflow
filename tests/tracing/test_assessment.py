@@ -36,6 +36,7 @@ def trace_id():
     with mlflow.start_span(name="test_span") as span:
         pass
 
+    mlflow.flush_trace_async_logging()
     return span.trace_id
 
 
@@ -299,14 +300,25 @@ def test_log_feedback_with_value_and_error(trace_id, legacy_api):
     assert assessment.rationale is None
 
 
-def test_log_feedback_invalid_parameters():
-    with pytest.raises(MlflowException, match=r"Either `value` or `error` must be provided."):
-        Feedback(
-            trace_id="1234",
-            name="faithfulness",
-            source=_LLM_ASSESSMENT_SOURCE,
-        )
+def test_log_feedback_none_value(trace_id):
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="faithfulness",
+        value=None,
+        source=_LLM_ASSESSMENT_SOURCE,
+    )
 
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 1
+    assessment = trace.info.assessments[0]
+    assert isinstance(assessment, Feedback)
+    assert assessment.trace_id == trace_id
+    assert assessment.name == "faithfulness"
+    assert assessment.feedback.value is None
+    assert assessment.feedback.error is None
+
+
+def test_log_feedback_invalid_parameters():
     # Test with a non-AssessmentSource object that is not None
     with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         Feedback(
@@ -538,7 +550,7 @@ def test_log_issue_with_run_id_and_span_id(tracking_uri):
             metadata={"category": "data", "priority": "high"},
             span_id=span.span_id,
         )
-
+    mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(span.trace_id)
     assert len(trace.info.assessments) == 1
     assessment = trace.info.assessments[0]
@@ -644,6 +656,8 @@ def test_log_assessment_on_in_progress_trace(trace_id, legacy_api):
         return x + y
 
     assert func(1, 2) == 3
+
+    mlflow.flush_trace_async_logging()
 
     # Two assessments should be logged as a part of StartTraceV3 call
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
@@ -765,6 +779,8 @@ def test_search_traces_with_assessments():
             name="feedback_3",
             value=1.0,
         )
+
+    mlflow.flush_trace_async_logging()
 
     traces = mlflow.search_traces(
         locations=["0"],

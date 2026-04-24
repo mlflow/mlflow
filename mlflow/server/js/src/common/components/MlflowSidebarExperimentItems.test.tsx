@@ -1,8 +1,9 @@
+/* eslint-disable jest/no-standalone-expect */
 import { describe, jest, test, expect, beforeEach } from '@jest/globals';
 import { screen } from '@testing-library/react';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
 import { MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { QueryClient, QueryClientProvider } from '../../common/utils/reactQueryHooks';
+import { QueryClient, QueryClientProvider } from '../utils/reactQueryHooks';
 import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { renderWithDesignSystem } from '../utils/TestUtils.react18';
 

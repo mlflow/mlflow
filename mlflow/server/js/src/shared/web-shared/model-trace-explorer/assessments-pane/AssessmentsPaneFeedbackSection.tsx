@@ -2,7 +2,6 @@ import {
   Alert,
   Button,
   DropdownMenu,
-  GavelIcon,
   PlusIcon,
   Spacer,
   StopCircleFillIcon,
@@ -13,15 +12,17 @@ import {
 import type { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useEffect, useMemo, useState } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
 import { isEmpty, isNil, uniqBy } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 import { useModelTraceExplorerUpdateTraceContext } from '../contexts/UpdateTraceContext';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '../../query-client/queryClient';
 import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSearchTracesCache';
 import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import { isEvaluatingTracesInDetailsViewEnabled } from '../FeatureUtils';
+import { INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE } from '../constants';
+import { NOTES_ASSESSMENT_NAME } from './AssessmentsPaneNotesSection';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -35,8 +36,11 @@ const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
     }
 
     let value = null;
-    if (feedback.feedback.value !== '') {
+    if (feedback.feedback.value !== '' && feedback.feedback.value !== undefined) {
       value = JSON.stringify(feedback.feedback.value);
+    } else if (feedback.feedback.error) {
+      // V4 API omits feedback.value for error assessments; group under null
+      value = JSON.stringify(null);
     }
 
     const { assessment_name } = feedback;
@@ -136,7 +140,16 @@ export const AssessmentsPaneFeedbackSection = ({
   traceId: string;
   sessionId?: string;
 }) => {
-  const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
+  const visibleFeedbacks = useMemo(
+    () =>
+      feedbacks.filter(
+        (f) =>
+          f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE &&
+          f.assessment_name !== NOTES_ASSESSMENT_NAME,
+      ),
+    [feedbacks],
+  );
+  const groupedFeedbacks = useMemo(() => groupFeedbacks(visibleFeedbacks), [visibleFeedbacks]);
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
@@ -196,8 +209,8 @@ export const AssessmentsPaneFeedbackSection = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          marginTop: theme.spacing.sm,
           marginBottom: theme.spacing.sm,
-          height: theme.spacing.lg,
           flexShrink: 0,
         }}
       >
@@ -206,17 +219,12 @@ export const AssessmentsPaneFeedbackSection = ({
             defaultMessage="Feedback"
             description="Label for the feedback section in the assessments pane"
           />{' '}
-          {!isEmpty(groupedFeedbacks) && <>({feedbacks?.length})</>}
+          {!isEmpty(groupedFeedbacks) && <>({visibleFeedbacks.length})</>}
         </Typography.Text>
-      </div>
-
-      {!isSectionEmpty && (
-        <div
-          css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
-        >
+        {!isSectionEmpty && (
           <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
-        </div>
-      )}
+        )}
+      </div>
 
       {currentTraceEvaluationErrors.map((evaluation) => (
         <div key={evaluation.requestKey} css={{ marginBottom: theme.spacing.sm }}>
@@ -321,7 +329,7 @@ export const AssessmentsPaneFeedbackSection = ({
         <AssessmentCreateForm
           spanId={activeSpanId}
           traceId={traceId}
-          initialAssessmentType="feedback"
+          assessmentType="feedback"
           setExpanded={() => setCreateFormVisible(false)}
         />
       )}

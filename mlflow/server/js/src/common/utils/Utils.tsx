@@ -403,7 +403,7 @@ class Utils {
     const urlSearchParams = new URLSearchParams(currentQueryParams);
     Object.entries(newQueryParams).forEach(
       // @ts-expect-error TS(2345): Argument of type 'unknown' is not assignable to pa... Remove this comment to see the full error message
-      ([key, value]) => !!key && !!value && urlSearchParams.set(key, value),
+      ([key, value]) => Boolean(key) && Boolean(value) && urlSearchParams.set(key, value),
     );
     const queryParams = urlSearchParams.toString();
     if (queryParams !== '' && !queryParams.includes('?')) {
@@ -1005,8 +1005,6 @@ class Utils {
     duration = 3,
     passErrorToParentFrame = false,
   ) {
-    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-    console.error(e);
     if (typeof e === 'string') {
       Utils.displayGlobalErrorNotification(e, duration);
     } else if (e instanceof ErrorWrapper) {

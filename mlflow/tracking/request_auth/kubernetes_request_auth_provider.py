@@ -15,6 +15,8 @@ import os
 import threading
 from pathlib import Path
 
+from cachetools import TTLCache
+
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.request_auth.abstract_request_auth_provider import RequestAuthProvider
 from mlflow.utils.workspace_context import get_request_workspace, set_workspace
@@ -44,7 +46,6 @@ def _ensure_caches():
     global _file_cache, _kubeconfig_token_cache, _kubeconfig_namespace_cache
     if _file_cache is not None:
         return
-    from cachetools import TTLCache
 
     _file_cache = TTLCache(maxsize=10, ttl=_FILE_CACHE_TTL)
     _kubeconfig_token_cache = TTLCache(maxsize=4, ttl=_FILE_CACHE_TTL)

@@ -297,7 +297,7 @@ def build(package_type: PackageType) -> None:
 
     data = {
         "build-system": {
-            "requires": ["setuptools"],
+            "requires": ["setuptools<=82.0.1"],
             "build-backend": "setuptools.build_meta",
         },
         "project": {
@@ -369,7 +369,7 @@ def build(package_type: PackageType) -> None:
                 "gateway": gateways_requirements,
                 "genai": genai_requirements,
                 # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747
-                "mcp": ["fastmcp<3,>=2.0.0", "click!=8.3.0"],
+                "mcp": ["fastmcp<4,>=2.0.0", "click!=8.3.0"],
                 "azure": [
                     # Required to log artifacts and models to Azure Blob Storage
                     "azure-storage-blob>=12",
@@ -474,6 +474,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "pyspark/ml/log_model_allowlist.txt",
             "server/auth/basic_auth.ini",
             "server/auth/db/migrations/alembic.ini",
+            "server/uvicorn_log_config.yaml",
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
             "assistant/skills/**/*",
@@ -481,7 +482,11 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
     }
 
     if package_type != PackageType.SKINNY:
-        package_data["mlflow"] += ["models/container/**/*", "server/js/build/**/*"]
+        package_data["mlflow"] += [
+            "models/container/**/*",
+            "server/js/build/**/*",
+            "utils/model_catalog/*.json",
+        ]
 
     return package_data
 

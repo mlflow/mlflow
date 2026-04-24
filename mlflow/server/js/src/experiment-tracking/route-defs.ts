@@ -86,6 +86,11 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabTraceDetail,
+          pageId: PageId.experimentPageTabTraceDetail,
+          element: createLazyRouteElement(() => import('./pages/experiment-traces/ExperimentTraceDetailRedirect')),
+        },
+        {
           path: RoutePaths.experimentPageTabTraces,
           pageId: PageId.experimentPageTabTraces,
           element: createLazyRouteElement(() => import('./pages/experiment-traces/ExperimentTracesPage')),
@@ -187,7 +192,9 @@ const getExperimentPageRouteDefs = () => {
         {
           path: RoutePaths.experimentPageTabPrompts,
           pageId: PageId.experimentPageTabPrompts,
-          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
+          element: createLazyRouteElement(() => {
+            return import('./pages/prompts/ExperimentPromptsPage');
+          }),
           handle: {
             getPageTitle: (params) => `Prompts - Experiment ${params['experimentId']}`,
             getAssistantPrompts: () => [
@@ -200,7 +207,9 @@ const getExperimentPageRouteDefs = () => {
         {
           path: RoutePaths.experimentPageTabPromptDetails,
           pageId: PageId.experimentPageTabPromptDetails,
-          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptDetailsPage')),
+          element: createLazyRouteElement(() => {
+            return import('./pages/prompts/ExperimentPromptDetailsPage');
+          }),
           handle: {
             getPageTitle: (params) => `Prompt: ${params['promptName']}`,
             getAssistantPrompts: () => [
@@ -226,8 +235,28 @@ export const getRouteDefs = () => [
     } satisfies RouteHandle,
   },
   {
-    path: RoutePaths.settingsPage,
+    path: RoutePaths.settingsSectionPage,
     element: createLazyRouteElement(() => import('../settings/SettingsPage')),
+    pageId: PageId.settingsPage,
+    handle: {
+      getPageTitle: (params) => {
+        const section = params['section'];
+        switch (section) {
+          case 'general':
+            return 'Settings – General';
+          case 'llm-connections':
+            return 'Settings – LLM Connections';
+          case 'webhooks':
+            return 'Settings – Webhooks';
+          default:
+            return 'Settings';
+        }
+      },
+    } satisfies RouteHandle,
+  },
+  {
+    path: RoutePaths.settingsPage,
+    element: createLazyRouteElement(() => import('../settings/SettingsEntryRedirect')),
     pageId: PageId.settingsPage,
     handle: { getPageTitle: () => 'Settings' } satisfies RouteHandle,
   },

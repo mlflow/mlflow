@@ -99,8 +99,8 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
               content={
                 <ScrollableTooltip
                   formatter={tooltipFormatter}
+                  componentId="mlflow.overview.tools.error_rate.view_traces_link"
                   linkConfig={{
-                    componentId: 'mlflow.overview.tools.error_rate.view_traces_link',
                     linkText: (
                       <FormattedMessage
                         defaultMessage="View error traces for this tool"

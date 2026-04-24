@@ -11,8 +11,8 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
-    ProviderAdapter,
 )
+from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.uc_function_utils import (
@@ -44,18 +44,13 @@ def _get_workspace_client():
         )
 
 
-class OpenAIAdapter(ProviderAdapter):
-    @classmethod
-    def chat_to_model(cls, payload, config):
-        return cls._add_model_to_payload_if_necessary(payload, config)
+class OpenAIAdapter(OpenAICompatibleAdapter):
+    """OpenAI-specific adapter that extends OpenAICompatibleAdapter.
 
-    @classmethod
-    def completion_to_model(cls, payload, config):
-        return cls._add_model_to_payload_if_necessary(payload, config)
-
-    @classmethod
-    def embeddings_to_model(cls, payload, config):
-        return cls._add_model_to_payload_if_necessary(payload, config)
+    Overrides payload methods to handle Azure OpenAI, where the model name
+    is part of the URL (deployment name) rather than the request body.
+    Also includes legacy completions response transformation methods.
+    """
 
     @classmethod
     def _add_model_to_payload_if_necessary(cls, payload, config):
@@ -68,95 +63,20 @@ class OpenAIAdapter(ProviderAdapter):
             return payload
 
     @classmethod
-    def model_to_chat(cls, resp, config):
-        # Response example (https://platform.openai.com/docs/api-reference/chat/create)
-        # ```
-        # {
-        #    "id":"chatcmpl-abc123",
-        #    "object":"chat.completion",
-        #    "created":1677858242,
-        #    "model":"gpt-4o-mini",
-        #    "usage":{
-        #       "prompt_tokens":13,
-        #       "completion_tokens":7,
-        #       "total_tokens":20
-        #    },
-        #    "choices":[
-        #       {
-        #          "message":{
-        #             "role":"assistant",
-        #             "content":"\n\nThis is a test!"
-        #          },
-        #          "finish_reason":"stop",
-        #          "index":0
-        #       }
-        #    ]
-        # }
-        # ```
-        return chat.ResponsePayload(
-            id=resp["id"],
-            object=resp["object"],
-            created=resp["created"],
-            model=resp["model"],
-            choices=[
-                chat.Choice(
-                    index=idx,
-                    message=chat.ResponseMessage(
-                        role=c["message"]["role"],
-                        content=c["message"].get("content"),
-                        tool_calls=(
-                            (calls := c["message"].get("tool_calls"))
-                            and [chat.ToolCall(**c) for c in calls]
-                        ),
-                    ),
-                    finish_reason=c.get("finish_reason"),
-                )
-                for idx, c in enumerate(resp["choices"])
-            ],
-            usage=cls._build_chat_usage(resp["usage"]),
-        )
+    def chat_to_model(cls, payload, config):
+        return cls._add_model_to_payload_if_necessary(payload, config)
 
     @classmethod
-    def _build_chat_usage(cls, usage_data: dict[str, Any]) -> chat.ChatUsage:
-        prompt_tokens_details = None
-        if details := usage_data.get("prompt_tokens_details"):
-            prompt_tokens_details = chat.PromptTokensDetails(**details)
-        return chat.ChatUsage(
-            prompt_tokens=usage_data.get("prompt_tokens"),
-            completion_tokens=usage_data.get("completion_tokens"),
-            total_tokens=usage_data.get("total_tokens"),
-            prompt_tokens_details=prompt_tokens_details,
-        )
+    def completion_to_model(cls, payload, config):
+        return cls._add_model_to_payload_if_necessary(payload, config)
 
     @classmethod
-    def model_to_chat_streaming(cls, resp, config):
-        # Extract usage from the final chunk (when stream_options.include_usage=true)
-        usage = None
-        if usage_data := resp.get("usage"):
-            usage = cls._build_chat_usage(usage_data)
+    def completions_to_model(cls, payload, config):
+        return cls._add_model_to_payload_if_necessary(payload, config)
 
-        return chat.StreamResponsePayload(
-            id=resp["id"],
-            object=resp["object"],
-            created=resp["created"],
-            model=resp["model"],
-            choices=[
-                chat.StreamChoice(
-                    index=c["index"],
-                    finish_reason=c["finish_reason"],
-                    delta=chat.StreamDelta(
-                        role=c["delta"].get("role"),
-                        content=c["delta"].get("content"),
-                        tool_calls=(
-                            (calls := c["delta"].get("tool_calls"))
-                            and [chat.ToolCallDelta(**c) for c in calls]
-                        ),
-                    ),
-                )
-                for c in resp["choices"]
-            ],
-            usage=usage,
-        )
+    @classmethod
+    def embeddings_to_model(cls, payload, config):
+        return cls._add_model_to_payload_if_necessary(payload, config)
 
     @classmethod
     def model_to_completions(cls, resp, config):
@@ -184,9 +104,6 @@ class OpenAIAdapter(ProviderAdapter):
         # ```
         return completions.ResponsePayload(
             id=resp["id"],
-            # The chat models response from OpenAI is of object type "chat.completion". Since
-            # we're using the completions response format here, we hardcode the "text_completion"
-            # object type in the response instead
             object="text_completion",
             created=resp["created"],
             model=resp["model"],
@@ -207,7 +124,6 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_completions_streaming(cls, resp, config):
-        # Extract usage from the final chunk (when stream_options.include_usage=true)
         usage = None
         if usage_data := resp.get("usage"):
             usage = completions.CompletionsUsage(
@@ -218,9 +134,6 @@ class OpenAIAdapter(ProviderAdapter):
 
         return completions.StreamResponsePayload(
             id=resp["id"],
-            # The chat models response from OpenAI is of object type "chat.completion.chunk".
-            # Since we're using the completions response format here, we hardcode the
-            # "text_completion_chunk" object type in the response instead
             object="text_completion_chunk",
             created=resp["created"],
             model=resp["model"],
@@ -235,49 +148,9 @@ class OpenAIAdapter(ProviderAdapter):
             usage=usage,
         )
 
-    @classmethod
-    def model_to_embeddings(cls, resp, config):
-        # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
-        # ```
-        # {
-        #   "object": "list",
-        #   "data": [
-        #     {
-        #       "object": "embedding",
-        #       "embedding": [
-        #         0.0023064255,
-        #         -0.009327292,
-        #         .... (1536 floats total for ada-002)
-        #         -0.0028842222,
-        #       ],
-        #       "index": 0
-        #     }
-        #   ],
-        #   "model": "text-embedding-ada-002",
-        #   "usage": {
-        #     "prompt_tokens": 8,
-        #     "total_tokens": 8
-        #   }
-        # }
-        # ```
-        return embeddings.ResponsePayload(
-            data=[
-                embeddings.EmbeddingObject(
-                    embedding=d["embedding"],
-                    index=idx,
-                )
-                for idx, d in enumerate(resp["data"])
-            ],
-            model=resp["model"],
-            usage=embeddings.EmbeddingsUsage(
-                prompt_tokens=resp["usage"]["prompt_tokens"],
-                total_tokens=resp["usage"]["total_tokens"],
-            ),
-        )
-
 
 class OpenAIProvider(BaseProvider):
-    NAME = "OpenAI"
+    DISPLAY_NAME = "OpenAI"
     CONFIG_TYPE = OpenAIConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {

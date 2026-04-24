@@ -1,9 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { Alert, Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
+import { DetectIssuesButton } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useIsFileStore } from '../../hooks/useServerInfo';
+import { useSqlWarehouseContextSafe } from '../experiment-page-tabs/SqlWarehouseContext';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import {
   useMonitoringFilters,
@@ -11,6 +16,7 @@ import {
   DEFAULT_START_TIME_LABEL,
 } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
+import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
 import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
@@ -32,18 +38,64 @@ import { generateTimeBuckets } from './utils/chartUtils';
 import { OverviewChartProvider } from './OverviewChartContext';
 import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 
+const DEMO_START_TIME_TAG = 'mlflow.demo.start_time_ms';
+const DEMO_END_TIME_TAG = 'mlflow.demo.end_time_ms';
+
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
   const [activeTab, setActiveTab] = useOverviewTab();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
+  const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
   const isFileStore = useIsFileStore();
+  const sqlWarehouseContext = useSqlWarehouseContextSafe();
+
+  // all features should be enabled in OSS
+  const enableAllCharts = true;
+
+  const [isMysqlBannerDismissed, setIsMysqlBannerDismissed] = useLocalStorage({
+    key: 'mlflow.overview.mysqlBannerDismissed',
+    version: 0,
+    initialValue: false,
+  });
 
   invariant(experimentId, 'Experiment ID must be defined');
+
+  // Fetch experiment data to check for demo time tags
+  const { data: experiment } = useGetExperimentQuery({ experimentId });
 
   // Get the current time range from monitoring filters
   const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
   const monitoringConfig = useMonitoringConfig();
+
+  // Initialize with demo time range if this is a demo experiment
+  useEffect(() => {
+    if (!experiment || monitoringFilters.startTimeLabel !== DEFAULT_START_TIME_LABEL) {
+      return;
+    }
+
+    // Check if this is a demo experiment by looking for demo version tags
+    const hasDemoVersionTag = experiment.tags?.some((tag) => tag.key?.startsWith('mlflow.demo.version.'));
+
+    if (hasDemoVersionTag) {
+      const startTimeTag = experiment.tags?.find((tag) => tag.key === DEMO_START_TIME_TAG);
+      const endTimeTag = experiment.tags?.find((tag) => tag.key === DEMO_END_TIME_TAG);
+
+      if (startTimeTag?.value && endTimeTag?.value) {
+        const startTime = new Date(parseInt(startTimeTag.value, 10)).toISOString();
+        const endTime = new Date(parseInt(endTimeTag.value, 10)).toISOString();
+
+        setMonitoringFilters(
+          {
+            startTimeLabel: 'CUSTOM',
+            startTime,
+            endTime,
+          },
+          true,
+        );
+      }
+    }
+  }, [experiment, monitoringFilters.startTimeLabel, setMonitoringFilters]);
 
   // 'ALL' is excluded from the date selector on this page since charts require
   // start_time_ms and end_time_ms. If the user navigates here with ?startTimeLabel=ALL,
@@ -158,10 +210,16 @@ const ExperimentGenAIOverviewPageImpl = () => {
            * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
            * TODO: remove this once this is supported in backend
            */}
-          <TracesV3DateSelector
-            excludeOptions={['ALL']}
-            refreshButtonComponentId="mlflow.experiment.overview.refresh-button"
-          />
+          <TracesV3DateSelector excludeOptions={['ALL']} componentId="mlflow.experiment.overview" />
+
+          {shouldEnableIssueDetection() && (
+            <div css={{ marginLeft: 'auto' }}>
+              <DetectIssuesButton
+                componentId="mlflow.experiment.overview.detect-issues-button"
+                onClick={() => setIsIssueDetectionModalOpen(true)}
+              />
+            </div>
+          )}
         </div>
 
         <OverviewChartProvider
@@ -176,53 +234,71 @@ const ExperimentGenAIOverviewPageImpl = () => {
               {/* Requests chart - full width */}
               <LazyTraceRequestsChart />
 
-              {/* Latency and Errors charts - side by side */}
+              {/* Latency and Errors charts - side by side (latency requires UC) */}
               <ChartGrid>
-                <LazyTraceLatencyChart />
-                <LazyTraceErrorsChart />
+                {enableAllCharts && <LazyTraceLatencyChart />}
+                <LazyTraceErrorsChart enableTraceNavigation={enableAllCharts} />
               </ChartGrid>
 
-              {/* Token Usage and Token Stats charts - side by side */}
-              <ChartGrid>
-                <LazyTraceTokenUsageChart />
-                <LazyTraceTokenStatsChart />
-              </ChartGrid>
+              {/* Token Usage and Token Stats charts - side by side (requires UC) */}
+              {enableAllCharts && (
+                <ChartGrid>
+                  <LazyTraceTokenUsageChart />
+                  <LazyTraceTokenStatsChart />
+                </ChartGrid>
+              )}
 
-              {/* Cost Breakdown and Cost Over Time charts - side by side */}
-              <ChartGrid>
-                <LazyTraceCostBreakdownChart />
-                <LazyTraceCostOverTimeChart />
-              </ChartGrid>
+              {/* Cost Breakdown and Cost Over Time charts - side by side (requires UC) */}
+              {enableAllCharts && (
+                <ChartGrid>
+                  <LazyTraceCostBreakdownChart />
+                  <LazyTraceCostOverTimeChart />
+                </ChartGrid>
+              )}
             </TabContentContainer>
           </Tabs.Content>
 
           <Tabs.Content value={OverviewTab.Quality} css={{ flex: 1, overflowY: 'auto' }}>
             <TabContentContainer>
               {/* Assessment charts - dynamically rendered based on available assessments */}
-              <AssessmentChartsSection />
+              <AssessmentChartsSection enableTraceNavigation={enableAllCharts} />
             </TabContentContainer>
           </Tabs.Content>
 
           <Tabs.Content value={OverviewTab.ToolCalls} css={{ flex: 1, overflowY: 'auto' }}>
             <TabContentContainer>
-              {/* Tool call statistics */}
-              <ToolCallStatistics />
+              {enableAllCharts ? (
+                <>
+                  {/* Tool call statistics */}
+                  <ToolCallStatistics />
 
-              {/* Tool performance summary */}
-              <LazyToolPerformanceSummary />
+                  {/* Tool performance summary */}
+                  <LazyToolPerformanceSummary />
 
-              {/* Tool usage and latency charts - side by side */}
-              <ChartGrid>
-                <LazyToolUsageChart />
-                <LazyToolLatencyChart />
-              </ChartGrid>
+                  {/* Tool usage and latency charts - side by side */}
+                  <ChartGrid>
+                    <LazyToolUsageChart />
+                    <LazyToolLatencyChart />
+                  </ChartGrid>
 
-              {/* Tool error rate charts - dynamically rendered based on available tools */}
-              <ToolCallChartsSection />
+                  {/* Tool error rate charts - dynamically rendered based on available tools */}
+                  <ToolCallChartsSection />
+                </>
+              ) : (
+                <Typography.Text color="secondary">
+                  <FormattedMessage
+                    defaultMessage="Tool call metrics require Unity Catalog trace storage."
+                    description="Message shown on Tool Calls tab when experiment uses MySQL trace storage"
+                  />
+                </Typography.Text>
+              )}
             </TabContentContainer>
           </Tabs.Content>
         </OverviewChartProvider>
       </Tabs.Root>
+      {isIssueDetectionModalOpen && (
+        <IssueDetectionModal onClose={() => setIsIssueDetectionModalOpen(false)} experimentId={experimentId} />
+      )}
     </div>
   );
 };

@@ -341,6 +341,7 @@ async def test_gemini_chat():
         "created": 1234567890,
         "object": "chat.completion",
         "model": "gemini-2.0-flash",
+        "provider": "gemini",
         "choices": jsonable_encoder(expected_choices),
         "usage": {
             "prompt_tokens": 6,
@@ -510,6 +511,7 @@ async def test_gemini_chat_function_calling():
         "object": "chat.completion",
         "created": 1234567890,
         "model": "gemini-2.0-flash",
+        "provider": "gemini",
         "choices": [
             {
                 "index": 0,
@@ -629,6 +631,7 @@ async def test_gemini_chat_multi_function_calling():
         "object": "chat.completion",
         "created": 1234567890,
         "model": "gemini-2.0-flash",
+        "provider": "gemini",
         "choices": [
             {
                 "index": 0,
@@ -731,6 +734,7 @@ async def test_gemini_chat_function_calling_second_turn():
         "object": "chat.completion",
         "created": 1234567890,
         "model": "gemini-2.0-flash",
+        "provider": "gemini",
         "choices": [
             {
                 "index": 0,
@@ -853,6 +857,7 @@ async def test_gemini_chat_stream(resp):
             "object": "chat.completion.chunk",
             "created": 1,
             "model": "gemini-2.0-flash",
+            "provider": "gemini",
             "choices": [
                 {
                     "index": 0,
@@ -871,6 +876,7 @@ async def test_gemini_chat_stream(resp):
             "object": "chat.completion.chunk",
             "created": 1,
             "model": "gemini-2.0-flash",
+            "provider": "gemini",
             "choices": [
                 {
                     "index": 0,
@@ -931,6 +937,7 @@ async def test_gemini_chat_function_calling_stream():
             "object": "chat.completion.chunk",
             "created": 1,
             "model": "gemini-2.0-flash",
+            "provider": "gemini",
             "choices": [
                 {
                     "index": 0,

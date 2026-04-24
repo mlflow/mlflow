@@ -64,6 +64,17 @@ export enum TraceStatus {
 }
 
 /**
+ * Dimension keys for trace metrics.
+ * Based on mlflow/tracing/constant.py TraceMetricDimensionKey
+ */
+export enum TraceDimensionKey {
+  /** Trace name dimension */
+  TRACE_NAME = 'trace_name',
+  /** Trace status dimension (OK, ERROR) */
+  TRACE_STATUS = 'trace_status',
+}
+
+/**
  * Creates a trace filter expression string.
  * @param field - The field to filter on (e.g., TraceFilterKey.STATUS)
  * @param value - The value to match (e.g., TraceStatus.ERROR)
@@ -285,8 +296,15 @@ export interface QueryTraceMetricsRequest {
   experiment_ids: string[];
   /** Required: The level at which to aggregate metrics */
   view_type: MetricViewType;
-  /** Required: The name of the metric to query (e.g. "latency") */
-  metric_name: string;
+  /** DEPRECATED: Use metric_names instead. The name of the metric to query (e.g. "latency") */
+  metric_name?: string;
+  /**
+   * The name(s) of the metric(s) to query (e.g. ["latency"] or ["input_tokens", "output_tokens"]).
+   * Replaces the deprecated metric_name field. When multiple names are provided, all metrics must
+   * share the same aggregation semantics. Each result data point carries a metric_name field so
+   * the caller can distinguish metrics. One of metric_name or metric_names is required.
+   */
+  metric_names?: string[];
   /** Required: The aggregations to apply */
   aggregations: MetricAggregation[];
   /** Optional: Dimensions to group metrics by (e.g. "name", "status") */

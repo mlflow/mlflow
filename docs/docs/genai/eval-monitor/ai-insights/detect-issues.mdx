@@ -1,0 +1,270 @@
+import ImageBox from '@site/src/components/ImageBox';
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import WorkflowSteps from "@site/src/components/WorkflowSteps";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import { Target, BarChart3, Bot, AlertTriangle, Search, Lightbulb, FileText, CheckCircle } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
+# Automatic Issue Detection
+
+Automatically identify quality and operational issues in your LLM application using AI-powered analysis of traces directly within the MLflow UI.
+
+<video src={useBaseUrl("/images/genai/issue-detection/issue-detection.mp4")} controls loop autoPlay muted aria-label="Issue Detection" />
+
+## Why Automatic Issue Detection?
+
+As your LLM application scales in production, maintaining agent quality becomes increasingly challenging:
+
+- **Cumbersome to review traces one by one**: Manually inspecting individual traces does not scale as traffic grows
+- **Unclear which quality metrics to use**: The default scorer covers common cases automatically, so you can get started without defining metrics upfront
+- **Difficult to identify recurring patterns**: Related failures are scattered across traces without automatic grouping
+- **Lack of structured issue tracking**: Without structured tracking, identified problems get lost and regressions go unnoticed
+
+## How It Works
+
+Issue detection uses a multi-stage AI analysis pipeline:
+
+<WorkflowSteps
+  steps={[
+    {
+      icon: Bot,
+      title: "Identify issues from traces",
+      description: "Automatically identify issues from your selected traces, based on the chosen categories and model"
+    },
+    {
+      icon: Search,
+      title: "Analyze triage results",
+      description: "Build per-session analyses from triage results, combining triage rationales, human feedback and agent execution logic"
+    },
+    {
+      icon: CheckCircle,
+      title: "Cluster issues",
+      description: "Cluster analyses into identified issues via LLM-based labeling and grouping"
+    },
+    {
+      icon: FileText,
+      title: "Annotate issues",
+      description: "Annotate traces with corresponding issues, including the rationales"
+    },
+    {
+      icon: Lightbulb,
+      title: "Summary",
+      description: "Generate a summary of identified issues and root causes"
+    }
+  ]}
+/>
+
+### What Gets Analyzed
+
+The system examines your trace data to understand:
+
+- **Inputs and outputs**: User requests and agent responses
+- **Tool calls and results**: Function calls, API interactions, and their outcomes
+- **Execution flow**: Span sequences, timing, and control flow
+- **Errors and exceptions**: Failures, timeouts, and error messages
+- **Metadata**: User feedback, tags, session context
+
+From this data, the AI identifies problems across six quality dimensions.
+
+## Issue Categories (CLEARS)
+
+MLflow organizes issue detection across six quality dimensions, forming the **CLEARS** framework (**C**orrectness, **L**atency, **E**xecution, **A**dherence, **R**elevance, **S**afety). Choose which categories to focus on based on your application's requirements:
+
+<ConceptOverview concepts={[
+  {
+    icon: Search,
+    title: "Correctness",
+    description: "Output is factually accurate and grounded in provided data. Detects hallucinations, factual errors, and ungrounded responses."
+  },
+  {
+    icon: Target,
+    title: "Latency",
+    description: "Agent responds within acceptable time bounds. Identifies slow responses, timeouts, and performance bottlenecks."
+  },
+  {
+    icon: CheckCircle,
+    title: "Execution",
+    description: "Agent successfully completes actions (tool calls, API steps). Finds tool call failures, API errors, and execution problems."
+  },
+  {
+    icon: FileText,
+    title: "Adherence",
+    description: "Response follows instructions, constraints, policies, and formatting. Catches instruction-following failures and formatting issues."
+  },
+  {
+    icon: Lightbulb,
+    title: "Relevance",
+    description: "Output is useful, directly addresses the user's request, and leaves the user satisfied with the interaction."
+  },
+  {
+    icon: AlertTriangle,
+    title: "Safety",
+    description: "Response avoids harmful, sensitive, or inappropriate content. Detects safety violations and policy breaches."
+  }
+]} />
+
+### Choosing Categories
+
+Different applications have different priorities:
+
+- **Customer support bots**: Focus on relevance and adherence to ensure helpful, policy-compliant responses
+- **Data retrieval systems**: Prioritize correctness and execution to catch hallucinations and API failures
+- **Real-time agents**: Emphasize latency and execution for responsive, reliable performance
+- **Content generation**: Consider safety, adherence, and relevance for appropriate, on-topic outputs
+
+You can select any combination of categories for each analysis. Starting with all categories gives comprehensive coverage, then narrow focus as you learn your application's common failure modes.
+
+## The Detection Experience
+
+### Getting Started
+
+Issue detection is available from anywhere you view traces: overview dashboard, traces table, or chat sessions. When you're ready to analyze a set of traces, initiate detection and configure two things:
+
+1. **Which issue categories to look for**: Select the CLEARS dimensions most relevant to your use case
+
+<ImageBox src="/images/genai/issue-detection/categories.png" alt="Issue detection categories" width="60%"/>
+
+2. **Which LLM to use for analysis**: Choose between an existing MLflow AI Gateway endpoint or connect directly to a provider (OpenAI, Anthropic, Gemini, etc.) using an API key. Cost tracking is supported across all options.
+
+<div style={{display: "flex", gap: "1rem", alignItems: "flex-start"}}>
+  <ImageBox src="/images/genai/issue-detection/endpoint-selection.png" alt="Issue detection endpoints selection" width="100%"/>
+  <ImageBox src="/images/genai/issue-detection/model-selection.png" alt="Issue detection models selection" width="100%"/>
+</div>
+
+You can analyze all traces in your experiment or select a specific subset. For multi-turn conversations, you can group traces by [session](/genai/tracing/track-users-sessions) to get conversation-aware analysis.
+
+### Real-Time Analysis
+
+Once configured, analysis begins immediately and runs asynchronously. You can watch progress in real-time or navigate away—the job continues in the background. As the analysis runs, you'll see:
+
+- Current status and progress
+- Number of traces scanned
+- Issues detected so far (updates live)
+
+Once the job finishes, you'll also see the estimated LLM cost for the analysis.
+
+<ImageBox src="/images/genai/issue-detection/issue-detection-progress.png" alt="Issue detection in progress" width="90%"/>
+
+### Understanding Results
+
+When analysis completes, you receive an AI-generated summary highlighting key findings, severity distribution, and recommended next steps. This summary gives you immediate context before diving into individual issues.
+
+<ImageBox src="/images/genai/issue-detection/summary.png" alt="Detection complete with summary" width="90%"/>
+
+## Working with Detected Issues
+
+### Issue Overview
+
+Each detected issue represents a cluster of related problems found across your traces. Issues provide:
+
+<FeatureHighlights features={[
+  {
+    icon: FileText,
+    title: "Description",
+    description: "What the problem is, why it occurs, and how it manifests in your application"
+  },
+  {
+    icon: AlertTriangle,
+    title: "Severity Rating",
+    description: "High, medium, or low priority based on impact and frequency"
+  },
+  {
+    icon: BarChart3,
+    title: "Affected Trace Count",
+    description: "Number of traces impacted, with direct links to each affected trace for investigation"
+  },
+  {
+    icon: Target,
+    title: "Category Labels",
+    description: "Which CLEARS dimensions this issue relates to (correctness, latency, execution, etc.)"
+  }
+]} />
+
+Issues maintain full lineage to the traces they were detected from, so you can always navigate from an issue back to the specific traces that surfaced it.
+
+<ImageBox src="/images/genai/issue-detection/issue-cards.png" alt="Detected issues overview" width="90%"/>
+
+### Investigating Issues
+
+When you select an issue, you can explore all affected traces. Each trace shows why it was flagged with specific rationale explaining the problem in that particular example. This helps you:
+
+- **Verify the issue is real**: Check if flagged traces genuinely demonstrate the problem
+- **Understand the pattern**: See how the issue manifests across different contexts
+- **Identify root causes**: Look for common factors in affected traces
+- **Gather examples**: Collect representative cases for debugging or evaluation datasets, and use them to verify whether the issue is fixed after making changes
+
+<ImageBox src="/images/genai/issue-detection/issue-details.png" alt="Issue with affected traces" width="90%"/>
+
+### Managing and Triaging Issues
+
+#### Issue Status
+
+Issues are classified into three states:
+
+- **Pending**: Newly discovered issues awaiting review
+- **Resolved**: Issues you've fixed and verified
+- **Rejected**: False positives or non-issues
+
+You can filter by status to focus on what needs attention. Issues identified by the discovery job are initially marked as Pending, and can be triaged to Resolved or Rejected as you investigate.
+
+<ImageBox src="/images/genai/issue-detection/issue-status.png" alt="Managing issue status" width="70%"/>
+
+#### Refining Issues
+
+As you review issues, you can refine them to better reflect your domain knowledge and terminology:
+
+- **Edit descriptions**: Clarify or expand issue descriptions with domain-specific details
+- **Adjust severity**: Change priority levels based on business impact
+
+These refinements help align discovered issues with your team's understanding and priorities.
+
+<ImageBox src="/images/genai/issue-detection/edit-issue.png" alt="Editing issue details" width="70%"/>
+
+#### Tracking Progress
+
+Mark issues as resolved when you've:
+
+1. Identified and fixed the root cause
+2. Deployed the fix to your application
+3. Verified the problem no longer occurs in new traces
+
+Mark an issue as rejected when:
+
+- **It's a false positive**: The flagged traces don't actually exhibit the described problem
+- **It's by design**: The behavior is intentional, such as intentionally brief responses or domain-specific language
+- **It's out of scope**: The issue is real but not something your team plans to address (e.g., an edge case with negligible user impact)
+
+Rejecting false positives keeps your issue list focused and prevents noise from accumulating over time.
+
+## Best Practices
+
+### Effective Analysis
+
+- **Analyze representative data**: Include traces from different user segments, time periods, and use cases
+- **Start comprehensive**: Use all categories initially to discover your application's failure modes
+- **Focus iteratively**: Narrow to specific categories as you learn common issues
+- **Verify findings**: Always examine affected traces to confirm issues are real
+- **Regular cadence**: Run detection periodically to catch new issues as your application evolves
+
+### Cost and Performance Trade-offs
+
+Issue detection requires LLM calls to analyze each trace. Costs scale with:
+
+- Number of traces analyzed
+- Trace complexity and length
+- Model size and pricing
+- Number of categories selected
+
+More capable models (e.g. `gpt-5.4`) generally produce better issue detection quality, and the cost is reasonable, typically a few dollars for hundreds of traces. We recommend starting with a stronger model to get the best results out of the box.
+
+To control costs at scale, connect via an [MLflow AI Gateway](/genai/governance/ai-gateway/) endpoint and use its built-in budget controls to cap spending across detection runs.
+
+## When to Use Issue Detection
+
+Issue detection complements other MLflow evaluation and monitoring capabilities:
+
+| Use Issue Detection When...                                        | Use Other Tools When...                                                                                                                              |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| You want to detect unknown problems                                | You know the specific quality dimensions or hypotheses to test: use [MLflow Evaluation Judges](/genai/eval-monitor/scorers)                          |
+| You need to analyze many traces at once                            | You're debugging a single trace: use [MLflow Trace UI](/genai/tracing/observe-with-traces/ui)                                                        |
+| You want to track, triage, and resolve identified issues over time | You need continuous production monitoring: use [Automatic Evaluations](/genai/eval-monitor/automatic-evaluations) to score every trace as it arrives |

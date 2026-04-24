@@ -163,6 +163,15 @@ def _convert_message(msg: dict[str, Any]) -> dict[str, Any]:
     role = msg.get("role", "user")
     parts = _convert_content(msg.get("content"))
 
+    # OpenAI's gpt-4o-audio-preview returns audio responses in a separate
+    # "audio" field (not in "content"). When content is empty, fall back to
+    # the audio transcript so the exported event captures meaningful text.
+    # Ref: https://platform.openai.com/docs/api-reference/chat/create
+    if not parts:
+        match msg:
+            case {"audio": {"transcript": str(transcript)}}:
+                parts = [{"type": "text", "content": transcript}]
+
     if tool_calls := msg.get("tool_calls"):
         parts.extend(_convert_tool_call(tc) for tc in tool_calls)
 

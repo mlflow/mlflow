@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
@@ -109,6 +110,13 @@ def mock_litellm_embeddings_response():
     response.usage.total_tokens = 5
 
     return response
+
+
+def test_litellm_not_installed():
+    config = chat_config()
+    with mock.patch("importlib.util.find_spec", return_value=None):
+        with pytest.raises(MlflowException, match="pip install litellm"):
+            LiteLLMProvider(EndpointConfig(**config))
 
 
 @pytest.mark.asyncio
@@ -848,9 +856,9 @@ def test_litellm_extract_passthrough_token_usage_anthropic_with_cached_tokens():
         PassthroughAction.ANTHROPIC_MESSAGES, result
     )
     assert token_usage == {
-        "input_tokens": 100,
+        "input_tokens": 140,
         "output_tokens": 50,
-        "total_tokens": 150,
+        "total_tokens": 190,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }

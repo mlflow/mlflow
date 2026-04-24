@@ -68,15 +68,32 @@ const IssueItem = ({ issue }: { issue: IssueReferenceAssessment }) => {
   );
 };
 
-export const AssessmentsPaneIssuesSection = ({ issues }: { issues: IssueReferenceAssessment[] }) => {
+export const AssessmentsPaneIssuesSection = ({
+  issues,
+  selectedIssueId,
+}: {
+  issues: IssueReferenceAssessment[];
+  selectedIssueId?: string;
+}) => {
   const sortedIssues = useMemo(
     () => issues.toSorted((left, right) => left.assessment_name.localeCompare(right.assessment_name)),
     [issues],
   );
 
+  // Filter issues to only show the selected issue if one is selected
+  const filteredIssues = useMemo(() => {
+    if (!selectedIssueId) {
+      return sortedIssues;
+    }
+    return sortedIssues.filter((issue) => {
+      // issue_id is stored as assessment name
+      return issue.assessment_name === selectedIssueId;
+    });
+  }, [sortedIssues, selectedIssueId]);
+
   const { theme } = useDesignSystemTheme();
 
-  if (isEmpty(sortedIssues)) {
+  if (isEmpty(filteredIssues)) {
     return null;
   }
 
@@ -96,11 +113,11 @@ export const AssessmentsPaneIssuesSection = ({ issues }: { issues: IssueReferenc
             defaultMessage="Issues"
             description="Label for the issues section in the assessments pane"
           />{' '}
-          ({sortedIssues.length})
+          ({filteredIssues.length})
         </Typography.Text>
       </div>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        {sortedIssues.map((issue) => (
+        {filteredIssues.map((issue) => (
           <IssueItem issue={issue} key={issue.assessment_id} />
         ))}
       </div>

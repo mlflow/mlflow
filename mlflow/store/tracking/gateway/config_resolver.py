@@ -19,6 +19,7 @@ from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, Gatewa
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.crypto import KEKManager, _decrypt_secret
+from mlflow.utils.workspace_context import get_request_workspace
 
 
 def get_resource_endpoint_configs(
@@ -179,6 +180,11 @@ def get_endpoint_config(
             f"Current store type: {type(store).__name__}"
         )
 
+    workspace = get_request_workspace() or ""
+    cache_key = f"endpoint_config:{workspace}:{endpoint_name}"
+    if cached := store.secret_cache.get(cache_key):
+        return GatewayEndpointConfig.from_dict(cached)
+
     with store.ManagedSessionMaker() as session:
         sql_endpoint = store._get_entity_or_raise(
             session,
@@ -233,11 +239,16 @@ def get_endpoint_config(
 
         endpoint_entity = sql_endpoint.to_mlflow_entity()
 
-        return GatewayEndpointConfig(
+        result = GatewayEndpointConfig(
             endpoint_id=sql_endpoint.endpoint_id,
             endpoint_name=sql_endpoint.name,
             models=model_configs,
             routing_strategy=endpoint_entity.routing_strategy,
             fallback_config=endpoint_entity.fallback_config,
             experiment_id=endpoint_entity.experiment_id,
+            usage_tracking=endpoint_entity.usage_tracking
+            and endpoint_entity.experiment_id is not None,
         )
+
+    store.secret_cache.set(cache_key, result.to_dict())
+    return result

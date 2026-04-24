@@ -2,7 +2,9 @@ import json
 import os
 import subprocess
 import tarfile
+from pathlib import Path
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import check_tarfile_security, get_or_create_tmp_dir
 
@@ -141,5 +143,17 @@ def extract_archive_to_dir(archive_path, dest_dir):
     check_tarfile_security(archive_path)
     os.makedirs(dest_dir, exist_ok=True)
     with tarfile.open(archive_path, "r") as tar:
-        tar.extractall(path=dest_dir)
+        _safe_extractall(tar, dest_dir)
     return dest_dir
+
+
+def _safe_extractall(tar, dest_dir):
+    resolved_dest = Path(dest_dir).resolve()
+    for member in tar.getmembers():
+        member_path = (resolved_dest / member.name).resolve()
+        if not (member_path == resolved_dest or resolved_dest in member_path.parents):
+            raise MlflowException.invalid_parameter_value(
+                f"Tar archive member {member.name!r} would be extracted outside "
+                f"the destination directory."
+            )
+        tar.extract(member, path=resolved_dest)

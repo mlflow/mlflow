@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
   CheckCircleIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   ParagraphSkeleton,
   XCircleIcon,
   Typography,
@@ -14,14 +16,24 @@ import { RunPageTabName } from '../../../constants';
 import Routes from '../../../routes';
 import Utils from '../../../../common/utils/Utils';
 import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
-import { IssueJobStatus, isJobComplete, type IssueJobResult } from '../hooks/useFetchIssueJobStatus';
+import { JobStatus, isJobComplete } from '../hooks/useFetchJobStatus';
 import { useCancelJob } from '../hooks/useCancelJob';
+import { useLogTelemetryEvent } from '../../../../telemetry/hooks/useLogTelemetryEvent';
+
+export interface IssueJobResult {
+  issues?: number;
+  summary?: string;
+  total_traces_analyzed?: number;
+  total_cost_usd?: number;
+}
 
 export interface IssueDetectionProgressProps {
   /** Job ID for cancel functionality */
   jobId?: string;
   /** Job status from parent */
-  jobStatus?: IssueJobStatus;
+  jobStatus?: JobStatus;
+  /** Current job stage */
+  jobStage?: string;
   /** Total traces count */
   totalTraces?: number;
   /** Job result data */
@@ -30,18 +42,23 @@ export interface IssueDetectionProgressProps {
   isLoadingJobStatus?: boolean;
   /** Error from job status fetch */
   jobStatusError?: Error | null;
+  /** Error message from backend when job failed */
+  jobErrorMessage?: string;
 }
 
 export const IssueDetectionProgress = ({
   jobId,
   jobStatus,
+  jobStage,
   totalTraces,
   result,
   isLoadingJobStatus,
   jobStatusError,
+  jobErrorMessage,
 }: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const logTelemetryEvent = useLogTelemetryEvent();
   const navigate = useNavigate();
   const { experimentId, runUuid } = useParams<{ experimentId: string; runUuid: string }>();
   const { cancelJob, isCancelling } = useCancelJob();
@@ -78,19 +95,36 @@ export const IssueDetectionProgress = ({
     );
   };
 
-  const isJobSucceeded = jobStatus === IssueJobStatus.SUCCEEDED;
-  const isJobFailed = jobStatus === IssueJobStatus.FAILED || jobStatus === IssueJobStatus.TIMEOUT || !!jobStatusError;
-  const isJobCanceled = jobStatus === IssueJobStatus.CANCELED;
-  const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
+  const isJobSucceeded = jobStatus === JobStatus.SUCCEEDED;
+  const isJobFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT || Boolean(jobStatusError);
+  const isJobCanceled = jobStatus === JobStatus.CANCELED;
+  const jobComplete = isJobComplete(jobStatus) || Boolean(jobStatusError);
 
   const { issues } = useSearchIssuesQuery({
     experimentId: experimentId ?? '',
     sourceRunId: runUuid ?? '',
-    enabled: !!experimentId && !!runUuid,
+    enabled: Boolean(experimentId) && Boolean(runUuid),
     pollingEnabled: !jobComplete,
   });
 
   const identifiedIssues = issues.length;
+
+  useEffect(() => {
+    if (isJobSucceeded && runUuid) {
+      logTelemetryEvent({
+        componentId: 'mlflow.issue-detection.completed',
+        componentType: DesignSystemEventProviderComponentTypes.Card,
+        // Use runUuid as componentViewId to track the same eval result across sessions
+        componentViewId: runUuid ?? '',
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnView,
+        value: JSON.stringify({
+          totalTraces,
+          identifiedIssues: result?.issues,
+          totalCostUsd: result?.total_cost_usd,
+        }),
+      });
+    }
+  }, [isJobSucceeded, runUuid, totalTraces, result?.issues, result?.total_cost_usd, logTelemetryEvent]);
 
   if (isLoadingJobStatus) {
     return (
@@ -174,10 +208,12 @@ export const IssueDetectionProgress = ({
                 defaultMessage="Issue detection canceled"
                 description="Issue detection progress > Step label when canceled"
               />
+            ) : jobStage ? (
+              jobStage
             ) : (
               <FormattedMessage
                 defaultMessage="Identifying issues from traces..."
-                description="Issue detection progress > Step label"
+                description="Issue detection progress > Step label (fallback)"
               />
             )}
           </Typography.Text>
@@ -236,7 +272,7 @@ export const IssueDetectionProgress = ({
               />
             )}
           </Typography.Hint>
-          {jobComplete && result?.total_cost_usd !== undefined && (
+          {jobComplete && result?.total_cost_usd !== null && result?.total_cost_usd !== undefined && (
             <Typography.Hint css={{ marginTop: theme.spacing.xs }}>
               <FormattedMessage
                 defaultMessage="Total cost: {cost}"
@@ -248,11 +284,57 @@ export const IssueDetectionProgress = ({
         </div>
       </div>
 
-      {isJobSucceeded && result?.summary && (
+      {isJobFailed && jobErrorMessage && (
         <>
           <Typography.Title level={4} css={{ marginTop: theme.spacing.lg, marginBottom: theme.spacing.sm }}>
-            <FormattedMessage defaultMessage="Issue detection summary" description="Issue detection summary > Title" />
+            <FormattedMessage defaultMessage="Error details" description="Issue detection error details > Title" />
           </Typography.Title>
+          <div
+            css={{
+              border: `1px solid ${theme.colors.actionDangerPrimaryBackgroundDefault}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              padding: theme.spacing.md,
+              backgroundColor: `${theme.colors.actionDangerPrimaryBackgroundDefault}15`,
+            }}
+          >
+            <Typography.Text css={{ color: theme.colors.textValidationDanger, wordBreak: 'break-word' }}>
+              {jobErrorMessage}
+            </Typography.Text>
+          </div>
+        </>
+      )}
+
+      {isJobSucceeded && result?.summary && (
+        <>
+          <div
+            css={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: theme.spacing.lg,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            <Typography.Title level={4} css={{ margin: 0 }}>
+              <FormattedMessage
+                defaultMessage="Issue detection summary"
+                description="Issue detection summary > Title"
+              />
+            </Typography.Title>
+            {identifiedIssues > 0 && (
+              <Button
+                componentId="mlflow.traces.issue-detection.view-issues-button"
+                type="primary"
+                onClick={handleViewIssues}
+              >
+                <FormattedMessage
+                  defaultMessage="View {count} {count, plural, one {issue} other {issues}}"
+                  description="Issue detection summary > View issues button"
+                  values={{ count: identifiedIssues }}
+                />
+              </Button>
+            )}
+          </div>
           <div
             css={{
               border: `1px solid ${theme.colors.border}`,

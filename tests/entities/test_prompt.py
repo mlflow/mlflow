@@ -331,8 +331,6 @@ def test_prompt_model_config_from_dict_with_unknown_fields():
     ],
 )
 def test_prompt_model_config_validation(field, value, error_match):
-    from pydantic import ValidationError
-
     with pytest.raises(ValidationError, match=error_match):
         PromptModelConfig(**{field: value})
 

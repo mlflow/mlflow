@@ -20,6 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.discovery.constants import DEFAULT_TOP_N_SLOWEST_SPANS
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
 from mlflow.genai.utils.data_validation import check_model_prediction
@@ -316,10 +317,50 @@ def validate_session(session: list[Trace]) -> None:
         )
 
 
+def _extract_trace_timing_info(
+    trace: Trace, *, top_n_slowest_spans: int = DEFAULT_TOP_N_SLOWEST_SPANS
+) -> dict[str, Any] | None:
+    """
+    Extract timing information from a trace for display in evaluations.
+
+    Args:
+        trace: The trace to extract timing from.
+        top_n_slowest_spans: Number of slowest spans to include in the output.
+
+    Returns:
+        Dict containing 'duration_s' (float) and 'slowest_spans_formatted' (str | None),
+        or None if the trace has no execution duration.
+    """
+    if trace.info.execution_duration is None:
+        return None
+
+    duration_s = trace.info.execution_duration / 1000
+    slowest_spans_formatted = None
+
+    # Extract top N slowest spans for context on bottlenecks
+    if trace.data.spans:
+        # Filter out spans that do not have an end time to avoid None arithmetic
+        if completed_spans := [span for span in trace.data.spans if span.end_time_ns is not None]:
+            if sorted_spans := sorted(
+                completed_spans, key=lambda s: s.end_time_ns - s.start_time_ns, reverse=True
+            )[:top_n_slowest_spans]:
+                slow_spans = [
+                    f"{span.name} ({(span.end_time_ns - span.start_time_ns) / 1_000_000_000:.2f}s)"
+                    for span in sorted_spans
+                ]
+                slowest_spans_formatted = ", ".join(slow_spans)
+
+    return {
+        "duration_s": duration_s,
+        "slowest_spans_formatted": slowest_spans_formatted,
+    }
+
+
 def resolve_conversation_from_session(
     session: list[Trace],
     *,
     include_tool_calls: bool = False,
+    include_timing: bool = False,
 ) -> list[dict[str, str]]:
     """
     Extract conversation history from traces in session.
@@ -328,6 +369,8 @@ def resolve_conversation_from_session(
         session: List of traces from the same session.
         include_tool_calls: If True, include tool call information from TOOL type spans
                            in the conversation. Default is False for backward compatibility.
+        include_timing: If True, append timing information to assistant responses.
+                       This includes total duration and slowest spans for latency analysis.
 
     Returns:
         List of conversation messages in the format:
@@ -335,6 +378,7 @@ def resolve_conversation_from_session(
         Each trace contributes user input and assistant output messages.
         If include_tool_calls is True, tool call messages (with inputs/outputs)
         are also included in chronological order.
+        If include_timing is True, assistant messages include performance metadata.
     """
     # Sort traces by creation time (timestamp_ms)
     sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
@@ -356,6 +400,14 @@ def resolve_conversation_from_session(
         if outputs := extract_outputs_from_trace(trace):
             assistant_content = parse_outputs_to_str(outputs)
             if assistant_content and assistant_content.strip():
+                if include_timing:
+                    if timing_info := _extract_trace_timing_info(trace):
+                        timing_parts = [f"\n[Response duration: {timing_info['duration_s']:.2f}s"]
+                        if slowest_spans_formatted := timing_info["slowest_spans_formatted"]:
+                            timing_parts.append(f", slowest spans: {slowest_spans_formatted}")
+                        timing_parts.append("]")
+                        assistant_content += "".join(timing_parts)
+
                 conversation.append({"role": "assistant", "content": assistant_content})
 
     return conversation

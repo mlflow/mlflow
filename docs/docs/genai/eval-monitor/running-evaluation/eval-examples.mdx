@@ -46,8 +46,10 @@ eval_data = [
         "expectations": {"expected_facts": ["mlflow.start_run()", "log metrics", "log parameters"]},
     },
     {
-        "inputs": {"question": "What are MLflow's main components?"},
-        "expectations": {"expected_facts": ["Tracking", "Projects", "Models", "Registry"]},
+        "inputs": {"question": "What does MLflow offer for agents and LLMs?"},
+        "expectations": {
+            "expected_facts": ["observability", "evaluation", "prompt management", "AI Gateway"]
+        },
     },
 ]
 
@@ -75,7 +77,9 @@ from my_app import agent  # Your app with tracing
 eval_df = pd.DataFrame([
     {
         "inputs": {"question": "What is MLflow?"},
-        "expectations": {"expected_response": "MLflow is an open-source AI engineering platform"},
+        "expectations": {
+            "expected_response": "MLflow is an open-source AI engineering platform for agents and LLMs"
+        },
     },
     {
         "inputs": {"question": "How do I log metrics?"},

@@ -1,0 +1,206 @@
+---
+title: OpenHands
+description: Trace OpenHands AI coding agent conversations, tool usage, and token costs with MLflow for full observability into autonomous software development workflows.
+sidebar_position: 10
+sidebar_label: OpenHands
+keywords: [openhands, tracing, mlflow, ai agent, autonomous software development]
+---
+
+import ImageBox from "@site/src/components/ImageBox";
+import StepHeader from "@site/src/components/StepHeader";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import { Users, BookOpen, Scale } from "lucide-react";
+
+# Tracing OpenHands
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [OpenHands](https://github.com/All-Hands-AI/OpenHands), a leading open-source AI agent framework for autonomous software development. OpenHands agents interact with code, terminals, file systems, and the web, and support multiple LLM providers including Claude, OpenAI, and open-source models.
+
+<ImageBox src="/images/llms/openhands/openhands-trace.png" alt="OpenHands Tracing" />
+
+OpenHands emits [OpenTelemetry](https://opentelemetry.io/) traces natively, and MLflow accepts them out of the box. Whether you use OpenHands through the [SDK](https://docs.openhands.dev/sdk) or the [CLI](https://docs.openhands.dev/overview/quickstart), after setting up the connection, MLflow will automatically capture traces of your OpenHands agent runs. The trace automatically captures information such as:
+
+- User prompts and assistant responses
+- Tool usage (terminal commands, file editing, web browsing, etc.)
+- The tools and system prompt given to the agent
+- Latency of each step
+- Token usage breakdown and corresponding costs
+
+## Setup
+
+OpenHands tracing is configured using OpenTelemetry environment variables that point to your MLflow server. Select the **SDK** or **CLI** tab below depending on how you use OpenHands.
+
+<StepHeader number={1} title="Install OpenHands" />
+
+Install the OpenHands [SDK](https://docs.openhands.dev/sdk) or [CLI](https://docs.openhands.dev/overview/quickstart).
+
+<Tabs>
+  <TabItem value="sdk" label="SDK" default>
+
+```bash
+pip install openhands-sdk
+```
+
+  </TabItem>
+  <TabItem value="cli" label="CLI">
+
+```bash
+uv tool install openhands --python 3.12
+```
+
+  </TabItem>
+</Tabs>
+
+<StepHeader number={2} title="Start MLflow Server" />
+
+[Start an MLflow server](/genai/getting-started/connect-environment/) if you haven't already. This step is common to both the SDK and CLI.
+
+```bash
+mlflow server
+```
+
+Or using [Docker Compose](/self-hosting/#docker-compose):
+
+```bash
+docker compose up -d
+```
+
+<StepHeader number={3} title="Set Environment Variables" />
+
+<Tabs>
+  <TabItem value="sdk" label="SDK" default>
+
+Set the following environment variables to connect OpenHands traces to your MLflow server:
+
+```python
+import os
+
+# Point OpenTelemetry traces to your MLflow server
+os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:5000"
+os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = (
+    "x-mlflow-experiment-id=123"  # Replace "123" with your MLflow experiment ID
+)
+os.environ["OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"] = "http/protobuf"
+```
+
+  </TabItem>
+  <TabItem value="cli" label="CLI">
+
+Set the following environment variables before running the CLI:
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:5000"
+export OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=123"  # Replace "123" with your MLflow experiment ID
+export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
+```
+
+  </TabItem>
+</Tabs>
+
+<StepHeader number={4} title="Run OpenHands" />
+
+<Tabs>
+  <TabItem value="sdk" label="SDK" default>
+
+With the environment variables set, run your OpenHands agent. Every LLM call, tool invocation, and agent step will be automatically traced.
+
+```python
+from openhands.sdk import LLM, Agent, Conversation, Tool
+from openhands.tools.file_editor import FileEditorTool
+from openhands.tools.task_tracker import TaskTrackerTool
+from openhands.tools.terminal import TerminalTool
+
+llm = LLM("openai/gpt-5")
+
+agent = Agent(
+    llm=llm,
+    tools=[
+        Tool(name=TerminalTool.name),
+        Tool(name=FileEditorTool.name),
+        Tool(name=TaskTrackerTool.name),
+    ],
+)
+
+cwd = os.getcwd()
+conversation = Conversation(agent=agent, workspace=cwd)
+
+conversation.send_message("Write 3 facts about the current project into FACTS.txt.")
+conversation.run()
+print("All done!")
+```
+
+  </TabItem>
+  <TabItem value="cli" label="CLI">
+
+With the environment variables set, run OpenHands from the command line. Every LLM call, tool invocation, and agent step will be automatically traced.
+
+```bash
+openhands -t "Write 3 facts about the current project into FACTS.txt."
+```
+
+  </TabItem>
+</Tabs>
+
+Once the agent finishes, navigate to the MLflow UI (e.g. `http://localhost:5000`), select the experiment, and open the "Traces" tab to view the recorded traces.
+
+## Monitoring Token Usage
+
+MLflow automatically tracks token usage for each LLM call within OpenHands agent runs. The token usage and cost will be displayed in the Overview dashboard and the trace detail page.
+
+<ImageBox src="/images/llms/openhands/openhands-token-usage.png" alt="OpenHands Token Usage" />
+
+:::tip Governing OpenHands Agents with AI Gateway
+
+[AI Gateway](/genai/governance/ai-gateway) provides centralized governance for all LLM traffic from OpenHands, including budget control, usage tracking, and secret management.
+
+To route OpenHands LLM calls through MLflow AI Gateway, set the `base_url` to the AI Gateway endpoint URL:
+
+```python
+llm = LLM(
+    base_url="http://localhost:5000/gateway/mlflow/v1",  # MLflow AI Gateway endpoint URL
+    model="my-openai-endpoint",  # Name of the endpoint configured in AI Gateway
+)
+```
+
+This gives you:
+
+- **Budget control** - set [budget policies](/genai/governance/ai-gateway/budget-alerts-limits/) to alert or reject when spending exceeds a threshold
+- **Usage tracking** - every LLM call is logged with token-level cost visibility
+- **Secret management** - store API keys securely in the gateway instead of your scripts
+- **Fallback routing** - define fallback chains for provider availability
+
+:::
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>

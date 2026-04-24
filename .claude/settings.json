@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "statusLine": {
     "type": "command",
-    "command": "$CLAUDE_PROJECT_DIR/.claude/statusline.sh"
+    "command": "$CLAUDE_PROJECT_DIR/.claude/scripts/statusline.sh"
   },
   "hooks": {
     "PreToolUse": [

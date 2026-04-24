@@ -2,7 +2,6 @@ import json
 from unittest import mock
 
 import pytest
-from litellm.types.utils import ModelResponse
 
 from mlflow.entities.assessment import (
     AssessmentError,
@@ -217,14 +216,20 @@ def test_builtin_scorer_handles_numeric_boolean_values():
             assert result.value == expected
 
 
+def _mock_score(mock_content):
+    return mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+        return_value=mock_content,
+    )
+
+
 def test_meets_guidelines_oss():
     mock_content = json.dumps({
         "result": "yes",
         "rationale": "Let's think step by step. The response is correct.",
     })
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.meets_guidelines(
             guidelines="The response must be in English.",
             context={"request": "What is the capital of France?", "response": "Paris"},
@@ -236,11 +241,10 @@ def test_meets_guidelines_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    kwargs = mock_score.call_args.kwargs
+    assert kwargs["model_uri"] == "openai:/gpt-4.1-mini"
+    prompt = kwargs["payload"]
     assert prompt.startswith("Given the following set of guidelines and some inputs")
     assert "What is the capital of France?" in prompt
 
@@ -250,9 +254,8 @@ def test_is_context_relevant_oss():
         "result": "yes",
         "rationale": "Let's think step by step. The answer is relevant to the question.",
     })
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.is_context_relevant(
             request="What is the capital of France?",
             context="Paris is the capital of France.",
@@ -264,11 +267,8 @@ def test_is_context_relevant_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    prompt = mock_score.call_args.kwargs["payload"]
     assert "Consider the following question and answer" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
@@ -279,9 +279,8 @@ def test_is_correct_oss():
         "result": "yes",
         "rationale": "Let's think step by step. The response is correct.",
     })
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.is_correct(
             request="What is the capital of France?",
             response="Paris is the capital of France.",
@@ -294,11 +293,8 @@ def test_is_correct_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    prompt = mock_score.call_args.kwargs["payload"]
     assert "Consider the following question, claim and document" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
@@ -323,9 +319,8 @@ def test_is_context_sufficient_oss():
         "result": "yes",
         "rationale": "Let's think step by step. The context is sufficient.",
     })
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.is_context_sufficient(
             request="What is the capital of France?",
             context=[
@@ -341,11 +336,8 @@ def test_is_context_sufficient_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    prompt = mock_score.call_args.kwargs["payload"]
     assert "Consider the following claim and document" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
@@ -356,9 +348,8 @@ def test_is_grounded_oss():
         "result": "yes",
         "rationale": "Let's think step by step. The response is grounded.",
     })
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.is_grounded(
             request="What is the capital of France?",
             response="Paris",
@@ -374,11 +365,8 @@ def test_is_grounded_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    prompt = mock_score.call_args.kwargs["payload"]
     assert "Consider the following claim and document" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris" in prompt

@@ -7,6 +7,10 @@ from unittest import mock
 
 import pytest
 
+pytestmark = pytest.mark.skip(
+    reason="Disabled by #21985: dev installs use git+ which doesn't respect UV_EXCLUDE_NEWER"
+)
+
 from dev.set_matrix import generate_matrix
 
 

@@ -248,9 +248,8 @@ def get_feature_dependencies(model_dir):
     Databricks. In OSS mlflow, the dependencies are always empty ("").
     """
     model = _load_model(model_dir)
-    model_info = model.get_model_info()
     if (
-        model_info.flavors.get("python_function", {}).get("loader_module")
+        model.flavors.get("python_function", {}).get("loader_module")
         == mlflow.models.model._DATABRICKS_FS_LOADER_MODULE
     ):
         raise MlflowException(
@@ -268,7 +267,6 @@ def get_model_version_dependencies(model_dir):
     from mlflow.models.resources import ResourceType
 
     model = _load_model(model_dir)
-    model_info = model.get_model_info()
     dependencies = []
 
     # Try to get model.auth_policy.system_auth_policy.resources. If that is not found or empty,
@@ -324,9 +322,7 @@ def get_model_version_dependencies(model_dir):
         _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
         _DB_DEPENDENCY_KEY = "databricks_dependency"
 
-        databricks_dependencies = model_info.flavors.get("langchain", {}).get(
-            _DB_DEPENDENCY_KEY, {}
-        )
+        databricks_dependencies = model.flavors.get("langchain", {}).get(_DB_DEPENDENCY_KEY, {})
 
         index_names = _fetch_langchain_dependency_from_model_info(
             databricks_dependencies, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY

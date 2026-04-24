@@ -7,7 +7,6 @@ from typing import Any, Literal
 from unittest import mock
 from unittest.mock import patch
 
-import litellm
 import pandas as pd
 import pydantic
 import pytest
@@ -31,7 +30,7 @@ from mlflow.genai import make_judge
 from mlflow.genai.judges.constants import _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
-from mlflow.genai.judges.utils import _NATIVE_PROVIDERS, validate_judge_model
+from mlflow.genai.judges.utils import validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.constant import TraceMetadataKey
@@ -125,6 +124,8 @@ def mock_invoke_judge_model(monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        base_url=None,
+        extra_headers=None,
     ):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
@@ -139,6 +140,8 @@ def mock_invoke_judge_model(monkeypatch):
             "response_format": response_format,
             "use_case": use_case,
             "inference_params": inference_params,
+            "base_url": base_url,
+            "extra_headers": extra_headers,
         })
 
         # Return appropriate Feedback based on whether trace is provided
@@ -292,27 +295,11 @@ def test_databricks_model_requires_databricks_agents(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("provider", {"vertexai", "cohere", "replicate", "groq", "together"})
-def test_litellm_provider_requires_litellm(monkeypatch, provider):
-    monkeypatch.setitem(sys.modules, "litellm", None)
-
-    with pytest.raises(
-        MlflowException,
-        match=f"LiteLLM is required for using '{provider}' as a provider",
-    ):
-        make_judge(
-            name="test_judge",
-            instructions="Check if {{ outputs }} is valid",
-            feedback_value_type=str,
-            model=f"{provider}:/test-model",
-        )
-
-
 @pytest.mark.parametrize(
     "provider",
-    _NATIVE_PROVIDERS,
+    ["openai", "anthropic", "gemini", "mistral", "endpoints", "gateway", "cohere", "groq"],
 )
-def test_native_providers_work_without_litellm(monkeypatch, provider):
+def test_providers_work_without_litellm(monkeypatch, provider):
     monkeypatch.setitem(sys.modules, "litellm", None)
 
     judge = make_judge(
@@ -673,6 +660,8 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        base_url=None,
+        extra_headers=None,
     ):
         captured_args.update({
             "model_uri": model_uri,
@@ -1539,6 +1528,8 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        base_url=None,
+        extra_headers=None,
     ):
         nonlocal captured_prompt
         captured_prompt = prompt
@@ -1821,17 +1812,19 @@ def test_unused_parameters_warning(
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
         judge(**provided_params)
 
+        # Filter debug calls to find the "unused parameters" warning,
+        # ignoring the mode-selection debug log.
+        unused_param_calls = [
+            call
+            for call in mock_logger.debug.call_args_list
+            if "parameters were provided but are not used" in str(call)
+        ]
+
         if "{{ trace }}" in instructions:
-            assert not mock_logger.debug.called
+            assert len(unused_param_calls) == 0
         else:
-            assert mock_logger.debug.called
-
-            debug_call_args = mock_logger.debug.call_args
-            assert debug_call_args is not None
-
-            warning_msg = debug_call_args[0][0]
-
-            assert "parameters were provided but are not used" in warning_msg
+            assert len(unused_param_calls) == 1
+            warning_msg = unused_param_calls[0][0][0]
             assert expected_warning in warning_msg
 
 
@@ -2137,6 +2130,154 @@ def test_field_based_template_extracts_missing_fields_from_trace(
     assert "Trace output" in user_message
 
 
+def _create_otel_trace_without_root_inputs_outputs(
+    root_inputs=None, root_outputs=None, child_inputs=None, child_outputs=None
+):
+    """Create a trace simulating OTel-based traces where root span lacks inputs/outputs."""
+    root_attributes = {
+        "mlflow.spanType": json.dumps(SpanType.CHAIN),
+    }
+    if root_inputs is not None:
+        root_attributes["mlflow.spanInputs"] = json.dumps(root_inputs)
+    if root_outputs is not None:
+        root_attributes["mlflow.spanOutputs"] = json.dumps(root_outputs)
+
+    root_span = Span(
+        OTelReadableSpan(
+            name="root_span",
+            context=build_otel_context(trace_id=999999, span_id=1),
+            parent=None,
+            start_time=100000000,
+            end_time=200000000,
+            attributes=root_attributes,
+        )
+    )
+
+    child_span = Span(
+        OTelReadableSpan(
+            name="llm_call",
+            context=build_otel_context(trace_id=999999, span_id=2),
+            parent=build_otel_context(trace_id=999999, span_id=1),
+            start_time=110000000,
+            end_time=190000000,
+            attributes={
+                "mlflow.spanType": json.dumps(SpanType.LLM),
+                "mlflow.spanInputs": json.dumps(child_inputs or {"prompt": "What is MLflow?"}),
+                "mlflow.spanOutputs": json.dumps(
+                    child_outputs or {"text": "MLflow is an ML platform."}
+                ),
+            },
+        )
+    )
+
+    trace_info = TraceInfo(
+        trace_id="otel-trace-no-root-io",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        execution_duration=1000,
+        state=TraceState.OK,
+        trace_metadata={"mlflow.trace_schema.version": "2"},
+        tags={
+            "mlflow.traceName": "otel_trace",
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+        },
+    )
+    return Trace(info=trace_info, data=TraceData(spans=[root_span, child_span]))
+
+
+def test_fallback_to_agentic_mode_when_trace_missing_inputs_outputs(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trace = _create_otel_trace_without_root_inputs_outputs()
+
+    # Should NOT raise "Must specify 'inputs', 'outputs'" error
+    result = judge(trace=trace)
+    assert isinstance(result, Feedback)
+
+    # Verify agentic mode was used (trace passed to invoke_judge_model)
+    captured = mock_invoke_judge_model.captured_args
+    assert captured["trace"] is trace
+    assert "analyze a trace" in captured["prompt"][0].content.lower()
+
+
+def test_fallback_with_partial_data(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trace = _create_otel_trace_without_root_inputs_outputs(
+        root_inputs={"question": "What is MLflow?"},
+        root_outputs=None,
+    )
+
+    result = judge(trace=trace)
+    assert isinstance(result, Feedback)
+
+    # Verify agentic mode was used
+    captured = mock_invoke_judge_model.captured_args
+    assert captured["trace"] is trace
+
+    # Verify the resolved inputs are included in the user message
+    user_message = captured["prompt"][1].content
+    assert "What is MLflow?" in user_message
+
+
+def test_no_fallback_when_no_trace():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    with pytest.raises(MlflowException, match="Must specify 'inputs', 'outputs'"):
+        judge()
+
+
+def test_no_fallback_when_trace_has_root_data(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trace = _create_otel_trace_without_root_inputs_outputs(
+        root_inputs={"question": "What is MLflow?"},
+        root_outputs={"answer": "MLflow is great"},
+    )
+
+    result = judge(trace=trace)
+    assert isinstance(result, Feedback)
+
+    # Verify normal mode was used (trace NOT passed to invoke_judge_model)
+    captured = mock_invoke_judge_model.captured_args
+    assert captured["trace"] is None
+
+
+def test_fallback_still_validates_expectations():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ inputs }} meets {{ expectations }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trace = _create_otel_trace_without_root_inputs_outputs()
+
+    with pytest.raises(MlflowException, match="Must specify 'expectations'"):
+        judge(trace=trace)
+
+
 def test_trace_based_template_with_additional_inputs(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
@@ -2255,76 +2396,52 @@ def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
     assert "{{ trace }}" in prompt[0].content
 
 
-@pytest.mark.parametrize(
-    "exception",
-    [
-        litellm.ContextWindowExceededError("Context exceeded", "gpt-4", "openai"),
-        litellm.BadRequestError("maximum context length is exceeded", "gpt-4", "openai"),
-    ],
-)
-def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypatch, mock_trace):
-    exception_raised = False
-    captured_error_messages = None
-    captured_retry_messages = None
+def test_make_judge_with_trace_invokes_adapter(mock_trace):
+    from mlflow.entities.assessment import Feedback
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+    from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationOutput
 
-    def mock_completion(**kwargs):
-        nonlocal exception_raised
-        nonlocal captured_error_messages
-        nonlocal captured_retry_messages
-
-        if len(kwargs["messages"]) >= 8 and not exception_raised:
-            captured_error_messages = kwargs["messages"]
-            exception_raised = True
-            raise exception
-
-        mock_response = mock.Mock()
-        mock_response.choices = [mock.Mock()]
-        if exception_raised:
-            captured_retry_messages = kwargs["messages"]
-            mock_response.choices[0].message = litellm.Message(
-                role="assistant",
-                content='{"result": "pass", "rationale": "Test passed"}',
-                tool_calls=None,
-            )
-            mock_response._hidden_params = {"response_cost": 0.05}
-        else:
-            call_id = f"call_{len(kwargs['messages'])}"
-            mock_response.choices[0].message = litellm.Message(
-                role="assistant",
-                content=None,
-                tool_calls=[{"id": call_id, "function": {"name": "get_span", "arguments": "{}"}}],
-            )
-            mock_response._hidden_params = {"response_cost": 0.05}
-        return mock_response
-
-    monkeypatch.setattr("litellm.completion", mock_completion)
-    monkeypatch.setattr("litellm.token_counter", lambda model, messages: len(messages) * 20)
-    monkeypatch.setattr("litellm.get_model_info", lambda model: {"max_input_tokens": 120})
-
-    judge = make_judge(
-        name="test", instructions="test {{inputs}}", feedback_value_type=str, model="openai:/gpt-4"
+    mock_output = AdapterInvocationOutput(
+        feedback=Feedback(
+            name="test",
+            value="pass",
+            rationale="Trace looks good",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id="openai:/gpt-4"
+            ),
+            trace_id="test-trace-123",
+        ),
     )
-    judge(inputs={"input": "test"}, outputs={"output": "test"}, trace=mock_trace)
 
-    # Verify pruning happened; we expect that 2 messages were removed (one tool call pair consisting
-    # of 1. assistant message and 2. tool call result message)
-    assert captured_retry_messages == captured_error_messages[:2] + captured_error_messages[4:8]
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke",
+        return_value=mock_output,
+    ) as mock_invoke:
+        judge = make_judge(
+            name="test",
+            instructions="test {{inputs}}",
+            feedback_value_type=str,
+            model="openai:/gpt-4",
+        )
+        result = judge(inputs={"input": "test"}, outputs={"output": "test"}, trace=mock_trace)
+
+    mock_invoke.assert_called_once()
+    assert result.value == "pass"
 
 
-def test_non_context_error_does_not_trigger_pruning(monkeypatch):
-    def mock_completion(**kwargs):
-        raise Exception("some other error")
-
-    monkeypatch.setattr("litellm.completion", mock_completion)
-
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{inputs}} is correct",
-        feedback_value_type=str,
-        model="openai:/gpt-4",
-    )
-    with pytest.raises(MlflowException, match="some other error"):
-        judge(inputs={"input": "test"}, outputs={"output": "test"})
+def test_non_context_error_does_not_trigger_pruning():
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        side_effect=MlflowException("some other error"),
+    ):
+        judge = make_judge(
+            name="test_judge",
+            instructions="Check if {{inputs}} is correct",
+            feedback_value_type=str,
+            model="openai:/gpt-4",
+        )
+        with pytest.raises(MlflowException, match="some other error"):
+            judge(inputs={"input": "test"}, outputs={"output": "test"})
 
 
 def test_trace_template_with_expectations_extracts_correctly(mock_invoke_judge_model):
@@ -2591,10 +2708,12 @@ def test_warning_shown_for_explicitly_provided_unused_fields(mock_invoke_judge_m
     with mock.patch("mlflow.genai.judges.instructions_judge._logger.debug") as mock_debug:
         judge(inputs="What is AI?", outputs="This output is not used by the template")
 
-        mock_debug.assert_called_once()
-        debug_message = mock_debug.call_args[0][0]
+        unused_param_calls = [
+            call for call in mock_debug.call_args_list if "not used by this judge" in str(call)
+        ]
+        assert len(unused_param_calls) == 1
+        debug_message = unused_param_calls[0][0][0]
         assert "outputs" in debug_message
-        assert "not used by this judge" in debug_message
 
 
 def test_no_warning_for_trace_based_judge_with_extra_fields(mock_invoke_judge_model):
@@ -2703,44 +2822,21 @@ def test_instructions_judge_repr():
     assert "template_variables=['inputs', 'outputs']" in repr_long
 
 
-def test_make_judge_with_feedback_value_type(monkeypatch):
-    captured_response_format = None
+def test_make_judge_with_feedback_value_type():
+    mock_content = '{"result": 5, "rationale": "Excellent quality work"}'
 
-    def mock_litellm_completion(**kwargs):
-        nonlocal captured_response_format
-        captured_response_format = kwargs.get("response_format")
-
-        mock_response = mock.Mock()
-        mock_response.choices = [mock.Mock()]
-        mock_response.choices[0].message = litellm.Message(
-            role="assistant",
-            content='{"result": 5, "rationale": "Excellent quality work"}',
-            tool_calls=None,
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
+        judge = make_judge(
+            name="test_judge",
+            instructions="Rate the quality of {{ outputs }} on a scale of 1-5",
+            model="openai:/gpt-4",
+            feedback_value_type=int,
         )
-        mock_response._hidden_params = None
-        return mock_response
 
-    monkeypatch.setattr("litellm.completion", mock_litellm_completion)
-
-    judge = make_judge(
-        name="test_judge",
-        instructions="Rate the quality of {{ outputs }} on a scale of 1-5",
-        model="openai:/gpt-4",
-        feedback_value_type=int,
-    )
-
-    result = judge(outputs={"text": "Great work!"})
-
-    # Verify response_format was correctly captured by litellm.completion
-    assert captured_response_format is not None
-    assert issubclass(captured_response_format, pydantic.BaseModel)
-
-    model_fields = captured_response_format.model_fields
-    assert "result" in model_fields
-    assert "rationale" in model_fields
-
-    assert model_fields["result"].annotation == int
-    assert model_fields["rationale"].annotation == str
+        result = judge(outputs={"text": "Great work!"})
 
     assert result.value == 5
     assert result.rationale == "Excellent quality work"
@@ -2934,26 +3030,71 @@ def test_make_judge_validates_feedback_value_type():
         )
 
 
-def test_make_judge_with_default_feedback_value_type(monkeypatch):
-    # Test that feedback_value_type defaults to str when omitted
-    captured_response_format = None
-
-    def mock_litellm_completion(**kwargs):
-        nonlocal captured_response_format
-        captured_response_format = kwargs.get("response_format")
-
-        mock_response = mock.Mock()
-        mock_response.choices = [mock.Mock()]
-        mock_response.choices[0].message = litellm.Message(
-            role="assistant",
-            content='{"result": "Good quality", "rationale": "The response is clear and accurate"}',
-            tool_calls=None,
+def test_make_judge_validates_optional_top_level_feedback_value_type():
+    # typing.Optional[T] and T | None should be accepted as top-level feedback_value_type
+    for fvt in [
+        typing.Optional[int],  # noqa: UP045
+        typing.Optional[float],  # noqa: UP045
+        typing.Optional[str],  # noqa: UP045
+        typing.Optional[bool],  # noqa: UP045
+        int | None,
+        float | None,
+        str | None,
+        bool | None,
+    ]:
+        make_judge(
+            name="optional_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=fvt,
         )
-        mock_response._hidden_params = None
-        return mock_response
 
-    monkeypatch.setattr("litellm.completion", mock_litellm_completion)
+    # Multi-type union without None should still be rejected
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported feedback_value_type",
+    ):
+        make_judge(
+            name="invalid_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=int | str,
+        )
 
+    # Verify serialization and round-trip for int | None
+    judge = make_judge(
+        name="optional_int_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=int | None,
+    )
+    serialized = judge.model_dump()
+    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "anyOf": [{"type": "integer"}, {"type": "null"}],
+        "title": "Result",
+    }
+    restored = Scorer.model_validate(serialized)
+    assert typing.get_origin(restored._feedback_value_type) in (typing.Union, types.UnionType)
+    assert set(typing.get_args(restored._feedback_value_type)) == {int, type(None)}
+
+    # Verify serialization and round-trip for Optional[str]
+    judge_str = make_judge(
+        name="optional_str_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=typing.Optional[str],  # noqa: UP045
+    )
+    serialized_str = judge_str.model_dump()
+    assert serialized_str["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "anyOf": [{"type": "string"}, {"type": "null"}],
+        "title": "Result",
+    }
+    restored_str = Scorer.model_validate(serialized_str)
+    restored_args = set(typing.get_args(restored_str._feedback_value_type))
+    assert restored_args == {str, type(None)}
+
+
+def test_make_judge_with_default_feedback_value_type():
     judge = make_judge(
         name="default_judge",
         instructions="Evaluate {{ outputs }}",
@@ -2970,17 +3111,13 @@ def test_make_judge_with_default_feedback_value_type(monkeypatch):
     }
 
     # Verify execution with default str type
-    result = judge(outputs={"text": "Great work!"})
+    mock_content = '{"result": "Good quality", "rationale": "The response is clear and accurate"}'
 
-    assert captured_response_format is not None
-    assert issubclass(captured_response_format, pydantic.BaseModel)
-
-    model_fields = captured_response_format.model_fields
-    assert "result" in model_fields
-    assert "rationale" in model_fields
-
-    assert model_fields["result"].annotation == str
-    assert model_fields["rationale"].annotation == str
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
+        result = judge(outputs={"text": "Great work!"})
 
     assert result.value == "Good quality"
     assert result.rationale == "The response is clear and accurate"
@@ -3480,10 +3617,14 @@ def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
         judge(outputs={"answer": "Test"}, session=[trace1])
 
-        mock_logger.debug.assert_called_once()
-        warning_msg = mock_logger.debug.call_args[0][0]
+        unused_param_calls = [
+            call
+            for call in mock_logger.debug.call_args_list
+            if "not used by this judge" in str(call)
+        ]
+        assert len(unused_param_calls) == 1
+        warning_msg = unused_param_calls[0][0][0]
         assert "conversation" in warning_msg or "session" in warning_msg
-        assert "not used by this judge" in warning_msg
 
 
 def test_conversation_no_warning_when_used(mock_invoke_judge_model):
@@ -3661,6 +3802,188 @@ def test_inference_params_passed_to_invoke_judge_model(mock_invoke_judge_model):
     assert mock_invoke_judge_model.captured_args.get("inference_params") == inference_params
 
 
+def test_make_judge_with_base_url():
+    judge = make_judge(
+        name="proxy_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        base_url="http://my-proxy:8080/v1",
+    )
+
+    assert judge._base_url == "http://my-proxy:8080/v1"
+
+    repr_str = repr(judge)
+    assert "base_url='http://my-proxy:8080/v1'" in repr_str
+
+
+def test_make_judge_repr_with_malformed_base_url_port():
+    judge = make_judge(
+        name="proxy_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        base_url="http://user:pass@my-proxy:abc/v1?token=secret#frag",
+    )
+
+    repr_str = repr(judge)
+    assert "base_url='http://my-proxy:abc/v1'" in repr_str
+    assert "user:pass@" not in repr_str
+    assert "token=secret" not in repr_str
+    assert "#frag" not in repr_str
+
+
+def test_make_judge_base_url_must_be_string():
+    with pytest.raises(MlflowException, match="base_url must be a string"):
+        make_judge(
+            name="test_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            base_url=12345,
+        )
+
+
+def test_make_judge_extra_headers_must_be_dict():
+    with pytest.raises(MlflowException, match="extra_headers must be a dictionary"):
+        make_judge(
+            name="test_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            extra_headers=["not", "a", "dict"],
+        )
+
+
+def test_make_judge_extra_headers_keys_and_values_must_be_strings():
+    with pytest.raises(MlflowException, match="must all be strings"):
+        make_judge(
+            name="test_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            extra_headers={"X-Key": 12345},
+        )
+
+
+def test_make_judge_with_extra_headers():
+    headers = {"X-Api-Key": "secret", "X-Org-Id": "org-123"}
+    judge = make_judge(
+        name="headers_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        extra_headers=headers,
+    )
+
+    assert judge._extra_headers == headers
+
+    repr_str = repr(judge)
+    assert "extra_headers=" in repr_str
+    assert "X-Api-Key" in repr_str
+    # Header values must not be exposed in repr (security)
+    assert "secret" not in repr_str
+    assert "org-123" not in repr_str
+
+
+def test_make_judge_with_base_url_and_extra_headers():
+    headers = {"Authorization": "Bearer token"}
+    judge = make_judge(
+        name="full_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        base_url="http://proxy:9090",
+        extra_headers=headers,
+    )
+
+    assert judge._base_url == "http://proxy:9090"
+    assert judge._extra_headers == headers
+
+    repr_str = repr(judge)
+    assert "base_url='http://proxy:9090'" in repr_str
+    assert "extra_headers=" in repr_str
+
+
+def test_make_judge_without_base_url_and_extra_headers():
+    judge = make_judge(
+        name="default_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    assert judge._base_url is None
+    assert judge._extra_headers is None
+
+    repr_str = repr(judge)
+    assert "base_url" not in repr_str
+    assert "extra_headers" not in repr_str
+
+
+def test_model_dump_excludes_base_url_and_extra_headers():
+    judge = make_judge(
+        name="serialization_judge",
+        instructions="Check {{ outputs }}",
+        model="openai:/gpt-4",
+        base_url="http://proxy:8080",
+        extra_headers={"X-Key": "value"},
+    )
+
+    serialized = judge.model_dump()
+
+    # base_url and extra_headers must NOT appear in serialized data (security)
+    pydantic_data = serialized["instructions_judge_pydantic_data"]
+    assert "base_url" not in pydantic_data
+    assert "extra_headers" not in pydantic_data
+
+    # Verify round-trip deserialization still works
+    deserialized = Scorer.model_validate(serialized)
+    assert isinstance(deserialized, InstructionsJudge)
+    assert deserialized.name == "serialization_judge"
+    assert deserialized.instructions == "Check {{ outputs }}"
+    assert deserialized.model == "openai:/gpt-4"
+
+    # Deserialized judge should have base_url and extra_headers as None
+    assert deserialized._base_url is None
+    assert deserialized._extra_headers is None
+
+
+def test_base_url_passed_to_invoke_judge_model(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        base_url="http://proxy:8080",
+    )
+
+    judge(outputs="test output")
+
+    assert mock_invoke_judge_model.captured_args.get("base_url") == "http://proxy:8080"
+
+
+def test_extra_headers_passed_to_invoke_judge_model(mock_invoke_judge_model):
+    headers = {"X-Custom": "value"}
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        extra_headers=headers,
+    )
+
+    judge(outputs="test output")
+
+    assert mock_invoke_judge_model.captured_args.get("extra_headers") == headers
+
+
+def test_base_url_and_extra_headers_passed_to_invoke_judge_model(mock_invoke_judge_model):
+    headers = {"Authorization": "Bearer xyz"}
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        base_url="http://proxy:9090",
+        extra_headers=headers,
+    )
+
+    judge(outputs="test output")
+
+    assert mock_invoke_judge_model.captured_args.get("base_url") == "http://proxy:9090"
+    assert mock_invoke_judge_model.captured_args.get("extra_headers") == headers
+
+
 def test_inference_params_preserved_after_round_trip_serialization():
     inference_params = {"temperature": 0.5, "max_tokens": 200, "top_p": 0.9}
     judge = make_judge(
@@ -3676,3 +3999,143 @@ def test_inference_params_preserved_after_round_trip_serialization():
 
     assert restored.inference_params == inference_params
     assert restored_from_json.inference_params == inference_params
+
+
+@pytest.mark.parametrize(
+    ("feedback_value_type", "expected_aggregations"),
+    [
+        (bool, ["mean"]),
+        (int, ["mean"]),
+        (float, ["mean"]),
+        (str, []),
+        (Literal["good", "bad"], []),
+    ],
+)
+def test_make_judge_default_aggregations(feedback_value_type, expected_aggregations):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        feedback_value_type=feedback_value_type,
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations == expected_aggregations
+
+
+def test_make_judge_bool_judge_has_mean_aggregation(mock_invoke_judge_model):
+    judge = make_judge(
+        name="correctness",
+        instructions="Is {{ outputs }} correct given {{ inputs }}?",
+        feedback_value_type=bool,
+        model="openai:/gpt-4",
+    )
+
+    data = pd.DataFrame({
+        "inputs": [{"q": "2+2?"}, {"q": "3+3?"}],
+        "outputs": ["4", "6"],
+    })
+
+    result = mlflow.genai.evaluate(data=data, scorers=[judge])
+    assert "correctness/mean" in result.metrics
+
+
+def test_instructions_judge_accepts_aggregations_kwarg():
+    judge = InstructionsJudge(
+        name="custom_agg",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        aggregations=["mean", "max"],
+    )
+    assert judge.aggregations == ["mean", "max"]
+
+
+def test_instructions_judge_aggregations_none_by_default():
+    judge = InstructionsJudge(
+        name="no_agg",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations is None
+
+
+def test_make_judge_aggregations_round_trip_serialization():
+    judge = make_judge(
+        name="bool_judge",
+        instructions="Is {{ outputs }} correct?",
+        feedback_value_type=bool,
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations == ["mean"]
+
+    serialized = judge.model_dump()
+    assert serialized["aggregations"] == ["mean"]
+
+    restored = Scorer.model_validate(serialized)
+    assert restored.aggregations == ["mean"]
+
+    restored_from_json = Scorer.model_validate_json(json.dumps(serialized))
+    assert restored_from_json.aggregations == ["mean"]
+
+
+def test_make_judge_no_aggregations_round_trip_serialization():
+    judge = make_judge(
+        name="str_judge",
+        instructions="Categorize {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+    assert judge.aggregations == []
+
+    serialized = judge.model_dump()
+    assert serialized["aggregations"] == []
+
+    restored = Scorer.model_validate(serialized)
+    assert restored.aggregations == []
+
+
+@pytest.mark.parametrize("include_timing", [True, False])
+def test_conversation_with_timing_parameter(mock_invoke_judge_model, include_timing):
+    session_id = "test_session"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "Test question"}]})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    judge = make_judge(
+        name="test_timing_judge",
+        instructions="Evaluate this {{ conversation }}",
+        model="openai:/gpt-4",
+        include_timing_in_conversation=include_timing,
+    )
+
+    judge(session=traces)
+
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+    user_msg = prompt[1]
+    conversation_content = user_msg.content
+
+    assert ("Response duration:" in conversation_content) is include_timing
+    assert ("slowest spans:" in conversation_content) is include_timing
+
+
+def test_make_judge_preserves_non_ascii_in_template_variables():
+    judge = make_judge(
+        name="unicode_judge",
+        instructions="Evaluate: {{ inputs }} {{ outputs }} {{ expectations }}",
+        feedback_value_type=int,
+        model="openai:/gpt-4",
+    )
+
+    user_message = judge._build_user_message(
+        inputs={"query": "café résumé"},
+        outputs={"text": "éÉàç"},
+        expectations={"expected": "日本語テスト"},
+        conversation=None,
+    )
+
+    assert "éÉàç" in user_message
+    assert "\\u00e9" not in user_message
+    assert "café résumé" in user_message
+    assert "日本語テスト" in user_message

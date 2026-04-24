@@ -5,22 +5,46 @@ specification (e.g. requirements/core-requirements.yaml) to the maximum availabl
 
 import os
 import re
+from datetime import datetime, timedelta, timezone
 
 import requests
 import yaml
 from packaging.version import InvalidVersion, Version
 
 PACKAGE_NAMES = ["tracing", "skinny", "core", "gateway"]
+RELEASE_CUTOFF_DAYS = 14
+PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org").rstrip("/")
 
 
-def get_latest_major_version(package_name: str) -> int:
-    url = f"https://pypi.org/pypi/{package_name}/json"
+def check_pypi_accessibility() -> None:
+    try:
+        response = requests.head(PYPI_URL, timeout=5)
+        response.raise_for_status()
+    except requests.exceptions.RequestException:
+        raise SystemExit(
+            f"Error: Cannot connect to {PYPI_URL}. "
+            "If it's not accessible, set the PYPI_URL environment variable to a PyPI proxy URL."
+        )
+
+
+def get_latest_major_version(package_name: str) -> int | None:
+    url = f"{PYPI_URL}/pypi/{package_name}/json"
     response = requests.get(url)
     response.raise_for_status()
     data = response.json()
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=RELEASE_CUTOFF_DAYS)
     versions = []
     for version, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
+            continue
+
+        upload_times = [
+            datetime.fromisoformat(ut.replace("Z", "+00:00"))
+            for dist in distributions
+            if (ut := dist.get("upload_time_iso_8601"))
+        ]
+        release_date = min(upload_times) if upload_times else None
+        if not release_date or release_date >= cutoff:
             continue
 
         try:
@@ -34,7 +58,7 @@ def get_latest_major_version(package_name: str) -> int:
 
         versions.append(version)
 
-    return max(versions).major
+    return max(versions).major if versions else None
 
 
 def update_max_major_version(raw: str, key: str, old_value: int, new_value: int) -> str:
@@ -56,6 +80,7 @@ def update_max_major_version(raw: str, key: str, old_value: int, new_value: int)
 
 
 def main() -> None:
+    check_pypi_accessibility()
     for package_name in PACKAGE_NAMES:
         req_file_path = os.path.join("requirements", package_name + "-requirements.yaml")
         with open(req_file_path) as f:
@@ -71,6 +96,9 @@ def main() -> None:
             if req_info.get("freeze", False):
                 continue
             latest_major_version = get_latest_major_version(pip_release)
+            if latest_major_version is None:
+                print(f"Skipping {key}: no releases older than {RELEASE_CUTOFF_DAYS}d found")
+                continue
             if latest_major_version > max_major_version:
                 updated_src = update_max_major_version(
                     updated_src, key, max_major_version, latest_major_version

@@ -83,6 +83,13 @@ def completions_response():
     }
 
 
+def test_get_provider_name():
+    config = completions_config()
+    provider = AI21LabsProvider(EndpointConfig(**config))
+    assert provider.DISPLAY_NAME == "AI21Labs"
+    assert provider.get_provider_name() == "ai21"
+
+
 @pytest.mark.asyncio
 async def test_completions():
     resp = completions_response()

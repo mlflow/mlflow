@@ -62,7 +62,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     if (policy) {
       setFormData({
         budgetAmount: String(policy.budget_amount),
-        duration: toDurationPreset(policy.duration_unit, policy.duration_value),
+        duration: toDurationPreset(policy.duration.unit, policy.duration.value),
         budgetAction: policy.budget_action,
       });
       resetMutation();
@@ -96,8 +96,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
       budget_policy_id: policy.budget_policy_id,
       budget_unit: 'USD',
       budget_amount: parseFloat(formData.budgetAmount),
-      duration_unit: unit,
-      duration_value: value,
+      duration: { unit, value },
       target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
       budget_action: formData.budgetAction,
     }).then(() => {

@@ -89,7 +89,7 @@ def start_container(port: int):
             sys.stdout.write(line.decode("utf-8"))
 
     # Start a thread to stream logs from the container
-    t = threading.Thread(target=stream_logs, daemon=True)
+    t = threading.Thread(name="docker-log-stream", target=stream_logs, daemon=True)
     t.start()
 
     try:

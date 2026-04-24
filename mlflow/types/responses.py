@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from itertools import tee
 from typing import Any, Generator, Iterator
 from uuid import uuid4
@@ -383,7 +384,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def to_chat_completions_input(
-    responses_input: list[dict[str, Any] | Message | OutputItem],
+    responses_input: Sequence[dict[str, Any] | Message | OutputItem],
 ) -> list[dict[str, Any]]:
     """Convert from Responses input items to ChatCompletion dictionaries."""
     cc_msgs = []

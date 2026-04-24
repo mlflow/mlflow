@@ -1,14 +1,5 @@
 import { isNil } from 'lodash';
-import {
-  Button,
-  CloseIcon,
-  PinIcon,
-  PinFillIcon,
-  LegacyTooltip,
-  VisibleIcon,
-  Typography,
-  Tooltip,
-} from '@databricks/design-system';
+import { Button, CloseIcon, PinIcon, PinFillIcon, VisibleIcon, Typography, Tooltip } from '@databricks/design-system';
 import type { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
@@ -46,24 +37,33 @@ interface RunsChartsContextMenuContentDataType {
 type RunsChartContextMenuHoverDataType = RunsChartsCardConfig;
 
 const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun: RunsChartsRunData) => {
-  const { metricKey, dataAccessKey } = cardConfig;
+  const { metricKey, dataAccessKey, selectedMetricKeys } = cardConfig;
 
-  const dataKey = dataAccessKey ?? metricKey;
+  const metricKeys = selectedMetricKeys ?? [dataAccessKey ?? metricKey];
 
-  const metric = activeRun?.metrics[dataKey];
+  const entries = metricKeys
+    .map((key) => {
+      const metric = activeRun?.metrics[key];
+      if (!metric) return null;
+      const customMetricBehaviorDef = customMetricBehaviorDefs[metric.key];
+      const displayName = customMetricBehaviorDef?.displayName ?? metric.key;
+      const displayValue = customMetricBehaviorDef?.valueFormatter({ value: metric.value }) ?? metric.value;
+      return { displayName, displayValue };
+    })
+    .filter(Boolean);
 
-  if (!metric) {
+  if (entries.length === 0) {
     return null;
   }
 
-  const customMetricBehaviorDef = customMetricBehaviorDefs[metric.key];
-  const displayName = customMetricBehaviorDef?.displayName ?? metric.key;
-  const displayValue = customMetricBehaviorDef?.valueFormatter({ value: metric.value }) ?? metric.value;
-
   return (
-    <div css={styles.value}>
-      <strong>{displayName}:</strong> {displayValue}
-    </div>
+    <>
+      {entries.map((entry) => (
+        <div key={entry?.displayName} css={styles.value}>
+          <strong>{entry?.displayName}:</strong> {entry?.displayValue}
+        </div>
+      ))}
+    </>
   );
 };
 

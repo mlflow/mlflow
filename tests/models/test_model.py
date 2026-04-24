@@ -438,12 +438,12 @@ def test_model_load_input_example_failures():
         loaded_example = loaded_model.load_input_example(local_path)
         assert loaded_example is not None
 
-        with pytest.raises(MlflowException, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             loaded_model.load_input_example(os.path.join(local_path, "folder_which_does_not_exist"))
 
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         os.remove(path)
-        with pytest.raises(MlflowException, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             loaded_model.load_input_example(local_path)
 
 

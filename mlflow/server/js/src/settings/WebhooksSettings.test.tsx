@@ -5,6 +5,8 @@ import { renderWithIntl } from '../common/utils/TestUtils.react18';
 import WebhooksSettings from './WebhooksSettings';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+import { WebhooksApi } from './webhooksApi';
+
 jest.mock('./webhooksApi', () => ({
   WebhooksApi: {
     listWebhooks: jest.fn(() => Promise.resolve({ webhooks: [] })),
@@ -15,12 +17,10 @@ jest.mock('./webhooksApi', () => ({
   },
 }));
 
-import { WebhooksApi } from './webhooksApi';
-
-const mockListWebhooks = WebhooksApi.listWebhooks as jest.MockedFunction<typeof WebhooksApi.listWebhooks>;
-const mockCreateWebhook = WebhooksApi.createWebhook as jest.MockedFunction<typeof WebhooksApi.createWebhook>;
-const mockDeleteWebhook = WebhooksApi.deleteWebhook as jest.MockedFunction<typeof WebhooksApi.deleteWebhook>;
-const mockTestWebhook = WebhooksApi.testWebhook as jest.MockedFunction<typeof WebhooksApi.testWebhook>;
+const mockListWebhooks = jest.mocked(WebhooksApi.listWebhooks);
+const mockCreateWebhook = jest.mocked(WebhooksApi.createWebhook);
+const mockDeleteWebhook = jest.mocked(WebhooksApi.deleteWebhook);
+const mockTestWebhook = jest.mocked(WebhooksApi.testWebhook);
 
 const SAMPLE_WEBHOOK = {
   webhook_id: 'wh-1',

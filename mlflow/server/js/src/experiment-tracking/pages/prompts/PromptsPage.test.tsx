@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import PromptsPage from './PromptsPage';
 import { QueryClientProvider, QueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { setupServer } from '../../../common/utils/setup-msw';
+
 import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import userEvent from '@testing-library/user-event';

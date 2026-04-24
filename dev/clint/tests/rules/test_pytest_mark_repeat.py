@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.pytest_mark_repeat import PytestMarkRepeat
 
 
-def test_pytest_mark_repeat(index_path: Path) -> None:
+def test_pytest_mark_repeat(index: SymbolIndex) -> None:
     code = """
 import pytest
 
@@ -14,7 +15,7 @@ def test_flaky_function():
     ...
 """
     config = Config(select={PytestMarkRepeat.name})
-    violations = lint_file(Path("test_pytest_mark_repeat.py"), code, config, index_path)
+    violations = lint_file(Path("test_pytest_mark_repeat.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, PytestMarkRepeat) for v in violations)
     assert violations[0].range == Range(Position(3, 1))

@@ -91,6 +91,7 @@ CREATE TABLE jobs (
 	retry_count INTEGER NOT NULL,
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	status_details NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
@@ -404,6 +405,38 @@ CREATE TABLE endpoint_tags (
 )
 
 
+CREATE TABLE guardrails (
+	guardrail_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	scorer_version INTEGER NOT NULL,
+	stage VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	action VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	action_endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_at BIGINT NOT NULL,
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	CONSTRAINT guardrails_pk PRIMARY KEY (guardrail_id),
+	CONSTRAINT fk_guardrails_scorer_version FOREIGN KEY(scorer_id, scorer_version) REFERENCES scorer_versions (scorer_id, scorer_version),
+	CONSTRAINT fk_guardrails_action_endpoint_id FOREIGN KEY(action_endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE SET NULL
+)
+
+
+CREATE TABLE guardrail_configs (
+	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	guardrail_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	execution_order INTEGER,
+	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_at BIGINT NOT NULL,
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	CONSTRAINT guardrail_configs_pk PRIMARY KEY (endpoint_id, guardrail_id),
+	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
+	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE issues (
 	issue_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -413,6 +446,7 @@ CREATE TABLE issues (
 	severity VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	root_causes VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	source_run_id VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	categories VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_timestamp BIGINT NOT NULL,
 	last_updated_timestamp BIGINT NOT NULL,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",

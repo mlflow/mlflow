@@ -1,8 +1,6 @@
 import React from 'react';
 
 import {
-  HoverCard,
-  Overflow,
   SpeechBubbleIcon,
   TableCell,
   Tag,
@@ -12,27 +10,24 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
+import type { FeedbackAssessment, ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   SESSION_ID_METADATA_KEY,
-  type ModelTraceInfoV3,
-  isFeedbackAssessment,
-} from '@databricks/web-shared/model-trace-explorer';
-
-const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
-  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
-};
+} from '../../model-trace-explorer/constants';
+import { isFeedbackAssessment } from '../../model-trace-explorer/assessments-pane/utils';
 
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { StackedComponents } from './StackedComponents';
+import { IssuesCell, type Issue } from './IssuesCell';
 import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { RunColorCircle } from '../components/RunColorCircle';
 import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
+import { ExecutionDurationTag } from './ExecutionDurationTag';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
@@ -44,12 +39,11 @@ import {
   SIMULATION_PERSONA_COLUMN_ID,
   STATE_COLUMN_ID,
   TOKENS_COLUMN_ID,
-  TRACE_ID_COLUMN_ID,
   USER_COLUMN_ID,
 } from '../hooks/useTableColumns';
 import { TracesTableColumnType, type TracesTableColumn } from '../types';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
-import { escapeCssSpecialCharacters, highlightSearchInText } from '../utils/DisplayUtils';
+import { escapeCssSpecialCharacters, highlightSearchInText, normalizeDurationString } from '../utils/DisplayUtils';
 import {
   convertFeedbackAssessmentToRunEvalAssessment,
   getExperimentIdFromTraceLocation,
@@ -65,6 +59,10 @@ import { SessionHeaderNumericAggregatedCell } from './SessionHeaderNumericAggreg
 import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregatedCell';
 import { StatusCellRenderer } from './StatusRenderer';
 import { calculateSessionDuration } from '../sessions-table/utils';
+
+const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
+  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
+};
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -555,40 +553,21 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     }
   } else if (column.id === EXECUTION_DURATION_COLUMN_ID) {
     // Duration - sum all execution durations
-    const duration = traces.length > 0 ? calculateSessionDuration(traces) : null;
-    const otherDuration = otherTraces && otherTraces.length > 0 ? calculateSessionDuration(otherTraces) : null;
+    const duration = traces.length > 0 ? normalizeDurationString(calculateSessionDuration(traces) ?? undefined) : null;
+    const otherDuration =
+      otherTraces && otherTraces.length > 0
+        ? normalizeDurationString(calculateSessionDuration(otherTraces) ?? undefined)
+        : null;
 
     if (isComparing) {
       cellContent = (
         <StackedComponents
-          first={
-            duration ? (
-              <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={duration}>
-                {duration}
-              </div>
-            ) : (
-              <NullCell isComparing />
-            )
-          }
-          second={
-            otherDuration ? (
-              <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherDuration}>
-                {otherDuration}
-              </div>
-            ) : (
-              <NullCell isComparing />
-            )
-          }
+          first={duration ? <ExecutionDurationTag value={duration} /> : <NullCell isComparing />}
+          second={otherDuration ? <ExecutionDurationTag value={otherDuration} /> : <NullCell isComparing />}
         />
       );
     } else {
-      cellContent = duration ? (
-        <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={duration}>
-          {duration}
-        </div>
-      ) : (
-        <NullCell />
-      );
+      cellContent = duration ? <ExecutionDurationTag value={duration} /> : <NullCell />;
     }
   } else if (column.id === SIMULATION_GOAL_COLUMN_ID) {
     // Goal column - show the simulation goal (same for matched sessions, so show once)
@@ -688,50 +667,29 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     }
   } else if (column.id === ISSUES_COLUMN_ID) {
     // Issues column - collect all unique issues from all traces in the session
-    const collectUniqueIssues = (tracesList: ModelTraceInfoV3[]): string[] => {
-      const issueSet = new Set<string>();
+    const collectUniqueIssues = (tracesList: ModelTraceInfoV3[]): Issue[] => {
+      const issueMap = new Map<string, Issue>();
       tracesList.forEach((trace) => {
         trace.assessments?.forEach((assessment) => {
           if ('issue' in assessment && assessment.issue) {
-            const issueName = assessment.issue.issue_name || assessment.assessment_name;
-            issueSet.add(issueName);
+            const issueName = assessment.issue.issue_name;
+            const issueId = assessment.assessment_name;
+            // Use issue name as key to deduplicate (same issue name = same issue type)
+            if (!issueMap.has(issueName)) {
+              issueMap.set(issueName, { id: issueId, name: issueName });
+            }
           }
         });
       });
-      return Array.from(issueSet);
+      return Array.from(issueMap.values());
     };
 
     const currentIssues = traces.length > 0 ? collectUniqueIssues(traces) : [];
     const otherIssuesCollected = otherTraces && otherTraces.length > 0 ? collectUniqueIssues(otherTraces) : [];
 
-    const renderIssues = (issueList: string[]) => {
-      if (issueList.length === 0) {
-        return <NullCell isComparing={isComparing} />;
-      }
-
-      return (
-        <Overflow>
-          {issueList.map((issueName, index) => (
-            <Tag
-              key={index}
-              componentId="mlflow.genai-traces-table.session-header-issue-tag"
-              color="coral"
-              css={{ width: 'min-content', maxWidth: '100%' }}
-            >
-              {issueName}
-            </Tag>
-          ))}
-        </Overflow>
-      );
-    };
-
-    if (isComparing) {
-      cellContent = (
-        <StackedComponents first={renderIssues(currentIssues)} second={renderIssues(otherIssuesCollected)} />
-      );
-    } else {
-      cellContent = renderIssues(currentIssues);
-    }
+    cellContent = (
+      <IssuesCell issues={currentIssues} otherIssues={otherIssuesCollected} isComparing={isComparing ?? false} />
+    );
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&
     column.assessmentInfo &&

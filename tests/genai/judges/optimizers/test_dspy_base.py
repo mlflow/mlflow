@@ -282,9 +282,8 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
         patch("dspy.LM"),
         patch(
             "mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example",
-            return_value=Mock(),
         ),
-        patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=Mock()),
+        patch("mlflow.genai.judges.optimizers.dspy.make_judge"),
         patch.object(optimizer, "_dspy_optimize", mock_dspy_optimize),
     ):
         optimizer.align(mock_judge, mock_traces)
@@ -304,7 +303,7 @@ def test_align_configures_databricks_lm_in_context(sample_traces_with_assessment
         return mock_program
 
     with (
-        patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=MagicMock()),
+        patch("mlflow.genai.judges.optimizers.dspy.make_judge"),
         patch.object(optimizer, "_dspy_optimize", side_effect=check_context),
         patch.object(optimizer, "get_min_traces_required", return_value=0),
     ):
@@ -325,9 +324,8 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
     with (
         patch(
             "mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example",
-            return_value=MagicMock(),
         ),
-        patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=MagicMock()),
+        patch("mlflow.genai.judges.optimizers.dspy.make_judge"),
         patch.object(optimizer, "_dspy_optimize", side_effect=check_context),
         patch.object(optimizer, "get_min_traces_required", return_value=0),
     ):

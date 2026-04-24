@@ -269,7 +269,7 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
   const overallAssessments: RunEvaluationResultAssessment[] = [];
   const responseAssessmentsByName: Record<string, RunEvaluationResultAssessment[]> = {};
   const targets: Record<string, any> = {};
-  const issues: string[] = [];
+  const issues: { id: string; name: string }[] = [];
 
   traceInfo.assessments?.forEach((assessment) => {
     const assessmentName = assessment.assessment_name;
@@ -288,7 +288,8 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
       processFeedbackAssessment(assessment, overallAssessments, responseAssessmentsByName);
     } else if (isIssueReferenceAssessment(assessment)) {
       const issueName = assessment.issue.issue_name || assessmentName;
-      issues.push(issueName);
+      // assessmentName is the issue_id
+      issues.push({ id: assessmentName, name: issueName });
     }
   });
 
