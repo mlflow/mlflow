@@ -35,29 +35,24 @@ Traces are created after each conversation turn.
 npm install -g @mlflow/qwen-code
 ```
 
-### Step 2: Configure Qwen Code
+### Step 2: Register the Qwen Code Hook
 
-Find your global `node_modules` path so you can reference the bundled hook script in the Qwen Code config:
+Run the bundled setup command to add a `Stop` hook to `~/.qwen/settings.json`:
 
 ```bash
-npm root -g
-# example output: /usr/local/lib/node_modules
-#                 /Users/you/.nvm/versions/node/v22.22.2/lib/node_modules
+mlflow-qwen-code setup
 ```
 
-Add the hook configuration to your Qwen Code settings, replacing `<npm-root>` with the path above. This can be in either `~/.qwen/settings.json` (user-level) or `.qwen/settings.json` (project-level):
+Pass `--project` to write to `./.qwen/settings.json` (project-level) instead of your user-level config.
+
+If you prefer to edit the file manually, the equivalent entry is:
 
 ```json title="~/.qwen/settings.json"
 {
   "hooks": {
     "Stop": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node <npm-root>/@mlflow/qwen-code/bundle/stop.js"
-          }
-        ]
+        "hooks": [{ "type": "command", "command": "mlflow-qwen-code" }]
       }
     ]
   }
@@ -65,11 +60,7 @@ Add the hook configuration to your Qwen Code settings, replacing `<npm-root>` wi
 ```
 
 :::warning
-Qwen Code's `settings.json` also supports an `env` block, but those variables do **not** propagate to hook subprocesses. MLflow configuration must be exported in the shell before launching `qwen` (see Step 3).
-:::
-
-:::note
-If you use `nvm` or a similar Node version manager, the `command` field should use an absolute path to the `node` binary (e.g. `/Users/you/.nvm/versions/node/v22.22.2/bin/node`). Hook subprocesses inherit the login shell's `PATH`, which typically does not include the nvm shim.
+Qwen Code's `settings.json` also supports an `env` block, but those variables do **not** propagate to hook subprocesses. MLflow configuration must be exported in the shell before launching `qwen` (see Step 4).
 :::
 
 :::note
@@ -128,8 +119,7 @@ MLflow automatically tracks token usage for each LLM call within Qwen Code conve
 **Tracing not working:**
 
 - Confirm `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` are exported in the shell that launched `qwen` — the `env` block in `settings.json` is **not** propagated to hook subprocesses
-- Check that the Stop hook command points to the correct `bundle/stop.js` path
-- On `nvm` setups, use an absolute path to the `node` binary in the hook command; hook subprocesses do not inherit the current shell's nvm shim
+- Confirm `mlflow-qwen-code` is on PATH: run `which mlflow-qwen-code` (should resolve after `npm install -g @mlflow/qwen-code`)
 - Verify Node.js 18+ is being used (required for `fetch` support)
 - On Qwen Code versions older than 0.14, hooks are disabled by default — add a top-level `"hooksConfig": { "enabled": true }` entry to enable them
 

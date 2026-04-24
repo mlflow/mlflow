@@ -35,21 +35,21 @@ Traces are created after each conversation turn — no need to wait for the sess
 npm install -g @mlflow/codex
 ```
 
-### Step 2: Configure Codex
+### Step 2: Register the Codex Hook
 
-Find your global `node_modules` path so you can reference the bundled hook script in the Codex config:
+Run the bundled setup command to add the `notify` hook to `~/.codex/config.toml`:
 
 ```bash
-npm root -g
-# example output: /usr/local/lib/node_modules
-#                 /Users/you/.nvm/versions/node/v22.22.2/lib/node_modules
+mlflow-codex setup
 ```
 
-Add the `notify` hook to your Codex configuration, replacing `<npm-root>` with the path above. Codex calls this after every agent turn:
+This writes `notify = ["mlflow-codex"]` to your Codex config. If you prefer to edit the file yourself, add the same line manually:
 
 ```toml title="~/.codex/config.toml"
-notify = ["node", "<npm-root>/@mlflow/codex/bundle/stop.js"]
+notify = ["mlflow-codex"]
 ```
+
+Codex invokes this command after every agent turn.
 
 ### Step 3: Set Environment Variables
 
@@ -129,8 +129,9 @@ Cost is computed based on API pricing. If you are using Codex with a subscriptio
 
 **Tracing not working:**
 
-- Verify the `notify` entry is in `~/.codex/config.toml`
-- Check that Node.js 18+ is being used (the `node` in the notify command must support `fetch`)
+- Verify the `notify = ["mlflow-codex"]` entry is in `~/.codex/config.toml`
+- Confirm `mlflow-codex` is on PATH: run `which mlflow-codex` (should resolve after `npm install -g @mlflow/codex`)
+- Check that Node.js 18+ is being used (required for `fetch` support)
 - Verify environment variables are set: `MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_ID`
 - Check the MLflow tracking server is accessible
 
