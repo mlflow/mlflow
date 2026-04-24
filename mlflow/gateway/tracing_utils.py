@@ -470,6 +470,99 @@ def aggregate_anthropic_messages_stream_chunks(
     return result
 
 
+def aggregate_gemini_stream_generate_content_chunks(
+    chunks: list[bytes],
+) -> dict[str, Any] | None:
+    """
+    Aggregate raw Gemini ``streamGenerateContent`` SSE chunks into a single response.
+
+    Each streaming event is a complete JSON object in the Gemini
+    ``GenerateContentResponse`` format. Text parts are concatenated across all events;
+    function-call parts and metadata (``finishReason``, ``usageMetadata``) are taken
+    from the last event that carries them.
+
+    Returns a dict matching the Gemini non-streaming ``generateContent`` response shape::
+
+        {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "..."},
+                            {"functionCall": {"name": "...", "args": {...}}},
+                        ],
+                        "role": "model",
+                    },
+                    "finishReason": "STOP",
+                    "index": 0,
+                }
+            ],
+            "usageMetadata": {
+                "promptTokenCount": N,
+                "candidatesTokenCount": M,
+                "totalTokenCount": T,
+            },
+        }
+
+    Returns ``None`` if *chunks* is empty or contains no parseable events.
+    """
+    if not chunks:
+        return None
+
+    # Concatenate before parsing: aiohttp yields arbitrary-sized byte chunks that
+    # can split a single SSE "data:" line across multiple pieces.
+    combined = b"".join(chunks)
+
+    # candidate index → accumulated state
+    candidates_state: dict[int, dict[str, Any]] = {}
+    usage_metadata: dict[str, Any] | None = None
+
+    for event in parse_sse_lines(combined):
+        for cand_idx, candidate in enumerate(event.get("candidates", [])):
+            idx = candidate.get("index", cand_idx)
+            state = candidates_state.setdefault(
+                idx,
+                {
+                    "role": "model",
+                    "text_parts": [],
+                    "function_call_parts": [],
+                    "finish_reason": None,
+                },
+            )
+            content = candidate.get("content", {})
+            if role := content.get("role"):
+                state["role"] = role
+            for part in content.get("parts", []):
+                if "text" in part:
+                    state["text_parts"].append(part["text"])
+                elif "functionCall" in part:
+                    state["function_call_parts"].append(part["functionCall"])
+            if finish_reason := candidate.get("finishReason"):
+                state["finish_reason"] = finish_reason
+        if um := event.get("usageMetadata"):
+            usage_metadata = um
+
+    if not candidates_state:
+        return None
+
+    candidates = []
+    for idx, state in sorted(candidates_state.items()):
+        parts: list[dict[str, Any]] = []
+        if text := "".join(state["text_parts"]):
+            parts.append({"text": text})
+        parts.extend({"functionCall": fc} for fc in state["function_call_parts"])
+        candidates.append({
+            "content": {"parts": parts, "role": state["role"]},
+            "finishReason": state["finish_reason"],
+            "index": idx,
+        })
+
+    result: dict[str, Any] = {"candidates": candidates}
+    if usage_metadata:
+        result["usageMetadata"] = usage_metadata
+    return result
+
+
 def aggregate_openai_responses_stream_chunks(
     chunks: list[bytes],
 ) -> dict[str, Any] | None:

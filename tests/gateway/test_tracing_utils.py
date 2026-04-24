@@ -10,6 +10,7 @@ from mlflow.gateway.tracing_utils import (
     _get_model_span_info,
     aggregate_anthropic_messages_stream_chunks,
     aggregate_chat_stream_chunks,
+    aggregate_gemini_stream_generate_content_chunks,
     aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
 )
@@ -920,3 +921,110 @@ def test_aggregate_openai_responses_stream_chunks_returns_completed_response():
 
     assert result["status"] == "completed"
     assert result["usage"]["total_tokens"] == 48
+
+
+# ---------------------------------------------------------------------------
+# Tests for aggregate_gemini_stream_generate_content_chunks
+# ---------------------------------------------------------------------------
+
+
+def _gemini_sse(event: dict[str, Any]) -> bytes:
+    return f"data: {json.dumps(event)}\n".encode()
+
+
+def _gemini_text_chunk(text: str, finish_reason: str | None = None) -> bytes:
+    candidate: dict[str, Any] = {"content": {"parts": [{"text": text}], "role": "model"}}
+    if finish_reason:
+        candidate["finishReason"] = finish_reason
+    return _gemini_sse({"candidates": [candidate]})
+
+
+def test_aggregate_gemini_stream_chunks_empty():
+    assert aggregate_gemini_stream_generate_content_chunks([]) is None
+
+
+def test_aggregate_gemini_stream_chunks_no_parseable_events():
+    chunks = [b"event: ping\n", b"data: [DONE]\n"]
+    assert aggregate_gemini_stream_generate_content_chunks(chunks) is None
+
+
+def test_aggregate_gemini_stream_chunks_text():
+    chunks = [
+        _gemini_text_chunk("Hello"),
+        _gemini_text_chunk(" world", finish_reason="STOP"),
+        _gemini_sse({
+            "usageMetadata": {
+                "promptTokenCount": 10,
+                "candidatesTokenCount": 5,
+                "totalTokenCount": 15,
+            }
+        }),
+    ]
+    result = aggregate_gemini_stream_generate_content_chunks(chunks)
+
+    assert len(result["candidates"]) == 1
+    cand = result["candidates"][0]
+    assert cand["content"]["parts"] == [{"text": "Hello world"}]
+    assert cand["content"]["role"] == "model"
+    assert cand["finishReason"] == "STOP"
+    assert result["usageMetadata"] == {
+        "promptTokenCount": 10,
+        "candidatesTokenCount": 5,
+        "totalTokenCount": 15,
+    }
+
+
+def test_aggregate_gemini_stream_chunks_tool_call():
+    chunks = [
+        _gemini_sse({
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
+                        ],
+                        "role": "model",
+                    },
+                    "finishReason": "STOP",
+                    "index": 0,
+                }
+            ]
+        }),
+        _gemini_sse({
+            "usageMetadata": {
+                "promptTokenCount": 8,
+                "candidatesTokenCount": 12,
+                "totalTokenCount": 20,
+            }
+        }),
+    ]
+    result = aggregate_gemini_stream_generate_content_chunks(chunks)
+
+    cand = result["candidates"][0]
+    assert cand["content"]["parts"] == [
+        {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
+    ]
+    assert cand["finishReason"] == "STOP"
+
+
+def test_aggregate_gemini_stream_chunks_split_sse_lines():
+    chunk_bytes = _gemini_text_chunk("Hi", finish_reason="STOP")
+    mid = len(chunk_bytes) // 2
+    result = aggregate_gemini_stream_generate_content_chunks([chunk_bytes[:mid], chunk_bytes[mid:]])
+
+    assert result is not None
+    assert result["candidates"][0]["content"]["parts"] == [{"text": "Hi"}]
+
+
+@pytest.mark.parametrize(
+    ("finish_reasons", "expected"),
+    [
+        ([None, None, "STOP"], "STOP"),
+        ([None, "stop", None], "stop"),
+        ([None, None, None], None),
+    ],
+)
+def test_aggregate_gemini_stream_chunks_finish_reason(finish_reasons, expected):
+    chunks = [_gemini_text_chunk(f"t{i}", finish_reason=fr) for i, fr in enumerate(finish_reasons)]
+    result = aggregate_gemini_stream_generate_content_chunks(chunks)
+    assert result["candidates"][0]["finishReason"] == expected
