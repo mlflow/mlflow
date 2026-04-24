@@ -216,7 +216,11 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
                       key={rt}
                       value={rt}
                       checked={newResourceType === rt}
-                      onChange={() => setNewResourceType(rt)}
+                      onChange={() => {
+                        setNewResourceType(rt);
+                        // Workspace-scope grants only support the "*" pattern.
+                        if (rt === 'workspace') setNewResourcePattern('*');
+                      }}
                     >
                       {rt}
                     </DialogComboboxOptionListSelectItem>
@@ -225,15 +229,17 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
               </DialogComboboxContent>
             </DialogCombobox>
           </div>
-          <div>
-            <Typography.Text bold>Resource Pattern</Typography.Text>
-            <Input
-              componentId="admin.role.add_permission_pattern"
-              value={newResourcePattern}
-              onChange={(e) => setNewResourcePattern(e.target.value)}
-              placeholder='Specific ID or "*" for all'
-            />
-          </div>
+          {newResourceType !== 'workspace' && (
+            <div>
+              <Typography.Text bold>Resource Pattern</Typography.Text>
+              <Input
+                componentId="admin.role.add_permission_pattern"
+                value={newResourcePattern}
+                onChange={(e) => setNewResourcePattern(e.target.value)}
+                placeholder='Specific ID or "*" for all'
+              />
+            </div>
+          )}
           <div>
             <Typography.Text bold>Permission</Typography.Text>
             <DialogCombobox
