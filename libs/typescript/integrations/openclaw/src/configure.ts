@@ -11,8 +11,20 @@ type ConfigDeps = {
   writeConfigFile: (cfg: OpenClawConfig) => Promise<void>;
 };
 
+// Minimal structural type for the Commander.js `Command` object OpenClaw
+// hands to `api.registerCli`. Only covers the subset we actually use.
+export type CommanderLike = {
+  command: (name: string) => CommandLike;
+};
+
+type CommandLike = {
+  description: (d: string) => CommandLike;
+  command: (name: string) => CommandLike;
+  action: (fn: () => void) => CommandLike;
+};
+
 type RegisterCliParams = {
-  program: unknown;
+  program: CommanderLike;
 } & ConfigDeps;
 
 type ClackPrompts = {
@@ -143,16 +155,7 @@ export function registerMlflowCli(params: RegisterCliParams): void {
   const { program, loadConfig, writeConfigFile } = params;
   const deps: ConfigDeps = { loadConfig, writeConfigFile };
 
-  const cmd = program as {
-    command: (name: string) => {
-      description: (d: string) => {
-        command: (name: string) => {
-          description: (d: string) => { action: (fn: () => void) => unknown };
-        };
-      };
-    };
-  };
-  const root = cmd.command('mlflow').description('MLflow trace export integration');
+  const root = program.command('mlflow').description('MLflow trace export integration');
 
   root
     .command('configure')

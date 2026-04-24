@@ -11,11 +11,22 @@ import {
   onDiagnosticEvent,
   type DiagnosticEventPayload,
 } from 'openclaw/plugin-sdk/diagnostics-otel';
-import { init, startSpan, flushTraces, SpanStatusCode } from '@mlflow/core';
+import {
+  init,
+  startSpan,
+  flushTraces,
+  SpanStatusCode,
+  type SpanType as SpanTypeEnum,
+} from '@mlflow/core';
 
 // Inline constants that fail to import via OpenClaw's CJS/ESM loader
 // (they're re-exported via __exportStar which the loader can't resolve).
-const SpanType = { LLM: 'LLM' as any, TOOL: 'TOOL' as any, AGENT: 'AGENT' as any };
+// Values must match the SpanType enum members in @mlflow/core.
+const SpanType = {
+  LLM: 'LLM' as SpanTypeEnum.LLM,
+  TOOL: 'TOOL' as SpanTypeEnum.TOOL,
+  AGENT: 'AGENT' as SpanTypeEnum.AGENT,
+};
 const SpanAttributeKey = {
   TOKEN_USAGE: 'mlflow.chat.tokenUsage',
   MESSAGE_FORMAT: 'mlflow.message.format',
@@ -42,12 +53,12 @@ const MAX_FLUSH_RETRY_DELAY_MS = 5000;
 
 type SpanLike = ReturnType<typeof startSpan>;
 
-interface PendingChild {
+export interface PendingChild {
   span: SpanLike;
   name: string;
 }
 
-interface ActiveTrace {
+export interface ActiveTrace {
   rootSpan: SpanLike;
   pendingLlm: PendingChild | null;
   pendingTools: Map<string, PendingChild>;
@@ -171,36 +182,46 @@ export function sanitizeValue(value: unknown): unknown {
 // Finalize trace
 // ---------------------------------------------------------------------------
 
-async function finalizeTrace(
-  sessionKey: string,
-  trace: ActiveTrace,
-  userId?: string,
-  flush: () => Promise<void> = () => flushTraces(),
-): Promise<void> {
+/**
+ * End any child spans that weren't explicitly closed by their matching
+ * `*_end` event (crash, timeout, or malformed event sequence).
+ */
+export function closePendingSpans(trace: ActiveTrace): void {
   if (trace.pendingLlm) {
     trace.pendingLlm.span.end();
     trace.pendingLlm = null;
   }
-
   for (const [, pending] of trace.pendingTools) {
     pending.span.end();
   }
   trace.pendingTools.clear();
-
   for (const [, pending] of trace.pendingSubagents) {
     pending.span.end();
   }
   trace.pendingSubagents.clear();
+}
 
-  if (trace.tokenUsage.totalTokens > 0) {
-    trace.rootSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
-      input_tokens: trace.tokenUsage.inputTokens,
-      output_tokens: trace.tokenUsage.outputTokens,
-      total_tokens: trace.tokenUsage.totalTokens,
-    });
+export function attachTokenUsage(rootSpan: SpanLike, tokenUsage: ActiveTrace['tokenUsage']): void {
+  if (tokenUsage.totalTokens <= 0) {
+    return;
   }
+  rootSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
+    input_tokens: tokenUsage.inputTokens,
+    output_tokens: tokenUsage.outputTokens,
+    total_tokens: tokenUsage.totalTokens,
+  });
+}
 
-  // Use agent_end messages as fallback output if no llm_output was captured
+/**
+ * Build the outputs payload for the root agent span. Falls back to
+ * `agent_end.messages` when no `llm_output` was captured. Mutates
+ * `trace.lastResponse` when the fallback kicks in so the final state is
+ * observable.
+ */
+export function resolveTraceOutputs(trace: ActiveTrace): {
+  outputs: Record<string, unknown>;
+  errorStatus?: string;
+} {
   const endData = trace.agentEndData;
   if (!trace.lastResponse && endData?.messages?.length) {
     trace.lastResponse = JSON.stringify(endData.messages);
@@ -211,31 +232,47 @@ async function finalizeTrace(
     messages: [{ role: 'assistant', content: responseText }],
   };
   if (endData?.error) {
-    trace.rootSpan.setStatus(SpanStatusCode.ERROR, endData.error);
     outputs.error = endData.error;
+    return { outputs, errorStatus: endData.error };
   }
-  trace.rootSpan.setOutputs(outputs);
+  return { outputs };
+}
 
-  if (endData?.durationMs != null) {
-    trace.rootSpan.setAttribute('agent_duration_ms', endData.durationMs);
+export function attachTraceMetadata(rootSpan: SpanLike, trace: ActiveTrace): void {
+  if (trace.agentEndData?.durationMs != null) {
+    rootSpan.setAttribute('agent_duration_ms', trace.agentEndData.durationMs);
   }
 
-  // Store model/provider at trace level
   const traceModel = trace.model ?? trace.costMeta.model;
   const traceProvider = trace.provider ?? trace.costMeta.provider;
   if (traceModel) {
-    trace.rootSpan.setAttribute('mlflow.llm.model', traceModel);
+    rootSpan.setAttribute('mlflow.llm.model', traceModel);
   }
   if (traceProvider) {
-    trace.rootSpan.setAttribute('mlflow.llm.provider', traceProvider);
+    rootSpan.setAttribute('mlflow.llm.provider', traceProvider);
   }
 
-  // Store cost metadata from diagnostics
   if (trace.costMeta.costUsd != null) {
-    trace.rootSpan.setAttribute('mlflow.llm.cost', {
-      total_cost: trace.costMeta.costUsd,
-    });
+    rootSpan.setAttribute('mlflow.llm.cost', { total_cost: trace.costMeta.costUsd });
   }
+}
+
+async function finalizeTrace(
+  sessionKey: string,
+  trace: ActiveTrace,
+  userId?: string,
+  flush: () => Promise<void> = () => flushTraces(),
+): Promise<void> {
+  closePendingSpans(trace);
+  attachTokenUsage(trace.rootSpan, trace.tokenUsage);
+
+  const { outputs, errorStatus } = resolveTraceOutputs(trace);
+  if (errorStatus) {
+    trace.rootSpan.setStatus(SpanStatusCode.ERROR, errorStatus);
+  }
+  trace.rootSpan.setOutputs(outputs);
+
+  attachTraceMetadata(trace.rootSpan, trace);
 
   trace.rootSpan.end();
   await flush();
