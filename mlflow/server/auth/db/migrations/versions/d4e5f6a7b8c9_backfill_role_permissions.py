@@ -6,8 +6,10 @@ Create Date: 2026-04-23 00:00:00.000000
 
 For each user with grants in the legacy per-resource permission tables, create a
 synthetic ``__user_<id>__`` role in the appropriate workspace and mirror every grant
-into ``role_permissions``. Paired with the M1 / M1.5 dual-write, this lets later
-phases flip reads onto ``role_permissions`` as the sole source of truth.
+into ``role_permissions``. Together with the runtime dual-write (every new or
+updated legacy grant is also mirrored into ``role_permissions``), this lets the
+role table serve as an authoritative permission source without a separate
+one-shot import.
 
 The migration is idempotent: each mirrored row is inserted via SELECT-then-INSERT
 so re-runs are safe.
@@ -18,9 +20,9 @@ Workspace scoping:
 - ``experiment_permissions``, ``scorer_permissions``, ``gateway_*_permissions``:
   these tables do not carry a workspace column. The legacy reader also ignores
   workspace for these tables, so we mirror them into ``DEFAULT_WORKSPACE_NAME``.
-  In multi-workspace deployments this places pre-M1 grants in the default
-  workspace's synthetic role; post-M1 dual-write already captures the grant's
-  workspace at request time.
+  In multi-workspace deployments this places pre-existing grants in the default
+  workspace's synthetic role; the runtime dual-write already captures the
+  grant's workspace at request time for subsequent mutations.
 
 """
 
