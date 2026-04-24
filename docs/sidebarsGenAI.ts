@@ -9,6 +9,12 @@ const sidebarsGenAI: SidebarsConfig = {
       label: 'Overview',
     },
     {
+      type: 'doc',
+      id: 'demo',
+      className: 'sidebar-overview',
+      label: 'Live Demo',
+    },
+    {
       type: 'html',
       value: '<b>Getting Started</b>',
       defaultStyle: true,

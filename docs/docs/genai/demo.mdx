@@ -1,0 +1,68 @@
+---
+title: Live Demo
+description: Explore MLflow's publicly hosted demo UI at demo.mlflow.org with pre-loaded sample data — no setup required.
+---
+
+import { CardGroup, TitleCard } from "@site/src/components/Card";
+import ImageBox from "@site/src/components/ImageBox";
+import { Binoculars, FlaskConical, BookOpen, ShieldAlert } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
+# Live Demo
+
+**[demo.mlflow.org](https://demo.mlflow.org/#/experiments/1/overview)** is a publicly hosted MLflow instance pre-loaded with sample data. It's the fastest way to explore the MLflow UI without any local setup.
+
+<video src={useBaseUrl("/images/genai/live-mlflow-ui-demo.mp4")} controls loop autoPlay muted aria-label="Live MLflow UI Demo" />
+
+## What's in the demo?
+
+The demo environment includes sample data across four areas:
+
+<CardGroup>
+  <TitleCard
+    title="Observability"
+    headerRight={<Binoculars />}
+    description="Explore dashboard, traces and sessions from a sample LLM application. Inspect spans, inputs/outputs, latency, token usage, and nested call hierarchies."
+    link="https://demo.mlflow.org/#/experiments/1/overview"
+  />
+  <TitleCard
+    title="Evaluation"
+    headerRight={<FlaskConical />}
+    description="Browse pre-configured judges, datasets, and evaluation runs with judge-scored quality metrics across sample traces."
+    link="https://demo.mlflow.org/#/experiments/1/evaluation-runs?selectedRunUuid=4bacc57345684766ac7371c523a97fa7"
+  />
+  <TitleCard
+    title="Issue Detection"
+    headerRight={<ShieldAlert />}
+    description="See automatically detected issues surfaced from trace data and an issue detection run, showing how MLflow flags quality and reliability problems in production."
+    link="https://demo.mlflow.org/#/experiments/1/evaluation-runs/e50e393c385c4c9cb8b30e09cbb6f141/issues"
+  />
+  <TitleCard
+    title="Prompts"
+    headerRight={<BookOpen />}
+    description="Browse versioned prompts used by the demo application, with full edit history and linked traces."
+    link="https://demo.mlflow.org/#/experiments/1/prompts"
+  />
+</CardGroup>
+
+## Run the demo locally
+
+Want to explore the same demo data on your own MLflow instance with write access? You can launch it in seconds using the `mlflow demo` command:
+
+```bash
+uvx mlflow demo
+```
+
+This starts a local MLflow server pre-loaded with the same sample data, giving you full read-write access to experiment and customize.
+
+Alternatively, if you already have a local MLflow instance running, click the **Explore Demo** button in the banner at the top of the home page to load sample data directly into your instance.
+
+<ImageBox src="/images/llms/demo/demo.png" alt="MLflow GenAI Demo UI" />
+
+## Next steps
+
+Once you've explored the demo, get started with your own MLflow environment:
+
+- [Set Up MLflow Server](/genai/getting-started/connect-environment) — connect to a local or hosted MLflow instance
+- [Start Tracing](/genai/tracing/quickstart) — instrument your LLM app and capture your first traces
+- [Evaluate LLMs and Agents](/genai/eval-monitor/quickstart/) — run systematic evaluations with LLM judges

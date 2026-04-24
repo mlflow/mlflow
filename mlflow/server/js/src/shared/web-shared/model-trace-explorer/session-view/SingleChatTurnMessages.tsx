@@ -163,6 +163,15 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
         }}
       >
         <ModelTraceExplorerSummarySection
+          css={{
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusMd,
+            '& > div:first-of-type': {
+              borderTopLeftRadius: theme.borders.borderRadiusMd,
+              borderTopRightRadius: theme.borders.borderRadiusMd,
+              borderTop: 'none',
+            },
+          }}
           title={
             <FormattedMessage
               defaultMessage="Inputs"
@@ -183,10 +192,20 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
           gap: theme.spacing.sm,
           width: '80%',
           alignSelf: 'flex-end',
+          borderRadius: theme.borders.borderRadiusMd,
           backgroundColor: theme.colors.backgroundPrimary,
         }}
       >
         <ModelTraceExplorerSummarySection
+          css={{
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusMd,
+            '& > div:first-of-type': {
+              borderTopLeftRadius: theme.borders.borderRadiusMd,
+              borderTopRightRadius: theme.borders.borderRadiusMd,
+              borderTop: 'none',
+            },
+          }}
           title={
             <FormattedMessage
               defaultMessage="Outputs"
