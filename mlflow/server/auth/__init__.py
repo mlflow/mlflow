@@ -181,8 +181,8 @@ from mlflow.server.auth.permissions import (
     EDIT,
     MANAGE,
     NO_PERMISSIONS,
-    READ,
     Permission,
+    READ,
     get_permission,
     max_permission,
 )
