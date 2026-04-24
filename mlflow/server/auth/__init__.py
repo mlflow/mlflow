@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import base64
 import functools
-import hashlib
+import hmac
 import importlib
 import json
 import logging
@@ -277,10 +277,13 @@ _RESOURCE_WORKSPACE_CACHE: TTLCache[str, str | None] = TTLCache(
     ttl=auth_config.workspace_cache_ttl_seconds,
 )
 
-# Cache for successful basic-auth credential checks. Keyed by (username, sha256(password))
-# so the plaintext password is not stored in the cache key. Skipping the PBKDF2 hash
-# comparison inside ``store.authenticate_user`` on cache hits is the dominant cost
-# saving — a single check_password_hash call costs tens of milliseconds by design.
+# Cache for successful basic-auth credential checks. Keys derive from the password via
+# HMAC-SHA256 using a per-process secret, so the plaintext password is not stored in the
+# cache key *and* the digest is not usable for offline dictionary attack if process memory
+# is ever compromised (an attacker without the HMAC key cannot recompute the digest).
+# Skipping the PBKDF2 hash comparison inside ``store.authenticate_user`` on cache hits is
+# the dominant cost saving — a single check_password_hash call costs tens of milliseconds
+# by design.
 _USER_AUTH_CACHE: TTLCache[tuple[str, bytes], User] | None = (
     TTLCache(
         maxsize=auth_config.auth_cache_max_size,
@@ -292,10 +295,16 @@ _USER_AUTH_CACHE: TTLCache[tuple[str, bytes], User] | None = (
 # cachetools.TTLCache is not thread-safe — Flask handlers run under gunicorn's thread
 # pool, so every touch of the cache needs to hold this lock.
 _USER_AUTH_CACHE_LOCK = threading.Lock()
+# Random per-process key for the HMAC that turns the password into a cache-key digest.
+# Regenerated at every server start; the cache is ephemeral anyway (process-local, TTL'd),
+# so invalidating the key on restart costs nothing beyond a one-time re-auth for each
+# active credential.
+_USER_AUTH_CACHE_HMAC_KEY = secrets.token_bytes(32)
 
 
 def _auth_cache_key(username: str, password: str) -> tuple[str, bytes]:
-    return (username, hashlib.sha256(password.encode("utf-8")).digest())
+    digest = hmac.new(_USER_AUTH_CACHE_HMAC_KEY, password.encode("utf-8"), "sha256").digest()
+    return (username, digest)
 
 
 def _authenticate_cached(username: str, password: str) -> User | None:

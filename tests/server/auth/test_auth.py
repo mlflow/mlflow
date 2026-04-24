@@ -3101,13 +3101,15 @@ def test_webhook_admin_only_permissions(client, monkeypatch):
 @pytest.fixture
 def mock_auth_store():
     if auth_module._USER_AUTH_CACHE is not None:
-        auth_module._USER_AUTH_CACHE.clear()
+        with auth_module._USER_AUTH_CACHE_LOCK:
+            auth_module._USER_AUTH_CACHE.clear()
     with mock.patch("mlflow.server.auth.store") as mock_store:
         mock_store.get_user.side_effect = lambda username: mock.Mock(username=username)
         mock_store.authenticate_user.return_value = True
         yield mock_store
     if auth_module._USER_AUTH_CACHE is not None:
-        auth_module._USER_AUTH_CACHE.clear()
+        with auth_module._USER_AUTH_CACHE_LOCK:
+            auth_module._USER_AUTH_CACHE.clear()
 
 
 @pytest.fixture
