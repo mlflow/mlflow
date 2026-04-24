@@ -15,9 +15,28 @@ type RegisterCliParams = {
   program: unknown;
 } & ConfigDeps;
 
+type ClackPrompts = {
+  intro: (msg: string) => void;
+  outro: (msg: string) => void;
+  cancel: (msg: string) => void;
+  isCancel: (value: unknown) => boolean;
+  text: (options: {
+    message: string;
+    placeholder?: string;
+    initialValue?: string;
+    validate?: (value: string) => string | void;
+  }) => Promise<string | symbol>;
+};
+
 function asObject(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
   return value as Record<string, unknown>;
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
 }
 
 function getPluginEntry(cfg: OpenClawConfig): {
@@ -52,23 +71,23 @@ function setPluginEntry(
 function showStatus(deps: ConfigDeps): void {
   const cfg = deps.loadConfig();
   const entry = getPluginEntry(cfg);
-  const lines: string[] = [];
+  const trackingUri =
+    asString(entry.config.trackingUri) || process.env.MLFLOW_TRACKING_URI || '(not set)';
+  const experimentId =
+    asString(entry.config.experimentId) || process.env.MLFLOW_EXPERIMENT_ID || '(not set)';
 
-  lines.push(`  Enabled:        ${entry.enabled ?? 'not set'}`);
-  lines.push(
-    `  Tracking URI:   ${entry.config.trackingUri || process.env.MLFLOW_TRACKING_URI || '(not set)'}`,
-  );
-  lines.push(
-    `  Experiment ID:  ${entry.config.experimentId || process.env.MLFLOW_EXPERIMENT_ID || '(not set)'}`,
-  );
+  const lines: string[] = [
+    `  Enabled:        ${entry.enabled ?? 'not set'}`,
+    `  Tracking URI:   ${trackingUri}`,
+    `  Experiment ID:  ${experimentId}`,
+  ];
 
-  console.log('MLflow status:\n');
-  console.log(lines.join('\n'));
+  process.stdout.write(`MLflow status:\n\n${lines.join('\n')}\n`);
 }
 
 async function runConfigure(deps: ConfigDeps): Promise<void> {
   // Dynamic import to avoid requiring @clack/prompts at module load time
-  const p = await import('@clack/prompts');
+  const p = (await import('@clack/prompts')) as unknown as ClackPrompts;
 
   p.intro('MLflow Tracing configuration');
 
@@ -78,9 +97,11 @@ async function runConfigure(deps: ConfigDeps): Promise<void> {
   const trackingUri = await p.text({
     message: 'MLflow Tracking URI',
     placeholder: 'http://localhost:5000',
-    initialValue: (entry.config.trackingUri as string) || process.env.MLFLOW_TRACKING_URI || '',
-    validate: (value) => {
-      if (!value) return 'Tracking URI is required';
+    initialValue: asString(entry.config.trackingUri) || process.env.MLFLOW_TRACKING_URI || '',
+    validate: (value: string) => {
+      if (!value) {
+        return 'Tracking URI is required';
+      }
       try {
         new URL(value);
       } catch {
@@ -96,9 +117,11 @@ async function runConfigure(deps: ConfigDeps): Promise<void> {
   const experimentId = await p.text({
     message: 'Experiment ID',
     placeholder: '0',
-    initialValue: (entry.config.experimentId as string) || process.env.MLFLOW_EXPERIMENT_ID || '',
-    validate: (value) => {
-      if (!value) return 'Experiment ID is required';
+    initialValue: asString(entry.config.experimentId) || process.env.MLFLOW_EXPERIMENT_ID || '',
+    validate: (value: string) => {
+      if (!value) {
+        return 'Experiment ID is required';
+      }
     },
   });
   if (p.isCancel(experimentId)) {
@@ -108,8 +131,8 @@ async function runConfigure(deps: ConfigDeps): Promise<void> {
 
   const updated = setPluginEntry(cfg, {
     ...entry.config,
-    trackingUri,
-    experimentId,
+    trackingUri: trackingUri as string,
+    experimentId: experimentId as string,
   });
   await deps.writeConfigFile(updated);
 
@@ -134,8 +157,8 @@ export function registerMlflowCli(params: RegisterCliParams): void {
   root
     .command('configure')
     .description('Interactive setup for MLflow trace export')
-    .action(async () => {
-      await runConfigure(deps);
+    .action(() => {
+      void runConfigure(deps);
     });
 
   root

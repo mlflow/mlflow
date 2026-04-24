@@ -7,8 +7,10 @@
  */
 
 import type { OpenClawPluginApi, OpenClawPluginService } from 'openclaw/plugin-sdk/plugin-entry';
-import type { DiagnosticEventPayload } from 'openclaw/plugin-sdk/diagnostics-otel';
-import { onDiagnosticEvent } from 'openclaw/plugin-sdk/diagnostics-otel';
+import {
+  onDiagnosticEvent,
+  type DiagnosticEventPayload,
+} from 'openclaw/plugin-sdk/diagnostics-otel';
 import { init, startSpan, flushTraces, SpanStatusCode } from '@mlflow/core';
 
 // Inline constants that fail to import via OpenClaw's CJS/ESM loader
@@ -85,7 +87,9 @@ interface ActiveTrace {
 export function evictOldest<K, V>(map: Map<K, V>, maxSize: number): void {
   while (map.size > maxSize) {
     const { value: oldest, done } = map.keys().next();
-    if (done) return;
+    if (done) {
+      return;
+    }
     map.delete(oldest);
   }
 }
@@ -95,9 +99,13 @@ export function toolKey(toolName: string, toolCallId?: string): string {
 }
 
 export function normalizeProvider(value: unknown): string | undefined {
-  if (typeof value !== 'string' || value.length === 0) return undefined;
+  if (typeof value !== 'string' || value.length === 0) {
+    return undefined;
+  }
   const normalized = value.trim().toLowerCase();
-  if (normalized.length === 0) return undefined;
+  if (normalized.length === 0) {
+    return undefined;
+  }
   if (
     normalized === 'openai-codex' ||
     normalized === 'openai_codex' ||
@@ -143,9 +151,13 @@ export function sanitizeOpenClawText(value: string): string {
 }
 
 export function sanitizeValue(value: unknown): unknown {
-  if (typeof value === 'string') return sanitizeOpenClawText(value);
-  if (Array.isArray(value)) return value.map(sanitizeValue);
-  if (value !== null && typeof value === 'object') {
+  if (typeof value === 'string') {
+    return sanitizeOpenClawText(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(sanitizeValue);
+  }
+  if (value != null && typeof value === 'object') {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       result[k] = sanitizeValue(v);
@@ -246,8 +258,8 @@ export function createMLflowService(
   let resolvedTrackingUri: string | undefined;
   let resolvedExperimentId: string | undefined;
   let log: { info: (msg: string) => void; warn: (msg: string) => void } = {
-    info: console.log,
-    warn: console.warn,
+    info: () => undefined,
+    warn: () => undefined,
   };
 
   // Exporter metrics
@@ -270,14 +282,18 @@ export function createMLflowService(
       lastActiveSessionKey = undefined;
     }
     for (const [agentId, mapped] of sessionByAgentId) {
-      if (mapped === sessionKey) sessionByAgentId.delete(agentId);
+      if (mapped === sessionKey) {
+        sessionByAgentId.delete(agentId);
+      }
     }
   }
 
   function resolveAfterToolSessionKey(ctx: Record<string, unknown>): string | undefined {
     // Primary: from context
     const direct = asNonEmptyString(ctx.sessionKey);
-    if (direct && activeTraces.has(direct)) return direct;
+    if (direct && activeTraces.has(direct)) {
+      return direct;
+    }
 
     // Fallback 1: agentId → sessionKey map
     const agentId = asNonEmptyString(ctx.agentId);
@@ -298,7 +314,7 @@ export function createMLflowService(
         warnedMissingAfterToolSessionKey = true;
         log.warn('mlflow: after_tool_call missing sessionKey; using single-active-trace fallback');
       }
-      return activeTraces.keys().next().value as string | undefined;
+      return activeTraces.keys().next().value;
     }
 
     // Fallback 3: last active session
@@ -364,8 +380,10 @@ export function createMLflowService(
         return;
       } catch (err) {
         metrics.flushFailures += 1;
-        log.warn(`mlflow: flush failed (${reason}) attempt ${attempt}/${attempts}: ${err}`);
-        if (attempt >= attempts) return;
+        log.warn(`mlflow: flush failed (${reason}) attempt ${attempt}/${attempts}: ${String(err)}`);
+        if (attempt >= attempts) {
+          return;
+        }
         metrics.flushRetries += 1;
         const delayMs = Math.min(
           DEFAULT_FLUSH_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1),
@@ -382,9 +400,13 @@ export function createMLflowService(
   // Hooks guard on `initialized` so events before SDK init are silently skipped.
   // =====================================================================
   function registerHooks(): void {
-    if (hooksRegistered) return;
+    if (hooksRegistered) {
+      return;
+    }
 
-    if (pluginConfig.enabled === false) return;
+    if (pluginConfig.enabled === false) {
+      return;
+    }
 
     const trackingUri =
       (typeof pluginConfig.trackingUri === 'string' ? pluginConfig.trackingUri : '') ||
@@ -393,7 +415,9 @@ export function createMLflowService(
       (typeof pluginConfig.experimentId === 'string' ? pluginConfig.experimentId : '') ||
       process.env.MLFLOW_EXPERIMENT_ID;
 
-    if (!trackingUri || !experimentId) return;
+    if (!trackingUri || !experimentId) {
+      return;
+    }
 
     try {
       init({ trackingUri, experimentId });
@@ -409,7 +433,9 @@ export function createMLflowService(
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
-      if (!sessionKey) return;
+      if (!sessionKey) {
+        return;
+      }
       rememberSession(sessionKey, ctx.agentId);
 
       const prompt = (evt.prompt as string) ?? '';
@@ -417,9 +443,13 @@ export function createMLflowService(
       const trace = getOrCreateTrace(sessionKey, prompt);
 
       const channelId = asNonEmptyString(ctx.channelId) ?? asNonEmptyString(ctx.messageProvider);
-      if (channelId) trace.channelId = channelId;
+      if (channelId) {
+        trace.channelId = channelId;
+      }
       const trigger = asNonEmptyString(ctx.trigger);
-      if (trigger) trace.trigger = trigger;
+      if (trigger) {
+        trace.trigger = trigger;
+      }
 
       if (trace.pendingLlm) {
         trace.pendingLlm.span.end();
@@ -430,8 +460,12 @@ export function createMLflowService(
       const model = evt.model as string | undefined;
       const modelLabel = provider && model ? `${provider}/${model}` : model || 'unknown';
 
-      if (model) trace.model = model;
-      if (provider) trace.provider = provider;
+      if (model) {
+        trace.model = model;
+      }
+      if (provider) {
+        trace.provider = provider;
+      }
 
       const messages: { role: string; content: string }[] = [];
       if (evt.systemPrompt) {
@@ -440,7 +474,9 @@ export function createMLflowService(
       if (historyMessages?.length) {
         for (const msg of historyMessages) {
           const m = msg as { role?: string; content?: unknown };
-          if (!m.role) continue;
+          if (!m.role) {
+            continue;
+          }
           const role = m.role === 'toolResult' ? 'tool' : m.role;
           const content =
             typeof m.content === 'string'
@@ -478,11 +514,15 @@ export function createMLflowService(
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
-      if (!sessionKey) return;
+      if (!sessionKey) {
+        return;
+      }
       rememberSession(sessionKey, ctx.agentId);
 
       const trace = activeTraces.get(sessionKey);
-      if (!trace) return;
+      if (!trace) {
+        return;
+      }
 
       trace.lastActivityMs = Date.now();
       const assistantTexts = (evt.assistantTexts as string[] | undefined) ?? [];
@@ -493,8 +533,12 @@ export function createMLflowService(
       trace.lastResponse = response;
 
       const rawProvider = evt.provider as string | undefined;
-      if (rawProvider) trace.provider = normalizeProvider(rawProvider) ?? rawProvider;
-      if (evt.model) trace.model = evt.model as string;
+      if (rawProvider) {
+        trace.provider = normalizeProvider(rawProvider) ?? rawProvider;
+      }
+      if (evt.model) {
+        trace.model = evt.model as string;
+      }
 
       if (trace.pendingLlm) {
         type UsageLike = {
@@ -533,11 +577,15 @@ export function createMLflowService(
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
-      if (!sessionKey) return;
+      if (!sessionKey) {
+        return;
+      }
       rememberSession(sessionKey, ctx.agentId);
 
       const trace = activeTraces.get(sessionKey);
-      if (!trace) return;
+      if (!trace) {
+        return;
+      }
 
       trace.lastActivityMs = Date.now();
       const toolName = evt.toolName as string;
@@ -566,11 +614,15 @@ export function createMLflowService(
       const evt = event as Record<string, unknown>;
 
       const sessionKey = resolveAfterToolSessionKey(ctx);
-      if (!sessionKey) return;
+      if (!sessionKey) {
+        return;
+      }
       rememberSession(sessionKey, ctx.agentId);
 
       const trace = activeTraces.get(sessionKey);
-      if (!trace) return;
+      if (!trace) {
+        return;
+      }
 
       trace.lastActivityMs = Date.now();
       const toolName = evt.toolName as string;
@@ -595,10 +647,14 @@ export function createMLflowService(
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
-      if (!sessionKey) return;
+      if (!sessionKey) {
+        return;
+      }
 
       const trace = activeTraces.get(sessionKey);
-      if (!trace) return;
+      if (!trace) {
+        return;
+      }
 
       trace.lastActivityMs = Date.now();
       const agentId = evt.agentId as string;
@@ -621,10 +677,14 @@ export function createMLflowService(
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
-      if (!sessionKey) return;
+      if (!sessionKey) {
+        return;
+      }
 
       const trace = activeTraces.get(sessionKey);
-      if (!trace) return;
+      if (!trace) {
+        return;
+      }
 
       trace.lastActivityMs = Date.now();
       const agentId = evt.agentId as string;
@@ -647,16 +707,24 @@ export function createMLflowService(
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
-      if (!sessionKey) return;
+      if (!sessionKey) {
+        return;
+      }
       rememberSession(sessionKey, ctx.agentId);
 
       const trace = activeTraces.get(sessionKey);
-      if (!trace) return;
+      if (!trace) {
+        return;
+      }
 
       const channelId = asNonEmptyString(ctx.channelId) ?? asNonEmptyString(ctx.messageProvider);
-      if (channelId && !trace.channelId) trace.channelId = channelId;
+      if (channelId && !trace.channelId) {
+        trace.channelId = channelId;
+      }
       const trigger = asNonEmptyString(ctx.trigger);
-      if (trigger && !trace.trigger) trace.trigger = trigger;
+      if (trigger && !trace.trigger) {
+        trace.trigger = trigger;
+      }
 
       trace.agentEndData = {
         success: evt.success as boolean | undefined,
@@ -667,17 +735,19 @@ export function createMLflowService(
 
       const userId = ctx.userId as string | undefined;
 
-      queueMicrotask(async () => {
-        try {
-          const t = activeTraces.get(sessionKey);
-          if (t) {
-            activeTraces.delete(sessionKey);
-            forgetSession(sessionKey);
-            await finalizeTrace(sessionKey, t, userId, () => flushWithRetry('agent-end'));
+      queueMicrotask(() => {
+        void (async () => {
+          try {
+            const t = activeTraces.get(sessionKey);
+            if (t) {
+              activeTraces.delete(sessionKey);
+              forgetSession(sessionKey);
+              await finalizeTrace(sessionKey, t, userId, () => flushWithRetry('agent-end'));
+            }
+          } catch {
+            // Silently ignore finalization errors
           }
-        } catch {
-          // Silently ignore finalization errors
-        }
+        })();
       });
     });
   }
@@ -686,7 +756,7 @@ export function createMLflowService(
     id: 'mlflow-tracing',
     registerHooks,
 
-    async start(ctx) {
+    start(ctx) {
       log = { info: ctx.logger.info.bind(ctx.logger), warn: ctx.logger.warn.bind(ctx.logger) };
       registerHooks();
 
@@ -701,13 +771,19 @@ export function createMLflowService(
       );
 
       const unsubDiagnostics = onDiagnosticEvent((evt: DiagnosticEventPayload) => {
-        if (evt.type !== 'model.usage') return;
+        if (evt.type !== 'model.usage') {
+          return;
+        }
 
         const sessionKey = evt.sessionKey;
-        if (!sessionKey) return;
+        if (!sessionKey) {
+          return;
+        }
 
         const trace = activeTraces.get(sessionKey);
-        if (!trace) return;
+        if (!trace) {
+          return;
+        }
 
         trace.lastActivityMs = Date.now();
         if (evt.usage) {
@@ -718,9 +794,15 @@ export function createMLflowService(
         if (evt.costUsd != null) {
           trace.costMeta.costUsd = (trace.costMeta.costUsd ?? 0) + evt.costUsd;
         }
-        if (evt.context?.limit != null) trace.costMeta.contextLimit = evt.context.limit;
-        if (evt.context?.used != null) trace.costMeta.contextUsed = evt.context.used;
-        if (evt.model) trace.costMeta.model = evt.model;
+        if (evt.context?.limit != null) {
+          trace.costMeta.contextLimit = evt.context.limit;
+        }
+        if (evt.context?.used != null) {
+          trace.costMeta.contextUsed = evt.context.used;
+        }
+        if (evt.model) {
+          trace.costMeta.model = evt.model;
+        }
         if (evt.provider) {
           trace.costMeta.provider = normalizeProvider(evt.provider) ?? evt.provider;
         }
@@ -755,7 +837,7 @@ export function createMLflowService(
         try {
           await finalizeTrace(sessionKey, trace, undefined, () => flushWithRetry('shutdown'));
         } catch (err) {
-          log.warn(`mlflow: error finalizing trace ${sessionKey} during shutdown: ${err}`);
+          log.warn(`mlflow: error finalizing trace ${sessionKey} during shutdown: ${String(err)}`);
         }
       }
       activeTraces.clear();
