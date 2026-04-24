@@ -118,15 +118,19 @@ class _TrackingStore:
         raise ValueError("Must provide secret_id or secret_name")
 
     def get_gateway_endpoint(self, endpoint_id: str | None = None, name: str | None = None):
-        if endpoint_id:
-            if endpoint_id not in self._gateway_endpoint_workspaces:
+        # For test simplicity we treat ``name`` as a synonym for ``endpoint_id``
+        # (our fixture data uses the same string for both). This mirrors how the
+        # real store resolves a name → id lookup before returning the endpoint.
+        lookup_id = endpoint_id or name
+        if lookup_id:
+            if lookup_id not in self._gateway_endpoint_workspaces:
                 raise MlflowException(
-                    f"GatewayEndpoint not found ({endpoint_id})",
+                    f"GatewayEndpoint not found ({lookup_id})",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             # Add workspace attribute so _get_resource_workspace can extract it
             return SimpleNamespace(
-                endpoint_id=endpoint_id, workspace=self._gateway_endpoint_workspaces[endpoint_id]
+                endpoint_id=lookup_id, workspace=self._gateway_endpoint_workspaces[lookup_id]
             )
         raise ValueError("Must provide endpoint_id or name")
 
@@ -1274,3 +1278,304 @@ def test_cross_workspace_graphql_access_denied(workspace_permission_setup, monke
     assert not auth_module._graphql_can_read_experiment("exp-other-ws", username)
     assert not auth_module._graphql_can_read_run("run-other-ws", username)
     assert not auth_module._graphql_can_read_model("model-other-ws", username)
+
+
+# =============================================================================
+# Role-based permission coverage for gateway resources
+# =============================================================================
+#
+# The fixture grants workspace MANAGE by default. These tests first strip that
+# grant (set to NO_PERMISSIONS) so the only path to a positive permission is
+# the role assignment being exercised. That isolates the role-based resolver
+# from the legacy workspace_permissions fallback.
+
+
+def _assign_role_with_permission(
+    store: SqlAlchemyStore, username: str, workspace: str, resource_type: str, permission: str
+) -> None:
+    """Create a role in ``workspace`` with a wildcard grant of ``permission`` on
+    ``resource_type``, and assign ``username`` to it.
+
+    Using ``random_str`` keeps the role names unique so multiple calls within a
+    single test don't collide on the (workspace, name) unique constraint.
+    """
+    role = store.create_role(name=random_str(), workspace=workspace)
+    store.add_role_permission(role.id, resource_type, "*", permission)
+    user = store.get_user(username)
+    store.assign_role_to_user(user.id, role.id)
+
+
+# ---- Gateway endpoint: role-based permission levels ----
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_read", "expected_delete", "expected_manage"),
+    [
+        ("READ", True, False, False),
+        ("USE", True, False, False),
+        ("EDIT", True, False, False),
+        ("MANAGE", True, True, True),
+    ],
+)
+def test_role_grant_on_gateway_endpoint_gates_validator_capabilities(
+    workspace_permission_setup, granted, expected_read, expected_delete, expected_manage
+):
+    """A role grant at permission level ``granted`` exposes exactly the
+    capabilities that level implies on the endpoint validators — no more, no
+    less. Catches regressions where a validator starts accepting a weaker
+    permission than it should (or refuses a stronger one).
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # Strip the default workspace MANAGE so the only positive grant is the role.
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", granted)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
+        query_string={"endpoint_id": "endpoint-1"},
+    ):
+        assert auth_module.validate_can_read_gateway_endpoint() is expected_read
+        assert auth_module.validate_can_delete_gateway_endpoint() is expected_delete
+        assert auth_module.validate_can_manage_gateway_endpoint() is expected_manage
+
+
+def test_role_grant_read_on_gateway_endpoint_does_not_permit_use(
+    workspace_permission_setup,
+):
+    """Regression guard specific to the bug class the user called out:
+    a user with only READ on a gateway endpoint should not be able to *invoke*
+    it. USE is a stricter capability than READ and has its own validator.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "READ")
+
+    # _validate_gateway_use_permission looks up the endpoint by name, resolves
+    # the endpoint id, then checks ``can_use`` via the permission resolver.
+    with auth_module.app.test_request_context("/"):
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is False
+
+
+def test_role_grant_use_on_gateway_endpoint_permits_use(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "USE")
+
+    with auth_module.app.test_request_context("/"):
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is True
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_can_use"),
+    [
+        ("READ", False),  # READ does not imply USE.
+        ("USE", True),
+        ("EDIT", True),  # EDIT implies USE.
+        ("MANAGE", True),  # MANAGE implies USE.
+    ],
+)
+def test_role_grant_permission_level_determines_use_capability(
+    workspace_permission_setup, granted, expected_can_use
+):
+    """Parametrized matrix for the USE capability specifically. READ should NOT
+    let the user invoke; every stronger permission should.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", granted)
+
+    with auth_module.app.test_request_context("/"):
+        assert (
+            auth_module._validate_gateway_use_permission("endpoint-1", username) is expected_can_use
+        )
+
+
+# ---- Workspace-wide role grants on gateway resources ----
+
+
+@pytest.mark.parametrize("granted", ["READ", "USE", "EDIT", "MANAGE"])
+def test_role_workspace_wide_grant_applies_to_gateway_endpoints(
+    workspace_permission_setup, granted
+):
+    """``(workspace, *, X)`` grants apply to every resource type in the
+    workspace — including gateway endpoints. Confirms the workspace-wide
+    short-circuit isn't accidentally gated behind resource_type=='experiment'
+    or similar, which would silently lock workspace admins out of gateway
+    resources.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "workspace", granted)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
+        query_string={"endpoint_id": "endpoint-1"},
+    ):
+        # All four levels grant READ.
+        assert auth_module.validate_can_read_gateway_endpoint() is True
+
+        # Only MANAGE grants can_delete / can_manage.
+        assert auth_module.validate_can_delete_gateway_endpoint() is (granted == "MANAGE")
+        assert auth_module.validate_can_manage_gateway_endpoint() is (granted == "MANAGE")
+
+
+def test_role_workspace_wide_read_does_not_imply_use_on_gateway_endpoint(
+    workspace_permission_setup,
+):
+    """``(workspace, *, READ)`` grants READ on every resource but not USE.
+    Users with a workspace-wide viewer role shouldn't be able to invoke
+    gateway endpoints.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "workspace", "READ")
+
+    with auth_module.app.test_request_context("/"):
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is False
+
+
+@pytest.mark.parametrize("granted", ["USE", "EDIT", "MANAGE"])
+def test_role_workspace_wide_non_read_grants_imply_use_on_gateway_endpoint(
+    workspace_permission_setup, granted
+):
+    """``(workspace, *, {USE,EDIT,MANAGE})`` all imply USE → invocation
+    allowed.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "workspace", granted)
+
+    with auth_module.app.test_request_context("/"):
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is True
+
+
+# ---- Gateway secret and model definition parity ----
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_read", "expected_delete"),
+    [
+        ("READ", True, False),
+        ("EDIT", True, False),
+        ("MANAGE", True, True),
+    ],
+)
+def test_role_grant_on_gateway_secret_gates_validator(
+    workspace_permission_setup, granted, expected_read, expected_delete
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_secret", granted)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/secrets/get",
+        method="GET",
+        query_string={"secret_id": "secret-1"},
+    ):
+        assert auth_module.validate_can_read_gateway_secret() is expected_read
+        assert auth_module.validate_can_delete_gateway_secret() is expected_delete
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_read", "expected_delete"),
+    [
+        ("READ", True, False),
+        ("EDIT", True, False),
+        ("MANAGE", True, True),
+    ],
+)
+def test_role_grant_on_gateway_model_definition_gates_validator(
+    workspace_permission_setup, granted, expected_read, expected_delete
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_model_definition", granted)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/model-definitions/get",
+        method="GET",
+        query_string={"model_definition_id": "model-def-1"},
+    ):
+        assert auth_module.validate_can_read_gateway_model_definition() is expected_read
+        assert auth_module.validate_can_delete_gateway_model_definition() is expected_delete
+
+
+# ---- Cross-workspace isolation for role-based gateway grants ----
+
+
+def test_role_in_other_workspace_does_not_grant_gateway_endpoint_access(
+    workspace_permission_setup,
+):
+    """A role in team-b with MANAGE on gateway_endpoints must not grant any
+    access when resolving an endpoint that belongs to team-a. The resolver
+    scopes role permissions to the role's workspace.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    # Role with MANAGE in team-b — should NOT apply to team-a endpoints.
+    _assign_role_with_permission(store, username, "team-b", "gateway_endpoint", "MANAGE")
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
+        query_string={"endpoint_id": "endpoint-1"},  # endpoint-1 is in team-a.
+    ):
+        assert auth_module.validate_can_read_gateway_endpoint() is False
+        assert auth_module.validate_can_manage_gateway_endpoint() is False
+
+
+def test_role_in_other_workspace_does_not_grant_gateway_use(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-b", "gateway_endpoint", "USE")
+
+    with auth_module.app.test_request_context("/"):
+        # endpoint-1 is in team-a; role grant is in team-b.
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is False
+
+
+# ---- Multi-role union: best grant wins ----
+
+
+def test_role_union_best_permission_wins_for_gateway_endpoint(workspace_permission_setup):
+    """Two roles: one grants READ, the other grants MANAGE. Validator should
+    reflect the max (MANAGE).
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "READ")
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "MANAGE")
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
+        query_string={"endpoint_id": "endpoint-1"},
+    ):
+        assert auth_module.validate_can_manage_gateway_endpoint() is True

@@ -3497,9 +3497,7 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
     # TODO: we need to query endpoint ID by name from the database.
     # Revisit the mutability of the endpoint name if it causes latency issues.
     try:
-        from mlflow.tracking._tracking_service.utils import _get_store
-
-        tracking_store = _get_store()
+        tracking_store = _get_tracking_store()
         endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
         endpoint_id = endpoint.endpoint_id
 
@@ -3507,6 +3505,16 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
             lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission,
             workspace_level_permission_func=lambda: _workspace_permission_for_gateway_endpoint(
                 username, endpoint_id
+            ),
+            role_permission_func=_role_permission_for(
+                username=username,
+                resource_type="gateway_endpoint",
+                resource_key=endpoint_id,
+                workspace_lookup_id=endpoint_id,
+                workspace_fetcher=lambda eid: _get_tracking_store().get_gateway_endpoint(
+                    endpoint_id=eid
+                ),
+                workspace_label="gateway endpoint",
             ),
         )
         return permission.can_use
