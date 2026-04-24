@@ -1578,3 +1578,346 @@ def test_role_union_best_permission_wins_for_gateway_endpoint(workspace_permissi
         query_string={"endpoint_id": "endpoint-1"},
     ):
         assert auth_module.validate_can_manage_gateway_endpoint() is True
+
+
+# =============================================================================
+# Authorization for role management endpoints (Batch 5)
+# =============================================================================
+#
+# Four validators guard the role endpoints:
+#   - validate_can_manage_roles: create/update/delete role, add/remove/update
+#     role_permission, assign/unassign role. Super admin OR workspace admin
+#     in the resolved workspace.
+#   - validate_can_view_roles: get_role, list_role_permissions. Super admin
+#     OR any role assignment in the resolved workspace.
+#   - validate_can_list_roles: list_roles. Super admin unconditionally; for
+#     non-admins the request must scope to a workspace where the caller holds
+#     at least one role.
+#   - validate_can_view_user_roles: list_user_roles. Super admin, the target
+#     themselves, or a workspace admin over any workspace the target is in.
+#
+# _get_role_workspace_from_request resolves the workspace from role_id,
+# role_permission_id, or a literal ``workspace`` param. These tests exercise
+# all three shapes and every actor x endpoint combination.
+
+
+@pytest.fixture
+def role_auth_setup(tmp_path, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    auth_store.create_user("super_admin", "supersecurepassword", is_admin=True)
+    for name in ("ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"):
+        auth_store.create_user(name, "supersecurepassword", is_admin=False)
+
+    admin_role_foo = auth_store.create_role(name="admin-foo", workspace="foo")
+    auth_store.add_role_permission(admin_role_foo.id, "workspace", "*", MANAGE.name)
+    auth_store.assign_role_to_user(auth_store.get_user("ws_admin_foo").id, admin_role_foo.id)
+
+    admin_role_bar = auth_store.create_role(name="admin-bar", workspace="bar")
+    auth_store.add_role_permission(admin_role_bar.id, "workspace", "*", MANAGE.name)
+    auth_store.assign_role_to_user(auth_store.get_user("ws_admin_bar").id, admin_role_bar.id)
+
+    member_role_foo = auth_store.create_role(name="member-foo", workspace="foo")
+    auth_store.add_role_permission(member_role_foo.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(auth_store.get_user("ws_member_foo").id, member_role_foo.id)
+
+    role_foo = auth_store.create_role(name="target-foo", workspace="foo")
+    role_bar = auth_store.create_role(name="target-bar", workspace="bar")
+    rp_foo = auth_store.add_role_permission(role_foo.id, "experiment", "*", READ.name)
+    rp_bar = auth_store.add_role_permission(role_bar.id, "experiment", "*", READ.name)
+
+    def login_as(username: str) -> None:
+        monkeypatch.setattr(
+            auth_module,
+            "authenticate_request",
+            lambda: SimpleNamespace(username=username),
+        )
+
+    yield {
+        "store": auth_store,
+        "login_as": login_as,
+        "role_foo_id": role_foo.id,
+        "role_bar_id": role_bar.id,
+        "role_permission_foo_id": rp_foo.id,
+        "role_permission_bar_id": rp_bar.id,
+    }
+    auth_store.engine.dispose()
+
+
+# Expected manage-roles results, keyed by (actor, target_workspace).
+_MANAGE_EXPECTATIONS = {
+    ("super_admin", "foo"): True,
+    ("super_admin", "bar"): True,
+    ("ws_admin_foo", "foo"): True,
+    ("ws_admin_foo", "bar"): False,
+    ("ws_admin_bar", "foo"): False,
+    ("ws_admin_bar", "bar"): True,
+    ("ws_member_foo", "foo"): False,
+    ("ws_member_foo", "bar"): False,
+    ("outsider", "foo"): False,
+    ("outsider", "bar"): False,
+}
+
+# Expected view-roles results (requires is_admin OR any role in the workspace).
+_VIEW_EXPECTATIONS = {
+    ("super_admin", "foo"): True,
+    ("super_admin", "bar"): True,
+    ("ws_admin_foo", "foo"): True,
+    ("ws_admin_foo", "bar"): False,
+    ("ws_admin_bar", "foo"): False,
+    ("ws_admin_bar", "bar"): True,
+    ("ws_member_foo", "foo"): True,
+    ("ws_member_foo", "bar"): False,
+    ("outsider", "foo"): False,
+    ("outsider", "bar"): False,
+}
+
+
+def _request_context_for_shape(shape, role_auth_setup, workspace):
+    match shape:
+        case "role_id":
+            role_id = (
+                role_auth_setup["role_foo_id"]
+                if workspace == "foo"
+                else role_auth_setup["role_bar_id"]
+            )
+            return auth_module.app.test_request_context(
+                "/api/3.0/mlflow/roles/get",
+                method="GET",
+                query_string={"role_id": str(role_id)},
+            )
+        case "role_permission_id":
+            rp_id = (
+                role_auth_setup["role_permission_foo_id"]
+                if workspace == "foo"
+                else role_auth_setup["role_permission_bar_id"]
+            )
+            return auth_module.app.test_request_context(
+                "/api/3.0/mlflow/roles/permissions/update",
+                method="PATCH",
+                json={"role_permission_id": rp_id, "permission": READ.name},
+            )
+        case "workspace":
+            return auth_module.app.test_request_context(
+                "/api/3.0/mlflow/roles/create",
+                method="POST",
+                json={"name": "new-role", "workspace": workspace},
+            )
+        case _:
+            raise ValueError(f"Unknown shape: {shape}")
+
+
+@pytest.mark.parametrize("workspace", ["foo", "bar"])
+@pytest.mark.parametrize("shape", ["role_id", "role_permission_id", "workspace"])
+@pytest.mark.parametrize(
+    "actor", ["super_admin", "ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"]
+)
+def test_validate_can_manage_roles(role_auth_setup, actor, shape, workspace):
+    role_auth_setup["login_as"](actor)
+    expected = _MANAGE_EXPECTATIONS[(actor, workspace)]
+    with _request_context_for_shape(shape, role_auth_setup, workspace):
+        assert auth_module.validate_can_manage_roles() is expected
+
+
+@pytest.mark.parametrize("workspace", ["foo", "bar"])
+@pytest.mark.parametrize("shape", ["role_id", "role_permission_id"])
+@pytest.mark.parametrize(
+    "actor", ["super_admin", "ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"]
+)
+def test_validate_can_view_roles(role_auth_setup, actor, shape, workspace):
+    role_auth_setup["login_as"](actor)
+    expected = _VIEW_EXPECTATIONS[(actor, workspace)]
+    with _request_context_for_shape(shape, role_auth_setup, workspace):
+        assert auth_module.validate_can_view_roles() is expected
+
+
+@pytest.mark.parametrize(
+    ("actor", "expected"),
+    [
+        ("super_admin", True),
+        ("ws_admin_foo", False),
+        ("ws_admin_bar", False),
+        ("ws_member_foo", False),
+        ("outsider", False),
+    ],
+)
+def test_validate_can_list_roles_unscoped_is_super_admin_only(role_auth_setup, actor, expected):
+    # No workspace param: only super admins may list every role in the system.
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context("/api/3.0/mlflow/roles/list", method="GET"):
+        assert auth_module.validate_can_list_roles() is expected
+
+
+@pytest.mark.parametrize("workspace", ["foo", "bar"])
+@pytest.mark.parametrize(
+    "actor", ["super_admin", "ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"]
+)
+def test_validate_can_list_roles_workspace_scoped(role_auth_setup, actor, workspace):
+    role_auth_setup["login_as"](actor)
+    # When a workspace is provided, non-admins need any role in that workspace.
+    expected = _VIEW_EXPECTATIONS[(actor, workspace)]
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/list", method="GET", query_string={"workspace": workspace}
+    ):
+        assert auth_module.validate_can_list_roles() is expected
+
+
+@pytest.mark.parametrize(
+    "blank_workspace",
+    ["", "   "],
+)
+def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(
+    role_auth_setup, blank_workspace
+):
+    # A blank workspace param doesn't count as scoping — treat as unscoped and
+    # deny non-admins (super admins always bypass, tested separately).
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/list",
+        method="GET",
+        query_string={"workspace": blank_workspace},
+    ):
+        assert auth_module.validate_can_list_roles() is False
+
+
+@pytest.mark.parametrize(
+    "actor", ["super_admin", "ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"]
+)
+def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup, actor):
+    # A user can always read their own role list.
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/roles/list",
+        method="GET",
+        query_string={"username": actor},
+    ):
+        assert auth_module.validate_can_view_user_roles() is True
+
+
+@pytest.mark.parametrize(
+    ("requester", "target", "expected"),
+    [
+        ("super_admin", "ws_member_foo", True),
+        ("ws_admin_foo", "ws_member_foo", True),
+        ("ws_admin_bar", "ws_member_foo", False),
+        ("ws_member_foo", "ws_admin_foo", False),
+        ("outsider", "ws_member_foo", False),
+    ],
+)
+def test_validate_can_view_user_roles_cross_user(role_auth_setup, requester, target, expected):
+    role_auth_setup["login_as"](requester)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/roles/list",
+        method="GET",
+        query_string={"username": target},
+    ):
+        assert auth_module.validate_can_view_user_roles() is expected
+
+
+def test_validate_can_view_user_roles_nonexistent_target_denied_for_non_admin(
+    role_auth_setup,
+):
+    # Non-existent target: return False rather than leaking existence via the
+    # RESOURCE_DOES_NOT_EXIST the handler would raise downstream.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/roles/list",
+        method="GET",
+        query_string={"username": "ghost"},
+    ):
+        assert auth_module.validate_can_view_user_roles() is False
+
+
+def test_validate_can_view_user_roles_nonexistent_target_allowed_for_super_admin(
+    role_auth_setup,
+):
+    # Super admin short-circuits before the target lookup — they're authorized
+    # regardless of whether the target exists (the handler then 404s cleanly).
+    role_auth_setup["login_as"]("super_admin")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/roles/list",
+        method="GET",
+        query_string={"username": "ghost"},
+    ):
+        assert auth_module.validate_can_view_user_roles() is True
+
+
+@pytest.mark.parametrize("shape", ["role_id", "role_permission_id"])
+def test_validate_can_manage_roles_nonexistent_resource_denied(role_auth_setup, shape):
+    # A non-admin pointing at a role/role_permission that doesn't exist fails
+    # closed: _get_role_workspace_from_request returns None and the validator
+    # treats that as unauthorized rather than leaking existence.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    bogus_id = 999_999
+    if shape == "role_id":
+        ctx = auth_module.app.test_request_context(
+            "/api/3.0/mlflow/roles/get",
+            method="GET",
+            query_string={"role_id": str(bogus_id)},
+        )
+    else:
+        ctx = auth_module.app.test_request_context(
+            "/api/3.0/mlflow/roles/permissions/update",
+            method="PATCH",
+            json={"role_permission_id": bogus_id, "permission": READ.name},
+        )
+    with ctx:
+        assert auth_module.validate_can_manage_roles() is False
+
+
+def test_validate_can_manage_roles_nonexistent_role_id_bypassed_by_super_admin(
+    role_auth_setup,
+):
+    # Super admins skip the workspace resolution entirely — an unresolvable
+    # role_id still produces True at the validator layer.
+    role_auth_setup["login_as"]("super_admin")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/get",
+        method="GET",
+        query_string={"role_id": "999999"},
+    ):
+        assert auth_module.validate_can_manage_roles() is True
+
+
+def test_validate_can_manage_roles_missing_workspace_params_raises(role_auth_setup):
+    # No role_id / role_permission_id / workspace in the request body: the
+    # resolver raises INVALID_PARAMETER_VALUE — callers that hit this path have
+    # a client bug, and we surface it instead of silently denying.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/create", method="POST", json={}
+    ):
+        with pytest.raises(MlflowException, match="must include one of"):
+            auth_module.validate_can_manage_roles()
+
+
+def test_validate_can_manage_roles_blank_workspace_raises(role_auth_setup):
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/create",
+        method="POST",
+        json={"name": "new-role", "workspace": "   "},
+    ):
+        with pytest.raises(MlflowException, match="non-empty string"):
+            auth_module.validate_can_manage_roles()
+
+
+def test_validate_can_manage_roles_non_integer_role_id_raises(role_auth_setup):
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/get",
+        method="GET",
+        query_string={"role_id": "not-an-int"},
+    ):
+        with pytest.raises(MlflowException, match="must be an integer"):
+            auth_module.validate_can_manage_roles()
