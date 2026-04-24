@@ -278,9 +278,9 @@ _RESOURCE_WORKSPACE_CACHE: TTLCache[str, str | None] = TTLCache(
 )
 
 # Cache for successful basic-auth credential checks. Keyed by (username, sha256(password))
-# so the password itself is never held in memory. Skipping the PBKDF2 hash comparison
-# inside ``store.authenticate_user`` on cache hits is the dominant cost saving — a single
-# check_password_hash call costs tens of milliseconds by design.
+# so the plaintext password is not stored in the cache key. Skipping the PBKDF2 hash
+# comparison inside ``store.authenticate_user`` on cache hits is the dominant cost
+# saving — a single check_password_hash call costs tens of milliseconds by design.
 _USER_AUTH_CACHE: TTLCache[tuple[str, bytes], User] | None = (
     TTLCache(
         maxsize=auth_config.auth_cache_max_size,
@@ -305,12 +305,16 @@ def _authenticate_cached(username: str, password: str) -> User | None:
     (``_authenticate_fastapi_request``) auth paths so neither pays the PBKDF2
     cost twice for the same credential within ``auth_cache_ttl_seconds``.
 
-    Returns the ``User`` on success, or ``None`` when the credential is invalid.
+    Returns the ``User`` on success, or ``None`` when the credential is invalid
+    or the user has been deleted between ``authenticate_user`` and ``get_user``.
     """
     if _USER_AUTH_CACHE is None:
-        if store.authenticate_user(username, password):
+        if not store.authenticate_user(username, password):
+            return None
+        try:
             return store.get_user(username)
-        return None
+        except MlflowException:
+            return None
 
     key = _auth_cache_key(username, password)
     with _USER_AUTH_CACHE_LOCK:
@@ -322,7 +326,12 @@ def _authenticate_cached(username: str, password: str) -> User | None:
     # *different* credentials still run in parallel.
     if not store.authenticate_user(username, password):
         return None
-    user = store.get_user(username)
+    try:
+        user = store.get_user(username)
+    except MlflowException:
+        # User was deleted between authenticate_user and get_user — treat as auth
+        # failure and don't cache anything.
+        return None
     with _USER_AUTH_CACHE_LOCK:
         _USER_AUTH_CACHE[key] = user
     return user
@@ -1822,7 +1831,15 @@ def authenticate_request_basic_auth() -> Authorization | Response:
     if request.authorization is None:
         return make_basic_auth_response()
 
-    if _authenticate_cached(request.authorization.username, request.authorization.password):
+    username = request.authorization.username
+    password = request.authorization.password
+    # When the cache is disabled, don't pay the extra get_user round-trip that
+    # _authenticate_cached does for the sake of cache-population — the Flask
+    # path only cares about the yes/no auth decision.
+    if _USER_AUTH_CACHE is None:
+        if store.authenticate_user(username, password):
+            return request.authorization
+    elif _authenticate_cached(username, password):
         return request.authorization
     # let user attempt login again
     return make_basic_auth_response()

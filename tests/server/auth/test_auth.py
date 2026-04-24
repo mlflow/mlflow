@@ -3303,6 +3303,44 @@ def test_basic_auth_cache_keyed_by_username_and_password(
     ]
 
 
+def test_basic_auth_returns_none_when_user_deleted_between_authenticate_and_get(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # TOCTOU: authenticate_user returned True but the user disappeared before get_user.
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    mock_auth_store.get_user.side_effect = MlflowException("User not found")
+    credentials = base64.b64encode(b"ghost:password123").decode("ascii")
+    request = _make_request("/x", f"Basic {credentials}")
+
+    # Flask and FastAPI paths both must treat this as an auth failure, not surface
+    # a 500 and, critically, must not cache the (ghost, password123) pair.
+    assert _authenticate_fastapi_request(request) is None
+    if auth_module._USER_AUTH_CACHE is not None:
+        assert (
+            auth_module._auth_cache_key("ghost", "password123") not in auth_module._USER_AUTH_CACHE
+        )
+
+
+def test_flask_basic_auth_skips_get_user_when_cache_disabled(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    fake_flask_request = mock.Mock()
+    fake_flask_request.authorization.username = "alice"
+    fake_flask_request.authorization.password = "password123"
+
+    with (
+        mock.patch("mlflow.server.auth._USER_AUTH_CACHE", None),
+        mock.patch("mlflow.server.auth.request", fake_flask_request),
+    ):
+        result = auth_module.authenticate_request_basic_auth()
+
+    assert result is fake_flask_request.authorization
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+    # Cache disabled + Flask path only needs the yes/no answer → no user fetch.
+    mock_auth_store.get_user.assert_not_called()
+
+
 def test_flask_basic_auth_shares_cache_with_fastapi_path(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
