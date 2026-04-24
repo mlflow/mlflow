@@ -63,6 +63,10 @@ tls:
   enabled: false
   secretName: mlflow-tls
 
+networkPolicy:
+  enabled: false
+  additionalEgressRules: []
+
 metrics:
   enabled: false
   path: /metrics
