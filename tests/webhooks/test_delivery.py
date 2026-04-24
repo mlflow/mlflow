@@ -35,6 +35,7 @@ def webhook_payload() -> dict[str, str]:
 def test_deliver_webhook_exits_early_for_file_store(
     file_store: FileStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
 ) -> None:
+    pytest.skip("FileStore is no longer supported.")
     with patch("mlflow.webhooks.delivery._deliver_webhook_impl") as mock_impl:
         deliver_webhook(
             event=webhook_event,
@@ -86,6 +87,7 @@ def test_deliver_webhook_handles_exception_for_sql_store(
 def test_deliver_webhook_no_exception_for_file_store(
     file_store: FileStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
 ) -> None:
+    pytest.skip("FileStore is no longer supported.")
     with (
         patch(
             "mlflow.webhooks.delivery._deliver_webhook_impl", side_effect=Exception("Test")

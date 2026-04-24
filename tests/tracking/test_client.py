@@ -2052,6 +2052,7 @@ def test_enable_async_logging(mock_store, setup_async_logging):
 
 
 def test_file_store_download_upload_trace_data(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
         client = MlflowClient()
         span = client.start_trace("test", inputs={"test": 1})
@@ -3410,6 +3411,7 @@ def test_mlflow_client_search_datasets_defaults(mock_store):
 
 @pytest.mark.skipif(is_windows(), reason="FileStore URI handling issues on Windows")
 def test_mlflow_client_datasets_filestore_not_supported(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     file_store_uri = str(tmp_path)
     client = MlflowClient(tracking_uri=file_store_uri)
 

@@ -505,6 +505,7 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
 
 @pytest.mark.parametrize("create_artifacts_in_run", [True, False])
 def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
+    pytest.skip("FileStore is no longer supported.")
     store = file_store[0]
     run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
     store.delete_run(run.info.run_id)
@@ -526,6 +527,7 @@ def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
 
 
 def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
+    pytest.skip("FileStore is no longer supported.")
     store = file_store[0]
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_id)
@@ -546,6 +548,7 @@ def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
 
 
 def test_mlflow_gc_not_deleted_run(file_store):
+    pytest.skip("FileStore is no longer supported.")
     store = file_store[0]
     run = _create_run_in_store(store)
     with pytest.raises(subprocess.CalledProcessError, match=r".+"):
@@ -564,6 +567,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
 
 
 def test_mlflow_gc_file_store_older_than(file_store):
+    pytest.skip("FileStore is no longer supported.")
     store = file_store[0]
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_id)
@@ -1089,6 +1093,8 @@ def test_mlflow_gc_with_datasets(sqlite_store):
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_logged_model(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
     store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     model = store.create_logged_model(experiment_id=exp_id)
@@ -1102,6 +1108,8 @@ def test_mlflow_gc_logged_model(get_store_details, request):
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_logged_models_older_than(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
     store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     old_time = time.time() - (2 * 24 * 60 * 60)
@@ -1127,6 +1135,8 @@ def test_mlflow_gc_logged_models_older_than(get_store_details, request):
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_logged_models_deletes_when_older_than(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
     store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     model = store.create_logged_model(experiment_id=exp_id)
@@ -1152,6 +1162,8 @@ def test_mlflow_gc_logged_models_deletes_when_older_than(get_store_details, requ
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
     store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     old_model = store.create_logged_model(experiment_id=exp_id)
