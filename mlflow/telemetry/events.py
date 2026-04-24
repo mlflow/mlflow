@@ -4,6 +4,7 @@ import sys
 from collections import Counter
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 from mlflow.entities import Feedback
 from mlflow.entities.issue import IssueSeverity, IssueStatus
@@ -406,6 +407,32 @@ class LogBatchEvent(Event):
 
 class McpRunEvent(Event):
     name: str = "mcp_run"
+
+
+class TrackingServerStartEvent(Event):
+    name: str = "tracking_server_start"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        backend_store_uri = arguments.get("backend_store_uri") or ""
+        scheme = urlparse(backend_store_uri).scheme
+        # Treat empty schemes (relative paths) and single-letter schemes
+        # (Windows drive letters like C:\) as local file storage.
+        # Strip SQLAlchemy driver suffixes (e.g. mysql+pymysql → mysql).
+        backend_store_type = "file" if not scheme or len(scheme) == 1 else scheme.split("+")[0]
+
+        app_name = arguments.get("app_name")
+        return {
+            "auth_enabled": app_name == "basic-auth",
+            "app_name": app_name,
+            "backend_store_type": backend_store_type,
+            "serve_artifacts": bool(arguments.get("serve_artifacts")),
+            "artifacts_only": bool(arguments.get("artifacts_only")),
+            "expose_prometheus": arguments.get("expose_prometheus") is not None,
+            "enable_workspaces": bool(arguments.get("enable_workspaces")),
+            "workers": arguments.get("workers"),
+            "dev": bool(arguments.get("dev")),
+        }
 
 
 class GatewayStartEvent(Event):

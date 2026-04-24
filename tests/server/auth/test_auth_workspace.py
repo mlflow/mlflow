@@ -118,15 +118,18 @@ class _TrackingStore:
         raise ValueError("Must provide secret_id or secret_name")
 
     def get_gateway_endpoint(self, endpoint_id: str | None = None, name: str | None = None):
-        if endpoint_id:
-            if endpoint_id not in self._gateway_endpoint_workspaces:
+        # For test simplicity we treat ``name`` as a synonym for ``endpoint_id``
+        # (our fixture data uses the same string for both). This mirrors how the
+        # real store resolves a name → id lookup before returning the endpoint.
+        if lookup_id := (endpoint_id or name):
+            if lookup_id not in self._gateway_endpoint_workspaces:
                 raise MlflowException(
-                    f"GatewayEndpoint not found ({endpoint_id})",
+                    f"GatewayEndpoint not found ({lookup_id})",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             # Add workspace attribute so _get_resource_workspace can extract it
             return SimpleNamespace(
-                endpoint_id=endpoint_id, workspace=self._gateway_endpoint_workspaces[endpoint_id]
+                endpoint_id=lookup_id, workspace=self._gateway_endpoint_workspaces[lookup_id]
             )
         raise ValueError("Must provide endpoint_id or name")
 
@@ -386,6 +389,48 @@ def test_filter_list_workspaces_filters_to_allowed(monkeypatch):
     auth_module.filter_list_workspaces(response)
     payload = json.loads(response.get_data(as_text=True))
     assert [ws["name"] for ws in payload["workspaces"]] == ["team-a"]
+
+
+def test_list_workspaces_filters_to_role_assigned_workspaces(tmp_path, monkeypatch):
+    # End-to-end guard for the list_accessible_workspace_names fix: alice has NO
+    # legacy workspace_permissions rows — her only workspace membership is via a
+    # role assignment in ws-alpha. The ListWorkspaces filter must treat that role
+    # assignment as workspace visibility and surface ws-alpha but not ws-beta.
+    # Before the fix, the legacy-only query returned an empty set and alice saw
+    # no workspaces in the UI.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(grant_default_workspace_access=False),
+        raising=False,
+    )
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    alice = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role = auth_store.create_role(name="viewer", workspace="ws-alpha")
+    auth_store.add_role_permission(role.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(alice.id, role.id)
+
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
+    )
+
+    response = Response(
+        json.dumps({"workspaces": [{"name": "ws-alpha"}, {"name": "ws-beta"}]}),
+        mimetype="application/json",
+    )
+
+    auth_module.filter_list_workspaces(response)
+    payload = json.loads(response.get_data(as_text=True))
+    assert [ws["name"] for ws in payload["workspaces"]] == ["ws-alpha"]
+
+    auth_store.engine.dispose()
 
 
 def test_validate_can_view_workspace_allows_default_autogrant(monkeypatch):
@@ -1274,3 +1319,658 @@ def test_cross_workspace_graphql_access_denied(workspace_permission_setup, monke
     assert not auth_module._graphql_can_read_experiment("exp-other-ws", username)
     assert not auth_module._graphql_can_read_run("run-other-ws", username)
     assert not auth_module._graphql_can_read_model("model-other-ws", username)
+
+
+# =============================================================================
+# Role-based permission coverage for gateway resources
+# =============================================================================
+#
+# The fixture grants workspace MANAGE by default. These tests first strip that
+# grant (set to NO_PERMISSIONS) so the only path to a positive permission is
+# the role assignment being exercised. That isolates the role-based resolver
+# from the legacy workspace_permissions fallback.
+
+
+def _assign_role_with_permission(
+    store: SqlAlchemyStore, username: str, workspace: str, resource_type: str, permission: str
+) -> None:
+    """Create a role in ``workspace`` with a wildcard grant of ``permission`` on
+    ``resource_type``, and assign ``username`` to it.
+
+    Using ``random_str`` keeps the role names unique so multiple calls within a
+    single test don't collide on the (workspace, name) unique constraint.
+    """
+    role = store.create_role(name=random_str(), workspace=workspace)
+    store.add_role_permission(role.id, resource_type, "*", permission)
+    user = store.get_user(username)
+    store.assign_role_to_user(user.id, role.id)
+
+
+# ---- Gateway endpoint: role-based permission levels ----
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_read", "expected_delete", "expected_manage"),
+    [
+        ("READ", True, False, False),
+        ("USE", True, False, False),
+        ("EDIT", True, False, False),
+        ("MANAGE", True, True, True),
+    ],
+)
+def test_role_grant_on_gateway_endpoint_gates_validator_capabilities(
+    workspace_permission_setup, granted, expected_read, expected_delete, expected_manage
+):
+    """A role grant at permission level ``granted`` exposes exactly the
+    capabilities that level implies on the endpoint validators — no more, no
+    less. Catches regressions where a validator starts accepting a weaker
+    permission than it should (or refuses a stronger one).
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # Strip the default workspace MANAGE so the only positive grant is the role.
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", granted)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
+        query_string={"endpoint_id": "endpoint-1"},
+    ):
+        assert auth_module.validate_can_read_gateway_endpoint() is expected_read
+        assert auth_module.validate_can_delete_gateway_endpoint() is expected_delete
+        assert auth_module.validate_can_manage_gateway_endpoint() is expected_manage
+
+
+def test_role_grant_read_on_gateway_endpoint_does_not_permit_use(
+    workspace_permission_setup,
+):
+    """Regression guard specific to the bug class the user called out:
+    a user with only READ on a gateway endpoint should not be able to *invoke*
+    it. USE is a stricter capability than READ and has its own validator.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "READ")
+
+    # _validate_gateway_use_permission looks up the endpoint by name, resolves
+    # the endpoint id, then checks ``can_use`` via the permission resolver.
+    with auth_module.app.test_request_context("/"):
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is False
+
+
+def test_role_grant_use_on_gateway_endpoint_permits_use(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "USE")
+
+    with auth_module.app.test_request_context("/"):
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is True
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_can_use"),
+    [
+        ("READ", False),  # READ does not imply USE.
+        ("USE", True),
+        ("EDIT", True),  # EDIT implies USE.
+        ("MANAGE", True),  # MANAGE implies USE.
+    ],
+)
+def test_role_grant_permission_level_determines_use_capability(
+    workspace_permission_setup, granted, expected_can_use
+):
+    """Parametrized matrix for the USE capability specifically. READ should NOT
+    let the user invoke; every stronger permission should.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", granted)
+
+    with auth_module.app.test_request_context("/"):
+        assert (
+            auth_module._validate_gateway_use_permission("endpoint-1", username) is expected_can_use
+        )
+
+
+# ---- Workspace-wide role grants on gateway resources ----
+
+
+@pytest.mark.parametrize("granted", ["READ", "USE", "EDIT", "MANAGE"])
+def test_role_workspace_wide_grant_applies_to_gateway_endpoints(
+    workspace_permission_setup, granted
+):
+    """``(workspace, *, X)`` grants apply to every resource type in the
+    workspace — including gateway endpoints. Confirms the workspace-wide
+    short-circuit isn't accidentally gated behind resource_type=='experiment'
+    or similar, which would silently lock workspace admins out of gateway
+    resources.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "workspace", granted)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
+        query_string={"endpoint_id": "endpoint-1"},
+    ):
+        # All four levels grant READ.
+        assert auth_module.validate_can_read_gateway_endpoint() is True
+
+        # Only MANAGE grants can_delete / can_manage.
+        assert auth_module.validate_can_delete_gateway_endpoint() is (granted == "MANAGE")
+        assert auth_module.validate_can_manage_gateway_endpoint() is (granted == "MANAGE")
+
+
+def test_role_workspace_wide_read_does_not_imply_use_on_gateway_endpoint(
+    workspace_permission_setup,
+):
+    """``(workspace, *, READ)`` grants READ on every resource but not USE.
+    Users with a workspace-wide viewer role shouldn't be able to invoke
+    gateway endpoints.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "workspace", "READ")
+
+    with auth_module.app.test_request_context("/"):
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is False
+
+
+@pytest.mark.parametrize("granted", ["USE", "EDIT", "MANAGE"])
+def test_role_workspace_wide_non_read_grants_imply_use_on_gateway_endpoint(
+    workspace_permission_setup, granted
+):
+    """``(workspace, *, {USE,EDIT,MANAGE})`` all imply USE → invocation
+    allowed.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "workspace", granted)
+
+    with auth_module.app.test_request_context("/"):
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is True
+
+
+# ---- Gateway secret and model definition parity ----
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_read", "expected_delete"),
+    [
+        ("READ", True, False),
+        ("EDIT", True, False),
+        ("MANAGE", True, True),
+    ],
+)
+def test_role_grant_on_gateway_secret_gates_validator(
+    workspace_permission_setup, granted, expected_read, expected_delete
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_secret", granted)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/secrets/get",
+        method="GET",
+        query_string={"secret_id": "secret-1"},
+    ):
+        assert auth_module.validate_can_read_gateway_secret() is expected_read
+        assert auth_module.validate_can_delete_gateway_secret() is expected_delete
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_read", "expected_delete"),
+    [
+        ("READ", True, False),
+        ("EDIT", True, False),
+        ("MANAGE", True, True),
+    ],
+)
+def test_role_grant_on_gateway_model_definition_gates_validator(
+    workspace_permission_setup, granted, expected_read, expected_delete
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_model_definition", granted)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/model-definitions/get",
+        method="GET",
+        query_string={"model_definition_id": "model-def-1"},
+    ):
+        assert auth_module.validate_can_read_gateway_model_definition() is expected_read
+        assert auth_module.validate_can_delete_gateway_model_definition() is expected_delete
+
+
+# ---- Cross-workspace isolation for role-based gateway grants ----
+
+
+def test_role_in_other_workspace_does_not_grant_gateway_endpoint_access(
+    workspace_permission_setup,
+):
+    """A role in team-b with MANAGE on gateway_endpoints must not grant any
+    access when resolving an endpoint that belongs to team-a. The resolver
+    scopes role permissions to the role's workspace.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    # Role with MANAGE in team-b — should NOT apply to team-a endpoints.
+    _assign_role_with_permission(store, username, "team-b", "gateway_endpoint", "MANAGE")
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
+        query_string={"endpoint_id": "endpoint-1"},  # endpoint-1 is in team-a.
+    ):
+        assert auth_module.validate_can_read_gateway_endpoint() is False
+        assert auth_module.validate_can_manage_gateway_endpoint() is False
+
+
+def test_role_in_other_workspace_does_not_grant_gateway_use(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-b", "gateway_endpoint", "USE")
+
+    with auth_module.app.test_request_context("/"):
+        # endpoint-1 is in team-a; role grant is in team-b.
+        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is False
+
+
+# ---- Multi-role union: best grant wins ----
+
+
+def test_role_union_best_permission_wins_for_gateway_endpoint(workspace_permission_setup):
+    """Two roles: one grants READ, the other grants MANAGE. Validator should
+    reflect the max (MANAGE).
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "READ")
+    _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "MANAGE")
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
+        query_string={"endpoint_id": "endpoint-1"},
+    ):
+        assert auth_module.validate_can_manage_gateway_endpoint() is True
+
+
+# =============================================================================
+# Authorization for role management endpoints (Batch 5)
+# =============================================================================
+#
+# Four validators guard the role endpoints:
+#   - validate_can_manage_roles: create/update/delete role, add/remove/update
+#     role_permission, assign/unassign role. Super admin OR workspace admin
+#     in the resolved workspace.
+#   - validate_can_view_roles: get_role, list_role_permissions. Super admin
+#     OR any role assignment in the resolved workspace.
+#   - validate_can_list_roles: list_roles. Super admin unconditionally; for
+#     non-admins the request must scope to a workspace where the caller holds
+#     at least one role.
+#   - validate_can_view_user_roles: list_user_roles. Super admin, the target
+#     themselves, or a workspace admin over any workspace the target is in.
+#
+# _get_role_workspace_from_request resolves the workspace from role_id,
+# role_permission_id, or a literal ``workspace`` param. These tests exercise
+# all three shapes and every actor x endpoint combination.
+
+
+@pytest.fixture
+def role_auth_setup(tmp_path, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    auth_store.create_user("super_admin", "supersecurepassword", is_admin=True)
+    for name in ("ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"):
+        auth_store.create_user(name, "supersecurepassword", is_admin=False)
+
+    admin_role_foo = auth_store.create_role(name="admin-foo", workspace="foo")
+    auth_store.add_role_permission(admin_role_foo.id, "workspace", "*", MANAGE.name)
+    auth_store.assign_role_to_user(auth_store.get_user("ws_admin_foo").id, admin_role_foo.id)
+
+    admin_role_bar = auth_store.create_role(name="admin-bar", workspace="bar")
+    auth_store.add_role_permission(admin_role_bar.id, "workspace", "*", MANAGE.name)
+    auth_store.assign_role_to_user(auth_store.get_user("ws_admin_bar").id, admin_role_bar.id)
+
+    member_role_foo = auth_store.create_role(name="member-foo", workspace="foo")
+    auth_store.add_role_permission(member_role_foo.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(auth_store.get_user("ws_member_foo").id, member_role_foo.id)
+
+    role_foo = auth_store.create_role(name="target-foo", workspace="foo")
+    role_bar = auth_store.create_role(name="target-bar", workspace="bar")
+    rp_foo = auth_store.add_role_permission(role_foo.id, "experiment", "*", READ.name)
+    rp_bar = auth_store.add_role_permission(role_bar.id, "experiment", "*", READ.name)
+
+    def login_as(username: str) -> None:
+        monkeypatch.setattr(
+            auth_module,
+            "authenticate_request",
+            lambda: SimpleNamespace(username=username),
+        )
+
+    yield {
+        "store": auth_store,
+        "login_as": login_as,
+        "role_foo_id": role_foo.id,
+        "role_bar_id": role_bar.id,
+        "role_permission_foo_id": rp_foo.id,
+        "role_permission_bar_id": rp_bar.id,
+    }
+    auth_store.engine.dispose()
+
+
+def _request_context_for_shape(shape, role_auth_setup, workspace):
+    match shape:
+        case "role_id":
+            role_id = (
+                role_auth_setup["role_foo_id"]
+                if workspace == "foo"
+                else role_auth_setup["role_bar_id"]
+            )
+            return auth_module.app.test_request_context(
+                "/api/3.0/mlflow/roles/get",
+                method="GET",
+                query_string={"role_id": str(role_id)},
+            )
+        case "role_permission_id":
+            rp_id = (
+                role_auth_setup["role_permission_foo_id"]
+                if workspace == "foo"
+                else role_auth_setup["role_permission_bar_id"]
+            )
+            return auth_module.app.test_request_context(
+                "/api/3.0/mlflow/roles/permissions/update",
+                method="PATCH",
+                json={"role_permission_id": rp_id, "permission": READ.name},
+            )
+        case "workspace":
+            return auth_module.app.test_request_context(
+                "/api/3.0/mlflow/roles/create",
+                method="POST",
+                json={"name": "new-role", "workspace": workspace},
+            )
+        case _:
+            raise ValueError(f"Unknown shape: {shape}")
+
+
+# Authorization matrices are exercised with a single request shape (role_id);
+# shape-resolution itself is covered independently below so we don't multiply
+# every actor-case by three shape-cases.
+
+
+@pytest.mark.parametrize(
+    ("actor", "workspace", "expected"),
+    [
+        # Super admin short-circuits regardless of workspace — one case suffices.
+        ("super_admin", "foo", True),
+        # Outsider has no role anywhere — one case suffices.
+        ("outsider", "foo", False),
+        # Workspace admins manage only their own workspace.
+        ("ws_admin_foo", "foo", True),
+        ("ws_admin_foo", "bar", False),
+        ("ws_admin_bar", "foo", False),
+        ("ws_admin_bar", "bar", True),
+        # Plain role membership is not enough to manage — needs workspace MANAGE.
+        ("ws_member_foo", "foo", False),
+        ("ws_member_foo", "bar", False),
+    ],
+)
+def test_validate_can_manage_roles_authorization(role_auth_setup, actor, workspace, expected):
+    role_auth_setup["login_as"](actor)
+    with _request_context_for_shape("role_id", role_auth_setup, workspace):
+        assert auth_module.validate_can_manage_roles() is expected
+
+
+@pytest.mark.parametrize("workspace", ["foo", "bar"])
+@pytest.mark.parametrize("shape", ["role_id", "role_permission_id", "workspace"])
+def test_manage_roles_resolves_workspace_from_each_shape(role_auth_setup, shape, workspace):
+    # Sanity check that _get_role_workspace_from_request correctly dispatches
+    # on every request shape. Use ws_admin_foo — their answer differs by
+    # workspace, so an incorrectly resolved (or swapped) workspace flips the
+    # result and the test fails.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    expected = workspace == "foo"
+    with _request_context_for_shape(shape, role_auth_setup, workspace):
+        assert auth_module.validate_can_manage_roles() is expected
+
+
+@pytest.mark.parametrize(
+    ("actor", "workspace", "expected"),
+    [
+        ("super_admin", "foo", True),
+        ("outsider", "foo", False),
+        ("ws_admin_foo", "foo", True),
+        ("ws_admin_foo", "bar", False),
+        ("ws_admin_bar", "foo", False),
+        ("ws_admin_bar", "bar", True),
+        # Unlike manage, a plain workspace member can view roles.
+        ("ws_member_foo", "foo", True),
+        ("ws_member_foo", "bar", False),
+    ],
+)
+def test_validate_can_view_roles_authorization(role_auth_setup, actor, workspace, expected):
+    role_auth_setup["login_as"](actor)
+    with _request_context_for_shape("role_id", role_auth_setup, workspace):
+        assert auth_module.validate_can_view_roles() is expected
+
+
+@pytest.mark.parametrize(
+    ("actor", "expected"),
+    [
+        ("super_admin", True),
+        # Any non-admin is denied regardless of their workspace memberships —
+        # one representative non-admin is enough.
+        ("ws_admin_foo", False),
+    ],
+)
+def test_validate_can_list_roles_unscoped_is_super_admin_only(role_auth_setup, actor, expected):
+    # No workspace param: only super admins may list every role in the system.
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context("/api/3.0/mlflow/roles/list", method="GET"):
+        assert auth_module.validate_can_list_roles() is expected
+
+
+@pytest.mark.parametrize(
+    ("actor", "workspace", "expected"),
+    [
+        ("super_admin", "foo", True),
+        ("outsider", "foo", False),
+        ("ws_admin_foo", "foo", True),
+        ("ws_admin_foo", "bar", False),
+        ("ws_admin_bar", "foo", False),
+        ("ws_admin_bar", "bar", True),
+        ("ws_member_foo", "foo", True),
+        ("ws_member_foo", "bar", False),
+    ],
+)
+def test_validate_can_list_roles_workspace_scoped(role_auth_setup, actor, workspace, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/list", method="GET", query_string={"workspace": workspace}
+    ):
+        assert auth_module.validate_can_list_roles() is expected
+
+
+def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_setup):
+    # Blank workspace param hits a *different* branch from the missing-param
+    # case: validate_can_list_roles checks ``workspace.strip()`` and denies
+    # rather than raising, unlike _get_role_workspace_from_request which would
+    # raise on blank workspace. Kept as a guard for that specific branch.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/list",
+        method="GET",
+        query_string={"workspace": "   "},
+    ):
+        assert auth_module.validate_can_list_roles() is False
+
+
+def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup):
+    # A user can always read their own role list, even one with no roles.
+    # Using ``outsider`` (zero roles) exercises the self-short-circuit without
+    # any membership helping.
+    role_auth_setup["login_as"]("outsider")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/roles/list",
+        method="GET",
+        query_string={"username": "outsider"},
+    ):
+        assert auth_module.validate_can_view_user_roles() is True
+
+
+@pytest.mark.parametrize(
+    ("requester", "target", "expected"),
+    [
+        ("super_admin", "ws_member_foo", True),
+        ("ws_admin_foo", "ws_member_foo", True),
+        ("ws_admin_bar", "ws_member_foo", False),
+        ("ws_member_foo", "ws_admin_foo", False),
+        ("outsider", "ws_member_foo", False),
+    ],
+)
+def test_validate_can_view_user_roles_cross_user(role_auth_setup, requester, target, expected):
+    role_auth_setup["login_as"](requester)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/roles/list",
+        method="GET",
+        query_string={"username": target},
+    ):
+        assert auth_module.validate_can_view_user_roles() is expected
+
+
+def test_validate_can_view_user_roles_nonexistent_target_denied_for_non_admin(
+    role_auth_setup,
+):
+    # Non-existent target: return False rather than leaking existence via the
+    # RESOURCE_DOES_NOT_EXIST the handler would raise downstream.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/roles/list",
+        method="GET",
+        query_string={"username": "ghost"},
+    ):
+        assert auth_module.validate_can_view_user_roles() is False
+
+
+def test_validate_can_view_user_roles_nonexistent_target_allowed_for_super_admin(
+    role_auth_setup,
+):
+    # Super admin short-circuits before the target lookup — they're authorized
+    # regardless of whether the target exists (the handler then 404s cleanly).
+    role_auth_setup["login_as"]("super_admin")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/roles/list",
+        method="GET",
+        query_string={"username": "ghost"},
+    ):
+        assert auth_module.validate_can_view_user_roles() is True
+
+
+@pytest.mark.parametrize("shape", ["role_id", "role_permission_id"])
+def test_validate_can_manage_roles_nonexistent_resource_denied(role_auth_setup, shape):
+    # A non-admin pointing at a role/role_permission that doesn't exist fails
+    # closed: _get_role_workspace_from_request returns None and the validator
+    # treats that as unauthorized rather than leaking existence.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    bogus_id = 999_999
+    if shape == "role_id":
+        ctx = auth_module.app.test_request_context(
+            "/api/3.0/mlflow/roles/get",
+            method="GET",
+            query_string={"role_id": str(bogus_id)},
+        )
+    else:
+        ctx = auth_module.app.test_request_context(
+            "/api/3.0/mlflow/roles/permissions/update",
+            method="PATCH",
+            json={"role_permission_id": bogus_id, "permission": READ.name},
+        )
+    with ctx:
+        assert auth_module.validate_can_manage_roles() is False
+
+
+def test_validate_can_manage_roles_nonexistent_role_id_bypassed_by_super_admin(
+    role_auth_setup,
+):
+    # Super admins skip the workspace resolution entirely — an unresolvable
+    # role_id still produces True at the validator layer.
+    role_auth_setup["login_as"]("super_admin")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/get",
+        method="GET",
+        query_string={"role_id": "999999"},
+    ):
+        assert auth_module.validate_can_manage_roles() is True
+
+
+def test_validate_can_manage_roles_missing_workspace_params_raises(role_auth_setup):
+    # No role_id / role_permission_id / workspace in the request body: the
+    # resolver raises INVALID_PARAMETER_VALUE — callers that hit this path have
+    # a client bug, and we surface it instead of silently denying.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/create", method="POST", json={}
+    ):
+        with pytest.raises(MlflowException, match="must include one of"):
+            auth_module.validate_can_manage_roles()
+
+
+def test_validate_can_manage_roles_blank_workspace_raises(role_auth_setup):
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/create",
+        method="POST",
+        json={"name": "new-role", "workspace": "   "},
+    ):
+        with pytest.raises(MlflowException, match="non-empty string"):
+            auth_module.validate_can_manage_roles()
+
+
+def test_validate_can_manage_roles_propagates_param_coercion_errors(role_auth_setup):
+    # Integration check: a non-integer role_id in the request surfaces the
+    # coercion error through the validator chain rather than silently denying.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/get",
+        method="GET",
+        query_string={"role_id": "not-an-int"},
+    ):
+        with pytest.raises(MlflowException, match="must be an integer"):
+            auth_module.validate_can_manage_roles()

@@ -429,6 +429,7 @@ async def test_chat():
             "object": "chat.completion",
             "created": 1705090115,
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "provider": "togetherai",
             "choices": [
                 {
                     "index": 0,
@@ -532,6 +533,7 @@ async def test_chat_stream(resp):
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -550,6 +552,7 @@ async def test_chat_stream(resp):
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -568,6 +571,7 @@ async def test_chat_stream(resp):
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "object": "chat.completion.chunk",
                 "usage": {
                     "prompt_tokens": 17,

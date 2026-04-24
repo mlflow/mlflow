@@ -240,7 +240,16 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           // Show ModelTraceExplorer only if there is no run to compare to and there's trace data.
           ((shouldFetchTraceBySearchParamId && traceBySearchParamQueryResult?.data) || isSingleTraceView) &&
           !isNil(currentTraceQueryResult.data) ? (
-            <div css={{ height: 'calc(100% - 34px)', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
+            <div
+              css={{
+                height: '100%',
+                marginLeft: -theme.spacing.lg,
+                marginRight: -theme.spacing.lg,
+                marginBottom: -theme.spacing.lg,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
