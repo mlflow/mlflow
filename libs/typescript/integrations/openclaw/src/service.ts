@@ -6,10 +6,7 @@
  * to a span hierarchy:  root AGENT → child LLM / TOOL / sub-AGENT spans.
  */
 
-import type {
-  OpenClawPluginApi,
-  OpenClawPluginService,
-} from 'openclaw/plugin-sdk/plugin-entry';
+import type { OpenClawPluginApi, OpenClawPluginService } from 'openclaw/plugin-sdk/plugin-entry';
 import type { DiagnosticEventPayload } from 'openclaw/plugin-sdk/diagnostics-otel';
 import { onDiagnosticEvent } from 'openclaw/plugin-sdk/diagnostics-otel';
 import { init, startSpan, flushTraces, SpanStatusCode } from '@mlflow/core';
@@ -87,10 +84,9 @@ interface ActiveTrace {
 
 export function evictOldest<K, V>(map: Map<K, V>, maxSize: number): void {
   while (map.size > maxSize) {
-    const oldest = map.keys().next().value;
-    if (oldest !== undefined) {
-      map.delete(oldest);
-    }
+    const { value: oldest, done } = map.keys().next();
+    if (done) return;
+    map.delete(oldest);
   }
 }
 
@@ -167,6 +163,7 @@ async function finalizeTrace(
   sessionKey: string,
   trace: ActiveTrace,
   userId?: string,
+  flush: () => Promise<void> = () => flushTraces(),
 ): Promise<void> {
   if (trace.pendingLlm) {
     trace.pendingLlm.span.end();
@@ -229,7 +226,7 @@ async function finalizeTrace(
   }
 
   trace.rootSpan.end();
-  await flushTraces();
+  await flush();
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +243,8 @@ export function createMLflowService(
   let warnedMissingAfterToolSessionKey = false;
   let cleanup: (() => void) | null = null;
   let hooksRegistered = false;
+  let resolvedTrackingUri: string | undefined;
+  let resolvedExperimentId: string | undefined;
   let log: { info: (msg: string) => void; warn: (msg: string) => void } = {
     info: console.log,
     warn: console.warn,
@@ -384,7 +383,8 @@ export function createMLflowService(
   // =====================================================================
   function registerHooks(): void {
     if (hooksRegistered) return;
-    hooksRegistered = true;
+
+    if (pluginConfig.enabled === false) return;
 
     const trackingUri =
       (typeof pluginConfig.trackingUri === 'string' ? pluginConfig.trackingUri : '') ||
@@ -401,8 +401,11 @@ export function createMLflowService(
       return;
     }
 
-    api.on('llm_input', (event: unknown, agentCtx: unknown) => {
+    hooksRegistered = true;
+    resolvedTrackingUri = trackingUri;
+    resolvedExperimentId = experimentId;
 
+    api.on('llm_input', (event: unknown, agentCtx: unknown) => {
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
@@ -472,7 +475,6 @@ export function createMLflowService(
     });
 
     api.on('llm_output', (event: unknown, agentCtx: unknown) => {
-
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
@@ -528,7 +530,6 @@ export function createMLflowService(
     });
 
     api.on('before_tool_call', (event: unknown, agentCtx: unknown) => {
-
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
@@ -561,7 +562,6 @@ export function createMLflowService(
     });
 
     api.on('after_tool_call', (event: unknown, agentCtx: unknown) => {
-
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
 
@@ -592,7 +592,6 @@ export function createMLflowService(
     });
 
     api.on('subagent_spawning', (event: unknown, agentCtx: unknown) => {
-
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
@@ -619,7 +618,6 @@ export function createMLflowService(
     });
 
     api.on('subagent_ended', (event: unknown, agentCtx: unknown) => {
-
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
@@ -646,7 +644,6 @@ export function createMLflowService(
     });
 
     api.on('agent_end', (event: unknown, agentCtx: unknown) => {
-
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
       const sessionKey = ctx.sessionKey as string | undefined;
@@ -676,7 +673,7 @@ export function createMLflowService(
           if (t) {
             activeTraces.delete(sessionKey);
             forgetSession(sessionKey);
-            await finalizeTrace(sessionKey, t, userId);
+            await finalizeTrace(sessionKey, t, userId, () => flushWithRetry('agent-end'));
           }
         } catch {
           // Silently ignore finalization errors
@@ -693,9 +690,15 @@ export function createMLflowService(
       log = { info: ctx.logger.info.bind(ctx.logger), warn: ctx.logger.warn.bind(ctx.logger) };
       registerHooks();
 
-      const trackingUri = pluginConfig.trackingUri;
-      const experimentId = pluginConfig.experimentId;
-      ctx.logger.info(`mlflow: exporting traces to ${trackingUri} (experiment=${experimentId})`);
+      if (!hooksRegistered) {
+        ctx.logger.warn(
+          'mlflow: tracing is disabled (missing trackingUri/experimentId or explicitly disabled)',
+        );
+        return;
+      }
+      ctx.logger.info(
+        `mlflow: exporting traces to ${resolvedTrackingUri} (experiment=${resolvedExperimentId})`,
+      );
 
       const unsubDiagnostics = onDiagnosticEvent((evt: DiagnosticEventPayload) => {
         if (evt.type !== 'model.usage') return;
@@ -731,7 +734,9 @@ export function createMLflowService(
             activeTraces.delete(key);
             forgetSession(key);
             trace.rootSpan.setStatus(SpanStatusCode.ERROR, 'Trace exceeded inactivity timeout');
-            finalizeTrace(key, trace).catch(() => undefined);
+            finalizeTrace(key, trace, undefined, () => flushWithRetry('stale-sweep')).catch(
+              () => undefined,
+            );
           }
         }
       }, DEFAULT_STALE_SWEEP_INTERVAL_MS);
@@ -747,7 +752,11 @@ export function createMLflowService(
       cleanup = null;
 
       for (const [sessionKey, trace] of activeTraces) {
-        await finalizeTrace(sessionKey, trace);
+        try {
+          await finalizeTrace(sessionKey, trace, undefined, () => flushWithRetry('shutdown'));
+        } catch (err) {
+          log.warn(`mlflow: error finalizing trace ${sessionKey} during shutdown: ${err}`);
+        }
       }
       activeTraces.clear();
       sessionByAgentId.clear();

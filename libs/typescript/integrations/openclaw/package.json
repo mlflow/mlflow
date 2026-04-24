@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/mlflow-openclaw",
-  "version": "0.2.0",
+  "version": "0.2.0-rc.0",
   "description": "OpenClaw integration package for MLflow Tracing",
   "repository": {
     "type": "git",
@@ -59,7 +59,6 @@
     "src/configure.ts",
     "src/openclaw-plugin-sdk.d.ts",
     "openclaw.plugin.json",
-    "README.md",
-    "LICENSE"
+    "README.md"
   ]
 }

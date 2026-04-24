@@ -20,17 +20,15 @@
 
 MLflow integration for [OpenClaw](https://github.com/openclaw/openclaw) for [observability](https://mlflow.org/docs/latest/genai/tracing/), [evaluation](https://mlflow.org/docs/latest/genai/eval-monitor/), and [monitoring](https://mlflow.org/docs/latest/genai/governance/ai-gateway/). This plugin automatically traces OpenClaw agent executions in MLflow, capturing LLM calls, tool invocations, and sub-agent spans in a hierarchical trace structure.
 
-
 <p align="center">
-  <img src="./dashboard-screenshot.png" alt="OpenClaw MLflow Integration" width="700" style="border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);" />
+  <img src="https://raw.githubusercontent.com/mlflow/mlflow/master/libs/typescript/integrations/openclaw/dashboard-screenshot.png" alt="OpenClaw MLflow Integration" width="700" style="border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);" />
 </p>
 
 ## Key Benefits
 
-* 🌐 **Open Source**: MLflow is 100% open source and governed by the Linux Foundation, rooted in the same philosophy as OpenClaw.
-* 🛡️ **You Own Your Data**: MLflow is self-hosted. Trace data from OpenClaw stays on your infrastructure and never leaves it.
-* 🔀 **Vendor Neutral**: MLflow works with any LLM provider or agent framework, with no vendor lock-in.
-
+- 🌐 **Open Source**: MLflow is 100% open source and governed by the Linux Foundation, rooted in the same philosophy as OpenClaw.
+- 🛡️ **You Own Your Data**: MLflow is self-hosted. Trace data from OpenClaw stays on your infrastructure and never leaves it.
+- 🔀 **Vendor Neutral**: MLflow works with any LLM provider or agent framework, with no vendor lock-in.
 
 ## Setup
 
@@ -88,9 +86,8 @@ openclaw message send "Hello, Lobster!"
 Visit the MLflow UI (e.g. http://localhost:5000) to see the trace.
 
 <p align="center">
-  <img src="./trace-screenshot.png" alt="MLflow UI" width="700" style="border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);" />
+  <img src="https://raw.githubusercontent.com/mlflow/mlflow/master/libs/typescript/integrations/openclaw/trace-screenshot.png" alt="MLflow UI" width="700" style="border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);" />
 </p>
-
 
 ## Configuration
 
@@ -145,4 +142,4 @@ npm run lint
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt) file for details.
