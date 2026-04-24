@@ -172,14 +172,6 @@ export const AdminApi = {
     }) as Promise<ListAssignmentsResponse>;
   },
 
-  // Cross-WP Admin
-  listAllRoles: () => {
-    return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/admin/roles/list',
-      error: defaultErrorHandler,
-    }) as Promise<ListRolesResponse>;
-  },
-
   // Existing User APIs (v2)
   listUsers: () => {
     return fetchEndpoint({

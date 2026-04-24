@@ -286,12 +286,6 @@ export const MockAdminApi = {
     return { roles: roles.filter((r) => roleIds.includes(r.id)) };
   },
 
-  listAllRoles: async (): Promise<ListRolesResponse> => {
-    await delay();
-    requireAdmin();
-    return { roles: [...roles] };
-  },
-
   // Users — admin-only for list/create/delete/updateAdmin
   listUsers: async (): Promise<ListUsersResponse> => {
     await delay();
