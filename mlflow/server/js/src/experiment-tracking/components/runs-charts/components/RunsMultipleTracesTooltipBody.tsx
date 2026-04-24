@@ -1,4 +1,5 @@
 import { isUndefined } from 'lodash';
+import Utils from '../../../../common/utils/Utils';
 
 import type { RunsCompareMultipleTracesTooltipData } from './RunsMetricsLinePlot';
 import React from 'react';
@@ -93,7 +94,7 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
                       color: hoveredTraceUuid === uuid ? 'unset' : theme.colors.textPlaceholder,
                     }}
                   >
-                    {value}
+                    {Utils.formatMetric(value)}
                   </span>
                 )}
               </div>
