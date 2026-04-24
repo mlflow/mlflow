@@ -16,11 +16,13 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useUpdatePassword, useUserRolesQuery } from '../hooks';
 import { isWorkspaceAdminRole } from '../types';
 
 const AccountPage = () => {
   const { theme } = useDesignSystemTheme();
+  const queryClient = useQueryClient();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -61,11 +63,19 @@ const AccountPage = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     const expired = 'expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     document.cookie = `mlflow_user=; ${expired}`;
     // Also clear the dev-switcher auth header cookie if it was set
     document.cookie = `mlflow-request-header-Authorization=; ${expired}`;
+
+    // Hit /logout so the server returns 401 with WWW-Authenticate, causing the
+    // browser to forget its cached Basic Auth credentials.
+    await fetch('/logout', { credentials: 'include' }).catch(() => {});
+
+    // Drop cached React Query data so stale admin/user info doesn't linger.
+    queryClient.clear();
+
     window.location.href = '/';
   };
 

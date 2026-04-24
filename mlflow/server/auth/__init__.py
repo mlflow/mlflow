@@ -250,6 +250,7 @@ from mlflow.server.auth.routes import (
     LIST_USER_WORKSPACE_PERMISSIONS,
     LIST_USERS,
     LIST_WORKSPACE_PERMISSIONS,
+    LOGOUT,
     REMOVE_ROLE_PERMISSION,
     SEARCH_DATASETS,
     SIGNUP,
@@ -2858,6 +2859,18 @@ def alert(href: str):
     )
 
 
+def logout():
+    # Returning 401 with WWW-Authenticate triggers the browser to forget its
+    # cached Basic Auth credentials and prompt for new ones on the next
+    # request. There is no server-side session to clear — auth is stateless.
+    res = make_response(
+        "You have been logged out. Reload the page to sign in with a different account.",
+        401,
+    )
+    res.headers["WWW-Authenticate"] = 'Basic realm="mlflow"'
+    return res
+
+
 def signup():
     return render_template_string(
         r"""
@@ -3759,6 +3772,11 @@ def create_app(app: Flask = app):
         rule=SIGNUP,
         view_func=signup,
         methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=LOGOUT,
+        view_func=logout,
+        methods=["GET", "POST"],
     )
     app.add_url_rule(
         rule=CREATE_USER_UI,
