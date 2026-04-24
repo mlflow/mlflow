@@ -39,6 +39,11 @@
   "peerDependencies": {
     "openclaw": ">=2026.4.9"
   },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/jest": "^29.5.3",
     "jest": "^29.6.2",
