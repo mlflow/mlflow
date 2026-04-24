@@ -489,6 +489,282 @@ def test_list_workspace_admin_workspaces_ignores_non_manage(store, user):
     assert store.list_workspace_admin_workspaces(user.id) == set()
 
 
+# ---- Resolver coverage: cross-workspace isolation, NO_PERMISSIONS, resource types ----
+
+
+def test_resolver_cross_workspace_isolation(store, user):
+    """A role scoped to ws1 must not grant anything when resolving in ws2,
+    even if the user has the role assigned and the permission pattern matches.
+    """
+    role = store.create_role(name="editor", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "*", "EDIT")
+    store.assign_role_to_user(user.id, role.id)
+
+    # ws1: resolver finds the role and returns EDIT.
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == EDIT
+    # ws2: no role tied to ws2 for this user — resolver returns None.
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws2") is None
+
+
+def test_resolver_role_assignment_in_other_workspace_doesnt_leak(store, user):
+    r_ws1 = store.create_role(name="ws1-editor", workspace="ws1")
+    store.add_role_permission(r_ws1.id, "experiment", "*", "EDIT")
+    store.assign_role_to_user(user.id, r_ws1.id)
+
+    r_ws2 = store.create_role(name="ws2-reader", workspace="ws2")
+    store.add_role_permission(r_ws2.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user.id, r_ws2.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == EDIT
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws2") == READ
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws3") is None
+
+
+def test_resolver_returns_no_permissions_when_role_only_has_no_permissions(store, user):
+    """If a user's only grant is NO_PERMISSIONS, the resolver returns that —
+    not ``None``. Callers can then distinguish 'no role at all' (None) from
+    'role with explicit deny' (NO_PERMISSIONS). This matters because the
+    outer permission chain treats these differently: None falls through to
+    workspace_permissions / default_permission, NO_PERMISSIONS short-circuits.
+    """
+    role = store.create_role(name="locked", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "*", "NO_PERMISSIONS")
+    store.assign_role_to_user(user.id, role.id)
+
+    result = store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1")
+    assert result is not None
+    assert result.name == "NO_PERMISSIONS"
+
+
+def test_resolver_no_permissions_loses_to_any_positive_grant(store, user):
+    """When a user has both NO_PERMISSIONS and a positive grant (from different
+    roles or the same role), the positive grant wins. Reflects the
+    ``max_permission`` policy where explicit grants outrank explicit denies.
+    """
+    r_deny = store.create_role(name="deny", workspace="ws1")
+    store.add_role_permission(r_deny.id, "experiment", "*", "NO_PERMISSIONS")
+    store.assign_role_to_user(user.id, r_deny.id)
+
+    r_read = store.create_role(name="reader", workspace="ws1")
+    store.add_role_permission(r_read.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user.id, r_read.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == READ
+
+
+def test_resolver_unassigned_role_doesnt_grant(store, user):
+    """A role in the workspace with the right permissions doesn't help if the
+    user isn't assigned to it.
+    """
+    role = store.create_role(name="editor", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "*", "EDIT")
+    # Intentionally skip assign_role_to_user.
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") is None
+
+
+def test_resolver_resource_type_filter(store, user):
+    """A grant on resource_type=registered_model does not satisfy an
+    experiment lookup (and vice versa). Only the ``workspace`` resource type
+    promotes across all types.
+    """
+    role = store.create_role(name="models-only", workspace="ws1")
+    store.add_role_permission(role.id, "registered_model", "*", "EDIT")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") is None
+    assert store.get_role_permission_for_resource(user.id, "registered_model", "m1", "ws1") == EDIT
+
+
+# ---- Resolver coverage: permission hierarchy matrix ----
+
+
+@pytest.mark.parametrize(
+    "resource_type",
+    [
+        "experiment",
+        "registered_model",
+        "scorer",
+        "gateway_secret",
+        "gateway_endpoint",
+        "gateway_model_definition",
+    ],
+)
+@pytest.mark.parametrize(
+    ("granted", "expected"),
+    [
+        ("READ", READ),
+        ("USE", USE),
+        ("EDIT", EDIT),
+        ("MANAGE", MANAGE),
+    ],
+)
+def test_resolver_returns_granted_permission_for_each_resource_type(
+    store, user, resource_type, granted, expected
+):
+    """For each (resource_type, granted_permission) pair, resolving the user's
+    permission on a specific resource of that type returns exactly the granted
+    permission. This ensures the resolver applies uniformly across every
+    resource type the system knows about.
+    """
+    role = store.create_role(name=f"{resource_type}-{granted}", workspace="ws1")
+    store.add_role_permission(role.id, resource_type, "*", granted)
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, resource_type, "id", "ws1") == expected
+
+
+@pytest.mark.parametrize(
+    "resource_type",
+    [
+        "experiment",
+        "registered_model",
+        "gateway_endpoint",
+        "gateway_secret",
+        "gateway_model_definition",
+        "scorer",
+    ],
+)
+def test_resolver_workspace_grant_promotes_to_every_resource_type(store, user, resource_type):
+    """``(workspace, *, MANAGE)`` should grant MANAGE on every known resource
+    type in the role's workspace. This is the workspace-admin short-circuit —
+    if it regresses, workspace admins silently lose authority over specific
+    resource types.
+    """
+    role = store.create_role(name="ws-admin", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, resource_type, "any-id", "ws1") == MANAGE
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected"),
+    [
+        ("READ", READ),
+        ("USE", USE),
+        ("EDIT", EDIT),
+        ("MANAGE", MANAGE),
+    ],
+)
+def test_resolver_workspace_grant_propagates_at_every_level(store, user, granted, expected):
+    """``(workspace, *, X)`` where X ∈ {READ, USE, EDIT, MANAGE} promotes X to
+    every resource type — not just MANAGE. This ensures workspace-wide grants
+    work as a blanket baseline permission, which the UI relies on (e.g. the
+    seeded ``viewer`` and ``editor`` roles use this form).
+    """
+    role = store.create_role(name=f"ws-{granted}", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", granted)
+    store.assign_role_to_user(user.id, role.id)
+
+    for resource_type in [
+        "experiment",
+        "registered_model",
+        "gateway_endpoint",
+        "gateway_secret",
+        "gateway_model_definition",
+        "scorer",
+    ]:
+        assert (
+            store.get_role_permission_for_resource(user.id, resource_type, "id", "ws1") == expected
+        )
+
+
+def test_resolver_workspace_grant_scoped_to_role_workspace(store, user):
+    """A workspace-wide grant in ws1 has no effect when resolving in ws2 —
+    the role's workspace scopes the grant.
+    """
+    role = store.create_role(name="ws1-admin", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == MANAGE
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws2") is None
+
+
+# ---- Resolver coverage: pattern matching completeness ----
+
+
+def test_resolver_specific_pattern_does_not_apply_to_different_id(store, user):
+    role = store.create_role(name="e42-editor", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "42", "EDIT")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == EDIT
+    assert store.get_role_permission_for_resource(user.id, "experiment", "99", "ws1") is None
+
+
+def test_resolver_wildcard_applies_to_any_id(store, user):
+    role = store.create_role(name="any-experiment", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user.id, role.id)
+
+    for eid in ["1", "42", "long-uuid-6a4c", ""]:
+        assert store.get_role_permission_for_resource(user.id, "experiment", eid, "ws1") == READ
+
+
+def test_resolver_specific_outranks_wildcard_when_higher(store, user):
+    # Specific grant > wildcard grant → specific wins.
+    role = store.create_role(name="mixed", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "*", "READ")
+    store.add_role_permission(role.id, "experiment", "42", "EDIT")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == EDIT
+    assert store.get_role_permission_for_resource(user.id, "experiment", "99", "ws1") == READ
+
+
+def test_resolver_wildcard_outranks_specific_when_higher(store, user):
+    """Wildcard grant > specific grant → wildcard wins (best grant policy,
+    not "most specific wins"). This prevents an operator from accidentally
+    *downgrading* a user's access by adding a narrower grant with a lower
+    permission level.
+    """
+    role = store.create_role(name="mixed", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "*", "EDIT")
+    store.add_role_permission(role.id, "experiment", "42", "READ")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == EDIT
+    assert store.get_role_permission_for_resource(user.id, "experiment", "99", "ws1") == EDIT
+
+
+# ---- Resolver coverage: multi-role union ----
+
+
+def test_resolver_union_picks_max_across_roles(store, user):
+    # Permissions union across all roles assigned to the user — max wins.
+    r1 = store.create_role(name="r1", workspace="ws1")
+    store.add_role_permission(r1.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user.id, r1.id)
+
+    r2 = store.create_role(name="r2", workspace="ws1")
+    store.add_role_permission(r2.id, "experiment", "*", "USE")
+    store.assign_role_to_user(user.id, r2.id)
+
+    r3 = store.create_role(name="r3", workspace="ws1")
+    store.add_role_permission(r3.id, "experiment", "*", "MANAGE")
+    store.assign_role_to_user(user.id, r3.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == MANAGE
+
+
+def test_resolver_union_mixes_workspace_and_resource_grants(store, user):
+    """A workspace-wide EDIT + a specific experiment READ → resolver still
+    surfaces EDIT for that experiment, because the workspace grant already
+    covers it. Specific grants only promote, never downgrade.
+    """
+    r_ws = store.create_role(name="ws-editor", workspace="ws1")
+    store.add_role_permission(r_ws.id, "workspace", "*", "EDIT")
+    store.assign_role_to_user(user.id, r_ws.id)
+
+    r_specific = store.create_role(name="one-reader", workspace="ws1")
+    store.add_role_permission(r_specific.id, "experiment", "42", "READ")
+    store.assign_role_to_user(user.id, r_specific.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == EDIT
+
+
 # ---- Legacy workspace_permissions as workspace-admin source ----
 #
 # Pre-RBAC operators relied on `workspace_permissions` MANAGE to convey workspace-wide
