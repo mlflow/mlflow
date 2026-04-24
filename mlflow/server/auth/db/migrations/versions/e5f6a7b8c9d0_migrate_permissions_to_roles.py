@@ -21,10 +21,14 @@ grants were workspace-agnostic at the table level, so they land in the
 
 """
 
+import re
+from urllib.parse import quote
+
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import bindparam, text
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 # revision identifiers, used by Alembic.
@@ -35,6 +39,11 @@ depends_on = None
 
 
 _SYNTHETIC_ROLE_NAME = "__user_{user_id}__"
+# Exact match for the reserved synthetic role namespace. Used both to detect
+# pre-existing collisions during upgrade (see ``_get_or_create_synthetic_role``)
+# and to scope the downgrade cleanup so it never removes an admin-created role
+# that merely happens to start/end with underscores.
+_SYNTHETIC_ROLE_NAME_RE = re.compile(r"^__user_\d+__$")
 
 
 def _get_or_create_synthetic_role(conn, user_id: int, workspace: str) -> int:
@@ -45,6 +54,26 @@ def _get_or_create_synthetic_role(conn, user_id: int, workspace: str) -> int:
     ).first()
     if row is not None:
         role_id = row[0]
+        # A role with this exact reserved name already exists. Make sure it is
+        # not a user-created role that happens to collide with the synthetic
+        # namespace and has other users assigned — attaching this user's
+        # migrated grants to such a role (and assigning them to it) would leak
+        # grants across users. If the only assignment is for ``user_id`` (or no
+        # assignments yet), treat it as safe to reuse.
+        other_assignees = conn.execute(
+            text(
+                "SELECT user_id FROM user_role_assignments "
+                "WHERE role_id = :role_id AND user_id != :user_id"
+            ),
+            {"role_id": role_id, "user_id": user_id},
+        ).first()
+        if other_assignees is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Role {name!r} in workspace {workspace!r} collides with the reserved "
+                f"synthetic namespace '__user_<id>__' but is assigned to other users "
+                f"(e.g. user_id={other_assignees[0]}). Rename the conflicting role "
+                "before running this migration."
+            )
     else:
         conn.execute(
             text(
@@ -136,7 +165,11 @@ def upgrade() -> None:
         "SELECT user_id, workspace, name, permission FROM registered_model_permissions",
         lambda r: (r.user_id, r.workspace, "registered_model", r.name, r.permission),
     )
-    # scorer_permissions → (scorer, <exp_id>/<scorer_name>, permission) in default ws
+    # scorer_permissions → (scorer, <exp_id>/<quote(scorer_name)>, permission) in default ws.
+    # Scorer names may contain ``/`` (see ``validate_scorer_name`` which only rejects
+    # empty/whitespace), so the name component is URL-encoded to keep the compound
+    # key unambiguous. Must match ``SqlAlchemyStore._scorer_pattern`` exactly or
+    # post-migration lookups won't find these rows.
     _backfill_table(
         conn,
         "SELECT user_id, experiment_id, scorer_name, permission FROM scorer_permissions",
@@ -144,7 +177,7 @@ def upgrade() -> None:
             r.user_id,
             default,
             "scorer",
-            f"{r.experiment_id}/{r.scorer_name}",
+            f"{r.experiment_id}/{quote(r.scorer_name, safe='')}",
             r.permission,
         ),
     )
@@ -260,13 +293,15 @@ def downgrade() -> None:
         sa.Index("idx_workspace_permissions_workspace", "workspace"),
     )
 
-    # Remove all synthetic per-user roles this migration could have created. Portable
-    # filter (LIKE with ESCAPE varies across dialects).
+    # Remove all synthetic per-user roles this migration could have created. Filter
+    # by the exact ``^__user_\d+__$`` pattern so we don't accidentally nuke admin-
+    # created roles that merely start/end with underscores (e.g. ``__user_admin__``).
+    # Portable via regex in Python (LIKE with ESCAPE varies across dialects).
     conn = op.get_bind()
     role_ids = [
         row_id
         for (row_id, name) in conn.execute(text("SELECT id, name FROM roles"))
-        if name.startswith("__user_") and name.endswith("__")
+        if _SYNTHETIC_ROLE_NAME_RE.match(name)
     ]
     if not role_ids:
         return

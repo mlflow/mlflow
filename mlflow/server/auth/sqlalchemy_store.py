@@ -1,4 +1,5 @@
 import re
+from urllib.parse import quote, unquote
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
@@ -206,6 +207,29 @@ class SqlAlchemyStore:
                     .query(SqlRole)
                     .filter(SqlRole.workspace == workspace, SqlRole.name == name)
                     .one()
+                )
+        else:
+            # Defense-in-depth: if a role with this reserved synthetic name already
+            # exists but has assignments for other users, we would leak grants
+            # across accounts by attaching this user's grants to it. This shouldn't
+            # happen in practice (``create_role``/``update_role`` reject the
+            # synthetic pattern), but on databases that predate the reservation or
+            # after a manual SQL insert it would slip through. Refuse to proceed.
+            other_assignee = (
+                session
+                .query(SqlUserRoleAssignment.user_id)
+                .filter(
+                    SqlUserRoleAssignment.role_id == role.id,
+                    SqlUserRoleAssignment.user_id != user_id,
+                )
+                .first()
+            )
+            if other_assignee is not None:
+                raise MlflowException.invalid_parameter_value(
+                    f"Role {name!r} in workspace {workspace!r} collides with the "
+                    "reserved '__user_<id>__' synthetic namespace but is already "
+                    f"assigned to user_id={other_assignee[0]}. Rename or delete "
+                    "the conflicting role before granting per-user permissions."
                 )
         assignment = (
             session
@@ -641,27 +665,61 @@ class SqlAlchemyStore:
 
     def list_accessible_workspace_names(self, username: str | None) -> set[str]:
         """
-        Return the set of workspaces the user can see — i.e. every workspace they
-        have a role assignment in. After this migration, the former
-        ``workspace_permissions`` rows live as ``resource_type='*'`` grants on each
-        user's synthetic ``__user_<id>__`` role, which is itself entered in
-        ``user_role_assignments``, so a single role-assignment query subsumes
-        both the legacy workspace_permissions visibility and admin-assigned role
-        memberships (per #22864).
+        Return the set of workspaces ``username`` can see. Two-source union that
+        mirrors master's #22864 logic, with the legacy half adapted to the
+        post-migration storage shape:
+
+        - **Non-synthetic role assignments**: any role the user is assigned to
+          (admin-created, no permissions or otherwise) confers visibility on
+          its workspace. Matches #22864's "any role assignment counts".
+        - **Synthetic ``__user_<id>__`` roles**: only confer visibility if their
+          ``resource_type='*', resource_pattern='*'`` grant has ``can_read``.
+          This preserves the legacy ``workspace_permissions`` semantic where a
+          row with ``permission='NO_PERMISSIONS'`` hides the workspace; those
+          rows now live as the ``(*, *)`` grant on the synthetic role.
         """
         if username is None:
             return set()
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
-            rows = (
+            # All workspace/role-name pairs the user is assigned to.
+            assigned = (
                 session
-                .query(SqlRole.workspace)
+                .query(SqlRole.workspace, SqlRole.name)
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(SqlUserRoleAssignment.user_id == user.id)
                 .distinct()
                 .all()
             )
-            return {w for (w,) in rows}
+            accessible: set[str] = set()
+            synthetic_workspaces: set[str] = set()
+            for ws, role_name in assigned:
+                if self._is_synthetic_role_name(role_name):
+                    synthetic_workspaces.add(ws)
+                else:
+                    accessible.add(ws)
+
+            if synthetic_workspaces:
+                # For synthetic roles, only count workspaces where the (*, *) grant
+                # has can_read. A migrated NO_PERMISSIONS row keeps the workspace
+                # hidden.
+                synthetic_rows = (
+                    session
+                    .query(SqlRole.workspace, SqlRolePermission.permission)
+                    .join(SqlRolePermission, SqlRolePermission.role_id == SqlRole.id)
+                    .join(SqlUserRoleAssignment, SqlUserRoleAssignment.role_id == SqlRole.id)
+                    .filter(
+                        SqlUserRoleAssignment.user_id == user.id,
+                        SqlRole.workspace.in_(synthetic_workspaces),
+                        SqlRolePermission.resource_type == "*",
+                        SqlRolePermission.resource_pattern == "*",
+                    )
+                    .all()
+                )
+                accessible.update(
+                    ws for (ws, perm) in synthetic_rows if get_permission(perm).can_read
+                )
+            return accessible
 
     def get_workspace_permission(self, workspace_name: str, username: str) -> Permission | None:
         """
@@ -731,7 +789,12 @@ class SqlAlchemyStore:
 
     @staticmethod
     def _scorer_pattern(experiment_id: str, scorer_name: str) -> str:
-        return f"{experiment_id}/{scorer_name}"
+        # Scorer names may contain arbitrary characters including ``/`` (see
+        # ``validate_scorer_name``, which only forbids empty/whitespace). We
+        # URL-encode the name component so the pattern ``<experiment_id>/<name>``
+        # is unambiguous; the migration (``e5f6a7b8c9d0``) uses the same
+        # encoding, so post-migration and live grants line up.
+        return f"{experiment_id}/{quote(scorer_name, safe='')}"
 
     def create_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str
@@ -838,8 +901,11 @@ class SqlAlchemyStore:
             )
             out = []
             for pattern, permission in rows:
-                # Compound key encoded as "{experiment_id}/{scorer_name}".
-                exp_id, _, sname = pattern.partition("/")
+                # Compound key encoded as ``{experiment_id}/{url_quote(scorer_name)}``
+                # — see ``_scorer_pattern``. The first ``/`` is the delimiter; the
+                # scorer name is URL-decoded back to its raw form.
+                exp_id, _, sname_encoded = pattern.partition("/")
+                sname = unquote(sname_encoded)
                 out.append(
                     ScorerPermission(
                         experiment_id=exp_id,

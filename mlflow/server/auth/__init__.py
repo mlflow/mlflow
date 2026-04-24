@@ -186,9 +186,6 @@ from mlflow.server.auth.permissions import (
     Permission,
     get_permission,
 )
-from mlflow.server.auth.permissions import (
-    max_permission as max_permission,
-)
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
     AJAX_ADD_ROLE_PERMISSION,
@@ -771,8 +768,8 @@ def _role_permission_for(
 
     ``resource_key`` is the lookup key for ``role_permissions`` (may differ from the
     workspace-resolution id for composite resources, e.g. scorers use
-    ``f"{experiment_id}/{scorer_name}"`` as the role key but resolve the workspace via
-    the parent experiment).
+    ``SqlAlchemyStore._scorer_pattern(experiment_id, scorer_name)`` as the role key
+    but resolve the workspace via the parent experiment).
     """
 
     def _role_perm() -> Permission | None:
@@ -950,7 +947,7 @@ def _get_permission_from_scorer_name() -> Permission:
         _role_permission_for(
             username=username,
             resource_type="scorer",
-            resource_key=f"{experiment_id}/{name}",
+            resource_key=store._scorer_pattern(experiment_id, name),
             workspace_lookup_id=experiment_id,
             workspace_fetcher=_get_tracking_store().get_experiment,
             workspace_label="experiment",
@@ -966,7 +963,7 @@ def _get_permission_from_scorer_permission_request() -> Permission:
         _role_permission_for(
             username=username,
             resource_type="scorer",
-            resource_key=f"{experiment_id}/{scorer_name}",
+            resource_key=store._scorer_pattern(experiment_id, scorer_name),
             workspace_lookup_id=experiment_id,
             workspace_fetcher=_get_tracking_store().get_experiment,
             workspace_label="experiment",
@@ -3709,16 +3706,6 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
 
         permission = _get_role_permission_or_default(
             _role_permission_for(
-                username=username,
-                resource_type="gateway_endpoint",
-                resource_key=endpoint_id,
-                workspace_lookup_id=endpoint_id,
-                workspace_fetcher=lambda eid: _get_tracking_store().get_gateway_endpoint(
-                    endpoint_id=eid
-                ),
-                workspace_label="gateway endpoint",
-            ),
-            role_permission_func=_role_permission_for(
                 username=username,
                 resource_type="gateway_endpoint",
                 resource_key=endpoint_id,

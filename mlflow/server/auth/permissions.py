@@ -87,15 +87,20 @@ VALID_RESOURCE_TYPES = frozenset({
     "gateway_secret",
     "gateway_endpoint",
     "gateway_model_definition",
-    # Special: workspace-wide permissions that apply to all resources in the role's workspace.
-    # resource_pattern must be "*". permission=MANAGE additionally grants role/user
-    # management capabilities within the workspace.
+    # Special: workspace-wide permissions that apply to all resources in the role's
+    # workspace. resource_pattern must be "*". permission=MANAGE additionally grants
+    # role/user management capabilities within the workspace (workspace-admin).
     "workspace",
     # Special: a "default" permission on every resource of every type in the role's
     # workspace. resource_pattern must be "*". Used for the per-user workspace-wide
-    # grant that replaces the legacy `workspace_permissions` table — semantically
-    # distinct from `resource_type="workspace"` which conveys workspace-admin capability
-    # over role/user management.
+    # grant that replaces the legacy `workspace_permissions` table.
+    #
+    # Nominally distinct from `resource_type="workspace"`, but the workspace-admin
+    # helpers (``is_workspace_admin`` / ``list_workspace_admin_workspaces``) treat
+    # ``permission=MANAGE`` on ``resource_type="*"`` as admin-equivalent too, to
+    # preserve the legacy semantic where a MANAGE entry in ``workspace_permissions``
+    # conferred workspace-admin rights. Lower permission levels (READ/USE/EDIT) on
+    # ``resource_type="*"`` are a bare resource-access grant and do *not* imply admin.
     "*",
 })
 
