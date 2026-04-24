@@ -1871,6 +1871,9 @@ module.exports = {
   "mlflow.traces.issue-detection.view-issues-link": "",
   "mlflow.traces.issue-detection.view-traces-link": "",
 
+  // -- mlflow.traces-tab --
+  "mlflow.traces-tab.trace-count": "",
+
   // -- mlflow.traces-table --
   "mlflow.traces-table.column-header-tooltip": "",
   "mlflow.traces-table.group-by-session-button": "",
