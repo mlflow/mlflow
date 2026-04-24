@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
-import { AdminApi as RealAdminApi } from './api';
-import { MockAdminApi } from './mockApi';
+import { AdminApi } from './api';
 import type {
   CreateRoleRequest,
   UpdateRoleRequest,
@@ -13,16 +12,19 @@ import type {
 } from './types';
 
 /**
- * Opt-in dev flag to use the in-memory mock admin API.
+ * Opt-in dev flag to render the DevUserSwitcher (bottom-right floating toolbar).
  * Enable in the browser devtools console:
- *   localStorage.setItem('mlflow.settings.admin.enable-mock-api_v1', 'true')
+ *   localStorage.setItem('mlflow.settings.admin.enable-dev-user-switcher_v1', 'true')
  * Follows the same pattern as `mlflow.settings.telemetry.enable-dev-logging`.
  */
-export const ADMIN_ENABLE_MOCK_API_STORAGE_KEY = 'mlflow.settings.admin.enable-mock-api';
+export const ADMIN_ENABLE_DEV_USER_SWITCHER_STORAGE_KEY = 'mlflow.settings.admin.enable-dev-user-switcher';
 
-export const USE_MOCK_API: boolean = getLocalStorageItem(ADMIN_ENABLE_MOCK_API_STORAGE_KEY, 1, false, false);
-
-const AdminApi = USE_MOCK_API ? MockAdminApi : RealAdminApi;
+export const DEV_USER_SWITCHER_ENABLED: boolean = getLocalStorageItem(
+  ADMIN_ENABLE_DEV_USER_SWITCHER_STORAGE_KEY,
+  1,
+  false,
+  false,
+);
 
 /**
  * Returns whether the current user (from mlflow_user cookie) is an admin.
