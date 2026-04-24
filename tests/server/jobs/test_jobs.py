@@ -1302,7 +1302,7 @@ def test_update_job_progress_preserves_omitted_fields(tmp_path: Path):
     assert updated_job.progress_updated_at >= first_updated_at
 
 
-def test_update_job_progress_can_clear_fields_explicitly(tmp_path: Path):
+def test_update_job_progress_ignores_none_message_updates(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
 
@@ -1314,10 +1314,16 @@ def test_update_job_progress_can_clear_fields_explicitly(tmp_path: Path):
     )
     first_updated_at = store.get_job(job.job_id).progress_updated_at
 
-    store.update_job_progress(job.job_id, message=None, progress=None)
+    store.update_job_progress(
+        job.job_id,
+        message=None,
+        progress=JobProgress(phase="uploading", completed=1, total=2, unit="artifacts"),
+    )
     updated_job = store.get_job(job.job_id)
-    assert updated_job.status_message is None
-    assert updated_job.progress is None
+    assert updated_job.status_message == "Processing traces"
+    assert updated_job.progress == JobProgress(
+        phase="uploading", completed=1, total=2, unit="artifacts"
+    )
     assert updated_job.progress_updated_at is not None
     assert updated_job.progress_updated_at >= first_updated_at
 

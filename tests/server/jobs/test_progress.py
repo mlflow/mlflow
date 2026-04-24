@@ -95,21 +95,23 @@ def test_job_tracker_preserves_omitted_progress_fields():
         tracker.update_job_progress(progress=JobProgress(phase="scoring"))
 
         mock_store.update_job_progress.assert_called_once_with(
-            job_id, progress=JobProgress(phase="scoring")
+            job_id, message=None, progress=JobProgress(phase="scoring")
         )
 
 
-def test_job_tracker_can_clear_progress_fields_explicitly():
-    job_id = "test-job-progress-clear"
+def test_job_tracker_ignores_none_message_updates():
+    job_id = "test-job-progress-none-message"
     tracker = JobTracker(job_id)
 
     with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
         mock_store = mock.Mock()
         mock_get_store.return_value = mock_store
 
-        tracker.update_job_progress(message=None, progress=None)
+        tracker.update_job_progress(message=None, progress=JobProgress(phase="uploading"))
 
-        mock_store.update_job_progress.assert_called_once_with(job_id, message=None, progress=None)
+        mock_store.update_job_progress.assert_called_once_with(
+            job_id, message=None, progress=JobProgress(phase="uploading")
+        )
 
 
 def test_noop_tracker_does_nothing():
@@ -217,14 +219,14 @@ def test_update_job_progress_preserves_omitted_fields_on_active_tracker():
         update_job_progress(progress=JobProgress(phase="scoring"))
 
         mock_store.update_job_progress.assert_called_once_with(
-            job_id, progress=JobProgress(phase="scoring")
+            job_id, message=None, progress=JobProgress(phase="scoring")
         )
 
     _set_job_tracker(None)
 
 
-def test_update_job_progress_can_clear_fields_on_active_tracker():
-    job_id = "test-job-progress-clear-active"
+def test_update_job_progress_ignores_none_message_on_active_tracker():
+    job_id = "test-job-progress-none-message-active"
     tracker = JobTracker(job_id)
 
     with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
@@ -232,9 +234,11 @@ def test_update_job_progress_can_clear_fields_on_active_tracker():
         mock_get_store.return_value = mock_store
 
         _set_job_tracker(tracker)
-        update_job_progress(message=None, progress=None)
+        update_job_progress(message=None, progress=JobProgress(phase="uploading"))
 
-        mock_store.update_job_progress.assert_called_once_with(job_id, message=None, progress=None)
+        mock_store.update_job_progress.assert_called_once_with(
+            job_id, message=None, progress=JobProgress(phase="uploading")
+        )
 
     _set_job_tracker(None)
 

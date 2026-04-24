@@ -8,13 +8,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import developer_stable
 
 
-class _UnsetJobProgressField:
-    """Sentinel for distinguishing omitted progress updates from explicit clears."""
-
-
-_UNSET_JOB_PROGRESS_FIELD = _UnsetJobProgressField()
-
-
 class JobTerminalStateUpdateException(MlflowException):
     """Raised when attempting to update a job that is already terminal."""
 
@@ -184,8 +177,8 @@ class AbstractJobStore(ABC):
     def update_job_progress(
         self,
         job_id: str,
-        message: str | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
-        progress: JobProgress | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
+        message: str | None = None,
+        progress: JobProgress | None = None,
     ) -> None:
         """
         Update structured job progress fields.
@@ -198,10 +191,10 @@ class AbstractJobStore(ABC):
 
         Args:
             job_id: The ID of the job to update
-            message: Human-readable plain-text progress message. If omitted, the
-                existing value is preserved; pass ``None`` explicitly to clear it.
-            progress: Structured machine-readable progress payload. If omitted,
-                the existing value is preserved; pass ``None`` explicitly to clear it.
+            message: Human-readable plain-text progress message. ``None`` leaves
+                the existing value unchanged.
+            progress: Structured machine-readable progress payload. ``None``
+                leaves the existing value unchanged.
         """
         # Progress reporting is optional for job stores. Stores that support it
         # should override this method; others may treat progress updates as a no-op.

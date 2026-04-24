@@ -14,12 +14,7 @@ from mlflow.store.db.utils import (
     _safe_initialize_tables,
     create_sqlalchemy_engine_with_retry,
 )
-from mlflow.store.jobs.abstract_store import (
-    _UNSET_JOB_PROGRESS_FIELD,
-    AbstractJobStore,
-    JobTerminalStateUpdateException,
-    _UnsetJobProgressField,
-)
+from mlflow.store.jobs.abstract_store import AbstractJobStore, JobTerminalStateUpdateException
 from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -481,20 +476,20 @@ class SqlAlchemyJobStore(AbstractJobStore):
     def update_job_progress(
         self,
         job_id: str,
-        message: str | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
-        progress: JobProgress | None | _UnsetJobProgressField = _UNSET_JOB_PROGRESS_FIELD,
+        message: str | None = None,
+        progress: JobProgress | None = None,
     ) -> None:
         """
         Update structured progress fields for an in-flight job.
 
         Args:
             job_id: The ID of the job to update
-            message: Human-readable plain-text progress message. If omitted, the
-                existing value is preserved; pass ``None`` explicitly to clear it.
-            progress: Structured machine-readable progress payload. If omitted,
-                the existing value is preserved; pass ``None`` explicitly to clear it.
+            message: Human-readable plain-text progress message. ``None`` leaves
+                the existing value unchanged.
+            progress: Structured machine-readable progress payload. ``None``
+                leaves the existing value unchanged.
         """
-        if message is _UNSET_JOB_PROGRESS_FIELD and progress is _UNSET_JOB_PROGRESS_FIELD:
+        if message is None and progress is None:
             return
 
         with self.ManagedSessionMaker() as session:
@@ -504,9 +499,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))
 
             update_time = get_current_time_millis()
-            if message is not _UNSET_JOB_PROGRESS_FIELD:
+            if message is not None:
                 job.status_message = message
-            if progress is not _UNSET_JOB_PROGRESS_FIELD:
-                job.progress = progress.to_dict() if progress is not None else None
+            if progress is not None:
+                job.progress = progress.to_dict()
             job.progress_updated_at = update_time
             job.last_update_time = update_time
