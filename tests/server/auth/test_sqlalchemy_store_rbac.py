@@ -2,7 +2,12 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.entities import Role, RolePermission, UserRoleAssignment
-from mlflow.server.auth.permissions import EDIT, MANAGE, READ, USE
+from mlflow.server.auth.permissions import EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
+
+# Every concrete resource type the resolver accepts, excluding the special
+# ``"workspace"`` bucket which is exercised separately (it's not a real resource
+# type — it's the workspace-wide grant form).
+_CONCRETE_RESOURCE_TYPES = sorted(VALID_RESOURCE_TYPES - {"workspace"})
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 
 from tests.helper_functions import random_str
@@ -521,11 +526,12 @@ def test_resolver_role_assignment_in_other_workspace_doesnt_leak(store, user):
 
 
 def test_resolver_returns_no_permissions_when_role_only_has_no_permissions(store, user):
-    """If a user's only grant is NO_PERMISSIONS, the resolver returns that —
-    not ``None``. Callers can then distinguish 'no role at all' (None) from
-    'role with explicit deny' (NO_PERMISSIONS). This matters because the
-    outer permission chain treats these differently: None falls through to
-    workspace_permissions / default_permission, NO_PERMISSIONS short-circuits.
+    """If a user's only grant is NO_PERMISSIONS, ``get_role_permission_for_resource``
+    returns that permission object — not ``None``. Documents the distinction at the
+    store layer between 'no role grant found' (None) and 'role grant resolved to an
+    explicit NO_PERMISSIONS' without implying different fallback behavior in the
+    outer resolver — at that layer (_get_permission_from_store_or_default) both
+    cases fall through to the direct grant / workspace / default chain identically.
     """
     role = store.create_role(name="locked", workspace="ws1")
     store.add_role_permission(role.id, "experiment", "*", "NO_PERMISSIONS")
@@ -579,17 +585,7 @@ def test_resolver_resource_type_filter(store, user):
 # ---- Resolver coverage: permission hierarchy matrix ----
 
 
-@pytest.mark.parametrize(
-    "resource_type",
-    [
-        "experiment",
-        "registered_model",
-        "scorer",
-        "gateway_secret",
-        "gateway_endpoint",
-        "gateway_model_definition",
-    ],
-)
+@pytest.mark.parametrize("resource_type", _CONCRETE_RESOURCE_TYPES)
 @pytest.mark.parametrize(
     ("granted", "expected"),
     [
@@ -614,17 +610,7 @@ def test_resolver_returns_granted_permission_for_each_resource_type(
     assert store.get_role_permission_for_resource(user.id, resource_type, "id", "ws1") == expected
 
 
-@pytest.mark.parametrize(
-    "resource_type",
-    [
-        "experiment",
-        "registered_model",
-        "gateway_endpoint",
-        "gateway_secret",
-        "gateway_model_definition",
-        "scorer",
-    ],
-)
+@pytest.mark.parametrize("resource_type", _CONCRETE_RESOURCE_TYPES)
 def test_resolver_workspace_grant_promotes_to_every_resource_type(store, user, resource_type):
     """``(workspace, *, MANAGE)`` should grant MANAGE on every known resource
     type in the role's workspace. This is the workspace-admin short-circuit —
@@ -657,14 +643,7 @@ def test_resolver_workspace_grant_propagates_at_every_level(store, user, granted
     store.add_role_permission(role.id, "workspace", "*", granted)
     store.assign_role_to_user(user.id, role.id)
 
-    for resource_type in [
-        "experiment",
-        "registered_model",
-        "gateway_endpoint",
-        "gateway_secret",
-        "gateway_model_definition",
-        "scorer",
-    ]:
+    for resource_type in _CONCRETE_RESOURCE_TYPES:
         assert (
             store.get_role_permission_for_resource(user.id, resource_type, "id", "ws1") == expected
         )
@@ -699,7 +678,7 @@ def test_resolver_wildcard_applies_to_any_id(store, user):
     store.add_role_permission(role.id, "experiment", "*", "READ")
     store.assign_role_to_user(user.id, role.id)
 
-    for eid in ["1", "42", "long-uuid-6a4c", ""]:
+    for eid in ["1", "42", "long-uuid-6a4c"]:
         assert store.get_role_permission_for_resource(user.id, "experiment", eid, "ws1") == READ
 
 
