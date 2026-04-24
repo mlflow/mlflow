@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
 import {
@@ -26,7 +26,11 @@ import {
   isEvaluatingTracesInDetailsViewEnabled,
   shouldEnableTracesTableStatePersistence,
   SESSION_ID_METADATA_KEY,
+  MetricViewType,
+  AggregationType,
+  TraceMetricKey,
 } from '@databricks/web-shared/model-trace-explorer';
+import { useTraceMetricsQuery } from '../../../../pages/experiment-overview/hooks/useTraceMetricsQuery';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -55,6 +59,7 @@ import {
   ISSUES_COLUMN_ID,
   getSimulationColumnsToAdd,
   isSqlWarehouseTimeoutError,
+  shouldUseInfinitePaginatedTraces,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   GenAiTraceTableRowSelectionProvider,
@@ -116,6 +121,8 @@ const ContextProviders = ({
     </GenAiTracesMarkdownConverterProvider>
   );
 };
+
+const firedCountTelemetryForExperiments = new Set<string>();
 
 const TracesV3LogsImpl = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
@@ -380,19 +387,33 @@ const TracesV3LogsImpl = React.memo(
 
     const logTelemetryEvent = useLogTelemetryEvent();
 
+    const { data: allTimeTraceCountMetrics, isLoading: allTimeTraceCountLoading } = useTraceMetricsQuery({
+      experimentIds: singleExperimentId ? [singleExperimentId] : [],
+      viewType: MetricViewType.TRACES,
+      metricName: TraceMetricKey.TRACE_COUNT,
+      aggregations: [{ aggregation_type: AggregationType.COUNT }],
+      enabled: shouldUseInfinitePaginatedTraces() && !isQueryDisabled && !!singleExperimentId,
+    });
+    const allTimeTotalCount = allTimeTraceCountMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT];
+
     useEffect(() => {
-      if (!countInfo.logCountLoading && singleExperimentId) {
+      if (
+        !allTimeTraceCountLoading &&
+        singleExperimentId &&
+        !firedCountTelemetryForExperiments.has(singleExperimentId)
+      ) {
+        firedCountTelemetryForExperiments.add(singleExperimentId);
         logTelemetryEvent({
-          componentId: 'mlflow.traces-tab.count-info',
+          componentId: 'mlflow.traces-tab.trace-count',
           componentType: DesignSystemEventProviderComponentTypes.Card,
           componentViewId: singleExperimentId,
           eventType: DesignSystemEventProviderAnalyticsEventTypes.OnView,
           value: JSON.stringify({
-            totalTraces: countInfo.totalCount,
+            totalTraces: allTimeTotalCount,
           }),
         });
       }
-    }, [countInfo.logCountLoading, countInfo.totalCount, singleExperimentId, logTelemetryEvent]);
+    }, [allTimeTraceCountLoading, allTimeTotalCount, singleExperimentId, logTelemetryEvent]);
 
     const assessmentCountMetrics = useAssessmentCountMetrics({
       experimentIds,
