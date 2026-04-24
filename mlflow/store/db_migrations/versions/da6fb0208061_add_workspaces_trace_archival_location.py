@@ -1,7 +1,7 @@
 """add trace archival workspace columns
 
 Revision ID: da6fb0208061
-Revises: ae8bbe7743c9
+Revises: 7d34483879f0
 
 Create Date: 2026-04-03 10:50:46.501372
 

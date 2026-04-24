@@ -310,6 +310,27 @@ def test_create_workspace_rejects_invalid_trace_archival_location(
     mock_workspace_store.create_workspace.assert_not_called()
 
 
+def test_create_workspace_rejects_proxy_only_trace_archival_location(
+    app, mock_workspace_store, mock_tracking_store
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={
+                "name": "team-proxy",
+                "trace_archival_config": {"location": "mlflow-artifacts:/archive/team-proxy"},
+            },
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload["message"] == (
+        "Invalid value for 'trace_archival_config.location'. Trace archival location cannot use "
+        "the proxy-only `mlflow-artifacts:` scheme."
+    )
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
 def test_update_workspace_rejects_invalid_trace_archival_retention(app, mock_workspace_store):
     with app.test_client() as client:
         response = client.patch(
