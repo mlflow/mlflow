@@ -278,7 +278,18 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
                 </Button>
               </div>
             </div>
-            <GenAIModelSelection ref={modelSelectionRef} onValidityChange={handleModelSelectionValidityChange} />
+            <GenAIModelSelection
+              ref={modelSelectionRef}
+              onValidityChange={handleModelSelectionValidityChange}
+              showConfigureDirectly
+              componentId="mlflow.traces.issue-detection-modal"
+              description={
+                <FormattedMessage
+                  defaultMessage="Configure the model to power issue detection"
+                  description="Description for the model selection step in issue detection modal"
+                />
+              }
+            />
           </div>
         )}
       </Modal>

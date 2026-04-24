@@ -1,5 +1,5 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-import { waitFor } from '@testing-library/react';
+import { waitFor, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { renderWithDesignSystem } from '../../../../../common/utils/TestUtils.react18';
 import { GenAIModelSelection } from './GenAIModelSelection';
@@ -16,14 +16,27 @@ jest.mock('./GenAIApiKeyConfigurator', () => ({
 jest.mock('./GenAIAdvancedSettings', () => ({
   GenAIAdvancedSettings: () => <div data-testid="advanced-settings">Advanced Settings</div>,
 }));
+jest.mock('../../../../../gateway/components/endpoint-form', () => ({
+  CreateEndpointModal: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="create-endpoint-modal">Create Endpoint Modal</div> : null,
+}));
 const mockUseApiKeyConfiguration = jest.fn();
 jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration', () => ({
   useApiKeyConfiguration: (...args: any[]) => mockUseApiKeyConfiguration(...args),
 }));
 
+const mockEndpointQueryResult = (data: any[], isLoading = false) =>
+  jest.mocked(useEndpointsQuery).mockReturnValue({
+    data,
+    isLoading,
+    refetch: jest.fn(),
+  } as any);
+
 describe('GenAIModelSelection', () => {
   const defaultProps = {
     onValidityChange: jest.fn(),
+    componentId: 'issue-detection-modal',
+    description: 'Configure the model',
   };
 
   beforeEach(() => {
@@ -37,18 +50,15 @@ describe('GenAIModelSelection', () => {
   });
 
   test('defaults to endpoint mode when endpoints exist', async () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({
-      data: [
-        {
-          endpoint_id: 'ep-1',
-          name: 'test-endpoint',
-          model_mappings: [],
-          created_at: 0,
-          last_updated_at: 0,
-        },
-      ],
-      isLoading: false,
-    } as any);
+    mockEndpointQueryResult([
+      {
+        endpoint_id: 'ep-1',
+        name: 'test-endpoint',
+        model_mappings: [],
+        created_at: 0,
+        last_updated_at: 0,
+      },
+    ]);
 
     const ref = React.createRef<any>();
     renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
@@ -59,10 +69,7 @@ describe('GenAIModelSelection', () => {
   });
 
   test('defaults to direct mode when no endpoints exist', async () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({
-      data: [],
-      isLoading: false,
-    } as any);
+    mockEndpointQueryResult([]);
 
     const ref = React.createRef<any>();
     renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
@@ -73,10 +80,7 @@ describe('GenAIModelSelection', () => {
   });
 
   test('shows loading state while fetching endpoints', async () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({
-      data: [],
-      isLoading: true,
-    } as any);
+    mockEndpointQueryResult([], true);
 
     const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
@@ -84,18 +88,15 @@ describe('GenAIModelSelection', () => {
   });
 
   test('shows endpoint dropdown when endpoints exist', () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({
-      data: [
-        {
-          endpoint_id: 'ep-1',
-          name: 'test-endpoint',
-          model_mappings: [],
-          created_at: 0,
-          last_updated_at: 0,
-        },
-      ],
-      isLoading: false,
-    } as any);
+    mockEndpointQueryResult([
+      {
+        endpoint_id: 'ep-1',
+        name: 'test-endpoint',
+        model_mappings: [],
+        created_at: 0,
+        last_updated_at: 0,
+      },
+    ]);
 
     const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
@@ -104,25 +105,22 @@ describe('GenAIModelSelection', () => {
   });
 
   test('auto-selects first endpoint when endpoints are available', async () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({
-      data: [
-        {
-          endpoint_id: 'ep-1',
-          name: 'first-endpoint',
-          model_mappings: [],
-          created_at: 0,
-          last_updated_at: 0,
-        },
-        {
-          endpoint_id: 'ep-2',
-          name: 'second-endpoint',
-          model_mappings: [],
-          created_at: 0,
-          last_updated_at: 0,
-        },
-      ],
-      isLoading: false,
-    } as any);
+    mockEndpointQueryResult([
+      {
+        endpoint_id: 'ep-1',
+        name: 'first-endpoint',
+        model_mappings: [],
+        created_at: 0,
+        last_updated_at: 0,
+      },
+      {
+        endpoint_id: 'ep-2',
+        name: 'second-endpoint',
+        model_mappings: [],
+        created_at: 0,
+        last_updated_at: 0,
+      },
+    ]);
 
     const ref = React.createRef<any>();
     renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
@@ -133,10 +131,7 @@ describe('GenAIModelSelection', () => {
   });
 
   test('auto-selects first existing API key when secrets are available', async () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({
-      data: [],
-      isLoading: false,
-    } as any);
+    mockEndpointQueryResult([]);
     mockUseApiKeyConfiguration.mockReturnValue({
       existingSecrets: [
         { secret_id: 'secret-1', secret_name: 'My Key', provider: 'openai', masked_values: {} },
@@ -158,10 +153,7 @@ describe('GenAIModelSelection', () => {
   });
 
   test('hides endpoint dropdown when no endpoints exist', () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({
-      data: [],
-      isLoading: false,
-    } as any);
+    mockEndpointQueryResult([]);
 
     const { queryByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
@@ -247,5 +239,94 @@ describe('GenAIModelSelection', () => {
       expect(config.mode).toBe('new');
       expect(config.newSecret.name).toBe('provided-key');
     });
+  });
+
+  test('shows "Configure model directly" option when showConfigureDirectly is true', () => {
+    mockEndpointQueryResult([
+      {
+        endpoint_id: 'ep-1',
+        name: 'test-endpoint',
+        model_mappings: [],
+        created_at: 0,
+        last_updated_at: 0,
+      },
+    ]);
+
+    const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showConfigureDirectly />);
+
+    fireEvent.click(getByText('test-endpoint'));
+    expect(getByText('Configure model directly')).toBeInTheDocument();
+  });
+
+  test('hides "Configure model directly" option by default', () => {
+    mockEndpointQueryResult([
+      {
+        endpoint_id: 'ep-1',
+        name: 'test-endpoint',
+        model_mappings: [],
+        created_at: 0,
+        last_updated_at: 0,
+      },
+    ]);
+
+    const { getByText, queryByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
+
+    fireEvent.click(getByText('test-endpoint'));
+    expect(queryByText('Configure model directly')).not.toBeInTheDocument();
+  });
+
+  test('shows "Create Gateway endpoint" option when showCreateEndpoint is true', () => {
+    mockEndpointQueryResult([
+      {
+        endpoint_id: 'ep-1',
+        name: 'test-endpoint',
+        model_mappings: [],
+        created_at: 0,
+        last_updated_at: 0,
+      },
+    ]);
+
+    const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showCreateEndpoint />);
+
+    fireEvent.click(getByText('test-endpoint'));
+    expect(getByText('Create Gateway endpoint')).toBeInTheDocument();
+  });
+
+  test('hides "Create Gateway endpoint" option by default', () => {
+    mockEndpointQueryResult([
+      {
+        endpoint_id: 'ep-1',
+        name: 'test-endpoint',
+        model_mappings: [],
+        created_at: 0,
+        last_updated_at: 0,
+      },
+    ]);
+
+    const { getByText, queryByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
+
+    fireEvent.click(getByText('test-endpoint'));
+    expect(queryByText('Create Gateway endpoint')).not.toBeInTheDocument();
+  });
+
+  test('opens create endpoint modal when "Create Gateway endpoint" is clicked', () => {
+    mockEndpointQueryResult([
+      {
+        endpoint_id: 'ep-1',
+        name: 'test-endpoint',
+        model_mappings: [],
+        created_at: 0,
+        last_updated_at: 0,
+      },
+    ]);
+
+    const { getByText, queryByTestId } = renderWithDesignSystem(
+      <GenAIModelSelection {...defaultProps} showCreateEndpoint />,
+    );
+
+    fireEvent.click(getByText('test-endpoint'));
+    expect(queryByTestId('create-endpoint-modal')).not.toBeInTheDocument();
+    fireEvent.click(getByText('Create Gateway endpoint'));
+    expect(queryByTestId('create-endpoint-modal')).toBeInTheDocument();
   });
 });
