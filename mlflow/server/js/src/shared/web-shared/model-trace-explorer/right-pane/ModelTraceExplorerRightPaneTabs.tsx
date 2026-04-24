@@ -90,7 +90,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
         <div
           css={{
             position: 'absolute',
-            right: theme.spacing.md,
+            right: theme.spacing.sm,
             top: theme.spacing.xs,
             zIndex: 1,
             backgroundColor: theme.colors.backgroundPrimary,

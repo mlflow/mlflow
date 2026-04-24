@@ -75,7 +75,7 @@ export const ModelTraceExplorerSummarySpans = ({
     >
       {!hideRenderModeSelector && (
         <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', marginBlock: theme.spacing.sm }}>
-          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+          <div css={{ display: 'flex', gap: theme.spacing.sm, paddingInline: theme.spacing.sm }}>
             <SegmentedControlGroup
               name="render-mode"
               componentId="shared.model-trace-explorer.summary-view.render-mode"
@@ -157,7 +157,7 @@ export const ModelTraceExplorerSummarySpans = ({
               onClick={() => setIntermediateNodesExpanded(true)}
             >
               <FormattedMessage
-                defaultMessage="Show {count} more intermediate steps"
+                defaultMessage="Show {count} more intermediate {count, plural, =1 {step} other {steps}}"
                 description="Link that expands a collapsed list of intermediate function execution steps when clicked"
                 values={{
                   count: intermediateNodes.length - INTERMEDIATE_NODES_TRUNCATION_LIMIT,

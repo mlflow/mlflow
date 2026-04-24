@@ -62,6 +62,9 @@ class DeepEvalScorer(Scorer):
     """
 
     _metric: Any = PrivateAttr()
+    _metric_kwargs: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _metric_name: str = PrivateAttr(default="")
+    _model: str | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -79,14 +82,16 @@ class DeepEvalScorer(Scorer):
         metric_class = get_metric_class(metric_name)
 
         self._is_deterministic = is_deterministic_metric(metric_name)
+        self._metric_name = metric_name
+        self._metric_kwargs = dict(metric_kwargs)
 
         if self._is_deterministic:
             # Deterministic metrics don't need a model
             self._metric = metric_class(**metric_kwargs)
-            self._model_uri = None
+            self._model = None
         else:
             model = model or get_default_model()
-            self._model_uri = model
+            self._model = model
             deepeval_model = create_deepeval_model(model, model_kwargs=model_kwargs)
             self._metric = metric_class(
                 model=deepeval_model,
@@ -98,25 +103,6 @@ class DeepEvalScorer(Scorer):
     @property
     def kind(self) -> ScorerKind:
         return ScorerKind.THIRD_PARTY
-
-    def _raise_registration_not_supported(self, method_name: str):
-        raise MlflowException.invalid_parameter_value(
-            f"'{method_name}()' is not supported for third-party scorers like DeepEval. "
-            f"Third-party scorers cannot be registered, started, updated, or stopped. "
-            f"Use them directly in mlflow.genai.evaluate() instead."
-        )
-
-    def register(self, **kwargs):
-        self._raise_registration_not_supported("register")
-
-    def start(self, **kwargs):
-        self._raise_registration_not_supported("start")
-
-    def update(self, **kwargs):
-        self._raise_registration_not_supported("update")
-
-    def stop(self, **kwargs):
-        self._raise_registration_not_supported("stop")
 
     def align(self, **kwargs):
         raise MlflowException.invalid_parameter_value(
@@ -157,7 +143,7 @@ class DeepEvalScorer(Scorer):
             source_id = None
         else:
             source_type = AssessmentSourceType.LLM_JUDGE
-            source_id = self._model_uri
+            source_id = self._model
 
         assessment_source = AssessmentSource(
             source_type=source_type,

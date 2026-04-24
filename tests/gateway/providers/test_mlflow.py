@@ -266,6 +266,7 @@ async def test_chat():
             "created": 1700242674,
             "object": "chat.completion",
             "model": "chat-bot-9000",
+            "provider": "mlflow-model-serving",
             "choices": [
                 {
                     "message": {
