@@ -250,7 +250,6 @@ async def test_sanitization_uses_json_object_response_format():
 
 @pytest.mark.asyncio
 async def test_sanitization_uses_response_format_for_chat_response():
-    """response_format uses ChatCompletionResponse schema when the payload looks like a response."""
     scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
     guard = JudgeGuardrail(
         scorer,
@@ -277,7 +276,6 @@ async def test_sanitization_uses_response_format_for_chat_response():
 
 @pytest.mark.asyncio
 async def test_sanitization_skips_response_format_for_passthrough_payload():
-    """response_format is omitted when the payload doesn't match chat-completion schemas."""
     scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
     guard = JudgeGuardrail(
         scorer,
