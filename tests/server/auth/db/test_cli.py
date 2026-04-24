@@ -20,13 +20,6 @@ def test_upgrade(tmp_path: Path) -> None:
     assert sorted(tables) == sorted([
         ("alembic_version_auth",),
         ("users",),
-        ("experiment_permissions",),
-        ("registered_model_permissions",),
-        ("scorer_permissions",),
-        ("gateway_secret_permissions",),
-        ("gateway_endpoint_permissions",),
-        ("gateway_model_definition_permissions",),
-        ("workspace_permissions",),
         ("roles",),
         ("role_permissions",),
         ("user_role_assignments",),
@@ -54,15 +47,20 @@ def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
     assert "alembic_version" in tables
     assert "alembic_version_auth" in tables
     assert "users" in tables
-    assert "experiment_permissions" in tables
-    assert "registered_model_permissions" in tables
-    assert "scorer_permissions" in tables
-    assert "gateway_secret_permissions" in tables
-    assert "gateway_endpoint_permissions" in tables
-    assert "gateway_model_definition_permissions" in tables
-    assert "workspace_permissions" in tables
+    assert "roles" in tables
+    assert "role_permissions" in tables
+    assert "user_role_assignments" in tables
     assert "experiments" in tables
     assert "runs" in tables
+    # Legacy per-resource permission tables are dropped by the
+    # ``e5f6a7b8c9d0`` migration after backfill.
+    assert "experiment_permissions" not in tables
+    assert "registered_model_permissions" not in tables
+    assert "scorer_permissions" not in tables
+    assert "gateway_secret_permissions" not in tables
+    assert "gateway_endpoint_permissions" not in tables
+    assert "gateway_model_definition_permissions" not in tables
+    assert "workspace_permissions" not in tables
 
 
 def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
@@ -123,12 +121,13 @@ def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
 
     assert "alembic_version_auth" in tables
     assert "users" in tables
-    assert "experiment_permissions" in tables
-    assert "scorer_permissions" in tables
-    assert "registered_model_permissions" in tables
-    assert "workspace_permissions" in tables
     assert "roles" in tables
     assert "role_permissions" in tables
     assert "user_role_assignments" in tables
+    # Legacy tables are dropped by ``e5f6a7b8c9d0`` after backfill.
+    assert "experiment_permissions" not in tables
+    assert "scorer_permissions" not in tables
+    assert "registered_model_permissions" not in tables
+    assert "workspace_permissions" not in tables
     assert version[0] == "e5f6a7b8c9d0"
     assert user == ("testuser", 1)

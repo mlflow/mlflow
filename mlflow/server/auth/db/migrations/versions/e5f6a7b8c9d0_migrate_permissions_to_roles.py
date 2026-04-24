@@ -176,9 +176,16 @@ def upgrade() -> None:
         ),
     )
 
-    # NOTE: Legacy tables are NOT dropped yet in this step of the migration. Once the
-    # store code no longer references them (later commits in this PR), a follow-up
-    # stanza here will ``op.drop_table(...)`` each of the 7 legacy tables.
+    # Drop the legacy per-resource permission tables now that all data has been
+    # copied into ``role_permissions`` under synthetic ``__user_<id>__`` roles and the
+    # store/handler code no longer reads them.
+    op.drop_table("experiment_permissions")
+    op.drop_table("registered_model_permissions")
+    op.drop_table("scorer_permissions")
+    op.drop_table("gateway_secret_permissions")
+    op.drop_table("gateway_endpoint_permissions")
+    op.drop_table("gateway_model_definition_permissions")
+    op.drop_table("workspace_permissions")
 
 
 def downgrade() -> None:

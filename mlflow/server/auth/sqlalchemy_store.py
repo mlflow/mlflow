@@ -14,17 +14,10 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server.auth.db import utils as dbutils
 from mlflow.server.auth.db.models import (
-    SqlExperimentPermission,
-    SqlGatewayEndpointPermission,
-    SqlGatewayModelDefinitionPermission,
-    SqlGatewaySecretPermission,
-    SqlRegisteredModelPermission,
     SqlRole,
     SqlRolePermission,
-    SqlScorerPermission,
     SqlUser,
     SqlUserRoleAssignment,
-    SqlWorkspacePermission,
 )
 from mlflow.server.auth.entities import (
     ExperimentPermission,
@@ -249,83 +242,122 @@ class SqlAlchemyStore:
     ) -> ExperimentPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
-            try:
-                user = self._get_user(session, username=username)
-                perm = SqlExperimentPermission(
-                    experiment_id=experiment_id, user_id=user.id, permission=permission
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            existing = (
+                session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == "experiment",
+                    SqlRolePermission.resource_pattern == experiment_id,
                 )
-                session.add(perm)
-                session.flush()
-                return perm.to_mlflow_entity()
-            except IntegrityError as e:
+                .first()
+            )
+            if existing is not None:
                 raise MlflowException(
-                    f"Experiment permission (experiment_id={experiment_id}, username={username}) "
-                    f"already exists. Error: {e}",
+                    f"Experiment permission (experiment_id={experiment_id}, "
+                    f"username={username}) already exists.",
                     RESOURCE_ALREADY_EXISTS,
                 )
-
-    def _get_experiment_permission(
-        self, session, experiment_id: str, username: str
-    ) -> SqlExperimentPermission:
-        try:
-            user = self._get_user(session, username=username)
-            return (
-                session
-                .query(SqlExperimentPermission)
-                .filter(
-                    SqlExperimentPermission.experiment_id == experiment_id,
-                    SqlExperimentPermission.user_id == user.id,
+            session.add(
+                SqlRolePermission(
+                    role_id=role.id,
+                    resource_type="experiment",
+                    resource_pattern=experiment_id,
+                    permission=permission,
                 )
-                .one()
             )
-        except NoResultFound:
+            session.flush()
+            return ExperimentPermission(
+                experiment_id=experiment_id, user_id=user.id, permission=permission
+            )
+
+    def _get_experiment_permission_row(
+        self, session, experiment_id: str, username: str
+    ) -> tuple[SqlUser, SqlRolePermission]:
+        user = self._get_user(session, username=username)
+        workspace_name = self._get_active_workspace_name()
+        role = (
+            session
+            .query(SqlRole)
+            .filter(
+                SqlRole.workspace == workspace_name,
+                SqlRole.name == self._synthetic_user_role_name(user.id),
+            )
+            .first()
+        )
+        rp = (
+            None
+            if role is None
+            else session
+            .query(SqlRolePermission)
+            .filter(
+                SqlRolePermission.role_id == role.id,
+                SqlRolePermission.resource_type == "experiment",
+                SqlRolePermission.resource_pattern == experiment_id,
+            )
+            .first()
+        )
+        if rp is None:
             raise MlflowException(
                 f"Experiment permission with experiment_id={experiment_id} and "
                 f"username={username} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        except MultipleResultsFound:
-            raise MlflowException(
-                f"Found multiple experiment permissions with experiment_id={experiment_id} "
-                f"and username={username}",
-                INVALID_STATE,
-            )
+        return user, rp
 
     def get_experiment_permission(self, experiment_id: str, username: str) -> ExperimentPermission:
         with self.ManagedSessionMaker() as session:
-            return self._get_experiment_permission(
-                session, experiment_id, username
-            ).to_mlflow_entity()
+            user, rp = self._get_experiment_permission_row(session, experiment_id, username)
+            return ExperimentPermission(
+                experiment_id=experiment_id, user_id=user.id, permission=rp.permission
+            )
 
     def list_experiment_permissions(self, username: str) -> list[ExperimentPermission]:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
-            perms = (
+            rows = (
                 session
-                .query(SqlExperimentPermission)
-                .filter(SqlExperimentPermission.user_id == user.id)
+                .query(SqlRolePermission.resource_pattern, SqlRolePermission.permission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .filter(
+                    SqlRole.name == self._synthetic_user_role_name(user.id),
+                    SqlRolePermission.resource_type == "experiment",
+                )
                 .all()
             )
-            return [p.to_mlflow_entity() for p in perms]
+            return [
+                ExperimentPermission(experiment_id=pattern, user_id=user.id, permission=permission)
+                for pattern, permission in rows
+            ]
 
     def update_experiment_permission(
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
-            perm = self._get_experiment_permission(session, experiment_id, username)
-            perm.permission = permission
-            return perm.to_mlflow_entity()
+            user, rp = self._get_experiment_permission_row(session, experiment_id, username)
+            rp.permission = permission
+            return ExperimentPermission(
+                experiment_id=experiment_id, user_id=user.id, permission=permission
+            )
 
     def delete_experiment_permission(self, experiment_id: str, username: str):
         with self.ManagedSessionMaker() as session:
-            perm = self._get_experiment_permission(session, experiment_id, username)
-            session.delete(perm)
+            _, rp = self._get_experiment_permission_row(session, experiment_id, username)
+            session.delete(rp)
 
     def delete_workspace_permissions_for_workspace(self, workspace_name: str) -> None:
         with self.ManagedSessionMaker() as session:
-            session.query(SqlWorkspacePermission).filter(
-                SqlWorkspacePermission.workspace == workspace_name
+            role_ids = self._synthetic_role_ids(session, workspace=workspace_name)
+            if not role_ids:
+                return
+            session.query(SqlRolePermission).filter(
+                SqlRolePermission.role_id.in_(role_ids),
+                SqlRolePermission.resource_type == "*",
+                SqlRolePermission.resource_pattern == "*",
             ).delete(synchronize_session=False)
 
     def create_registered_model_permission(
@@ -333,90 +365,126 @@ class SqlAlchemyStore:
     ) -> RegisteredModelPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
-            try:
-                user = self._get_user(session, username=username)
-                workspace_name = self._get_active_workspace_name()
-                perm = SqlRegisteredModelPermission(
-                    workspace=workspace_name,
-                    name=name,
-                    user_id=user.id,
-                    permission=permission,
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            existing = (
+                session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == "registered_model",
+                    SqlRolePermission.resource_pattern == name,
                 )
-                session.add(perm)
-                session.flush()
-                return perm.to_mlflow_entity()
-            except IntegrityError as e:
+                .first()
+            )
+            if existing is not None:
                 raise MlflowException(
                     "Registered model permission "
                     f"with workspace={workspace_name}, name={name} and username={username} "
-                    f"already exists. Error: {e}",
+                    "already exists.",
                     RESOURCE_ALREADY_EXISTS,
                 )
-
-    def _get_registered_model_permission(
-        self, session, name: str, username: str
-    ) -> SqlRegisteredModelPermission:
-        try:
-            user = self._get_user(session, username=username)
-            workspace_name = self._get_active_workspace_name()
-            return (
-                session
-                .query(SqlRegisteredModelPermission)
-                .filter(
-                    SqlRegisteredModelPermission.workspace == workspace_name,
-                    SqlRegisteredModelPermission.name == name,
-                    SqlRegisteredModelPermission.user_id == user.id,
+            session.add(
+                SqlRolePermission(
+                    role_id=role.id,
+                    resource_type="registered_model",
+                    resource_pattern=name,
+                    permission=permission,
                 )
-                .one()
             )
-        except NoResultFound:
+            session.flush()
+            return RegisteredModelPermission(
+                workspace=workspace_name, name=name, user_id=user.id, permission=permission
+            )
+
+    def _get_registered_model_permission_row(
+        self, session, name: str, username: str
+    ) -> tuple[SqlUser, str, SqlRolePermission]:
+        user = self._get_user(session, username=username)
+        workspace_name = self._get_active_workspace_name()
+        role = (
+            session
+            .query(SqlRole)
+            .filter(
+                SqlRole.workspace == workspace_name,
+                SqlRole.name == self._synthetic_user_role_name(user.id),
+            )
+            .first()
+        )
+        rp = (
+            None
+            if role is None
+            else session
+            .query(SqlRolePermission)
+            .filter(
+                SqlRolePermission.role_id == role.id,
+                SqlRolePermission.resource_type == "registered_model",
+                SqlRolePermission.resource_pattern == name,
+            )
+            .first()
+        )
+        if rp is None:
             raise MlflowException(
                 "Registered model permission "
                 f"with workspace={workspace_name}, name={name} and username={username} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        except MultipleResultsFound:
-            raise MlflowException(
-                "Registered model permission "
-                f"with workspace={workspace_name}, name={name} and username={username} "
-                "found multiple times",
-                INVALID_STATE,
-            )
+        return user, workspace_name, rp
 
     def get_registered_model_permission(
         self, name: str, username: str
     ) -> RegisteredModelPermission:
         with self.ManagedSessionMaker() as session:
-            return self._get_registered_model_permission(session, name, username).to_mlflow_entity()
+            user, workspace_name, rp = self._get_registered_model_permission_row(
+                session, name, username
+            )
+            return RegisteredModelPermission(
+                workspace=workspace_name, name=name, user_id=user.id, permission=rp.permission
+            )
 
     def list_registered_model_permissions(self, username: str) -> list[RegisteredModelPermission]:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
-            perms = (
+            rows = (
                 session
-                .query(SqlRegisteredModelPermission)
+                .query(SqlRolePermission.resource_pattern, SqlRolePermission.permission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
                 .filter(
-                    SqlRegisteredModelPermission.user_id == user.id,
-                    SqlRegisteredModelPermission.workspace == workspace_name,
+                    SqlRole.workspace == workspace_name,
+                    SqlRole.name == self._synthetic_user_role_name(user.id),
+                    SqlRolePermission.resource_type == "registered_model",
                 )
                 .all()
             )
-            return [p.to_mlflow_entity() for p in perms]
+            return [
+                RegisteredModelPermission(
+                    workspace=workspace_name,
+                    name=pattern,
+                    user_id=user.id,
+                    permission=permission,
+                )
+                for pattern, permission in rows
+            ]
 
     def update_registered_model_permission(
         self, name: str, username: str, permission: str
     ) -> RegisteredModelPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
-            perm = self._get_registered_model_permission(session, name, username)
-            perm.permission = permission
-            return perm.to_mlflow_entity()
+            user, workspace_name, rp = self._get_registered_model_permission_row(
+                session, name, username
+            )
+            rp.permission = permission
+            return RegisteredModelPermission(
+                workspace=workspace_name, name=name, user_id=user.id, permission=permission
+            )
 
     def delete_registered_model_permission(self, name: str, username: str):
         with self.ManagedSessionMaker() as session:
-            perm = self._get_registered_model_permission(session, name, username)
-            session.delete(perm)
+            _, _, rp = self._get_registered_model_permission_row(session, name, username)
+            session.delete(rp)
 
     def delete_registered_model_permissions(self, name: str) -> None:
         """
@@ -425,82 +493,143 @@ class SqlAlchemyStore:
 
         This is primarily used as cleanup when a registered model is deleted to ensure that
         previously granted permissions do not implicitly carry over if a new model is later created
-        with the same name.
+        with the same name. Synthetic-role-only — admin-created roles with an overlapping
+        registered_model grant are untouched.
         """
         with self.ManagedSessionMaker() as session:
             workspace_name = self._get_active_workspace_name()
-            session.query(SqlRegisteredModelPermission).filter(
-                SqlRegisteredModelPermission.workspace == workspace_name,
-                SqlRegisteredModelPermission.name == name,
+            role_ids = self._synthetic_role_ids(session, workspace=workspace_name)
+            if not role_ids:
+                return
+            session.query(SqlRolePermission).filter(
+                SqlRolePermission.role_id.in_(role_ids),
+                SqlRolePermission.resource_type == "registered_model",
+                SqlRolePermission.resource_pattern == name,
             ).delete(synchronize_session=False)
 
     def rename_registered_model_permissions(self, old_name: str, new_name: str):
+        # Synthetic-role-only rename; admin-created roles with a grant on ``old_name``
+        # are untouched so we don't accidentally mutate their grants.
         with self.ManagedSessionMaker() as session:
             workspace_name = self._get_active_workspace_name()
-            perms = (
-                session
-                .query(SqlRegisteredModelPermission)
-                .filter(
-                    SqlRegisteredModelPermission.workspace == workspace_name,
-                    SqlRegisteredModelPermission.name == old_name,
-                )
-                .all()
+            role_ids = self._synthetic_role_ids(session, workspace=workspace_name)
+            if not role_ids:
+                return
+            session.query(SqlRolePermission).filter(
+                SqlRolePermission.role_id.in_(role_ids),
+                SqlRolePermission.resource_type == "registered_model",
+                SqlRolePermission.resource_pattern == old_name,
+            ).update({SqlRolePermission.resource_pattern: new_name}, synchronize_session=False)
+
+    def _list_workspace_perm_rows(
+        self,
+        session,
+        *,
+        workspace_name: str | None = None,
+        user_id: int | None = None,
+    ) -> list[tuple[SqlRole, SqlRolePermission]]:
+        query = (
+            session
+            .query(SqlRole, SqlRolePermission)
+            .join(SqlRolePermission, SqlRolePermission.role_id == SqlRole.id)
+            .filter(
+                SqlRolePermission.resource_type == "*",
+                SqlRolePermission.resource_pattern == "*",
             )
-            for perm in perms:
-                perm.name = new_name
+        )
+        if workspace_name is not None:
+            query = query.filter(SqlRole.workspace == workspace_name)
+        if user_id is not None:
+            query = query.join(
+                SqlUserRoleAssignment, SqlUserRoleAssignment.role_id == SqlRole.id
+            ).filter(SqlUserRoleAssignment.user_id == user_id)
+        return [(role, rp) for (role, rp) in query.all() if self._is_synthetic_role_name(role.name)]
+
+    @classmethod
+    def _user_id_from_synthetic_role_name(cls, name: str) -> int:
+        return int(name[len(cls._SYNTHETIC_ROLE_PREFIX) : -len(cls._SYNTHETIC_ROLE_SUFFIX)])
 
     def list_workspace_permissions(self, workspace_name: str) -> list[WorkspacePermission]:
         with self.ManagedSessionMaker() as session:
-            rows = (
-                session
-                .query(SqlWorkspacePermission)
-                .filter(SqlWorkspacePermission.workspace == workspace_name)
-                .all()
-            )
-            return [row.to_mlflow_entity() for row in rows]
+            rows = self._list_workspace_perm_rows(session, workspace_name=workspace_name)
+            return [
+                WorkspacePermission(
+                    workspace=role.workspace,
+                    user_id=self._user_id_from_synthetic_role_name(role.name),
+                    permission=rp.permission,
+                )
+                for (role, rp) in rows
+            ]
 
     def list_user_workspace_permissions(self, username: str) -> list[WorkspacePermission]:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
-            rows = (
-                session
-                .query(SqlWorkspacePermission)
-                .filter(SqlWorkspacePermission.user_id == user.id)
-                .all()
-            )
-            return [row.to_mlflow_entity() for row in rows]
+            rows = self._list_workspace_perm_rows(session, user_id=user.id)
+            return [
+                WorkspacePermission(
+                    workspace=role.workspace,
+                    user_id=user.id,
+                    permission=rp.permission,
+                )
+                for (role, rp) in rows
+            ]
 
     def set_workspace_permission(
         self, workspace_name: str, username: str, permission: str
     ) -> WorkspacePermission:
         _validate_permission(permission)
-
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
-            entity = session.get(
-                SqlWorkspacePermission,
-                (workspace_name, user.id),
-            )
-            if entity is None:
-                entity = SqlWorkspacePermission(
-                    workspace=workspace_name,
-                    user_id=user.id,
-                    permission=permission,
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            existing = (
+                session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == "*",
+                    SqlRolePermission.resource_pattern == "*",
                 )
-                session.add(entity)
+                .first()
+            )
+            if existing is None:
+                session.add(
+                    SqlRolePermission(
+                        role_id=role.id,
+                        resource_type="*",
+                        resource_pattern="*",
+                        permission=permission,
+                    )
+                )
             else:
-                entity.permission = permission
+                existing.permission = permission
             session.flush()
-            return entity.to_mlflow_entity()
+            return WorkspacePermission(
+                workspace=workspace_name, user_id=user.id, permission=permission
+            )
 
     def delete_workspace_permission(self, workspace_name: str, username: str) -> None:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
-            entity = session.get(
-                SqlWorkspacePermission,
-                (workspace_name, user.id),
+            role_name = self._synthetic_user_role_name(user.id)
+            role = (
+                session
+                .query(SqlRole)
+                .filter(SqlRole.workspace == workspace_name, SqlRole.name == role_name)
+                .first()
             )
-            if entity is None:
+            existing = None
+            if role is not None:
+                existing = (
+                    session
+                    .query(SqlRolePermission)
+                    .filter(
+                        SqlRolePermission.role_id == role.id,
+                        SqlRolePermission.resource_type == "*",
+                        SqlRolePermission.resource_pattern == "*",
+                    )
+                    .first()
+                )
+            if existing is None:
                 raise MlflowException(
                     (
                         "Workspace permission does not exist for "
@@ -508,32 +637,23 @@ class SqlAlchemyStore:
                     ),
                     RESOURCE_DOES_NOT_EXIST,
                 )
-            session.delete(entity)
+            session.delete(existing)
 
     def list_accessible_workspace_names(self, username: str | None) -> set[str]:
+        """
+        Return the set of workspaces the user can see — i.e. every workspace they
+        have a role assignment in. After this migration, the former
+        ``workspace_permissions`` rows live as ``resource_type='*'`` grants on each
+        user's synthetic ``__user_<id>__`` role, which is itself entered in
+        ``user_role_assignments``, so a single role-assignment query subsumes
+        both the legacy workspace_permissions visibility and admin-assigned role
+        memberships (per #22864).
+        """
         if username is None:
             return set()
-
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
-
-            # Legacy workspace_permissions grants (pre-RBAC): filter to
-            # permissions that actually convey read access.
-            legacy_rows: list[SqlWorkspacePermission] = (
-                session
-                .query(SqlWorkspacePermission)
-                .filter(SqlWorkspacePermission.user_id == user.id)
-                .all()
-            )
-            accessible: set[str] = {
-                row.workspace for row in legacy_rows if get_permission(row.permission).can_read
-            }
-
-            # Role-based: being assigned to any role in a workspace implies
-            # membership and therefore visibility of that workspace, even if
-            # the role's resource-level permissions don't individually grant
-            # read on workspace_permissions.
-            role_rows = (
+            rows = (
                 session
                 .query(SqlRole.workspace)
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
@@ -541,9 +661,7 @@ class SqlAlchemyStore:
                 .distinct()
                 .all()
             )
-            accessible.update(w for (w,) in role_rows)
-
-            return accessible
+            return {w for (w,) in rows}
 
     def get_workspace_permission(self, workspace_name: str, username: str) -> Permission | None:
         """
@@ -558,9 +676,21 @@ class SqlAlchemyStore:
         """
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
-            entity = session.get(SqlWorkspacePermission, (workspace_name, user.id))
-            if entity is not None:
-                return get_permission(entity.permission)
+            role_name = self._synthetic_user_role_name(user.id)
+            rp = (
+                session
+                .query(SqlRolePermission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .filter(
+                    SqlRole.workspace == workspace_name,
+                    SqlRole.name == role_name,
+                    SqlRolePermission.resource_type == "*",
+                    SqlRolePermission.resource_pattern == "*",
+                )
+                .first()
+            )
+            if rp is not None:
+                return get_permission(rp.permission)
         return None
 
     def get_role_workspace_permission(
@@ -573,16 +703,14 @@ class SqlAlchemyStore:
         grants.
 
         Complements ``get_workspace_permission`` — that helper reads the
-        ``workspace_permissions`` table directly, this one reads role
-        grants. Both are first-class authorization sources; callers that
-        need the effective workspace-level permission should max-merge the
-        two.
+        ``workspace_permissions`` table directly, this one reads role grants.
+        Both are first-class authorization sources; callers that need the
+        effective workspace-level permission should max-merge the two.
         """
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             permissions = (
-                session
-                .query(SqlRolePermission.permission)
+                session.query(SqlRolePermission.permission)
                 .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(
@@ -601,363 +729,553 @@ class SqlAlchemyStore:
             best = perm if best is None else max_permission(best, perm)
         return get_permission(best)
 
+    @staticmethod
+    def _scorer_pattern(experiment_id: str, scorer_name: str) -> str:
+        return f"{experiment_id}/{scorer_name}"
+
     def create_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str
     ) -> ScorerPermission:
         _validate_permission(permission)
+        pattern = self._scorer_pattern(experiment_id, scorer_name)
         with self.ManagedSessionMaker() as session:
-            try:
-                user = self._get_user(session, username=username)
-                perm = SqlScorerPermission(
-                    experiment_id=experiment_id,
-                    scorer_name=scorer_name,
-                    user_id=user.id,
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            existing = (
+                session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == "scorer",
+                    SqlRolePermission.resource_pattern == pattern,
+                )
+                .first()
+            )
+            if existing is not None:
+                raise MlflowException(
+                    f"Scorer permission (experiment_id={experiment_id}, "
+                    f"scorer_name={scorer_name}, username={username}) already exists.",
+                    RESOURCE_ALREADY_EXISTS,
+                )
+            session.add(
+                SqlRolePermission(
+                    role_id=role.id,
+                    resource_type="scorer",
+                    resource_pattern=pattern,
                     permission=permission,
                 )
-                session.add(perm)
-                session.flush()
-                return perm.to_mlflow_entity()
-            except IntegrityError as e:
-                raise MlflowException(
-                    f"Scorer permission (experiment_id={experiment_id}, scorer_name={scorer_name}, "
-                    f"username={username}) already exists. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
-                ) from e
-
-    def _get_scorer_permission(
-        self, session, experiment_id: str, scorer_name: str, username: str
-    ) -> SqlScorerPermission:
-        try:
-            user = self._get_user(session, username=username)
-            return (
-                session
-                .query(SqlScorerPermission)
-                .filter(
-                    SqlScorerPermission.experiment_id == experiment_id,
-                    SqlScorerPermission.scorer_name == scorer_name,
-                    SqlScorerPermission.user_id == user.id,
-                )
-                .one()
             )
-        except NoResultFound:
+            session.flush()
+            return ScorerPermission(
+                experiment_id=experiment_id,
+                scorer_name=scorer_name,
+                user_id=user.id,
+                permission=permission,
+            )
+
+    def _get_scorer_permission_row(
+        self, session, experiment_id: str, scorer_name: str, username: str
+    ) -> tuple[SqlUser, SqlRolePermission]:
+        user = self._get_user(session, username=username)
+        workspace_name = self._get_active_workspace_name()
+        role = (
+            session
+            .query(SqlRole)
+            .filter(
+                SqlRole.workspace == workspace_name,
+                SqlRole.name == self._synthetic_user_role_name(user.id),
+            )
+            .first()
+        )
+        pattern = self._scorer_pattern(experiment_id, scorer_name)
+        rp = (
+            None
+            if role is None
+            else session
+            .query(SqlRolePermission)
+            .filter(
+                SqlRolePermission.role_id == role.id,
+                SqlRolePermission.resource_type == "scorer",
+                SqlRolePermission.resource_pattern == pattern,
+            )
+            .first()
+        )
+        if rp is None:
             raise MlflowException(
                 f"Scorer permission with experiment_id={experiment_id}, "
                 f"scorer_name={scorer_name}, and username={username} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        except MultipleResultsFound:
-            raise MlflowException(
-                f"Found multiple scorer permissions with experiment_id={experiment_id}, "
-                f"scorer_name={scorer_name}, and username={username}",
-                INVALID_STATE,
-            )
+        return user, rp
 
     def get_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str
     ) -> ScorerPermission:
         with self.ManagedSessionMaker() as session:
-            return self._get_scorer_permission(
+            user, rp = self._get_scorer_permission_row(
                 session, experiment_id, scorer_name, username
-            ).to_mlflow_entity()
+            )
+            return ScorerPermission(
+                experiment_id=experiment_id,
+                scorer_name=scorer_name,
+                user_id=user.id,
+                permission=rp.permission,
+            )
 
     def list_scorer_permissions(self, username: str) -> list[ScorerPermission]:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
-            perms = (
+            rows = (
                 session
-                .query(SqlScorerPermission)
-                .filter(SqlScorerPermission.user_id == user.id)
+                .query(SqlRolePermission.resource_pattern, SqlRolePermission.permission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .filter(
+                    SqlRole.name == self._synthetic_user_role_name(user.id),
+                    SqlRolePermission.resource_type == "scorer",
+                )
                 .all()
             )
-            return [p.to_mlflow_entity() for p in perms]
+            out = []
+            for pattern, permission in rows:
+                # Compound key encoded as "{experiment_id}/{scorer_name}".
+                exp_id, _, sname = pattern.partition("/")
+                out.append(
+                    ScorerPermission(
+                        experiment_id=exp_id,
+                        scorer_name=sname,
+                        user_id=user.id,
+                        permission=permission,
+                    )
+                )
+            return out
 
     def update_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str
     ) -> ScorerPermission:
         _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
-            perm = self._get_scorer_permission(session, experiment_id, scorer_name, username)
-            perm.permission = permission
-            return perm.to_mlflow_entity()
+            user, rp = self._get_scorer_permission_row(
+                session, experiment_id, scorer_name, username
+            )
+            rp.permission = permission
+            return ScorerPermission(
+                experiment_id=experiment_id,
+                scorer_name=scorer_name,
+                user_id=user.id,
+                permission=permission,
+            )
 
     def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
         with self.ManagedSessionMaker() as session:
-            perm = self._get_scorer_permission(session, experiment_id, scorer_name, username)
-            session.delete(perm)
+            _, rp = self._get_scorer_permission_row(session, experiment_id, scorer_name, username)
+            session.delete(rp)
 
     def delete_scorer_permissions_for_scorer(self, experiment_id: str, scorer_name: str):
+        """Synthetic-role-only cleanup for when a scorer is deleted."""
+        pattern = self._scorer_pattern(experiment_id, scorer_name)
         with self.ManagedSessionMaker() as session:
-            session.query(SqlScorerPermission).filter(
-                SqlScorerPermission.experiment_id == experiment_id,
-                SqlScorerPermission.scorer_name == scorer_name,
-            ).delete()
+            role_ids = self._synthetic_role_ids(session)
+            if not role_ids:
+                return
+            session.query(SqlRolePermission).filter(
+                SqlRolePermission.role_id.in_(role_ids),
+                SqlRolePermission.resource_type == "scorer",
+                SqlRolePermission.resource_pattern == pattern,
+            ).delete(synchronize_session=False)
+
+    # ---- Gateway permission helpers ----
+    #
+    # The three gateway resource types (secret / endpoint / model_definition) share a
+    # common shape: one resource id, per-user permission, no workspace column. These
+    # helpers factor out the synthetic-role plumbing so the public methods stay a
+    # thin wrapper with type-specific entity construction.
+
+    def _create_per_resource_permission(
+        self,
+        *,
+        resource_type: str,
+        resource_pattern: str,
+        username: str,
+        permission: str,
+        entity_factory,
+        duplicate_message: str,
+    ):
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            existing = (
+                session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == resource_type,
+                    SqlRolePermission.resource_pattern == resource_pattern,
+                )
+                .first()
+            )
+            if existing is not None:
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS)
+            session.add(
+                SqlRolePermission(
+                    role_id=role.id,
+                    resource_type=resource_type,
+                    resource_pattern=resource_pattern,
+                    permission=permission,
+                )
+            )
+            session.flush()
+            return entity_factory(user=user, permission=permission)
+
+    def _get_per_resource_permission_row(
+        self,
+        session,
+        *,
+        resource_type: str,
+        resource_pattern: str,
+        username: str,
+        not_found_message: str,
+    ) -> tuple[SqlUser, SqlRolePermission]:
+        user = self._get_user(session, username=username)
+        workspace_name = self._get_active_workspace_name()
+        role = (
+            session
+            .query(SqlRole)
+            .filter(
+                SqlRole.workspace == workspace_name,
+                SqlRole.name == self._synthetic_user_role_name(user.id),
+            )
+            .first()
+        )
+        rp = (
+            None
+            if role is None
+            else session
+            .query(SqlRolePermission)
+            .filter(
+                SqlRolePermission.role_id == role.id,
+                SqlRolePermission.resource_type == resource_type,
+                SqlRolePermission.resource_pattern == resource_pattern,
+            )
+            .first()
+        )
+        if rp is None:
+            raise MlflowException(not_found_message, RESOURCE_DOES_NOT_EXIST)
+        return user, rp
+
+    def _update_per_resource_permission(
+        self,
+        *,
+        resource_type: str,
+        resource_pattern: str,
+        username: str,
+        permission: str,
+        entity_factory,
+        not_found_message: str,
+    ):
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            user, rp = self._get_per_resource_permission_row(
+                session,
+                resource_type=resource_type,
+                resource_pattern=resource_pattern,
+                username=username,
+                not_found_message=not_found_message,
+            )
+            rp.permission = permission
+            return entity_factory(user=user, permission=permission)
+
+    def _delete_per_resource_permission(
+        self,
+        *,
+        resource_type: str,
+        resource_pattern: str,
+        username: str,
+        not_found_message: str,
+    ) -> None:
+        with self.ManagedSessionMaker() as session:
+            _, rp = self._get_per_resource_permission_row(
+                session,
+                resource_type=resource_type,
+                resource_pattern=resource_pattern,
+                username=username,
+                not_found_message=not_found_message,
+            )
+            session.delete(rp)
+
+    def _list_per_resource_permissions(self, username: str, resource_type: str):
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            rows = (
+                session
+                .query(SqlRolePermission.resource_pattern, SqlRolePermission.permission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .filter(
+                    SqlRole.name == self._synthetic_user_role_name(user.id),
+                    SqlRolePermission.resource_type == resource_type,
+                )
+                .all()
+            )
+            return user, rows
+
+    def _delete_per_resource_permissions_for_resource(
+        self, resource_type: str, resource_pattern: str
+    ) -> None:
+        """Synthetic-role-only cleanup when a resource itself is deleted."""
+        with self.ManagedSessionMaker() as session:
+            role_ids = self._synthetic_role_ids(session)
+            if not role_ids:
+                return
+            session.query(SqlRolePermission).filter(
+                SqlRolePermission.role_id.in_(role_ids),
+                SqlRolePermission.resource_type == resource_type,
+                SqlRolePermission.resource_pattern == resource_pattern,
+            ).delete(synchronize_session=False)
+
+    # ---- gateway_secret ----
 
     def create_gateway_secret_permission(
         self, secret_id: str, username: str, permission: str
     ) -> GatewaySecretPermission:
-        _validate_permission(permission)
-        with self.ManagedSessionMaker() as session:
-            try:
-                user = self._get_user(session, username=username)
-                perm = SqlGatewaySecretPermission(
-                    secret_id=secret_id, user_id=user.id, permission=permission
-                )
-                session.add(perm)
-                session.flush()
-                return perm.to_mlflow_entity()
-            except IntegrityError as e:
-                raise MlflowException(
-                    f"Gateway secret permission (secret_id={secret_id}, username={username}) "
-                    f"already exists. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
-                ) from e
-
-    def _get_gateway_secret_permission(
-        self, session, secret_id: str, username: str
-    ) -> SqlGatewaySecretPermission:
-        try:
-            user = self._get_user(session, username=username)
-            return (
-                session
-                .query(SqlGatewaySecretPermission)
-                .filter(
-                    SqlGatewaySecretPermission.secret_id == secret_id,
-                    SqlGatewaySecretPermission.user_id == user.id,
-                )
-                .one()
-            )
-        except NoResultFound:
-            raise MlflowException(
-                f"Gateway secret permission with secret_id={secret_id} and "
-                f"username={username} not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
-        except MultipleResultsFound:
-            raise MlflowException(
-                f"Found multiple gateway secret permissions with secret_id={secret_id} "
-                f"and username={username}",
-                INVALID_STATE,
-            )
+        return self._create_per_resource_permission(
+            resource_type="gateway_secret",
+            resource_pattern=secret_id,
+            username=username,
+            permission=permission,
+            entity_factory=lambda user, permission: GatewaySecretPermission(
+                secret_id=secret_id, user_id=user.id, permission=permission
+            ),
+            duplicate_message=(
+                f"Gateway secret permission (secret_id={secret_id}, username={username}) "
+                "already exists."
+            ),
+        )
 
     def get_gateway_secret_permission(
         self, secret_id: str, username: str
     ) -> GatewaySecretPermission:
         with self.ManagedSessionMaker() as session:
-            return self._get_gateway_secret_permission(
-                session, secret_id, username
-            ).to_mlflow_entity()
+            user, rp = self._get_per_resource_permission_row(
+                session,
+                resource_type="gateway_secret",
+                resource_pattern=secret_id,
+                username=username,
+                not_found_message=(
+                    f"Gateway secret permission with secret_id={secret_id} and "
+                    f"username={username} not found"
+                ),
+            )
+            return GatewaySecretPermission(
+                secret_id=secret_id, user_id=user.id, permission=rp.permission
+            )
 
     def list_gateway_secret_permissions(self, username: str) -> list[GatewaySecretPermission]:
-        with self.ManagedSessionMaker() as session:
-            user = self._get_user(session, username=username)
-            perms = (
-                session
-                .query(SqlGatewaySecretPermission)
-                .filter(SqlGatewaySecretPermission.user_id == user.id)
-                .all()
-            )
-            return [p.to_mlflow_entity() for p in perms]
+        user, rows = self._list_per_resource_permissions(username, "gateway_secret")
+        return [
+            GatewaySecretPermission(secret_id=p, user_id=user.id, permission=perm)
+            for p, perm in rows
+        ]
 
     def update_gateway_secret_permission(
         self, secret_id: str, username: str, permission: str
     ) -> GatewaySecretPermission:
-        _validate_permission(permission)
-        with self.ManagedSessionMaker() as session:
-            perm = self._get_gateway_secret_permission(session, secret_id, username)
-            perm.permission = permission
-            return perm.to_mlflow_entity()
+        return self._update_per_resource_permission(
+            resource_type="gateway_secret",
+            resource_pattern=secret_id,
+            username=username,
+            permission=permission,
+            entity_factory=lambda user, permission: GatewaySecretPermission(
+                secret_id=secret_id, user_id=user.id, permission=permission
+            ),
+            not_found_message=(
+                f"Gateway secret permission with secret_id={secret_id} and "
+                f"username={username} not found"
+            ),
+        )
 
-    def delete_gateway_secret_permission(self, secret_id: str, username: str):
-        with self.ManagedSessionMaker() as session:
-            perm = self._get_gateway_secret_permission(session, secret_id, username)
-            session.delete(perm)
+    def delete_gateway_secret_permission(self, secret_id: str, username: str) -> None:
+        self._delete_per_resource_permission(
+            resource_type="gateway_secret",
+            resource_pattern=secret_id,
+            username=username,
+            not_found_message=(
+                f"Gateway secret permission with secret_id={secret_id} and "
+                f"username={username} not found"
+            ),
+        )
 
-    def delete_gateway_secret_permissions_for_secret(self, secret_id: str):
-        with self.ManagedSessionMaker() as session:
-            session.query(SqlGatewaySecretPermission).filter(
-                SqlGatewaySecretPermission.secret_id == secret_id,
-            ).delete()
+    def delete_gateway_secret_permissions_for_secret(self, secret_id: str) -> None:
+        self._delete_per_resource_permissions_for_resource("gateway_secret", secret_id)
+
+    # ---- gateway_endpoint ----
 
     def create_gateway_endpoint_permission(
         self, endpoint_id: str, username: str, permission: str
     ) -> GatewayEndpointPermission:
-        _validate_permission(permission)
-        with self.ManagedSessionMaker() as session:
-            try:
-                user = self._get_user(session, username=username)
-                perm = SqlGatewayEndpointPermission(
-                    endpoint_id=endpoint_id, user_id=user.id, permission=permission
-                )
-                session.add(perm)
-                session.flush()
-                return perm.to_mlflow_entity()
-            except IntegrityError as e:
-                raise MlflowException(
-                    f"Gateway endpoint permission (endpoint_id={endpoint_id}, username={username}) "
-                    f"already exists. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
-                ) from e
-
-    def _get_gateway_endpoint_permission(
-        self, session, endpoint_id: str, username: str
-    ) -> SqlGatewayEndpointPermission:
-        try:
-            user = self._get_user(session, username=username)
-            return (
-                session
-                .query(SqlGatewayEndpointPermission)
-                .filter(
-                    SqlGatewayEndpointPermission.endpoint_id == endpoint_id,
-                    SqlGatewayEndpointPermission.user_id == user.id,
-                )
-                .one()
-            )
-        except NoResultFound:
-            raise MlflowException(
-                f"Gateway endpoint permission with endpoint_id={endpoint_id} and "
-                f"username={username} not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
-        except MultipleResultsFound:
-            raise MlflowException(
-                f"Found multiple gateway endpoint permissions with endpoint_id={endpoint_id} "
-                f"and username={username}",
-                INVALID_STATE,
-            )
+        return self._create_per_resource_permission(
+            resource_type="gateway_endpoint",
+            resource_pattern=endpoint_id,
+            username=username,
+            permission=permission,
+            entity_factory=lambda user, permission: GatewayEndpointPermission(
+                endpoint_id=endpoint_id, user_id=user.id, permission=permission
+            ),
+            duplicate_message=(
+                f"Gateway endpoint permission (endpoint_id={endpoint_id}, "
+                f"username={username}) already exists."
+            ),
+        )
 
     def get_gateway_endpoint_permission(
         self, endpoint_id: str, username: str
     ) -> GatewayEndpointPermission:
         with self.ManagedSessionMaker() as session:
-            return self._get_gateway_endpoint_permission(
-                session, endpoint_id, username
-            ).to_mlflow_entity()
+            user, rp = self._get_per_resource_permission_row(
+                session,
+                resource_type="gateway_endpoint",
+                resource_pattern=endpoint_id,
+                username=username,
+                not_found_message=(
+                    f"Gateway endpoint permission with endpoint_id={endpoint_id} and "
+                    f"username={username} not found"
+                ),
+            )
+            return GatewayEndpointPermission(
+                endpoint_id=endpoint_id, user_id=user.id, permission=rp.permission
+            )
 
     def list_gateway_endpoint_permissions(self, username: str) -> list[GatewayEndpointPermission]:
-        with self.ManagedSessionMaker() as session:
-            user = self._get_user(session, username=username)
-            perms = (
-                session
-                .query(SqlGatewayEndpointPermission)
-                .filter(SqlGatewayEndpointPermission.user_id == user.id)
-                .all()
-            )
-            return [p.to_mlflow_entity() for p in perms]
+        user, rows = self._list_per_resource_permissions(username, "gateway_endpoint")
+        return [
+            GatewayEndpointPermission(endpoint_id=p, user_id=user.id, permission=perm)
+            for p, perm in rows
+        ]
 
     def update_gateway_endpoint_permission(
         self, endpoint_id: str, username: str, permission: str
     ) -> GatewayEndpointPermission:
-        _validate_permission(permission)
-        with self.ManagedSessionMaker() as session:
-            perm = self._get_gateway_endpoint_permission(session, endpoint_id, username)
-            perm.permission = permission
-            return perm.to_mlflow_entity()
+        return self._update_per_resource_permission(
+            resource_type="gateway_endpoint",
+            resource_pattern=endpoint_id,
+            username=username,
+            permission=permission,
+            entity_factory=lambda user, permission: GatewayEndpointPermission(
+                endpoint_id=endpoint_id, user_id=user.id, permission=permission
+            ),
+            not_found_message=(
+                f"Gateway endpoint permission with endpoint_id={endpoint_id} and "
+                f"username={username} not found"
+            ),
+        )
 
-    def delete_gateway_endpoint_permission(self, endpoint_id: str, username: str):
-        with self.ManagedSessionMaker() as session:
-            perm = self._get_gateway_endpoint_permission(session, endpoint_id, username)
-            session.delete(perm)
+    def delete_gateway_endpoint_permission(self, endpoint_id: str, username: str) -> None:
+        self._delete_per_resource_permission(
+            resource_type="gateway_endpoint",
+            resource_pattern=endpoint_id,
+            username=username,
+            not_found_message=(
+                f"Gateway endpoint permission with endpoint_id={endpoint_id} and "
+                f"username={username} not found"
+            ),
+        )
 
-    def delete_gateway_endpoint_permissions_for_endpoint(self, endpoint_id: str):
-        with self.ManagedSessionMaker() as session:
-            session.query(SqlGatewayEndpointPermission).filter(
-                SqlGatewayEndpointPermission.endpoint_id == endpoint_id,
-            ).delete()
+    def delete_gateway_endpoint_permissions_for_endpoint(self, endpoint_id: str) -> None:
+        self._delete_per_resource_permissions_for_resource("gateway_endpoint", endpoint_id)
+
+    # ---- gateway_model_definition ----
 
     def create_gateway_model_definition_permission(
         self, model_definition_id: str, username: str, permission: str
     ) -> GatewayModelDefinitionPermission:
-        _validate_permission(permission)
-        with self.ManagedSessionMaker() as session:
-            try:
-                user = self._get_user(session, username=username)
-                perm = SqlGatewayModelDefinitionPermission(
-                    model_definition_id=model_definition_id, user_id=user.id, permission=permission
-                )
-                session.add(perm)
-                session.flush()
-                return perm.to_mlflow_entity()
-            except IntegrityError as e:
-                raise MlflowException(
-                    f"Gateway model definition permission "
-                    f"(model_definition_id={model_definition_id}, username={username}) "
-                    f"already exists. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
-                ) from e
-
-    def _get_gateway_model_definition_permission(
-        self, session, model_definition_id: str, username: str
-    ) -> SqlGatewayModelDefinitionPermission:
-        try:
-            user = self._get_user(session, username=username)
-            return (
-                session
-                .query(SqlGatewayModelDefinitionPermission)
-                .filter(
-                    SqlGatewayModelDefinitionPermission.model_definition_id == model_definition_id,
-                    SqlGatewayModelDefinitionPermission.user_id == user.id,
-                )
-                .one()
-            )
-        except NoResultFound:
-            raise MlflowException(
-                f"Gateway model definition permission with "
-                f"model_definition_id={model_definition_id} and username={username} not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
-        except MultipleResultsFound:
-            raise MlflowException(
-                f"Found multiple gateway model definition permissions with "
-                f"model_definition_id={model_definition_id} and username={username}",
-                INVALID_STATE,
-            )
+        return self._create_per_resource_permission(
+            resource_type="gateway_model_definition",
+            resource_pattern=model_definition_id,
+            username=username,
+            permission=permission,
+            entity_factory=lambda user, permission: GatewayModelDefinitionPermission(
+                model_definition_id=model_definition_id,
+                user_id=user.id,
+                permission=permission,
+            ),
+            duplicate_message=(
+                f"Gateway model definition permission "
+                f"(model_definition_id={model_definition_id}, username={username}) "
+                "already exists."
+            ),
+        )
 
     def get_gateway_model_definition_permission(
         self, model_definition_id: str, username: str
     ) -> GatewayModelDefinitionPermission:
         with self.ManagedSessionMaker() as session:
-            return self._get_gateway_model_definition_permission(
-                session, model_definition_id, username
-            ).to_mlflow_entity()
+            user, rp = self._get_per_resource_permission_row(
+                session,
+                resource_type="gateway_model_definition",
+                resource_pattern=model_definition_id,
+                username=username,
+                not_found_message=(
+                    f"Gateway model definition permission with "
+                    f"model_definition_id={model_definition_id} and "
+                    f"username={username} not found"
+                ),
+            )
+            return GatewayModelDefinitionPermission(
+                model_definition_id=model_definition_id,
+                user_id=user.id,
+                permission=rp.permission,
+            )
 
     def list_gateway_model_definition_permissions(
         self, username: str
     ) -> list[GatewayModelDefinitionPermission]:
-        with self.ManagedSessionMaker() as session:
-            user = self._get_user(session, username=username)
-            perms = (
-                session
-                .query(SqlGatewayModelDefinitionPermission)
-                .filter(SqlGatewayModelDefinitionPermission.user_id == user.id)
-                .all()
+        user, rows = self._list_per_resource_permissions(username, "gateway_model_definition")
+        return [
+            GatewayModelDefinitionPermission(
+                model_definition_id=p, user_id=user.id, permission=perm
             )
-            return [p.to_mlflow_entity() for p in perms]
+            for p, perm in rows
+        ]
 
     def update_gateway_model_definition_permission(
         self, model_definition_id: str, username: str, permission: str
     ) -> GatewayModelDefinitionPermission:
-        _validate_permission(permission)
-        with self.ManagedSessionMaker() as session:
-            perm = self._get_gateway_model_definition_permission(
-                session, model_definition_id, username
-            )
-            perm.permission = permission
-            return perm.to_mlflow_entity()
+        return self._update_per_resource_permission(
+            resource_type="gateway_model_definition",
+            resource_pattern=model_definition_id,
+            username=username,
+            permission=permission,
+            entity_factory=lambda user, permission: GatewayModelDefinitionPermission(
+                model_definition_id=model_definition_id,
+                user_id=user.id,
+                permission=permission,
+            ),
+            not_found_message=(
+                f"Gateway model definition permission with "
+                f"model_definition_id={model_definition_id} and username={username} not found"
+            ),
+        )
 
-    def delete_gateway_model_definition_permission(self, model_definition_id: str, username: str):
-        with self.ManagedSessionMaker() as session:
-            perm = self._get_gateway_model_definition_permission(
-                session, model_definition_id, username
-            )
-            session.delete(perm)
+    def delete_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str
+    ) -> None:
+        self._delete_per_resource_permission(
+            resource_type="gateway_model_definition",
+            resource_pattern=model_definition_id,
+            username=username,
+            not_found_message=(
+                f"Gateway model definition permission with "
+                f"model_definition_id={model_definition_id} and username={username} not found"
+            ),
+        )
 
     def delete_gateway_model_definition_permissions_for_model_definition(
         self, model_definition_id: str
-    ):
-        with self.ManagedSessionMaker() as session:
-            session.query(SqlGatewayModelDefinitionPermission).filter(
-                SqlGatewayModelDefinitionPermission.model_definition_id == model_definition_id,
-            ).delete()
+    ) -> None:
+        self._delete_per_resource_permissions_for_resource(
+            "gateway_model_definition", model_definition_id
+        )
 
     # ---- Role CRUD ----
 
@@ -1339,50 +1657,38 @@ class SqlAlchemyStore:
     @staticmethod
     def _workspace_admin_workspaces(session, user_id: int) -> set[str]:
         """
-        Return the set of workspaces where ``user_id`` is a workspace admin, drawing
-        from BOTH sources of truth:
+        Return the set of workspaces where ``user_id`` is a workspace admin.
 
-        - Role-based: a role in the workspace with
-          ``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``.
-        - Legacy: a ``workspace_permissions`` row with ``permission=MANAGE``. Pre-RBAC
-          this was the only way to express workspace-wide admin authority; operators
-          upgrading from pre-RBAC deployments retain that admin status until they
-          migrate the grants into roles.
+        A user is a workspace admin in ``workspace`` if they have a role in
+        ``workspace`` with either:
+        - ``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``, or
+        - ``(resource_type='*', resource_pattern='*', permission=MANAGE)`` — the form
+          that the migration emits for pre-RBAC ``workspace_permissions`` rows with
+          ``permission=MANAGE``.
         """
-        role_rows = (
+        rows = (
             session
             .query(SqlRole.workspace)
             .join(SqlRolePermission, SqlRole.id == SqlRolePermission.role_id)
             .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
             .filter(
                 SqlUserRoleAssignment.user_id == user_id,
-                SqlRolePermission.resource_type == "workspace",
+                SqlRolePermission.resource_type.in_(("workspace", "*")),
                 SqlRolePermission.resource_pattern == "*",
                 SqlRolePermission.permission == MANAGE.name,
             )
             .distinct()
             .all()
         )
-        legacy_rows = (
-            session
-            .query(SqlWorkspacePermission.workspace)
-            .filter(
-                SqlWorkspacePermission.user_id == user_id,
-                SqlWorkspacePermission.permission == MANAGE.name,
-            )
-            .distinct()
-            .all()
-        )
-        return {w for (w,) in role_rows} | {w for (w,) in legacy_rows}
+        return {w for (w,) in rows}
 
     @staticmethod
     def _user_present_workspaces(session, user_id: int) -> set[str]:
         """
-        Return every workspace the user has some presence in — either via a role
-        assignment or via a legacy ``workspace_permissions`` grant (of any level).
+        Return every workspace the user has some presence in via a role assignment.
         Used when scoping cross-user authorization decisions.
         """
-        role_rows = (
+        rows = (
             session
             .query(SqlRole.workspace)
             .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
@@ -1390,21 +1696,15 @@ class SqlAlchemyStore:
             .distinct()
             .all()
         )
-        legacy_rows = (
-            session
-            .query(SqlWorkspacePermission.workspace)
-            .filter(SqlWorkspacePermission.user_id == user_id)
-            .distinct()
-            .all()
-        )
-        return {w for (w,) in role_rows} | {w for (w,) in legacy_rows}
+        return {w for (w,) in rows}
 
     def is_workspace_admin(self, user_id: int, workspace: str) -> bool:
         """
-        True if the user is a workspace admin in ``workspace``, via either a role
-        (``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``) or
-        a legacy ``workspace_permissions`` MANAGE grant. See
-        ``_workspace_admin_workspaces`` for the consolidation rationale.
+        True if the user is a workspace admin in ``workspace`` — i.e. they hold a role
+        in that workspace with ``resource_pattern='*'``, ``permission=MANAGE``, and
+        ``resource_type`` either ``'workspace'`` (explicit admin grant) or ``'*'`` (the
+        workspace-wide MANAGE form the migration produces from legacy
+        ``workspace_permissions`` rows).
         """
         with self.ManagedSessionMaker() as session:
             return workspace in self._workspace_admin_workspaces(session, user_id)
