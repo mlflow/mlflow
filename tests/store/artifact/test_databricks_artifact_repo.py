@@ -12,7 +12,7 @@ from requests.models import Response
 
 from mlflow.entities import TraceData
 from mlflow.entities.file_info import FileInfo as FileInfoEntity
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_artifacts_pb2 import (
     ArtifactCredentialInfo,
     ArtifactCredentialType,
@@ -1645,7 +1645,7 @@ def test_download_trace_data(databricks_artifact_repo_trace, cred_type):
 
 
 def test_download_archived_trace_data_rejects_archive_repo(databricks_artifact_repo_trace):
-    with pytest.raises(MlflowException, match="do not yet support ARCHIVE_REPO"):
+    with pytest.raises(MlflowNotImplementedException, match="do not yet support ARCHIVE_REPO"):
         databricks_artifact_repo_trace.download_archived_trace_data()
 
 
@@ -1675,12 +1675,12 @@ def test_upload_trace_data(databricks_artifact_repo_trace, cred_type):
 
 
 def test_upload_archived_trace_data_rejects_archive_repo(databricks_artifact_repo_trace):
-    with pytest.raises(MlflowException, match="do not yet support ARCHIVE_REPO"):
+    with pytest.raises(MlflowNotImplementedException, match="do not yet support ARCHIVE_REPO"):
         databricks_artifact_repo_trace.upload_archived_trace_data(TraceData(spans=[]))
 
 
 def test_upload_archived_trace_data_bytes_rejects_archive_repo(databricks_artifact_repo_trace):
-    with pytest.raises(MlflowException, match="do not yet support ARCHIVE_REPO"):
+    with pytest.raises(MlflowNotImplementedException, match="do not yet support ARCHIVE_REPO"):
         databricks_artifact_repo_trace.upload_archived_trace_data_bytes(b"trace-data")
 
 
