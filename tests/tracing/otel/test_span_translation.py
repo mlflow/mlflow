@@ -309,6 +309,110 @@ def test_translate_token_usage_edge_cases(
     assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
 
 
+def test_translate_token_usage_with_cache_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "gen_ai.usage.input_tokens": 100,
+            "gen_ai.usage.output_tokens": 50,
+            "gen_ai.usage.cache_read.input_tokens": 80,
+            "gen_ai.usage.cache_creation.input_tokens": 20,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 100
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 20
+
+
+def test_translate_token_usage_with_partial_cache_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "gen_ai.usage.input_tokens": 100,
+            "gen_ai.usage.output_tokens": 50,
+            "gen_ai.usage.cache_read.input_tokens": 80,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 100
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
+
+
+@pytest.mark.parametrize(
+    ("attributes", "expected_input", "expected_output", "expected_total"),
+    [
+        (
+            {"gen_ai.usage.input_tokens": 0, "gen_ai.usage.output_tokens": 20},
+            0,
+            20,
+            20,
+        ),
+        (
+            {"gen_ai.usage.input_tokens": 10, "gen_ai.usage.output_tokens": 0},
+            10,
+            0,
+            10,
+        ),
+        (
+            {
+                "llm.token_count.prompt": 0,
+                "llm.token_count.completion": 0,
+                "llm.token_count.total": 0,
+            },
+            0,
+            0,
+            0,
+        ),
+    ],
+)
+def test_translate_token_usage_preserves_zero_values(
+    attributes, expected_input, expected_output, expected_total
+):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {"attributes": attributes}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    assert SpanAttributeKey.CHAT_USAGE in result["attributes"]
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == expected_input
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == expected_output
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
+
+
+def test_translate_token_usage_omits_missing_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {"attributes": {"gen_ai.usage.input_tokens": 10}}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 10
+    assert TokenUsageKey.OUTPUT_TOKENS not in usage
+    # total_tokens not computed because output_tokens is missing
+    assert TokenUsageKey.TOTAL_TOKENS not in usage
+
+
 @pytest.mark.parametrize(
     "translator",
     [

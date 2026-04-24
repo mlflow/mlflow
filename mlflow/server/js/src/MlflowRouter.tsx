@@ -35,6 +35,7 @@ import {
   isGlobalRoute,
   setActiveWorkspace,
   setLastUsedWorkspace,
+  WORKSPACE_QUERY_PARAM,
 } from './workspaces/utils/WorkspaceUtils';
 import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
 
@@ -180,7 +181,7 @@ export const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: 
       navigate('/', { replace: true });
       return;
     } else {
-      navigate(location.pathname + '?workspace=' + lastUsedWorkspace, { replace: true });
+      navigate(location.pathname + '?' + WORKSPACE_QUERY_PARAM + '=' + lastUsedWorkspace, { replace: true });
     }
   }, [location, navigate, workspacesEnabled, searchParams]);
 

@@ -12,7 +12,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic-claude-3-opus": {
       "mode": "chat",
@@ -29,7 +30,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic-claude-3.5-haiku": {
       "mode": "chat",
@@ -46,7 +48,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic-claude-3.5-sonnet": {
       "mode": "chat",
@@ -63,7 +66,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic-claude-3.7-sonnet": {
       "mode": "chat",
@@ -80,7 +84,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-r1-distill-llama-70b": {
       "mode": "chat",
@@ -97,7 +102,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "llama3-8b-instruct": {
       "mode": "chat",
@@ -114,7 +120,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "llama3.3-70b-instruct": {
       "mode": "chat",
@@ -131,7 +138,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-nemo-instruct-2407": {
       "mode": "chat",
@@ -148,7 +156,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai-gpt-4o": {
       "mode": "chat",
@@ -161,7 +170,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai-gpt-4o-mini": {
       "mode": "chat",
@@ -174,7 +184,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai-o3": {
       "mode": "chat",
@@ -191,7 +202,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai-o3-mini": {
       "mode": "chat",
@@ -208,7 +220,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

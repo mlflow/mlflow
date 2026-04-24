@@ -20,9 +20,18 @@ repos:
 
   - repo: local
     hooks:
+      - id: uv-lock
+        name: uv-lock
+        entry: uv lock
+        language: system
+        files: '^pyproject\.toml$'
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
       - id: normalize-chars
         name: normalize-chars
-        entry: uv run --only-group lint dev/normalize_chars.py
+        entry: uv run --frozen --only-group lint dev/normalize_chars.py
         language: system
         stages: [pre-commit]
         types: [text]
@@ -31,7 +40,7 @@ repos:
 
       - id: ruff
         name: ruff
-        entry: uv run --only-group lint dev/ruff.py
+        entry: uv run --frozen --only-group lint dev/ruff.py
         language: system
         files: '\.(py|ipynb)$'
         stages: [pre-commit]
@@ -39,7 +48,7 @@ repos:
 
       - id: format
         name: format
-        entry: uv run --only-group lint dev/format.py
+        entry: uv run --frozen --only-group lint dev/format.py
         language: system
         files: '\.(py|ipynb|md|mdx)$'
         stages: [pre-commit]
@@ -65,7 +74,7 @@ repos:
             dev/benchmarks/gateway/benchmark\.py|
             dev/benchmarks/gateway/run\.py
           )$
-        entry: uv run --only-group lint mypy
+        entry: uv run --frozen --only-group lint mypy
         require_serial: true
 
       - id: unresolved-import
@@ -74,7 +83,7 @@ repos:
         # unresolved imports (optional deps) are filtered out via grep.
         entry: |
           bash -c '
-            out=$(uv run --only-group lint ty check \
+            out=$(uv run --frozen --only-group lint ty check \
               --ignore all \
               --error unresolved-import \
               --output-format concise \
@@ -93,7 +102,7 @@ repos:
 
       - id: clint
         name: clint
-        entry: uv run --only-group lint clint
+        entry: uv run --frozen --only-group lint clint
         language: system
         files: '\.(py|ipynb|rst|mdx?)$'
         stages: [pre-commit]
@@ -101,7 +110,7 @@ repos:
 
       - id: install-bin
         name: install-bin
-        entry: uv run --only-group lint bin/install.py
+        entry: uv run --frozen --only-group lint bin/install.py
         language: system
         stages: [pre-commit]
         require_serial: true
@@ -157,7 +166,7 @@ repos:
 
       - id: pyproject
         name: pyproject
-        entry: uv run --only-group lint dev/pyproject.py
+        entry: uv run --frozen --only-group lint dev/pyproject.py
         language: system
         stages: [pre-commit]
         require_serial: true
@@ -165,7 +174,7 @@ repos:
 
       - id: mlver
         name: ml-package-versions-consistency
-        entry: "uv run --only-group lint dev/update_ml_package_versions.py --skip-yml"
+        entry: "uv run --frozen --only-group lint dev/update_ml_package_versions.py --skip-yml"
         files: '^(mlflow/ml-package-versions\.yml|mlflow/ml_package_versions\.py)$'
         language: system
         stages: [pre-commit]
@@ -214,7 +223,7 @@ repos:
 
       - id: action-pins
         name: action-pins
-        entry: uv run --only-group lint dev/check_action_pins.py
+        entry: uv run --frozen --only-group lint dev/check_action_pins.py
         language: system
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
         pass_filenames: false
@@ -231,18 +240,9 @@ repos:
 
       - id: check-init-py
         name: check-init-py
-        entry: uv run --only-group lint dev/check_init_py.py
+        entry: uv run --frozen --only-group lint dev/check_init_py.py
         language: system
         files: '^(mlflow|tests)/.*\.py$'
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
-
-      - id: uv-lock
-        name: uv-lock
-        entry: uv lock
-        language: system
-        files: '^pyproject\.toml$'
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false
@@ -260,6 +260,24 @@ repos:
         entry: "Use .yml instead of .yaml"
         files: ^\.github/(workflows|actions)/.*\.yaml$
         stages: [pre-commit]
+
+      - id: check-component-ids
+        name: check-component-ids
+        entry: |
+          bash -c '
+            if ! node .github/actions/check-component-ids/index.js; then
+              echo
+              echo "Auto-regenerating componentId registry..."
+              node .github/actions/check-component-ids/regenerate.js
+              git add .github/actions/check-component-ids/componentId-registry.js
+              exit 1
+            fi
+          '
+        language: system
+        files: ^(mlflow/server/js/src/|\.github/actions/check-component-ids/)
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
 
       - id: js-fmt
         name: js-fmt

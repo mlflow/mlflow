@@ -1163,6 +1163,21 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
 
+#: When ``True``, MLflow verifies that the SQL warehouse referenced by
+#: ``MLFLOW_TRACING_SQL_WAREHOUSE_ID`` is running before making V4/V5 MLflow tracing API calls that
+#: require it, and starts it and waits for it to reach the ``RUNNING`` state if not.
+#: (default: ``True``)
+MLFLOW_SQL_WAREHOUSE_AUTO_START = _BooleanEnvironmentVariable(
+    "MLFLOW_SQL_WAREHOUSE_AUTO_START", True
+)
+
+#: Maximum number of seconds MLflow waits for the SQL warehouse to reach the ``RUNNING`` state
+#: when auto-starting it. Applies only when ``MLFLOW_SQL_WAREHOUSE_AUTO_START`` is enabled.
+#: (default: ``1200``)
+MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS", int, 1200
+)
+
 #: Specifies whether to export spans incrementally as they complete, in addition to
 #: exporting the full trace. When enabled, spans are written to the tracking store
 #: individually via ``log_spans`` as each span finishes. This provides real-time span

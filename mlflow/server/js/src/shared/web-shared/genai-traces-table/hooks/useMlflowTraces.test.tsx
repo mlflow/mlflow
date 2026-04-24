@@ -31,7 +31,7 @@ import {
   RESPONSE_COLUMN_ID,
 } from './useTableColumns';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
-import { shouldUseTracesV4API } from '../utils/FeatureUtils';
+import { shouldUseInfinitePaginatedTraces, shouldUseTracesV4API } from '../utils/FeatureUtils';
 import { fetchAPI } from '../utils/FetchUtils';
 
 // Mock shouldEnableUnifiedEvalTab
@@ -39,6 +39,7 @@ jest.mock('../utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../utils/FeatureUtils')>('../utils/FeatureUtils'),
   shouldEnableUnifiedEvalTab: jest.fn(),
   shouldUseTracesV4API: jest.fn().mockReturnValue(false),
+  shouldUseInfinitePaginatedTraces: jest.fn().mockReturnValue(false),
   getMlflowTracesSearchPageSize: jest.fn().mockReturnValue(10000),
 }));
 
@@ -274,6 +275,7 @@ describe('getSearchMlflowTracesQueryCacheConfig', () => {
 describe('useSearchMlflowTraces', () => {
   beforeEach(() => {
     jest.mocked(shouldUseTracesV4API).mockReturnValue(false);
+    jest.mocked(shouldUseInfinitePaginatedTraces).mockReturnValue(false);
     jest.mocked(fetchAPI).mockClear();
     jest.mocked(fetchTraceInfoV3).mockClear();
   });
@@ -1957,6 +1959,131 @@ describe('useSearchMlflowTraces', () => {
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data?.[0].trace_id).toBe('trace_1');
     expect(result.current.data?.[0].assessments?.length).toBe(2);
+  });
+
+  describe('when shouldUseInfinitePaginatedTraces is true', () => {
+    beforeEach(() => {
+      jest.mocked(shouldUseInfinitePaginatedTraces).mockReturnValue(true);
+    });
+
+    test('fetches a single page with max_results=100 and exposes pagination state', async () => {
+      jest.mocked(fetchAPI).mockResolvedValueOnce({
+        traces: [{ trace_id: 'trace_1' }],
+        next_page_token: undefined,
+      });
+
+      const { result } = renderHook(
+        () =>
+          useSearchMlflowTraces({
+            locations: [{ type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'experiment-xyz' } }],
+          }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(fetchAPI).toHaveBeenCalledTimes(1);
+      const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
+      expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+      expect(body).toEqual({
+        locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+        filter: undefined,
+        max_results: 100,
+        order_by: undefined,
+      });
+      expect(result.current.data).toHaveLength(1);
+      expect(result.current.hasNextPage).toBe(false);
+      expect(typeof result.current.fetchNextPage).toBe('function');
+      expect(result.current.isFetchingNextPage).toBe(false);
+    });
+
+    test('surfaces hasNextPage when the server returns a next_page_token', async () => {
+      jest.mocked(fetchAPI).mockResolvedValueOnce({
+        traces: [{ trace_id: 'trace_1' }],
+        next_page_token: 'token-page-2',
+      });
+
+      const { result } = renderHook(
+        () =>
+          useSearchMlflowTraces({
+            locations: [{ type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'experiment-xyz' } }],
+          }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(fetchAPI).toHaveBeenCalledTimes(1);
+      expect(result.current.data).toHaveLength(1);
+      expect(result.current.hasNextPage).toBe(true);
+    });
+
+    test('fetchNextPage passes page_token and appends results to the existing list', async () => {
+      jest
+        .mocked(fetchAPI)
+        .mockResolvedValueOnce({
+          traces: [{ trace_id: 'trace_1' }],
+          next_page_token: 'token-page-2',
+        })
+        .mockResolvedValueOnce({
+          traces: [{ trace_id: 'trace_2' }],
+          next_page_token: undefined,
+        });
+
+      const { result } = renderHook(
+        () =>
+          useSearchMlflowTraces({
+            locations: [{ type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'experiment-xyz' } }],
+          }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(result.current.hasNextPage).toBe(true);
+
+      result.current.fetchNextPage?.();
+
+      await waitFor(() => expect(jest.mocked(fetchAPI)).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current.hasNextPage).toBe(false));
+
+      const [, { body: secondBody }] = jest.mocked(fetchAPI).mock.calls[1] as any;
+      expect(secondBody).toEqual({
+        locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+        filter: undefined,
+        max_results: 100,
+        order_by: undefined,
+        page_token: 'token-page-2',
+      });
+
+      expect(result.current.data?.map((t) => t.trace_id)).toEqual(['trace_1', 'trace_2']);
+    });
+
+    test('falls back to the eager-fetch path when enablePagination is false', async () => {
+      jest.mocked(fetchAPI).mockResolvedValueOnce({
+        traces: [{ trace_id: 'trace_1' }],
+        next_page_token: undefined,
+      });
+
+      const { result } = renderHook(
+        () =>
+          useSearchMlflowTraces({
+            locations: [{ type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'experiment-xyz' } }],
+            enablePagination: false,
+          }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      const [, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
+      expect(body).toEqual(
+        expect.objectContaining({
+          max_results: 10000,
+        }),
+      );
+      expect(result.current.hasNextPage).toBeUndefined();
+      expect(result.current.fetchNextPage).toBeUndefined();
+    });
   });
 });
 

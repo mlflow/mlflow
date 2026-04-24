@@ -5,7 +5,6 @@ import {
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from '../../../common/utils/ArtifactUtils';
-import { DownloadLink, exceedsRenderSizeLimit } from '../../../shared/web-shared/media-rendering-utils';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 
 type Props = {
@@ -22,7 +21,6 @@ const ShowArtifactVideoView = ({
   loggedModelId,
 }: Props) => {
   const [videoUrl, setVideoUrl] = useState<string>();
-  const [contentLength, setContentLength] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,7 +33,6 @@ const ShowArtifactVideoView = ({
 
     getArtifact(artifactUrl).then((blob: Blob) => {
       objUrl = URL.createObjectURL(blob);
-      setContentLength(blob.size);
       setVideoUrl(objUrl);
       setLoading(false);
     });
@@ -60,19 +57,6 @@ const ShowArtifactVideoView = ({
       display: 'block',
     },
   };
-
-  if (exceedsRenderSizeLimit('video/mp4', contentLength) && videoUrl) {
-    return (
-      <div css={{ padding: 10 }}>
-        <DownloadLink
-          url={videoUrl}
-          contentType="video/mp4"
-          contentLength={contentLength}
-          filename={path.split('/').pop()}
-        />
-      </div>
-    );
-  }
 
   return (
     <div css={{ flex: 1 }}>

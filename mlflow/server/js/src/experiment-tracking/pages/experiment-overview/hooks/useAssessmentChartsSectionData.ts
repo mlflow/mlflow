@@ -8,6 +8,7 @@ import {
   AssessmentDimensionKey,
   TIME_BUCKET_DIMENSION_KEY,
   createAssessmentFilter,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -89,7 +90,7 @@ export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionData
       const name = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME];
       const value = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_VALUE];
       const count = dp.values?.[AggregationType.COUNT];
-      if (!name || value === undefined || count === undefined) {
+      if (!name || name === INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE || value === undefined || count === undefined) {
         continue;
       }
       counts.set(name, (counts.get(name) ?? 0) + count);

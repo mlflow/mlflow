@@ -3948,13 +3948,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             self._validate_trace_accessible(session, trace_id)
-            tags = session.query(SqlTraceTag).filter_by(request_id=trace_id, key=key)
-            if tags.count() == 0:
+            deleted = (
+                session
+                .query(SqlTraceTag)
+                .filter_by(request_id=trace_id, key=key)
+                .delete(synchronize_session=False)
+            )
+            if deleted == 0:
                 raise MlflowException(
                     f"No trace tag with key '{key}' for trace with ID '{trace_id}'",
                     RESOURCE_DOES_NOT_EXIST,
                 )
-            tags.delete()
 
     def _delete_traces(
         self,

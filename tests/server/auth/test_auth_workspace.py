@@ -29,12 +29,19 @@ from tests.helper_functions import random_str
 
 
 def test_cleanup_workspace_permissions_handler(monkeypatch):
-    mock_delete = Mock()
+    mock_delete_workspace_perms = Mock()
+    mock_delete_roles = Mock()
 
     monkeypatch.setattr(
         auth_module.store,
         "delete_workspace_permissions_for_workspace",
-        mock_delete,
+        mock_delete_workspace_perms,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        auth_module.store,
+        "delete_roles_for_workspace",
+        mock_delete_roles,
         raising=True,
     )
 
@@ -46,7 +53,8 @@ def test_cleanup_workspace_permissions_handler(monkeypatch):
         response = Response(status=204)
         auth_module._after_request(response)
 
-    mock_delete.assert_called_once_with(workspace_name)
+    mock_delete_workspace_perms.assert_called_once_with(workspace_name)
+    mock_delete_roles.assert_called_once_with(workspace_name)
 
 
 class _TrackingStore:
@@ -380,6 +388,48 @@ def test_filter_list_workspaces_filters_to_allowed(monkeypatch):
     assert [ws["name"] for ws in payload["workspaces"]] == ["team-a"]
 
 
+def test_list_workspaces_filters_to_role_assigned_workspaces(tmp_path, monkeypatch):
+    # End-to-end guard for the list_accessible_workspace_names fix: alice has NO
+    # legacy workspace_permissions rows — her only workspace membership is via a
+    # role assignment in ws-alpha. The ListWorkspaces filter must treat that role
+    # assignment as workspace visibility and surface ws-alpha but not ws-beta.
+    # Before the fix, the legacy-only query returned an empty set and alice saw
+    # no workspaces in the UI.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(grant_default_workspace_access=False),
+        raising=False,
+    )
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    alice = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role = auth_store.create_role(name="viewer", workspace="ws-alpha")
+    auth_store.add_role_permission(role.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(alice.id, role.id)
+
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
+    )
+
+    response = Response(
+        json.dumps({"workspaces": [{"name": "ws-alpha"}, {"name": "ws-beta"}]}),
+        mimetype="application/json",
+    )
+
+    auth_module.filter_list_workspaces(response)
+    payload = json.loads(response.get_data(as_text=True))
+    assert [ws["name"] for ws in payload["workspaces"]] == ["ws-alpha"]
+
+    auth_store.engine.dispose()
+
+
 def test_validate_can_view_workspace_allows_default_autogrant(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
@@ -540,6 +590,65 @@ def test_filter_experiment_ids_respects_workspace_permissions(
 
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
     assert auth_module.filter_experiment_ids(experiment_ids) == []
+
+
+def test_filter_experiment_ids_role_wildcard_grant(workspace_permission_setup, monkeypatch):
+    # Role granting experiment(*) in the active workspace should include all experiments.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    # Start from NO_PERMISSIONS: workspace fallback would exclude everything.
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="exp-reader", workspace="team-a")
+    store.add_role_permission(role.id, "experiment", "*", "READ")
+    store.assign_role_to_user(user_id, role.id)
+
+    token = workspace_context.set_server_request_workspace("team-a")
+    try:
+        assert auth_module.filter_experiment_ids(["exp-1", "exp-2"]) == ["exp-1", "exp-2"]
+    finally:
+        workspace_context._WORKSPACE.reset(token)
+
+
+def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, monkeypatch):
+    # Role granting a specific experiment id should include that id only (plus direct grants).
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="exp-1-reader", workspace="team-a")
+    store.add_role_permission(role.id, "experiment", "exp-1", "READ")
+    store.assign_role_to_user(user_id, role.id)
+
+    token = workspace_context.set_server_request_workspace("team-a")
+    try:
+        # Only exp-1 (via role); exp-2 is filtered out.
+        assert auth_module.filter_experiment_ids(["exp-1", "exp-2"]) == ["exp-1"]
+    finally:
+        workspace_context._WORKSPACE.reset(token)
+
+
+def test_filter_experiment_ids_workspace_scope_role(workspace_permission_setup, monkeypatch):
+    # Role with (resource_type='workspace', '*', READ) should grant access to all experiments.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="ws-reader", workspace="team-a")
+    store.add_role_permission(role.id, "workspace", "*", "READ")
+    store.assign_role_to_user(user_id, role.id)
+
+    token = workspace_context.set_server_request_workspace("team-a")
+    try:
+        assert auth_module.filter_experiment_ids(["exp-1", "exp-2"]) == ["exp-1", "exp-2"]
+    finally:
+        workspace_context._WORKSPACE.reset(token)
 
 
 def test_run_validators_allow_manage_permission(workspace_permission_setup):
