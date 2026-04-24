@@ -71,6 +71,10 @@ def _is_in_databricks() -> bool:
 
 
 def _detect_environment() -> str | None:
+    # Check for MLflow demo deployment (e.g. demo.mlflow.org) before generic docker detection
+    if os.environ.get("MLFLOW_DEPLOYMENT_ENV") == "demo":
+        return Environment.DEMO.value
+
     for env_var, environment in ENV_VAR_TO_ENVIRONMENT_MAP.items():
         if env_var in os.environ:
             return environment.value
