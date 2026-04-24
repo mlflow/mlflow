@@ -22,6 +22,8 @@ module.exports = createConfig({})({
     ],
     '@databricks/no-uncaught-localstorage-setitem': 'off',
     '@databricks/no-window-top': 'off',
+    // TODO: switch to "error" after existing web-shared imports are migrated
+    '@mlflow/no-web-shared-mlflow-imports': 'warn',
     // END-ESLINT-MIGRATION (FEINF-1337)
   },
   overrides: [
@@ -50,20 +52,6 @@ module.exports = createConfig({})({
       rules: {
         // allow absolute AJAX URLs in tests as they don't impact prod
         '@mlflow/no-absolute-ajax-urls': 'off',
-      },
-    },
-    {
-      files: [
-        'src/shared/web-shared/genai-traces-table/GenAITracesTableToolbar.tsx',
-        'src/shared/web-shared/genai-traces-table/cellRenderers/IssuesCell.tsx',
-        'src/shared/web-shared/genai-traces-table/utils/FetchUtils.ts',
-        'src/shared/web-shared/model-trace-explorer/assessments-pane/AssessmentsPane.tsx',
-        'src/shared/web-shared/model-trace-explorer/hooks/useTraceAttachment.ts',
-        'src/shared/web-shared/model-trace-explorer/oss-notebook-renderer/bootstrap.tsx',
-        'src/shared/web-shared/query-client/queryClient.ts',
-      ],
-      rules: {
-        '@mlflow/no-web-shared-mlflow-imports': 'off',
       },
     },
   ],
