@@ -1,8 +1,17 @@
+import json
+import time
 from unittest.mock import MagicMock, Mock, patch
 
 import dspy
 import pytest
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.span import Span
+from mlflow.entities.trace import Trace, TraceData, TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
@@ -21,8 +30,58 @@ from mlflow.genai.utils.trace_utils import (
     extract_response_from_trace,
 )
 from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.utils import build_otel_context
 
 from tests.genai.judges.optimizers.conftest import MockJudge
+
+
+# Helper functions for multi-assessment tests
+def _create_trace_with_assessments(trace_id, assessments, inputs=None, outputs=None):
+    """Helper to create a trace with given assessments."""
+    current_time_ns = int(time.time() * 1e9)
+    inputs = inputs or {"inputs": "test input"}
+    outputs = outputs or {"outputs": "test output"}
+
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(hash(trace_id) % 100000, 100),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanInputs": json.dumps(inputs),
+            "mlflow.spanOutputs": json.dumps(outputs),
+            "mlflow.spanType": json.dumps("CHAIN"),
+        },
+    )
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        assessments=assessments,
+        request_preview=json.dumps(inputs),
+        response_preview=json.dumps(outputs),
+    )
+
+    return Trace(info=trace_info, data=TraceData(spans=[Span(otel_span)]))
+
+
+def _create_human_assessment(name, value, rationale, create_time_ms, source_id="test_user"):
+    """Helper to create a human assessment with specific timestamp."""
+    return Feedback(
+        name=name,
+        value=value,
+        rationale=rationale,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id=source_id),
+        create_time_ms=create_time_ms,
+    )
 
 
 def test_sanitize_judge_name(sample_trace_with_assessment, mock_judge):
@@ -481,3 +540,263 @@ def test_format_demos_raises_on_invalid_demo(mock_judge):
 
     with pytest.raises(MlflowException, match="Demo at index 1 cannot be converted to dict"):
         format_demos_as_examples(demos, mock_judge)
+
+
+# Multi-assessment tests: no conflict (all assessments agree)
+@pytest.mark.parametrize(
+    ("num_assessments", "expected_label"),
+    [
+        (1, "pass"),  # Single assessment returns single-item list
+        (2, "pass"),  # Two agreeing assessments return both
+        (3, "fail"),  # Three agreeing assessments return all
+    ],
+)
+def test_trace_to_dspy_example_multi_assessment_no_conflict(mock_judge, num_assessments, expected_label):
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+    base_time = int(time.time() * 1000)
+
+    assessments = [
+        _create_human_assessment(
+            name="mock_judge",
+            value=expected_label,
+            rationale=f"Reviewer {i + 1}",
+            create_time_ms=base_time - (num_assessments - i) * 1000,
+            source_id=f"user{i + 1}",
+        )
+        for i in range(num_assessments)
+    ]
+
+    trace = _create_trace_with_assessments("test_no_conflict", assessments)
+    results = trace_to_dspy_example(trace, mock_judge)
+
+    assert isinstance(results, list)
+    assert len(results) == num_assessments
+    for result in results:
+        assert isinstance(result, dspy.Example)
+        assert result["result"] == expected_label
+
+
+# Multi-assessment tests: conflict with majority voting
+@pytest.mark.parametrize(
+    ("majority_count", "minority_count", "majority_label", "minority_label"),
+    [
+        (3, 1, "pass", "fail"),  # 3 vs 1
+        (2, 1, "fail", "pass"),  # 2 vs 1
+    ],
+)
+def test_trace_to_dspy_example_multi_assessment_majority_wins(
+    mock_judge, capsys, majority_count, minority_count, majority_label, minority_label
+):
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+    base_time = int(time.time() * 1000)
+
+    assessments = []
+    # Add majority assessments
+    for i in range(majority_count):
+        assessments.append(
+            _create_human_assessment(
+                name="mock_judge",
+                value=majority_label,
+                rationale=f"Majority {i + 1}",
+                create_time_ms=base_time - (majority_count + minority_count - i) * 1000,
+                source_id=f"majority_user{i + 1}",
+            )
+        )
+    # Add minority assessments
+    for i in range(minority_count):
+        assessments.append(
+            _create_human_assessment(
+                name="mock_judge",
+                value=minority_label,
+                rationale=f"Minority {i + 1}",
+                create_time_ms=base_time - (minority_count - i) * 1000,
+                source_id=f"minority_user{i + 1}",
+            )
+        )
+
+    trace = _create_trace_with_assessments("test_majority", assessments)
+    results = trace_to_dspy_example(trace, mock_judge)
+
+    assert len(results) == majority_count
+    for result in results:
+        assert result["result"] == majority_label
+
+    # Should log warning about discarded assessments
+    captured = capsys.readouterr()
+    assert "discarded" in captured.err.lower()
+
+
+# Multi-assessment tests: tie-breaking by recency
+@pytest.mark.parametrize(
+    ("group_a_count", "group_b_count", "group_a_label", "group_b_label", "winner"),
+    [
+        (2, 2, "pass", "fail", "fail"),  # 2v2 tie, fail is more recent
+        (1, 1, "pass", "fail", "fail"),  # 1v1 tie, fail is more recent
+    ],
+)
+def test_trace_to_dspy_example_multi_assessment_tie_uses_recency(
+    mock_judge, capsys, group_a_count, group_b_count, group_a_label, group_b_label, winner
+):
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+    base_time = int(time.time() * 1000)
+
+    assessments = []
+    # Older group (group_a)
+    for i in range(group_a_count):
+        assessments.append(
+            _create_human_assessment(
+                name="mock_judge",
+                value=group_a_label,
+                rationale=f"Older {i + 1}",
+                create_time_ms=base_time - 4000 + i * 100,
+                source_id=f"old_user{i + 1}",
+            )
+        )
+    # Newer group (group_b) - should win the tie
+    for i in range(group_b_count):
+        assessments.append(
+            _create_human_assessment(
+                name="mock_judge",
+                value=group_b_label,
+                rationale=f"Newer {i + 1}",
+                create_time_ms=base_time - 2000 + i * 100,
+                source_id=f"new_user{i + 1}",
+            )
+        )
+
+    trace = _create_trace_with_assessments("test_tie", assessments)
+    results = trace_to_dspy_example(trace, mock_judge)
+
+    assert len(results) == group_b_count  # Winner group
+    for result in results:
+        assert result["result"] == winner
+
+    # Should log warning about tie-breaking
+    captured = capsys.readouterr()
+    assert "tie" in captured.err.lower()
+
+
+def test_trace_to_dspy_example_three_way_tie_uses_most_recent(mock_judge):
+    """When 1 'pass', 1 'fail', 1 'maybe', use the single most recent."""
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+    base_time = int(time.time() * 1000)
+
+    assessments = [
+        _create_human_assessment("mock_judge", "pass", "Oldest", base_time - 2000, "user1"),
+        _create_human_assessment("mock_judge", "fail", "Middle", base_time - 1000, "user2"),
+        _create_human_assessment("mock_judge", "maybe", "Most recent", base_time, "user3"),
+    ]
+
+    trace = _create_trace_with_assessments("test_3way_tie", assessments)
+    results = trace_to_dspy_example(trace, mock_judge)
+
+    assert len(results) == 1
+    assert results[0]["result"] == "maybe"
+
+
+def test_trace_to_dspy_example_conflict_warning_includes_details(mock_judge, capsys):
+    """Warning should include trace_id, source_id, and timestamp of discarded assessments."""
+    pytest.importorskip("dspy", reason="DSPy not installed")
+    base_time = int(time.time() * 1000)
+    discarded_time = base_time - 1000
+
+    assessments = [
+        _create_human_assessment("mock_judge", "pass", "Pass 1", base_time - 2000, "alice"),
+        _create_human_assessment("mock_judge", "fail", "Discarded", discarded_time, "bob"),
+        _create_human_assessment("mock_judge", "pass", "Pass 2", base_time, "charlie"),
+    ]
+
+    trace = _create_trace_with_assessments("test_trace_123", assessments)
+    trace_to_dspy_example(trace, mock_judge)
+
+    captured = capsys.readouterr()
+    assert "test_trace_123" in captured.err  # Trace ID
+    assert "bob" in captured.err  # Source ID of discarded
+    assert str(discarded_time) in captured.err  # Timestamp
+
+
+# Multi-assessment edge cases
+@pytest.mark.parametrize(
+    ("scenario", "assessments_fn", "expected_count"),
+    [
+        ("no_timestamps", lambda t: [
+            Feedback(name="mock_judge", value="pass", rationale="R1",
+                     source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u1")),
+            Feedback(name="mock_judge", value="pass", rationale="R2",
+                     source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u2")),
+        ], 2),
+        ("llm_only", lambda t: [
+            Feedback(name="mock_judge", value="pass", rationale="LLM",
+                     source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt")),
+        ], 0),
+        ("empty", lambda t: [], 0),
+        ("wrong_judge", lambda t: [
+            _create_human_assessment("other_judge", "pass", "Wrong", t, "user"),
+        ], 0),
+    ],
+)
+def test_trace_to_dspy_example_edge_cases(mock_judge, scenario, assessments_fn, expected_count):
+    if scenario != "llm_only":
+        pytest.importorskip("dspy", reason="DSPy not installed")
+
+    base_time = int(time.time() * 1000)
+    assessments = assessments_fn(base_time)
+    trace = _create_trace_with_assessments(f"test_{scenario}", assessments)
+    results = trace_to_dspy_example(trace, mock_judge)
+
+    assert len(results) == expected_count
+
+
+def test_trace_to_dspy_example_mixed_human_and_llm_only_uses_human(mock_judge):
+    """Only human assessments should be considered, not LLM."""
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+    base_time = int(time.time() * 1000)
+
+    assessments = [
+        _create_human_assessment("mock_judge", "fail", "Human 1", base_time - 1000),
+        Feedback(
+            name="mock_judge", value="pass", rationale="LLM",
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt"),
+            create_time_ms=base_time,
+        ),
+        _create_human_assessment("mock_judge", "fail", "Human 2", base_time - 500),
+    ]
+
+    trace = _create_trace_with_assessments("test_mixed", assessments)
+    results = trace_to_dspy_example(trace, mock_judge)
+
+    assert len(results) == 2
+    for result in results:
+        assert result["result"] == "fail"
+
+
+# Optimizer integration test for multi-assessment handling
+def test_memalign_optimizer_handles_multi_assessment_traces(mock_judge):
+    """MemAlignOptimizer.align() should handle multiple assessments per trace."""
+    pytest.importorskip("dspy", reason="DSPy not installed")
+    from mlflow.genai.judges.optimizers.memalign.optimizer import MemAlignOptimizer
+
+    base_time = int(time.time() * 1000)
+    optimizer = MemAlignOptimizer(
+        reflection_lm="openai:/gpt-4o-mini",
+        embedding_model="openai:/text-embedding-3-small",
+    )
+
+    # Trace with 3 agreeing assessments
+    trace = _create_trace_with_assessments(
+        "multi_trace",
+        [
+            _create_human_assessment("mock_judge", "pass", f"R{i}", base_time - i * 1000)
+            for i in range(3)
+        ],
+    )
+
+    with patch(
+        "mlflow.genai.judges.optimizers.memalign.optimizer.distill_guidelines"
+    ) as mock_distill:
+        mock_distill.return_value = []
+        aligned_judge = optimizer.align(mock_judge, [trace])
+
+        # Should have 3 examples in episodic memory
+        assert len(aligned_judge._episodic_memory) == 3
+        assert all(ex._trace_id == "multi_trace" for ex in aligned_judge._episodic_memory)
