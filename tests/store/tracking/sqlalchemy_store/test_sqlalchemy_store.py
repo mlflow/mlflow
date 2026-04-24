@@ -12858,6 +12858,84 @@ def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
     assert trace.info.token_usage["total_tokens"] == 150
 
 
+def _create_rollup_token_usage_spans(trace_id: str):
+    parent_usage = {
+        "input_tokens": 2000,
+        "output_tokens": 1000,
+        "total_tokens": 3000,
+    }
+    child_usage = {
+        "input_tokens": 1000,
+        "output_tokens": 500,
+        "total_tokens": 1500,
+        "cache_read_input_tokens": 100,
+    }
+
+    parent = create_test_span(
+        trace_id=trace_id,
+        name="invoke_agent",
+        span_id=111,
+        span_type="AGENT",
+        attributes={SpanAttributeKey.CHAT_USAGE: parent_usage},
+    )
+    children = [
+        create_test_span(
+            trace_id=trace_id,
+            name=f"chat_{i}",
+            span_id=span_id,
+            parent_id=111,
+            attributes={SpanAttributeKey.CHAT_USAGE: child_usage},
+        )
+        for i, span_id in enumerate([222, 333], start=1)
+    ]
+    children_usage = {
+        **parent_usage,
+        "cache_read_input_tokens": 200,
+    }
+    return parent, children, parent_usage, children_usage
+
+
+def _get_trace_token_usage_metrics(store: SqlAlchemyStore, trace_id: str) -> dict[str, float]:
+    with store.ManagedSessionMaker() as session:
+        metrics = (
+            session
+            .query(SqlTraceMetrics)
+            .filter(SqlTraceMetrics.request_id == trace_id)
+            .order_by(SqlTraceMetrics.key)
+            .all()
+        )
+        return {metric.key: metric.value for metric in metrics}
+
+
+def test_log_spans_token_usage_does_not_double_count_descendants(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_log_spans_token_usage_dedup_descendants")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    parent, children, parent_usage, _ = _create_rollup_token_usage_spans(trace_id)
+
+    store.log_spans(experiment_id, [children[0], parent, children[1]])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == parent_usage
+    assert _get_trace_token_usage_metrics(store, trace_id) == parent_usage
+
+
+def test_log_spans_token_usage_recomputes_when_parent_rollup_arrives_later(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_log_spans_token_usage_recompute_rollup")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    parent, children, parent_usage, children_usage = _create_rollup_token_usage_spans(trace_id)
+
+    store.log_spans(experiment_id, children)
+    assert store.get_trace_info(trace_id).token_usage == children_usage
+
+    store.log_spans(experiment_id, [parent])
+    assert store.get_trace_info(trace_id).token_usage == parent_usage
+    assert _get_trace_token_usage_metrics(store, trace_id) == parent_usage
+
+
 def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_update_token_usage")
     trace_id = f"tr-{uuid.uuid4().hex}"

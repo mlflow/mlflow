@@ -178,10 +178,10 @@ from mlflow.tracing.otel.translation import (
     translate_loaded_span,
     translate_span_when_storing,
     update_cost,
-    update_token_usage,
 )
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
+    aggregate_usage_from_spans,
     generate_request_id_v2,
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
@@ -4543,19 +4543,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             max_end_ms = (max(end_times) // 1_000_000) if end_times else None
             root_span_status = self._get_trace_status_from_root_span(trace_spans)
 
-            aggregated_token_usage = {}
             aggregated_cost = {}
             session_id = None
             user_id = None
             root_span_dict = None
+            span_dicts = []
             for span in trace_spans:
                 span_dict = translate_span_when_storing(span)
+                span_dicts.append(span_dict)
                 span_cost = None
                 if span_attributes := span_dict.get("attributes", {}):
-                    if span_token_usage := span_attributes.get(SpanAttributeKey.CHAT_USAGE):
-                        aggregated_token_usage = update_token_usage(
-                            aggregated_token_usage, span_token_usage
-                        )
                     if span_cost := span_attributes.get(SpanAttributeKey.LLM_COST):
                         aggregated_cost = update_cost(aggregated_cost, span_cost)
                     # Session ID from OTel semantic conventions:
@@ -4615,7 +4612,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 max_end_ms=max_end_ms,
                 root_span_status=root_span_status,
                 trace_status=root_span_status or TraceState.IN_PROGRESS.value,
-                aggregated_token_usage=aggregated_token_usage,
+                aggregated_token_usage=_aggregate_token_usage_from_span_dicts(span_dicts) or {},
                 aggregated_cost=aggregated_cost,
                 session_id=session_id,
                 user_id=user_id,
@@ -4742,6 +4739,34 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     elif row.key == TraceMetadataKey.COST:
                         existing_cost[row.request_id] = row
 
+            trace_ids_to_recompute_token_usage = [
+                trace_id
+                for trace_id in trace_ids_with_token_usage
+                if trace_id not in finalized_trace_ids or trace_id not in existing_token_usage
+            ]
+            if trace_ids_to_recompute_token_usage:
+                spans_by_trace_id = defaultdict(list)
+                rows = (
+                    session
+                    .query(SqlSpan.trace_id, SqlSpan.content)
+                    .filter(SqlSpan.trace_id.in_(trace_ids_to_recompute_token_usage))
+                    .all()
+                )
+                for trace_id, content in rows:
+                    try:
+                        spans_by_trace_id[trace_id].append(json.loads(content))
+                    except Exception:
+                        _logger.debug(
+                            "Failed to load span while aggregating token usage for trace %s",
+                            trace_id,
+                            exc_info=True,
+                        )
+
+                for trace_id in trace_ids_to_recompute_token_usage:
+                    trace_aggregates[trace_id].aggregated_token_usage = (
+                        _aggregate_token_usage_from_span_dicts(spans_by_trace_id[trace_id]) or {}
+                    )
+
             existing_sessions: set[str] = set()
             if trace_ids_with_session:
                 existing_sessions = {
@@ -4811,10 +4836,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if aggregated_token_usage := agg.aggregated_token_usage:
                     existing_record = existing_token_usage.get(trace_id)
                     if trace_id not in finalized_trace_ids or not existing_record:
-                        trace_token_usage = update_token_usage(
-                            existing_record.value if existing_record else {},
-                            aggregated_token_usage,
-                        )
+                        trace_token_usage = aggregated_token_usage
                         session.merge(
                             SqlTraceMetadata(
                                 request_id=trace_id,
@@ -4822,6 +4844,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                 value=json.dumps(trace_token_usage),
                             )
                         )
+                        session.query(SqlTraceMetrics).filter(
+                            SqlTraceMetrics.request_id == trace_id,
+                            SqlTraceMetrics.key.in_(TokenUsageKey.all_keys()),
+                        ).delete(synchronize_session=False)
                         for key in TokenUsageKey.all_keys():
                             if (value := trace_token_usage.get(key)) is not None:
                                 session.merge(
@@ -7213,12 +7239,38 @@ def _get_search_datasets_order_by_clauses(order_by):
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
 
 
-def _try_parse_json_string(value: str) -> str:
+def _try_parse_json_string(value: str) -> Any:
     try:
         return json.loads(value)
     except json.JSONDecodeError:
         pass
     return value
+
+
+@dataclass
+class _SpanDictAggregateView:
+    span_dict: dict[str, Any]
+
+    @property
+    def span_id(self) -> str:
+        return self.span_dict["span_id"]
+
+    @property
+    def parent_id(self) -> str | None:
+        return self.span_dict.get("parent_span_id")
+
+    def get_attribute(self, key: str) -> Any:
+        value = self.span_dict.get("attributes", {}).get(key)
+        value = _try_parse_json_string(value) if isinstance(value, str) else value
+        return value if isinstance(value, dict) else None
+
+
+def _aggregate_token_usage_from_span_dicts(
+    span_dicts: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    return aggregate_usage_from_spans([
+        _SpanDictAggregateView(span_dict) for span_dict in span_dicts
+    ])
 
 
 @dataclass
