@@ -108,7 +108,7 @@ spec:
               {{- end }}
             initialDelaySeconds: 5
             periodSeconds: 10
-          {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.mlflow.registryStoreUri .Values.mlflow.registryStoreUriFrom .Values.env }}
+          {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.mlflow.registryStoreUri .Values.mlflow.registryStoreUriFrom .Values.mlflow.defaultArtifactRoot .Values.mlflow.artifactsDestination .Values.env }}
           env:
             {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom }}
             - name: MLFLOW_BACKEND_STORE_URI
@@ -127,6 +127,14 @@ spec:
               {{- else }}
               value: {{ .Values.mlflow.registryStoreUri | quote }}
               {{- end }}
+            {{- end }}
+            {{- if .Values.mlflow.defaultArtifactRoot }}
+            - name: MLFLOW_DEFAULT_ARTIFACT_ROOT
+              value: {{ .Values.mlflow.defaultArtifactRoot | quote }}
+            {{- end }}
+            {{- if .Values.mlflow.artifactsDestination }}
+            - name: MLFLOW_ARTIFACTS_DESTINATION
+              value: {{ .Values.mlflow.artifactsDestination | quote }}
             {{- end }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}

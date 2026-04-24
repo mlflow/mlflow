@@ -55,6 +55,8 @@ mlflow:
   backendStoreUriFrom: {}
   registryStoreUri: ""
   registryStoreUriFrom: {}
+  defaultArtifactRoot: ""
+  artifactsDestination: ""
 
 # Extra environment variables injected into both init and main containers.
 # Useful for database passwords, S3 credentials, etc.
