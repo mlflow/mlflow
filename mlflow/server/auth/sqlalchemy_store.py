@@ -143,9 +143,9 @@ class SqlAlchemyStore:
     def delete_user(self, username: str):
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username)
-            # Clean up synthetic per-user roles created by the Phase 2 M1 dual-write so their
-            # role_permissions / user_role_assignments rows don't leak (and don't hit FK errors
-            # on backends that enforce referential integrity).
+            # Clean up the user's synthetic per-user roles (see the synthetic role helpers
+            # section below) so their role_permissions / user_role_assignments rows don't
+            # leak and don't hit FK errors on backends that enforce referential integrity.
             synthetic_name = self._synthetic_user_role_name(user.id)
             synthetic_roles = session.query(SqlRole).filter(SqlRole.name == synthetic_name).all()
             for role in synthetic_roles:
@@ -153,13 +153,13 @@ class SqlAlchemyStore:
             session.flush()
             session.delete(user)
 
-    # ---- Synthetic user-role helpers (Phase 2 M1 dual-write) ----
+    # ---- Synthetic user-role helpers (dual-write into role_permissions) ----
     #
-    # Per-resource grants (experiment_permissions, registered_model_permissions, ...) are
-    # mirrored into `role_permissions` under a synthetic role named `__user_<user_id>__`
-    # scoped to the resource's workspace. Reads still go through the per-resource tables;
-    # the mirrored grants make `get_role_permission_for_resource` a valid source of truth
-    # in parallel so later phases can flip reads over.
+    # Every legacy per-resource grant (experiment_permissions, registered_model_permissions,
+    # ...) is mirrored into `role_permissions` under a synthetic role named
+    # `__user_<user_id>__` scoped to the grant's workspace. This keeps
+    # `role_permissions` in sync with the per-resource tables so it can serve as an
+    # authoritative permission source without a separate backfill.
     #
     # The synthetic namespace (``__user_<int>__``) is RESERVED: ``create_role`` and
     # ``update_role`` reject names matching the pattern so an API consumer can't hijack a
@@ -185,7 +185,8 @@ class SqlAlchemyStore:
         if cls._is_synthetic_role_name(name):
             raise MlflowException.invalid_parameter_value(
                 f"Role name {name!r} matches the reserved synthetic pattern "
-                f"'__user_<id>__' used by Phase 2 dual-write. Choose a different name."
+                f"'__user_<id>__' used by the role_permissions dual-write. "
+                "Choose a different name."
             )
 
     def _get_or_create_synthetic_user_role(self, session, user_id: int, workspace: str) -> SqlRole:

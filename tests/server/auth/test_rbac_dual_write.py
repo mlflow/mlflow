@@ -193,8 +193,8 @@ def test_delete_user_removes_synthetic_role(store, user):
     # Create a grant to force the synthetic role into existence, then remove the grant so
     # only the (now empty) synthetic role + assignment remain. This avoids tripping a
     # pre-existing FK issue on the legacy permission tables when a user is deleted while
-    # still holding direct grants — that issue exists independent of Phase 2 and will be
-    # addressed in its own fix.
+    # still holding direct grants — that issue is orthogonal to the dual-write cleanup and
+    # will be addressed in its own fix.
     store.create_experiment_permission("exp1", user.username, READ.name)
     store.delete_experiment_permission("exp1", user.username)
     user_id = user.id
