@@ -42,7 +42,7 @@ dependencies = [
   "graphene<4",
   "gunicorn<26; platform_system != 'Windows'",
   "huey<3,>=2.5.4",
-  "importlib_metadata<9,>=3.7.0,!=4.7.0",
+  "importlib_metadata<10,>=3.7.0,!=4.7.0",
   "matplotlib<4",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
