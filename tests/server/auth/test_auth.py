@@ -14,6 +14,7 @@ from unittest import mock
 import jwt
 import pytest
 import requests
+from cachetools import TTLCache
 from cryptography.fernet import Fernet
 
 import mlflow
@@ -3119,6 +3120,14 @@ def mock_auth_config():
         yield mock_config
 
 
+@pytest.fixture
+def enable_auth_cache():
+    # The credential cache is disabled by default; cache-behavior tests must opt in.
+    cache = TTLCache(maxsize=10000, ttl=60)
+    with mock.patch("mlflow.server.auth._USER_AUTH_CACHE", cache):
+        yield cache
+
+
 def _make_request(path, authorization=None):
     request = mock.Mock()
     request.url.path = path
@@ -3258,7 +3267,9 @@ def test_fastapi_malformed_authorization_header(mock_auth_store, mock_auth_confi
 # -- Basic auth credential cache --
 
 
-def test_basic_auth_caches_successful_credentials(mock_auth_store, mock_auth_config, monkeypatch):
+def test_basic_auth_caches_successful_credentials(
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
+):
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
     request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
@@ -3274,7 +3285,7 @@ def test_basic_auth_caches_successful_credentials(mock_auth_store, mock_auth_con
 
 
 def test_basic_auth_cache_does_not_store_failed_credentials(
-    mock_auth_store, mock_auth_config, monkeypatch
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
 ):
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     mock_auth_store.authenticate_user.return_value = False
@@ -3287,7 +3298,7 @@ def test_basic_auth_cache_does_not_store_failed_credentials(
 
 
 def test_basic_auth_cache_keyed_by_username_and_password(
-    mock_auth_store, mock_auth_config, monkeypatch
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
 ):
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     alice = base64.b64encode(b"alice:password123").decode("ascii")
@@ -3306,7 +3317,7 @@ def test_basic_auth_cache_keyed_by_username_and_password(
 
 
 def test_basic_auth_returns_none_when_user_deleted_between_authenticate_and_get(
-    mock_auth_store, mock_auth_config, monkeypatch
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
 ):
     # TOCTOU: authenticate_user returned True but the user disappeared before get_user.
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
@@ -3344,7 +3355,7 @@ def test_flask_basic_auth_skips_get_user_when_cache_disabled(
 
 
 def test_flask_basic_auth_shares_cache_with_fastapi_path(
-    mock_auth_store, mock_auth_config, monkeypatch
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
 ):
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     # Prime the cache via the FastAPI path.
@@ -3365,7 +3376,7 @@ def test_flask_basic_auth_shares_cache_with_fastapi_path(
 
 
 def test_invalidate_user_auth_cache_drops_only_matching_username(
-    mock_auth_store, mock_auth_config, monkeypatch
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
 ):
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     alice = base64.b64encode(b"alice:password123").decode("ascii")
