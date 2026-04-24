@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
 import {
@@ -121,6 +121,8 @@ const ContextProviders = ({
     </GenAiTracesMarkdownConverterProvider>
   );
 };
+
+const firedCountTelemetryForExperiments = new Set<string>();
 
 const TracesV3LogsImpl = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
@@ -385,8 +387,6 @@ const TracesV3LogsImpl = React.memo(
 
     const logTelemetryEvent = useLogTelemetryEvent();
 
-    const firedCountTelemetryRef = useRef(false);
-
     const { data: allTimeTraceCountMetrics, isLoading: allTimeTraceCountLoading } = useTraceMetricsQuery({
       experimentIds: singleExperimentId ? [singleExperimentId] : [],
       viewType: MetricViewType.TRACES,
@@ -396,13 +396,17 @@ const TracesV3LogsImpl = React.memo(
         shouldUseInfinitePaginatedTraces() &&
         !isQueryDisabled &&
         !!singleExperimentId &&
-        !firedCountTelemetryRef.current,
+        !firedCountTelemetryForExperiments.has(singleExperimentId),
     });
     const allTimeTotalCount = allTimeTraceCountMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT];
 
     useEffect(() => {
-      if (!allTimeTraceCountLoading && singleExperimentId && !firedCountTelemetryRef.current) {
-        firedCountTelemetryRef.current = true;
+      if (
+        !allTimeTraceCountLoading &&
+        singleExperimentId &&
+        !firedCountTelemetryForExperiments.has(singleExperimentId)
+      ) {
+        firedCountTelemetryForExperiments.add(singleExperimentId);
         logTelemetryEvent({
           componentId: 'mlflow.traces-tab.trace-count',
           componentType: DesignSystemEventProviderComponentTypes.Card,
