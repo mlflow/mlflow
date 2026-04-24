@@ -68,8 +68,13 @@ spec:
         - name: mlflow
           image: {{ include "mlflow.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- $healthPrefix := .Values.server.staticPrefix | trimSuffix "/" }}
+          {{- $portName := ternary "https" "http" .Values.tls.enabled }}
           command:
             {{- include "mlflow.serverArgs" . | nindent 12 }}
+            {{- if .Values.server.staticPrefix }}
+            - --static-prefix={{ .Values.server.staticPrefix }}
+            {{- end }}
             {{- if .Values.tls.enabled }}
             - --uvicorn-opts=--ssl-keyfile=/etc/tls/private/tls.key --ssl-certfile=/etc/tls/private/tls.crt --proxy-headers
             {{- end }}
@@ -77,13 +82,13 @@ spec:
             - --expose-prometheus={{ .Values.metrics.path }}
             {{- end }}
           ports:
-            - name: {{ if .Values.tls.enabled }}https{{ else }}http{{ end }}
+            - name: {{ $portName }}
               containerPort: {{ .Values.server.value_options.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /health
-              port: {{ if .Values.tls.enabled }}https{{ else }}http{{ end }}
+              path: {{ printf "%s/health" $healthPrefix }}
+              port: {{ $portName }}
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
@@ -91,8 +96,8 @@ spec:
             periodSeconds: 20
           readinessProbe:
             httpGet:
-              path: /health
-              port: {{ if .Values.tls.enabled }}https{{ else }}http{{ end }}
+              path: {{ printf "%s/health" $healthPrefix }}
+              port: {{ $portName }}
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}

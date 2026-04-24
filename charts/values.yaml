@@ -24,6 +24,10 @@ server:
   # Example: [serve_artifacts, no_serve_artifacts]
   flag_options: []
 
+  # staticPrefix: path prefix when MLflow is served under a subpath (e.g. /mlflow).
+  # Aligns the --static-prefix server arg and liveness/readiness probe paths.
+  staticPrefix: ""
+
 
 # Run `mlflow db upgrade` in an init container before the server starts.
 # Disable only if the database schema is managed externally.
