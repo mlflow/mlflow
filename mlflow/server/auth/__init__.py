@@ -2871,27 +2871,34 @@ def alert(href: str):
 
 
 def logout():
-    # HTTP Basic Auth has no server-side session that we can invalidate.
-    # Return 401 WITHOUT a WWW-Authenticate header: browsers see the 401 as
-    # "the credentials you had don't work here", which signals the password
-    # store to drop the cached creds for this origin. Omitting
-    # WWW-Authenticate avoids an immediate prompt on this very page (which
-    # would loop: browser prompts, sends creds, handler 401s again, ad
-    # infinitum — the handler intentionally always 401s). Omitting it also
-    # prevents the browser from caching the freshly-typed creds as "valid".
+    # HTTP Basic Auth has no server-side session. The reliable way to
+    # invalidate the browser's credential cache is the "XHR with bogus
+    # creds" trick: a synchronous XHR with explicit wrong user/password
+    # overrides the cached creds for the realm. Subsequent auto-auth
+    # attempts then fail and the browser prompts fresh.
     body = (
         "<!DOCTYPE html>"
         "<html><head><title>Logged out</title></head>"
         "<body style='font-family: sans-serif; padding: 2rem;'>"
-        "<h2>You have been logged out.</h2>"
-        "<p><a href='/'>Return to MLflow</a> to sign in as a different user.</p>"
-        "<p style='color: #888; font-size: 0.9em;'>"
-        "If the browser auto-signs you back in, close this window entirely "
-        "and open a new one — HTTP Basic Auth is cached per browser session."
+        "<h2>Signing you out…</h2>"
+        "<p id='msg'>Clearing credentials — please wait.</p>"
+        "<p style='margin-top: 2rem;'>"
+        "<a id='home' href='/' style='display: none;'>Return to MLflow</a>"
         "</p>"
+        "<script>"
+        "  try {"
+        "    var xhr = new XMLHttpRequest();"
+        "    xhr.open('GET', '/ajax-api/2.0/mlflow/users/current', false,"
+        "             'mlflow-logged-out', 'mlflow-logged-out');"
+        "    xhr.send();"
+        "  } catch (e) {}"
+        "  document.getElementById('msg').textContent ="
+        "    'You have been signed out. Click below to sign in again.';"
+        "  document.getElementById('home').style.display = 'inline';"
+        "</script>"
         "</body></html>"
     )
-    res = make_response(body, 401)
+    res = make_response(body, 200)
     res.headers["Content-Type"] = "text/html; charset=utf-8"
     return res
 
