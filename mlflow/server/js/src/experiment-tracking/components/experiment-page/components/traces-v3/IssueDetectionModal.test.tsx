@@ -48,12 +48,8 @@ jest.mock('./GenAIModelSelection', () => {
   return {
     GenAIModelSelection: React.forwardRef(function GenAIModelSelection(
       {
-        selectedTraceIds,
-        onSelectTracesClick,
         onValidityChange,
       }: {
-        selectedTraceIds: string[];
-        onSelectTracesClick: () => void;
         onValidityChange: (isValid: boolean) => void;
       },
       ref: any,
@@ -79,10 +75,6 @@ jest.mock('./GenAIModelSelection', () => {
 
       return (
         <div data-testid="model-selection">
-          <div data-testid="trace-count">{selectedTraceIds.length} traces selected</div>
-          <button data-testid="select-traces" onClick={onSelectTracesClick}>
-            Select traces
-          </button>
           <button
             data-testid="set-valid-existing-key"
             onClick={() => {
@@ -248,14 +240,14 @@ describe('IssueDetectionModal', () => {
   });
 
   test('submit button is disabled when form is invalid', async () => {
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
     await navigateToStep2();
     // Form starts invalid
     const submitButton = screen.getByText('Run Analysis').closest('button');
     expect(submitButton).toBeDisabled();
 
-    // Set form to valid state
+    // Set form to valid state (model valid + traces already selected)
     await userEvent.click(screen.getByTestId('set-valid-existing-key'));
     expect(submitButton).not.toBeDisabled();
 

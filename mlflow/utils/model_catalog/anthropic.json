@@ -29,7 +29,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-02-19"
+      "deprecation_date": "2026-02-19",
+      "last_updated_at": "2026-04-24"
     },
     "claude-3-haiku-20240307": {
       "mode": "chat",
@@ -53,7 +54,8 @@
         "reasoning": false,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-3-opus-20240229": {
       "mode": "chat",
@@ -78,7 +80,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-05-01"
+      "deprecation_date": "2026-05-01",
+      "last_updated_at": "2026-04-24"
     },
     "claude-4-opus-20250514": {
       "mode": "chat",
@@ -107,7 +110,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-4-sonnet-20250514": {
       "mode": "chat",
@@ -145,7 +149,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-haiku-4-5": {
       "mode": "chat",
@@ -166,7 +171,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-haiku-4-5-20251001": {
       "mode": "chat",
@@ -187,7 +193,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-1": {
       "mode": "chat",
@@ -216,7 +223,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-1-20250805": {
       "mode": "chat",
@@ -246,7 +254,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-08-05"
+      "deprecation_date": "2026-08-05",
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-20250514": {
       "mode": "chat",
@@ -276,7 +285,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-05-14"
+      "deprecation_date": "2026-05-14",
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-5": {
       "mode": "chat",
@@ -305,7 +315,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-5-20251101": {
       "mode": "chat",
@@ -334,7 +345,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-6": {
       "mode": "chat",
@@ -363,7 +375,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-6-20260205": {
       "mode": "chat",
@@ -392,7 +405,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-7": {
       "mode": "chat",
@@ -405,7 +419,15 @@
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
-        "cache_write_per_million_tokens": 6.25
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          },
+          "tool_use_system_prompt_tokens": 346
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -413,7 +435,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-7-20260416": {
       "mode": "chat",
@@ -426,7 +449,15 @@
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
-        "cache_write_per_million_tokens": 6.25
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          },
+          "tool_use_system_prompt_tokens": 346
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -434,7 +465,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-sonnet-4-20250514": {
       "mode": "chat",
@@ -473,7 +505,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-05-14"
+      "deprecation_date": "2026-05-14",
+      "last_updated_at": "2026-04-24"
     },
     "claude-sonnet-4-5": {
       "mode": "chat",
@@ -511,7 +544,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-sonnet-4-5-20250929": {
       "mode": "chat",
@@ -549,7 +583,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-sonnet-4-6": {
       "mode": "chat",
@@ -578,7 +613,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

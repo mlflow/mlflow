@@ -14,7 +14,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Llama-3.3-8B-Instruct": {
       "mode": "chat",
@@ -29,7 +30,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Llama-4-Maverick-17B-128E-Instruct-FP8": {
       "mode": "chat",
@@ -44,7 +46,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Llama-4-Scout-17B-16E-Instruct-FP8": {
       "mode": "chat",
@@ -59,7 +62,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

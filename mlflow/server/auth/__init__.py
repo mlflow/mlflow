@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import base64
 import functools
+import hmac
 import importlib
 import json
 import logging
 import re
 import secrets
+import threading
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -301,6 +303,87 @@ _RESOURCE_WORKSPACE_CACHE: TTLCache[str, str | None] = TTLCache(
     maxsize=auth_config.workspace_cache_max_size,
     ttl=auth_config.workspace_cache_ttl_seconds,
 )
+
+# Cache for successful basic-auth credential checks. Keys derive from the password via
+# HMAC-SHA256 using a per-process secret, so the plaintext password is not stored in the
+# cache key *and* the digest is not usable for offline dictionary attack if process memory
+# is ever compromised (an attacker without the HMAC key cannot recompute the digest).
+# Skipping the PBKDF2 hash comparison inside ``store.authenticate_user`` on cache hits is
+# the dominant cost saving — a single check_password_hash call costs tens of milliseconds
+# by design.
+_USER_AUTH_CACHE: TTLCache[tuple[str, bytes], User] | None = (
+    TTLCache(
+        maxsize=auth_config.auth_cache_max_size,
+        ttl=auth_config.auth_cache_ttl_seconds,
+    )
+    if auth_config.auth_cache_ttl_seconds > 0
+    else None
+)
+# cachetools.TTLCache is not thread-safe — Flask handlers run under gunicorn's thread
+# pool, so every touch of the cache needs to hold this lock.
+_USER_AUTH_CACHE_LOCK = threading.Lock()
+# Random per-process key for the HMAC that turns the password into a cache-key digest.
+# Regenerated at every server start; the cache is ephemeral anyway (process-local, TTL'd),
+# so invalidating the key on restart costs nothing beyond a one-time re-auth for each
+# active credential.
+_USER_AUTH_CACHE_HMAC_KEY = secrets.token_bytes(32)
+
+
+def _auth_cache_key(username: str, password: str) -> tuple[str, bytes]:
+    digest = hmac.new(_USER_AUTH_CACHE_HMAC_KEY, password.encode("utf-8"), "sha256").digest()
+    return (username, digest)
+
+
+def _authenticate_cached(username: str, password: str) -> User | None:
+    """Run basic-auth verification with the credential cache in front of it.
+
+    Used by both the Flask (``authenticate_request_basic_auth``) and FastAPI
+    (``_authenticate_fastapi_request``) auth paths so neither pays the PBKDF2
+    cost twice for the same credential within ``auth_cache_ttl_seconds``.
+
+    Returns the ``User`` on success, or ``None`` when the credential is invalid
+    or the user has been deleted between ``authenticate_user`` and ``get_user``.
+    """
+    if _USER_AUTH_CACHE is None:
+        if not store.authenticate_user(username, password):
+            return None
+        try:
+            return store.get_user(username)
+        except MlflowException:
+            return None
+
+    key = _auth_cache_key(username, password)
+    with _USER_AUTH_CACHE_LOCK:
+        cached = _USER_AUTH_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    # Keep the PBKDF2 comparison outside the lock so concurrent verifications for
+    # *different* credentials still run in parallel.
+    if not store.authenticate_user(username, password):
+        return None
+    try:
+        user = store.get_user(username)
+    except MlflowException:
+        # User was deleted between authenticate_user and get_user — treat as auth
+        # failure and don't cache anything.
+        return None
+    with _USER_AUTH_CACHE_LOCK:
+        _USER_AUTH_CACHE[key] = user
+    return user
+
+
+def _invalidate_user_auth_cache(username: str) -> None:
+    """Drop every cached credential for ``username``.
+
+    Called from user-mutation routes (password change, admin flag change, deletion)
+    so those changes take effect immediately instead of after ``auth_cache_ttl_seconds``.
+    """
+    if _USER_AUTH_CACHE is None:
+        return
+    with _USER_AUTH_CACHE_LOCK:
+        for key in [k for k in _USER_AUTH_CACHE if k[0] == username]:
+            _USER_AUTH_CACHE.pop(key, None)
 
 
 def is_unprotected_route(path: str) -> bool:
@@ -2090,11 +2173,16 @@ def authenticate_request_basic_auth() -> Authorization | Response:
 
     username = request.authorization.username
     password = request.authorization.password
-    if store.authenticate_user(username, password):
+    # When the cache is disabled, don't pay the extra get_user round-trip that
+    # _authenticate_cached does for the sake of cache-population — the Flask
+    # path only cares about the yes/no auth decision.
+    if _USER_AUTH_CACHE is None:
+        if store.authenticate_user(username, password):
+            return request.authorization
+    elif _authenticate_cached(username, password):
         return request.authorization
-    else:
-        # let user attempt login again
-        return make_basic_auth_response()
+    # let user attempt login again
+    return make_basic_auth_response()
 
 
 def _find_validator(req: Request) -> Callable[[], bool] | None:
@@ -2984,6 +3072,7 @@ def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
     store.update_user(username, password=password)
+    _invalidate_user_auth_cache(username)
     return make_response({})
 
 
@@ -2992,6 +3081,7 @@ def update_user_admin():
     username = _get_request_param("username")
     is_admin = _get_request_param("is_admin")
     store.update_user(username, is_admin=is_admin)
+    _invalidate_user_auth_cache(username)
     return make_response({})
 
 
@@ -2999,6 +3089,7 @@ def update_user_admin():
 def delete_user():
     username = _get_request_param("username")
     store.delete_user(username)
+    _invalidate_user_auth_cache(username)
     return make_response({})
 
 
@@ -3463,12 +3554,9 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         ):
             return store.get_user(username)
 
-        if store.authenticate_user(username, password):
-            return store.get_user(username)
+        return _authenticate_cached(username, password)
     except Exception:
         return None
-
-    return None
 
 
 def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> str | None:
