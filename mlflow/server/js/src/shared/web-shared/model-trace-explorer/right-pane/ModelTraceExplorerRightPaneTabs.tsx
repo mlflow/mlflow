@@ -85,7 +85,6 @@ function ModelTraceExplorerRightPaneTabsImpl({
       value={activeTab}
       onValueChange={(tab: string) => setActiveTab(tab as ModelTraceExplorerTab)}
     >
-      <SpanModelCostBadge activeSpan={activeSpan} />
       {!displayReadOnlyAssessments && !assessmentsPaneExpanded && (
         <div
           css={{
@@ -141,7 +140,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
       </Tabs.List>
       {activeSpan.chatMessages && (
         <Tabs.Content css={contentStyle} value="chat">
-          <ModelTraceExplorerChatTab chatMessages={activeSpan.chatMessages} chatTools={activeSpan.chatTools} />
+          <ModelTraceExplorerChatTab activeSpan={activeSpan} />
         </Tabs.Content>
       )}
       <Tabs.Content css={contentStyle} value="content">
