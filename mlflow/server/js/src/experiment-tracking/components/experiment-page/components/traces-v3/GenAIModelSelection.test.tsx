@@ -23,8 +23,6 @@ jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKey
 
 describe('GenAIModelSelection', () => {
   const defaultProps = {
-    selectedTraceIds: [],
-    onSelectTracesClick: jest.fn(),
     onValidityChange: jest.fn(),
   };
 
@@ -168,5 +166,86 @@ describe('GenAIModelSelection', () => {
     const { queryByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
     expect(queryByText('Select endpoint')).not.toBeInTheDocument();
+  });
+
+  test('respects initialValues.endpointName without overriding it when mode is not set', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [
+        { endpoint_id: 'ep-1', name: 'first-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
+        { endpoint_id: 'ep-2', name: 'specific-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
+      ],
+      isLoading: false,
+    } as any);
+
+    const ref = React.createRef<any>();
+    renderWithDesignSystem(
+      <GenAIModelSelection {...defaultProps} ref={ref} initialValues={{ endpointName: 'specific-endpoint' }} />,
+    );
+
+    await waitFor(() => {
+      const values = ref.current?.getValues();
+      // Should not be overridden with first-endpoint, and mode should be inferred as 'endpoint'
+      expect(values.endpointName).toBe('specific-endpoint');
+      expect(values.mode).toBe('endpoint');
+    });
+  });
+
+  test('initializes saveKey from initialValues.saveKey', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false } as any);
+
+    const ref = React.createRef<any>();
+    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} initialValues={{ saveKey: false }} />);
+
+    await waitFor(() => {
+      expect(ref.current?.getValues().saveKey).toBe(false);
+    });
+  });
+
+  test('does not auto-switch apiKeyConfig when readOnly is true', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false } as any);
+    mockUseApiKeyConfiguration.mockReturnValue({
+      existingSecrets: [{ secret_id: 'existing-secret', secret_name: 'My Key', provider: 'openai', masked_values: {} }],
+      authModes: [],
+      defaultAuthMode: '',
+      isLoadingProviderConfig: false,
+    });
+
+    const ref = React.createRef<any>();
+    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} readOnly />);
+
+    // Wait for effects to settle
+    await waitFor(() => {
+      const config = ref.current?.getValues().apiKeyConfig;
+      // Should remain 'new' because readOnly skips the auto-switch
+      expect(config.mode).toBe('new');
+    });
+  });
+
+  test('does not auto-switch apiKeyConfig when initialValues.apiKeyConfig is provided', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false } as any);
+    mockUseApiKeyConfiguration.mockReturnValue({
+      existingSecrets: [{ secret_id: 'existing-secret', secret_name: 'My Key', provider: 'openai', masked_values: {} }],
+      authModes: [],
+      defaultAuthMode: '',
+      isLoadingProviderConfig: false,
+    });
+
+    const initialApiKeyConfig = {
+      mode: 'new' as const,
+      existingSecretId: '',
+      newSecret: { name: 'provided-key', authMode: '', secretFields: {}, configFields: {} },
+    };
+
+    const ref = React.createRef<any>();
+    renderWithDesignSystem(
+      <GenAIModelSelection {...defaultProps} ref={ref} initialValues={{ apiKeyConfig: initialApiKeyConfig }} />,
+    );
+
+    await waitFor(() => {
+      const config = ref.current?.getValues().apiKeyConfig;
+      // Should not be auto-switched to 'existing' because initialValues.apiKeyConfig was provided
+      expect(config.mode).toBe('new');
+      expect(config.newSecret.name).toBe('provided-key');
+    });
   });
 });

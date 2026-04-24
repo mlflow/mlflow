@@ -1,10 +1,9 @@
-import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo, useRef } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
   Tooltip,
   Input,
-  Button,
   Accordion,
   DialogCombobox,
   DialogComboboxContent,
@@ -83,13 +82,13 @@ export interface GenAIModelSelectionRef {
 }
 
 interface GenAIModelSelectionProps {
-  selectedTraceIds: string[];
-  onSelectTracesClick: () => void;
   onValidityChange: (isValid: boolean) => void;
+  readOnly?: boolean;
+  initialValues?: Partial<ModelSelectionValues>;
 }
 
 export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModelSelectionProps>(
-  function GenAIModelSelection({ selectedTraceIds, onSelectTracesClick, onValidityChange }, ref) {
+  function GenAIModelSelection({ onValidityChange, readOnly = false, initialValues }, ref) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
 
@@ -97,10 +96,15 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
     const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
     const hasEndpoints = endpoints.length > 0;
 
-    // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints
-    const [mode, setMode] = useState<ModelConfigMode>('direct');
-    const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>();
-    const [hasInitializedMode, setHasInitializedMode] = useState(false);
+    // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints.
+    // If initialValues provides a mode, use it directly and skip the endpoint-loading effect.
+    const [mode, setMode] = useState<ModelConfigMode>(
+      initialValues?.mode ?? (initialValues?.endpointName != null ? 'endpoint' : 'direct'),
+    );
+    const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>(initialValues?.endpointName);
+    const [hasInitializedMode, setHasInitializedMode] = useState(
+      initialValues?.mode != null || initialValues?.endpointName != null,
+    );
 
     // Set initial mode based on whether endpoints are available, and auto-select first endpoint
     useEffect(() => {
@@ -113,17 +117,24 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
     }, [isLoadingEndpoints, hasEndpoints, hasInitializedMode, endpoints]);
 
-    const [provider, setProvider] = useState(DEFAULT_PROVIDER);
-    const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
-    const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(() => ({
-      ...DEFAULT_API_KEY_CONFIG,
-      newSecret: {
-        ...DEFAULT_API_KEY_CONFIG.newSecret,
-        name: generateRandomName(DEFAULT_PROVIDER),
-      },
-    }));
-    const [saveKey] = useState(true);
+    const initialProvider = initialValues?.provider ?? DEFAULT_PROVIDER;
+    const [provider, setProvider] = useState(initialProvider);
+    const [model, setModel] = useState(initialValues?.model ?? DEFAULT_MODEL_BY_PROVIDER[initialProvider] ?? '');
+    const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(
+      () =>
+        initialValues?.apiKeyConfig ?? {
+          ...DEFAULT_API_KEY_CONFIG,
+          newSecret: {
+            ...DEFAULT_API_KEY_CONFIG.newSecret,
+            name: generateRandomName(initialProvider),
+          },
+        },
+    );
+    const [saveKey] = useState(initialValues?.saveKey ?? true);
     const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
+
+    // Track whether caller provided an initial apiKeyConfig to prevent auto-switching it
+    const hasInitialApiKeyConfig = useRef(initialValues?.apiKeyConfig != null);
 
     const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
       provider,
@@ -169,8 +180,10 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
     }, []);
 
-    // Update API key mode to 'existing' and auto-select first secret when secrets become available
+    // Update API key mode to 'existing' and auto-select first secret when secrets become available.
+    // Skip when readOnly or when initialValues.apiKeyConfig was provided to preserve round-trip fidelity.
     useEffect(() => {
+      if (readOnly || hasInitialApiKeyConfig.current) return;
       if (provider && existingSecrets.length > 0) {
         setApiKeyConfig((prev) => {
           // Only update if currently in 'new' mode with no fields filled
@@ -180,7 +193,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           return prev;
         });
       }
-    }, [provider, existingSecrets]);
+    }, [readOnly, provider, existingSecrets]);
 
     const handleProviderChange = useCallback((newProvider: string) => {
       setProvider(newProvider);
@@ -219,7 +232,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
 
     const isEndpointModeValid = mode === 'endpoint' && Boolean(selectedEndpointName);
     const isDirectModeValid = mode === 'direct' && Boolean(provider && model && isApiKeyValid);
-    const isValid = (isEndpointModeValid || isDirectModeValid) && selectedTraceIds.length > 0;
+    const isValid = isEndpointModeValid || isDirectModeValid;
 
     // Compute whether there are optional fields in the selected auth mode
     const hasOptionalFields = useMemo(() => {
@@ -259,7 +272,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
 
     return (
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           <div>
             <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.xs }}>
               <FormattedMessage
@@ -308,6 +321,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                 <DialogComboboxTrigger
                   withInlineLabel={false}
                   allowClear={false}
+                  disabled={readOnly}
                   placeholder={intl.formatMessage({
                     defaultMessage: 'Select endpoint',
                     description: 'Placeholder for endpoint selector',
@@ -364,6 +378,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                   <DialogComboboxTrigger
                     withInlineLabel={false}
                     allowClear={false}
+                    disabled={readOnly}
                     placeholder={intl.formatMessage({
                       defaultMessage: 'Select provider',
                       description: 'Placeholder for provider selector',
@@ -443,85 +458,64 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                     defaultAuthMode={defaultAuthMode}
                     isLoadingProviderConfig={isLoadingProviderConfig}
                     hasExistingSecrets={existingSecrets.length > 0}
+                    disabled={readOnly}
                   />
-                  {apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
-                    <div
-                      css={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: theme.spacing.sm,
-                        marginTop: -theme.spacing.xs,
-                      }}
-                    >
-                      <Tooltip
-                        componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
-                        content={intl.formatMessage({
-                          defaultMessage: 'Saved API keys can be managed in LLM Connections under Settings.',
-                          description:
-                            'Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)',
-                        })}
+                  {saveKey &&
+                    apiKeyConfig.mode === 'new' &&
+                    Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
+                      <div
+                        css={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: theme.spacing.sm,
+                          marginTop: -theme.spacing.xs,
+                        }}
                       >
-                        <span>
-                          <Typography.Text color="secondary">
-                            <FormattedMessage
-                              defaultMessage="This key will be saved for reuse."
-                              description="Text indicating API key will be saved for reuse"
-                            />
-                          </Typography.Text>
-                        </span>
-                      </Tooltip>
-                      <Typography.Text color="secondary">
-                        <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
-                      </Typography.Text>
-                      <Input
-                        componentId="mlflow.traces.issue-detection-modal.api-key-name"
-                        value={apiKeyConfig.newSecret.name}
-                        onChange={(e) =>
-                          setApiKeyConfig({
-                            ...apiKeyConfig,
-                            newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
-                          })
-                        }
-                        placeholder={intl.formatMessage({
-                          defaultMessage: 'API key name',
-                          description: 'Placeholder for API key name input',
-                        })}
-                        css={{ width: 200 }}
-                      />
-                    </div>
-                  )}
+                        <Tooltip
+                          componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
+                          content={intl.formatMessage({
+                            defaultMessage: 'Saved API keys can be managed in LLM Connections under Settings.',
+                            description:
+                              'Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)',
+                          })}
+                        >
+                          <span>
+                            <Typography.Text color="secondary">
+                              <FormattedMessage
+                                defaultMessage="This key will be saved for reuse."
+                                description="Text indicating API key will be saved for reuse"
+                              />
+                            </Typography.Text>
+                          </span>
+                        </Tooltip>
+                        <Typography.Text color="secondary">
+                          <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
+                        </Typography.Text>
+                        <Input
+                          componentId="mlflow.traces.issue-detection-modal.api-key-name"
+                          value={apiKeyConfig.newSecret.name}
+                          onChange={(e) =>
+                            setApiKeyConfig({
+                              ...apiKeyConfig,
+                              newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
+                            })
+                          }
+                          placeholder={intl.formatMessage({
+                            defaultMessage: 'API key name',
+                            description: 'Placeholder for API key name input',
+                          })}
+                          disabled={readOnly}
+                          css={{ width: 200 }}
+                        />
+                      </div>
+                    )}
                 </>
               )}
             </>
           )}
         </div>
 
-        <div>
-          <Typography.Text css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
-            <FormattedMessage defaultMessage="Traces" description="Section header for trace selection" />
-          </Typography.Text>
-          <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-            <FormattedMessage
-              defaultMessage="Select the traces to analyze for issues"
-              description="Description for trace selection section"
-            />
-          </Typography.Text>
-          <div css={{ marginTop: theme.spacing.sm }}>
-            <Button componentId="mlflow.traces.issue-detection-modal.select-traces" onClick={onSelectTracesClick}>
-              {selectedTraceIds.length > 0 ? (
-                <FormattedMessage
-                  defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
-                  description="Label showing number of traces selected"
-                  values={{ count: selectedTraceIds.length }}
-                />
-              ) : (
-                <FormattedMessage defaultMessage="Select traces" description="Button to open trace selection modal" />
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {mode === 'direct' && shouldShowAdvancedSettings && (
+        {mode === 'direct' && shouldShowAdvancedSettings && !readOnly && (
           <Accordion
             componentId="mlflow.traces.issue-detection-modal.advanced-settings"
             activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}

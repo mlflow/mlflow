@@ -159,7 +159,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   }, [resetForm, resetCreateSecret, resetIssueDetection, onClose]);
 
   const isStep1Valid = selectedCategories.size > 0;
-  const isStep2Valid = isModelSelectionValid;
+  const isStep2Valid = isModelSelectionValid && selectedTraceIds.length > 0;
 
   const handleModelSelectionValidityChange = useCallback((isValid: boolean) => {
     setIsModelSelectionValid(isValid);
@@ -246,12 +246,40 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             onCategoryToggle={handleCategoryToggle}
           />
         ) : (
-          <GenAIModelSelection
-            ref={modelSelectionRef}
-            selectedTraceIds={selectedTraceIds}
-            onSelectTracesClick={() => setIsSelectTracesModalOpen(true)}
-            onValidityChange={handleModelSelectionValidityChange}
-          />
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+            <div>
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Traces" description="Section header for trace selection" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+                <FormattedMessage
+                  defaultMessage="Select the traces to analyze for issues"
+                  description="Description for trace selection section"
+                />
+              </Typography.Text>
+              <div css={{ marginTop: theme.spacing.sm }}>
+                <Button
+                  componentId="mlflow.traces.issue-detection-modal.select-traces"
+                  data-testid="select-traces"
+                  onClick={() => setIsSelectTracesModalOpen(true)}
+                >
+                  {selectedTraceIds.length > 0 ? (
+                    <FormattedMessage
+                      defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
+                      description="Label showing number of traces selected"
+                      values={{ count: selectedTraceIds.length }}
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="Select traces"
+                      description="Button to open trace selection modal"
+                    />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <GenAIModelSelection ref={modelSelectionRef} onValidityChange={handleModelSelectionValidityChange} />
+          </div>
         )}
       </Modal>
       {isSelectTracesModalOpen && (
