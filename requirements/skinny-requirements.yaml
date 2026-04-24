@@ -101,7 +101,7 @@ fastapi:
 
 starlette:
   pip_release: starlette
-  max_major_version: 1
+  max_major_version: 0
 
 uvicorn:
   pip_release: uvicorn
