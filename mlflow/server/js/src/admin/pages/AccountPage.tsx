@@ -41,13 +41,13 @@ const AccountPage = () => {
     setError(null);
     setSuccessMessage(null);
 
-    if (newPassword !== confirmPassword) {
-      setError('New password and confirmation do not match');
+    if (!newPassword) {
+      setError('Password cannot be empty');
       return;
     }
 
-    if (!newPassword) {
-      setError('Password cannot be empty');
+    if (newPassword !== confirmPassword) {
+      setError('New password and confirmation do not match');
       return;
     }
 
@@ -62,7 +62,10 @@ const AccountPage = () => {
   };
 
   const handleLogout = () => {
-    document.cookie = 'mlflow_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    const expired = 'expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = `mlflow_user=; ${expired}`;
+    // Also clear the dev-switcher auth header cookie if it was set
+    document.cookie = `mlflow-request-header-Authorization=; ${expired}`;
     window.location.href = '/';
   };
 

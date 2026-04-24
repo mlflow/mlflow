@@ -57,18 +57,19 @@ export const DevUserSwitcher = () => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useUsersQuery();
-  const [, forceUpdate] = useState(0);
   const [passwordPromptFor, setPasswordPromptFor] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
+  // Cookies are not reactive — track the active user in state so the highlight
+  // updates immediately after a switch (before queries finish refetching).
+  const [currentUsername, setCurrentUsername] = useState<string>(getCurrentUsername);
 
-  const currentUsername = getCurrentUsername();
   const users = data?.users ?? [];
 
   const completeSwitch = useCallback(
     (username: string, password: string) => {
       applyCredentials(username, password);
+      setCurrentUsername(username);
       queryClient.invalidateQueries();
-      forceUpdate((n) => n + 1);
     },
     [queryClient],
   );

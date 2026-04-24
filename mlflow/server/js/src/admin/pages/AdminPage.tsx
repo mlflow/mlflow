@@ -195,6 +195,7 @@ const UsersTab = () => {
           setShowCreateModal(false);
           setNewUsername('');
           setNewPassword('');
+          setError(null);
         }}
         onOk={handleCreateUser}
         okText="Create"
@@ -226,7 +227,10 @@ const UsersTab = () => {
         componentId="admin.users.delete_modal"
         title="Delete User"
         visible={Boolean(deleteTarget)}
-        onCancel={() => setDeleteTarget(null)}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setError(null);
+        }}
         onOk={handleDeleteUser}
         okText="Delete"
         okButtonProps={{ danger: true }}
@@ -404,6 +408,7 @@ const RolesTab = () => {
           setNewRoleName('');
           setNewRoleDescription('');
           setNewRoleWorkspace('default');
+          setError(null);
         }}
         onOk={handleCreateRole}
         okText="Create"
@@ -447,7 +452,10 @@ const RolesTab = () => {
         componentId="admin.roles.delete_modal"
         title="Delete Role"
         visible={Boolean(deleteTarget)}
-        onCancel={() => setDeleteTarget(null)}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setError(null);
+        }}
         onOk={handleDeleteRole}
         okText="Delete"
         okButtonProps={{ danger: true }}

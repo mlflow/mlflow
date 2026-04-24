@@ -192,7 +192,10 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
         componentId="admin.role.add_permission_modal"
         title="Add Permission"
         visible={showAddModal}
-        onCancel={() => setShowAddModal(false)}
+        onCancel={() => {
+          setShowAddModal(false);
+          setError(null);
+        }}
         onOk={handleAddPermission}
         okText="Add"
         confirmLoading={addPermission.isLoading}
@@ -261,7 +264,10 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
         componentId="admin.role.edit_permission_modal"
         title="Edit Permission"
         visible={Boolean(editingPermission)}
-        onCancel={() => setEditingPermission(null)}
+        onCancel={() => {
+          setEditingPermission(null);
+          setError(null);
+        }}
         onOk={handleUpdatePermission}
         okText="Save"
         confirmLoading={updatePermission.isLoading}
@@ -297,7 +303,10 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
         componentId="admin.role.remove_permission_modal"
         title="Remove Permission"
         visible={Boolean(deletePermissionTarget)}
-        onCancel={() => setDeletePermissionTarget(null)}
+        onCancel={() => {
+          setDeletePermissionTarget(null);
+          setError(null);
+        }}
         onOk={handleRemovePermission}
         okText="Remove"
         okButtonProps={{ danger: true }}
@@ -462,6 +471,7 @@ const AssignedUsersSection = ({ roleId }: { roleId: number }) => {
         onCancel={() => {
           setShowAssignModal(false);
           setSelectedUsername('');
+          setError(null);
         }}
         onOk={handleAssign}
         okText="Assign"
@@ -628,7 +638,10 @@ const RoleDetailPage = () => {
           componentId="admin.role.edit_modal"
           title="Edit Role"
           visible={isEditing}
-          onCancel={() => setIsEditing(false)}
+          onCancel={() => {
+            setIsEditing(false);
+            setError(null);
+          }}
           onOk={handleSaveEdit}
           okText="Save"
           confirmLoading={updateRole.isLoading}

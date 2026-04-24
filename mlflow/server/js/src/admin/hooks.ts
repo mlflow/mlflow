@@ -92,8 +92,9 @@ export const useUpdateAdmin = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: UpdateAdminRequest) => AdminApi.updateAdmin(request),
-    onSuccess: () => {
+    onSuccess: (_, request) => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.userRoles(request.username) });
     },
   });
 };
