@@ -27,26 +27,21 @@ export const DEV_USER_SWITCHER_ENABLED: boolean = getLocalStorageItem(
 );
 
 /**
- * Returns whether the current user (from mlflow_user cookie) is an admin.
- * Returns false if the cookie is missing or the users list cannot be fetched (e.g. 403).
+ * Returns whether the current user is an admin.
+ *
+ * Listing users is an admin-only endpoint (validate_can_list_users returns false
+ * for non-admins; admins bypass the validator). A successful response therefore
+ * implies the current user is admin; a 403 implies they're not.
  */
 export const useCurrentUserIsAdmin = () => {
-  const username =
-    document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('mlflow_user='))
-      ?.substring('mlflow_user='.length) ?? '';
-
-  const { data } = useQuery({
-    queryKey: ['admin_current_user', username],
+  const { data, error } = useQuery({
+    queryKey: ['admin_current_user_is_admin'],
     queryFn: AdminApi.listUsers,
     retry: false,
     refetchOnWindowFocus: false,
-    enabled: Boolean(username),
   });
 
-  if (!username || !data?.users) return false;
-  return data.users.some((u) => u.username === username && u.is_admin);
+  return !error && Boolean(data?.users);
 };
 
 export const AdminQueryKeys = {
