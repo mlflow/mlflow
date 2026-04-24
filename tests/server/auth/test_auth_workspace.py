@@ -10,7 +10,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server import auth as auth_module
-from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS, READ
+from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ
 from mlflow.server.auth.routes import (
     CREATE_PROMPTLAB_RUN,
     GET_ARTIFACT,
