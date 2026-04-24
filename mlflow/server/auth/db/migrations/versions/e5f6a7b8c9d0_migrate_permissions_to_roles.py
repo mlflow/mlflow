@@ -1,0 +1,281 @@
+"""Migrate legacy per-resource permissions into role_permissions
+
+Revision ID: e5f6a7b8c9d0
+Revises: c3d4e5f6a7b8
+Create Date: 2026-04-24 00:00:00.000000
+
+Collapses the pre-RBAC per-resource permission tables
+(``experiment_permissions``, ``registered_model_permissions``, ``scorer_permissions``,
+``gateway_secret_permissions``, ``gateway_endpoint_permissions``,
+``gateway_model_definition_permissions``, ``workspace_permissions``) into
+``role_permissions`` rows hung off a synthetic ``__user_<id>__`` role per
+``(user, workspace)`` pair, then drops the legacy tables.
+
+After this migration, ``role_permissions`` is the sole source of truth for user
+permissions; the auth server reads and writes only that table.
+
+Workspace scoping for legacy tables without a ``workspace`` column
+(``experiment_permissions``, ``scorer_permissions``, ``gateway_*``): those
+grants were workspace-agnostic at the table level, so they land in the
+``DEFAULT_WORKSPACE_NAME`` synthetic role.
+
+"""
+
+import sqlalchemy as sa
+from alembic import op
+from sqlalchemy import bindparam, text
+
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+# revision identifiers, used by Alembic.
+revision = "e5f6a7b8c9d0"
+down_revision = "c3d4e5f6a7b8"
+branch_labels = None
+depends_on = None
+
+
+_SYNTHETIC_ROLE_NAME = "__user_{user_id}__"
+
+
+def _get_or_create_synthetic_role(conn, user_id: int, workspace: str) -> int:
+    name = _SYNTHETIC_ROLE_NAME.format(user_id=user_id)
+    row = conn.execute(
+        text("SELECT id FROM roles WHERE workspace = :workspace AND name = :name"),
+        {"workspace": workspace, "name": name},
+    ).first()
+    if row is not None:
+        role_id = row[0]
+    else:
+        conn.execute(
+            text(
+                "INSERT INTO roles (name, workspace, description) VALUES (:name, :workspace, NULL)"
+            ),
+            {"name": name, "workspace": workspace},
+        )
+        role_id = conn.execute(
+            text("SELECT id FROM roles WHERE workspace = :workspace AND name = :name"),
+            {"workspace": workspace, "name": name},
+        ).scalar_one()
+    assignment = conn.execute(
+        text(
+            "SELECT id FROM user_role_assignments WHERE user_id = :user_id AND role_id = :role_id"
+        ),
+        {"user_id": user_id, "role_id": role_id},
+    ).first()
+    if assignment is None:
+        conn.execute(
+            text(
+                "INSERT INTO user_role_assignments (user_id, role_id) VALUES (:user_id, :role_id)"
+            ),
+            {"user_id": user_id, "role_id": role_id},
+        )
+    return role_id
+
+
+def _insert_role_permission_if_missing(
+    conn, role_id: int, resource_type: str, resource_pattern: str, permission: str
+) -> None:
+    existing = conn.execute(
+        text(
+            "SELECT id FROM role_permissions "
+            "WHERE role_id = :role_id "
+            "AND resource_type = :resource_type "
+            "AND resource_pattern = :resource_pattern"
+        ),
+        {
+            "role_id": role_id,
+            "resource_type": resource_type,
+            "resource_pattern": resource_pattern,
+        },
+    ).first()
+    if existing is not None:
+        return
+    conn.execute(
+        text(
+            "INSERT INTO role_permissions "
+            "(role_id, resource_type, resource_pattern, permission) "
+            "VALUES (:role_id, :resource_type, :resource_pattern, :permission)"
+        ),
+        {
+            "role_id": role_id,
+            "resource_type": resource_type,
+            "resource_pattern": resource_pattern,
+            "permission": permission,
+        },
+    )
+
+
+def _backfill_table(conn, select_sql: str, row_to_mirror) -> None:
+    for row in conn.execute(text(select_sql)):
+        user_id, workspace, resource_type, resource_pattern, permission = row_to_mirror(row)
+        role_id = _get_or_create_synthetic_role(conn, user_id, workspace)
+        _insert_role_permission_if_missing(
+            conn, role_id, resource_type, resource_pattern, permission
+        )
+
+
+def upgrade() -> None:
+    conn = op.get_bind()
+    default = DEFAULT_WORKSPACE_NAME
+
+    # workspace_permissions → (resource_type='*', resource_pattern='*', permission)
+    _backfill_table(
+        conn,
+        "SELECT user_id, workspace, permission FROM workspace_permissions",
+        lambda r: (r.user_id, r.workspace, "*", "*", r.permission),
+    )
+    # experiment_permissions → (experiment, <experiment_id>, permission) in default ws
+    _backfill_table(
+        conn,
+        "SELECT user_id, experiment_id, permission FROM experiment_permissions",
+        lambda r: (r.user_id, default, "experiment", r.experiment_id, r.permission),
+    )
+    # registered_model_permissions → (registered_model, <name>, permission) in row's ws
+    _backfill_table(
+        conn,
+        "SELECT user_id, workspace, name, permission FROM registered_model_permissions",
+        lambda r: (r.user_id, r.workspace, "registered_model", r.name, r.permission),
+    )
+    # scorer_permissions → (scorer, <exp_id>/<scorer_name>, permission) in default ws
+    _backfill_table(
+        conn,
+        "SELECT user_id, experiment_id, scorer_name, permission FROM scorer_permissions",
+        lambda r: (
+            r.user_id,
+            default,
+            "scorer",
+            f"{r.experiment_id}/{r.scorer_name}",
+            r.permission,
+        ),
+    )
+    # gateway_secret_permissions → (gateway_secret, <secret_id>, permission)
+    _backfill_table(
+        conn,
+        "SELECT user_id, secret_id, permission FROM gateway_secret_permissions",
+        lambda r: (r.user_id, default, "gateway_secret", r.secret_id, r.permission),
+    )
+    # gateway_endpoint_permissions → (gateway_endpoint, <endpoint_id>, permission)
+    _backfill_table(
+        conn,
+        "SELECT user_id, endpoint_id, permission FROM gateway_endpoint_permissions",
+        lambda r: (r.user_id, default, "gateway_endpoint", r.endpoint_id, r.permission),
+    )
+    # gateway_model_definition_permissions → (gateway_model_definition, <id>, permission)
+    _backfill_table(
+        conn,
+        (
+            "SELECT user_id, model_definition_id, permission "
+            "FROM gateway_model_definition_permissions"
+        ),
+        lambda r: (
+            r.user_id,
+            default,
+            "gateway_model_definition",
+            r.model_definition_id,
+            r.permission,
+        ),
+    )
+
+    # NOTE: Legacy tables are NOT dropped yet in this step of the migration. Once the
+    # store code no longer references them (later commits in this PR), a follow-up
+    # stanza here will ``op.drop_table(...)`` each of the 7 legacy tables.
+
+
+def downgrade() -> None:
+    # Re-create the legacy table schemas so an operator could restore pre-migration
+    # data from backup, then remove the synthetic ``__user_<id>__`` roles this
+    # migration created. Data is NOT re-populated from role_permissions — operators
+    # must restore from a DB backup taken before the upgrade.
+    from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME as _DEFAULT_WS
+
+    op.create_table(
+        "experiment_permissions",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("experiment_id", sa.String(length=255), nullable=False),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
+        sa.Column("permission", sa.String(length=255)),
+        sa.UniqueConstraint("experiment_id", "user_id", name="unique_experiment_user"),
+    )
+    op.create_table(
+        "registered_model_permissions",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column(
+            "workspace",
+            sa.String(length=63),
+            nullable=False,
+            server_default=sa.text(f"'{_DEFAULT_WS}'"),
+        ),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
+        sa.Column("permission", sa.String(length=255)),
+        sa.UniqueConstraint("workspace", "name", "user_id", name="unique_workspace_name_user"),
+    )
+    op.create_table(
+        "scorer_permissions",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("experiment_id", sa.String(length=255), nullable=False),
+        sa.Column("scorer_name", sa.String(length=256), nullable=False),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
+        sa.Column("permission", sa.String(length=255)),
+        sa.UniqueConstraint("experiment_id", "scorer_name", "user_id", name="unique_scorer_user"),
+    )
+    op.create_table(
+        "gateway_secret_permissions",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("secret_id", sa.String(length=255), nullable=False),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
+        sa.Column("permission", sa.String(length=255)),
+        sa.UniqueConstraint("secret_id", "user_id", name="unique_secret_user"),
+    )
+    op.create_table(
+        "gateway_endpoint_permissions",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("endpoint_id", sa.String(length=255), nullable=False),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
+        sa.Column("permission", sa.String(length=255)),
+        sa.UniqueConstraint("endpoint_id", "user_id", name="unique_endpoint_user"),
+    )
+    op.create_table(
+        "gateway_model_definition_permissions",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("model_definition_id", sa.String(length=255), nullable=False),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
+        sa.Column("permission", sa.String(length=255)),
+        sa.UniqueConstraint("model_definition_id", "user_id", name="unique_model_def_user"),
+    )
+    op.create_table(
+        "workspace_permissions",
+        sa.Column("workspace", sa.String(length=63), nullable=False),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
+        sa.Column("permission", sa.String(length=32), nullable=False),
+        sa.PrimaryKeyConstraint("workspace", "user_id", name="workspace_permissions_pk"),
+        sa.Index("idx_workspace_permissions_user_id", "user_id"),
+        sa.Index("idx_workspace_permissions_workspace", "workspace"),
+    )
+
+    # Remove all synthetic per-user roles this migration could have created. Portable
+    # filter (LIKE with ESCAPE varies across dialects).
+    conn = op.get_bind()
+    role_ids = [
+        row_id
+        for (row_id, name) in conn.execute(text("SELECT id, name FROM roles"))
+        if name.startswith("__user_") and name.endswith("__")
+    ]
+    if not role_ids:
+        return
+    conn.execute(
+        text("DELETE FROM role_permissions WHERE role_id IN :ids").bindparams(
+            bindparam("ids", expanding=True)
+        ),
+        {"ids": role_ids},
+    )
+    conn.execute(
+        text("DELETE FROM user_role_assignments WHERE role_id IN :ids").bindparams(
+            bindparam("ids", expanding=True)
+        ),
+        {"ids": role_ids},
+    )
+    conn.execute(
+        text("DELETE FROM roles WHERE id IN :ids").bindparams(bindparam("ids", expanding=True)),
+        {"ids": role_ids},
+    )

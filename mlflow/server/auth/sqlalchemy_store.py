@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import selectinload, sessionmaker
@@ -141,7 +143,106 @@ class SqlAlchemyStore:
     def delete_user(self, username: str):
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username)
+            # The user's per-resource grants live as role_permissions rows under a
+            # synthetic `__user_<id>__` role. Delete those first so their assignments
+            # and permissions don't block the user-row delete on strict FK backends.
+            synthetic_name = self._synthetic_user_role_name(user.id)
+            for role in session.query(SqlRole).filter(SqlRole.name == synthetic_name).all():
+                session.delete(role)
+            session.flush()
             session.delete(user)
+
+    # ---- Synthetic user-role helpers ----
+    #
+    # The auth system's user-facing permission shape (e.g. `get_experiment_permission`) is
+    # expressed as "user X has permission P on resource R". The underlying storage is
+    # ``role_permissions``, which binds grants to a role rather than to a user directly.
+    # We bridge the two by maintaining a hidden per-user role named `__user_<user_id>__`
+    # in each workspace the user has grants in, assigning the user to it, and attaching
+    # their per-resource grants as rows on that role.
+    #
+    # The synthetic namespace (``__user_<int>__``) is RESERVED: ``create_role`` and
+    # ``update_role`` reject names matching the pattern so an API consumer can't hijack a
+    # synthetic role to receive another user's grants. Bulk cleanup / rename helpers
+    # also restrict their scope to synthetic roles so they never touch admin-created
+    # roles that happen to hold overlapping grants.
+    _SYNTHETIC_ROLE_PREFIX = "__user_"
+    _SYNTHETIC_ROLE_SUFFIX = "__"
+    _SYNTHETIC_ROLE_NAME_RE = re.compile(r"^__user_\d+__$")
+
+    @classmethod
+    def _synthetic_user_role_name(cls, user_id: int) -> str:
+        return f"{cls._SYNTHETIC_ROLE_PREFIX}{user_id}{cls._SYNTHETIC_ROLE_SUFFIX}"
+
+    @classmethod
+    def _is_synthetic_role_name(cls, name: str | None) -> bool:
+        return name is not None and cls._SYNTHETIC_ROLE_NAME_RE.match(name) is not None
+
+    @classmethod
+    def _reject_synthetic_role_name(cls, name: str) -> None:
+        """Guard user-facing role CRUD against the reserved synthetic pattern."""
+        if cls._is_synthetic_role_name(name):
+            raise MlflowException.invalid_parameter_value(
+                f"Role name {name!r} matches the reserved synthetic pattern "
+                "'__user_<id>__' used by the per-user permission representation. "
+                "Choose a different name."
+            )
+
+    def _get_or_create_synthetic_user_role(self, session, user_id: int, workspace: str) -> SqlRole:
+        # Race-proof: two concurrent permission mutations for the same (user, workspace)
+        # can both see "role doesn't exist yet" and both try to INSERT. Wrap the INSERT
+        # in a SAVEPOINT so the UniqueConstraint violation rolls back only that nested
+        # scope and we can recover by re-querying the winner's row. Same pattern for
+        # the user->role assignment.
+        name = self._synthetic_user_role_name(user_id)
+        role = (
+            session
+            .query(SqlRole)
+            .filter(SqlRole.workspace == workspace, SqlRole.name == name)
+            .first()
+        )
+        if role is None:
+            try:
+                with session.begin_nested():
+                    role = SqlRole(name=name, workspace=workspace, description=None)
+                    session.add(role)
+                    session.flush()
+            except IntegrityError:
+                role = (
+                    session
+                    .query(SqlRole)
+                    .filter(SqlRole.workspace == workspace, SqlRole.name == name)
+                    .one()
+                )
+        assignment = (
+            session
+            .query(SqlUserRoleAssignment)
+            .filter(
+                SqlUserRoleAssignment.user_id == user_id,
+                SqlUserRoleAssignment.role_id == role.id,
+            )
+            .first()
+        )
+        if assignment is None:
+            try:
+                with session.begin_nested():
+                    session.add(SqlUserRoleAssignment(user_id=user_id, role_id=role.id))
+                    session.flush()
+            except IntegrityError:
+                # Another concurrent write already assigned the user.
+                pass
+        return role
+
+    def _synthetic_role_ids(self, session, workspace: str | None = None) -> list[int]:
+        """
+        Return ids of synthetic ``__user_<id>__`` roles, optionally scoped to
+        ``workspace``. Bulk cleanup/rename helpers route through this so they never
+        touch admin-created roles that happen to share a grant.
+        """
+        query = session.query(SqlRole.id, SqlRole.name)
+        if workspace is not None:
+            query = query.filter(SqlRole.workspace == workspace)
+        return [rid for (rid, name) in query.all() if self._is_synthetic_role_name(name)]
 
     def create_experiment_permission(
         self, experiment_id: str, username: str, permission: str
@@ -866,6 +967,7 @@ class SqlAlchemyStore:
         workspace: str,
         description: str | None = None,
     ) -> Role:
+        self._reject_synthetic_role_name(name)
         with self.ManagedSessionMaker() as session:
             try:
                 role = SqlRole(
@@ -947,6 +1049,8 @@ class SqlAlchemyStore:
         name: str | None = None,
         description: str | None = None,
     ) -> Role:
+        if name is not None:
+            self._reject_synthetic_role_name(name)
         with self.ManagedSessionMaker() as session:
             role = self._get_role(session, role_id)
             if name is not None:
@@ -1006,12 +1110,11 @@ class SqlAlchemyStore:
     ) -> RolePermission:
         _validate_permission(permission)
         _validate_resource_type(resource_type)
-        # Workspace-scope grants only support the "*" pattern (apply to every resource in
-        # the role's workspace). Any other pattern would be silently ignored by the
-        # resolver, so reject it up front.
-        if resource_type == "workspace" and resource_pattern != "*":
+        # Workspace-scope and type-wildcard grants only support the "*" pattern. Any
+        # other pattern would be silently ignored by the resolver, so reject it up front.
+        if resource_type in ("workspace", "*") and resource_pattern != "*":
             raise MlflowException.invalid_parameter_value(
-                "resource_type='workspace' requires resource_pattern='*'. "
+                f"resource_type='{resource_type}' requires resource_pattern='*'. "
                 f"Got resource_pattern='{resource_pattern}'."
             )
         with self.ManagedSessionMaker() as session:
@@ -1209,7 +1312,10 @@ class SqlAlchemyStore:
             for role in roles:
                 for rp in role.permissions:
                     # Workspace-wide permission — applies to every resource type.
-                    if rp.resource_type == "workspace" and rp.resource_pattern == "*":
+                    # ``resource_type='workspace'`` = workspace admin;
+                    # ``resource_type='*'`` = default per-user grant on every resource
+                    # type (mirrors the former workspace_permissions semantics).
+                    if rp.resource_type in ("workspace", "*") and rp.resource_pattern == "*":
                         best_permission_name = (
                             max_permission(best_permission_name, rp.permission)
                             if best_permission_name is not None
@@ -1333,7 +1439,7 @@ class SqlAlchemyStore:
                     or_(
                         SqlRolePermission.resource_type == resource_type,
                         and_(
-                            SqlRolePermission.resource_type == "workspace",
+                            SqlRolePermission.resource_type.in_(("workspace", "*")),
                             SqlRolePermission.resource_pattern == "*",
                         ),
                     ),

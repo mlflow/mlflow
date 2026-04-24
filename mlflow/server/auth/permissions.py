@@ -91,6 +91,12 @@ VALID_RESOURCE_TYPES = frozenset({
     # resource_pattern must be "*". permission=MANAGE additionally grants role/user
     # management capabilities within the workspace.
     "workspace",
+    # Special: a "default" permission on every resource of every type in the role's
+    # workspace. resource_pattern must be "*". Used for the per-user workspace-wide
+    # grant that replaces the legacy `workspace_permissions` table — semantically
+    # distinct from `resource_type="workspace"` which conveys workspace-admin capability
+    # over role/user management.
+    "*",
 })
 
 
