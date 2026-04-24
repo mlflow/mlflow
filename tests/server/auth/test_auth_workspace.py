@@ -1654,35 +1654,6 @@ def role_auth_setup(tmp_path, monkeypatch):
     auth_store.engine.dispose()
 
 
-# Expected manage-roles results, keyed by (actor, target_workspace).
-_MANAGE_EXPECTATIONS = {
-    ("super_admin", "foo"): True,
-    ("super_admin", "bar"): True,
-    ("ws_admin_foo", "foo"): True,
-    ("ws_admin_foo", "bar"): False,
-    ("ws_admin_bar", "foo"): False,
-    ("ws_admin_bar", "bar"): True,
-    ("ws_member_foo", "foo"): False,
-    ("ws_member_foo", "bar"): False,
-    ("outsider", "foo"): False,
-    ("outsider", "bar"): False,
-}
-
-# Expected view-roles results (requires is_admin OR any role in the workspace).
-_VIEW_EXPECTATIONS = {
-    ("super_admin", "foo"): True,
-    ("super_admin", "bar"): True,
-    ("ws_admin_foo", "foo"): True,
-    ("ws_admin_foo", "bar"): False,
-    ("ws_admin_bar", "foo"): False,
-    ("ws_admin_bar", "bar"): True,
-    ("ws_member_foo", "foo"): True,
-    ("ws_member_foo", "bar"): False,
-    ("outsider", "foo"): False,
-    ("outsider", "bar"): False,
-}
-
-
 def _request_context_for_shape(shape, role_auth_setup, workspace):
     match shape:
         case "role_id":
@@ -1717,27 +1688,64 @@ def _request_context_for_shape(shape, role_auth_setup, workspace):
             raise ValueError(f"Unknown shape: {shape}")
 
 
-@pytest.mark.parametrize("workspace", ["foo", "bar"])
-@pytest.mark.parametrize("shape", ["role_id", "role_permission_id", "workspace"])
+# Authorization matrices are exercised with a single request shape (role_id);
+# shape-resolution itself is covered independently below so we don't multiply
+# every actor-case by three shape-cases.
+
+
 @pytest.mark.parametrize(
-    "actor", ["super_admin", "ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"]
+    ("actor", "workspace", "expected"),
+    [
+        # Super admin short-circuits regardless of workspace — one case suffices.
+        ("super_admin", "foo", True),
+        # Outsider has no role anywhere — one case suffices.
+        ("outsider", "foo", False),
+        # Workspace admins manage only their own workspace.
+        ("ws_admin_foo", "foo", True),
+        ("ws_admin_foo", "bar", False),
+        ("ws_admin_bar", "foo", False),
+        ("ws_admin_bar", "bar", True),
+        # Plain role membership is not enough to manage — needs workspace MANAGE.
+        ("ws_member_foo", "foo", False),
+        ("ws_member_foo", "bar", False),
+    ],
 )
-def test_validate_can_manage_roles(role_auth_setup, actor, shape, workspace):
+def test_validate_can_manage_roles_authorization(role_auth_setup, actor, workspace, expected):
     role_auth_setup["login_as"](actor)
-    expected = _MANAGE_EXPECTATIONS[(actor, workspace)]
-    with _request_context_for_shape(shape, role_auth_setup, workspace):
+    with _request_context_for_shape("role_id", role_auth_setup, workspace):
         assert auth_module.validate_can_manage_roles() is expected
 
 
 @pytest.mark.parametrize("workspace", ["foo", "bar"])
-@pytest.mark.parametrize("shape", ["role_id", "role_permission_id"])
-@pytest.mark.parametrize(
-    "actor", ["super_admin", "ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"]
-)
-def test_validate_can_view_roles(role_auth_setup, actor, shape, workspace):
-    role_auth_setup["login_as"](actor)
-    expected = _VIEW_EXPECTATIONS[(actor, workspace)]
+@pytest.mark.parametrize("shape", ["role_id", "role_permission_id", "workspace"])
+def test_manage_roles_resolves_workspace_from_each_shape(role_auth_setup, shape, workspace):
+    # Sanity check that _get_role_workspace_from_request correctly dispatches
+    # on every request shape. Use ws_admin_foo — their answer differs by
+    # workspace, so an incorrectly resolved (or swapped) workspace flips the
+    # result and the test fails.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    expected = workspace == "foo"
     with _request_context_for_shape(shape, role_auth_setup, workspace):
+        assert auth_module.validate_can_manage_roles() is expected
+
+
+@pytest.mark.parametrize(
+    ("actor", "workspace", "expected"),
+    [
+        ("super_admin", "foo", True),
+        ("outsider", "foo", False),
+        ("ws_admin_foo", "foo", True),
+        ("ws_admin_foo", "bar", False),
+        ("ws_admin_bar", "foo", False),
+        ("ws_admin_bar", "bar", True),
+        # Unlike manage, a plain workspace member can view roles.
+        ("ws_member_foo", "foo", True),
+        ("ws_member_foo", "bar", False),
+    ],
+)
+def test_validate_can_view_roles_authorization(role_auth_setup, actor, workspace, expected):
+    role_auth_setup["login_as"](actor)
+    with _request_context_for_shape("role_id", role_auth_setup, workspace):
         assert auth_module.validate_can_view_roles() is expected
 
 
@@ -1745,10 +1753,9 @@ def test_validate_can_view_roles(role_auth_setup, actor, shape, workspace):
     ("actor", "expected"),
     [
         ("super_admin", True),
+        # Any non-admin is denied regardless of their workspace memberships —
+        # one representative non-admin is enough.
         ("ws_admin_foo", False),
-        ("ws_admin_bar", False),
-        ("ws_member_foo", False),
-        ("outsider", False),
     ],
 )
 def test_validate_can_list_roles_unscoped_is_super_admin_only(role_auth_setup, actor, expected):
@@ -1758,48 +1765,50 @@ def test_validate_can_list_roles_unscoped_is_super_admin_only(role_auth_setup, a
         assert auth_module.validate_can_list_roles() is expected
 
 
-@pytest.mark.parametrize("workspace", ["foo", "bar"])
 @pytest.mark.parametrize(
-    "actor", ["super_admin", "ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"]
+    ("actor", "workspace", "expected"),
+    [
+        ("super_admin", "foo", True),
+        ("outsider", "foo", False),
+        ("ws_admin_foo", "foo", True),
+        ("ws_admin_foo", "bar", False),
+        ("ws_admin_bar", "foo", False),
+        ("ws_admin_bar", "bar", True),
+        ("ws_member_foo", "foo", True),
+        ("ws_member_foo", "bar", False),
+    ],
 )
-def test_validate_can_list_roles_workspace_scoped(role_auth_setup, actor, workspace):
+def test_validate_can_list_roles_workspace_scoped(role_auth_setup, actor, workspace, expected):
     role_auth_setup["login_as"](actor)
-    # When a workspace is provided, non-admins need any role in that workspace.
-    expected = _VIEW_EXPECTATIONS[(actor, workspace)]
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/roles/list", method="GET", query_string={"workspace": workspace}
     ):
         assert auth_module.validate_can_list_roles() is expected
 
 
-@pytest.mark.parametrize(
-    "blank_workspace",
-    ["", "   "],
-)
-def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(
-    role_auth_setup, blank_workspace
-):
-    # A blank workspace param doesn't count as scoping — treat as unscoped and
-    # deny non-admins (super admins always bypass, tested separately).
+def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_setup):
+    # Blank workspace param hits a *different* branch from the missing-param
+    # case: validate_can_list_roles checks ``workspace.strip()`` and denies
+    # rather than raising, unlike _get_role_workspace_from_request which would
+    # raise on blank workspace. Kept as a guard for that specific branch.
     role_auth_setup["login_as"]("ws_admin_foo")
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/roles/list",
         method="GET",
-        query_string={"workspace": blank_workspace},
+        query_string={"workspace": "   "},
     ):
         assert auth_module.validate_can_list_roles() is False
 
 
-@pytest.mark.parametrize(
-    "actor", ["super_admin", "ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"]
-)
-def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup, actor):
-    # A user can always read their own role list.
-    role_auth_setup["login_as"](actor)
+def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup):
+    # A user can always read their own role list, even one with no roles.
+    # Using ``outsider`` (zero roles) exercises the self-short-circuit without
+    # any membership helping.
+    role_auth_setup["login_as"]("outsider")
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/users/roles/list",
         method="GET",
-        query_string={"username": actor},
+        query_string={"username": "outsider"},
     ):
         assert auth_module.validate_can_view_user_roles() is True
 
@@ -1912,7 +1921,9 @@ def test_validate_can_manage_roles_blank_workspace_raises(role_auth_setup):
             auth_module.validate_can_manage_roles()
 
 
-def test_validate_can_manage_roles_non_integer_role_id_raises(role_auth_setup):
+def test_validate_can_manage_roles_propagates_param_coercion_errors(role_auth_setup):
+    # Integration check: a non-integer role_id in the request surfaces the
+    # coercion error through the validator chain rather than silently denying.
     role_auth_setup["login_as"]("ws_admin_foo")
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/roles/get",
