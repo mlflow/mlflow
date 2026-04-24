@@ -33,7 +33,6 @@ const config: Config = {
 
   // change to throw when migration is done
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'throw',
   onBrokenAnchors: 'throw',
   onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
 
@@ -64,6 +63,9 @@ const config: Config = {
   themes: ['@docusaurus/theme-mermaid', '@signalwire/docusaurus-theme-llms-txt'],
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'throw',
+    },
   },
 
   presets: [
