@@ -388,6 +388,48 @@ def test_filter_list_workspaces_filters_to_allowed(monkeypatch):
     assert [ws["name"] for ws in payload["workspaces"]] == ["team-a"]
 
 
+def test_list_workspaces_filters_to_role_assigned_workspaces(tmp_path, monkeypatch):
+    # End-to-end guard for the list_accessible_workspace_names fix: alice has NO
+    # legacy workspace_permissions rows — her only workspace membership is via a
+    # role assignment in ws-alpha. The ListWorkspaces filter must treat that role
+    # assignment as workspace visibility and surface ws-alpha but not ws-beta.
+    # Before the fix, the legacy-only query returned an empty set and alice saw
+    # no workspaces in the UI.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(grant_default_workspace_access=False),
+        raising=False,
+    )
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    alice = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role = auth_store.create_role(name="viewer", workspace="ws-alpha")
+    auth_store.add_role_permission(role.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(alice.id, role.id)
+
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
+    )
+
+    response = Response(
+        json.dumps({"workspaces": [{"name": "ws-alpha"}, {"name": "ws-beta"}]}),
+        mimetype="application/json",
+    )
+
+    auth_module.filter_list_workspaces(response)
+    payload = json.loads(response.get_data(as_text=True))
+    assert [ws["name"] for ws in payload["workspaces"]] == ["ws-alpha"]
+
+    auth_store.engine.dispose()
+
+
 def test_validate_can_view_workspace_allows_default_autogrant(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
