@@ -17,7 +17,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-claude-3-7-sonnet": {
       "mode": "chat",
@@ -36,7 +37,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-claude-haiku-4-5": {
       "mode": "chat",
@@ -55,7 +57,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-claude-opus-4": {
       "mode": "chat",
@@ -74,7 +77,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-claude-opus-4-1": {
       "mode": "chat",
@@ -93,7 +97,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-claude-opus-4-5": {
       "mode": "chat",
@@ -112,7 +117,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-claude-sonnet-4": {
       "mode": "chat",
@@ -131,7 +137,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-claude-sonnet-4-1": {
       "mode": "chat",
@@ -150,7 +157,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-claude-sonnet-4-5": {
       "mode": "chat",
@@ -169,7 +177,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gemini-2-5-flash": {
       "mode": "chat",
@@ -188,7 +197,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gemini-2-5-pro": {
       "mode": "chat",
@@ -207,7 +217,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gemma-3-12b": {
       "mode": "chat",
@@ -226,7 +237,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gpt-5": {
       "mode": "chat",
@@ -245,7 +257,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gpt-5-1": {
       "mode": "chat",
@@ -264,7 +277,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gpt-5-mini": {
       "mode": "chat",
@@ -283,7 +297,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gpt-5-nano": {
       "mode": "chat",
@@ -302,7 +317,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gpt-oss-120b": {
       "mode": "chat",
@@ -321,7 +337,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gpt-oss-20b": {
       "mode": "chat",
@@ -340,7 +357,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gte-large-en": {
       "mode": "embedding",
@@ -358,7 +376,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-llama-2-70b-chat": {
       "mode": "chat",
@@ -377,7 +396,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-llama-4-maverick": {
       "mode": "chat",
@@ -396,7 +416,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-meta-llama-3-1-405b-instruct": {
       "mode": "chat",
@@ -415,7 +436,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-meta-llama-3-1-8b-instruct": {
       "mode": "chat",
@@ -434,7 +456,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-meta-llama-3-3-70b-instruct": {
       "mode": "chat",
@@ -453,7 +476,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-meta-llama-3-70b-instruct": {
       "mode": "chat",
@@ -472,7 +496,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-mixtral-8x7b-instruct": {
       "mode": "chat",
@@ -491,7 +516,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-mpt-30b-instruct": {
       "mode": "chat",
@@ -510,7 +536,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-mpt-7b-instruct": {
       "mode": "chat",
@@ -529,7 +556,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

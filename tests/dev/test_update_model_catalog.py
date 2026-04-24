@@ -549,7 +549,50 @@ def test_convert_updates_last_updated_at_when_entry_changes(tmp_path):
     assert catalog["models"]["gpt-4o"]["last_updated_at"] == date.today().isoformat()
 
 
-def test_migrate_legacy_pricing_top_level():
+def test_convert_sets_last_updated_at_for_unchanged_entry_without_existing_date(tmp_path):
+    input_data = {
+        "gpt-4o": {
+            "litellm_provider": "openai",
+            "mode": "chat",
+            "input_cost_per_token": 2.5e-6,
+            "max_input_tokens": 128000,
+            "max_output_tokens": 16384,
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_reasoning": False,
+            "supports_prompt_caching": False,
+            "supports_response_schema": False,
+        },
+    }
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Pre-populate with the same data but NO last_updated_at (simulates pre-feature catalog)
+    existing_catalog = {
+        "schema_version": "1.0",
+        "models": {
+            "gpt-4o": {
+                "mode": "chat",
+                "context_window": {"max_input": 128000, "max_output": 16384},
+                "pricing": {"input_per_million_tokens": 2.5},
+                "capabilities": {
+                    "function_calling": True,
+                    "vision": True,
+                    "reasoning": False,
+                    "prompt_caching": False,
+                    "response_schema": False,
+                },
+            }
+        },
+    }
+    (output_dir / "openai.json").write_text(json.dumps(existing_catalog))
+
+    convert(input_data, output_dir)
+
+    catalog = json.loads((output_dir / "openai.json").read_text())
+    assert catalog["models"]["gpt-4o"]["last_updated_at"] == date.today().isoformat()
+
     entry = {
         "mode": "chat",
         "pricing": {
