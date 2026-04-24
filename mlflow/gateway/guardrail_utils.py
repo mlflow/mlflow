@@ -87,3 +87,32 @@ async def run_post_llm_guardrails(
             request_payload, response_dict, auth_headers=auth_headers, usage_tracking=usage_tracking
         )
     return chat.ResponsePayload(**response_dict)
+
+
+async def run_post_llm_guardrails_passthrough(
+    guardrails: list[JudgeGuardrail],
+    request_payload: dict[str, Any],
+    response: dict[str, Any],
+    auth_headers: dict[str, str] | None = None,
+    usage_tracking: bool = False,
+) -> dict[str, Any]:
+    """Run post-LLM guardrails for passthrough endpoints.
+
+    Like ``run_post_llm_guardrails`` but accepts and returns a plain ``dict``
+    instead of a ``chat.ResponsePayload``.  Sanitization automatically skips
+    ``response_format`` for payloads that don't conform to the chat-completion
+    schema (see ``JudgeGuardrail._infer_chat_model``).
+
+    Note: post-LLM guardrails are skipped for streaming responses. Configure
+    guardrails that must run on all responses to use the pre-LLM stage, or
+    disable streaming on the endpoint.
+    """
+    post_llm_guardrails = [g for g in guardrails if g.stage == GuardrailStage.AFTER]
+    if not post_llm_guardrails:
+        return response
+
+    for guardrail in post_llm_guardrails:
+        response = await guardrail.process_response(
+            request_payload, response, auth_headers=auth_headers, usage_tracking=usage_tracking
+        )
+    return response
