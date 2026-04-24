@@ -157,7 +157,7 @@ export const ModelTraceExplorerSummarySpans = ({
               onClick={() => setIntermediateNodesExpanded(true)}
             >
               <FormattedMessage
-                defaultMessage="Show {count} more intermediate steps"
+                defaultMessage="Show {count} more intermediate {count, plural, =1 {step} other {steps}}"
                 description="Link that expands a collapsed list of intermediate function execution steps when clicked"
                 values={{
                   count: intermediateNodes.length - INTERMEDIATE_NODES_TRUNCATION_LIMIT,
