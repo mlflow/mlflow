@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
 import { AdminApi as RealAdminApi } from './api';
 import { MockAdminApi } from './mockApi';
 import type {
@@ -11,8 +12,16 @@ import type {
   UpdateAdminRequest,
 } from './types';
 
-// Toggle this to true to use in-memory mock data for UI development
-export const USE_MOCK_API = true;
+/**
+ * Opt-in dev flag to use the in-memory mock admin API.
+ * Enable in the browser devtools console:
+ *   localStorage.setItem('mlflow.settings.admin.enable-mock-api_v1', 'true')
+ * Follows the same pattern as `mlflow.settings.telemetry.enable-dev-logging`.
+ */
+export const ADMIN_ENABLE_MOCK_API_STORAGE_KEY = 'mlflow.settings.admin.enable-mock-api';
+
+export const USE_MOCK_API: boolean = getLocalStorageItem(ADMIN_ENABLE_MOCK_API_STORAGE_KEY, 1, false, false);
+
 const AdminApi = USE_MOCK_API ? MockAdminApi : RealAdminApi;
 
 /**
