@@ -2,6 +2,7 @@
 
 import logging
 import os
+from collections import defaultdict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
@@ -338,22 +339,47 @@ def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
 def _format_assessment_details(assessment) -> str:
     """Format assessment details for warning messages."""
     parts = []
-    if hasattr(assessment, "assessment_id") and assessment.assessment_id:
-        parts.append(f"assessment_id='{assessment.assessment_id}'")
-    if hasattr(assessment, "feedback") and assessment.feedback:
-        parts.append(f"label='{assessment.feedback.value}'")
-    if hasattr(assessment, "source") and assessment.source:
-        parts.append(f"source_id='{assessment.source.source_id}'")
-    if hasattr(assessment, "create_time_ms") and assessment.create_time_ms:
-        parts.append(f"create_time_ms={assessment.create_time_ms}")
+    if assessment_id := getattr(assessment, "assessment_id", None):
+        parts.append(f"assessment_id='{assessment_id}'")
+    if feedback := getattr(assessment, "feedback", None):
+        parts.append(f"label='{feedback.value}'")
+    if source := getattr(assessment, "source", None):
+        parts.append(f"source_id='{source.source_id}'")
+    if create_time_ms := getattr(assessment, "create_time_ms", None):
+        parts.append(f"create_time_ms={create_time_ms}")
     return ", ".join(parts)
 
 
 def _get_assessment_timestamp(assessment) -> int:
     """Get the timestamp of an assessment, defaulting to 0 if not available."""
-    if hasattr(assessment, "create_time_ms") and assessment.create_time_ms:
-        return assessment.create_time_ms
-    return 0
+    return getattr(assessment, "create_time_ms", None) or 0
+
+
+def _log_conflict_warning(
+    groups: dict[str, list],
+    winning_label: str,
+    discarded: list,
+    judge_name: str,
+    trace_id: str,
+    is_tie: bool,
+) -> None:
+    """Log a warning about conflicting or tied assessments."""
+    label_counts = ", ".join(
+        f"{len(group)} with label '{label}'" for label, group in sorted(groups.items())
+    )
+    discarded_details = "\n  - ".join(_format_assessment_details(a) for a in discarded)
+
+    if is_tie:
+        prefix = f"Found tie between assessment labels for judge '{judge_name}' in trace '{trace_id}'"
+        resolution = f"Breaking tie by recency: using label '{winning_label}'"
+    else:
+        prefix = f"Found conflicting assessments for judge '{judge_name}' in trace '{trace_id}'"
+        resolution = f"Using majority label '{winning_label}'"
+
+    _logger.warning(
+        f"{prefix}: {label_counts}. {resolution}. "
+        f"Discarded {len(discarded)} assessment(s):\n  - {discarded_details}"
+    )
 
 
 def _resolve_assessment_conflicts(
@@ -374,8 +400,6 @@ def _resolve_assessment_conflicts(
         return []
 
     # Group assessments by their feedback value (label)
-    from collections import defaultdict
-
     groups: dict[str, list] = defaultdict(list)
     for assessment in assessments:
         if assessment.feedback:
@@ -388,62 +412,24 @@ def _resolve_assessment_conflicts(
 
     # Find the maximum count (majority)
     max_count = max(len(group) for group in groups.values())
-
-    # Find all labels that have the max count (could be a tie)
     majority_labels = [label for label, group in groups.items() if len(group) == max_count]
 
-    if len(majority_labels) == 1:
-        # Clear majority - use that group
-        winning_label = majority_labels[0]
-        winning_assessments = groups[winning_label]
-        discarded_assessments = [a for a in assessments if a not in winning_assessments]
-
-        # Build label counts for warning message
-        label_counts = ", ".join(
-            f"{len(group)} with label '{label}'" for label, group in sorted(groups.items())
-        )
-
-        discarded_details = "\n  - ".join(
-            _format_assessment_details(a) for a in discarded_assessments
-        )
-
-        _logger.warning(
-            f"Found conflicting assessments for judge '{judge_name}' in trace '{trace_id}': "
-            f"{label_counts}. Using majority label '{winning_label}'. "
-            f"Discarded {len(discarded_assessments)} assessment(s):\n  - {discarded_details}"
-        )
-
-        return winning_assessments
-
-    else:
-        # Tie between multiple labels - use the group with the most recent assessment
+    is_tie = len(majority_labels) > 1
+    if is_tie:
+        # Tie - use the group with the most recent assessment
         def get_group_max_timestamp(label: str) -> int:
             return max(_get_assessment_timestamp(a) for a in groups[label])
 
-        # Sort tied labels by their most recent assessment timestamp (descending)
-        sorted_labels = sorted(
-            majority_labels, key=get_group_max_timestamp, reverse=True
-        )
-        winning_label = sorted_labels[0]
-        winning_assessments = groups[winning_label]
-        discarded_assessments = [a for a in assessments if a not in winning_assessments]
+        winning_label = max(majority_labels, key=get_group_max_timestamp)
+    else:
+        winning_label = majority_labels[0]
 
-        # Build label counts for warning message
-        label_counts = ", ".join(
-            f"{len(group)} with label '{label}'" for label, group in sorted(groups.items())
-        )
+    winning_assessments = groups[winning_label]
+    discarded = [a for a in assessments if a not in winning_assessments]
 
-        discarded_details = "\n  - ".join(
-            _format_assessment_details(a) for a in discarded_assessments
-        )
+    _log_conflict_warning(groups, winning_label, discarded, judge_name, trace_id, is_tie)
 
-        _logger.warning(
-            f"Found tie between assessment labels for judge '{judge_name}' in trace '{trace_id}': "
-            f"{label_counts}. Breaking tie by recency: using label '{winning_label}'. "
-            f"Discarded {len(discarded_assessments)} assessment(s):\n  - {discarded_details}"
-        )
-
-        return winning_assessments
+    return winning_assessments
 
 
 def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
