@@ -8,11 +8,14 @@ to FastAPI endpoints.
 
 import json
 import time
+import typing
 
+import anyio
 from fastapi import FastAPI, Request
-from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi.responses import JSONResponse
 from flask import Flask
+from starlette.middleware.wsgi import WSGIResponder, build_environ
+from starlette.types import Receive, Scope, Send
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
@@ -32,6 +35,50 @@ from mlflow.utils.workspace_context import (
     set_server_request_workspace,
 )
 from mlflow.version import VERSION
+
+
+class _EfficientWSGIResponder(WSGIResponder):
+    """WSGIResponder with O(n) body buffering instead of O(n^2) concatenation.
+
+    Starlette's WSGIMiddleware is deprecated and upstream has declined to fix the
+    quadratic body buffering (see https://github.com/Kludex/starlette/pull/2450,
+    closed in favor of deprecating the module entirely).
+
+    Ref: https://github.com/Kludex/starlette/blob/0e88e92b592bfa11fd92e331869a8d49ba34b541/starlette/middleware/wsgi.py#L98-L117
+    """
+
+    async def __call__(self, receive: Receive, send: Send) -> None:
+        # >>> Changed from original: use list + join instead of body += chunk
+        chunks: list[bytes] = []
+        more_body = True
+        while more_body:
+            message = await receive()
+            if chunk := message.get("body", b""):
+                chunks.append(chunk)
+            more_body = message.get("more_body", False)
+        body = b"".join(chunks)
+        del chunks  # Free chunk list before build_environ copies body into BytesIO
+        # <<< End of change
+        environ = build_environ(self.scope, body)
+
+        async with anyio.create_task_group() as task_group:
+            task_group.start_soon(self.sender, send)
+            async with self.stream_send:
+                await anyio.to_thread.run_sync(self.wsgi, environ, self.start_response)
+        if self.exc_info is not None:
+            raise self.exc_info[0].with_traceback(self.exc_info[1], self.exc_info[2])
+
+
+class _EfficientWSGIMiddleware:
+    """Drop-in replacement for starlette's WSGIMiddleware that avoids O(n^2) body buffering."""
+
+    def __init__(self, app: typing.Callable[..., typing.Any]) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        assert scope["type"] == "http"
+        responder = _EfficientWSGIResponder(self.app, scope)
+        await responder(receive, send)
 
 
 def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
@@ -139,7 +186,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs
     # NOTE: This must come AFTER include_router to avoid Flask catching all requests
-    fastapi_app.mount("/", WSGIMiddleware(flask_app))
+    fastapi_app.mount("/", _EfficientWSGIMiddleware(flask_app))
 
     return fastapi_app
 

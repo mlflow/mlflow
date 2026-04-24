@@ -8,6 +8,7 @@ functionality directly into the MLflow tracking server.
 
 import functools
 import logging
+import sys
 import time
 from collections.abc import Callable
 from typing import Any
@@ -59,6 +60,8 @@ from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import (
     aggregate_anthropic_messages_stream_chunks,
     aggregate_chat_stream_chunks,
+    aggregate_gemini_stream_generate_content_chunks,
+    aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
 )
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
@@ -172,12 +175,32 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 raise
             finally:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
+                provider_duration = int(provider_call_duration_ms.get())
+                is_streaming = isinstance(result, StreamingResponse)
                 params = {
-                    "is_streaming": isinstance(result, StreamingResponse),
+                    "is_streaming": is_streaming,
                     "invocation_type": invocation_type,
                 }
+                # provider_call_duration_ms is only updated by send_request()
+                # (non-streaming); send_stream_request() never sets it, so
+                # timing fields would always be 0 for streaming responses.
+                if not is_streaming:
+                    params["provider_duration_ms"] = provider_duration
+                    params["gateway_overhead_ms"] = max(0, duration_ms - provider_duration)
                 if caller:
                     params["caller"] = caller
+                if request is not None:
+                    params["has_traceparent"] = request.headers.get("traceparent") is not None
+                    auth_mod = sys.modules.get("mlflow.server.auth")
+                    params["auth_enabled"] = auth_mod.is_auth_enabled() if auth_mod else False
+                    if endpoint_id := getattr(request.state, "endpoint_id", None):
+                        params["endpoint_id"] = endpoint_id
+                    # Prefer the actual provider from the response (set by
+                    # BaseProvider after the call) over the endpoint config
+                    # estimate, which may not reflect traffic-split/fallback.
+                    actual_provider = getattr(result, "provider", None)
+                    if provider := (actual_provider or getattr(request.state, "provider", None)):
+                        params["provider"] = provider
                 _record_event(
                     GatewayInvocationEvent,
                     params=params,
@@ -197,6 +220,21 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
         return wrapper
 
     return decorator
+
+
+def _set_gateway_telemetry_state(request: Request, endpoint_config) -> None:
+    """Set endpoint_id and provider on request.state for telemetry attribution."""
+    request.state.endpoint_id = endpoint_config.endpoint_id
+    if endpoint_config.models:
+        primary_model = next(
+            (
+                m
+                for m in endpoint_config.models
+                if m.linkage_type == GatewayModelLinkageType.PRIMARY
+            ),
+            endpoint_config.models[0],
+        )
+        request.state.provider = str(primary_model.provider)
 
 
 def _build_openai_compatible_config(model_config: "GatewayModelConfig"):
@@ -571,6 +609,7 @@ async def invocations(endpoint_name: str, request: Request):
 
     _validate_store(store)
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -710,6 +749,7 @@ async def chat_completions(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -815,6 +855,7 @@ async def openai_passthrough_chat(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
 
     if body.get("stream", False):
@@ -882,6 +923,7 @@ async def openai_passthrough_embeddings(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
 
     traced_passthrough = maybe_traced_gateway_call(
@@ -931,6 +973,7 @@ async def openai_passthrough_responses(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
 
     if body.get("stream", False):
@@ -947,6 +990,7 @@ async def openai_passthrough_responses(request: Request):
             yield_stream,
             endpoint_config,
             user_metadata,
+            output_reducer=aggregate_openai_responses_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
             on_complete=make_budget_on_complete(store, workspace),
@@ -1002,6 +1046,7 @@ async def anthropic_passthrough_messages(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
 
     if body.get("stream", False):
@@ -1074,7 +1119,9 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
         endpoint_config,
@@ -1122,6 +1169,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
 
     stream = await provider.passthrough(
@@ -1137,6 +1185,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         yield_stream,
         endpoint_config,
         user_metadata,
+        output_reducer=aggregate_gemini_stream_generate_content_chunks,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
         on_complete=make_budget_on_complete(store, workspace),
