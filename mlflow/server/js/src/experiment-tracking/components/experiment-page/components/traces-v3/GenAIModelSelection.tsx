@@ -98,7 +98,9 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
 
     // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints.
     // If initialValues provides a mode, use it directly and skip the endpoint-loading effect.
-    const [mode, setMode] = useState<ModelConfigMode>(initialValues?.mode ?? 'direct');
+    const [mode, setMode] = useState<ModelConfigMode>(
+      initialValues?.mode ?? (initialValues?.endpointName != null ? 'endpoint' : 'direct'),
+    );
     const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>(initialValues?.endpointName);
     const [hasInitializedMode, setHasInitializedMode] = useState(
       initialValues?.mode != null || initialValues?.endpointName != null,
@@ -458,53 +460,55 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                     hasExistingSecrets={existingSecrets.length > 0}
                     disabled={readOnly}
                   />
-                  {apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
-                    <div
-                      css={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: theme.spacing.sm,
-                        marginTop: -theme.spacing.xs,
-                      }}
-                    >
-                      <Tooltip
-                        componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
-                        content={intl.formatMessage({
-                          defaultMessage: 'Saved API keys can be managed in LLM Connections under Settings.',
-                          description:
-                            'Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)',
-                        })}
+                  {saveKey &&
+                    apiKeyConfig.mode === 'new' &&
+                    Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
+                      <div
+                        css={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: theme.spacing.sm,
+                          marginTop: -theme.spacing.xs,
+                        }}
                       >
-                        <span>
-                          <Typography.Text color="secondary">
-                            <FormattedMessage
-                              defaultMessage="This key will be saved for reuse."
-                              description="Text indicating API key will be saved for reuse"
-                            />
-                          </Typography.Text>
-                        </span>
-                      </Tooltip>
-                      <Typography.Text color="secondary">
-                        <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
-                      </Typography.Text>
-                      <Input
-                        componentId="mlflow.traces.issue-detection-modal.api-key-name"
-                        value={apiKeyConfig.newSecret.name}
-                        onChange={(e) =>
-                          setApiKeyConfig({
-                            ...apiKeyConfig,
-                            newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
-                          })
-                        }
-                        placeholder={intl.formatMessage({
-                          defaultMessage: 'API key name',
-                          description: 'Placeholder for API key name input',
-                        })}
-                        disabled={readOnly}
-                        css={{ width: 200 }}
-                      />
-                    </div>
-                  )}
+                        <Tooltip
+                          componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
+                          content={intl.formatMessage({
+                            defaultMessage: 'Saved API keys can be managed in LLM Connections under Settings.',
+                            description:
+                              'Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)',
+                          })}
+                        >
+                          <span>
+                            <Typography.Text color="secondary">
+                              <FormattedMessage
+                                defaultMessage="This key will be saved for reuse."
+                                description="Text indicating API key will be saved for reuse"
+                              />
+                            </Typography.Text>
+                          </span>
+                        </Tooltip>
+                        <Typography.Text color="secondary">
+                          <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
+                        </Typography.Text>
+                        <Input
+                          componentId="mlflow.traces.issue-detection-modal.api-key-name"
+                          value={apiKeyConfig.newSecret.name}
+                          onChange={(e) =>
+                            setApiKeyConfig({
+                              ...apiKeyConfig,
+                              newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
+                            })
+                          }
+                          placeholder={intl.formatMessage({
+                            defaultMessage: 'API key name',
+                            description: 'Placeholder for API key name input',
+                          })}
+                          disabled={readOnly}
+                          css={{ width: 200 }}
+                        />
+                      </div>
+                    )}
                 </>
               )}
             </>

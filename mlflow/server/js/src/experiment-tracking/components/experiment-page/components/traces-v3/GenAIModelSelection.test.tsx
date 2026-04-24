@@ -184,8 +184,9 @@ describe('GenAIModelSelection', () => {
 
     await waitFor(() => {
       const values = ref.current?.getValues();
-      // Should not be overridden with first-endpoint
+      // Should not be overridden with first-endpoint, and mode should be inferred as 'endpoint'
       expect(values.endpointName).toBe('specific-endpoint');
+      expect(values.mode).toBe('endpoint');
     });
   });
 
