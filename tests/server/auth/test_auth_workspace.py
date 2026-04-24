@@ -57,6 +57,156 @@ def test_cleanup_workspace_permissions_handler(monkeypatch):
     mock_delete_roles.assert_called_once_with(workspace_name)
 
 
+def _create_workspace_response(workspace_name: str) -> Response:
+    payload = {"workspace": {"name": workspace_name}}
+    return Response(json.dumps(payload), status=201, content_type="application/json")
+
+
+def _stub_authenticated_user(monkeypatch, username: str, user_id: int = 42):
+    monkeypatch.setattr(
+        auth_module,
+        "authenticate_request",
+        lambda: SimpleNamespace(username=username),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        auth_module.store,
+        "get_user",
+        lambda _u: SimpleNamespace(id=user_id, username=username),
+        raising=True,
+    )
+
+
+def test_seed_default_workspace_roles_happy_path(monkeypatch):
+    monkeypatch.setenv("MLFLOW_RBAC_SEED_DEFAULT_ROLES", "true")
+    workspace_name = f"team-{random_str(10)}"
+    creator = f"creator-{random_str(10)}"
+    _stub_authenticated_user(monkeypatch, creator, user_id=17)
+
+    created_roles: list[dict[str, object]] = []
+    added_perms: list[dict[str, object]] = []
+    assigned: list[tuple[int, int]] = []
+
+    def fake_create_role(name, workspace, description=None):
+        role_id = len(created_roles) + 1
+        created_roles.append({
+            "id": role_id,
+            "name": name,
+            "workspace": workspace,
+            "description": description,
+        })
+        return SimpleNamespace(id=role_id, name=name, workspace=workspace)
+
+    def fake_add_role_permission(role_id, resource_type, resource_pattern, permission):
+        added_perms.append({
+            "role_id": role_id,
+            "resource_type": resource_type,
+            "resource_pattern": resource_pattern,
+            "permission": permission,
+        })
+        return SimpleNamespace(id=role_id)
+
+    def fake_assign_role_to_user(user_id, role_id):
+        assigned.append((user_id, role_id))
+        return SimpleNamespace(user_id=user_id, role_id=role_id)
+
+    monkeypatch.setattr(auth_module.store, "create_role", fake_create_role, raising=True)
+    monkeypatch.setattr(
+        auth_module.store, "add_role_permission", fake_add_role_permission, raising=True
+    )
+    monkeypatch.setattr(
+        auth_module.store, "assign_role_to_user", fake_assign_role_to_user, raising=True
+    )
+
+    with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
+        auth_module._seed_default_workspace_roles_and_grant_creator(
+            _create_workspace_response(workspace_name)
+        )
+
+    names = [r["name"] for r in created_roles]
+    assert names == ["workspace-admin", "editor", "viewer"]
+    assert all(r["workspace"] == workspace_name for r in created_roles)
+
+    # workspace-admin → (workspace, *, MANAGE); editor → (*, *, EDIT); viewer → (*, *, READ)
+    assert [(p["resource_type"], p["permission"]) for p in added_perms] == [
+        ("workspace", MANAGE.name),
+        ("*", "EDIT"),
+        ("*", READ.name),
+    ]
+    assert all(p["resource_pattern"] == "*" for p in added_perms)
+
+    # Creator assigned to workspace-admin (role_id=1), not to editor/viewer.
+    assert assigned == [(17, 1)]
+
+
+def test_seed_default_workspace_roles_disabled_falls_back_to_direct_grant(monkeypatch):
+    monkeypatch.setenv("MLFLOW_RBAC_SEED_DEFAULT_ROLES", "false")
+    workspace_name = f"team-{random_str(10)}"
+    creator = f"creator-{random_str(10)}"
+    _stub_authenticated_user(monkeypatch, creator)
+
+    mock_create_role = Mock()
+    mock_set_workspace_permission = Mock()
+
+    monkeypatch.setattr(auth_module.store, "create_role", mock_create_role, raising=True)
+    monkeypatch.setattr(
+        auth_module.store,
+        "set_workspace_permission",
+        mock_set_workspace_permission,
+        raising=True,
+    )
+
+    with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
+        auth_module._seed_default_workspace_roles_and_grant_creator(
+            _create_workspace_response(workspace_name)
+        )
+
+    mock_create_role.assert_not_called()
+    mock_set_workspace_permission.assert_called_once_with(workspace_name, creator, MANAGE.name)
+
+
+def test_seed_default_workspace_roles_admin_creation_fails_falls_back(monkeypatch, caplog):
+    monkeypatch.setenv("MLFLOW_RBAC_SEED_DEFAULT_ROLES", "true")
+    workspace_name = f"team-{random_str(10)}"
+    creator = f"creator-{random_str(10)}"
+    _stub_authenticated_user(monkeypatch, creator, user_id=99)
+
+    def fake_create_role(name, workspace, description=None):
+        if name == "workspace-admin":
+            raise MlflowException("simulated admin role failure")
+        return SimpleNamespace(id=10, name=name, workspace=workspace)
+
+    mock_add_role_permission = Mock()
+    mock_assign_role_to_user = Mock()
+    mock_set_workspace_permission = Mock()
+
+    monkeypatch.setattr(auth_module.store, "create_role", fake_create_role, raising=True)
+    monkeypatch.setattr(
+        auth_module.store, "add_role_permission", mock_add_role_permission, raising=True
+    )
+    monkeypatch.setattr(
+        auth_module.store, "assign_role_to_user", mock_assign_role_to_user, raising=True
+    )
+    monkeypatch.setattr(
+        auth_module.store,
+        "set_workspace_permission",
+        mock_set_workspace_permission,
+        raising=True,
+    )
+
+    with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
+        auth_module._seed_default_workspace_roles_and_grant_creator(
+            _create_workspace_response(workspace_name)
+        )
+
+    # editor and viewer still got created (best-effort seeding).
+    assert mock_add_role_permission.call_count == 2
+    # Creator was never assigned to workspace-admin (creation failed).
+    mock_assign_role_to_user.assert_not_called()
+    # Fallback direct MANAGE grant so creator isn't locked out.
+    mock_set_workspace_permission.assert_called_once_with(workspace_name, creator, MANAGE.name)
+
+
 class _TrackingStore:
     def __init__(
         self,

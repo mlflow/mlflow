@@ -196,6 +196,35 @@ def _graphql_search_model_versions(
     return payload["data"]["mlflowSearchModelVersions"]["modelVersions"]
 
 
+def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
+    client, tracking_uri = workspace_client
+    workspace_name = f"team-{random_str(10)}"
+    _create_workspace(tracking_uri, workspace_name)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        roles = client.list_roles(workspace_name)
+
+    role_names = sorted(r.name for r in roles)
+    assert role_names == ["editor", "viewer", "workspace-admin"]
+
+    # Each role got its expected permission row. Look up by name and inspect.
+    by_name = {r.name: r for r in roles}
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        admin_perms = client.list_role_permissions(by_name["workspace-admin"].id)
+        editor_perms = client.list_role_permissions(by_name["editor"].id)
+        viewer_perms = client.list_role_permissions(by_name["viewer"].id)
+
+    assert [(p.resource_type, p.resource_pattern, p.permission) for p in admin_perms] == [
+        ("workspace", "*", "MANAGE")
+    ]
+    assert [(p.resource_type, p.resource_pattern, p.permission) for p in editor_perms] == [
+        ("*", "*", "EDIT")
+    ]
+    assert [(p.resource_type, p.resource_pattern, p.permission) for p in viewer_perms] == [
+        ("*", "*", "READ")
+    ]
+
+
 def test_workspace_permission_set_and_list(workspace_setup, monkeypatch):
     client, _tracking_uri, workspace_name, username, _password = workspace_setup
 
