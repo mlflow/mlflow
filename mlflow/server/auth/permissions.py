@@ -92,8 +92,8 @@ VALID_RESOURCE_TYPES = frozenset({
     # management capabilities within the workspace.
     "workspace",
     # Special: a "default" permission on every resource of every type in the role's
-    # workspace. resource_pattern must be "*". Used by the Phase 2 dual-write to mirror
-    # the legacy `workspace_permissions` table — semantically distinct from
+    # workspace. resource_pattern must be "*". Used by the dual-write mirror of the
+    # legacy `workspace_permissions` table — semantically distinct from
     # `resource_type="workspace"` which conveys workspace-admin capability over role/user
     # management.
     "*",
