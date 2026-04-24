@@ -272,7 +272,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
 
     return (
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           <div>
             <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.xs }}>
               <FormattedMessage
