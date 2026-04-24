@@ -116,10 +116,10 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
 #: When true, newly created workspaces are seeded with three default RBAC roles
-#: (``workspace-admin``, ``editor``, ``viewer``) and the creating user is assigned to
-#: ``workspace-admin``. Set to ``False`` to skip seeding — the creator still receives
-#: a direct workspace MANAGE grant so they retain admin authority over their new
-#: workspace.
+#: (``workspace-admin``, ``editor``, ``viewer``) that super-admins can assign to other
+#: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already
+#: bypasses RBAC, so the creator is not assigned to any role. Set to ``False`` to skip
+#: seeding entirely — no roles are created and no grants are issued.
 #: (default: ``True``)
 MLFLOW_RBAC_SEED_DEFAULT_ROLES = _BooleanEnvironmentVariable("MLFLOW_RBAC_SEED_DEFAULT_ROLES", True)
 
