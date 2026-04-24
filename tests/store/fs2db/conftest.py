@@ -13,6 +13,7 @@ from mlflow.tracking import MlflowClient
 @pytest.fixture(scope="module")
 def clients(
     tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch_module: pytest.MonkeyPatch,
 ) -> Generator[tuple[MlflowClient, MlflowClient]]:
     tmp = tmp_path_factory.mktemp("fs2db")
     source = tmp / "source"
@@ -41,10 +42,7 @@ def clients(
     migrate(Path(source), target_uri, progress=False)
 
     mlruns = _resolve_mlruns(Path(source))
-    os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
-    try:
-        src = MlflowClient(tracking_uri=mlruns.as_uri())
-        dst = MlflowClient(tracking_uri=target_uri)
-        yield src, dst
-    finally:
-        os.environ.pop("MLFLOW_ALLOW_FILE_STORE", None)
+    monkeypatch_module.setenv("MLFLOW_ALLOW_FILE_STORE", "true")
+    src = MlflowClient(tracking_uri=mlruns.as_uri())
+    dst = MlflowClient(tracking_uri=target_uri)
+    return src, dst

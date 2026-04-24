@@ -1217,6 +1217,12 @@ def db_uri(cached_db: Path) -> Iterator[str]:
         yield f"sqlite:///{db_path}"
 
 
+@pytest.fixture(scope="module")
+def monkeypatch_module():
+    with pytest.MonkeyPatch.context() as mp:
+        yield mp
+
+
 @pytest.fixture(autouse=True)
 def clear_engine_map():
     """
