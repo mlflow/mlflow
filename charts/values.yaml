@@ -93,6 +93,7 @@ serviceMonitor:
 
 podSecurityContext:
   runAsNonRoot: true
+  runAsUser: 1000
   seccompProfile:
     type: RuntimeDefault
 
