@@ -53,7 +53,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
     """
 
     def __init__(self, span_exporter: SpanExporter):
-        self.span_exporter = span_exporter
+        super().__init__(span_exporter)
         self._trace_manager = InMemoryTraceManager.get_instance()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):

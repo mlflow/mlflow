@@ -347,6 +347,18 @@ def convert(raw: dict[str, Any], output_dir: Path) -> dict[str, int]:
     Returns a dict mapping provider names to model counts.
     """
 
+    today = date.today().isoformat()
+
+    # Load existing catalog files first so we can detect which entries have changed
+    output_dir.mkdir(parents=True, exist_ok=True)
+    existing_catalogs: dict[str, dict[str, Any]] = {}
+    for provider_file in output_dir.glob("*.json"):
+        try:
+            existing = json.loads(provider_file.read_text(encoding="utf-8"))
+            existing_catalogs[provider_file.stem] = existing.get("models", {})
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"  Warning: could not read existing {provider_file.name}: {e}")
+
     # Group by provider
     providers: dict[str, dict[str, dict[str, Any]]] = {}
     seen: set[tuple[str, str]] = set()
@@ -375,24 +387,33 @@ def convert(raw: dict[str, Any], output_dir: Path) -> dict[str, int]:
         if entry is None:
             continue
 
+        # Determine last_updated_at: carry over existing date if entry is unchanged;
+        # set today if no existing date (first-time backfill or new entry)
+        existing_entry = existing_catalogs.get(provider, {}).get(model_name)
+        if existing_entry is not None:
+            existing_without_last_updated_at = {
+                k: v for k, v in existing_entry.items() if k != "last_updated_at"
+            }
+            if entry == existing_without_last_updated_at:
+                # Entry is unchanged; preserve existing last_updated_at or set today if absent
+                entry["last_updated_at"] = existing_entry.get("last_updated_at") or today
+            else:
+                entry["last_updated_at"] = today
+        else:
+            entry["last_updated_at"] = today
+
         providers.setdefault(provider, {})[model_name] = entry
 
-    # Merge with existing catalog files (preserve models not in upstream)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     # Merge with existing catalogs: preserve models not in upstream (community additions)
-    for provider_file in output_dir.glob("*.json"):
-        provider = provider_file.stem
+    for provider, existing_models in existing_catalogs.items():
         if provider not in providers:
             providers[provider] = {}
-        try:
-            existing = json.loads(provider_file.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"  Warning: could not read existing {provider_file.name}: {e}")
-            continue
-        for model_name, entry in existing.get("models", {}).items():
+        for model_name, entry in existing_models.items():
             if model_name not in providers.get(provider, {}):
-                providers.setdefault(provider, {})[model_name] = _migrate_legacy_pricing(entry)
+                migrated = _migrate_legacy_pricing(entry)
+                if "last_updated_at" not in migrated:
+                    migrated = {**migrated, "last_updated_at": today}
+                providers.setdefault(provider, {})[model_name] = migrated
 
     stats = {}
     for provider, models in sorted(providers.items()):

@@ -109,6 +109,8 @@ jobs:
       - name: Run tests
         env:
           LINTR_COMMENT_BOT: false
+          # TODO: Migrate R tests to use a SQLite backend instead of FileStore
+          MLFLOW_ALLOW_FILE_STORE: true
         run: |
           cd tests
           export RETICULATE_PYTHON_BIN=$(which python)

@@ -1,11 +1,11 @@
 import { useDesignSystemTheme, Typography } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { ModelSelect } from '../../../../../gateway/components/create-endpoint/ModelSelect';
-import { IssueDetectionAdvancedApiKeySettings } from './IssueDetectionApiKeyConfigurator';
+import { GenAIAdvancedApiKeySettings } from './GenAIApiKeyConfigurator';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import type { AuthMode } from '../../../../../gateway/types';
 
-interface IssueDetectionAdvancedSettingsProps {
+interface GenAIAdvancedSettingsProps {
   provider: string;
   model: string;
   onModelChange: (model: string) => void;
@@ -16,7 +16,7 @@ interface IssueDetectionAdvancedSettingsProps {
   showModelSelector?: boolean;
 }
 
-export function IssueDetectionAdvancedSettings({
+export function GenAIAdvancedSettings({
   provider,
   model,
   onModelChange,
@@ -25,7 +25,7 @@ export function IssueDetectionAdvancedSettings({
   authModes,
   defaultAuthMode,
   showModelSelector = true,
-}: IssueDetectionAdvancedSettingsProps) {
+}: GenAIAdvancedSettingsProps) {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -45,7 +45,7 @@ export function IssueDetectionAdvancedSettings({
         />
       )}
       {provider && apiKeyConfig.mode === 'new' && (
-        <IssueDetectionAdvancedApiKeySettings
+        <GenAIAdvancedApiKeySettings
           value={apiKeyConfig}
           onChange={onApiKeyConfigChange}
           provider={provider}

@@ -24,7 +24,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "deprecation_date": "2025-09-29"
+      "deprecation_date": "2025-09-29",
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.0-flash": {
       "mode": "chat",
@@ -50,7 +51,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-06-01"
+      "deprecation_date": "2026-06-01",
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.0-flash-001": {
       "mode": "chat",
@@ -65,7 +67,7 @@
         "cache_read_per_million_tokens": 0.025,
         "modality": {
           "audio": {
-            "input_per_million_tokens": 1.0
+            "input_per_million_tokens": 0.7
           }
         }
       },
@@ -76,7 +78,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-06-01"
+      "deprecation_date": "2026-06-01",
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.0-flash-lite": {
       "mode": "chat",
@@ -101,7 +104,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-06-01"
+      "deprecation_date": "2026-06-01",
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.0-flash-lite-001": {
       "mode": "chat",
@@ -126,7 +130,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-06-01"
+      "deprecation_date": "2026-06-01",
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-computer-use-preview-10-2025": {
       "mode": "chat",
@@ -152,7 +157,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-flash": {
       "mode": "chat",
@@ -177,7 +183,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-flash-lite": {
       "mode": "chat",
@@ -202,7 +209,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-flash-lite-preview-06-17": {
       "mode": "chat",
@@ -228,7 +236,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2025-11-18"
+      "deprecation_date": "2025-11-18",
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-flash-lite-preview-09-2025": {
       "mode": "chat",
@@ -253,7 +262,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-flash-native-audio-latest": {
       "mode": "chat",
@@ -277,7 +287,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-flash-native-audio-preview-09-2025": {
       "mode": "chat",
@@ -301,7 +312,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-flash-native-audio-preview-12-2025": {
       "mode": "chat",
@@ -325,7 +337,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-flash-preview-09-2025": {
       "mode": "chat",
@@ -350,7 +363,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-pro": {
       "mode": "chat",
@@ -384,7 +398,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-2.5-pro-preview-tts": {
       "mode": "chat",
@@ -417,7 +432,8 @@
         "reasoning": false,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-3-flash-preview": {
       "mode": "chat",
@@ -449,7 +465,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-3-pro-preview": {
       "mode": "chat",
@@ -489,7 +506,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-03-09"
+      "deprecation_date": "2026-03-09",
+      "last_updated_at": "2026-04-24"
     },
     "gemini-3.1-flash-lite-preview": {
       "mode": "chat",
@@ -515,7 +533,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-3.1-flash-live-preview": {
       "mode": "chat",
@@ -543,7 +562,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-3.1-pro-preview": {
       "mode": "chat",
@@ -582,7 +602,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-3.1-pro-preview-customtools": {
       "mode": "chat",
@@ -621,7 +642,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-embedding-001": {
       "mode": "embedding",
@@ -639,7 +661,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-embedding-2-preview": {
       "mode": "embedding",
@@ -657,7 +680,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-exp-1114": {
       "mode": "chat",
@@ -683,7 +707,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-exp-1206": {
       "mode": "chat",
@@ -701,12 +726,7 @@
             "input_per_million_tokens": 0,
             "output_per_million_tokens": 0
           }
-        ],
-        "modality": {
-          "audio": {
-            "input_per_million_tokens": 1.0
-          }
-        }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -714,7 +734,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-flash-latest": {
       "mode": "chat",
@@ -739,7 +760,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-flash-lite-latest": {
       "mode": "chat",
@@ -764,7 +786,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-gemma-2-27b-it": {
       "mode": "chat",
@@ -782,7 +805,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-gemma-2-9b-it": {
       "mode": "chat",
@@ -800,7 +824,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-pro-latest": {
       "mode": "chat",
@@ -828,7 +853,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemini-robotics-er-1.5-preview": {
       "mode": "chat",
@@ -853,7 +879,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gemma-3-27b-it": {
       "mode": "chat",
@@ -879,7 +906,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "learnlm-1.5-pro-experimental": {
       "mode": "chat",
@@ -905,7 +933,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "lyria-3-clip-preview": {
       "mode": "chat",
@@ -924,7 +953,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "lyria-3-pro-preview": {
       "mode": "chat",
@@ -943,7 +973,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }
