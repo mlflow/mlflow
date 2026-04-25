@@ -242,11 +242,7 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
           )}
           <div>
             <Typography.Text bold>Permission</Typography.Text>
-            <DialogCombobox
-              componentId="admin.role.add_permission_level"
-              label="Permission"
-              value={[newPermission]}
-            >
+            <DialogCombobox componentId="admin.role.add_permission_level" label="Permission" value={[newPermission]}>
               <DialogComboboxTrigger />
               <DialogComboboxContent>
                 <DialogComboboxOptionList>
@@ -631,13 +627,7 @@ const RoleDetailPage = () => {
         </div>
 
         {error && (
-          <Alert
-            componentId="admin.role.error"
-            type="error"
-            message={error}
-            closable
-            onClose={() => setError(null)}
-          />
+          <Alert componentId="admin.role.error" type="error" message={error} closable onClose={() => setError(null)} />
         )}
 
         <Modal

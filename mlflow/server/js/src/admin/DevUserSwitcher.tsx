@@ -13,16 +13,7 @@
  * stored in localStorage (`admin.dev-user-credentials`) as a dev convenience.
  */
 import { useCallback, useState } from 'react';
-import {
-  Alert,
-  Button,
-  Input,
-  Modal,
-  Spinner,
-  Tag,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Alert, Button, Input, Modal, Spinner, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { getLocalStorageItem, setLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
 import { useUsersQuery } from './hooks';

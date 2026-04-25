@@ -115,13 +115,7 @@ const AccountPage = () => {
         )}
 
         {error && (
-          <Alert
-            componentId="account.error"
-            type="error"
-            message={error}
-            closable
-            onClose={() => setError(null)}
-          />
+          <Alert componentId="account.error" type="error" message={error} closable onClose={() => setError(null)} />
         )}
         {successMessage && (
           <Alert
