@@ -84,6 +84,8 @@ class BaseProvider(ABC):
 
         self.config = config
         self._enable_tracing = enable_tracing
+        provider = config.model.provider
+        self._provider_name = provider.value if isinstance(provider, Enum) else str(provider)
 
     def get_endpoint_url(self, route_type: str) -> str:
         """Return the full endpoint URL for the given route type.
@@ -157,10 +159,13 @@ class BaseProvider(ABC):
         async for chunk in self._maybe_trace_stream_method(
             "chat_stream", self._chat_stream, payload
         ):
+            chunk.provider = self._provider_name
             yield chunk
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        return await self._maybe_trace_method("chat", self._chat, payload)
+        result = await self._maybe_trace_method("chat", self._chat, payload)
+        result.provider = self._provider_name
+        return result
 
     async def completions_stream(
         self, payload: completions.RequestPayload

@@ -18,6 +18,7 @@ import {
   isTracesRelatedTab,
   getTimeRangeQueryString,
 } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/utils';
+import { useExperimentHasV4Location } from '../../experiment-tracking/hooks/useExperimentHasV4Location';
 import { Fragment } from 'react';
 
 // pass a dummy function to avoid highlighting the experiment back link
@@ -41,9 +42,11 @@ export const MlflowSidebarExperimentItems = ({
     enabled: Boolean(experimentId) && workflowType === WorkflowType.GENAI,
     filter: '', // not important in this case, we show the runs tab if there are any training runs
   });
+  const hasV4Location = useExperimentHasV4Location(experiment?.tags);
   const config = useExperimentPageSideNavConfig({
     experimentKind: getExperimentKindForWorkflowType(workflowType),
     hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
+    hasV4Location,
   });
   const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
   const { pathname, search } = useLocation();

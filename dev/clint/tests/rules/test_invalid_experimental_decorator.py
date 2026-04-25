@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.invalid_experimental_decorator import InvalidExperimentalDecorator
 
 
-def test_invalid_experimental_decorator(index_path: Path) -> None:
+def test_invalid_experimental_decorator(index: SymbolIndex) -> None:
     code = """
 from mlflow.utils.annotations import experimental
 
@@ -45,7 +46,7 @@ def good_function2():
     pass
 """
     config = Config(select={InvalidExperimentalDecorator.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 5
     assert all(isinstance(v.rule, InvalidExperimentalDecorator) for v in violations)
     assert violations[0].range == Range(Position(4, 1))  # @experimental without args

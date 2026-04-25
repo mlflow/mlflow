@@ -10,9 +10,11 @@ $ python dev/update_ml_package_versions.py
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -33,6 +35,18 @@ def save_file(src, path):
 
 
 RELEASE_CUTOFF_DAYS = 14
+PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org").rstrip("/")
+
+
+def check_pypi_accessibility() -> None:
+    try:
+        with urllib.request.urlopen(PYPI_URL, timeout=5):
+            pass
+    except (urllib.error.URLError, OSError):
+        raise SystemExit(
+            f"Error: Cannot connect to {PYPI_URL}. "
+            "If it's not accessible, set the PYPI_URL environment variable to a PyPI proxy URL."
+        )
 
 
 @dataclass
@@ -42,7 +56,7 @@ class VersionInfo:
 
 
 def get_package_version_infos(package_name: str) -> list[VersionInfo]:
-    url = f"https://pypi.python.org/pypi/{package_name}/json"
+    url = f"{PYPI_URL}/pypi/{package_name}/json"
     for _ in range(5):  # Retry up to 5 times
         try:
             with urllib.request.urlopen(url) as res:
@@ -265,6 +279,8 @@ def get_min_supported_version(versions_infos: list[VersionInfo], genai: bool = F
 
 
 def update(skip_yml=False):
+    if not skip_yml:
+        check_pypi_accessibility()
     yml_path = "mlflow/ml-package-versions.yml"
 
     if not skip_yml:

@@ -6,16 +6,22 @@ from mlflow.server.auth.entities import (
     GatewayModelDefinitionPermission,
     GatewaySecretPermission,
     RegisteredModelPermission,
+    Role,
+    RolePermission,
     ScorerPermission,
     User,
+    UserRoleAssignment,
     WorkspacePermission,
 )
 from mlflow.server.auth.routes import (
+    ADD_ROLE_PERMISSION,
+    ASSIGN_ROLE,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
     CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
     CREATE_GATEWAY_SECRET_PERMISSION,
     CREATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_ROLE,
     CREATE_SCORER_PERMISSION,
     CREATE_USER,
     DELETE_EXPERIMENT_PERMISSION,
@@ -23,6 +29,7 @@ from mlflow.server.auth.routes import (
     DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
     DELETE_GATEWAY_SECRET_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_ROLE,
     DELETE_SCORER_PERMISSION,
     DELETE_USER,
     GET_EXPERIMENT_PERMISSION,
@@ -30,15 +37,24 @@ from mlflow.server.auth.routes import (
     GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
     GET_GATEWAY_SECRET_PERMISSION,
     GET_REGISTERED_MODEL_PERMISSION,
+    GET_ROLE,
     GET_SCORER_PERMISSION,
     GET_USER,
+    LIST_ROLE_PERMISSIONS,
+    LIST_ROLE_USERS,
+    LIST_ROLES,
+    LIST_USER_ROLES,
     LIST_USER_WORKSPACE_PERMISSIONS,
     LIST_WORKSPACE_PERMISSIONS,
+    REMOVE_ROLE_PERMISSION,
+    UNASSIGN_ROLE,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_GATEWAY_ENDPOINT_PERMISSION,
     UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
     UPDATE_GATEWAY_SECRET_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_ROLE,
+    UPDATE_ROLE_PERMISSION,
     UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
@@ -990,3 +1006,92 @@ class AuthServiceClient:
             params={"username": username},
         )
         return [WorkspacePermission.from_json(p) for p in resp["permissions"]]
+
+    # ---- Role management (RBAC) ----
+
+    def create_role(
+        self,
+        workspace: str,
+        name: str,
+        description: str | None = None,
+    ) -> Role:
+        payload = {"workspace": workspace, "name": name}
+        if description is not None:
+            payload["description"] = description
+        resp = self._request(CREATE_ROLE, "POST", json=payload)
+        return Role.from_json(resp["role"])
+
+    def get_role(self, role_id: int) -> Role:
+        resp = self._request(GET_ROLE, "GET", params={"role_id": str(role_id)})
+        return Role.from_json(resp["role"])
+
+    def list_roles(self, workspace: str) -> list[Role]:
+        resp = self._request(LIST_ROLES, "GET", params={"workspace": workspace})
+        return [Role.from_json(r) for r in resp["roles"]]
+
+    def update_role(
+        self, role_id: int, name: str | None = None, description: str | None = None
+    ) -> Role:
+        payload: dict[str, object] = {"role_id": role_id}
+        if name is not None:
+            payload["name"] = name
+        if description is not None:
+            payload["description"] = description
+        resp = self._request(UPDATE_ROLE, "PATCH", json=payload)
+        return Role.from_json(resp["role"])
+
+    def delete_role(self, role_id: int) -> None:
+        self._request(DELETE_ROLE, "DELETE", json={"role_id": role_id})
+
+    def add_role_permission(
+        self, role_id: int, resource_type: str, resource_pattern: str, permission: str
+    ) -> RolePermission:
+        resp = self._request(
+            ADD_ROLE_PERMISSION,
+            "POST",
+            json={
+                "role_id": role_id,
+                "resource_type": resource_type,
+                "resource_pattern": resource_pattern,
+                "permission": permission,
+            },
+        )
+        return RolePermission.from_json(resp["role_permission"])
+
+    def remove_role_permission(self, role_permission_id: int) -> None:
+        self._request(
+            REMOVE_ROLE_PERMISSION, "DELETE", json={"role_permission_id": role_permission_id}
+        )
+
+    def list_role_permissions(self, role_id: int) -> list[RolePermission]:
+        resp = self._request(LIST_ROLE_PERMISSIONS, "GET", params={"role_id": str(role_id)})
+        return [RolePermission.from_json(p) for p in resp["role_permissions"]]
+
+    def update_role_permission(self, role_permission_id: int, permission: str) -> RolePermission:
+        resp = self._request(
+            UPDATE_ROLE_PERMISSION,
+            "PATCH",
+            json={"role_permission_id": role_permission_id, "permission": permission},
+        )
+        return RolePermission.from_json(resp["role_permission"])
+
+    def assign_role(self, username: str, role_id: int) -> UserRoleAssignment:
+        resp = self._request(ASSIGN_ROLE, "POST", json={"username": username, "role_id": role_id})
+        return UserRoleAssignment.from_json(resp["assignment"])
+
+    def unassign_role(self, username: str, role_id: int) -> None:
+        self._request(UNASSIGN_ROLE, "DELETE", json={"username": username, "role_id": role_id})
+
+    def list_user_roles(self, username: str) -> list[Role]:
+        resp = self._request(LIST_USER_ROLES, "GET", params={"username": username})
+        return [Role.from_json(r) for r in resp["roles"]]
+
+    def list_role_users(self, role_id: int) -> list[UserRoleAssignment]:
+        resp = self._request(LIST_ROLE_USERS, "GET", params={"role_id": str(role_id)})
+        return [UserRoleAssignment.from_json(a) for a in resp["assignments"]]
+
+    def list_all_roles(self) -> list[Role]:
+        # Same endpoint as list_roles; omitting the ``workspace`` param returns the
+        # cross-workspace listing (admin-only, enforced server-side).
+        resp = self._request(LIST_ROLES, "GET")
+        return [Role.from_json(r) for r in resp["roles"]]

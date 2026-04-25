@@ -3,7 +3,6 @@ import {
   ChartLineIcon,
   CloudModelIcon,
   CreditCardIcon,
-  KeyIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -16,7 +15,6 @@ import { MlflowSidebarLink } from './MlflowSidebarLink';
 const isEndpointsActive = (location: Location) =>
   Boolean(matchPath('/gateway', location.pathname)) || Boolean(matchPath('/gateway/endpoints/*', location.pathname));
 const isUsageActive = (location: Location) => Boolean(matchPath('/gateway/usage', location.pathname));
-const isApiKeysActive = (location: Location) => Boolean(matchPath('/gateway/api-keys', location.pathname));
 const isBudgetsActive = (location: Location) => Boolean(matchPath('/gateway/budgets', location.pathname));
 
 export const MlflowSidebarGatewayItems = ({ collapsed }: { collapsed: boolean }) => {
@@ -75,16 +73,6 @@ export const MlflowSidebarGatewayItems = ({ collapsed }: { collapsed: boolean })
         collapsed={collapsed}
       >
         <FormattedMessage defaultMessage="Budgets" description="Sidebar link for gateway budgets" />
-      </MlflowSidebarLink>
-      <MlflowSidebarLink
-        css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
-        to={GatewayRoutes.apiKeysPageRoute}
-        componentId="mlflow.sidebar.gateway_api_keys_tab_link"
-        isActive={isApiKeysActive}
-        icon={<KeyIcon />}
-        collapsed={collapsed}
-      >
-        <FormattedMessage defaultMessage="API Keys" description="Sidebar link for gateway API keys" />
       </MlflowSidebarLink>
     </div>
   );

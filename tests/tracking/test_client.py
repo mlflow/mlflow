@@ -695,6 +695,8 @@ def reset_prompt_cache():
 @pytest.fixture(params=["file", "sqlalchemy"])
 def tracking_uri(request, tmp_path, db_uri):
     """Set an MLflow Tracking URI with different type of backend."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
 
@@ -2050,6 +2052,7 @@ def test_enable_async_logging(mock_store, setup_async_logging):
 
 
 def test_file_store_download_upload_trace_data(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
         client = MlflowClient()
         span = client.start_trace("test", inputs={"test": 1})
@@ -2060,13 +2063,13 @@ def test_file_store_download_upload_trace_data(tmp_path):
         assert trace_data.response == trace.data.response
 
 
-def test_get_trace_throw_if_trace_id_is_online_trace_id():
+def test_get_trace_throw_if_trace_id_is_online_trace_id(db_uri):
     client = MlflowClient("databricks")
     trace_id = "3a3c3b56-910a-4721-8d02-0333eda5f37e"
     with pytest.raises(MlflowException, match="Traces from inference tables can only be loaded"):
         client.get_trace(trace_id)
 
-    another_client = MlflowClient("mlruns")
+    another_client = MlflowClient(db_uri)
     with pytest.raises(MlflowException, match=r"Trace with ID '[\w-]+' not found"):
         another_client.get_trace(trace_id)
 
@@ -2074,6 +2077,8 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id():
 @pytest.fixture(params=["file", "sqlalchemy"])
 def registry_uri(request, tmp_path, db_uri):
     """Set an MLflow Model Registry URI with different type of backend."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
 
@@ -3406,6 +3411,7 @@ def test_mlflow_client_search_datasets_defaults(mock_store):
 
 @pytest.mark.skipif(is_windows(), reason="FileStore URI handling issues on Windows")
 def test_mlflow_client_datasets_filestore_not_supported(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     file_store_uri = str(tmp_path)
     client = MlflowClient(tracking_uri=file_store_uri)
 

@@ -90,8 +90,8 @@ describe('GuardrailsTabContent', () => {
     renderWithDesignSystem(<GuardrailsTabContent {...defaultProps} />);
     expect(screen.getByText('Safety')).toBeInTheDocument();
     expect(screen.getByText('PII Filter')).toBeInTheDocument();
-    expect(screen.getByText('Before LLM')).toBeInTheDocument();
-    expect(screen.getByText('After LLM')).toBeInTheDocument();
+    expect(screen.getByText('Pre-LLM Guardrails')).toBeInTheDocument();
+    expect(screen.getByText('Post-LLM Guardrails')).toBeInTheDocument();
     expect(screen.getByText('Block')).toBeInTheDocument();
     expect(screen.getByText('Sanitize')).toBeInTheDocument();
   });

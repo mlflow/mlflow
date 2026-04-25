@@ -413,6 +413,27 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Coding Agents',
   },
   {
+    id: 'codex',
+    name: 'Codex CLI',
+    logoPath: '/images/logos/openai-logo-only.png',
+    link: '/genai/tracing/integrations/listing/codex',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'gemini_cli',
+    name: 'Gemini CLI',
+    logoPath: '/images/logos/google-gemini-logo.svg',
+    link: '/genai/tracing/integrations/listing/gemini_cli',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'qwen_code',
+    name: 'Qwen Code',
+    logoPath: '/images/logos/qwen-logo.jpg',
+    link: '/genai/tracing/integrations/listing/qwen_code',
+    category: 'Coding Agents',
+  },
+  {
     id: 'instructor',
     name: 'Instructor',
     logoPath: '/images/logos/instructor-logo.svg',

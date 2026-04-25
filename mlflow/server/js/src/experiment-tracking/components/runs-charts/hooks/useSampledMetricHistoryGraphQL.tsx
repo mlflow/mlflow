@@ -1,12 +1,17 @@
 import { gql, NetworkStatus } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
-import { groupBy, keyBy } from 'lodash';
+import { groupBy, isNil, keyBy } from 'lodash';
 import { useEffect, useMemo } from 'react';
 import type { SampledMetricsByRun } from './useSampledMetricHistory';
 import type { GetMetricHistoryBulkInterval } from '../../../../graphql/__generated__/graphql';
 import Utils from '../../../../common/utils/Utils';
 import { useIntl } from 'react-intl';
+
+// GraphQL Int is a signed 32-bit integer
+const GRAPHQL_INT_MIN = -(2 ** 31);
+const GRAPHQL_INT_MAX = 2 ** 31 - 1;
+const clampToInt32 = (value: number) => Math.max(GRAPHQL_INT_MIN, Math.min(GRAPHQL_INT_MAX, value));
 
 const GET_METRIC_HISTORY_BULK_INTERVAL = gql`
   query GetMetricHistoryBulkInterval($data: MlflowGetMetricHistoryBulkIntervalInput!)
@@ -67,8 +72,8 @@ export const useSampledMetricHistoryGraphQL = ({
         data: {
           runIds: runUuids,
           metricKey,
-          startStep: range?.[0] ?? null,
-          endStep: range?.[1] ?? null,
+          startStep: !isNil(range?.[0]) ? clampToInt32(range[0]) : null,
+          endStep: !isNil(range?.[1]) ? clampToInt32(range[1]) : null,
           maxResults,
         },
       },

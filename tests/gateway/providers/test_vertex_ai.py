@@ -119,7 +119,29 @@ def test_global_endpoint_when_no_location():
     provider = VertexAIProvider(endpoint_config)
     provider._cached_credentials = _mock_credentials()
     assert provider.base_url == (
-        "https://aiplatform.googleapis.com/v1/projects/my-project/publishers/google/models"
+        "https://aiplatform.googleapis.com"
+        "/v1/projects/my-project/locations/global/publishers/google/models"
+    )
+
+
+def test_global_location_uses_global_endpoint():
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": "gemini-3-pro-preview",
+            "config": {
+                "vertex_project": "my-gcp-project",
+                "vertex_location": "global",
+            },
+        },
+    )
+    provider = VertexAIProvider(endpoint_config)
+    provider._cached_credentials = _mock_credentials()
+    assert provider.base_url == (
+        "https://aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/global/publishers/google/models"
     )
 
 

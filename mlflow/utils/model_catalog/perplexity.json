@@ -18,7 +18,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "codellama-70b-instruct": {
       "mode": "chat",
@@ -37,7 +38,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "llama-2-70b-chat": {
       "mode": "chat",
@@ -56,7 +58,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "llama-3.1-70b-instruct": {
       "mode": "chat",
@@ -75,7 +78,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "llama-3.1-8b-instruct": {
       "mode": "chat",
@@ -94,7 +98,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-7b-instruct": {
       "mode": "chat",
@@ -113,7 +118,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mixtral-8x7b-instruct": {
       "mode": "chat",
@@ -132,7 +138,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "pplx-70b-chat": {
       "mode": "chat",
@@ -151,7 +158,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "pplx-70b-online": {
       "mode": "chat",
@@ -170,7 +178,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "pplx-7b-chat": {
       "mode": "chat",
@@ -189,7 +198,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "pplx-7b-online": {
       "mode": "chat",
@@ -208,7 +218,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "pplx-embed-v1-0.6b": {
       "mode": "embedding",
@@ -226,7 +237,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "pplx-embed-v1-4b": {
       "mode": "embedding",
@@ -244,7 +256,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sonar": {
       "mode": "chat",
@@ -254,7 +267,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
-        "output_per_million_tokens": 1.0
+        "output_per_million_tokens": 1.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.005,
+            "search_context_size_medium": 0.008
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -262,7 +282,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sonar-deep-research": {
       "mode": "chat",
@@ -272,7 +293,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 8.0
+        "output_per_million_tokens": 8.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.005,
+            "search_context_size_low": 0.005,
+            "search_context_size_medium": 0.005
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -280,7 +308,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sonar-medium-chat": {
       "mode": "chat",
@@ -299,7 +328,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sonar-medium-online": {
       "mode": "chat",
@@ -318,7 +348,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sonar-pro": {
       "mode": "chat",
@@ -329,7 +360,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0
+        "output_per_million_tokens": 15.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.014,
+            "search_context_size_low": 0.006,
+            "search_context_size_medium": 0.01
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -337,7 +375,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sonar-reasoning": {
       "mode": "chat",
@@ -347,7 +386,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
-        "output_per_million_tokens": 5.0
+        "output_per_million_tokens": 5.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.014,
+            "search_context_size_low": 0.005,
+            "search_context_size_medium": 0.008
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -355,7 +401,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sonar-reasoning-pro": {
       "mode": "chat",
@@ -365,7 +412,14 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 8.0
+        "output_per_million_tokens": 8.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.014,
+            "search_context_size_low": 0.006,
+            "search_context_size_medium": 0.01
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -373,7 +427,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sonar-small-chat": {
       "mode": "chat",
@@ -392,7 +447,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sonar-small-online": {
       "mode": "chat",
@@ -411,7 +467,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

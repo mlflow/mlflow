@@ -13,8 +13,8 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Controller, type Control, type UseFormSetValue, useWatch } from 'react-hook-form';
 import { type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
-import { ModelProvider, getModelProvider } from '../../../gateway/utils/gatewayUtils';
 import { hasTemplateVariable } from './utils/templateUtils';
+import { isAutoEvaluationSupported } from './utils/scorerUtils';
 import { isExpectationsTemplate } from './types';
 
 interface EvaluateTracesSectionProps {
@@ -32,10 +32,6 @@ const EvaluateTracesSection: React.FC<EvaluateTracesSectionProps> = ({ control, 
   const sampleRate = useWatch({
     control,
     name: 'sampleRate',
-  });
-  const disableMonitoring = useWatch({
-    control,
-    name: 'disableMonitoring',
   });
   const evaluationScope = useWatch({
     control,
@@ -58,17 +54,17 @@ const EvaluateTracesSection: React.FC<EvaluateTracesSectionProps> = ({ control, 
     () => isExpectationsTemplate(llmTemplate) || hasTemplateVariable(instructions, 'expectations'),
     [llmTemplate, instructions],
   );
-  const isNonGatewayModel = useMemo(() => getModelProvider(model) === ModelProvider.OTHER, [model]);
+  const autoEvalSupported = useMemo(() => isAutoEvaluationSupported(model, hasExpectations), [model, hasExpectations]);
 
   // Set sampleRate based on whether automatic evaluation is allowed
   useEffect(() => {
     if (!setValue) return;
-    if (hasExpectations || isNonGatewayModel) {
+    if (!autoEvalSupported) {
       setValue('sampleRate', 0);
     } else {
       setValue('sampleRate', 100);
     }
-  }, [hasExpectations, isNonGatewayModel, setValue]);
+  }, [autoEvalSupported, setValue]);
 
   const isAutomaticEvaluationEnabled = sampleRate > 0;
   const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;
@@ -81,10 +77,6 @@ const EvaluateTracesSection: React.FC<EvaluateTracesSectionProps> = ({ control, 
     display: 'flex' as const,
     flexDirection: 'column' as const,
   };
-
-  if (disableMonitoring) {
-    return null;
-  }
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -120,25 +112,24 @@ const EvaluateTracesSection: React.FC<EvaluateTracesSectionProps> = ({ control, 
                 // If unchecked, set sample rate to 0; if checked and currently 0, set to 100
                 field.onChange(checked ? 100 : 0);
               }}
-              disabled={mode === SCORER_FORM_MODE.DISPLAY || hasExpectations || isNonGatewayModel}
+              disabled={mode === SCORER_FORM_MODE.DISPLAY || !autoEvalSupported}
             />
           )}
         />
       </div>
-      {hasExpectations && (
+      {!autoEvalSupported && (
         <FormUI.Hint css={{ marginTop: theme.spacing.xs }}>
-          <FormattedMessage
-            defaultMessage="Automatic evaluation is not available for judges that use expectations."
-            description="Hint text explaining why automatic evaluation is disabled for judges with expectations"
-          />
-        </FormUI.Hint>
-      )}
-      {isNonGatewayModel && !hasExpectations && (
-        <FormUI.Hint css={{ marginTop: theme.spacing.xs }}>
-          <FormattedMessage
-            defaultMessage="Automatic evaluation is only available for judges that use gateway endpoints."
-            description="Hint text explaining why automatic evaluation is disabled for non-gateway models"
-          />
+          {hasExpectations ? (
+            <FormattedMessage
+              defaultMessage="Automatic evaluation is not available for judges that use expectations."
+              description="Hint text explaining why automatic evaluation is disabled for judges with expectations"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Automatic evaluation is only available for judges that use gateway endpoints."
+              description="Hint text explaining why automatic evaluation is disabled for non-gateway models"
+            />
+          )}
         </FormUI.Hint>
       )}
 

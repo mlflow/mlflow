@@ -50,13 +50,13 @@ def extract_auth_headers(headers: dict[str, str]) -> dict[str, str]:
     return {"authorization": auth} if auth else {}
 
 
-async def run_before_guardrails(
+async def run_pre_llm_guardrails(
     guardrails: list[JudgeGuardrail],
     payload_dict: dict[str, Any],
     auth_headers: dict[str, str] | None = None,
     usage_tracking: bool = False,
 ) -> dict[str, Any]:
-    """Run BEFORE-stage guardrails on the request payload. Returns the (possibly modified) dict."""
+    """Run pre-LLM guardrails on the request payload. Returns the (possibly modified) dict."""
     for guardrail in guardrails:
         if guardrail.stage == GuardrailStage.BEFORE:
             payload_dict = await guardrail.process_request(
@@ -65,24 +65,24 @@ async def run_before_guardrails(
     return payload_dict
 
 
-async def run_after_guardrails(
+async def run_post_llm_guardrails(
     guardrails: list[JudgeGuardrail],
     request_payload: dict[str, Any],
     response: chat.ResponsePayload,
     auth_headers: dict[str, str] | None = None,
     usage_tracking: bool = False,
 ) -> chat.ResponsePayload:
-    """Run AFTER-stage guardrails on the response. Returns the (possibly modified) response.
+    """Run post-LLM guardrails on the response. Returns the (possibly modified) response.
 
-    Note: AFTER-stage guardrails are skipped for streaming responses. Configure guardrails
-    that must run on all responses to use the BEFORE stage, or disable streaming on the endpoint.
+    Note: post-LLM guardrails are skipped for streaming responses. Configure guardrails
+    that must run on all responses to use the pre-LLM stage, or disable streaming on the endpoint.
     """
-    after_guardrails = [g for g in guardrails if g.stage == GuardrailStage.AFTER]
-    if not after_guardrails:
+    post_llm_guardrails = [g for g in guardrails if g.stage == GuardrailStage.AFTER]
+    if not post_llm_guardrails:
         return response
 
     response_dict = response.model_dump()
-    for guardrail in after_guardrails:
+    for guardrail in post_llm_guardrails:
         response_dict = await guardrail.process_response(
             request_payload, response_dict, auth_headers=auth_headers, usage_tracking=usage_tracking
         )
