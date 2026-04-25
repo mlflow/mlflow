@@ -178,7 +178,7 @@ dev = [
   "skills",
 ]
 lint = [
-  "ruff==0.15.5",
+  "ruff==0.15.10",
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "types-toml",
@@ -281,7 +281,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.15.5"
+required-version = "0.15.10"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extension = { mdx = "markdown" }

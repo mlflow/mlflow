@@ -1514,3 +1514,10 @@ MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", Tru
 #: file size is a concern.
 #: (default: ``True``)
 MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
+
+
+#: Specifies whether to allow using the deprecated filesystem backend for tracking
+#: and model registry. Set to ``True`` to opt out of the error raised when
+#: instantiating the file-based stores.
+#: (default: ``False``)
+MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE", False)
