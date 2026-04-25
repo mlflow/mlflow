@@ -10,7 +10,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-10T12:31:52.037911909Z"
+exclude-newer = "2026-04-11T09:41:43.245724Z"
 exclude-newer-span = "P14D"
 
 [options.exclude-newer-package]
@@ -7994,7 +7994,6 @@ version = "0.1.0"
 source = { editable = ".claude/skills" }
 dependencies = [
     { name = "aiohttp" },
-    { name = "claude-agent-sdk" },
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
@@ -8002,7 +8001,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp" },
-    { name = "claude-agent-sdk" },
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
