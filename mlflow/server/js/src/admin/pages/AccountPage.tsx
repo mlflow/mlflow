@@ -69,11 +69,17 @@ const AccountPage = () => {
     // if the user navigates back.
     queryClient.clear();
 
-    // Navigate (not fetch) to /logout. The server returns 401 with
-    // WWW-Authenticate, which triggers the browser to drop its cached Basic
-    // Auth credentials. The response page has a link back to the app where
-    // the next request will prompt for fresh credentials.
-    window.location.href = '/logout';
+    // Navigate (not fetch) to the prefix-aware /logout route. The server
+    // returns a 200 HTML page that runs a synchronous XHR with bogus
+    // credentials against /ajax-api/2.0/mlflow/users/current. That XHR
+    // receives 401 with WWW-Authenticate, which causes the browser to drop
+    // its cached Basic Auth credentials. The page then shows a link back to
+    // the app, where the next request will prompt for fresh credentials.
+    //
+    // Resolving 'logout' relative to ``window.location.href`` preserves any
+    // static prefix (the backend registers /logout via ``_add_static_prefix``)
+    // so deployments served under a sub-path continue to work.
+    window.location.href = new URL('logout', window.location.href).toString();
   };
 
   const rolesEmptyState =

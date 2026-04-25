@@ -40,7 +40,11 @@ const getCurrentUsername = (): string =>
 
 const applyCredentials = (username: string, password: string) => {
   const encoded = btoa(`${username}:${password}`);
-  document.cookie = `${AUTH_HEADER_COOKIE}=Basic ${encoded}; path=/`;
+  // Cookie values containing spaces are not RFC 6265-compliant and can be
+  // truncated by some parsers. URI-encode the value so it round-trips through
+  // ``cookie.parse`` in ``getDefaultHeadersFromCookies`` (which decodes by
+  // default), reconstituting ``Basic <base64>`` for the Authorization header.
+  document.cookie = `${AUTH_HEADER_COOKIE}=${encodeURIComponent(`Basic ${encoded}`)}; path=/`;
   document.cookie = `${MLFLOW_USER_COOKIE}=${username}; path=/`;
 };
 

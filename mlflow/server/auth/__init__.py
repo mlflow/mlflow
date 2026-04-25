@@ -398,11 +398,12 @@ def _invalidate_user_auth_cache(username: str) -> None:
 
 
 def is_unprotected_route(path: str) -> bool:
-    # /logout is intentionally unauthenticated: it always returns 401 with
-    # WWW-Authenticate so the browser drops cached Basic Auth credentials.
-    # Running it through the auth middleware would cause a prompt loop (valid
-    # creds pass middleware, handler returns 401, browser re-auths with same
-    # creds, middleware passes, handler 401s again).
+    # /logout is intentionally unauthenticated. The handler returns 200 with an
+    # HTML page that performs a synchronous XHR using bogus credentials against
+    # /ajax-api/2.0/mlflow/users/current; that XHR receives 401 with
+    # WWW-Authenticate, which causes the browser to drop its cached Basic Auth
+    # credentials. Running /logout through the auth middleware would block the
+    # page from loading at all when the user lacks valid creds.
     return path.startswith(("/static", "/favicon.ico", "/health")) or path == LOGOUT
 
 
@@ -3049,7 +3050,7 @@ def logout():
         "<h2>Signing you out…</h2>"
         "<p id='msg'>Clearing credentials — please wait.</p>"
         "<p style='margin-top: 2rem;'>"
-        "<a id='home' href='/' style='display: none;'>Return to MLflow</a>"
+        "<a id='home' href='./' style='display: none;'>Return to MLflow</a>"
         "</p>"
         "<script>"
         "  try {"
