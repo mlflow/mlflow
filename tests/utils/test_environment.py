@@ -1,5 +1,6 @@
 import importlib.metadata
 import os
+import subprocess
 from unittest import mock
 
 import pytest
@@ -20,6 +21,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _remove_incompatible_requirements,
     _validate_env_arguments,
+    _validate_version_constraints,
     infer_pip_requirements,
 )
 
@@ -482,3 +484,93 @@ def test_invalid_requirements_raise(input_requirements):
 )
 def test_remove_incompatible_requirements(input_requirements, expected):
     assert _remove_incompatible_requirements(input_requirements) == expected
+
+
+# Regression tests for https://github.com/mlflow/mlflow/issues/22880.
+# `pip install --dry-run` fails when the package index is unreachable
+# (air-gapped clusters, isolated build environments, etc.). The validator
+# previously surfaced that as a "version conflict" error, which prevented
+# model logging entirely. It should now skip with a warning instead.
+
+_AIR_GAPPED_STDERR = (
+    b"WARNING: Retrying (Retry(total=4)) after connection broken by "
+    b"'NewConnectionError(<pip._vendor.urllib3.connection.HTTPSConnection "
+    b"object at 0x7f8485ab5640>: Failed to establish a new connection: "
+    b"[Errno 101] Network is unreachable')': /simple/anyio/\n"
+    b"ERROR: Cannot install anyio==4.13.0 and anyio==4.7.0 because these "
+    b"package versions have conflicting dependencies.\n"
+    b"ERROR: ResolutionImpossible\n"
+)
+
+_REAL_CONFLICT_STDERR = (
+    b"ERROR: Cannot install foo==1.0 and foo==2.0 because these package "
+    b"versions have conflicting dependencies.\n"
+    b"ERROR: ResolutionImpossible: for help visit "
+    b"https://pip.pypa.io/en/latest/topics/dependency-resolution/\n"
+)
+
+
+def test_validate_version_constraints_skips_on_network_error():
+    with (
+        mock.patch(
+            "mlflow.utils.environment.subprocess.run",
+            side_effect=subprocess.CalledProcessError(
+                returncode=1, cmd=["pip"], stderr=_AIR_GAPPED_STDERR
+            ),
+        ) as mock_run,
+        mock.patch("mlflow.utils.environment._logger.warning") as mock_warning,
+    ):
+        _validate_version_constraints(["anyio==4.13.0", "anyio==4.7.0"])
+        mock_run.assert_called_once()
+        mock_warning.assert_called_once()
+        warning_message = mock_warning.call_args.args[0]
+        assert "package index is unreachable" in warning_message
+
+
+def test_validate_version_constraints_raises_on_real_conflict():
+    with mock.patch(
+        "mlflow.utils.environment.subprocess.run",
+        side_effect=subprocess.CalledProcessError(
+            returncode=1, cmd=["pip"], stderr=_REAL_CONFLICT_STDERR
+        ),
+    ) as mock_run:
+        with pytest.raises(MlflowException, match="incompatible"):
+            _validate_version_constraints(["foo==1.0", "foo==2.0"])
+        mock_run.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "stderr_marker",
+    [
+        b"Failed to establish a new connection",
+        b"Network is unreachable",
+        b"Could not fetch URL https://pypi.org/simple/foo/",
+        b"Temporary failure in name resolution",
+        b"Connection refused",
+        b"getaddrinfo failed",
+    ],
+)
+def test_validate_version_constraints_recognizes_network_markers(stderr_marker):
+    stderr = stderr_marker + b"\nERROR: ResolutionImpossible\n"
+    with (
+        mock.patch(
+            "mlflow.utils.environment.subprocess.run",
+            side_effect=subprocess.CalledProcessError(returncode=1, cmd=["pip"], stderr=stderr),
+        ) as mock_run,
+        mock.patch("mlflow.utils.environment._logger.warning") as mock_warning,
+    ):
+        _validate_version_constraints(["foo==1.0"])
+        mock_run.assert_called_once()
+        mock_warning.assert_called_once()
+        warning_message = mock_warning.call_args.args[0]
+        assert "package index is unreachable" in warning_message
+
+
+def test_validate_version_constraints_handles_empty_stderr():
+    with mock.patch(
+        "mlflow.utils.environment.subprocess.run",
+        side_effect=subprocess.CalledProcessError(returncode=1, cmd=["pip"], stderr=None),
+    ) as mock_run:
+        with pytest.raises(MlflowException, match="incompatible"):
+            _validate_version_constraints(["foo==1.0"])
+        mock_run.assert_called_once()

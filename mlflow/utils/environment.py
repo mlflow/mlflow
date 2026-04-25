@@ -914,6 +914,25 @@ def _remove_incompatible_requirements(requirements: list[str]) -> list[str]:
     return requirements
 
 
+# Markers in pip's stderr that indicate the package index is unreachable rather
+# than a real version conflict. `pip install --dry-run` reports
+# `ResolutionImpossible` when it cannot fetch package metadata, which is
+# indistinguishable from a real conflict unless we look for these network
+# markers first. See https://github.com/mlflow/mlflow/issues/22880.
+_NETWORK_ERROR_PATTERNS: tuple[str, ...] = (
+    "Failed to establish a new connection",
+    "Network is unreachable",
+    "Could not fetch URL",
+    "Temporary failure in name resolution",
+    "Connection refused",
+    "getaddrinfo failed",
+)
+
+
+def _looks_like_network_error(stderr: str) -> bool:
+    return any(pattern in stderr for pattern in _NETWORK_ERROR_PATTERNS)
+
+
 def _validate_version_constraints(requirements):
     """
     Validates the version constraints of given Python package requirements using pip's resolver with
@@ -949,9 +968,17 @@ def _validate_version_constraints(requirements):
             capture_output=True,
         )
     except subprocess.CalledProcessError as e:
+        stderr_text = e.stderr.decode() if e.stderr else ""
+        if _looks_like_network_error(stderr_text):
+            _logger.warning(
+                "Skipping pip dependency validation because the package index is "
+                "unreachable (likely an air-gapped environment). Logged "
+                "requirements will not be checked for version conflicts."
+            )
+            return
         raise MlflowException.invalid_parameter_value(
             "The specified requirements versions are incompatible. Detected "
-            f"conflicts: \n{e.stderr.decode()}"
+            f"conflicts: \n{stderr_text}"
         )
     finally:
         os.remove(tmp_file_name)
