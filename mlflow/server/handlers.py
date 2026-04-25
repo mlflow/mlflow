@@ -82,7 +82,7 @@ from mlflow.exceptions import (
     _UnsupportedPresignedUploadException,
 )
 from mlflow.gateway.budget import maybe_refresh_budget_policies
-from mlflow.gateway.budget_tracker import get_budget_tracker
+from mlflow.gateway.budget_tracker import _policy_applies, get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
@@ -5621,7 +5621,10 @@ def _list_budget_windows():
     _get_request_message(ListGatewayBudgetWindows())
     store = _get_tracking_store()
     maybe_refresh_budget_policies(store)
+    workspace = workspace_context.get_request_workspace()
     windows = get_budget_tracker().get_all_windows()
+    if workspace is not None:
+        windows = [w for w in windows if _policy_applies(w.policy, workspace)]
     response_message = ListGatewayBudgetWindows.Response()
     for w in windows:
         window_msg = ListGatewayBudgetWindows.BudgetWindow(
