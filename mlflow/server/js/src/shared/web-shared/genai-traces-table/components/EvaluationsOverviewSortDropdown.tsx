@@ -158,7 +158,6 @@ export const EvaluationsOverviewSortDropdown = React.memo(
         // metrics.`metric_key_name` => metric_key_name
         const extractedKeyName = tableSort?.key?.match(/^.+\.`(.+)`$/);
         if (extractedKeyName) {
-          // eslint-disable-next-line prefer-destructuring
           sortOptionLabel = extractedKeyName[1];
         }
       }

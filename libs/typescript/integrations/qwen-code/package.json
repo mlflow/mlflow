@@ -1,0 +1,55 @@
+{
+  "name": "@mlflow/qwen-code",
+  "version": "0.2.0",
+  "description": "Qwen Code integration package for MLflow Tracing",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mlflow/mlflow.git"
+  },
+  "homepage": "https://mlflow.org/",
+  "author": {
+    "name": "MLflow",
+    "url": "https://mlflow.org/"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "mlflow",
+    "tracing",
+    "observability",
+    "qwen",
+    "qwen-code",
+    "llm",
+    "agent",
+    "javascript",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "bundle"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "mlflow-qwen-code": "./bundle/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && npm run build:bundle",
+    "build:bundle": "node esbuild.config.mjs",
+    "test": "jest --config jest.config.cjs",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@mlflow/core": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "esbuild": "^0.25.4",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.2",
+    "typescript": "^5.8.3"
+  }
+}

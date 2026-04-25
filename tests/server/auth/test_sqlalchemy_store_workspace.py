@@ -134,6 +134,86 @@ def test_list_accessible_workspace_names(store):
     assert store.list_accessible_workspace_names(None) == set()
 
 
+def test_list_accessible_workspace_names_includes_role_based_workspaces(store):
+    # Role assignment with permissions → workspace visible, even without a legacy
+    # workspace_permissions row.
+    username = random_str()
+    user = store.create_user(username, random_str())
+
+    role = store.create_role(name="viewer", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "*", READ.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.list_accessible_workspace_names(username) == {"ws1"}
+
+
+def test_list_accessible_workspace_names_includes_role_with_no_permissions(store):
+    # Role membership alone implies visibility — the role has zero permission rows,
+    # but the user is still assigned to it. Documents the intentional design: a
+    # workspace admin can give someone "membership" without any capability and the
+    # UI still surfaces the workspace in their list.
+    username = random_str()
+    user = store.create_user(username, random_str())
+
+    empty_role = store.create_role(name="shell", workspace="ws1")
+    store.assign_role_to_user(user.id, empty_role.id)
+
+    assert store.list_accessible_workspace_names(username) == {"ws1"}
+
+
+def test_list_accessible_workspace_names_combines_legacy_and_role_sources(store):
+    # Legacy READ on ws1 + role assignment in ws2 → both surface.
+    username = random_str()
+    user = store.create_user(username, random_str())
+
+    store.set_workspace_permission("ws1", username, READ.name)
+    role = store.create_role(name="viewer", workspace="ws2")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.list_accessible_workspace_names(username) == {"ws1", "ws2"}
+
+
+def test_list_accessible_workspace_names_legacy_no_permissions_still_hides(store):
+    # Legacy NO_PERMISSIONS row should not make a workspace visible — the legacy
+    # branch still filters by ``can_read``. Regression guard for the carve-out that
+    # only the role-based branch unconditionally counts membership.
+    username = random_str()
+    store.create_user(username, random_str())
+
+    store.set_workspace_permission("ws1", username, NO_PERMISSIONS.name)
+
+    assert store.list_accessible_workspace_names(username) == set()
+
+
+def test_list_accessible_workspace_names_role_in_other_workspace_doesnt_leak(store):
+    # A role assignment in one workspace must not surface unrelated workspaces.
+    username = random_str()
+    user = store.create_user(username, random_str())
+
+    role_ws1 = store.create_role(name="viewer", workspace="ws1")
+    store.assign_role_to_user(user.id, role_ws1.id)
+    # ws2 and ws3 exist (via roles for other users) but the user has no assignment.
+    store.create_role(name="viewer", workspace="ws2")
+    store.create_role(name="viewer", workspace="ws3")
+
+    assert store.list_accessible_workspace_names(username) == {"ws1"}
+
+
+def test_list_accessible_workspace_names_combines_legacy_and_role_same_workspace(store):
+    # Overlap: a user has BOTH a legacy READ and a role assignment in the same
+    # workspace. Deduplication should collapse to a single entry.
+    username = random_str()
+    user = store.create_user(username, random_str())
+
+    store.set_workspace_permission("ws1", username, READ.name)
+    role = store.create_role(name="viewer", workspace="ws1")
+    store.assign_role_to_user(user.id, role.id)
+
+    accessible = store.list_accessible_workspace_names(username)
+    assert accessible == {"ws1"}
+    assert len(accessible) == 1
+
+
 def test_rename_registered_model_permissions_scoped_by_workspace(store, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     username = random_str()

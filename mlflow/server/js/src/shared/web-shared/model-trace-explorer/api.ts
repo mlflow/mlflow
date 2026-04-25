@@ -8,8 +8,7 @@ import type {
   Feedback,
   ModelTraceInfoV3,
   ModelTraceLocation,
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
+  ModelTraceSearchLocation,
   ModelTraceSpanV3,
 } from './ModelTrace.types';
 import { fetchAPI, getAjaxUrl } from './ModelTraceExplorer.request.utils';
@@ -190,7 +189,7 @@ export const searchTracesV4 = async ({
   signal?: AbortSignal;
   orderBy?: string[];
   filter?: string;
-  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations?: ModelTraceSearchLocation[];
   pageSize?: number;
 }) => {
   const payload = {

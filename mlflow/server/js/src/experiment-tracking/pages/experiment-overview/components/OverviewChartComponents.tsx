@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useRef } from 'react';
+import React, { useCallback, useContext } from 'react';
 import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
@@ -21,10 +21,10 @@ import {
   SPAN_STATUS_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 
-export const DEFAULT_CHART_HEIGHT = 280;
+const DEFAULT_CHART_HEIGHT = 280;
 export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
-export const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
-export const DEFAULT_LEGEND_MAX_HEIGHT = 60;
+const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
+const DEFAULT_LEGEND_MAX_HEIGHT = 60;
 
 interface OverviewChartHeaderProps {
   /** Icon component to display before the title */

@@ -36,11 +36,11 @@ interface GuardrailsTabContentProps {
 
 const PIPELINE_STEPS = ['Request', 'BEFORE', 'LLM', 'AFTER', 'Response'] as const;
 // eslint-disable-next-line @databricks/no-const-object-record-string
-const STAGE_LABELS: Record<string, string> = { BEFORE: 'Before Guardrails', AFTER: 'After Guardrails' };
+const STAGE_LABELS: Record<string, string> = { BEFORE: 'Pre-LLM Guardrails', AFTER: 'Post-LLM Guardrails' };
 // eslint-disable-next-line @databricks/no-const-object-record-string
 const STAGE_DESCRIPTIONS: Record<string, string> = {
-  BEFORE: 'This guardrail runs before the request reaches the LLM',
-  AFTER: 'This guardrail runs after the LLM response is generated',
+  BEFORE: 'This pre-LLM guardrail runs before the request reaches the LLM',
+  AFTER: 'This post-LLM guardrail runs after the LLM response is generated',
 };
 
 const PlacementTooltipContent = ({ stage }: { stage: GuardrailStage }) => {
@@ -102,7 +102,8 @@ const GuardrailRow = ({
   const stage = guardrail.guardrail?.stage;
   const action = guardrail.guardrail?.action;
   const stageColor = stage === 'BEFORE' ? 'indigo' : stage === 'AFTER' ? 'teal' : 'default';
-  const stageLabel = stage === 'BEFORE' ? 'Before LLM' : stage === 'AFTER' ? 'After LLM' : (stage ?? '—');
+  const stageLabel =
+    stage === 'BEFORE' ? 'Pre-LLM Guardrails' : stage === 'AFTER' ? 'Post-LLM Guardrails' : (stage ?? '—');
   const actionColor = action === 'VALIDATION' ? 'coral' : action === 'SANITIZATION' ? 'purple' : 'default';
   const actionLabel = action === 'VALIDATION' ? 'Block' : action === 'SANITIZATION' ? 'Sanitize' : (action ?? '—');
 

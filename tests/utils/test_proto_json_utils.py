@@ -511,10 +511,10 @@ def test_dataframe_from_json():
     )
     expected = pd.DataFrame(
         {
-            "datetime": [
-                pd.Timestamp("2022-01-01T00:00:00"),
-                pd.Timestamp("2022-01-02T03:04:05"),
-            ]
+            "datetime": pd.to_datetime([
+                "2022-01-01T00:00:00",
+                "2022-01-02T03:04:05",
+            ])
         },
     )
     pd.testing.assert_frame_equal(parsed, expected)

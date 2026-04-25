@@ -75,6 +75,7 @@ export const AUTOML_TEST_EVALUATION_METRIC_PREFIX = 'test_';
 
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
 export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
+export const MLFLOW_EXPERIMENT_TRACE_STORAGE_UC_SCHEMA_TAG = 'mlflow.experiment.databricksTraceDestinationPath';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const MLFLOW_LINKED_PROMPTS_TAG = 'mlflow.linkedPrompts';
 export const MLFLOW_LOGGED_MODEL_USER_TAG = 'mlflow.user';
@@ -163,7 +164,13 @@ export enum ExperimentPageTabName {
 }
 
 export const getMlflow3DocsLink = () => {
+  // eslint-disable-next-line @databricks/no-hardcoded-doc-links -- See go/dbguidelinks
   return 'https://docs.databricks.com/aws/en/mlflow/mlflow-3-install';
+};
+
+export const getMlflow3GenAIDocsLink = () => {
+  // eslint-disable-next-line @databricks/no-hardcoded-doc-links -- See go/dbguidelinks
+  return 'https://docs.databricks.com/aws/en/mlflow3/genai/';
 };
 
 export enum ExperimentKind {

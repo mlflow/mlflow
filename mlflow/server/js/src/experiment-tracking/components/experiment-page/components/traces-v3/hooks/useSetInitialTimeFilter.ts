@@ -4,10 +4,7 @@ import { useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table
 import { REQUEST_TIME_COLUMN_ID, TracesTableColumnType } from '@databricks/web-shared/genai-traces-table';
 import { useMonitoringFilters } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
 import { START_TIME_LABEL_QUERY_PARAM_KEY } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import type {
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
-} from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 
 const DEFAULT_EMPTY_CHECK_PAGE_SIZE = 500;
 
@@ -21,7 +18,7 @@ export const useSetInitialTimeFilter = ({
   sqlWarehouseId,
   disabled = false,
 }: {
-  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations: ModelTraceSearchLocation[];
   isTracesEmpty: boolean;
   isTraceMetadataLoading: boolean;
   sqlWarehouseId?: string;

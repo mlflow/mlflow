@@ -10,17 +10,15 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
+import type { FeedbackAssessment, ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   SESSION_ID_METADATA_KEY,
-  type ModelTraceInfoV3,
-  isFeedbackAssessment,
-} from '@databricks/web-shared/model-trace-explorer';
+} from '../../model-trace-explorer/constants';
+import { isFeedbackAssessment } from '../../model-trace-explorer/assessments-pane/utils';
 
-import { ExecutionDurationTag } from './ExecutionDurationTag';
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { StackedComponents } from './StackedComponents';
@@ -29,6 +27,7 @@ import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { RunColorCircle } from '../components/RunColorCircle';
 import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
+import { ExecutionDurationTag } from './ExecutionDurationTag';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
@@ -40,7 +39,6 @@ import {
   SIMULATION_PERSONA_COLUMN_ID,
   STATE_COLUMN_ID,
   TOKENS_COLUMN_ID,
-  TRACE_ID_COLUMN_ID,
   USER_COLUMN_ID,
 } from '../hooks/useTableColumns';
 import { TracesTableColumnType, type TracesTableColumn } from '../types';

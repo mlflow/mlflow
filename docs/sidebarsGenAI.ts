@@ -9,6 +9,12 @@ const sidebarsGenAI: SidebarsConfig = {
       label: 'Overview',
     },
     {
+      type: 'doc',
+      id: 'demo',
+      className: 'sidebar-overview',
+      label: 'Live Demo',
+    },
+    {
       type: 'html',
       value: '<b>Getting Started</b>',
       defaultStyle: true,
@@ -343,6 +349,16 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/codex',
+                  label: 'Codex CLI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/gemini_cli',
+                  label: 'Gemini CLI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/opencode',
                   label: 'OpenCode',
                 },
@@ -350,6 +366,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/openhands',
                   label: 'OpenHands',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/qwen_code',
+                  label: 'Qwen Code',
                 },
               ],
             },
@@ -1024,6 +1045,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/budget-alerts-limits',
           label: 'Budget Alerts & Limits',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/guardrails',
+          label: 'Guardrails',
         },
         {
           type: 'doc',

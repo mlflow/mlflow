@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -8,8 +9,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
 from update_model_catalog import (
     _extract_long_context_pricing,
+    _extract_modality_pricing,
     _extract_service_tiers,
+    _extract_tool_pricing,
     _is_deprecated,
+    _migrate_legacy_pricing,
     _normalize_provider,
     _transform_entry,
     convert,
@@ -176,6 +180,73 @@ def test_extract_service_tiers_empty_when_no_tiers():
     assert _extract_service_tiers(info) == {}
 
 
+def test_extract_modality_pricing():
+    info = {
+        "input_cost_per_audio_token": 7e-7,
+        "output_cost_per_audio_token": 1.1e-6,
+        "cache_read_input_audio_token_cost": 2e-7,
+        "cache_creation_input_audio_token_cost": 4e-7,
+    }
+    assert _extract_modality_pricing(info) == {
+        "audio": {
+            "input_per_million_tokens": 0.7,
+            "output_per_million_tokens": 1.1,
+            "cache_read_per_million_tokens": 0.2,
+            "cache_write_per_million_tokens": 0.4,
+        }
+    }
+
+
+def test_extract_modality_pricing_skips_reasoning():
+    info = {
+        "input_cost_per_audio_token": 7e-7,
+        "output_cost_per_reasoning_token": 4e-7,
+    }
+    assert _extract_modality_pricing(info) == {"audio": {"input_per_million_tokens": 0.7}}
+
+
+def test_extract_tool_pricing():
+    info = {
+        "computer_use_input_cost_per_1k_tokens": 0.00225,
+        "computer_use_output_cost_per_1k_tokens": 0.009,
+        "search_context_cost_per_query": {
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01,
+            "search_context_size_high": 0.01,
+        },
+        "tool_use_system_prompt_tokens": 159,
+    }
+    assert _extract_tool_pricing(info) == {
+        "computer_use": {
+            "input_per_million_tokens": 2.25,
+            "output_per_million_tokens": 9.0,
+        },
+        "search_context_per_query": {
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01,
+            "search_context_size_high": 0.01,
+        },
+        "tool_use_system_prompt_tokens": 159,
+    }
+
+
+def test_transform_entry_with_modality_and_tool_pricing():
+    info = {
+        "mode": "chat",
+        "input_cost_per_token": 1e-7,
+        "output_cost_per_token": 4e-7,
+        "input_cost_per_audio_token": 7e-7,
+        "computer_use_input_cost_per_1k_tokens": 0.00225,
+        "tool_use_system_prompt_tokens": 159,
+    }
+    result = _transform_entry(info)
+    assert result["pricing"]["modality"] == {"audio": {"input_per_million_tokens": 0.7}}
+    assert result["pricing"]["tooling"] == {
+        "computer_use": {"input_per_million_tokens": 2.25},
+        "tool_use_system_prompt_tokens": 159,
+    }
+
+
 def test_convert_end_to_end(tmp_path):
     input_data = {
         "sample_spec": {"mode": "chat"},
@@ -221,9 +292,10 @@ def test_convert_end_to_end(tmp_path):
 
     stats = convert(input_data, output_dir)
 
-    assert stats == {"anthropic": 1, "openai": 2}
+    assert stats == {"anthropic": 1, "bedrock": 1, "openai": 2}
     assert (output_dir / "openai.json").exists()
     assert (output_dir / "anthropic.json").exists()
+    assert (output_dir / "bedrock.json").exists()
     assert not (output_dir / "bedrock_converse.json").exists()
 
     openai_catalog = json.loads((output_dir / "openai.json").read_text())
@@ -375,3 +447,323 @@ def test_convert_upstream_overrides_existing_model(tmp_path):
     catalog = json.loads((output_dir / "openai.json").read_text())
     # Upstream price should win
     assert catalog["models"]["gpt-4o"]["pricing"]["input_per_million_tokens"] == pytest.approx(9.99)
+
+
+def test_convert_sets_last_updated_at_for_new_models(tmp_path):
+    input_data = {
+        "gpt-4o": {
+            "litellm_provider": "openai",
+            "mode": "chat",
+            "input_cost_per_token": 2.5e-6,
+        },
+    }
+
+    output_dir = tmp_path / "output"
+    convert(input_data, output_dir)
+
+    catalog = json.loads((output_dir / "openai.json").read_text())
+    assert catalog["models"]["gpt-4o"]["last_updated_at"] == date.today().isoformat()
+
+
+def test_convert_preserves_last_updated_at_when_entry_unchanged(tmp_path):
+    input_data = {
+        "gpt-4o": {
+            "litellm_provider": "openai",
+            "mode": "chat",
+            "input_cost_per_token": 2.5e-6,
+            "max_input_tokens": 128000,
+            "max_output_tokens": 16384,
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_reasoning": False,
+            "supports_prompt_caching": False,
+            "supports_response_schema": False,
+        },
+    }
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Pre-populate with the same data and an existing last_updated_at
+    existing_catalog = {
+        "schema_version": "1.0",
+        "models": {
+            "gpt-4o": {
+                "mode": "chat",
+                "context_window": {"max_input": 128000, "max_output": 16384},
+                "pricing": {"input_per_million_tokens": 2.5},
+                "capabilities": {
+                    "function_calling": True,
+                    "vision": True,
+                    "reasoning": False,
+                    "prompt_caching": False,
+                    "response_schema": False,
+                },
+                "last_updated_at": "2025-01-01",
+            }
+        },
+    }
+    (output_dir / "openai.json").write_text(json.dumps(existing_catalog))
+
+    convert(input_data, output_dir)
+
+    catalog = json.loads((output_dir / "openai.json").read_text())
+    assert catalog["models"]["gpt-4o"]["last_updated_at"] == "2025-01-01"
+
+
+def test_convert_updates_last_updated_at_when_entry_changes(tmp_path):
+    input_data = {
+        "gpt-4o": {
+            "litellm_provider": "openai",
+            "mode": "chat",
+            "input_cost_per_token": 9.99e-6,
+        },
+    }
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Pre-populate with different pricing and an old last_updated_at
+    existing_catalog = {
+        "schema_version": "1.0",
+        "models": {
+            "gpt-4o": {
+                "mode": "chat",
+                "pricing": {"input_per_million_tokens": 1.0},
+                "capabilities": {
+                    "function_calling": False,
+                    "vision": False,
+                    "reasoning": False,
+                    "prompt_caching": False,
+                    "response_schema": False,
+                },
+                "last_updated_at": "2025-01-01",
+            }
+        },
+    }
+    (output_dir / "openai.json").write_text(json.dumps(existing_catalog))
+
+    convert(input_data, output_dir)
+
+    catalog = json.loads((output_dir / "openai.json").read_text())
+    assert catalog["models"]["gpt-4o"]["last_updated_at"] == date.today().isoformat()
+
+
+def test_convert_sets_last_updated_at_for_unchanged_entry_without_existing_date(tmp_path):
+    input_data = {
+        "gpt-4o": {
+            "litellm_provider": "openai",
+            "mode": "chat",
+            "input_cost_per_token": 2.5e-6,
+            "max_input_tokens": 128000,
+            "max_output_tokens": 16384,
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_reasoning": False,
+            "supports_prompt_caching": False,
+            "supports_response_schema": False,
+        },
+    }
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Pre-populate with the same data but NO last_updated_at (simulates pre-feature catalog)
+    existing_catalog = {
+        "schema_version": "1.0",
+        "models": {
+            "gpt-4o": {
+                "mode": "chat",
+                "context_window": {"max_input": 128000, "max_output": 16384},
+                "pricing": {"input_per_million_tokens": 2.5},
+                "capabilities": {
+                    "function_calling": True,
+                    "vision": True,
+                    "reasoning": False,
+                    "prompt_caching": False,
+                    "response_schema": False,
+                },
+            }
+        },
+    }
+    (output_dir / "openai.json").write_text(json.dumps(existing_catalog))
+
+    convert(input_data, output_dir)
+
+    catalog = json.loads((output_dir / "openai.json").read_text())
+    assert catalog["models"]["gpt-4o"]["last_updated_at"] == date.today().isoformat()
+
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_token": 3e-6,
+            "output_per_token": 1.5e-5,
+            "cache_read_per_token": 3e-7,
+            "cache_write_per_token": 3.75e-6,
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    assert result["pricing"] == {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3,
+        "cache_write_per_million_tokens": 3.75,
+    }
+
+
+def test_migrate_legacy_pricing_service_tiers():
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_token": 2e-6,
+            "output_per_token": 8e-6,
+            "service_tiers": {
+                "batch": {
+                    "input_per_token": 1e-6,
+                    "output_per_token": 4e-6,
+                },
+                "priority": {
+                    "input_per_token": 3e-6,
+                    "output_per_token": 1.2e-5,
+                    "cache_read_per_token": 3e-7,
+                },
+            },
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    assert result["pricing"]["input_per_million_tokens"] == pytest.approx(2.0)
+    tiers = result["pricing"]["service_tiers"]
+    assert tiers["batch"] == {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 4.0,
+    }
+    assert tiers["priority"] == {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.3,
+    }
+
+
+def test_migrate_legacy_pricing_long_context():
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_token": 1e-6,
+            "output_per_token": 4e-6,
+            "long_context": [
+                {
+                    "threshold_tokens": 200000,
+                    "input_per_token": 2e-6,
+                    "output_per_token": 8e-6,
+                    "cache_read_per_token": 2e-7,
+                }
+            ],
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    ctx = result["pricing"]["long_context"]
+    assert len(ctx) == 1
+    assert ctx[0] == {
+        "threshold_tokens": 200000,
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 8.0,
+        "cache_read_per_million_tokens": 0.2,
+    }
+
+
+def test_migrate_legacy_pricing_modality():
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_token": 1e-7,
+            "output_per_token": 4e-7,
+            "modality": {
+                "audio": {
+                    "input_per_token": 7e-7,
+                    "output_per_token": 1.1e-6,
+                }
+            },
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    assert result["pricing"]["modality"] == {
+        "audio": {
+            "input_per_million_tokens": 0.7,
+            "output_per_million_tokens": 1.1,
+        }
+    }
+
+
+def test_migrate_legacy_pricing_noop_when_already_normalized():
+    entry = {
+        "mode": "chat",
+        "pricing": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 10.0,
+        },
+    }
+    result = _migrate_legacy_pricing(entry)
+    assert result["pricing"] == {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0,
+    }
+
+
+def test_migrate_legacy_pricing_noop_when_no_pricing():
+    entry = {"mode": "chat", "capabilities": {}}
+    assert _migrate_legacy_pricing(entry) is entry
+
+
+def test_convert_migrates_legacy_pricing_in_preserved_models(tmp_path):
+    input_data = {
+        "gpt-4o": {
+            "litellm_provider": "openai",
+            "mode": "chat",
+            "input_cost_per_token": 2.5e-6,
+        },
+    }
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Pre-populate with a community model that uses the legacy per-token format
+    existing_catalog = {
+        "schema_version": "1.0",
+        "models": {
+            "legacy-model": {
+                "mode": "chat",
+                "pricing": {
+                    "input_per_token": 3e-6,
+                    "output_per_token": 1.5e-5,
+                    "cache_read_per_token": 3e-7,
+                    "service_tiers": {
+                        "batch": {
+                            "input_per_token": 1.5e-6,
+                            "output_per_token": 7.5e-6,
+                        }
+                    },
+                },
+                "capabilities": {
+                    "function_calling": False,
+                    "vision": False,
+                    "reasoning": False,
+                    "prompt_caching": True,
+                    "response_schema": False,
+                },
+            }
+        },
+    }
+    (output_dir / "openai.json").write_text(json.dumps(existing_catalog))
+
+    convert(input_data, output_dir)
+
+    catalog = json.loads((output_dir / "openai.json").read_text())
+    legacy_pricing = catalog["models"]["legacy-model"]["pricing"]
+    assert "input_per_token" not in legacy_pricing
+    assert legacy_pricing["input_per_million_tokens"] == pytest.approx(3.0)
+    assert legacy_pricing["output_per_million_tokens"] == pytest.approx(15.0)
+    assert legacy_pricing["cache_read_per_million_tokens"] == pytest.approx(0.3)
+    batch = legacy_pricing["service_tiers"]["batch"]
+    assert "input_per_token" not in batch
+    assert batch["input_per_million_tokens"] == pytest.approx(1.5)
+    assert batch["output_per_million_tokens"] == pytest.approx(7.5)

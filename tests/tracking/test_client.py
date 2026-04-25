@@ -2060,13 +2060,13 @@ def test_file_store_download_upload_trace_data(tmp_path):
         assert trace_data.response == trace.data.response
 
 
-def test_get_trace_throw_if_trace_id_is_online_trace_id():
+def test_get_trace_throw_if_trace_id_is_online_trace_id(db_uri):
     client = MlflowClient("databricks")
     trace_id = "3a3c3b56-910a-4721-8d02-0333eda5f37e"
     with pytest.raises(MlflowException, match="Traces from inference tables can only be loaded"):
         client.get_trace(trace_id)
 
-    another_client = MlflowClient("mlruns")
+    another_client = MlflowClient(db_uri)
     with pytest.raises(MlflowException, match=r"Trace with ID '[\w-]+' not found"):
         another_client.get_trace(trace_id)
 

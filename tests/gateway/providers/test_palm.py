@@ -178,6 +178,7 @@ async def test_chat(payload, expected_llm_input):
             "created": 1700242674,
             "object": "chat.completion",
             "model": "chat-bison",
+            "provider": "palm",
             "choices": [
                 {
                     "message": {

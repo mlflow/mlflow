@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.tempfile_in_test import TempfileInTest
 
 
-def test_tempfile_in_test_temporary_directory(index_path: Path) -> None:
+def test_tempfile_in_test_temporary_directory(index: SymbolIndex) -> None:
     code = """
 import tempfile
 
@@ -18,13 +19,13 @@ def non_test_func():
     tempfile.TemporaryDirectory()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))
 
 
-def test_tempfile_in_test_named_temporary_file(index_path: Path) -> None:
+def test_tempfile_in_test_named_temporary_file(index: SymbolIndex) -> None:
     code = """
 import tempfile
 
@@ -37,13 +38,13 @@ def non_test_func():
     tempfile.NamedTemporaryFile()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))
 
 
-def test_tempfile_in_test_temporary_file(index_path: Path) -> None:
+def test_tempfile_in_test_temporary_file(index: SymbolIndex) -> None:
     code = """
 import tempfile
 
@@ -56,13 +57,13 @@ def non_test_func():
     tempfile.TemporaryFile()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))
 
 
-def test_tempfile_in_test_mkdtemp(index_path: Path) -> None:
+def test_tempfile_in_test_mkdtemp(index: SymbolIndex) -> None:
     code = """
 import tempfile
 
@@ -75,13 +76,13 @@ def non_test_func():
     tempfile.mkdtemp()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))
 
 
-def test_tempfile_in_test_with_from_import_temporary_directory(index_path: Path) -> None:
+def test_tempfile_in_test_with_from_import_temporary_directory(index: SymbolIndex) -> None:
     code = """
 from tempfile import TemporaryDirectory
 
@@ -94,13 +95,13 @@ def non_test_func():
     TemporaryDirectory()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))
 
 
-def test_tempfile_in_test_with_from_import_named_temporary_file(index_path: Path) -> None:
+def test_tempfile_in_test_with_from_import_named_temporary_file(index: SymbolIndex) -> None:
     code = """
 from tempfile import NamedTemporaryFile
 
@@ -113,13 +114,13 @@ def non_test_func():
     NamedTemporaryFile()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))
 
 
-def test_tempfile_in_test_with_from_import_temporary_file(index_path: Path) -> None:
+def test_tempfile_in_test_with_from_import_temporary_file(index: SymbolIndex) -> None:
     code = """
 from tempfile import TemporaryFile
 
@@ -132,13 +133,13 @@ def non_test_func():
     TemporaryFile()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))
 
 
-def test_tempfile_in_test_with_from_import_mkdtemp(index_path: Path) -> None:
+def test_tempfile_in_test_with_from_import_mkdtemp(index: SymbolIndex) -> None:
     code = """
 from tempfile import mkdtemp
 
@@ -151,13 +152,13 @@ def non_test_func():
     mkdtemp()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))
 
 
-def test_tempfile_in_test_no_violation_outside_test(index_path: Path) -> None:
+def test_tempfile_in_test_no_violation_outside_test(index: SymbolIndex) -> None:
     code = """
 import tempfile
 
@@ -165,11 +166,11 @@ def normal_function():
     tempfile.TemporaryDirectory()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("non_test_file.py"), code, config, index_path)
+    violations = lint_file(Path("non_test_file.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_tempfile_in_test_with_alias(index_path: Path) -> None:
+def test_tempfile_in_test_with_alias(index: SymbolIndex) -> None:
     code = """
 import tempfile as tf
 
@@ -178,13 +179,13 @@ def test_func():
     tf.TemporaryDirectory()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))
 
 
-def test_tempfile_in_test_nested_functions_not_caught(index_path: Path) -> None:
+def test_tempfile_in_test_nested_functions_not_caught(index: SymbolIndex) -> None:
     """
     Nested functions are not considered to be "in test" - this matches
     the behavior of other test-specific rules like os.environ.
@@ -198,11 +199,11 @@ def test_outer():
     inner_function()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_tempfile_not_tempfile_module(index_path: Path) -> None:
+def test_tempfile_not_tempfile_module(index: SymbolIndex) -> None:
     code = """
 class FakeTempfile:
     @staticmethod
@@ -216,11 +217,11 @@ def test_func():
     fake_tempfile.TemporaryDirectory()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_tempfile_in_test_with_context_manager(index_path: Path) -> None:
+def test_tempfile_in_test_with_context_manager(index: SymbolIndex) -> None:
     code = """
 import tempfile
 
@@ -230,13 +231,13 @@ def test_func():
         pass
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 9))
 
 
-def test_tempfile_in_test_assigned_to_variable(index_path: Path) -> None:
+def test_tempfile_in_test_assigned_to_variable(index: SymbolIndex) -> None:
     code = """
 import tempfile
 
@@ -245,7 +246,7 @@ def test_func():
     tmpdir = tempfile.TemporaryDirectory()
 """
     config = Config(select={TempfileInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempfileInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 13))

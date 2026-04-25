@@ -9,6 +9,7 @@ and auth mechanism.
 """
 
 import json
+from enum import Enum
 from pathlib import Path
 
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
@@ -37,6 +38,8 @@ class VertexAIProvider(GeminiProvider):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.config = config
         self._enable_tracing = enable_tracing
+        provider = config.model.provider
+        self._provider_name = provider.value if isinstance(provider, Enum) else str(provider)
         self.vertex_config: VertexAIConfig = config.model.config
         self._cached_credentials = None
 
@@ -86,12 +89,11 @@ class VertexAIProvider(GeminiProvider):
 
     @property
     def base_url(self) -> str:
-        location = self.vertex_config.vertex_location
         project = self.vertex_config.vertex_project
-        if location:
-            host = f"https://{location}-aiplatform.googleapis.com"
-            path = f"/v1/projects/{project}/locations/{location}/publishers/google/models"
-        else:
-            host = "https://aiplatform.googleapis.com"
-            path = f"/v1/projects/{project}/publishers/google/models"
+        location = self.vertex_config.vertex_location or "global"
+        # Regional endpoints use a "{location}-" prefix; the global endpoint has no prefix.
+        # https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
+        prefix = "" if location == "global" else f"{location}-"
+        host = f"https://{prefix}aiplatform.googleapis.com"
+        path = f"/v1/projects/{project}/locations/{location}/publishers/google/models"
         return f"{host}{path}"

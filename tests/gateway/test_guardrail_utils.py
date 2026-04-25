@@ -12,8 +12,8 @@ from mlflow.entities.gateway_guardrail import (
 from mlflow.entities.scorer import ScorerVersion
 from mlflow.gateway.guardrail_utils import (
     load_guardrails,
-    run_after_guardrails,
-    run_before_guardrails,
+    run_post_llm_guardrails,
+    run_pre_llm_guardrails,
 )
 from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
 from mlflow.gateway.schemas.chat import ResponsePayload
@@ -101,87 +101,87 @@ def _make_guardrail_config(stage="BEFORE", action="VALIDATION"):
     )
 
 
-# ─── run_before_guardrails ────────────────────────────────────────────────────
+# ─── run_pre_llm_guardrails ───────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_run_before_guardrails_passes():
+async def test_run_pre_llm_guardrails_passes():
     g = _make_judge("BEFORE")
     payload = _make_request_payload()
-    result = await run_before_guardrails([g], payload)
+    result = await run_pre_llm_guardrails([g], payload)
     assert result == payload
     assert g.scorer.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_run_before_guardrails_skips_after_stage():
+async def test_run_pre_llm_guardrails_skips_after_stage():
     g = _make_judge("AFTER")
     payload = _make_request_payload()
-    result = await run_before_guardrails([g], payload)
+    result = await run_pre_llm_guardrails([g], payload)
     assert result == payload
     assert g.scorer.call_count == 0
 
 
 @pytest.mark.asyncio
-async def test_run_before_guardrails_blocks():
+async def test_run_pre_llm_guardrails_blocks():
     g = _make_judge("BEFORE", passing=False)
     with pytest.raises(GuardrailViolation, match="blocked"):
-        await run_before_guardrails([g], _make_request_payload())
+        await run_pre_llm_guardrails([g], _make_request_payload())
 
 
 @pytest.mark.asyncio
-async def test_run_before_guardrails_chains_multiple():
+async def test_run_pre_llm_guardrails_chains_multiple():
     g1 = _make_judge("BEFORE")
     g2 = _make_judge("BEFORE")
     payload = _make_request_payload()
-    result = await run_before_guardrails([g1, g2], payload)
+    result = await run_pre_llm_guardrails([g1, g2], payload)
     assert result == payload
     assert g1.scorer.call_count == 1
     assert g2.scorer.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_run_before_guardrails_stops_at_first_failure():
+async def test_run_pre_llm_guardrails_stops_at_first_failure():
     g1 = _make_judge("BEFORE", passing=False)
     g2 = _make_judge("BEFORE")
     with pytest.raises(GuardrailViolation, match="blocked"):
-        await run_before_guardrails([g1, g2], _make_request_payload())
+        await run_pre_llm_guardrails([g1, g2], _make_request_payload())
     assert g2.scorer.call_count == 0
 
 
-# ─── run_after_guardrails ─────────────────────────────────────────────────────
+# ─── run_post_llm_guardrails ──────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_run_after_guardrails_passes():
+async def test_run_post_llm_guardrails_passes():
     g = _make_judge("AFTER")
     req = _make_request_payload()
     response = _make_response_payload()
-    result = await run_after_guardrails([g], req, response)
+    result = await run_post_llm_guardrails([g], req, response)
     assert result.choices[0].message.content == "hi there"
     assert g.scorer.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_run_after_guardrails_skips_before_stage():
+async def test_run_post_llm_guardrails_skips_before_stage():
     g = _make_judge("BEFORE")
     response = _make_response_payload()
-    result = await run_after_guardrails([g], _make_request_payload(), response)
+    result = await run_post_llm_guardrails([g], _make_request_payload(), response)
     assert result is response
     assert g.scorer.call_count == 0
 
 
 @pytest.mark.asyncio
-async def test_run_after_guardrails_blocks():
+async def test_run_post_llm_guardrails_blocks():
     g = _make_judge("AFTER", passing=False)
     with pytest.raises(GuardrailViolation, match="blocked"):
-        await run_after_guardrails([g], _make_request_payload(), _make_response_payload())
+        await run_post_llm_guardrails([g], _make_request_payload(), _make_response_payload())
 
 
 @pytest.mark.asyncio
-async def test_run_after_guardrails_no_guardrails_returns_response():
+async def test_run_post_llm_guardrails_no_guardrails_returns_response():
     response = _make_response_payload()
-    result = await run_after_guardrails([], _make_request_payload(), response)
+    result = await run_post_llm_guardrails([], _make_request_payload(), response)
     assert result is response
 
 

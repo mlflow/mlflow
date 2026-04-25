@@ -17,7 +17,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Cohere-embed-v3-multilingual": {
       "mode": "embedding",
@@ -35,7 +36,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Llama-3.2-11B-Vision-Instruct": {
       "mode": "chat",
@@ -54,7 +56,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Llama-3.2-90B-Vision-Instruct": {
       "mode": "chat",
@@ -73,7 +76,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Llama-3.3-70B-Instruct": {
       "mode": "chat",
@@ -92,7 +96,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Llama-4-Maverick-17B-128E-Instruct-FP8": {
       "mode": "chat",
@@ -111,7 +116,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Llama-4-Scout-17B-16E-Instruct": {
       "mode": "chat",
@@ -130,7 +136,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "MAI-DS-R1": {
       "mode": "chat",
@@ -149,7 +156,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Meta-Llama-3-70B-Instruct": {
       "mode": "chat",
@@ -168,7 +176,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Meta-Llama-3.1-405B-Instruct": {
       "mode": "chat",
@@ -187,7 +196,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Meta-Llama-3.1-70B-Instruct": {
       "mode": "chat",
@@ -206,7 +216,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Meta-Llama-3.1-8B-Instruct": {
       "mode": "chat",
@@ -225,7 +236,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-3-medium-128k-instruct": {
       "mode": "chat",
@@ -244,7 +256,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-3-medium-4k-instruct": {
       "mode": "chat",
@@ -263,7 +276,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-3-mini-128k-instruct": {
       "mode": "chat",
@@ -282,7 +296,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-3-mini-4k-instruct": {
       "mode": "chat",
@@ -301,7 +316,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-3-small-128k-instruct": {
       "mode": "chat",
@@ -320,7 +336,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-3-small-8k-instruct": {
       "mode": "chat",
@@ -339,7 +356,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-3.5-MoE-instruct": {
       "mode": "chat",
@@ -358,7 +376,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-3.5-mini-instruct": {
       "mode": "chat",
@@ -377,7 +396,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-3.5-vision-instruct": {
       "mode": "chat",
@@ -396,7 +416,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-4": {
       "mode": "chat",
@@ -415,7 +436,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-4-mini-instruct": {
       "mode": "chat",
@@ -434,7 +456,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-4-mini-reasoning": {
       "mode": "chat",
@@ -453,7 +476,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-4-multimodal-instruct": {
       "mode": "chat",
@@ -464,7 +488,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.08,
-        "output_per_million_tokens": 0.32
+        "output_per_million_tokens": 0.32,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 4.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -472,7 +501,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Phi-4-reasoning": {
       "mode": "chat",
@@ -491,7 +521,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-haiku-4-5": {
       "mode": "chat",
@@ -512,7 +543,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-1": {
       "mode": "chat",
@@ -533,7 +565,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-5": {
       "mode": "chat",
@@ -554,7 +587,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-opus-4-6": {
       "mode": "chat",
@@ -567,7 +601,15 @@
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
-        "cache_write_per_million_tokens": 6.25
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          },
+          "tool_use_system_prompt_tokens": 159
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -575,7 +617,38 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "claude-opus-4-7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5,
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          },
+          "tool_use_system_prompt_tokens": 159
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-sonnet-4-5": {
       "mode": "chat",
@@ -596,7 +669,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "claude-sonnet-4-6": {
       "mode": "chat",
@@ -609,7 +683,10 @@
         "input_per_million_tokens": 3.0,
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
-        "cache_write_per_million_tokens": 3.75
+        "cache_write_per_million_tokens": 3.75,
+        "tooling": {
+          "tool_use_system_prompt_tokens": 346
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -617,7 +694,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-r1": {
       "mode": "chat",
@@ -636,7 +714,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-v3": {
       "mode": "chat",
@@ -655,7 +734,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-v3-0324": {
       "mode": "chat",
@@ -674,7 +754,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-v3.2": {
       "mode": "chat",
@@ -693,7 +774,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-v3.2-speciale": {
       "mode": "chat",
@@ -712,7 +794,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "embed-v-4-0": {
       "mode": "embedding",
@@ -730,7 +813,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "global/grok-3": {
       "mode": "chat",
@@ -749,7 +833,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "global/grok-3-mini": {
       "mode": "chat",
@@ -768,7 +853,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gpt-oss-120b": {
       "mode": "chat",
@@ -787,7 +873,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3": {
       "mode": "chat",
@@ -806,7 +893,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-3-mini": {
       "mode": "chat",
@@ -825,7 +913,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4": {
       "mode": "chat",
@@ -844,7 +933,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-1-fast-non-reasoning": {
       "mode": "chat",
@@ -863,7 +953,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-1-fast-reasoning": {
       "mode": "chat",
@@ -882,7 +973,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-fast-non-reasoning": {
       "mode": "chat",
@@ -901,7 +993,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-4-fast-reasoning": {
       "mode": "chat",
@@ -920,7 +1013,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "grok-code-fast-1": {
       "mode": "chat",
@@ -939,7 +1033,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "jais-30b-chat": {
       "mode": "chat",
@@ -958,7 +1053,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "jamba-instruct": {
       "mode": "chat",
@@ -977,7 +1073,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "kimi-k2.5": {
       "mode": "chat",
@@ -996,7 +1093,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "ministral-3b": {
       "mode": "chat",
@@ -1015,7 +1113,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large": {
       "mode": "chat",
@@ -1034,7 +1133,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large-2407": {
       "mode": "chat",
@@ -1053,7 +1153,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large-3": {
       "mode": "chat",
@@ -1072,7 +1173,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large-latest": {
       "mode": "chat",
@@ -1091,7 +1193,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-medium-2505": {
       "mode": "chat",
@@ -1110,7 +1213,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-nemo": {
       "mode": "chat",
@@ -1129,7 +1233,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-small": {
       "mode": "chat",
@@ -1148,7 +1253,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-small-2503": {
       "mode": "chat",
@@ -1167,7 +1273,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "model_router": {
       "mode": "chat",
@@ -1181,7 +1288,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }
