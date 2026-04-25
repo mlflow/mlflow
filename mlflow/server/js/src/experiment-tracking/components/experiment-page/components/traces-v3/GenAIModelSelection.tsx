@@ -1,10 +1,9 @@
-import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo, useRef } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
   Tooltip,
   Input,
-  Button,
   Accordion,
   DialogCombobox,
   DialogComboboxContent,
@@ -19,6 +18,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ModelSelect } from '../../../../../gateway/components/create-endpoint/ModelSelect';
+import { CreateEndpointModal } from '../../../../../gateway/components/endpoint-form';
 import { GenAIApiKeyConfigurator } from './GenAIApiKeyConfigurator';
 import { GenAIAdvancedSettings } from './GenAIAdvancedSettings';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
@@ -26,10 +26,12 @@ import type { ApiKeyConfiguration } from '../../../../../gateway/components/mode
 import { generateRandomName } from '../../../../../common/utils/NameUtils';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { getEndpointDisplayInfo } from '../../../../../gateway/utils/gatewayUtils';
+import type { Endpoint } from '../../../../../gateway/types';
 
 type ModelConfigMode = 'endpoint' | 'direct';
 
 const CONFIGURE_DIRECTLY_VALUE = '__configure_directly__';
+const CREATE_ENDPOINT_VALUE = '__create_endpoint__';
 
 const DEFAULT_PROVIDER = 'openai';
 
@@ -83,24 +85,52 @@ export interface GenAIModelSelectionRef {
 }
 
 interface GenAIModelSelectionProps {
-  selectedTraceIds: string[];
-  onSelectTracesClick: () => void;
   onValidityChange: (isValid: boolean) => void;
+  readOnly?: boolean;
+  initialValues?: Partial<ModelSelectionValues>;
+  /** Whether to show the "Configure model directly" option in the endpoint dropdown. Defaults to false. */
+  showConfigureDirectly?: boolean;
+  /** Whether to show the "Create Gateway endpoint" option in the endpoint dropdown. Defaults to false. */
+  showCreateEndpoint?: boolean;
+  /** Called whenever the selection changes (mode, endpoint, provider, model, etc.). */
+  onSelectionChange?: (values: ModelSelectionValues) => void;
+  /** Telemetry component ID prefix used for all child elements. */
+  componentId: string;
+  /** Subtitle shown below the "Select Model" heading. */
+  description: React.ReactNode;
 }
 
 export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModelSelectionProps>(
-  function GenAIModelSelection({ selectedTraceIds, onSelectTracesClick, onValidityChange }, ref) {
+  function GenAIModelSelection(
+    {
+      onValidityChange,
+      readOnly = false,
+      initialValues,
+      showConfigureDirectly = false,
+      showCreateEndpoint = false,
+      onSelectionChange,
+      componentId,
+      description,
+    },
+    ref,
+  ) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
 
     // Fetch available endpoints
-    const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
+    const { data: endpoints, isLoading: isLoadingEndpoints, refetch: refetchEndpoints } = useEndpointsQuery();
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const hasEndpoints = endpoints.length > 0;
 
-    // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints
-    const [mode, setMode] = useState<ModelConfigMode>('direct');
-    const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>();
-    const [hasInitializedMode, setHasInitializedMode] = useState(false);
+    // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints.
+    // If initialValues provides a mode, use it directly and skip the endpoint-loading effect.
+    const [mode, setMode] = useState<ModelConfigMode>(
+      initialValues?.mode ?? (initialValues?.endpointName != null ? 'endpoint' : 'direct'),
+    );
+    const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>(initialValues?.endpointName);
+    const [hasInitializedMode, setHasInitializedMode] = useState(
+      initialValues?.mode != null || initialValues?.endpointName != null,
+    );
 
     // Set initial mode based on whether endpoints are available, and auto-select first endpoint
     useEffect(() => {
@@ -113,17 +143,24 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
     }, [isLoadingEndpoints, hasEndpoints, hasInitializedMode, endpoints]);
 
-    const [provider, setProvider] = useState(DEFAULT_PROVIDER);
-    const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
-    const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(() => ({
-      ...DEFAULT_API_KEY_CONFIG,
-      newSecret: {
-        ...DEFAULT_API_KEY_CONFIG.newSecret,
-        name: generateRandomName(DEFAULT_PROVIDER),
-      },
-    }));
-    const [saveKey] = useState(true);
+    const initialProvider = initialValues?.provider ?? DEFAULT_PROVIDER;
+    const [provider, setProvider] = useState(initialProvider);
+    const [model, setModel] = useState(initialValues?.model ?? DEFAULT_MODEL_BY_PROVIDER[initialProvider] ?? '');
+    const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(
+      () =>
+        initialValues?.apiKeyConfig ?? {
+          ...DEFAULT_API_KEY_CONFIG,
+          newSecret: {
+            ...DEFAULT_API_KEY_CONFIG.newSecret,
+            name: generateRandomName(initialProvider),
+          },
+        },
+    );
+    const [saveKey] = useState(initialValues?.saveKey ?? true);
     const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
+
+    // Track whether caller provided an initial apiKeyConfig to prevent auto-switching it
+    const hasInitialApiKeyConfig = useRef(initialValues?.apiKeyConfig != null);
 
     const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
       provider,
@@ -144,7 +181,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
 
     // Get display value for the dropdown
     const dropdownDisplayValue = useMemo(() => {
-      if (hasInitializedMode && mode === 'direct') {
+      if (hasInitializedMode && mode === 'direct' && showConfigureDirectly) {
         return intl.formatMessage({
           defaultMessage: 'Configure model directly',
           description: 'Option to configure model directly instead of using an endpoint',
@@ -156,7 +193,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
       // No endpoint selected yet - return empty to show placeholder
       return '';
-    }, [mode, selectedEndpointName, endpointOptions, intl, hasInitializedMode]);
+    }, [mode, selectedEndpointName, endpointOptions, intl, hasInitializedMode, showConfigureDirectly]);
 
     // Handle selection from dropdown
     const handleDropdownSelect = useCallback((value: string) => {
@@ -169,8 +206,20 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
     }, []);
 
-    // Update API key mode to 'existing' and auto-select first secret when secrets become available
+    const handleCreateEndpointSuccess = useCallback(
+      async (endpoint: Endpoint) => {
+        await refetchEndpoints();
+        setMode('endpoint');
+        setSelectedEndpointName(endpoint.name);
+        setIsCreateModalOpen(false);
+      },
+      [refetchEndpoints],
+    );
+
+    // Update API key mode to 'existing' and auto-select first secret when secrets become available.
+    // Skip when readOnly or when initialValues.apiKeyConfig was provided to preserve round-trip fidelity.
     useEffect(() => {
+      if (readOnly || hasInitialApiKeyConfig.current) return;
       if (provider && existingSecrets.length > 0) {
         setApiKeyConfig((prev) => {
           // Only update if currently in 'new' mode with no fields filled
@@ -180,7 +229,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           return prev;
         });
       }
-    }, [provider, existingSecrets]);
+    }, [readOnly, provider, existingSecrets]);
 
     const handleProviderChange = useCallback((newProvider: string) => {
       setProvider(newProvider);
@@ -219,7 +268,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
 
     const isEndpointModeValid = mode === 'endpoint' && Boolean(selectedEndpointName);
     const isDirectModeValid = mode === 'direct' && Boolean(provider && model && isApiKeyValid);
-    const isValid = (isEndpointModeValid || isDirectModeValid) && selectedTraceIds.length > 0;
+    const isValid = isEndpointModeValid || isDirectModeValid;
 
     // Compute whether there are optional fields in the selected auth mode
     const hasOptionalFields = useMemo(() => {
@@ -240,6 +289,10 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       onValidityChange(isValid);
     }, [isValid, onValidityChange]);
 
+    useEffect(() => {
+      onSelectionChange?.({ mode, endpointName: selectedEndpointName, provider, model, apiKeyConfig, saveKey });
+    }, [mode, selectedEndpointName, provider, model, apiKeyConfig, saveKey, onSelectionChange]);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -259,29 +312,26 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
 
     return (
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           <div>
             <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.xs }}>
               <FormattedMessage
                 defaultMessage="Select Model"
                 description="Header for the model selection step in issue detection modal"
               />{' '}
-              <Tooltip
-                componentId="mlflow.traces.issue-detection-modal.endpoint-tip-tooltip"
-                content={intl.formatMessage({
-                  defaultMessage: 'Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here',
-                  description: 'Tooltip suggesting to create an endpoint for reuse',
-                })}
-              >
-                <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help', verticalAlign: 'middle' }} />
-              </Tooltip>
+              {!showCreateEndpoint && (
+                <Tooltip
+                  componentId={`${componentId}.endpoint-tip-tooltip`}
+                  content={intl.formatMessage({
+                    defaultMessage: 'Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here',
+                    description: 'Tooltip suggesting to create an endpoint for reuse',
+                  })}
+                >
+                  <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help', verticalAlign: 'middle' }} />
+                </Tooltip>
+              )}
             </Typography.Title>
-            <Typography.Text color="secondary">
-              <FormattedMessage
-                defaultMessage="Configure the model to power issue detection"
-                description="Description for the model selection step"
-              />
-            </Typography.Text>
+            <Typography.Text color="secondary">{description}</Typography.Text>
           </div>
 
           {/* Model source selector - only show dropdown when there are endpoints */}
@@ -293,12 +343,12 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
               </Typography.Text>
             </div>
           ) : (
-            hasEndpoints && (
+            (hasEndpoints || showCreateEndpoint) && (
               <DialogCombobox
-                componentId="mlflow.traces.issue-detection-modal.model-source"
-                id="mlflow.traces.issue-detection-modal.model-source"
+                componentId={`${componentId}.model-source`}
+                id={`${componentId}.model-source`}
                 value={
-                  hasInitializedMode && mode === 'direct'
+                  hasInitializedMode && mode === 'direct' && showConfigureDirectly
                     ? [CONFIGURE_DIRECTLY_VALUE]
                     : selectedEndpointName
                       ? [selectedEndpointName]
@@ -308,6 +358,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                 <DialogComboboxTrigger
                   withInlineLabel={false}
                   allowClear={false}
+                  disabled={readOnly}
                   placeholder={intl.formatMessage({
                     defaultMessage: 'Select endpoint',
                     description: 'Placeholder for endpoint selector',
@@ -317,7 +368,14 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                 <DialogComboboxContent>
                   <DialogComboboxOptionList>
                     {endpointOptions.length > 0 && (
-                      <div css={{ maxHeight: 150, overflowY: 'auto' }}>
+                      <div
+                        css={{
+                          maxHeight: 150,
+                          overflowY: 'auto',
+                          width: '100%',
+                          alignSelf: 'stretch',
+                        }}
+                      >
                         {endpointOptions.map((option) => (
                           <DialogComboboxOptionListSelectItem
                             key={option.value}
@@ -335,17 +393,33 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                         ))}
                       </div>
                     )}
-                    {endpointOptions.length > 0 && <DialogComboboxSeparator />}
-                    <DialogComboboxOptionListSelectItem
-                      value={CONFIGURE_DIRECTLY_VALUE}
-                      onChange={() => handleDropdownSelect(CONFIGURE_DIRECTLY_VALUE)}
-                      checked={hasInitializedMode && mode === 'direct'}
-                    >
-                      <FormattedMessage
-                        defaultMessage="Configure model directly"
-                        description="Option to configure model directly instead of using an endpoint"
-                      />
-                    </DialogComboboxOptionListSelectItem>
+                    {(showConfigureDirectly || showCreateEndpoint) && endpointOptions.length > 0 && (
+                      <DialogComboboxSeparator />
+                    )}
+                    {showConfigureDirectly && (
+                      <DialogComboboxOptionListSelectItem
+                        value={CONFIGURE_DIRECTLY_VALUE}
+                        onChange={() => handleDropdownSelect(CONFIGURE_DIRECTLY_VALUE)}
+                        checked={hasInitializedMode && mode === 'direct'}
+                      >
+                        <FormattedMessage
+                          defaultMessage="Configure model directly"
+                          description="Option to configure model directly instead of using an endpoint"
+                        />
+                      </DialogComboboxOptionListSelectItem>
+                    )}
+                    {showCreateEndpoint && (
+                      <DialogComboboxOptionListSelectItem
+                        value={CREATE_ENDPOINT_VALUE}
+                        onChange={() => setIsCreateModalOpen(true)}
+                        checked={false}
+                      >
+                        <FormattedMessage
+                          defaultMessage="Create Gateway endpoint"
+                          description="Option to create a new AI Gateway endpoint"
+                        />
+                      </DialogComboboxOptionListSelectItem>
+                    )}
                   </DialogComboboxOptionList>
                 </DialogComboboxContent>
               </DialogCombobox>
@@ -353,17 +427,18 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           )}
 
           {/* Direct provider/model configuration - shown when 'Configure model directly' is selected */}
-          {mode === 'direct' && (
+          {mode === 'direct' && showConfigureDirectly && (
             <>
               <div>
                 <DialogCombobox
-                  componentId="mlflow.traces.issue-detection-modal.provider"
-                  id="mlflow.traces.issue-detection-modal.provider"
+                  componentId={`${componentId}.provider`}
+                  id={`${componentId}.provider`}
                   value={provider ? [provider] : []}
                 >
                   <DialogComboboxTrigger
                     withInlineLabel={false}
                     allowClear={false}
+                    disabled={readOnly}
                     placeholder={intl.formatMessage({
                       defaultMessage: 'Select provider',
                       description: 'Placeholder for provider selector',
@@ -397,13 +472,13 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                 {provider && DEFAULT_MODEL_BY_PROVIDER[provider] && (
                   <div css={{ marginTop: theme.spacing.xs }}>
                     <Tooltip
-                      componentId="mlflow.traces.issue-detection-modal.default-model-tooltip"
+                      componentId={`${componentId}.default-model-tooltip`}
                       content={intl.formatMessage({
                         defaultMessage: 'You can change this model in advanced settings',
                         description: 'Tooltip suggesting users can change the default model in advanced settings',
                       })}
                     >
-                      <Tag componentId="mlflow.traces.issue-detection-modal.default-model-tag" css={{ cursor: 'help' }}>
+                      <Tag componentId={`${componentId}.default-model-tag`} css={{ cursor: 'help' }}>
                         <FormattedMessage
                           defaultMessage="Model: {model}"
                           description="Display of default model for selected provider"
@@ -419,7 +494,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                       provider={provider}
                       value={model}
                       onChange={setModel}
-                      componentId="mlflow.traces.issue-detection-modal.model"
+                      componentId={`${componentId}.model`}
                       label={
                         <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
                           <FormattedMessage
@@ -443,87 +518,74 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                     defaultAuthMode={defaultAuthMode}
                     isLoadingProviderConfig={isLoadingProviderConfig}
                     hasExistingSecrets={existingSecrets.length > 0}
+                    disabled={readOnly}
                   />
-                  {apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
-                    <div
-                      css={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: theme.spacing.sm,
-                        marginTop: -theme.spacing.xs,
-                      }}
-                    >
-                      <Tooltip
-                        componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
-                        content={intl.formatMessage({
-                          defaultMessage: 'Saved API keys can be managed in LLM Connections under Settings.',
-                          description:
-                            'Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)',
-                        })}
+                  {saveKey &&
+                    apiKeyConfig.mode === 'new' &&
+                    Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
+                      <div
+                        css={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: theme.spacing.sm,
+                          marginTop: -theme.spacing.xs,
+                        }}
                       >
-                        <span>
-                          <Typography.Text color="secondary">
-                            <FormattedMessage
-                              defaultMessage="This key will be saved for reuse."
-                              description="Text indicating API key will be saved for reuse"
-                            />
-                          </Typography.Text>
-                        </span>
-                      </Tooltip>
-                      <Typography.Text color="secondary">
-                        <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
-                      </Typography.Text>
-                      <Input
-                        componentId="mlflow.traces.issue-detection-modal.api-key-name"
-                        value={apiKeyConfig.newSecret.name}
-                        onChange={(e) =>
-                          setApiKeyConfig({
-                            ...apiKeyConfig,
-                            newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
-                          })
-                        }
-                        placeholder={intl.formatMessage({
-                          defaultMessage: 'API key name',
-                          description: 'Placeholder for API key name input',
-                        })}
-                        css={{ width: 200 }}
-                      />
-                    </div>
-                  )}
+                        <Tooltip
+                          componentId={`${componentId}.save-key-tooltip`}
+                          content={intl.formatMessage({
+                            defaultMessage: 'Saved API keys can be managed in LLM Connections under Settings.',
+                            description:
+                              'Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)',
+                          })}
+                        >
+                          <span>
+                            <Typography.Text color="secondary">
+                              <FormattedMessage
+                                defaultMessage="This key will be saved for reuse."
+                                description="Text indicating API key will be saved for reuse"
+                              />
+                            </Typography.Text>
+                          </span>
+                        </Tooltip>
+                        <Typography.Text color="secondary">
+                          <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
+                        </Typography.Text>
+                        <Input
+                          componentId={`${componentId}.api-key-name`}
+                          value={apiKeyConfig.newSecret.name}
+                          onChange={(e) =>
+                            setApiKeyConfig({
+                              ...apiKeyConfig,
+                              newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
+                            })
+                          }
+                          placeholder={intl.formatMessage({
+                            defaultMessage: 'API key name',
+                            description: 'Placeholder for API key name input',
+                          })}
+                          disabled={readOnly}
+                          css={{ width: 200 }}
+                        />
+                      </div>
+                    )}
                 </>
               )}
             </>
           )}
         </div>
 
-        <div>
-          <Typography.Text css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
-            <FormattedMessage defaultMessage="Traces" description="Section header for trace selection" />
-          </Typography.Text>
-          <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-            <FormattedMessage
-              defaultMessage="Select the traces to analyze for issues"
-              description="Description for trace selection section"
-            />
-          </Typography.Text>
-          <div css={{ marginTop: theme.spacing.sm }}>
-            <Button componentId="mlflow.traces.issue-detection-modal.select-traces" onClick={onSelectTracesClick}>
-              {selectedTraceIds.length > 0 ? (
-                <FormattedMessage
-                  defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
-                  description="Label showing number of traces selected"
-                  values={{ count: selectedTraceIds.length }}
-                />
-              ) : (
-                <FormattedMessage defaultMessage="Select traces" description="Button to open trace selection modal" />
-              )}
-            </Button>
-          </div>
-        </div>
+        {showCreateEndpoint && (
+          <CreateEndpointModal
+            open={isCreateModalOpen}
+            onClose={() => setIsCreateModalOpen(false)}
+            onSuccess={handleCreateEndpointSuccess}
+          />
+        )}
 
-        {mode === 'direct' && shouldShowAdvancedSettings && (
+        {mode === 'direct' && showConfigureDirectly && shouldShowAdvancedSettings && !readOnly && (
           <Accordion
-            componentId="mlflow.traces.issue-detection-modal.advanced-settings"
+            componentId={`${componentId}.advanced-settings`}
             activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}
             onChange={(keys) => setIsAdvancedSettingsExpanded(Array.isArray(keys) ? keys.includes('advanced') : false)}
             dangerouslyAppendEmotionCSS={{

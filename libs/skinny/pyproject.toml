@@ -31,7 +31,7 @@ dependencies = [
   "databricks-sdk<1,>=0.20.0",
   "fastapi<1",
   "gitpython<4,>=3.1.9",
-  "importlib_metadata<9,>=3.7.0,!=4.7.0",
+  "importlib_metadata<10,>=3.7.0,!=4.7.0",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-proto<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
@@ -93,7 +93,7 @@ genai = [
   "uvicorn[standard]<1",
   "watchfiles<2",
 ]
-mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
+mcp = ["fastmcp<4,>=2.0.0", "click!=8.3.0"]
 azure = ["azure-storage-blob>=12", "azure-identity>=1.6.1"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]

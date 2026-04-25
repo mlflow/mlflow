@@ -331,6 +331,7 @@ def _build_endpoint_config(
         Provider.XAI,
         Provider.OPENROUTER,
         Provider.OLLAMA,
+        Provider.PORTKEY,
     }:
         provider_config = _build_openai_compatible_config(model_config)
     elif normalize_provider_name(model_config.provider) == Provider.DATABRICKS:
