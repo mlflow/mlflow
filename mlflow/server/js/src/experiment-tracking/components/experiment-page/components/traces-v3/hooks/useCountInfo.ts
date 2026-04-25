@@ -9,7 +9,16 @@ import {
   AggregationType,
   TraceMetricKey,
   createTraceMetadataFilter,
+  SESSION_ID_METADATA_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+
+const getUniqueSessionCount = (traceInfos: ModelTraceInfoV3[] | undefined) =>
+  new Set(
+    (traceInfos ?? [])
+      .map((traceInfo) => traceInfo.trace_metadata?.[SESSION_ID_METADATA_KEY])
+      .filter((sessionId): sessionId is string => Boolean(sessionId)),
+  ).size;
 
 /**
  * Returns the countInfo object for the traces table toolbar badge.
@@ -25,18 +34,22 @@ export function useCountInfo({
   experimentIds,
   runUuid,
   timeRange,
-  traceInfosCount,
+  traceInfos,
+  metadataTraceInfos,
   traceInfosLoading,
   metadataTotalCount,
   disabled,
+  isGroupedBySession = false,
 }: {
   experimentIds: string[];
   runUuid?: string;
   timeRange?: { startTime?: string; endTime?: string };
-  traceInfosCount: number | undefined;
+  traceInfos: ModelTraceInfoV3[] | undefined;
+  metadataTraceInfos?: ModelTraceInfoV3[];
   traceInfosLoading: boolean;
   metadataTotalCount: number;
   disabled: boolean;
+  isGroupedBySession?: boolean;
 }) {
   const usingInfinitePagination = shouldUseInfinitePaginatedTraces();
   const filters = useMemo(
@@ -50,36 +63,39 @@ export function useCountInfo({
   const { data: traceCountMetrics, isLoading: traceCountLoading } = useTraceMetricsQuery({
     experimentIds,
     viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.TRACE_COUNT,
+    metricName: isGroupedBySession ? TraceMetricKey.SESSION_COUNT : TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     startTimeMs,
     endTimeMs,
-    enabled: usingInfinitePagination && !disabled,
+    enabled: (usingInfinitePagination || isGroupedBySession) && !disabled,
     filters,
   });
   const metricsTotal = traceCountMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT];
+  const currentCount = isGroupedBySession ? getUniqueSessionCount(traceInfos) : traceInfos?.length;
+  const filteredTotalCount = isGroupedBySession ? getUniqueSessionCount(metadataTraceInfos) : metadataTotalCount;
 
   return useMemo(() => {
-    if (usingInfinitePagination) {
+    if (usingInfinitePagination || isGroupedBySession) {
       return {
-        currentCount: traceInfosCount,
+        currentCount,
         logCountLoading: traceInfosLoading || traceCountLoading,
-        totalCount: metricsTotal ?? traceInfosCount ?? 0,
+        totalCount: metricsTotal ?? filteredTotalCount ?? currentCount ?? 0,
         maxAllowedCount: Infinity,
       };
     }
     return {
-      currentCount: traceInfosCount,
+      currentCount,
       logCountLoading: traceInfosLoading,
-      totalCount: metadataTotalCount,
+      totalCount: filteredTotalCount,
       maxAllowedCount: getEvalTabTotalTracesLimit(),
     };
   }, [
     usingInfinitePagination,
-    traceInfosCount,
-    metadataTotalCount,
+    currentCount,
+    filteredTotalCount,
     traceInfosLoading,
     traceCountLoading,
     metricsTotal,
+    isGroupedBySession,
   ]);
 }

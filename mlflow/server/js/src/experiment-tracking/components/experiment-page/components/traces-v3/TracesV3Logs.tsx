@@ -205,6 +205,7 @@ const TracesV3LogsImpl = React.memo(
       locations: traceSearchLocations,
       timeRange,
       filterByLoggedModelId: loggedModelId,
+      networkFilters: additionalFilters,
       disabled: isQueryDisabled,
     });
 
@@ -362,10 +363,16 @@ const TracesV3LogsImpl = React.memo(
     const countInfo = useCountInfo({
       experimentIds,
       timeRange,
-      traceInfosCount: traceInfos?.length,
+      traceInfos,
+      metadataTraceInfos: evaluatedTraces
+        .map((trace) => trace.traceInfo)
+        .filter((traceInfo): traceInfo is NonNullable<(typeof evaluatedTraces)[number]['traceInfo']> =>
+          Boolean(traceInfo),
+        ),
       traceInfosLoading,
       metadataTotalCount: totalCount,
       disabled: isQueryDisabled,
+      isGroupedBySession: forceGroupBySession || isGroupedBySession,
     });
 
     const assessmentCountMetrics = useAssessmentCountMetrics({
