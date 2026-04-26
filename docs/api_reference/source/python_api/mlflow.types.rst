@@ -11,11 +11,6 @@ mlflow.types
 .. automodule:: mlflow.types.responses_helpers
     :members:
 
-.. automodule:: mlflow.types.agent_info
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 .. automodule:: mlflow.types.agent
     :members:
 
