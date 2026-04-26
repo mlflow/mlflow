@@ -13,18 +13,22 @@ import type {
 
 /**
  * Opt-in dev flag to render the DevUserSwitcher (bottom-right floating toolbar).
- * Enable in the browser devtools console:
- *   localStorage.setItem('mlflow.settings.admin.enable-dev-user-switcher_v1', 'true')
- * Follows the same pattern as `mlflow.settings.telemetry.enable-dev-logging`.
+ *
+ * Two gates must both be true:
+ *   1. Build is development (``process.env['NODE_ENV'] === 'development'``).
+ *      The DevUserSwitcher stores plaintext passwords in localStorage and sets
+ *      an ``Authorization`` cookie — gating at build time prevents it from
+ *      being shipped in production bundles even if the localStorage flag is
+ *      somehow set.
+ *   2. The localStorage flag is set:
+ *        localStorage.setItem('mlflow.settings.admin.enable-dev-user-switcher_v1', 'true')
+ *      Mirrors the ``mlflow.settings.telemetry.enable-dev-logging`` pattern.
  */
 export const ADMIN_ENABLE_DEV_USER_SWITCHER_STORAGE_KEY = 'mlflow.settings.admin.enable-dev-user-switcher';
 
-export const DEV_USER_SWITCHER_ENABLED: boolean = getLocalStorageItem(
-  ADMIN_ENABLE_DEV_USER_SWITCHER_STORAGE_KEY,
-  1,
-  false,
-  false,
-);
+export const DEV_USER_SWITCHER_ENABLED: boolean =
+  process.env['NODE_ENV'] === 'development' &&
+  getLocalStorageItem(ADMIN_ENABLE_DEV_USER_SWITCHER_STORAGE_KEY, 1, false, false);
 
 /**
  * Fetches the currently authenticated user's identity (id, username, is_admin)

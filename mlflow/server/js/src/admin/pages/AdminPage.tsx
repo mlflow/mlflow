@@ -52,12 +52,13 @@ const UsersTab = () => {
 
   const handleCreateUser = async () => {
     setError(null);
-    if (!newUsername.trim() || !newPassword) {
+    const trimmedUsername = newUsername.trim();
+    if (!trimmedUsername || !newPassword) {
       setError('Username and password are required');
       return;
     }
     try {
-      await createUser.mutateAsync({ username: newUsername, password: newPassword });
+      await createUser.mutateAsync({ username: trimmedUsername, password: newPassword });
       setShowCreateModal(false);
       setNewUsername('');
       setNewPassword('');

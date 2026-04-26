@@ -3055,7 +3055,7 @@ def logout():
         "<script>"
         "  try {"
         "    var xhr = new XMLHttpRequest();"
-        "    xhr.open('GET', '/ajax-api/2.0/mlflow/users/current', false,"
+        "    xhr.open('GET', './ajax-api/2.0/mlflow/users/current', false,"
         "             'mlflow-logged-out', 'mlflow-logged-out');"
         "    xhr.send();"
         "  } catch (e) {}"
