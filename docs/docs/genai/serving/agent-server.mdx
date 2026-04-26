@@ -14,6 +14,45 @@ import { APILink } from "@site/src/components/APILink";
 - Automatic request and response validation for Responses API schema agents
 - Automatic MLflow tracing integration and aggregation
 
+## Agent Metadata with AgentInfo
+
+Use <APILink fn="mlflow.types.agent_info.AgentInfo">`AgentInfo`</APILink> to attach descriptive metadata to your server. This metadata is served at the `GET /agent/info` endpoint, enabling clients and orchestration platforms to discover what your agent does at runtime.
+
+Pass an `AgentInfo` instance to the `AgentServer` constructor:
+
+```python
+from mlflow.genai.agent_server import AgentServer, AgentInfo
+
+agent_info = AgentInfo(
+    name="math-tutor",
+    description="Helps students solve math problems with step-by-step explanations",
+    version="1.2.0",
+    tags={"team": "education", "env": "production"},
+)
+
+agent_server = AgentServer("ResponsesAgent", agent_info=agent_info)
+```
+
+Query the endpoint:
+
+```bash
+curl http://localhost:8000/agent/info
+```
+
+```json
+{
+  "name": "math-tutor",
+  "use_case": "agent",
+  "mlflow_version": "3.6.0",
+  "agent_api": "responses",
+  "description": "Helps students solve math problems with step-by-step explanations",
+  "version": "1.2.0",
+  "tags": {"team": "education", "env": "production"}
+}
+```
+
+If no `AgentInfo` is provided, a default is created automatically with the server name, use case, and MLflow version. See the [AgentInfo](/genai/serving/agent-info) page for the full fields reference, custom schema declaration, subclassing, and more examples.
+
 ## Full Example
 
 In this example, we'll use the openai-agents-sdk to define our Responses API compatible agent. See [the openai-agents-sdk quickstart](https://openai.github.io/openai-agents-python/quickstart/#create-your-first-agent) for more information.
@@ -54,11 +93,18 @@ In this example, we'll use the openai-agents-sdk to define our Responses API com
    # Need to import the agent to register the functions with the server
    import agent  # noqa: F401
    from mlflow.genai.agent_server import (
+       AgentInfo,
        AgentServer,
        setup_mlflow_git_based_version_tracking,
    )
 
-   agent_server = AgentServer("ResponsesAgent")
+   agent_info = AgentInfo(
+       name="math-tutor",
+       description="Helps students solve math problems with step-by-step explanations",
+       version="1.0.0",
+   )
+
+   agent_server = AgentServer("ResponsesAgent", agent_info=agent_info)
    app = agent_server.app
 
    # Optionally, set up MLflow git-based version tracking
