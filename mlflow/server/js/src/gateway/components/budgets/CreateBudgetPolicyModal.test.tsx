@@ -1,6 +1,6 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
-import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
+import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { CreateBudgetPolicyModal } from './CreateBudgetPolicyModal';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
 
@@ -101,6 +101,10 @@ describe('CreateBudgetPolicyModal', () => {
 
     const unhandledRejections: unknown[] = [];
     const handler = (event: PromiseRejectionEvent) => {
+      // Suppress the runtime's default behavior so a reintroduced unhandled
+      // rejection surfaces as a clean assertion failure below rather than
+      // crashing the whole jest worker.
+      event.preventDefault();
       unhandledRejections.push(event.reason);
     };
     window.addEventListener('unhandledrejection', handler);
@@ -114,13 +118,17 @@ describe('CreateBudgetPolicyModal', () => {
       const createButton = screen.getByRole('button', { name: 'Create' });
       await userEvent.click(createButton);
 
-      expect(rejectingMutateAsync).toHaveBeenCalledTimes(1);
+      // ``unhandledrejection`` is dispatched asynchronously, so a regression
+      // could fire it on a later turn. Wait for the rejected mutation to be
+      // observed, then advance one macrotask so any pending rejection event
+      // has had a chance to run before we assert.
+      await waitFor(() => expect(rejectingMutateAsync).toHaveBeenCalledTimes(1));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(unhandledRejections).toEqual([]);
       // Modal stays open and onSuccess does not fire on failure.
       expect(onClose).not.toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
-      // The rejection must not surface as an unhandled promise rejection
-      // (which would render as the dev-server runtime error overlay).
-      expect(unhandledRejections).toEqual([]);
     } finally {
       window.removeEventListener('unhandledrejection', handler);
     }

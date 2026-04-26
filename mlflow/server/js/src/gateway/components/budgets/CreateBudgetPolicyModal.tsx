@@ -84,13 +84,14 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
         target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
         budget_action: formData.budgetAction,
       });
-      handleClose();
-      onSuccess?.();
     } catch {
-      // ``mutationError`` is populated by ``useCreateBudgetPolicy`` and rendered
-      // inline via ``errorMessage``. Swallow here so the rejection doesn't bubble
-      // to the dev-server overlay / global ``unhandledrejection`` handler.
+      // `mutationError` is populated by `useCreateBudgetPolicy` and rendered
+      // inline via `errorMessage`. Swallow here so the rejection doesn't bubble
+      // to the dev-server overlay / global `unhandledrejection` handler.
+      return;
     }
+    handleClose();
+    onSuccess?.();
   }, [isFormValid, formData, createBudgetPolicy, handleClose, onSuccess]);
 
   const errorMessage = useMemo((): string | null => {
