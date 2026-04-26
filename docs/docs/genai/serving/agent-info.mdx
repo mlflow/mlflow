@@ -1,0 +1,117 @@
+---
+title: Agent Info
+description: Configure agent metadata for the MLflow Agent Server's GET /agent/info discovery endpoint using AgentInfo.
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Agent Info
+
+<APILink fn="mlflow.types.AgentInfo">`AgentInfo`</APILink> is a Pydantic model that describes an agent's identity and interface. Pass it to <APILink fn="mlflow.genai.agent_server.AgentServer">`AgentServer`</APILink> to enrich the `GET /agent/info` discovery endpoint with metadata such as a description, version, custom schemas, and tags.
+
+## Fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `name` | `str` | `DATABRICKS_APP_NAME` env var or `"mlflow_agent_server"` | Server/agent name |
+| `use_case` | `str` | `"agent"` | Use case category |
+| `mlflow_version` | `str` | `mlflow.__version__` | MLflow version running the server |
+| `agent_api` | `str \| None` | `None` (auto-set to `"responses"` for `ResponsesAgent`) | Agent API protocol |
+| `description` | `str \| None` | `None` | Human-readable description |
+| `version` | `str \| None` | `None` | Agent version string |
+| `metadata` | `dict[str, Any] \| None` | `None` | Extensible dict (reserved keys: `custom_inputs_schema`, `custom_outputs_schema`) |
+| `tags` | `dict[str, str] \| None` | `None` | Arbitrary key-value metadata |
+
+Fields set to `None` are omitted from the `GET /agent/info` response.
+
+## Basic Usage
+
+```python
+from mlflow.genai.agent_server import AgentInfo, AgentServer
+
+server = AgentServer(
+    "ResponsesAgent",
+    agent_info=AgentInfo(
+        name="rag-assistant",
+        description="Retrieval-augmented QA over internal docs",
+        version="2.0.0",
+        tags={"team": "ml-platform"},
+    ),
+)
+app = server.app
+```
+
+`GET /agent/info` returns:
+
+```json
+{
+  "name": "rag-assistant",
+  "use_case": "agent",
+  "mlflow_version": "3.6.0",
+  "agent_api": "responses",
+  "description": "Retrieval-augmented QA over internal docs",
+  "version": "2.0.0",
+  "tags": {"team": "ml-platform"}
+}
+```
+
+## Custom Input/Output Schemas
+
+Use the `metadata` field with reserved keys `custom_inputs_schema` and `custom_outputs_schema` to advertise your agent's interface:
+
+```python
+from mlflow.genai.agent_server import AgentInfo, AgentServer
+
+server = AgentServer(
+    "ResponsesAgent",
+    agent_info=AgentInfo(
+        name="schema-agent",
+        metadata={
+            "custom_inputs_schema": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+            },
+            "custom_outputs_schema": {
+                "type": "object",
+                "properties": {"answer": {"type": "string"}},
+            },
+        },
+    ),
+)
+```
+
+## Default Behavior
+
+Without `AgentInfo`, <APILink fn="mlflow.genai.agent_server.AgentServer">`AgentServer`</APILink> creates one automatically with default values:
+
+```python
+server = AgentServer("ResponsesAgent")
+# GET /agent/info returns:
+# {"name": "mlflow_agent_server", "use_case": "agent", "mlflow_version": "...", "agent_api": "responses"}
+```
+
+Key behaviors:
+
+- `agent_api` is automatically set to `"responses"` when `agent_type="ResponsesAgent"` (unless explicitly overridden)
+- The `DATABRICKS_APP_NAME` environment variable is respected for the default `name`
+
+## Subclassing
+
+`AgentInfo` can be subclassed to add custom fields:
+
+```python
+from mlflow.genai.agent_server import AgentInfo, AgentServer
+
+class MyAgentInfo(AgentInfo):
+    capabilities: list[str] = []
+
+server = AgentServer(
+    "ResponsesAgent",
+    agent_info=MyAgentInfo(
+        name="custom-agent",
+        capabilities=["qa", "summarization"],
+    ),
+)
+```
+
+Custom fields appear in the `GET /agent/info` response alongside the standard fields.

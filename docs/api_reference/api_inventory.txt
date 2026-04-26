@@ -843,6 +843,7 @@ mlflow.genai.Scorer.update
 mlflow.genai.ScorerScheduleConfig
 mlflow.genai.agent_server.AgentServer
 mlflow.genai.agent_server.AgentServer.run
+mlflow.genai.agent_server.AgentInfo
 mlflow.genai.agent_server.get_invoke_function
 mlflow.genai.agent_server.get_request_headers
 mlflow.genai.agent_server.get_stream_function
@@ -1793,6 +1794,7 @@ mlflow.transformers.load_model
 mlflow.transformers.log_model
 mlflow.transformers.persist_pretrained_model
 mlflow.transformers.save_model
+mlflow.types.AgentInfo
 mlflow.types.ColSpec
 mlflow.types.ColSpec.from_json_dict
 mlflow.types.DataType
@@ -1833,6 +1835,7 @@ mlflow.types.agent.ChatAgentRequest
 mlflow.types.agent.ChatAgentResponse
 mlflow.types.agent.ChatAgentResponse.check_message_ids
 mlflow.types.agent.ChatContext
+mlflow.types.agent_info.AgentInfo
 mlflow.types.chat.AudioContentPart
 mlflow.types.chat.BaseRequestPayload
 mlflow.types.chat.ChatChoice
