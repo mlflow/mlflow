@@ -7,11 +7,16 @@ class Resolver:
     def __init__(self) -> None:
         self.name_map: dict[str, list[str]] = {}
         self._scope_stack: list[dict[str, list[str]]] = []
+        # Memoize resolve() results by id(node). Each AST node is visited at most once
+        # per traversal, but a single node is often resolved many times (e.g. visit_Call
+        # invokes >10 rules that each call resolve() on the same node).
+        self._resolve_cache: dict[int, list[str] | None] = {}
 
     def clear(self) -> None:
         """Clear all name mappings. Useful when starting to process a new file."""
         self.name_map.clear()
         self._scope_stack.clear()
+        self._resolve_cache.clear()
 
     def enter_scope(self) -> None:
         """Enter a new scope by taking a snapshot of current mappings."""
@@ -58,6 +63,11 @@ class Resolver:
         Returns:
             List of name parts (e.g., ["threading", "Thread"]) or None if unresolvable
         """
+        node_id = id(node)
+        cache = self._resolve_cache
+        if node_id in cache:
+            return cache[node_id]
+
         if isinstance(node, ast.Call):
             parts = self._extract_call_parts(node.func)
         elif isinstance(node, ast.Name):
@@ -65,9 +75,12 @@ class Resolver:
         elif isinstance(node, ast.Attribute):
             parts = self._extract_call_parts(node)
         else:
+            cache[node_id] = None
             return None
 
-        return self._resolve_parts(parts) if parts else None
+        result = self._resolve_parts(parts) if parts else None
+        cache[node_id] = result
+        return result
 
     def _extract_call_parts(self, node: ast.expr) -> list[str]:
         if isinstance(node, ast.Name):
