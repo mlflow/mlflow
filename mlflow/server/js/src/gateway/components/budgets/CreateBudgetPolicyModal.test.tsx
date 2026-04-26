@@ -118,7 +118,7 @@ describe('CreateBudgetPolicyModal', () => {
       const createButton = screen.getByRole('button', { name: 'Create' });
       await userEvent.click(createButton);
 
-      // ``unhandledrejection`` is dispatched asynchronously, so a regression
+      // `unhandledrejection` is dispatched asynchronously, so a regression
       // could fire it on a later turn. Wait for the rejected mutation to be
       // observed, then advance one macrotask so any pending rejection event
       // has had a chance to run before we assert.
