@@ -181,6 +181,7 @@ const UsersTab = () => {
                 componentId="admin.users.delete_button"
                 type="tertiary"
                 icon={<TrashIcon />}
+                aria-label={`Delete user ${user.username}`}
                 onClick={() => setDeleteTarget(user.username)}
                 danger
               />
@@ -413,6 +414,7 @@ const RolesTab = () => {
                 componentId="admin.roles.delete_button"
                 type="tertiary"
                 icon={<TrashIcon />}
+                aria-label={`Delete role ${role.name}`}
                 onClick={() => setDeleteTarget({ id: role.id, name: role.name })}
                 danger
               />

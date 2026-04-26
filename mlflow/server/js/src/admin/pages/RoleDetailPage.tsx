@@ -180,6 +180,7 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
                   type="tertiary"
                   icon={<TrashIcon />}
                   size="small"
+                  aria-label={`Remove ${perm.permission} permission on ${perm.resource_type} ${perm.resource_pattern}`}
                   onClick={() => setDeletePermissionTarget(perm)}
                   danger
                 />
@@ -457,6 +458,7 @@ const AssignedUsersSection = ({ roleId }: { roleId: number }) => {
                     type="tertiary"
                     icon={<TrashIcon />}
                     size="small"
+                    aria-label={`Unassign ${username}`}
                     onClick={() => handleUnassign(username)}
                     danger
                   />
