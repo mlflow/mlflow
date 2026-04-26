@@ -1,6 +1,9 @@
 from typing import Any
+
 from pydantic import BaseModel, Field
+
 import mlflow
+
 
 class AgentInfo(BaseModel):
     """Metadata describing an agent server's identity and interface.
