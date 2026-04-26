@@ -6,6 +6,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+import mlflow
 from mlflow.genai.agent_server import (
     AgentServer,
     get_invoke_function,
@@ -16,6 +17,7 @@ from mlflow.genai.agent_server import (
     stream,
 )
 from mlflow.genai.agent_server.validator import ResponsesAgentValidator
+from mlflow.types.agent_info import AgentInfo
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
@@ -1322,3 +1324,103 @@ def test_return_trace_header_case_insensitive(header_value):
         assert "output" in response_json
         assert response_json["metadata"] == {"trace_id": "test-trace-id-123"}
         mock_span.assert_called_once()
+
+
+def test_agent_info_default_without_agent_info():
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "mlflow_agent_server"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"] == mlflow.__version__
+    assert data["agent_api"] == "responses"
+    assert "description" not in data
+    assert "version" not in data
+    assert "metadata" not in data
+    assert "tags" not in data
+
+
+def test_agent_info_default_without_responses_agent():
+    server = AgentServer()
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "mlflow_agent_server"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"] == mlflow.__version__
+    assert "agent_api" not in data
+
+
+def test_agent_info_with_custom_agent_info():
+    info = AgentInfo(
+        name="my-agent",
+        description="A custom agent",
+        version="2.0.0",
+        tags={"team": "ml"},
+    )
+    server = AgentServer("ResponsesAgent", agent_info=info)
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "my-agent"
+    assert data["description"] == "A custom agent"
+    assert data["version"] == "2.0.0"
+    assert data["agent_api"] == "responses"
+    assert data["tags"] == {"team": "ml"}
+
+
+def test_agent_info_agent_api_auto_set_for_responses_agent():
+    info = AgentInfo(name="auto-api-agent")
+    server = AgentServer("ResponsesAgent", agent_info=info)
+    assert server.agent_info.agent_api == "responses"
+
+
+def test_agent_info_agent_api_not_overridden_if_set():
+    info = AgentInfo(name="custom-api-agent", agent_api="custom")
+    server = AgentServer("ResponsesAgent", agent_info=info)
+    assert server.agent_info.agent_api == "custom"
+
+
+def test_agent_info_with_metadata_schemas():
+    info = AgentInfo(
+        name="schema-agent",
+        metadata={
+            "custom_inputs_schema": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+            },
+            "custom_outputs_schema": {
+                "type": "object",
+                "properties": {"answer": {"type": "string"}},
+            },
+        },
+    )
+    server = AgentServer("ResponsesAgent", agent_info=info)
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "schema-agent"
+    assert data["metadata"]["custom_inputs_schema"]["properties"]["query"]["type"] == "string"
+    assert data["metadata"]["custom_outputs_schema"]["properties"]["answer"]["type"] == "string"
+
+
+def test_agent_info_name_from_env_var():
+    from mlflow.types.agent_info import AgentInfo
+
+    with patch.dict("os.environ", {"DATABRICKS_APP_NAME": "env-app-name"}):
+        server = AgentServer("ResponsesAgent")
+    assert server.agent_info.name == "env-app-name"
+
+    info = AgentInfo(name="explicit-name")
+    with patch.dict("os.environ", {"DATABRICKS_APP_NAME": "env-app-name"}):
+        server = AgentServer("ResponsesAgent", agent_info=info)
+    assert server.agent_info.name == "explicit-name"

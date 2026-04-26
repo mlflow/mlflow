@@ -17,6 +17,7 @@ from mlflow.genai.agent_server.utils import get_request_headers, set_request_hea
 from mlflow.genai.agent_server.validator import BaseAgentValidator, ResponsesAgentValidator
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.types.agent_info import AgentInfo
 
 logger = logging.getLogger(__name__)
 STREAM_KEY = "stream"
@@ -105,12 +106,26 @@ class AgentServer:
     See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
 
-    def __init__(self, agent_type: AgentType | None = None, enable_chat_proxy: bool = False):
+    def __init__(
+        self,
+        agent_type: AgentType | None = None,
+        enable_chat_proxy: bool = False,
+        agent_info: AgentInfo | None = None,
+    ):
         self.agent_type = agent_type
         if agent_type == "ResponsesAgent":
             self.validator = ResponsesAgentValidator()
         else:
             self.validator = BaseAgentValidator()
+
+        if agent_info is not None:
+            self.agent_info = agent_info
+        else:
+            self.agent_info = AgentInfo(
+                name=os.environ.get("DATABRICKS_APP_NAME", "mlflow_agent_server"),
+            )
+        if self.agent_type == "ResponsesAgent" and self.agent_info.agent_api is None:
+            self.agent_info.agent_api = "responses"
 
         self.app = FastAPI(title="Agent Server")
 
@@ -244,21 +259,7 @@ class AgentServer:
 
         @self.app.get("/agent/info")
         async def agent_info_endpoint() -> dict[str, Any]:
-            # Get app name from environment or use default
-            app_name = os.environ.get("DATABRICKS_APP_NAME", "mlflow_agent_server")
-
-            # Base info payload
-            info = {
-                "name": app_name,
-                "use_case": "agent",
-                "mlflow_version": mlflow.__version__,
-            }
-
-            # Conditionally add agent_api field for ResponsesAgent only
-            if self.agent_type == "ResponsesAgent":
-                info["agent_api"] = "responses"
-
-            return info
+            return self.agent_info.model_dump(exclude_none=True)
 
         @self.app.get("/health")
         async def health_check() -> dict[str, str]:
