@@ -83,4 +83,46 @@ describe('CreateBudgetPolicyModal', () => {
 
     expect(screen.getByText('Budget limit reached')).toBeInTheDocument();
   });
+
+  test('does not propagate unhandled rejection when submit fails (e.g. 403)', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+    // Lazy-construct the rejection so it isn't created at mock-setup time
+    // (which would briefly look unhandled before the modal awaits it).
+    const rejectingMutateAsync = jest
+      .fn()
+      .mockImplementation(() => Promise.reject(new Error('You do not have permission to access this resource.')));
+    jest.mocked(useCreateBudgetPolicy).mockReturnValue({
+      mutateAsync: rejectingMutateAsync,
+      isLoading: false,
+      error: null,
+      reset: jest.fn(),
+    } as any);
+
+    const unhandledRejections: unknown[] = [];
+    const handler = (event: PromiseRejectionEvent) => {
+      unhandledRejections.push(event.reason);
+    };
+    window.addEventListener('unhandledrejection', handler);
+
+    try {
+      renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={onClose} onSuccess={onSuccess} />);
+
+      const amountInput = screen.getByPlaceholderText('e.g., 100.00');
+      await userEvent.type(amountInput, '50');
+
+      const createButton = screen.getByRole('button', { name: 'Create' });
+      await userEvent.click(createButton);
+
+      expect(rejectingMutateAsync).toHaveBeenCalledTimes(1);
+      // Modal stays open and onSuccess does not fire on failure.
+      expect(onClose).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+      // The rejection must not surface as an unhandled promise rejection
+      // (which would render as the dev-server runtime error overlay).
+      expect(unhandledRejections).toEqual([]);
+    } finally {
+      window.removeEventListener('unhandledrejection', handler);
+    }
+  });
 });
