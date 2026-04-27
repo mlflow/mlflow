@@ -5,7 +5,7 @@ description: Use OpenAI Codex with the MLflow AI Gateway to get centralized obse
 
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { BarChart3, Shield } from "lucide-react";
+import { BarChart3, Shield, DollarSign } from "lucide-react";
 
 # OpenAI Codex + MLflow AI Gateway
 
@@ -67,5 +67,12 @@ Every session is captured as an MLflow trace. Open the **Logs** tab in the MLflo
     description="Add content policies to all Codex requests automatically"
     href="/genai/governance/ai-gateway/guardrails"
     linkText="Configure guardrails →"
+  />
+  <TileCard
+    icon={DollarSign}
+    title="Budget Alerts & Limits"
+    description="Set spending limits and alerts to keep sessions within budget"
+    href="/genai/governance/ai-gateway/budget-alerts-limits"
+    linkText="Configure budget limits →"
   />
 </TilesGrid>
