@@ -257,7 +257,11 @@ const UsersTab = () => {
                 aria-label={`Select user ${user.username}`}
               />
             </TableCell>
-            <TableCell css={{ flex: 2 }}>{user.username}</TableCell>
+            <TableCell css={{ flex: 2 }}>
+              <Link componentId="admin.users.username_link" to={AdminRoutes.getUserPermissionsRoute(user.username)}>
+                {user.username}
+              </Link>
+            </TableCell>
             <TableCell css={{ flex: 2 }}>
               <UserRolesCell username={user.username} />
             </TableCell>

@@ -3,6 +3,7 @@ import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtil
 export enum AdminPageId {
   adminPage = 'mlflow.admin',
   roleDetailPage = 'mlflow.admin.role-detail',
+  userPermissionsPage = 'mlflow.admin.user-permissions',
   accountPage = 'mlflow.account',
 }
 
@@ -14,6 +15,10 @@ export class AdminRoutePaths {
 
   static get roleDetailPage() {
     return createMLflowRoutePath('/admin/roles/:roleId');
+  }
+
+  static get userPermissionsPage() {
+    return createMLflowRoutePath('/admin/users/:username/permissions');
   }
 
   static get accountPage() {
@@ -33,6 +38,10 @@ class AdminRoutes {
 
   static getRoleDetailRoute(roleId: number) {
     return generatePath(AdminRoutePaths.roleDetailPage, { roleId: roleId.toString() });
+  }
+
+  static getUserPermissionsRoute(username: string) {
+    return generatePath(AdminRoutePaths.userPermissionsPage, { username });
   }
 }
 

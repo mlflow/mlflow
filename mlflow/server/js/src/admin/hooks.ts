@@ -242,3 +242,16 @@ export const useUserRolesQuery = (username: string) => {
     enabled: Boolean(username),
   });
 };
+
+/**
+ * Grant a per-user permission via the legacy per-resource CRUD endpoints.
+ * Single mutation hook that dispatches based on `resource_type`. Bridges to
+ * the synthetic-role mechanism after Phase 2 (#22855) — same API call,
+ * different storage on the server side.
+ */
+export const useGrantUserPermission = () => {
+  return useMutation({
+    mutationFn: (request: { resource_type: string; resource_id: string; username: string; permission: string }) =>
+      AdminApi.grantUserPermission(request.resource_type, request.resource_id, request.username, request.permission),
+  });
+};

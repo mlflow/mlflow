@@ -699,6 +699,24 @@ module.exports = {
   "admin.roles.select_row": "Per-row checkbox for selecting a role for bulk actions",
   "admin.roles.workspace_header": "'Workspace' column header on the roles list table",
   "admin.tabs": "Users / Roles tab switcher on the admin page",
+  "admin.user_permissions.breadcrumb_admin":
+    "Breadcrumb link back to the admin page from user permissions",
+  "admin.user_permissions.grant_button":
+    "Submit button on the grant-permission form on the user permissions page",
+  "admin.user_permissions.grant_error": "Inline error alert on the user permissions grant form",
+  "admin.user_permissions.grant_success":
+    "Inline success alert after granting a per-user permission",
+  "admin.user_permissions.permission_level":
+    "Permission-level select on the user permissions grant form",
+  "admin.user_permissions.resource_id":
+    "Resource-id input on the user permissions grant form (label varies by resource type)",
+  "admin.user_permissions.resource_type": "Resource-type select on the user permissions grant form",
+  "admin.user_permissions.role_link":
+    "Role-name link from the user permissions page to a role's detail page",
+  "admin.user_permissions.role_name_header":
+    "'Role' column header on the user-permissions roles table",
+  "admin.user_permissions.role_workspace_header":
+    "'Workspace' column header on the user-permissions roles table",
   "admin.users.actions_header": "'Actions' column header on the users list table",
   "admin.users.admin_header": "'Admin' column header on the users list table",
   "admin.users.bulk_delete_button":
@@ -722,6 +740,8 @@ module.exports = {
   "admin.users.select_row": "Per-row checkbox for selecting a user for bulk actions",
   "admin.users.toggle_admin": "Switch toggling a user's is_admin flag",
   "admin.users.username_header": "'Username' column header on the users list table",
+  "admin.users.username_link":
+    "Username link on the users list — opens the per-user permissions page",
   cancel: "",
   "categorical-aggregate-chart-more-items": "",
   "databricks-experiment-tracking-prompt-edit-tags-button": "",
