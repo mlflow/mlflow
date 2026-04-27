@@ -281,7 +281,11 @@ async def test_sanitization_uses_response_format_for_chat_response():
         return {"choices": [{"message": {"content": json.dumps(sanitized)}}]}
 
     with mock.patch("mlflow.gateway.guardrails.send_request", side_effect=capture_send_request):
-        await guard.process_response(_make_request(), _make_full_response("bad"))
+        await guard.process_response(
+            _make_request(),
+            _make_full_response("bad"),
+            payload_schema=ChatCompletionResponse.model_json_schema(),
+        )
 
     assert captured[0]["payload"]["response_format"]["json_schema"]["schema"] == (
         ChatCompletionResponse.model_json_schema()
@@ -315,30 +319,6 @@ async def test_sanitization_skips_response_format_for_passthrough_payload():
         await guard.process_request(anthropic_request)
 
     assert "response_format" not in captured[0]["payload"]
-
-
-# ---------------------------------------------------------------------------
-# _infer_chat_model
-# ---------------------------------------------------------------------------
-
-
-def test_infer_chat_model_returns_none_for_request():
-    # Request payloads are not detected: ChatCompletionRequest inherits extra="ignore"
-    # from BaseRequestPayload, so Anthropic-style payloads (messages + max_tokens)
-    # would pass validation incorrectly. We only detect response payloads.
-    payload = {"messages": [{"role": "user", "content": "hello"}]}
-    assert JudgeGuardrail._infer_chat_model(payload) is None
-
-
-def test_infer_chat_model_identifies_response():
-    payload = _make_full_response("hi")
-    assert JudgeGuardrail._infer_chat_model(payload) is ChatCompletionResponse
-
-
-def test_infer_chat_model_returns_none_for_passthrough():
-    # Gemini-style payload
-    payload = {"contents": [{"role": "user", "parts": [{"text": "hello"}]}]}
-    assert JudgeGuardrail._infer_chat_model(payload) is None
 
 
 # ---------------------------------------------------------------------------

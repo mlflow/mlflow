@@ -79,6 +79,7 @@ from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationTyp
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
+from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils.provider_filter import is_provider_allowed, normalize_provider_name
 from mlflow.utils.workspace_context import get_request_workspace
 
@@ -640,6 +641,7 @@ async def invocations(endpoint_name: str, request: Request):
                     payload.model_dump(),
                     auth_headers=auth_headers,
                     usage_tracking=endpoint_config.usage_tracking,
+                    payload_schema=ChatCompletionRequest.model_json_schema(),
                 )
                 async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
                     yield chunk
@@ -667,6 +669,7 @@ async def invocations(endpoint_name: str, request: Request):
                     payload.model_dump(),
                     auth_headers=auth_headers,
                     usage_tracking=endpoint_config.usage_tracking,
+                    payload_schema=ChatCompletionRequest.model_json_schema(),
                 )
                 modified_payload = chat.RequestPayload(**request_dict)
                 response = await provider.chat(modified_payload)
@@ -772,6 +775,7 @@ async def chat_completions(request: Request):
                 payload.model_dump(),
                 auth_headers=auth_headers,
                 usage_tracking=endpoint_config.usage_tracking,
+                payload_schema=ChatCompletionRequest.model_json_schema(),
             )
             async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
                 yield chunk
@@ -799,6 +803,7 @@ async def chat_completions(request: Request):
                 payload.model_dump(),
                 auth_headers=auth_headers,
                 usage_tracking=endpoint_config.usage_tracking,
+                payload_schema=ChatCompletionRequest.model_json_schema(),
             )
             modified_payload = chat.RequestPayload(**request_dict)
             response = await provider.chat(modified_payload)
