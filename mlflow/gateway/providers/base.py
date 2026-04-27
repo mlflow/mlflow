@@ -46,10 +46,18 @@ PASSTHROUGH_ROUTES = {
 # - Claude Code sends:  claude-cli/<version> (external, cli)
 # - OpenAI Codex sends: Codex-Desktop/<version>
 # - Gemini CLI sends:   GeminiCLI/<version>/<model> (<platform>; <arch>)
+#
+# Security note: User-Agent strings are not cryptographically verified, so any HTTP
+# client can claim these prefixes. However, the client must still supply valid upstream
+# credentials for the API call to succeed — bypassing the server key only matters when
+# the client already holds its own valid credentials (e.g., a personal subscription
+# account). Admins who need to enforce server-side key usage exclusively (for billing
+# attribution or rate limiting) should leave the endpoint's auth unconfigured or
+# restrict network-level access to trusted clients.
 _USER_CREDENTIAL_AGENTS = ("claude-cli/", "codex-desktop/", "geminicli/")
 
 # Auth header names that subscription-based CLI tools may include.
-_CLIENT_AUTH_HEADERS = ("authorization", "x-api-key", "x-goog-api-key")
+_CLIENT_AUTH_HEADERS = ("authorization", "x-api-key", "x-goog-api-key", "api-key")
 
 
 def _client_provides_auth(headers: dict[str, str] | None) -> bool:

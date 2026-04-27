@@ -158,6 +158,15 @@ def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
     assert merged["authorization"] == "Bearer client-key"
 
 
+def test_get_headers_preserves_azure_api_key_for_credential_agents():
+    provider = OpenAIProvider(EndpointConfig(**azure_config(api_type="azure")))
+    merged = provider._get_headers(
+        headers={"api-key": "client-azure-key", "user-agent": "claude-cli/2.0.37 (external, cli)"}
+    )
+    assert merged["api-key"] == "client-azure-key"
+    assert "authorization" not in merged
+
+
 @pytest.mark.asyncio
 async def test_chat():
     config = chat_config()
