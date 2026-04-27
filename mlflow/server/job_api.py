@@ -9,10 +9,31 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mlflow.entities._job import Job as JobEntity
+from mlflow.entities._job import JobProgress
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
+
+
+class JobProgressResponse(BaseModel):
+    """
+    Pydantic model for structured job progress.
+    """
+
+    phase: str | None = None
+    completed: int | None = None
+    total: int | None = None
+    unit: str | None = None
+
+    @classmethod
+    def from_job_progress(cls, progress: JobProgress) -> "JobProgressResponse":
+        return cls(
+            phase=progress.phase,
+            completed=progress.completed,
+            total=progress.total,
+            unit=progress.unit,
+        )
 
 
 class Job(BaseModel):
@@ -27,9 +48,13 @@ class Job(BaseModel):
     timeout: float | None
     status: JobStatus
     result: Any
+    error_message: str | None = None
     retry_count: int
     last_update_time: int
     status_details: dict[str, Any] | None = None
+    status_message: str | None = None
+    progress: JobProgressResponse | None = None
+    progress_updated_at: int | None = None
 
     @classmethod
     def from_job_entity(cls, job: JobEntity) -> "Job":
@@ -41,9 +66,17 @@ class Job(BaseModel):
             timeout=job.timeout,
             status=job.status,
             result=job.parsed_result,
+            error_message=job.error_message,
             retry_count=job.retry_count,
             last_update_time=job.last_update_time,
             status_details=job.status_details,
+            status_message=job.status_message,
+            progress=(
+                JobProgressResponse.from_job_progress(job.progress)
+                if isinstance(job.progress, JobProgress)
+                else None
+            ),
+            progress_updated_at=job.progress_updated_at,
         )
 
 

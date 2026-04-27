@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Iterator
 
-from mlflow.entities._job import Job
+from mlflow.entities._job import Job, JobProgress
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -173,6 +173,32 @@ class AbstractJobStore(ABC):
             job_id: The ID of the job to update
             status_details: Status details to merge into existing job status details
         """
+
+    def update_job_progress(
+        self,
+        job_id: str,
+        message: str | None = None,
+        progress: JobProgress | None = None,
+    ) -> None:
+        """
+        Update structured job progress fields.
+
+        This is intentionally separate from ``update_status_details()`` so the
+        legacy free-form status-details channel can evolve independently from the
+        structured progress contract.
+
+        Stores that support structured job progress should override this method.
+
+        Args:
+            job_id: The ID of the job to update
+            message: Human-readable plain-text progress message. ``None`` leaves
+                the existing value unchanged.
+            progress: Structured machine-readable progress payload. ``None``
+                leaves the existing value unchanged.
+        """
+        # Progress reporting is optional for job stores. Stores that support it
+        # should override this method; others may treat progress updates as a no-op.
+        return None
 
     @abstractmethod
     def delete_jobs(self, older_than: int = 0, job_ids: list[str] | None = None) -> list[str]:
