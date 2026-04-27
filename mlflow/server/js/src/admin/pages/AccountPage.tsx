@@ -212,7 +212,28 @@ const AccountPage = () => {
                 </TableRow>
                 {roles.map((role) => (
                   <TableRow key={role.id}>
-                    <TableCell css={{ flex: 2 }}>{role.name}</TableCell>
+                    <TableCell css={{ flex: 2 }}>
+                      <div>{role.name}</div>
+                      {role.permissions && role.permissions.length > 0 && (
+                        <div
+                          css={{
+                            marginTop: theme.spacing.xs,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: theme.spacing.xs / 2,
+                          }}
+                        >
+                          {role.permissions.map((p) => (
+                            <Typography.Text key={p.id} size="sm" color="secondary">
+                              <code>
+                                {p.resource_type}:{p.resource_pattern}
+                              </code>{' '}
+                              → <strong>{p.permission}</strong>
+                            </Typography.Text>
+                          ))}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell css={{ flex: 1 }}>{role.workspace}</TableCell>
                     <TableCell css={{ flex: 1 }}>
                       {isWorkspaceAdminRole(role) ? (
