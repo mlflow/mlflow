@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, GearIcon, UserIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { ArrowLeftIcon, GearIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { matchPath, useSearchParams } from '../utils/RoutingUtils';
@@ -100,7 +100,6 @@ export const MlflowSidebarSettingsItems = ({ collapsed }: { collapsed: boolean }
           to={AdminRoutes.adminPageRoute}
           componentId="mlflow.sidebar.admin_tab_link"
           isActive={isAdminActive}
-          icon={<GearIcon />}
           collapsed={collapsed}
         >
           <FormattedMessage defaultMessage="Admin" description="Sidebar link: Settings > Admin" />
@@ -113,7 +112,6 @@ export const MlflowSidebarSettingsItems = ({ collapsed }: { collapsed: boolean }
           to={AdminRoutes.accountPageRoute}
           componentId="mlflow.sidebar.account_tab_link"
           isActive={isAccountActive}
-          icon={<UserIcon />}
           collapsed={collapsed}
         >
           <FormattedMessage defaultMessage="Account" description="Sidebar link: Settings > Account" />
