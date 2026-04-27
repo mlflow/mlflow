@@ -1062,23 +1062,23 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'governance/ai-gateway/cli-tools/claude-code',
+              id: 'governance/ai-gateway/coding-agents/claude-code',
               label: 'Claude Code',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/cli-tools/codex',
+              id: 'governance/ai-gateway/coding-agents/codex',
               label: 'OpenAI Codex',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/cli-tools/gemini-cli',
+              id: 'governance/ai-gateway/coding-agents/gemini-cli',
               label: 'Gemini CLI',
             },
           ],
           link: {
             type: 'doc',
-            id: 'governance/ai-gateway/cli-tools/index',
+            id: 'governance/ai-gateway/coding-agents/index',
           },
         },
       ],
