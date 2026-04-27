@@ -5,16 +5,29 @@ description: Use Claude Code, OpenAI Codex, and Gemini CLI with the MLflow AI Ga
 
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
+import { BarChart3, DollarSign } from "lucide-react";
 
 # Coding Agents & AI Gateway
 
 The MLflow AI Gateway supports popular subscription-based AI coding agents, **Claude Code**, **OpenAI Codex**, and **Gemini CLI**, out of the box.
 
-When these agents send requests through the gateway, it automatically detects them via their `User-Agent` header and forwards their own credentials to the upstream provider, instead of substituting the server-side API key. This means:
+Routing coding agents through the gateway gives your team two key capabilities:
 
-- Users authenticate with their **personal or team subscription**
-- The gateway still provides **centralized observability and tracing**
-- Configuration is minimal, just set an environment variable
+## Observability
+
+Every request made by a coding agent is automatically captured as an MLflow trace, giving you full visibility into what your team's agents are doing — inputs, outputs, model used, token counts, and latency — without any code changes.
+
+[→ Learn about Tracing](/genai/tracing)
+
+## Budget Control
+
+Set spending limits per endpoint to prevent runaway costs from coding agent sessions. Configure alerts to notify you before a budget is exhausted, and hard limits to stop requests once the threshold is reached.
+
+[→ Learn about Budget Alerts & Limits](/genai/governance/ai-gateway/budget-alerts-limits)
+
+---
+
+When coding agents send requests through the gateway, it automatically detects them via their `User-Agent` header and forwards their own credentials to the upstream provider, instead of substituting the server-side API key. Configuration is minimal, just set an environment variable.
 
 :::info
 This passthrough behavior only activates when the agent includes its own auth header (`Authorization`, `x-api-key`, or `x-goog-api-key`). If no client credential is present, the gateway falls back to the server-side API key as usual.
