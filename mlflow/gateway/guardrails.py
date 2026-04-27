@@ -22,7 +22,7 @@ from mlflow.gateway.providers.utils import send_request
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.types.chat import ChatCompletionRequest, ChatCompletionResponse
+from mlflow.types.chat import ChatCompletionResponse
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers import Scorer
@@ -211,15 +211,24 @@ class JudgeGuardrail(Guardrail):
     @staticmethod
     def _infer_chat_model(
         payload: dict[str, Any],
-    ) -> type[ChatCompletionRequest] | type[ChatCompletionResponse] | None:
-        """Return the chat model that *payload* validates against, or ``None``."""
-        for model in (ChatCompletionRequest, ChatCompletionResponse):
-            try:
-                model.model_validate(payload)
-                return model
-            except ValidationError:
-                pass
-        return None
+    ) -> type[ChatCompletionResponse] | None:
+        """Return ``ChatCompletionResponse`` if *payload* validates against it, else ``None``.
+
+        Only ``ChatCompletionResponse`` is detected: its ``choices`` field is a
+        reliable discriminator absent from Anthropic (``content``), Gemini
+        (``candidates``), and Responses API payloads.  Request-side payloads are
+        not detected because ``ChatCompletionRequest`` inherits
+        ``extra="ignore"`` from ``BaseRequestPayload``, causing Anthropic-style
+        payloads (which share ``messages`` and ``max_tokens``) to pass
+        validation incorrectly.
+        """
+        if "choices" not in payload:
+            return None
+        try:
+            ChatCompletionResponse.model_validate(payload)
+            return ChatCompletionResponse
+        except ValidationError:
+            return None
 
     async def _sanitize(
         self,
@@ -234,9 +243,9 @@ class JudgeGuardrail(Guardrail):
         resolved gateway invocations URL.
 
         ``response_format`` is included only when *payload* validates against
-        ``ChatCompletionRequest`` or ``ChatCompletionResponse``; for passthrough
-        payloads that don't conform to either schema it is omitted so the action
-        LLM is not constrained to a specific JSON schema.
+        ``ChatCompletionResponse``; for all other payloads (request-side or
+        passthrough) it is omitted so the action LLM is not constrained to a
+        specific JSON schema.
         """
         if not self.action_llm_url or not self.action_endpoint_name:
             raise GuardrailViolation(

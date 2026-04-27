@@ -11,7 +11,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
 from mlflow.tracing.client import TracingClient
-from mlflow.types.chat import ChatCompletionRequest, ChatCompletionResponse
+from mlflow.types.chat import ChatCompletionResponse
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -218,7 +218,10 @@ async def test_sanitization_passes_on_good_content():
 
 
 @pytest.mark.asyncio
-async def test_sanitization_uses_json_object_response_format():
+async def test_sanitization_skips_response_format_for_request_payload():
+    # Request payloads are not schema-constrained during sanitization because
+    # ChatCompletionRequest shares field names with Anthropic-style payloads
+    # (both use 'messages' and 'max_tokens'), making reliable detection impossible.
     scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
     guard = JudgeGuardrail(
         scorer,
@@ -238,14 +241,7 @@ async def test_sanitization_uses_json_object_response_format():
     with mock.patch("mlflow.gateway.guardrails.send_request", side_effect=capture_send_request):
         await guard.process_request(_make_request())
 
-    assert captured[0]["payload"]["response_format"] == {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "sanitized_payload",
-            "strict": False,
-            "schema": ChatCompletionRequest.model_json_schema(),
-        },
-    }
+    assert "response_format" not in captured[0]["payload"]
 
 
 def _make_full_response(text="I'm a helpful assistant."):
@@ -326,9 +322,12 @@ async def test_sanitization_skips_response_format_for_passthrough_payload():
 # ---------------------------------------------------------------------------
 
 
-def test_infer_chat_model_identifies_request():
+def test_infer_chat_model_returns_none_for_request():
+    # Request payloads are not detected: ChatCompletionRequest inherits extra="ignore"
+    # from BaseRequestPayload, so Anthropic-style payloads (messages + max_tokens)
+    # would pass validation incorrectly. We only detect response payloads.
     payload = {"messages": [{"role": "user", "content": "hello"}]}
-    assert JudgeGuardrail._infer_chat_model(payload) is ChatCompletionRequest
+    assert JudgeGuardrail._infer_chat_model(payload) is None
 
 
 def test_infer_chat_model_identifies_response():

@@ -107,11 +107,9 @@ async def run_post_llm_guardrails_passthrough(
     guardrails that must run on all responses to use the pre-LLM stage, or
     disable streaming on the endpoint.
     """
-    post_llm_guardrails = [g for g in guardrails if g.stage == GuardrailStage.AFTER]
-    if not post_llm_guardrails:
-        return response
-
-    for guardrail in post_llm_guardrails:
+    for guardrail in guardrails:
+        if guardrail.stage != GuardrailStage.AFTER:
+            continue
         response = await guardrail.process_response(
             request_payload, response, auth_headers=auth_headers, usage_tracking=usage_tracking
         )
