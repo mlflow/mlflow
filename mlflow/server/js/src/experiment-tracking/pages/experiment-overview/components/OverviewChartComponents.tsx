@@ -26,7 +26,6 @@ export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
 const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
 const DEFAULT_LEGEND_MAX_HEIGHT = 60;
 
-
 interface OverviewChartHeaderProps {
   /** Icon component to display before the title */
   icon: React.ReactNode;
