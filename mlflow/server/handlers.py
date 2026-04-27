@@ -4532,7 +4532,11 @@ def _get_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "error_message": job.error_message,
         "status_details": job.status_details,
+        "status_message": job.status_message,
+        "progress": (job.progress.to_dict() if job.progress is not None else None),
+        "progress_updated_at": job.progress_updated_at,
     })
 
 
@@ -4545,6 +4549,11 @@ def _cancel_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "error_message": job.error_message,
+        "status_details": job.status_details,
+        "status_message": job.status_message,
+        "progress": (job.progress.to_dict() if job.progress is not None else None),
+        "progress_updated_at": job.progress_updated_at,
     })
 
 
@@ -6903,11 +6912,20 @@ def _create_prompt_optimization_job():
 
 
 def _build_prompt_optimization_job_from_entity(job_entity):
+    from mlflow.entities._job_status import JobStatus as EntityJobStatus
     from mlflow.genai.optimize.job import OptimizerType
 
     optimization_job = PromptOptimizationJobProto()
     optimization_job.job_id = job_entity.job_id
     optimization_job.state.status = job_entity.status.to_proto()
+    if job_entity.status_message is not None:
+        optimization_job.state.status_message = job_entity.status_message
+    if job_entity.progress is not None:
+        progress_dict = job_entity.progress.to_dict()
+        if progress_dict:
+            optimization_job.state.progress.CopyFrom(job_entity.progress.to_proto())
+    if job_entity.progress_updated_at is not None:
+        optimization_job.state.progress_updated_at = job_entity.progress_updated_at
     optimization_job.creation_timestamp_ms = job_entity.creation_time
 
     params = json.loads(job_entity.params)
@@ -6946,14 +6964,17 @@ def _build_prompt_optimization_job_from_entity(job_entity):
             config.optimizer_config_json = optimizer_config
 
     # Get optimized_prompt_uri from job result (only available when job succeeds)
-    if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
+    if job_entity.status == EntityJobStatus.SUCCEEDED and job_entity.parsed_result:
         result = job_entity.parsed_result
         if isinstance(result, dict) and result.get("optimized_prompt_uri"):
             optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
 
-    # If job failed, add error message to state
-    if job_entity.status.name == "FAILED" and job_entity.parsed_result:
-        optimization_job.state.error_message = str(job_entity.parsed_result)
+    # Job.error_message already preserves the legacy fallback to terminal result text.
+    if (
+        job_entity.status in {EntityJobStatus.FAILED, EntityJobStatus.TIMEOUT}
+        and job_entity.error_message is not None
+    ):
+        optimization_job.state.error_message = job_entity.error_message
 
     return optimization_job
 
