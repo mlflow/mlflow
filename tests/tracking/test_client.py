@@ -78,6 +78,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
+    MLFLOW_TRACE_ARCHIVING,
     MLFLOW_USER,
 )
 from mlflow.utils.os import is_windows
@@ -1226,6 +1227,47 @@ def test_set_trace_tag_on_logged_trace(mock_store):
     ])
 
 
+@pytest.mark.parametrize(
+    "key",
+    [TraceTagKey.SPANS_LOCATION, TraceTagKey.ARCHIVE_LOCATION, MLFLOW_TRACE_ARCHIVING],
+)
+def test_set_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypatch, key):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
+    client = mlflow.tracking.MlflowClient()
+    root_span = client.start_trace(name="test")
+    trace_id = root_span.trace_id
+
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        client.set_trace_tag(trace_id, key, "s3://bucket/archive/test")
+
+    client.end_trace(trace_id)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    if key == TraceTagKey.SPANS_LOCATION:
+        assert trace.info.tags[key] == SpansLocation.TRACKING_STORE.value
+    else:
+        assert key not in trace.info.tags
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{key}' is immutable and cannot be set on a trace."
+    )
+
+
+@pytest.mark.parametrize(
+    "key",
+    [TraceTagKey.SPANS_LOCATION, TraceTagKey.ARCHIVE_LOCATION, MLFLOW_TRACE_ARCHIVING],
+)
+def test_set_trace_tag_skips_immutable_internal_tags(mock_store, key):
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        mlflow.tracking.MlflowClient().set_trace_tag("test", key, "s3://bucket/archive/test")
+
+    mock_store.set_trace_tag.assert_not_called()
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{key}' is immutable and cannot be set on a trace."
+    )
+
+
 def test_delete_trace_tag_on_active_trace(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
@@ -1244,6 +1286,48 @@ def test_delete_trace_tag_on_active_trace(monkeypatch):
 def test_delete_trace_tag_on_logged_trace(mock_store):
     mlflow.tracking.MlflowClient().delete_trace_tag("test", "foo")
     mock_store.delete_trace_tag.assert_called_once_with("test", "foo")
+
+
+@pytest.mark.parametrize(
+    "key",
+    [TraceTagKey.SPANS_LOCATION, TraceTagKey.ARCHIVE_LOCATION, MLFLOW_TRACE_ARCHIVING],
+)
+def test_delete_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypatch, key):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
+    client = mlflow.tracking.MlflowClient()
+    root_span = client.start_trace(name="test", tags={"foo": "bar"})
+    trace_id = root_span.trace_id
+
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        client.delete_trace_tag(trace_id, key)
+
+    client.end_trace(trace_id)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    assert trace.info.tags["foo"] == "bar"
+    if key == TraceTagKey.SPANS_LOCATION:
+        assert trace.info.tags[key] == SpansLocation.TRACKING_STORE.value
+    else:
+        assert key not in trace.info.tags
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{key}' is immutable and cannot be deleted on a trace."
+    )
+
+
+@pytest.mark.parametrize(
+    "key",
+    [TraceTagKey.SPANS_LOCATION, TraceTagKey.ARCHIVE_LOCATION, MLFLOW_TRACE_ARCHIVING],
+)
+def test_delete_trace_tag_skips_immutable_internal_tags(mock_store, key):
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        mlflow.tracking.MlflowClient().delete_trace_tag("test", key)
+
+    mock_store.delete_trace_tag.assert_not_called()
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{key}' is immutable and cannot be deleted on a trace."
+    )
 
 
 def test_client_create_experiment(mock_store):

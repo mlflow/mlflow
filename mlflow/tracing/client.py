@@ -581,16 +581,17 @@ class TracingClient:
                 "will automatically be stringified when the trace is logged."
             )
 
+        if key in IMMUTABLE_TAGS:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
+            return
+
         # Trying to set the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 trace.info.tags[key] = str(value)
                 return
 
-        if key in IMMUTABLE_TAGS:
-            _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
-        else:
-            self.store.set_trace_tag(trace_id, key, str(value))
+        self.store.set_trace_tag(trace_id, key, str(value))
 
     def delete_trace_tag(self, trace_id: str, key: str):
         """
@@ -601,6 +602,10 @@ class TracingClient:
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
+        if key in IMMUTABLE_TAGS:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
+            return
+
         # Trying to delete the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
@@ -613,10 +618,7 @@ class TracingClient:
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
 
-        if key in IMMUTABLE_TAGS:
-            _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
-        else:
-            self.store.delete_trace_tag(trace_id, key)
+        self.store.delete_trace_tag(trace_id, key)
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
