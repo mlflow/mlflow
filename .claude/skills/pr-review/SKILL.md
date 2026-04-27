@@ -68,21 +68,27 @@ Evaluate the changed code across these dimensions:
 
 ### 4. Decision Point
 
-Classify each finding by severity:
+Classify each finding by severity (matches `.github/instructions/code-review.instructions.md`):
 
-- **Critical**: bugs, logic errors, security issues, data loss risk, broken public API, missing tests for new behavior
-- **Improvement**: non-blocking quality concerns where the code works but could be clearer or safer
-- **Nitpick**: pure style/preference; prefix the comment with `nit:` so the author can ignore it
+| Severity | Emoji | Use for                                                                          |
+| -------- | ----- | -------------------------------------------------------------------------------- |
+| CRITICAL | 🔴    | bugs, logic errors, security issues, data loss risk, broken public API           |
+| MODERATE | 🟡    | non-blocking quality concerns where the code works but could be clearer or safer |
+| NIT      | 🟢    | pure style/preference the author can ignore                                      |
 
 Then:
 
 - **No findings** → skip to step 6 (approve)
-- **Only improvements/nitpicks** → step 5 (add comments), then step 6 (approve)
-- **Any critical finding** → step 5 (add comments); do NOT approve
+- **Only MODERATE/NIT findings** → step 5 (add comments), then step 6 (approve)
+- **Any CRITICAL finding** → step 5 (add comments); do NOT approve
 
 ### 5. Add Review Comments
 
-For each finding, use the `add-review-comment` skill. One comment per issue, anchored to the most relevant changed line. Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible. Prefix nitpicks with `nit:`.
+For each finding, use the `add-review-comment` skill. One comment per issue, anchored to the most relevant changed line.
+
+Every comment MUST use this exact format: `<emoji> **<severity>:** <description>`
+
+Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
 
 ### 6. Approve the PR
 
