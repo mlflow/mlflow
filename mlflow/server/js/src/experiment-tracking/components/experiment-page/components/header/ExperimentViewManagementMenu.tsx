@@ -16,7 +16,9 @@ import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';
 import { RenameExperimentModal } from '../../../modals/RenameExperimentModal';
 import { useInvalidateExperimentList } from '../../hooks/useExperimentListQuery';
-import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+
+import { useExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/utils/ExperimentKindUtils';
+import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
 
 /**
  * Experiment page header part responsible for displaying menu

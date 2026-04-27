@@ -1,6 +1,16 @@
 # Increase the timeout length for `utils::download.file` because the default value (60 seconds)
 # could be too short to download large packages such as h2o.
 options(timeout=300)
+# TODO: Remove once pak 0.9.4 is live on packagemanager.rstudio.com's focal/latest mirror.
+# The mirror currently serves pak 0.9.3-1, which bundles a broken cli 3.6.6 that fails to
+# load on R 4.2.1 with: undefined symbol: R_getVarEx
+# See https://github.com/r-lib/pak/issues/860
+install.packages("pak", repos = sprintf(
+  "https://r-lib.github.io/p/pak/stable/%s/%s/%s",
+  .Platform$pkgType,
+  R.Version()$os,
+  R.Version()$arch
+))
 install.packages("devtools", dependencies = TRUE)
 devtools::install_version("usethis", "3.2.1")
 devtools::install_dev_deps(dependencies = TRUE)

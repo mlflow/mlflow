@@ -23,7 +23,6 @@ module.exports = createConfig({})({
     '@databricks/no-uncaught-localstorage-setitem': 'off',
     '@databricks/no-window-top': 'off',
     // END-ESLINT-MIGRATION (FEINF-1337)
-    'no-console': 'error',
   },
   overrides: [
     {
@@ -51,7 +50,7 @@ module.exports = createConfig({})({
       rules: {
         // allow absolute AJAX URLs in tests as they don't impact prod
         '@mlflow/no-absolute-ajax-urls': 'off',
-      }
-    }
+      },
+    },
   ],
 });

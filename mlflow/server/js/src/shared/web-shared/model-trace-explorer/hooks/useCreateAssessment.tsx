@@ -1,6 +1,5 @@
 import { isObject } from 'lodash';
 
-/* eslint-disable import/no-duplicates */
 import { useIntl } from '@databricks/i18n';
 import { useMutation, useQueryClient } from '../../query-client/queryClient';
 

@@ -69,6 +69,11 @@ jobs:
         with:
           path: .cache/action-pins.json
           key: action-pins-${{ hashFiles('dev/check_action_pins.py') }}
+      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: .mypy_cache
+          key: mypy-${{ matrix.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+          restore-keys: mypy-${{ matrix.os }}-
       - name: Install pre-commit hooks
         run: |
           uv run --no-sync pre-commit install --install-hooks

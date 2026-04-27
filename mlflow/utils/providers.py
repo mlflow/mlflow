@@ -96,6 +96,7 @@ class ModelInfo(TypedDict, total=False):
     cache_read_input_token_cost: float
     cache_creation_input_token_cost: float
     deprecation_date: str
+    last_updated_at: str
 
 
 class ModelDict(TypedDict):
@@ -117,6 +118,7 @@ class ModelDict(TypedDict):
     input_cost_per_token: float | None
     output_cost_per_token: float | None
     deprecation_date: str | None
+    last_updated_at: str | None
 
 
 # --- MLflow-native catalog schema TypedDicts (matches per-provider JSON files) ---
@@ -158,6 +160,7 @@ class CatalogModelEntry(TypedDict, total=False):
     pricing: CatalogPricing
     capabilities: CatalogCapabilities
     deprecation_date: str
+    last_updated_at: str
 
 
 class CatalogFile(TypedDict):
@@ -196,6 +199,9 @@ def _flatten_catalog_entry(entry: CatalogModelEntry) -> ModelInfo:
 
     if dep := entry.get("deprecation_date"):
         info["deprecation_date"] = dep
+
+    if last_updated_at := entry.get("last_updated_at"):
+        info["last_updated_at"] = last_updated_at
 
     return info
 
@@ -563,6 +569,27 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
             ],
         },
+        "default_chain": {
+            "display_name": "Application Default Credentials",
+            "description": "Use the server's Application Default Credentials "
+            "(GOOGLE_APPLICATION_CREDENTIALS, gcloud auth application-default login, "
+            "or attached GCE/GKE/Cloud Run service account)",
+            "fields": [
+                {
+                    "name": "vertex_project",
+                    "description": "GCP Project ID",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "vertex_location",
+                    "description": "GCP Region (e.g., us-central1)",
+                    "secret": False,
+                    "required": False,
+                    "default": "us-central1",
+                },
+            ],
+        },
     },
     "databricks": {
         "pat_token": {
@@ -876,6 +903,7 @@ def get_models(provider: str | None = None) -> list[ModelDict]:
             - input_cost_per_token: Cost per input token (USD)
             - output_cost_per_token: Cost per output token (USD)
             - deprecation_date: Date when model will be deprecated (if known)
+            - last_updated_at: Date when the model entry was last updated in the catalog (if known)
     """
     if provider:
         # Fast path: only load provider files that match the filter
@@ -951,6 +979,7 @@ def _build_model_dict(
         "input_cost_per_token": info.get("input_cost_per_token"),
         "output_cost_per_token": info.get("output_cost_per_token"),
         "deprecation_date": info.get("deprecation_date"),
+        "last_updated_at": info.get("last_updated_at"),
     }
 
 

@@ -5,8 +5,6 @@
  * annotations are already looking good, please remove this comment.
  */
 
-/* eslint-disable */
-
 /**
  * DO NOT EDIT!!!
  *

@@ -1,4 +1,5 @@
 import { jest, describe, beforeAll, test, expect } from '@jest/globals';
+
 import { rest } from 'msw';
 import { IntlProvider } from 'react-intl';
 import { setupServer } from '../../../common/utils/setup-msw';

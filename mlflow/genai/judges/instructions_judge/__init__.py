@@ -476,7 +476,7 @@ class InstructionsJudge(Judge):
     def _safe_json_dumps(self, value: Any) -> str:
         """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
         try:
-            return json.dumps(value, default=str, indent=2)
+            return json.dumps(value, default=str, indent=2, ensure_ascii=False)
         except Exception:
             return str(value)
 

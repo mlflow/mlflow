@@ -1,14 +1,12 @@
-import { chunk, isEqual, keyBy } from 'lodash';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
-import { createChartAxisRangeKey } from '../components/RunsCharts.common';
-import { getSampledMetricHistoryBulkAction } from '../../../sdk/SampledMetricHistoryService';
-import type { SampledMetricsByRunUuidState } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { chunk } from 'lodash';
+import { useCallback, useMemo } from 'react';
+import type { SampledMetricsByRunUuidState, MetricEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
-import Utils from '../../../../common/utils/Utils';
 import { shouldEnableGraphQLSampledMetrics } from '../../../../common/utils/FeatureUtils';
 import { useSampledMetricHistoryGraphQL } from './useSampledMetricHistoryGraphQL';
+import { useQueries, type QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { fetchOrFail, getAjaxUrl } from '../../../../common/utils/FetchUtils';
+import { stringify as queryStringStringify } from 'qs';
 
 type SampledMetricData = SampledMetricsByRunUuidState[string][string][string];
 
@@ -20,12 +18,24 @@ export type SampledMetricsByRun = {
 
 const SAMPLED_METRIC_HISTORY_API_RUN_LIMIT = 100;
 
+interface GetHistoryBulkIntervalResponseType {
+  metrics: (MetricEntity & { run_id: string })[];
+}
+
+type SampledMetricHistoryQueryKey = [
+  'sampledMetricHistory',
+  {
+    runUuids: string[];
+    metricKey: string;
+    maxResults?: number;
+    range?: [number, number];
+  },
+];
+
 /**
  * Automatically fetches sampled metric history for runs, used in run runs charts.
- * After updating list of metrics or runs, optimizes the request and fetches
- * only the missing entries.
- *
- * REST-based implementation.
+ * React Query-based implementation that leverages built-in caching and refresh capabilities.
+ * Also backfills Redux store to maintain compatibility with existing code.
  */
 const useSampledMetricHistoryREST = (params: {
   runUuids: string[];
@@ -35,147 +45,124 @@ const useSampledMetricHistoryREST = (params: {
   enabled?: boolean;
   autoRefreshEnabled?: boolean;
 }) => {
-  const { metricKeys, runUuids, enabled, maxResults, range, autoRefreshEnabled } = params;
-  const dispatch = useDispatch<ThunkDispatch>();
+  const { metricKeys, runUuids, enabled = true, maxResults, range, autoRefreshEnabled = false } = params;
 
-  const { resultsByRunUuid, isLoading, isRefreshing } = useSelector(
-    (store: ReduxState) => {
-      const rangeKey = createChartAxisRangeKey(range);
+  // Create query function for fetching metric history and backfilling Redux
+  const queryFn = useCallback(async ({ queryKey, signal }: QueryFunctionContext<SampledMetricHistoryQueryKey>) => {
+    const [, { runUuids, metricKey, maxResults, range }] = queryKey;
 
-      let anyRunRefreshing = false;
-      let anyRunLoading = false;
+    const queryParamsInput: {
+      run_ids: string[];
+      metric_key: string;
+      max_results?: string;
+      start_step?: string;
+      end_step?: string;
+    } = {
+      run_ids: runUuids,
+      metric_key: decodeURIComponent(metricKey),
+    };
 
-      const returnValues: SampledMetricsByRun[] = runUuids.map((runUuid) => {
-        const metricsByMetricKey = metricKeys.reduce(
-          (dataByMetricKey: { [key: string]: SampledMetricData }, metricKey: string) => {
-            const runMetricData = store.entities.sampledMetricsByRunUuid[runUuid]?.[metricKey]?.[rangeKey];
-
-            if (!runMetricData) {
-              return dataByMetricKey;
-            }
-
-            anyRunLoading = anyRunLoading || Boolean(runMetricData.loading);
-            anyRunRefreshing = anyRunRefreshing || Boolean(runMetricData.refreshing);
-
-            dataByMetricKey[metricKey] = runMetricData;
-            return dataByMetricKey;
-          },
-          {},
-        );
-
-        return {
-          runUuid,
-          ...metricsByMetricKey,
-        };
-      });
-
-      return {
-        isLoading: anyRunLoading,
-        isRefreshing: anyRunRefreshing,
-        resultsByRunUuid: keyBy(returnValues, 'runUuid'),
-      };
-    },
-    (left, right) =>
-      isEqual(left.resultsByRunUuid, right.resultsByRunUuid) &&
-      left.isLoading === right.isLoading &&
-      left.isRefreshing === right.isRefreshing,
-  );
-
-  const refreshFn = useCallback(() => {
-    metricKeys.forEach((metricKey) => {
-      chunk(runUuids, SAMPLED_METRIC_HISTORY_API_RUN_LIMIT).forEach((runUuidsChunk) => {
-        const action = getSampledMetricHistoryBulkAction(runUuidsChunk, metricKey, maxResults, range, 'all');
-        dispatch(action);
-      });
-    });
-  }, [dispatch, maxResults, runUuids, metricKeys, range]);
-
-  const refreshTimeoutRef = useRef<number | undefined>(undefined);
-  const autoRefreshEnabledRef = useRef(autoRefreshEnabled && params.enabled);
-  autoRefreshEnabledRef.current = autoRefreshEnabled && params.enabled;
-
-  // Serialize runUuids to a string to use as a dependency in the effect,
-  // directly used runUuids can cause unnecessary re-fetches
-  const runUuidsSerialized = useMemo(() => runUuids.join(','), [runUuids]);
-
-  // Regular single fetch effect with no auto-refresh capabilities. Used if auto-refresh is disabled.
-  useEffect(() => {
-    if (!enabled || autoRefreshEnabled) {
-      return;
-    }
-    metricKeys.forEach((metricKey) => {
-      chunk(runUuids, SAMPLED_METRIC_HISTORY_API_RUN_LIMIT).forEach((runUuidsChunk) => {
-        const action = getSampledMetricHistoryBulkAction(runUuidsChunk, metricKey, maxResults, range);
-        dispatch(action);
-      });
-    });
-  }, [dispatch, maxResults, runUuids, metricKeys, range, enabled, autoRefreshEnabled]);
-
-  // A fetch effect with auto-refresh capabilities. Used only if auto-refresh is enabled.
-  useEffect(() => {
-    let hookUnmounted = false;
-    if (!enabled || !autoRefreshEnabled) {
-      return;
+    if (maxResults !== undefined) {
+      queryParamsInput.max_results = maxResults.toString();
     }
 
-    // Base fetching function, used for both initial call and subsequent auto-refresh calls
-    const fetchMetricsFn = async (isAutoRefreshing = false) => {
-      const runUuids = runUuidsSerialized.split(',').filter((runUuid: string) => runUuid !== '');
-      await Promise.all(
-        metricKeys.map(async (metricKey) =>
-          Promise.all(
-            chunk(runUuids, SAMPLED_METRIC_HISTORY_API_RUN_LIMIT).map(async (runUuidsChunk) =>
-              dispatch(
-                getSampledMetricHistoryBulkAction(
-                  runUuidsChunk,
-                  metricKey,
-                  maxResults,
-                  range,
-                  isAutoRefreshing ? 'auto' : undefined,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    };
+    if (range) {
+      const [start_step, end_step] = range;
+      queryParamsInput.start_step = start_step.toString();
+      queryParamsInput.end_step = end_step.toString();
+    }
 
-    const scheduleRefresh = async () => {
-      // Initial check to confirm that auto-refresh is still enabled and the hook is still mounted
-      if (!autoRefreshEnabledRef.current || hookUnmounted) {
-        return;
+    const queryParams = queryStringStringify(queryParamsInput, { arrayFormat: 'repeat' });
+
+    const response = await fetchOrFail(
+      getAjaxUrl(`ajax-api/2.0/mlflow/metrics/get-history-bulk-interval?${queryParams}`),
+      { signal },
+    );
+
+    return response.json() as Promise<GetHistoryBulkIntervalResponseType>;
+  }, []);
+
+  // Create queries for all combinations of metric keys and chunked run UUIDs
+  const queries = useMemo(() => {
+    const allQueries: Array<{
+      queryKey: SampledMetricHistoryQueryKey;
+      queryFn: typeof queryFn;
+      enabled: boolean;
+      refetchInterval: number | false;
+      staleTime: number;
+    }> = [];
+
+    metricKeys.forEach((metricKey) => {
+      const runUuidChunks = chunk(runUuids, SAMPLED_METRIC_HISTORY_API_RUN_LIMIT);
+      runUuidChunks.forEach((runUuidsChunk) => {
+        allQueries.push({
+          queryKey: ['sampledMetricHistory', { runUuids: runUuidsChunk, metricKey, maxResults, range }],
+          queryFn,
+          enabled,
+          refetchInterval: autoRefreshEnabled ? EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL : false,
+          staleTime: autoRefreshEnabled ? EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL : Infinity,
+        });
+      });
+    });
+
+    return allQueries;
+  }, [metricKeys, runUuids, maxResults, range, enabled, autoRefreshEnabled, queryFn]);
+
+  const queryResults = useQueries({ queries });
+
+  // Transform query results into the expected format
+  const { resultsByRunUuid, isLoading, isRefreshing } = useMemo(() => {
+    let anyLoading = false;
+    let anyRefreshing = false;
+
+    const metricDataByRunUuid: Record<string, SampledMetricsByRun> = {};
+
+    queryResults.forEach((queryResult) => {
+      anyLoading = anyLoading || queryResult.isLoading;
+      anyRefreshing = anyRefreshing || queryResult.isFetching;
+
+      if (queryResult.data?.metrics && queryResult.data.metrics.length > 0) {
+        const metricKey = queryResult.data.metrics[0].key;
+
+        queryResult.data.metrics.forEach((metric) => {
+          const runUuid = metric.run_id;
+
+          if (!metricDataByRunUuid[runUuid]) {
+            metricDataByRunUuid[runUuid] = { runUuid } as SampledMetricsByRun;
+          }
+
+          if (!metricDataByRunUuid[runUuid][metricKey]) {
+            metricDataByRunUuid[runUuid][metricKey] = {
+              loading: queryResult.isLoading,
+              refreshing: queryResult.isFetching,
+              metricsHistory: [],
+              lastUpdatedTime: Date.now(),
+            };
+          }
+
+          const metricsHistory = metricDataByRunUuid[runUuid][metricKey].metricsHistory;
+          if (metricsHistory) {
+            metricsHistory.push(metric);
+          }
+        });
       }
-      try {
-        await fetchMetricsFn(true);
-      } catch (e) {
-        // In case of error during auto-refresh, log the error but do break the auto-refresh loop
-        Utils.logErrorAndNotifyUser(e);
-      }
-      clearTimeout(refreshTimeoutRef.current);
+    });
 
-      // After loading the data, schedule the next refresh if the hook is still enabled and mounted
-      if (!autoRefreshEnabledRef.current || hookUnmounted) {
-        return;
-      }
-
-      refreshTimeoutRef.current = window.setTimeout(
-        scheduleRefresh,
-        EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL,
-      );
+    return {
+      resultsByRunUuid: metricDataByRunUuid,
+      isLoading: anyLoading,
+      isRefreshing: anyRefreshing,
     };
+  }, [queryResults]);
 
-    fetchMetricsFn().then(scheduleRefresh);
+  // Manual refresh function
+  const refresh = useCallback(() => {
+    queryResults.forEach((queryResult) => {
+      queryResult.refetch();
+    });
+  }, [queryResults]);
 
-    return () => {
-      // Mark the hook as unmounted to prevent scheduling new auto-refreshes with current data
-      hookUnmounted = true;
-
-      // Clear the timeout
-      clearTimeout(refreshTimeoutRef.current);
-    };
-  }, [dispatch, maxResults, runUuidsSerialized, metricKeys, range, enabled, autoRefreshEnabled]);
-
-  return { isLoading, isRefreshing, resultsByRunUuid, refresh: refreshFn };
+  return { isLoading, isRefreshing, resultsByRunUuid, refresh };
 };
 
 /**

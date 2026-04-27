@@ -22,6 +22,8 @@ jobs:
     permissions:
       pull-requests: write
     timeout-minutes: 30
+    outputs:
+      bot-approved: ${{ steps.check-approval.outputs.approved }}
     # Security: Only run for authorized users.
     # - pull_request: Only run for non-fork PRs
     # - issue_comment: BOTH PR author and commenter must be authorized (can't trust external PRs)
@@ -61,12 +63,12 @@ jobs:
             let message;
             if (isAllowed) {
               const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
-              message = `🚀 [Review workflow started](${workflowUrl})`;
+              message = `🚀 [Review running...](${workflowUrl})`;
             } else {
               message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
             }
 
-            const updatedBody = `${comment.body}\n\n---\n${message}`;
+            const updatedBody = `${comment.body}\n\n---\n\n${message}`;
 
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
@@ -83,6 +85,9 @@ jobs:
           persist-credentials: false
           token: ${{ steps.app-token.outputs.token }}
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+          enable-uv-cache: false
       - name: Install Claude CLI
         run: |
           .claude/scripts/install-claude.sh
@@ -155,7 +160,8 @@ jobs:
               console.log('Failed to read Claude output file:', e);
             }
 
-            let resultMessage = '✅ Review completed.';
+            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
+            let resultLine = `✅ [Review](${workflowUrl}) completed`;
 
             // Extract and display Claude's result from JSON output
             if (claudeOutput) {
@@ -163,14 +169,18 @@ jobs:
                 const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
                 const resultEvent = events.findLast(({ type }) => type === 'result');
                 if (resultEvent) {
-                  resultMessage += `\n\n<details>\n<summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
+                  const seconds = (resultEvent.duration_ms / 1000).toFixed(1);
+                  const tokens = (resultEvent.usage?.input_tokens ?? 0) + (resultEvent.usage?.output_tokens ?? 0);
+                  const cost = (Math.round(resultEvent.total_cost_usd * 100) / 100).toFixed(2);
+                  resultLine += ` (${seconds}s, ${resultEvent.num_turns} turns, ${tokens} tokens, $${cost})`;
+                  resultLine += `\n<details><summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
                 }
               } catch (e) {
                 console.log('Failed to parse Claude output as JSON:', e);
               }
             }
 
-            console.log('Result message to post:', resultMessage);
+            console.log('Result line to post:', resultLine);
 
             const { data: currentComment } = await github.rest.issues.getComment({
               owner,
@@ -178,7 +188,8 @@ jobs:
               comment_id: comment.id,
             });
 
-            const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+            const originalBody = currentComment.body.split('\n\n---\n\n🚀 ')[0];
+            const updatedBody = `${originalBody}\n\n---\n\n${resultLine}`;
 
             await github.rest.issues.updateComment({
               owner,
@@ -186,3 +197,70 @@ jobs:
               comment_id: comment.id,
               body: updatedBody
             });
+
+      - name: Check bot approval
+        id: check-approval
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          COMMENT_CREATED_AT: ${{ github.event.comment.created_at }}
+        run: |
+          count=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews" \
+            --jq '[.[]
+                   | select(.user.login == "mlflow-app[bot]"
+                            and .state == "APPROVED"
+                            and .submitted_at >= env.COMMENT_CREATED_AT)
+                  ] | length')
+          approved=$([ "$count" -gt 0 ] && echo true || echo false)
+          echo "approved=$approved" >> "$GITHUB_OUTPUT"
+
+  post-review:
+    needs: review
+    if: github.event_name == 'issue_comment' && needs.review.outputs.bot-approved == 'true'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Approve queued rerun workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          COMMENT_CREATED_AT: ${{ github.event.comment.created_at }}
+        run: |
+          head_sha=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq '.headRefOid')
+
+          # Poll for up to ~30s: the `rerun` workflow may not be queued yet
+          # when this step starts, since mlflow-app[bot]'s approval review
+          # fires it asynchronously.
+          run_ids=""
+          for i in $(seq 1 6); do
+            run_ids=$(
+              gh api --paginate "repos/${REPO}/actions/runs?head_sha=${head_sha}" \
+                --jq '.workflow_runs[]
+                      | select(.name == "rerun"
+                               and .conclusion == "action_required"
+                               and .actor.login == "mlflow-app[bot]"
+                               and .created_at >= env.COMMENT_CREATED_AT)
+                      | .id'
+            )
+            [ -n "$run_ids" ] && break
+            echo "No action_required rerun yet (attempt $i); sleeping 5s..."
+            sleep 5
+          done
+
+          if [ -z "$run_ids" ]; then
+            echo "Timed out waiting for action_required rerun workflows"
+            exit 0
+          fi
+
+          # Use /rerun since /approve fails with "not a fork pull request" on runs from `pull_request_review` events.
+          while IFS= read -r run_id; do
+            gh api --method POST "repos/${REPO}/actions/runs/${run_id}/rerun" >/dev/null \
+              && echo "Approved run $run_id" \
+              || echo "Failed to approve run $run_id"
+          done <<< "$run_ids"
