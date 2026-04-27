@@ -1,51 +1,51 @@
 ---
 title: OpenAI Codex
-description: Use OpenAI Codex Desktop with the MLflow AI Gateway to get centralized observability while authenticating with your own OpenAI subscription.
+description: Use OpenAI Codex with the MLflow AI Gateway to get centralized observability while authenticating with your own OpenAI subscription.
 ---
 
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { BarChart3, Shield } from "lucide-react";
 
-# ⚡ OpenAI Codex + MLflow AI Gateway
+# ![OpenAI](/images/logos/openai-logo-only.png) OpenAI Codex + MLflow AI Gateway
 
-Route [OpenAI Codex Desktop](https://github.com/openai/codex) through the MLflow AI Gateway to get centralized tracing and observability — while each developer authenticates with their own OpenAI subscription.
+Route [OpenAI Codex](https://github.com/openai/codex) through the MLflow AI Gateway to get centralized tracing and observability — while each developer authenticates with their own OpenAI subscription.
 
 ## Prerequisites
 
 - MLflow server running with a SQL backend (`mlflow server --port 5000`)
-- An OpenAI endpoint configured in the gateway (see [Create an Endpoint](/genai/governance/ai-gateway/endpoints/create-and-manage))
-- Codex Desktop installed
+- Codex installed (`npm install -g @openai/codex`)
 
 ## Step 1: Create an OpenAI Endpoint
 
-In the MLflow UI at `http://localhost:5000/#/settings`, go to **Endpoints** and create an endpoint:
+Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **Create Endpoint**.
 
 - **Provider:** OpenAI
 - **Model:** `gpt-4o` (or your preferred model)
-- **LLM Connection:** Select an existing connection, or leave blank to rely on client credentials
+- **Endpoint name:** choose a name, e.g. `my-codex-endpoint`
+- **LLM Connection:** select an existing connection, or leave blank to use client credentials
 
 :::tip
-You can leave the server-side API key empty if you want all users to authenticate with their own OpenAI subscriptions. The gateway will use the credential supplied in each request.
+You can leave the LLM Connection empty so all users authenticate with their own OpenAI subscription. The gateway will use the credential provided by each request.
 :::
 
-## Step 2: Point Codex at the Gateway
+## Step 2: Configure Environment Variables
 
-Set the `OPENAI_BASE_URL` environment variable to the gateway's OpenAI passthrough endpoint:
+Set the following environment variable so Codex routes through the gateway:
 
 ```bash
 export OPENAI_BASE_URL="http://localhost:5000/gateway/openai/v1"
 ```
 
-Codex Desktop reads this variable automatically and routes all API calls through the gateway.
-
 ## Step 3: Run Codex
 
+Pass your endpoint name as the model:
+
 ```bash
-codex
+codex --model my-codex-endpoint
 ```
 
-Codex will authenticate using your existing OpenAI credentials and all requests will be proxied through the gateway.
+Codex authenticates using your existing OpenAI credentials and all requests are proxied through the gateway.
 
 ## What You Get
 

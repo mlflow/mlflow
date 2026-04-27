@@ -5,41 +5,40 @@ description: Use Claude Code, OpenAI Codex, and Gemini CLI with the MLflow AI Ga
 
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Terminal, Zap, Bot } from "lucide-react";
 
 # Coding Agents & AI Gateway
 
-The MLflow AI Gateway supports popular subscription-based AI coding assistants — **Claude Code**, **OpenAI Codex**, and **Gemini CLI** — out of the box.
+The MLflow AI Gateway supports popular subscription-based AI coding agents — **Claude Code**, **OpenAI Codex**, and **Gemini CLI** — out of the box.
 
-When these tools send requests through the gateway, it automatically detects them via their `User-Agent` header and forwards their own credentials to the upstream provider, instead of substituting the server-side API key. This means:
+When these agents send requests through the gateway, it automatically detects them via their `User-Agent` header and forwards their own credentials to the upstream provider, instead of substituting the server-side API key. This means:
 
 - Users authenticate with their **personal or team subscription**
 - The gateway still provides **centralized observability and tracing**
-- No changes are needed to the CLI tool configuration beyond pointing it at the gateway
+- Configuration is minimal — just set an environment variable
 
 :::info
-This passthrough behavior only activates when the CLI includes its own auth header (`Authorization`, `x-api-key`, or `x-goog-api-key`). If no client credential is present, the gateway falls back to the server-side API key as usual.
+This passthrough behavior only activates when the agent includes its own auth header (`Authorization`, `x-api-key`, or `x-goog-api-key`). If no client credential is present, the gateway falls back to the server-side API key as usual.
 :::
 
 ## Get Started
 
 <TilesGrid>
   <TileCard
-    icon={Bot}
+    image="/images/logos/claude-code-logo.png"
     title="Claude Code"
     description="Route Claude Code through the gateway using your Anthropic subscription"
     href="./claude-code"
     linkText="Set up Claude Code →"
   />
   <TileCard
-    icon={Zap}
+    image="/images/logos/openai-logo-only.png"
     title="OpenAI Codex"
-    description="Route Codex Desktop through the gateway using your OpenAI subscription"
+    description="Route Codex through the gateway using your OpenAI subscription"
     href="./codex"
     linkText="Set up Codex →"
   />
   <TileCard
-    icon={Terminal}
+    image="/images/logos/google-gemini-logo.svg"
     title="Gemini CLI"
     description="Route Gemini CLI through the gateway using your Google subscription"
     href="./gemini-cli"

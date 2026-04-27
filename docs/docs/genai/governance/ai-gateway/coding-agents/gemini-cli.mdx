@@ -7,37 +7,41 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { BarChart3, Shield } from "lucide-react";
 
-# ✨ Gemini CLI + MLflow AI Gateway
+# ![Gemini](/images/logos/google-gemini-logo.svg) Gemini CLI + MLflow AI Gateway
 
 Route [Gemini CLI](https://github.com/google-gemini/gemini-cli) through the MLflow AI Gateway to get centralized tracing and observability — while each developer authenticates with their own Google subscription.
 
 ## Prerequisites
 
 - MLflow server running with a SQL backend (`mlflow server --port 5000`)
-- A Gemini endpoint configured in the gateway (see [Create an Endpoint](/genai/governance/ai-gateway/endpoints/create-and-manage))
 - Gemini CLI installed (`npm install -g @google/gemini-cli`)
 
 ## Step 1: Create a Gemini Endpoint
 
-In the MLflow UI at `http://localhost:5000/#/settings`, go to **Endpoints** and create an endpoint:
+Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **Create Endpoint**.
 
 - **Provider:** Gemini
 - **Model:** `gemini-2.0-flash` (or your preferred model)
-- **LLM Connection:** Select an existing connection, or leave blank to rely on client credentials
+- **Endpoint name:** choose a name, e.g. `my-gemini-endpoint`
+- **Authentication:** select **API Key** based authentication
+- **LLM Connection:** select an existing connection, or leave blank to use client credentials
 
 :::tip
-You can leave the server-side API key empty if you want all users to authenticate with their own Google subscriptions. The gateway will use the credential supplied in each request.
+You can leave the LLM Connection empty so all users authenticate with their own Google subscription. The gateway will use the credential provided by each request.
 :::
 
-## Step 2: Point Gemini CLI at the Gateway
+:::note
+Gemini CLI uses API key based authentication. Make sure to select **API Key** as the authentication type when creating the endpoint.
+:::
 
-Set the `GEMINI_API_BASE_URL` environment variable to the gateway's Gemini passthrough endpoint:
+## Step 2: Configure Environment Variables
+
+Set the following environment variables so Gemini CLI routes through the gateway and uses your endpoint:
 
 ```bash
-export GEMINI_API_BASE_URL="http://localhost:5000/gateway/gemini/v1beta"
+export GOOGLE_GEMINI_BASE_URL="http://localhost:5000/gateway/gemini"
+export GEMINI_MODEL="my-gemini-endpoint"   # your endpoint name from Step 1
 ```
-
-Gemini CLI reads this variable automatically and routes all API calls through the gateway.
 
 ## Step 3: Run Gemini CLI
 
@@ -45,7 +49,7 @@ Gemini CLI reads this variable automatically and routes all API calls through th
 gemini
 ```
 
-Gemini CLI will authenticate using your existing Google credentials and all requests will be proxied through the gateway.
+Gemini CLI authenticates using your existing Google credentials and all requests are proxied through the gateway.
 
 ## What You Get
 
