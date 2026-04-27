@@ -14,7 +14,7 @@ import type {
 } from '@databricks/web-shared/genai-traces-table';
 import {
   EXECUTION_DURATION_COLUMN_ID,
-  GenAiTracesTable,
+  GenAiTracesTableDeprecated,
   GenAiTracesMarkdownConverterProvider,
   STATE_COLUMN_ID,
   TAGS_COLUMN_ID,
@@ -24,8 +24,8 @@ import {
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { getTraceLegacy } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
+import { shouldEnableImprovedEvalRunsComparison } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
-import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 
 export const RunViewEvaluationsTabArtifacts = ({
   experimentId,
@@ -74,7 +74,7 @@ export const RunViewEvaluationsTabArtifacts = ({
   };
 
   /**
-   * Determine whether to render the component from the shared codebase (GenAiTracesTable)
+   * Determine whether to render the component from the shared codebase (GenAiTracesTableDeprecated)
    * or the legacy one from the local codebase (EvaluationsOverview).
    */
   const getOverviewTableComponent = () => {
@@ -93,7 +93,7 @@ export const RunViewEvaluationsTabArtifacts = ({
     } as const;
     return (
       <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-        <GenAiTracesTable {...componentProps} />
+        <GenAiTracesTableDeprecated {...componentProps} />
       </GenAiTracesMarkdownConverterProvider>
     );
   };

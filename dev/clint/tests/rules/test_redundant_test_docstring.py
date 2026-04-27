@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import lint_file
 from clint.rules.redundant_test_docstring import RedundantTestDocstring
 
 
-def test_redundant_docstrings_are_flagged(index_path: Path) -> None:
+def test_redundant_docstrings_are_flagged(index: SymbolIndex) -> None:
     code = '''
 def test_feature_a():
     """
@@ -31,14 +32,14 @@ def test_feature_d():
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("test_something.py"), code, config, index_path)
+    violations = lint_file(Path("test_something.py"), code, config, index)
     # All single-line docstrings should be flagged
     # (test_feature_behavior, test_c, and test_validation_logic)
     assert len(violations) == 3
     assert all(isinstance(v.rule, RedundantTestDocstring) for v in violations)
 
 
-def test_docstring_word_overlap(index_path: Path) -> None:
+def test_docstring_word_overlap(index: SymbolIndex) -> None:
     code = '''
 def test_very_long_function_name():
     """Short."""
@@ -63,13 +64,13 @@ def test_foo_bar_baz():
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("test_length.py"), code, config, index_path)
+    violations = lint_file(Path("test_length.py"), code, config, index)
     # All single-line docstrings should be flagged
     # (test_very_long_function_name, test_short, test_data_validation, test_foo_bar_baz)
     assert len(violations) == 4
 
 
-def test_class_docstrings_follow_same_rules(index_path: Path) -> None:
+def test_class_docstrings_follow_same_rules(index: SymbolIndex) -> None:
     code = '''
 class TestFeature:
     """
@@ -89,12 +90,12 @@ class TestShort:
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("test_classes.py"), code, config, index_path)
+    violations = lint_file(Path("test_classes.py"), code, config, index)
     # Both classes with single-line docstrings should be flagged
     assert len(violations) == 2
 
 
-def test_non_test_files_are_ignored(index_path: Path) -> None:
+def test_non_test_files_are_ignored(index: SymbolIndex) -> None:
     code = '''
 def test_something():
     """Short."""
@@ -106,11 +107,11 @@ class TestFeature:
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("regular_module.py"), code, config, index_path)
+    violations = lint_file(Path("regular_module.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_supports_test_suffix_files(index_path: Path) -> None:
+def test_supports_test_suffix_files(index: SymbolIndex) -> None:
     code = '''
 def test_feature_implementation():
     """Test feature."""
@@ -122,11 +123,11 @@ class TestClassImplementation:
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("module_test.py"), code, config, index_path)
+    violations = lint_file(Path("module_test.py"), code, config, index)
     assert len(violations) == 2
 
 
-def test_multiline_docstrings_are_always_allowed(index_path: Path) -> None:
+def test_multiline_docstrings_are_always_allowed(index: SymbolIndex) -> None:
     code = '''def test_with_multiline():
     """
     Multi-line.
@@ -152,11 +153,11 @@ class TestCompactMultiline:
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("test_multiline.py"), code, config, index_path)
+    violations = lint_file(Path("test_multiline.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_error_message_content(index_path: Path) -> None:
+def test_error_message_content(index: SymbolIndex) -> None:
     code = '''def test_data_processing_validation():
     """Test data processing."""
     pass
@@ -167,7 +168,7 @@ class TestDataProcessingValidation:
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("test_messages.py"), code, config, index_path)
+    violations = lint_file(Path("test_messages.py"), code, config, index)
     assert len(violations) == 2
 
     func_violation = violations[0]
@@ -179,20 +180,20 @@ class TestDataProcessingValidation:
     assert "Consider removing it" in class_violation.rule.message
 
 
-def test_module_single_line_docstrings_are_flagged(index_path: Path) -> None:
+def test_module_single_line_docstrings_are_flagged(index: SymbolIndex) -> None:
     code = '''"""This is a test module."""
 def test_something():
     assert True
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("test_module.py"), code, config, index_path)
+    violations = lint_file(Path("test_module.py"), code, config, index)
     assert len(violations) == 1
     assert isinstance(violations[0].rule, RedundantTestDocstring)
     assert "rarely provide meaningful context" in violations[0].rule.message
 
 
-def test_module_multiline_docstrings_are_allowed(index_path: Path) -> None:
+def test_module_multiline_docstrings_are_allowed(index: SymbolIndex) -> None:
     code = '''"""
 This is a test module.
 It has multiple lines.
@@ -202,26 +203,26 @@ def test_something():
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("test_module.py"), code, config, index_path)
+    violations = lint_file(Path("test_module.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_module_without_docstring_is_not_flagged(index_path: Path) -> None:
+def test_module_without_docstring_is_not_flagged(index: SymbolIndex) -> None:
     code = """def test_something():
     assert True
 """
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("test_module.py"), code, config, index_path)
+    violations = lint_file(Path("test_module.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_non_test_module_docstrings_are_ignored(index_path: Path) -> None:
+def test_non_test_module_docstrings_are_ignored(index: SymbolIndex) -> None:
     code = '''"""This is a regular module."""
 def some_function():
     pass
 '''
 
     config = Config(select={RedundantTestDocstring.name})
-    violations = lint_file(Path("regular_module.py"), code, config, index_path)
+    violations = lint_file(Path("regular_module.py"), code, config, index)
     assert len(violations) == 0

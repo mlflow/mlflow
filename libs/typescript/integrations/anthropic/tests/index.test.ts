@@ -71,6 +71,8 @@ describe('tracedAnthropic', () => {
     expect(typeof tokenUsage?.input_tokens).toBe('number');
     expect(typeof tokenUsage?.output_tokens).toBe('number');
     expect(typeof tokenUsage?.total_tokens).toBe('number');
+    expect(tokenUsage?.cache_read_input_tokens).toBe(64);
+    expect(tokenUsage?.cache_creation_input_tokens).toBe(32);
 
     const span = trace.data.spans[0];
     expect(span.name).toBe('Messages');

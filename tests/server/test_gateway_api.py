@@ -16,6 +16,7 @@ from mlflow.entities import (
     GatewayEndpointModelConfig,
     GatewayModelLinkageType,
     RoutingStrategy,
+    SpanType,
 )
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace_state import TraceState
@@ -872,10 +873,12 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
 
         response = await invocations(endpoint.name, mock_request)
 
-        # Verify streaming was called and returns StreamingResponse
-        assert mock_provider.chat_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
+        # chat_stream is inside a lazy async generator; consume the body to trigger execution
+        async for _ in response.body_iterator:
+            pass
+        assert mock_provider.chat_stream.called
 
 
 def test_create_provider_from_endpoint_name_no_models(store: SqlAlchemyStore):
@@ -1206,10 +1209,12 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
 
         response = await chat_completions(mock_request)
 
-        # Verify streaming was called and returns StreamingResponse
-        assert mock_provider.chat_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
+        # chat_stream is inside a lazy async generator; consume the body to trigger execution
+        async for _ in response.body_iterator:
+            pass
+        assert mock_provider.chat_stream.called
 
 
 @pytest.mark.asyncio
@@ -1530,12 +1535,12 @@ async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await openai_passthrough_chat(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
 
+        assert mock_send_stream.called
         assert len(chunks) == 3
         assert b"Hello" in chunks[0]
         assert b"world" in chunks[1]
@@ -1599,12 +1604,12 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await openai_passthrough_responses(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
 
+        assert mock_send_stream.called
         assert len(chunks) == 8
         assert b"response.created" in chunks[0]
         assert b"response.output_item.added" in chunks[1]
@@ -1736,11 +1741,12 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await anthropic_passthrough_messages(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
+
+        assert mock_send_stream.called
 
         assert len(chunks) == 7
         assert b"message_start" in chunks[0]
@@ -1887,11 +1893,12 @@ async def test_gemini_passthrough_stream_generate_content(store: SqlAlchemyStore
             "gemini-stream-passthrough-endpoint", mock_request
         )
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
+
+        assert mock_send_stream.called
 
         assert len(chunks) == 3
         assert b"Hello" in chunks[0]
@@ -3182,9 +3189,9 @@ async def test_invocations_bypass_header_wrong_value_runs_guardrails(store: SqlA
 
 
 @pytest.mark.asyncio
-async def test_real_db_before_guardrail_passes(store: SqlAlchemyStore):
-    endpoint = _setup_guardrail_endpoint(store, "real-ep-before-pass")
-    _setup_db_guardrail(store, "real-ep-before-pass", "BEFORE", "VALIDATION")
+async def test_real_db_pre_llm_guardrail_passes(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-pre-llm-pass")
+    _setup_db_guardrail(store, "real-ep-pre-llm-pass", "BEFORE", "VALIDATION")
 
     mock_response = _make_guardrail_chat_response("Safe response")
     mock_request = _make_guardrail_mock_request({
@@ -3207,9 +3214,9 @@ async def test_real_db_before_guardrail_passes(store: SqlAlchemyStore):
 
 
 @pytest.mark.asyncio
-async def test_real_db_before_guardrail_blocks(store: SqlAlchemyStore):
-    endpoint = _setup_guardrail_endpoint(store, "real-ep-before-block")
-    _setup_db_guardrail(store, "real-ep-before-block", "BEFORE", "VALIDATION")
+async def test_real_db_pre_llm_guardrail_blocks(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-pre-llm-block")
+    _setup_db_guardrail(store, "real-ep-pre-llm-block", "BEFORE", "VALIDATION")
 
     mock_request = _make_guardrail_mock_request({
         "messages": [{"role": "user", "content": "bad input"}]
@@ -3232,9 +3239,9 @@ async def test_real_db_before_guardrail_blocks(store: SqlAlchemyStore):
 
 
 @pytest.mark.asyncio
-async def test_real_db_after_guardrail_blocks(store: SqlAlchemyStore):
-    endpoint = _setup_guardrail_endpoint(store, "real-ep-after-block")
-    _setup_db_guardrail(store, "real-ep-after-block", "AFTER", "VALIDATION")
+async def test_real_db_post_llm_guardrail_blocks(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-post-llm-block")
+    _setup_db_guardrail(store, "real-ep-post-llm-block", "AFTER", "VALIDATION")
 
     mock_response = _make_guardrail_chat_response("Unsafe output")
     mock_request = _make_guardrail_mock_request({
@@ -3454,3 +3461,65 @@ async def test_guardrails_run_in_execution_order(store: SqlAlchemyStore):
             await invocations(endpoint.name, mock_request)
 
     assert call_order == ["order-1", "order-2", "order-3", "order-4", "order-5"]
+
+
+@pytest.mark.asyncio
+async def test_guardrail_spans_created_when_usage_tracking_on(store: SqlAlchemyStore):
+    endpoint_name = "ep-guardrail-tracing"
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    secret = store.create_gateway_secret(
+        secret_name=f"key-{endpoint_name}",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"model-{endpoint_name}",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            )
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+    _setup_db_guardrail(store, endpoint_name, "BEFORE", "VALIDATION", name="safety-check")
+
+    mock_response = _make_guardrail_chat_response("Safe response")
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+    passing_scorer = _SimpleScorer(passing=True)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=passing_scorer),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(return_value=mock_response),
+        ),
+    ):
+        response = await invocations(endpoint.name, mock_request)
+
+    assert response.choices[0].message.content == "Safe response"
+
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+
+    span_map = {s.name: s for s in traces[0].data.spans}
+    assert "guardrail/safety-check" in span_map
+    assert "judge" in span_map
+
+    gspan = span_map["guardrail/safety-check"]
+    jspan = span_map["judge"]
+    assert gspan.span_type == SpanType.GUARDRAIL
+    assert jspan.span_type == SpanType.EVALUATOR
+    assert jspan.outputs["passed"] is True
+    assert jspan.parent_id == gspan.span_id

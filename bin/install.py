@@ -168,7 +168,7 @@ def get_platform_key() -> PlatformKey | None:
 
 
 def urlopen_with_retry(
-    url: str, max_retries: int = 5, base_delay: float = 1.0
+    url: str, max_retries: int = 7, base_delay: float = 1.0
 ) -> http.client.HTTPResponse:
     """Open a URL with retry logic for transient HTTP errors (e.g., 503)."""
     for attempt in range(max_retries):

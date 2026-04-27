@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { SelectTracesModal } from './SelectTracesModal';
-import { useGenAiTraceTableRowSelection } from '../../shared/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
-import { useActiveEvaluation } from '../../shared/web-shared/genai-traces-table/hooks/useActiveEvaluation';
+import { useGenAiTraceTableRowSelection, useActiveEvaluation } from '@databricks/web-shared/genai-traces-table';
 import { TracesV3Logs } from './experiment-page/components/traces-v3/TracesV3Logs';
 import { TestRouter, setupTestRouter, testRoute, waitForRoutesToBeRendered } from '../../common/utils/RoutingTestUtils';
+import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 
 // Mock TracesV3Logs to keep this test simple
 jest.mock('./experiment-page/components/traces-v3/TracesV3Logs', () => ({
@@ -169,7 +169,7 @@ describe('SelectTracesModal', () => {
     // Verify window.open was called with the correct URL
     expect(mockWindowOpen).toHaveBeenCalledTimes(1);
     expect(mockWindowOpen).toHaveBeenCalledWith(
-      `/#/experiments/${testExperimentId}/traces?selectedEvaluationId=trace-1&startTimeLabel=LAST_7_DAYS`,
+      `/#${createMLflowRoutePath(`/experiments/${testExperimentId}/traces`)}?selectedEvaluationId=trace-1&startTimeLabel=LAST_7_DAYS`,
       '_blank',
     );
   });

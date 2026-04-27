@@ -50,6 +50,34 @@ describe('CreateExperimentModal', () => {
 
     expect(navigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments/fakeExpId'));
   });
+  test('Create button is disabled when experiment name is empty and enabled when name is entered', () => {
+    wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} isOpen />);
+    // Initially, experimentName state is empty so okButtonProps.disabled should be true
+    let modal = wrapper.find(GenericInputModal);
+    expect(modal.prop('okButtonProps')).toEqual({ disabled: true });
+
+    // Simulate entering an experiment name via handleValuesChange
+    const instance = wrapper.instance() as any;
+    instance.handleValuesChange({ experimentName: 'my-experiment' });
+    wrapper.update();
+
+    modal = wrapper.find(GenericInputModal);
+    expect(modal.prop('okButtonProps')).toEqual({ disabled: false });
+
+    // Simulate clearing the experiment name
+    instance.handleValuesChange({ experimentName: '' });
+    wrapper.update();
+
+    modal = wrapper.find(GenericInputModal);
+    expect(modal.prop('okButtonProps')).toEqual({ disabled: true });
+
+    // Whitespace-only should also be disabled
+    instance.handleValuesChange({ experimentName: '   ' });
+    wrapper.update();
+
+    modal = wrapper.find(GenericInputModal);
+    expect(modal.prop('okButtonProps')).toEqual({ disabled: true });
+  });
   test('handleCreateExperiment does not perform redirection if API requests fail', async () => {
     const propsVals = [
       {

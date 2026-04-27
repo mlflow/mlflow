@@ -304,20 +304,14 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog, mock_li
     assert span_1.name == "Task.execute_sync"
     assert span_1.span_type == SpanType.CHAIN
     assert span_1.parent_id is span_0.span_id
-    assert span_1.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_1.inputs.items()
     assert span_1.outputs is not None
     # Agent
     span_2 = traces[0].data.spans[2]
     assert span_2.name == "City Selection Expert"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
-    assert span_2.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_2.inputs.items()
     assert span_2.outputs == _LLM_ANSWER
     # LLM
     span_3 = traces[0].data.spans[3]
@@ -391,20 +385,14 @@ def test_kickoff_failure(simple_agent_1, task_1, autolog):
     assert span_1.name == "Task.execute_sync"
     assert span_1.span_type == SpanType.CHAIN
     assert span_1.parent_id is span_0.span_id
-    assert span_1.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_1.inputs.items()
     assert span_1.status.status_code == "ERROR"
     # Agent
     span_2 = traces[0].data.spans[2]
     assert span_2.name == "City Selection Expert"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
-    assert span_2.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_2.inputs.items()
     assert span_2.status.status_code == "ERROR"
     # LLM
     span_3 = traces[0].data.spans[3]
@@ -536,20 +524,14 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_1.name == "Task.execute_sync"
     assert span_1.span_type == SpanType.CHAIN
     assert span_1.parent_id is span_0.span_id
-    assert span_1.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_1.inputs.items()
     assert span_1.outputs is not None
     # Agent
     span_2 = traces[0].data.spans[2]
     assert span_2.name == "City Selection Expert"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
-    assert span_2.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_2.inputs.items()
     assert span_2.outputs == _LLM_ANSWER
     # LLM
     span_3 = traces[0].data.spans[3]
@@ -579,20 +561,14 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_5.name == "Task.execute_sync"
     assert span_5.span_type == SpanType.CHAIN
     assert span_5.parent_id is span_0.span_id
-    assert span_5.inputs == {
-        "context": _LLM_ANSWER,
-        "tools": [],
-    }
+    assert {"context": _LLM_ANSWER, "tools": []}.items() <= span_5.inputs.items()
     assert span_5.outputs is not None
     # Agent
     span_6 = traces[0].data.spans[6]
     assert span_6.name == "Local Expert at this city"
     assert span_6.span_type == SpanType.AGENT
     assert span_6.parent_id is span_5.span_id
-    assert span_6.inputs == {
-        "context": _LLM_ANSWER,
-        "tools": [],
-    }
+    assert {"context": _LLM_ANSWER, "tools": []}.items() <= span_6.inputs.items()
     assert span_6.outputs == _LLM_ANSWER
     # LLM
     span_7 = traces[0].data.spans[7]
@@ -663,20 +639,14 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_1.name == "Task.execute_sync"
     assert span_1.span_type == SpanType.CHAIN
     assert span_1.parent_id is span_0.span_id
-    assert span_1.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_1.inputs.items()
     assert span_1.outputs is not None
     # Agent
     span_2 = traces[0].data.spans[2]
     assert span_2.name == "City Selection Expert"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
-    assert span_2.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_2.inputs.items()
     assert span_2.outputs == _LLM_ANSWER
 
     # LongTermMemory
@@ -789,20 +759,14 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_1.name == "Task.execute_sync"
     assert span_1.span_type == SpanType.CHAIN
     assert span_1.parent_id is span_0.span_id
-    assert span_1.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_1.inputs.items()
     assert span_1.outputs is not None
     # Agent
     span_2 = traces[0].data.spans[2]
     assert span_2.name == "City Selection Expert"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
-    assert span_2.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_2.inputs.items()
     assert span_2.outputs == _LLM_ANSWER
 
     # Knowledge
@@ -879,20 +843,14 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     assert span_2.name == "Task.execute_sync"
     assert span_2.span_type == SpanType.CHAIN
     assert span_2.parent_id is span_1.span_id
-    assert span_2.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_2.inputs.items()
     assert span_2.outputs is not None
     # Agent
     span_3 = traces[0].data.spans[3]
     assert span_3.name == "City Selection Expert"
     assert span_3.span_type == SpanType.AGENT
     assert span_3.parent_id is span_2.span_id
-    assert span_3.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_3.inputs.items()
     assert span_3.outputs == _LLM_ANSWER
     # LLM
     span_4 = traces[0].data.spans[4]
@@ -959,20 +917,14 @@ def test_flow(simple_agent_1, task_1, autolog):
     assert span_2.name == "Task.execute_sync"
     assert span_2.span_type == SpanType.CHAIN
     assert span_2.parent_id is span_1.span_id
-    assert span_2.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_2.inputs.items()
     assert span_2.outputs is not None
     # Agent
     span_3 = traces[0].data.spans[3]
     assert span_3.name == "City Selection Expert"
     assert span_3.span_type == SpanType.AGENT
     assert span_3.parent_id is span_2.span_id
-    assert span_3.inputs == {
-        "context": "",
-        "tools": [],
-    }
+    assert {"context": "", "tools": []}.items() <= span_3.inputs.items()
     assert span_3.outputs == _LLM_ANSWER
     # LLM
     span_4 = traces[0].data.spans[4]

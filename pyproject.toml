@@ -42,7 +42,7 @@ dependencies = [
   "graphene<4",
   "gunicorn<26; platform_system != 'Windows'",
   "huey<3,>=2.5.4",
-  "importlib_metadata<9,>=3.7.0,!=4.7.0",
+  "importlib_metadata<10,>=3.7.0,!=4.7.0",
   "matplotlib<4",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
@@ -61,6 +61,7 @@ dependencies = [
   "skops<1",
   "sqlalchemy<3,>=1.4.0",
   "sqlparse<1,>=0.4.0",
+  "starlette<1",
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
   "waitress<4; platform_system == 'Windows'",
@@ -112,13 +113,13 @@ genai = [
   "uvicorn[standard]<1",
   "watchfiles<2",
 ]
-mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
+mcp = ["fastmcp<4,>=2.0.0", "click!=8.3.0"]
 azure = ["azure-storage-blob>=12", "azure-identity>=1.6.1"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
 kubernetes = ["kubernetes"]
-langchain = ["langchain>=0.3.21,<=1.2.12"]
+langchain = ["langchain>=0.3.25,<=1.2.15"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -177,7 +178,7 @@ dev = [
   "skills",
 ]
 lint = [
-  "ruff==0.15.5",
+  "ruff==0.15.10",
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "types-toml",
@@ -189,7 +190,6 @@ lint = [
   "types-PyYAML",
   "packaging>=25.0",
   "aiohttp",
-  "tiktoken",
   "claude-agent-sdk",
   "pytest",
   "types-requests",
@@ -240,7 +240,7 @@ docs = [
 [tool.uv]
 exclude-newer = "P14D"
 exclude-newer-package = { torch = false, torchvision = false }
-required-version = ">=0.10.12"
+required-version = ">=0.11.7"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
@@ -281,7 +281,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.15.5"
+required-version = "0.15.10"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extension = { mdx = "markdown" }
@@ -486,10 +486,18 @@ Tru = "Tru"                        # TruLens library name prefix
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
 extend-exclude = [
-  # Ignore proto files
+  # Allowlist: only check these extensions
+  "*",
+  "!*/",
+  "!*.py",
+  "!*.md",
+  "!*.mdx",
+  # Ignore proto files (re-excluded because they match *.py above)
   "mlflow/protos/**/*",
   # Vendored files
   "mlflow/utils/gorilla.py",
+  # Submodule (typos should be fixed upstream)
+  "mlflow/assistant/skills/**/*",
 ]
 
 [tool.typos.default]

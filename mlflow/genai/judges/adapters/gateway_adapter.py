@@ -387,7 +387,7 @@ class GatewayAdapter(BaseJudgeAdapter):
         cleaned_response = _strip_markdown_code_blocks(response)
 
         try:
-            response_dict = json.loads(cleaned_response)
+            response_dict = json.loads(cleaned_response, strict=False)
         except json.JSONDecodeError as e:
             raise MlflowException(
                 f"Failed to parse response from judge model. Response: {response}",
@@ -429,7 +429,7 @@ class GatewayAdapter(BaseJudgeAdapter):
 
         cleaned_response = _strip_markdown_code_blocks(output.response)
         try:
-            response_dict = json.loads(cleaned_response)
+            response_dict = json.loads(cleaned_response, strict=False)
         except json.JSONDecodeError as e:
             raise MlflowException(
                 f"Failed to parse response from judge model. Response: {output.response}",
@@ -463,7 +463,7 @@ class GatewayAdapter(BaseJudgeAdapter):
         cleaned_response = _strip_markdown_code_blocks(output.response)
 
         try:
-            response_dict = json.loads(cleaned_response)
+            response_dict = json.loads(cleaned_response, strict=False)
         except json.JSONDecodeError as e:
             raise MlflowException(
                 f"Failed to parse response from judge model. Response: {output.response}",
@@ -517,7 +517,7 @@ class GatewayAdapter(BaseJudgeAdapter):
         # Resolve provider for config, URL, headers, and request/response transformation.
         # Each provider's get_endpoint_url() returns the full endpoint path
         # (e.g. OpenAI: .../chat/completions, Anthropic: .../messages).
-        provider_instance = _get_provider_instance(provider, model_name)
+        provider_instance = _get_provider_instance(provider, model_name, base_url=base_url)
         endpoint = base_url or provider_instance.get_endpoint_url("llm/v1/chat")
         headers = dict(provider_instance.headers or {})
         # Tag gateway requests so the server can attribute traffic to the judge

@@ -60,8 +60,6 @@ type PageHeaderProps = Pick<HeaderProps, 'dangerouslyAppendEmotionCSS'> & {
   title: React.ReactNode;
   breadcrumbs?: React.ReactNode[];
   preview?: boolean;
-  feedbackOrigin?: string;
-  infoPopover?: React.ReactNode;
   children?: React.ReactNode;
   spacerSize?: 'xs' | 'sm' | 'md' | 'lg';
   hideSpacer?: boolean;

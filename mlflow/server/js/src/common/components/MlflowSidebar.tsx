@@ -32,12 +32,14 @@ import { shouldEnableWorkflowBasedNavigation, shouldEnableWorkspaces } from '../
 import { AssistantSparkleIcon } from '../../assistant/AssistantIconButton';
 import { useAssistant } from '../../assistant/AssistantContext';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
+import { SETTINGS_RETURN_TO_PARAM, SETTINGS_SECTION_GENERAL } from '../../settings/settingsSectionConstants';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
 import { DOCS_ROOT, GenAIDocsUrl, MLDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
 import { MlflowSidebarGatewayItems } from './MlflowSidebarGatewayItems';
+import { MlflowSidebarSettingsItems } from './MlflowSidebarSettingsItems';
 import { MlflowSidebarWorkflowSwitch } from './MlflowSidebarWorkflowSwitch';
 
 const isInsideExperiment = (location: Location) =>
@@ -51,7 +53,11 @@ const isExperimentsActive = (location: Location) =>
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
 const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
 const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', location.pathname));
-const isSettingsActive = (location: Location) => Boolean(matchPath('/settings/*', location.pathname));
+const isSettingsActive = (location: Location) =>
+  Boolean(
+    matchPath({ path: '/settings', end: true }, location.pathname) ||
+    matchPath('/settings/:section', location.pathname),
+  );
 
 type MlFlowSidebarMenuDropdownComponentId =
   | 'mlflow_sidebar.create_experiment_button'
@@ -115,6 +121,7 @@ export function MlflowSidebar({
   // Use the current experimentId if inside an experiment, otherwise use the persisted one
   const activeExperimentId = isInsideExperiment(location) ? experimentId : lastSelectedExperimentIdRef.current;
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
+  const showNestedSettingsItems = isSettingsActive(location);
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -318,21 +325,25 @@ export function MlflowSidebar({
           }}
         >
           {showWorkspaceMenuItems &&
-            menuItems.map(
-              ({ key, icon, linkProps, componentId, nestedItems }) =>
-                nestedItems ?? (
-                  <MlflowSidebarLink
-                    key={componentId}
-                    to={linkProps.to}
-                    componentId={componentId}
-                    isActive={linkProps.isActive}
-                    icon={icon}
-                    collapsed={!showSidebar}
-                  >
-                    {linkProps.children}
-                  </MlflowSidebarLink>
-                ),
-            )}
+            (showNestedSettingsItems ? (
+              <MlflowSidebarSettingsItems collapsed={!showSidebar} />
+            ) : (
+              menuItems.map(
+                ({ icon, linkProps, componentId, nestedItems }) =>
+                  nestedItems ?? (
+                    <MlflowSidebarLink
+                      key={componentId}
+                      to={linkProps.to}
+                      componentId={componentId}
+                      isActive={linkProps.isActive}
+                      icon={icon}
+                      collapsed={!showSidebar}
+                    >
+                      {linkProps.children}
+                    </MlflowSidebarLink>
+                  ),
+              )
+            ))}
         </ul>
         <div>
           {isLocalServer && (
@@ -400,16 +411,18 @@ export function MlflowSidebar({
               <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
             </span>
           </MlflowSidebarLink>
-          <MlflowSidebarLink
-            css={{ paddingBlock: theme.spacing.sm }}
-            to={ExperimentTrackingRoutes.settingsPageRoute}
-            componentId="mlflow.sidebar.settings_tab_link"
-            isActive={isSettingsActive}
-            icon={<GearIcon />}
-            collapsed={!showSidebar}
-          >
-            <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
-          </MlflowSidebarLink>
+          {showWorkspaceMenuItems && !showNestedSettingsItems && (
+            <MlflowSidebarLink
+              css={{ paddingBlock: theme.spacing.sm }}
+              to={`${ExperimentTrackingRoutes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(location.pathname + location.search)}`}
+              componentId="mlflow.sidebar.settings_tab_link"
+              isActive={isSettingsActive}
+              icon={<GearIcon />}
+              collapsed={!showSidebar}
+            >
+              <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
+            </MlflowSidebarLink>
+          )}
         </div>
       </nav>
     </aside>

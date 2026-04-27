@@ -394,7 +394,7 @@ def test_infer_requirements_error_handling(env_var, fallbacks, should_raise, mon
             ["packageA[extras]", "packageB", "packageC<=2.0"],
         ),
         # Mixed versions and extras
-        (["markdown>=3.5.1", "markdown[extras]", "markdown<4"], ["markdown[extras]>=3.5.1,<4"]),
+        (["markdown>=3.5.1", "markdown[extras]", "markdown<4"], ["markdown[extras]<4,>=3.5.1"]),
         # Overlapping extras
         (
             ["packageZ[extra1]", "packageZ[extra2]", "packageZ"],
@@ -403,10 +403,10 @@ def test_infer_requirements_error_handling(env_var, fallbacks, should_raise, mon
         # No version on extras with final version on non-extras
         (
             ["markdown[extra1]", "markdown[extra2]", "markdown>3", "markdown<4"],
-            ["markdown[extra1,extra2]>3,<4"],
+            ["markdown[extra1,extra2]<4,>3"],
         ),
         # Version constraints with extras
-        (["markdown>1.0", "markdown[extras]<4"], ["markdown[extras]>1.0,<4"]),
+        (["markdown>1.0", "markdown[extras]<4"], ["markdown[extras]<4,>1.0"]),
         # Verify duplicate specifiers are not preserved
         (
             ["markdown==3.5.1", "markdown[extras]==3.5.1", "markdown[extras]"],
@@ -431,8 +431,14 @@ def test_infer_requirements_error_handling(env_var, fallbacks, should_raise, mon
                 "numpy>=1.0 ; python_version >= '3.10'",
                 "numpy<2.0 ; python_version >= '3.10'",
             ],
-            ['numpy>=1.0,<2.0; python_version >= "3.10"'],
+            ['numpy<2.0,>=1.0; python_version >= "3.10"'],
         ),
+        # Local version label on second entry - prefer non-local (PyPI-installable)
+        (["torch==2.7.1", "torch==2.7.1+cu128"], ["torch==2.7.1"]),
+        # Local version label on first entry - prefer non-local (PyPI-installable)
+        (["torch==2.7.1+cu128", "torch==2.7.1"], ["torch==2.7.1"]),
+        # Both have the same local label - should deduplicate normally
+        (["torch==2.7.1+cu128", "torch==2.7.1+cu128"], ["torch==2.7.1+cu128"]),
     ],
 )
 def test_deduplicate_requirements_resolve_correctly(input_requirements, expected):
@@ -450,6 +456,8 @@ def test_deduplicate_requirements_resolve_correctly(input_requirements, expected
         ["markdown<3", "markdown>3"],
         # Conflicting versions
         ["markdown==3.0", "markdown==3.5"],
+        # Differing local labels are a real conflict and should not be silently dropped
+        ["torch==2.7.1+cu128", "torch==2.7.1+cpu"],
     ],
 )
 def test_invalid_requirements_raise(input_requirements):
