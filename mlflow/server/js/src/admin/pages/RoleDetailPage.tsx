@@ -12,6 +12,8 @@ import {
   Input,
   Modal,
   PlusIcon,
+  SimpleSelect,
+  SimpleSelectOption,
   Spinner,
   Table,
   TableCell,
@@ -204,31 +206,22 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           <div>
             <Typography.Text bold>Resource Type</Typography.Text>
-            <DialogCombobox
+            <SimpleSelect
+              id="admin-role-add-permission-resource-type"
               componentId="admin.role.add_permission_resource_type"
-              label="Resource Type"
-              value={[newResourceType]}
+              value={newResourceType}
+              onChange={({ target }) => {
+                setNewResourceType(target.value);
+                // Workspace-scope grants only support the "*" pattern.
+                if (target.value === 'workspace') setNewResourcePattern('*');
+              }}
             >
-              <DialogComboboxTrigger />
-              <DialogComboboxContent>
-                <DialogComboboxOptionList>
-                  {RESOURCE_TYPES.map((rt) => (
-                    <DialogComboboxOptionListSelectItem
-                      key={rt}
-                      value={rt}
-                      checked={newResourceType === rt}
-                      onChange={() => {
-                        setNewResourceType(rt);
-                        // Workspace-scope grants only support the "*" pattern.
-                        if (rt === 'workspace') setNewResourcePattern('*');
-                      }}
-                    >
-                      {rt}
-                    </DialogComboboxOptionListSelectItem>
-                  ))}
-                </DialogComboboxOptionList>
-              </DialogComboboxContent>
-            </DialogCombobox>
+              {RESOURCE_TYPES.map((rt) => (
+                <SimpleSelectOption key={rt} value={rt}>
+                  {rt}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
           </div>
           {newResourceType !== 'workspace' && (
             <div>
@@ -243,23 +236,18 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
           )}
           <div>
             <Typography.Text bold>Permission</Typography.Text>
-            <DialogCombobox componentId="admin.role.add_permission_level" label="Permission" value={[newPermission]}>
-              <DialogComboboxTrigger />
-              <DialogComboboxContent>
-                <DialogComboboxOptionList>
-                  {PERMISSIONS.map((p) => (
-                    <DialogComboboxOptionListSelectItem
-                      key={p}
-                      value={p}
-                      checked={newPermission === p}
-                      onChange={() => setNewPermission(p)}
-                    >
-                      {p}
-                    </DialogComboboxOptionListSelectItem>
-                  ))}
-                </DialogComboboxOptionList>
-              </DialogComboboxContent>
-            </DialogCombobox>
+            <SimpleSelect
+              id="admin-role-add-permission-level"
+              componentId="admin.role.add_permission_level"
+              value={newPermission}
+              onChange={({ target }) => setNewPermission(target.value)}
+            >
+              {PERMISSIONS.map((p) => (
+                <SimpleSelectOption key={p} value={p}>
+                  {p}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
           </div>
         </div>
       </Modal>
@@ -278,27 +266,18 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
         {editingPermission && (
           <div>
             <Typography.Text bold>Permission Level</Typography.Text>
-            <DialogCombobox
+            <SimpleSelect
+              id="admin-role-edit-permission-level"
               componentId="admin.role.edit_permission_level"
-              label="Permission"
-              value={[editingPermission.permission]}
+              value={editingPermission.permission}
+              onChange={({ target }) => setEditingPermission({ ...editingPermission, permission: target.value })}
             >
-              <DialogComboboxTrigger />
-              <DialogComboboxContent>
-                <DialogComboboxOptionList>
-                  {PERMISSIONS.map((p) => (
-                    <DialogComboboxOptionListSelectItem
-                      key={p}
-                      value={p}
-                      checked={editingPermission.permission === p}
-                      onChange={() => setEditingPermission({ ...editingPermission, permission: p })}
-                    >
-                      {p}
-                    </DialogComboboxOptionListSelectItem>
-                  ))}
-                </DialogComboboxOptionList>
-              </DialogComboboxContent>
-            </DialogCombobox>
+              {PERMISSIONS.map((p) => (
+                <SimpleSelectOption key={p} value={p}>
+                  {p}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
           </div>
         )}
       </Modal>
