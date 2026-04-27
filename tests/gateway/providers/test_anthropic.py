@@ -18,7 +18,7 @@ from mlflow.gateway.providers.anthropic import (
     _enforce_strict_schema,
     _UnsupportedSchemaError,
 )
-from mlflow.gateway.providers.base import PassthroughAction
+from mlflow.gateway.providers.base import PassthroughAction, _client_provides_auth
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
@@ -68,6 +68,53 @@ def parsed_completions_response():
         ],
         "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # Known CLI tools with auth header → True
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)", "x-api-key": "key"}, True),
+        ({"user-agent": "Codex-Desktop/26.422.2437.0", "authorization": "Bearer key"}, True),
+        (
+            {
+                "user-agent": "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+                "x-goog-api-key": "key",
+            },
+            True,
+        ),
+        # Known CLI tool but no auth header → False
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)"}, False),
+        # Unknown user-agent with auth header → False
+        ({"user-agent": "python-httpx/0.27.0", "authorization": "Bearer key"}, False),
+        # Empty / missing headers → False
+        ({}, False),
+        (None, False),
+    ],
+)
+def test_client_provides_auth(headers, expected):
+    assert _client_provides_auth(headers) == expected
+
+
+def test_get_headers_uses_server_key_by_default():
+    provider = AnthropicProvider(EndpointConfig(**completions_config()))
+    merged = provider._get_headers(headers={"x-api-key": "client-key", "X-Custom": "value"})
+    assert merged["x-api-key"] == "key"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = AnthropicProvider(EndpointConfig(**completions_config()))
+    merged = provider._get_headers(headers={"x-api-key": "client-key", "user-agent": user_agent})
+    assert merged["x-api-key"] == "client-key"
 
 
 @pytest.mark.asyncio

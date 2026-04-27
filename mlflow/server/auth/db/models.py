@@ -35,9 +35,38 @@ class SqlUser(Base):
     username = Column(String(255), unique=True)
     password_hash = Column(String(255))
     is_admin = Column(Boolean, default=False)
-    experiment_permissions = relationship("SqlExperimentPermission", backref="users")
-    registered_model_permissions = relationship("SqlRegisteredModelPermission", backref="users")
-    scorer_permissions = relationship("SqlScorerPermission", backref="users")
+    # Eight tables reference users.id via non-nullable FKs. ``session.delete(user)``
+    # cleans up children only for relationships declared here with
+    # ``cascade="all, delete-orphan"``; if any of these is missing, the user delete
+    # will fail with a NOT NULL or FK violation. Keep this list in sync with every
+    # table that adds a ``ForeignKey("users.id")``.
+    experiment_permissions = relationship(
+        "SqlExperimentPermission", backref="user", cascade="all, delete-orphan"
+    )
+    registered_model_permissions = relationship(
+        "SqlRegisteredModelPermission", backref="user", cascade="all, delete-orphan"
+    )
+    scorer_permissions = relationship(
+        "SqlScorerPermission", backref="user", cascade="all, delete-orphan"
+    )
+    gateway_secret_permissions = relationship(
+        "SqlGatewaySecretPermission", backref="user", cascade="all, delete-orphan"
+    )
+    gateway_endpoint_permissions = relationship(
+        "SqlGatewayEndpointPermission", backref="user", cascade="all, delete-orphan"
+    )
+    gateway_model_definition_permissions = relationship(
+        "SqlGatewayModelDefinitionPermission", backref="user", cascade="all, delete-orphan"
+    )
+    workspace_permissions = relationship(
+        "SqlWorkspacePermission", backref="user", cascade="all, delete-orphan"
+    )
+    user_role_assignments = relationship(
+        "SqlUserRoleAssignment",
+        backref="user",
+        foreign_keys="SqlUserRoleAssignment.user_id",
+        cascade="all, delete-orphan",
+    )
 
     def to_mlflow_entity(self):
         return User(

@@ -240,7 +240,7 @@ docs = [
 [tool.uv]
 exclude-newer = "P14D"
 exclude-newer-package = { torch = false, torchvision = false }
-required-version = ">=0.10.12"
+required-version = ">=0.11.7"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
