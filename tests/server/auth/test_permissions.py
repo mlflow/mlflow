@@ -3,6 +3,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.permissions import (
     ALL_PERMISSIONS,
+    CONTRIBUTE,
     EDIT,
     MANAGE,
     NO_PERMISSIONS,
@@ -19,7 +20,7 @@ from mlflow.server.auth.permissions import (
 # ---- Permission hierarchy ---------------------------------------------------
 
 # The canonical ordering the rest of the auth layer relies on.
-_EXPECTED_ORDER = [NO_PERMISSIONS, READ, USE, EDIT, MANAGE]
+_EXPECTED_ORDER = [NO_PERMISSIONS, READ, USE, CONTRIBUTE, EDIT, MANAGE]
 
 
 def test_permission_priority_is_total_order():
@@ -29,27 +30,38 @@ def test_permission_priority_is_total_order():
 
 
 @pytest.mark.parametrize(
-    ("permission", "can_read", "can_use", "can_update", "can_delete", "can_manage"),
+    (
+        "permission",
+        "can_read",
+        "can_use",
+        "can_create",
+        "can_update",
+        "can_delete",
+        "can_manage",
+    ),
     [
-        (NO_PERMISSIONS, False, False, False, False, False),
-        (READ, True, False, False, False, False),
-        (USE, True, True, False, False, False),
-        (EDIT, True, True, True, False, False),
-        (MANAGE, True, True, True, True, True),
+        (NO_PERMISSIONS, False, False, False, False, False, False),
+        (READ, True, False, False, False, False, False),
+        (USE, True, True, False, False, False, False),
+        (CONTRIBUTE, True, True, True, False, False, False),
+        (EDIT, True, True, True, True, False, False),
+        (MANAGE, True, True, True, True, True, True),
     ],
 )
 def test_permission_capability_matrix(
-    permission, can_read, can_use, can_update, can_delete, can_manage
+    permission, can_read, can_use, can_create, can_update, can_delete, can_manage
 ):
     """Each permission level exposes exactly the capabilities it should.
 
-    This pins the capability semantics: upgrading READ → USE adds can_use,
-    USE → EDIT adds can_update, EDIT → MANAGE adds can_delete AND can_manage.
-    If a capability bit shifts without the corresponding test update, this
-    catches it.
+    This pins the capability semantics: USE adds can_use over READ;
+    CONTRIBUTE adds can_create over USE (without can_update — the key
+    property that lets workspace-wide CONTRIBUTE pair with creator-as-owner
+    for a "WRITE/DELETE only own" pattern); EDIT adds can_update over
+    CONTRIBUTE; MANAGE adds can_delete and can_manage over EDIT.
     """
     assert permission.can_read is can_read
     assert permission.can_use is can_use
+    assert permission.can_create is can_create
     assert permission.can_update is can_update
     assert permission.can_delete is can_delete
     assert permission.can_manage is can_manage
@@ -75,11 +87,13 @@ def test_all_permissions_dict_is_complete():
         ("MANAGE", "MANAGE", "MANAGE"),
         # Higher on the right wins.
         ("READ", "USE", "USE"),
-        ("USE", "EDIT", "EDIT"),
+        ("USE", "CONTRIBUTE", "CONTRIBUTE"),
+        ("CONTRIBUTE", "EDIT", "EDIT"),
         ("EDIT", "MANAGE", "MANAGE"),
         # Higher on the left wins.
         ("USE", "READ", "USE"),
-        ("EDIT", "USE", "EDIT"),
+        ("CONTRIBUTE", "USE", "CONTRIBUTE"),
+        ("EDIT", "CONTRIBUTE", "EDIT"),
         ("MANAGE", "EDIT", "MANAGE"),
         # NO_PERMISSIONS loses to everything — a user with any active grant
         # beats an explicit deny.

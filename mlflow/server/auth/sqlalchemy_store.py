@@ -1185,6 +1185,38 @@ class SqlAlchemyStore:
                 return None
             return get_permission(best_permission_name)
 
+    def user_has_can_create_in_workspace(
+        self, user_id: int, resource_type: str, workspace: str
+    ) -> bool:
+        """
+        True if the user has any role grant in ``workspace`` whose permission level
+        includes ``can_create`` and whose pattern enables creation of ``resource_type``:
+
+        - ``(workspace, *, X)`` where ``X.can_create`` — applies to every resource type
+        - ``(resource_type, *, X)`` where ``X.can_create`` — type-scoped create grant
+
+        Direct ``SqlWorkspacePermission`` rows are checked separately by the caller via
+        ``_workspace_permission`` so this function only inspects role grants.
+        """
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session
+                .query(SqlRolePermission)
+                .join(SqlRole, SqlRolePermission.role_id == SqlRole.id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                    SqlRolePermission.resource_pattern == "*",
+                    or_(
+                        SqlRolePermission.resource_type == "workspace",
+                        SqlRolePermission.resource_type == resource_type,
+                    ),
+                )
+                .all()
+            )
+            return any(get_permission(r.permission).can_create for r in rows)
+
     @staticmethod
     def _workspace_admin_workspaces(session, user_id: int) -> set[str]:
         """

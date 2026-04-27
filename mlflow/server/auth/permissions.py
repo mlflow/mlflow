@@ -9,6 +9,7 @@ class Permission:
     name: str
     can_read: bool
     can_use: bool
+    can_create: bool
     can_update: bool
     can_delete: bool
     can_manage: bool
@@ -18,6 +19,7 @@ READ = Permission(
     name="READ",
     can_read=True,
     can_use=False,
+    can_create=False,
     can_update=False,
     can_delete=False,
     can_manage=False,
@@ -27,6 +29,23 @@ USE = Permission(
     name="USE",
     can_read=True,
     can_use=True,
+    can_create=False,
+    can_update=False,
+    can_delete=False,
+    can_manage=False,
+)
+
+# Strict superset of USE (adds can_create), strict subset of EDIT (lacks
+# can_update). Pairs with creator-as-owner: a user with workspace-wide
+# CONTRIBUTE can create new resources, automatically owns them via the
+# AFTER_REQUEST_PATH_HANDLERS that grant the creator MANAGE on the new row,
+# and cannot touch other users' resources because CONTRIBUTE.can_update is
+# False.
+CONTRIBUTE = Permission(
+    name="CONTRIBUTE",
+    can_read=True,
+    can_use=True,
+    can_create=True,
     can_update=False,
     can_delete=False,
     can_manage=False,
@@ -36,6 +55,7 @@ EDIT = Permission(
     name="EDIT",
     can_read=True,
     can_use=True,
+    can_create=True,
     can_update=True,
     can_delete=False,
     can_manage=False,
@@ -45,6 +65,7 @@ MANAGE = Permission(
     name="MANAGE",
     can_read=True,
     can_use=True,
+    can_create=True,
     can_update=True,
     can_delete=True,
     can_manage=True,
@@ -54,6 +75,7 @@ NO_PERMISSIONS = Permission(
     name="NO_PERMISSIONS",
     can_read=False,
     can_use=False,
+    can_create=False,
     can_update=False,
     can_delete=False,
     can_manage=False,
@@ -62,6 +84,7 @@ NO_PERMISSIONS = Permission(
 ALL_PERMISSIONS = {
     READ.name: READ,
     USE.name: USE,
+    CONTRIBUTE.name: CONTRIBUTE,
     EDIT.name: EDIT,
     MANAGE.name: MANAGE,
     NO_PERMISSIONS.name: NO_PERMISSIONS,
@@ -76,8 +99,9 @@ PERMISSION_PRIORITY = {
     NO_PERMISSIONS.name: 0,
     READ.name: 1,
     USE.name: 2,
-    EDIT.name: 3,
-    MANAGE.name: 4,
+    CONTRIBUTE.name: 3,
+    EDIT.name: 4,
+    MANAGE.name: 5,
 }
 
 VALID_RESOURCE_TYPES = frozenset({

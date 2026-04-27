@@ -10,7 +10,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server import auth as auth_module
-from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ
+from mlflow.server.auth.permissions import CONTRIBUTE, EDIT, MANAGE, NO_PERMISSIONS, READ
 from mlflow.server.auth.routes import (
     CREATE_PROMPTLAB_RUN,
     GET_ARTIFACT,
@@ -97,14 +97,15 @@ def test_seed_default_workspace_roles_happy_path(monkeypatch):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
     names = [r["name"] for r in created_roles]
-    assert names == ["workspace-admin", "editor", "viewer"]
+    assert names == ["workspace-admin", "editor", "contributor", "viewer"]
     assert all(r["workspace"] == workspace_name for r in created_roles)
 
-    # All three roles use resource_type='workspace' (the only supported workspace-wide
+    # All four roles use resource_type='workspace' (the only supported workspace-wide
     # resource_type in VALID_RESOURCE_TYPES). The permission level differentiates them.
     assert [(p["resource_type"], p["permission"]) for p in added_perms] == [
         ("workspace", MANAGE.name),
         ("workspace", EDIT.name),
+        ("workspace", CONTRIBUTE.name),
         ("workspace", READ.name),
     ]
     assert all(p["resource_pattern"] == "*" for p in added_perms)
@@ -165,8 +166,8 @@ def test_seed_default_workspace_roles_admin_creation_fails_still_seeds_others(mo
     with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
-    # editor and viewer still got created (best-effort seeding).
-    assert mock_add_role_permission.call_count == 2
+    # editor, contributor, and viewer still got created (best-effort seeding).
+    assert mock_add_role_permission.call_count == 3
 
 
 def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monkeypatch):
@@ -177,7 +178,7 @@ def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monke
 
     def fake_create_role(name, workspace, description=None):
         return SimpleNamespace(
-            id={"workspace-admin": 1, "editor": 2, "viewer": 3}[name],
+            id={"workspace-admin": 1, "editor": 2, "contributor": 3, "viewer": 4}[name],
             name=name,
             workspace=workspace,
         )
@@ -664,6 +665,121 @@ def test_experiment_validators_read_permission_blocks_writes(workspace_permissio
         query_string={"experiment_name": "Primary Experiment"},
     ):
         assert auth_module.validate_can_read_experiment_by_name()
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert not auth_module.validate_can_create_experiment()
+
+
+def test_contribute_workspace_permission_allows_create(workspace_permission_setup):
+    """A direct ``(workspace, *, CONTRIBUTE)`` row should allow create_experiment and
+    create_registered_model, but not update/delete on existing resources owned by
+    others.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, CONTRIBUTE.name)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+        assert auth_module.validate_can_create_registered_model()
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
+    ):
+        # CONTRIBUTE preserves read; non-owned resources stay read-only.
+        assert auth_module.validate_can_read_experiment()
+        assert not auth_module.validate_can_update_experiment()
+        assert not auth_module.validate_can_delete_experiment()
+
+
+def test_edit_workspace_permission_allows_create(workspace_permission_setup):
+    # EDIT subsumes CONTRIBUTE: can_create is True at this level too.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, EDIT.name)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+        assert auth_module.validate_can_create_registered_model()
+
+
+def test_role_grant_workspace_contribute_allows_create(workspace_permission_setup, monkeypatch):
+    """Role grant ``(workspace, *, CONTRIBUTE)`` with no direct workspace permission
+    row should still allow create. Latent-bug-adjacent behavior: previously the
+    create validator only consulted direct rows.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="ws-contributor", workspace="team-a")
+    store.add_role_permission(role.id, "workspace", "*", CONTRIBUTE.name)
+    store.assign_role_to_user(user_id, role.id)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+        assert auth_module.validate_can_create_registered_model()
+
+
+def test_role_grant_resource_type_contribute_is_type_scoped(
+    workspace_permission_setup, monkeypatch
+):
+    """Role grant ``(experiment, *, CONTRIBUTE)`` should allow create_experiment but
+    not create_registered_model — CREATE on a resource_type-scoped role grant only
+    applies to that type.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="exp-contributor", workspace="team-a")
+    store.add_role_permission(role.id, "experiment", "*", CONTRIBUTE.name)
+    store.assign_role_to_user(user_id, role.id)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+        assert not auth_module.validate_can_create_registered_model()
+
+
+def test_role_grant_workspace_manage_allows_create_without_direct_row(
+    workspace_permission_setup, monkeypatch
+):
+    """Regression: a role-only ``(workspace, *, MANAGE)`` grant should allow create
+    even when the user has no direct ``SqlWorkspacePermission`` row. Previously the
+    validator only consulted the direct row, which silently denied this case.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="ws-admin", workspace="team-a")
+    store.add_role_permission(role.id, "workspace", "*", MANAGE.name)
+    store.assign_role_to_user(user_id, role.id)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+        assert auth_module.validate_can_create_registered_model()
+
+
+def test_role_grant_read_only_blocks_create(workspace_permission_setup, monkeypatch):
+    """Sanity: a wildcard READ role grant lets the user list/read everything but
+    does not unlock create.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="exp-reader", workspace="team-a")
+    store.add_role_permission(role.id, "experiment", "*", READ.name)
+    store.assign_role_to_user(user_id, role.id)
 
     with workspace_context.WorkspaceContext("team-a"):
         assert not auth_module.validate_can_create_experiment()

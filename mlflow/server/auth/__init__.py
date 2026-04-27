@@ -180,6 +180,7 @@ from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_
 from mlflow.server.auth.entities import User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
+    CONTRIBUTE,
     EDIT,
     MANAGE,
     NO_PERMISSIONS,
@@ -560,6 +561,35 @@ def _workspace_permission(
             e,
         )
         return NO_PERMISSIONS
+
+
+def _user_can_create_in_workspace(
+    username: str | None, workspace_name: str, resource_type: str
+) -> bool:
+    """
+    True if the user is authorized to create new resources of ``resource_type`` in the
+    given workspace. Considers both the direct ``SqlWorkspacePermission`` row and any
+    workspace-wide / type-scoped role grant whose level includes ``can_create``.
+
+    Mirrors the resolver shape: a workspace-wide grant via roles must work even when
+    the user has no direct ``workspace_permissions`` row.
+    """
+    if username is None:
+        return False
+    direct = _workspace_permission(username, workspace_name)
+    if direct is not None and direct.can_create:
+        return True
+    try:
+        user = store.get_user(username)
+    except MlflowException as e:
+        _logger.warning(
+            "Failed to load user '%s' while checking create permission: %s. "
+            "Denying access for security.",
+            username,
+            e,
+        )
+        return False
+    return store.user_has_can_create_in_workspace(user.id, resource_type, workspace_name)
 
 
 def _get_resource_workspace(
@@ -1161,8 +1191,9 @@ def validate_can_create_experiment() -> bool:
     if workspace_name is None:
         return False
 
-    perm = _workspace_permission(authenticate_request().username, workspace_name)
-    return perm is not None and perm.can_manage
+    return _user_can_create_in_workspace(
+        authenticate_request().username, workspace_name, "experiment"
+    )
 
 
 def validate_can_create_registered_model() -> bool:
@@ -1176,8 +1207,9 @@ def validate_can_create_registered_model() -> bool:
     if workspace_name is None:
         return False
 
-    perm = _workspace_permission(authenticate_request().username, workspace_name)
-    return perm is not None and perm.can_manage
+    return _user_can_create_in_workspace(
+        authenticate_request().username, workspace_name, "registered_model"
+    )
 
 
 def validate_can_view_workspace() -> bool:
@@ -2539,6 +2571,14 @@ def filter_list_workspaces(resp: Response) -> None:
 _DEFAULT_WORKSPACE_ROLES = (
     ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
     ("editor", EDIT.name, "EDIT access to every resource in the workspace."),
+    (
+        "contributor",
+        CONTRIBUTE.name,
+        # Pairs with creator-as-owner: a CONTRIBUTOR can create new resources and gets
+        # MANAGE on the rows they create, but cannot update or delete resources owned
+        # by other users in the workspace.
+        "Create new resources; manage your own. No access to other users' resources.",
+    ),
     ("viewer", READ.name, "READ access to every resource in the workspace."),
 )
 
