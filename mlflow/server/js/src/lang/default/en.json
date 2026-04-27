@@ -203,6 +203,14 @@
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
   },
+  "/G5U/E": {
+    "defaultMessage": "Roles",
+    "description": "Users table roles header — comma-separated role names per user"
+  },
+  "/GoAHa": {
+    "defaultMessage": "Admin",
+    "description": "Sidebar link: Settings > Admin"
+  },
   "/HeTx7": {
     "defaultMessage": "Create",
     "description": "Create webhook confirm button"
@@ -1723,10 +1731,6 @@
     "defaultMessage": "Time (Wall)",
     "description": "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
   },
-  "8hEm5i": {
-    "defaultMessage": "Admin",
-    "description": "Sidebar link for admin page"
-  },
   "8hpS0b": {
     "defaultMessage": "Pin group",
     "description": "A tooltip for the pin icon button in the runs table next to the not pinned run group"
@@ -2090,10 +2094,6 @@
   "Ai/ANo": {
     "defaultMessage": "Usage",
     "description": "Page title"
-  },
-  "AmL+TE": {
-    "defaultMessage": "Account",
-    "description": "Sidebar link for account page"
   },
   "AoDwev": {
     "defaultMessage": "Description (optional)",
@@ -4531,6 +4531,10 @@
     "defaultMessage": "No experiments found",
     "description": "Label for the empty state in the experiments table when no experiments are found"
   },
+  "QSrkjY": {
+    "defaultMessage": "Workspace Manager",
+    "description": "Roles table column flagging roles that grant workspace-level MANAGE"
+  },
   "QTlkBW": {
     "defaultMessage": "Path",
     "description": "Table header for the JSON property path column in the collapsible JSON viewer"
@@ -5490,6 +5494,10 @@
   "WQwCH6": {
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
+  },
+  "WUy9f3": {
+    "defaultMessage": "Account",
+    "description": "Sidebar link: Settings > Account"
   },
   "WVUF2N": {
     "defaultMessage": "Are you sure you want to delete the prompt?",
@@ -9091,10 +9099,6 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
-  "rNrKMb": {
-    "defaultMessage": "Admin Role",
-    "description": "Roles table admin role header"
-  },
   "rOj9V6": {
     "defaultMessage": "Define your own guardrail with a custom name and instructions.",
     "description": "Custom guardrail type description"
@@ -9450,6 +9454,10 @@
   "tUDgmf": {
     "defaultMessage": "Select one or more sessions to perform actions.",
     "description": "Tooltip shown when actions button is disabled due to no session selection"
+  },
+  "tZKdkj": {
+    "defaultMessage": "Delete selected ({count})",
+    "description": "Bulk-delete button on the users table"
   },
   "ta42Qe": {
     "defaultMessage": "Active",
@@ -9830,6 +9838,10 @@
   "wFvyI1": {
     "defaultMessage": "Registered at:",
     "description": "A label for the registration timestamp in the prompt details page"
+  },
+  "wHanrz": {
+    "defaultMessage": "Delete selected ({count})",
+    "description": "Bulk-delete button on the roles table"
   },
   "wJX0a/": {
     "defaultMessage": "Provider",
