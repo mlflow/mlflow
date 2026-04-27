@@ -27,6 +27,21 @@ enum JobStatus {
 
   // Job was canceled by user.
   JOB_STATUS_CANCELED = 5;
+
+  // Job backend work may still exist, but the current watcher is unresponsive.
+  JOB_STATUS_NEEDS_RECOVERY = 6;
+}
+
+// Structured best-effort progress payload for a running job.
+message JobProgress {
+  // Current phase or stage of the job, e.g. ``"scoring traces"``.
+  optional string phase = 1;
+  // Amount of work completed so far, e.g. ``42``.
+  optional int64 completed = 2;
+  // Total amount of work, if known, e.g. ``100``.
+  optional int64 total = 3;
+  // Unit for the ``completed`` and ``total`` values, e.g. ``"trace"`` or ``"file"``.
+  optional string unit = 4;
 }
 
 // Generic job state message combining status with metadata.
@@ -35,11 +50,19 @@ message JobState {
   // Current status of the job.
   optional JobStatus status = 1;
 
-  // Error message if the job failed.
-  // Only set when status is JOB_STATUS_FAILED.
+  // Error message for a terminal failure or timeout outcome, when available.
   optional string error_message = 2;
 
   // Additional metadata as key-value pairs.
   // Can be used to store job-specific state information.
   map<string, string> metadata = 3;
+
+  // Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.
+  optional string status_message = 4;
+
+  // Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.
+  optional JobProgress progress = 5;
+
+  // Timestamp of the latest progress update in milliseconds since epoch.
+  optional int64 progress_updated_at = 6;
 }

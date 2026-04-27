@@ -96,7 +96,7 @@ CREATE TABLE jobs (
 	executor_backend VARCHAR(255),
 	lease_expires_at BIGINT,
 	status_message TEXT,
-	progress_payload JSON,
+	progress JSON,
 	progress_updated_at BIGINT,
 	token_hash VARCHAR(64),
 	scoped_permissions JSON,
