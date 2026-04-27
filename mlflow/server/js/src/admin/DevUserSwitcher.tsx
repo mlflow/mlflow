@@ -22,6 +22,7 @@ const CREDENTIALS_STORAGE_KEY = 'admin.dev-user-credentials';
 const CREDENTIALS_STORAGE_VERSION = 1;
 const MLFLOW_USER_COOKIE = 'mlflow_user';
 const AUTH_HEADER_COOKIE = 'mlflow-request-header-Authorization';
+const FALLBACK_ADMIN_USERNAME = 'admin';
 
 const getStoredCredentials = (): Record<string, string> =>
   getLocalStorageItem<Record<string, string>>(CREDENTIALS_STORAGE_KEY, CREDENTIALS_STORAGE_VERSION, false, {});
@@ -70,10 +71,10 @@ export const DevUserSwitcher = () => {
   );
 
   const handleSwitch = useCallback(
-    (username: string) => {
+    (username: string, options: { forcePrompt?: boolean } = {}) => {
       const stored = getStoredCredentials();
       const password = stored[username];
-      if (password) {
+      if (password && !options.forcePrompt) {
         completeSwitch(username, password);
       } else {
         setPasswordInput('');
@@ -127,7 +128,7 @@ export const DevUserSwitcher = () => {
             componentId="dev.user_switcher.error"
             type="warning"
             message="Can't list users"
-            description="Requires admin access."
+            description="Requires admin access. Switch to admin below to recover."
           />
         )}
         {!isLoading && !error && users.length === 0 && (
@@ -135,16 +136,25 @@ export const DevUserSwitcher = () => {
             No users found.
           </Typography.Text>
         )}
-        {users.map((user) => {
+        {(error
+          ? [
+              { username: FALLBACK_ADMIN_USERNAME, is_admin: true },
+              ...(currentUsername && currentUsername !== FALLBACK_ADMIN_USERNAME
+                ? [{ username: currentUsername, is_admin: false }]
+                : []),
+            ]
+          : users
+        ).map((user) => {
           const isActive = user.username === currentUsername;
+          const isFallback = Boolean(error);
           return (
             <div
               key={user.username}
               role="button"
               tabIndex={0}
-              onClick={() => handleSwitch(user.username)}
+              onClick={() => handleSwitch(user.username, { forcePrompt: isFallback })}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') handleSwitch(user.username);
+                if (e.key === 'Enter' || e.key === ' ') handleSwitch(user.username, { forcePrompt: isFallback });
               }}
               css={{
                 display: 'flex',

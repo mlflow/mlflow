@@ -727,6 +727,7 @@ module.exports = {
   "admin.users.bulk_delete_button":
     "Toolbar button that opens the bulk-delete users confirmation modal",
   "admin.users.bulk_delete_modal": "Confirmation modal for deleting multiple selected users",
+  "admin.users.bulk_delete_self_warning": "",
   "admin.users.create_button": "Button that opens the create-user modal on the users tab",
   "admin.users.create_modal": "Modal for creating a new user",
   "admin.users.create_modal.error": "Inline error alert inside the create-user modal",
@@ -735,6 +736,7 @@ module.exports = {
   "admin.users.delete_button": "Button that opens the delete-user confirmation modal",
   "admin.users.delete_modal": "Confirmation modal for deleting a user",
   "admin.users.delete_modal.error": "Inline error alert inside the delete-user modal",
+  "admin.users.delete_self_warning": "",
   "admin.users.error": "Inline error alert on the users tab",
   "admin.users.query_error": "Error alert shown when the users list query fails",
   "admin.users.roles_header":
