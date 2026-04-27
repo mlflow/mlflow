@@ -1068,6 +1068,7 @@ async def anthropic_passthrough_messages(request: Request):
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
             on_complete=make_budget_on_complete(store, workspace),
+            message_format="anthropic",
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -1080,6 +1081,7 @@ async def anthropic_passthrough_messages(request: Request):
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
         on_complete=make_budget_on_complete(store, workspace),
+        message_format="anthropic",
     )
     return await traced_passthrough(
         action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
@@ -1130,6 +1132,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
         on_complete=make_budget_on_complete(store, workspace),
+        message_format="gemini",
     )
     return await traced_passthrough(
         action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
@@ -1190,6 +1193,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
         on_complete=make_budget_on_complete(store, workspace),
+        message_format="gemini",
     )
     return StreamingResponse(
         safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
