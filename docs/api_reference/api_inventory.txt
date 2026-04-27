@@ -668,6 +668,7 @@ mlflow.entities.issue.Issue
 mlflow.entities.issue.IssueSeverity
 mlflow.entities.issue.IssueStatus
 mlflow.entities.lifecycle_stage.LifecycleStage
+mlflow.entities.link.Link
 mlflow.entities.logged_model.LoggedModel
 mlflow.entities.logged_model_input.LoggedModelInput
 mlflow.entities.logged_model_output.LoggedModelOutput

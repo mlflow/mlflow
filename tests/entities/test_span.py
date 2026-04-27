@@ -866,7 +866,7 @@ def test_span_from_dict_without_links():
     immutable_span = span.to_immutable_span()
     span_dict = immutable_span.to_dict()
 
-    assert "links" not in span_dict
+    assert span_dict["links"] == []
 
     reconstructed_span = Span.from_dict(span_dict)
     assert len(reconstructed_span.links) == 0

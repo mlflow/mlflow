@@ -288,11 +288,8 @@ class Span:
             # Read raw values directly from the OTel span to skip a full json.loads pass
             # over every attribute that self.attributes would trigger via get_all().
             "attributes": dict(self._span.attributes),
+            "links": [link.to_dict() for link in self.links],
         }
-
-        # Only include links if present (backward compatibility)
-        if self.links:
-            result["links"] = [link.to_dict() for link in self.links]
 
         return result
 
