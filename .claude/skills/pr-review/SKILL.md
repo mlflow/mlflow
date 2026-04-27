@@ -78,9 +78,9 @@ Classify each finding by severity (matches `.github/instructions/code-review.ins
 
 Then:
 
-- **No findings** → skip to step 6 (approve)
-- **Only MODERATE/NIT findings** → step 5 (add comments), then step 6 (approve)
-- **Any CRITICAL finding** → step 5 (add comments); do NOT approve
+- **No findings** -> skip to step 6 (approve)
+- **Only MODERATE/NIT findings** -> step 5 (add comments), then step 6 (approve)
+- **Any CRITICAL finding** -> step 5 (add comments); do NOT approve
 
 ### 5. Add Review Comments
 
