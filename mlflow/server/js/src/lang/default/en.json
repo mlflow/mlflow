@@ -3755,10 +3755,6 @@
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
     "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
   },
-  "LntqjV": {
-    "defaultMessage": "Update Password",
-    "description": "Button to update password"
-  },
   "LpdcPw": {
     "defaultMessage": "Model versions",
     "description": "Label for the model versions of a logged model on the logged model details page"
@@ -8198,6 +8194,10 @@
   "mKV9T/": {
     "defaultMessage": "of",
     "description": "Connector between dict and value type"
+  },
+  "mLeTrI": {
+    "defaultMessage": "Change password",
+    "description": "Button to open the change password modal"
   },
   "mLr9U7": {
     "defaultMessage": "Learn more.",

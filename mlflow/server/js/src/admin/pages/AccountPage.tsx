@@ -4,6 +4,7 @@ import {
   Button,
   Empty,
   Input,
+  Modal,
   Spinner,
   Table,
   TableCell,
@@ -32,6 +33,15 @@ const AccountPage = () => {
   const { data: currentUserData } = useCurrentUserQuery();
   const username = currentUserData?.user?.username ?? '';
 
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+
+  const closeChangePassword = () => {
+    setChangePasswordOpen(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setError(null);
+  };
+
   const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
   const roles = rolesData?.roles ?? [];
 
@@ -54,6 +64,7 @@ const AccountPage = () => {
       setSuccessMessage('Password updated successfully');
       setNewPassword('');
       setConfirmPassword('');
+      setChangePasswordOpen(false);
     } catch (e: any) {
       setError(e.message || 'Failed to update password');
     }
@@ -133,42 +144,57 @@ const AccountPage = () => {
           />
         )}
 
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, maxWidth: 600 }}>
-          <Typography.Title withoutMargins level={4}>
-            Change Password
-          </Typography.Title>
-          <div>
-            <Typography.Text bold>New Password</Typography.Text>
-            <Input
-              componentId="account.new_password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password"
-            />
-          </div>
-          <div>
-            <Typography.Text bold>Confirm Password</Typography.Text>
-            <Input
-              componentId="account.confirm_password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
-            />
-          </div>
-          <div>
-            <Button
-              componentId="account.change_password_button"
-              type="primary"
-              onClick={handleChangePassword}
-              loading={updatePassword.isLoading}
-              disabled={!username}
-            >
-              <FormattedMessage defaultMessage="Update Password" description="Button to update password" />
-            </Button>
-          </div>
+        <div>
+          <Button
+            componentId="account.change_password_button"
+            type="primary"
+            onClick={() => setChangePasswordOpen(true)}
+            disabled={!username}
+          >
+            <FormattedMessage defaultMessage="Change password" description="Button to open the change password modal" />
+          </Button>
         </div>
+        <Modal
+          componentId="account.change_password_modal"
+          title="Change password"
+          visible={changePasswordOpen}
+          onCancel={closeChangePassword}
+          onOk={handleChangePassword}
+          okText="Update password"
+          confirmLoading={updatePassword.isLoading}
+        >
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            {error && (
+              <Alert
+                componentId="account.change_password_modal.error"
+                type="error"
+                message={error}
+                closable
+                onClose={() => setError(null)}
+              />
+            )}
+            <div>
+              <Typography.Text bold>New password</Typography.Text>
+              <Input
+                componentId="account.new_password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+              />
+            </div>
+            <div>
+              <Typography.Text bold>Confirm password</Typography.Text>
+              <Input
+                componentId="account.confirm_password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+              />
+            </div>
+          </div>
+        </Modal>
 
         {username && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
