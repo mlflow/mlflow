@@ -26,7 +26,7 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import AdminRoutes from '../../admin/routes';
-import { useCurrentUserIsAdmin } from '../../admin/hooks';
+import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../admin/hooks';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -129,6 +129,7 @@ export function MlflowSidebar({
   const showNestedSettingsItems = isSettingsActive(location);
 
   const isAdmin = useCurrentUserIsAdmin();
+  const isAuthAvailable = useIsAuthAvailable();
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -418,7 +419,7 @@ export function MlflowSidebar({
               <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
             </span>
           </MlflowSidebarLink>
-          {isAdmin && (
+          {isAuthAvailable && isAdmin && (
             <MlflowSidebarLink
               disableWorkspacePrefix
               css={{ paddingBlock: theme.spacing.sm }}
@@ -431,17 +432,19 @@ export function MlflowSidebar({
               <FormattedMessage defaultMessage="Admin" description="Sidebar link for admin page" />
             </MlflowSidebarLink>
           )}
-          <MlflowSidebarLink
-            disableWorkspacePrefix
-            css={{ paddingBlock: theme.spacing.sm }}
-            to={AdminRoutes.accountPageRoute}
-            componentId="mlflow.sidebar.account_tab_link"
-            isActive={isAccountActive}
-            icon={<UserIcon />}
-            collapsed={!showSidebar}
-          >
-            <FormattedMessage defaultMessage="Account" description="Sidebar link for account page" />
-          </MlflowSidebarLink>
+          {isAuthAvailable && (
+            <MlflowSidebarLink
+              disableWorkspacePrefix
+              css={{ paddingBlock: theme.spacing.sm }}
+              to={AdminRoutes.accountPageRoute}
+              componentId="mlflow.sidebar.account_tab_link"
+              isActive={isAccountActive}
+              icon={<UserIcon />}
+              collapsed={!showSidebar}
+            >
+              <FormattedMessage defaultMessage="Account" description="Sidebar link for account page" />
+            </MlflowSidebarLink>
+          )}
           {showWorkspaceMenuItems && !showNestedSettingsItems && (
             <MlflowSidebarLink
               css={{ paddingBlock: theme.spacing.sm }}

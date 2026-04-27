@@ -49,6 +49,19 @@ export const useCurrentUserIsAdmin = () => {
   return Boolean(data?.user?.is_admin);
 };
 
+/**
+ * Returns `true` once `/users/current` has resolved successfully — i.e. an
+ * authenticated user identity is available. The endpoint is registered only
+ * when MLflow is started with the basic-auth app, so a 404/401 from the
+ * query indicates auth isn't configured (or the user isn't logged in). Use
+ * this to gate admin-surface UI like the sidebar Admin / Account links so
+ * deployments without auth don't show entries that lead to broken pages.
+ */
+export const useIsAuthAvailable = () => {
+  const { data, isError } = useCurrentUserQuery();
+  return !isError && Boolean(data?.user);
+};
+
 export const AdminQueryKeys = {
   users: ['admin_users'] as const,
   roles: ['admin_roles'] as const,
