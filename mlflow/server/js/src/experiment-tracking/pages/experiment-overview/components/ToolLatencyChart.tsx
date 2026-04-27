@@ -14,6 +14,7 @@ import {
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
+  SCROLLABLE_TOOLTIP_WRAPPER_STYLE,
 } from './OverviewChartComponents';
 import { ItemSelector } from './ItemSelector';
 import { formatLatency, useLegendHighlight, useChartColors, getLineDotStyle } from '../utils/chartUtils';
@@ -102,6 +103,7 @@ export const ToolLatencyChart: React.FC = () => {
                   />
                 }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={SCROLLABLE_TOOLTIP_WRAPPER_STYLE}
               />
               {displayedItems.map((toolName) => {
                 const originalIndex = toolNames.indexOf(toolName);

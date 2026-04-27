@@ -17,6 +17,7 @@ import {
   getTracesFilteredByTimeRangeUrl,
   createSpanNameEqualsFilter,
   createSpanStatusEqualsFilter,
+  SCROLLABLE_TOOLTIP_WRAPPER_STYLE,
 } from './OverviewChartComponents';
 import { getLineDotStyle } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -112,6 +113,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
                 />
               }
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+              wrapperStyle={SCROLLABLE_TOOLTIP_WRAPPER_STYLE}
             />
             <Legend iconType="plainline" {...scrollableLegendProps} />
             <Line

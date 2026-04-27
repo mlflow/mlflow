@@ -29,6 +29,7 @@ import {
   getTracesFilteredByTimeRangeUrl,
   createAssessmentExistsFilter,
   createAssessmentEqualsFilter,
+  SCROLLABLE_TOOLTIP_WRAPPER_STYLE,
 } from './OverviewChartComponents';
 import { getLineDotStyle } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -206,6 +207,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
             <Tooltip
               content={distributionTooltipContent}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+              wrapperStyle={SCROLLABLE_TOOLTIP_WRAPPER_STYLE}
             />
             <Legend {...scrollableLegendProps} />
             <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]}>
@@ -232,6 +234,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
               <Tooltip
                 content={timeSeriesTooltipContent}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={SCROLLABLE_TOOLTIP_WRAPPER_STYLE}
               />
               <Legend {...scrollableLegendProps} />
               <Line

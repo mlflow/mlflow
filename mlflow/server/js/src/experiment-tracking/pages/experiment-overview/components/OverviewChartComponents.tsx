@@ -26,6 +26,14 @@ export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
 const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
 const DEFAULT_LEGEND_MAX_HEIGHT = 60;
 
+/**
+ * Apply to Recharts <Tooltip wrapperStyle={...}> whenever the tooltip content is interactive
+ * (e.g. contains a clickable link). By default Recharts sets pointer-events:none on the tooltip
+ * wrapper, which causes the tooltip to disappear before the user can reach interactive elements.
+ * Setting pointer-events:auto keeps the tooltip alive while the cursor is over it.
+ */
+export const SCROLLABLE_TOOLTIP_WRAPPER_STYLE: React.CSSProperties = { pointerEvents: 'auto' };
+
 interface OverviewChartHeaderProps {
   /** Icon component to display before the title */
   icon: React.ReactNode;
@@ -370,6 +378,9 @@ export function ScrollableTooltip({
 
   return (
     <div
+      // Stop mouse events from bubbling to the Recharts chart container so the tooltip
+      // position freezes while the cursor is over it, making the link clickable.
+      onMouseMove={(e) => e.stopPropagation()}
       css={{
         // This ensures the tooltip is semi-transparent so the chart is visible through it.
         // 80 hex = 50% opacity

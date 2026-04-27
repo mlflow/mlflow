@@ -14,6 +14,7 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
+  SCROLLABLE_TOOLTIP_WRAPPER_STYLE,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -90,6 +91,7 @@ export const TraceTokenStatsChart: React.FC<TraceTokenStatsChartProps> = ({ titl
                   />
                 }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={SCROLLABLE_TOOLTIP_WRAPPER_STYLE}
               />
               <Line
                 type="monotone"
