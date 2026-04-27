@@ -9,7 +9,7 @@ import { BarChart3, Shield } from "lucide-react";
 
 # ![Claude Code](/images/logos/claude-code-logo.png) Claude Code + MLflow AI Gateway
 
-Route [Claude Code](https://docs.anthropic.com/en/docs/claude-code) through the MLflow AI Gateway to get centralized tracing and observability — while each developer authenticates with their own Anthropic subscription.
+Route [Claude Code](https://docs.anthropic.com/en/docs/claude-code) through the MLflow AI Gateway to get centralized tracing and observability, while each developer authenticates with their own Anthropic subscription.
 
 ## Prerequisites
 
@@ -26,7 +26,7 @@ Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and clic
 - **LLM Connection:** select an existing connection (see [Create an LLM Connection](/genai/governance/ai-gateway/api-keys/create-and-manage))
 
 :::tip
-The server-side API key in the LLM Connection can be set to a dummy value (e.g. `dummy`). The gateway detects Claude Code's `User-Agent` and forwards the client's own credentials — either their Anthropic subscription or their own API key — to the upstream provider instead.
+The server-side API key in the LLM Connection can be set to a dummy value (e.g. `dummy`). The gateway detects Claude Code's `User-Agent` and forwards the client's own credentials, either their Anthropic subscription or their own API key, to the upstream provider instead.
 :::
 
 ## Step 2: Configure Environment Variables
