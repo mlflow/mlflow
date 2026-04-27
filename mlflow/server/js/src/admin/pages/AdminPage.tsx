@@ -37,6 +37,7 @@ import {
   useCreateRole,
   useDeleteRole,
   useUserRolesQuery,
+  useCurrentUserQuery,
 } from '../hooks';
 import type { CreateRoleRequest } from '../types';
 import { isWorkspaceAdminRole } from '../types';
@@ -70,9 +71,20 @@ const UserRolesCell = ({ username }: { username: string }) => {
 const UsersTab = () => {
   const { theme } = useDesignSystemTheme();
   const { data: usersData, isLoading, error: queryError } = useUsersQuery();
+  const { data: currentUserData } = useCurrentUserQuery();
+  const currentUsername = currentUserData?.user?.username ?? '';
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const updateAdmin = useUpdateAdmin();
+
+  // Deleting your own account is allowed (an admin removing their own
+  // account before someone else takes over is a real flow), but it has the
+  // side effect of logging you out — surface that explicitly in the
+  // confirmation, and follow it through after the deletion succeeds so
+  // the browser doesn't sit on a now-broken auth state.
+  const logoutAfterSelfDelete = () => {
+    window.location.href = new URL('logout', window.location.href).toString();
+  };
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -104,6 +116,7 @@ const UsersTab = () => {
   const handleBulkDelete = async () => {
     setError(null);
     const targets = Array.from(selectedUsernames);
+    const includesSelf = selectedUsernames.has(currentUsername);
     const results = await Promise.allSettled(targets.map((u) => deleteUser.mutateAsync(u)));
     const failures = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
     if (failures.length > 0) {
@@ -111,6 +124,15 @@ const UsersTab = () => {
     }
     setSelectedUsernames(new Set());
     setBulkDeleteOpen(false);
+    // Only log out if the self-delete actually succeeded (not in the
+    // failures list). If every delete failed, the user is still
+    // authenticated — leave them on the page.
+    if (includesSelf) {
+      const selfResult = results[targets.indexOf(currentUsername)];
+      if (selfResult?.status === 'fulfilled') {
+        logoutAfterSelfDelete();
+      }
+    }
   };
 
   const handleCreateUser = async () => {
@@ -133,9 +155,13 @@ const UsersTab = () => {
   const handleDeleteUser = async () => {
     if (!deleteTarget) return;
     setError(null);
+    const isSelf = deleteTarget === currentUsername;
     try {
       await deleteUser.mutateAsync(deleteTarget);
       setDeleteTarget(null);
+      if (isSelf) {
+        logoutAfterSelfDelete();
+      }
     } catch (e: any) {
       setError(e.message || 'Failed to delete user');
     }
@@ -199,15 +225,9 @@ const UsersTab = () => {
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           {selectedUsernames.size > 0 && (
-            <Button
-              componentId="admin.users.bulk_delete_button"
-              type="tertiary"
-              icon={<TrashIcon />}
-              onClick={() => setBulkDeleteOpen(true)}
-              danger
-            >
+            <Button componentId="admin.users.bulk_delete_button" danger onClick={() => setBulkDeleteOpen(true)}>
               <FormattedMessage
-                defaultMessage="Delete selected ({count})"
+                defaultMessage="Delete ({count})"
                 description="Bulk-delete button on the users table"
                 values={{ count: selectedUsernames.size }}
               />
@@ -370,6 +390,15 @@ const UsersTab = () => {
           <Typography.Text>
             Are you sure you want to delete user <strong>{deleteTarget}</strong>? This action cannot be undone.
           </Typography.Text>
+          {deleteTarget === currentUsername && (
+            <Alert
+              componentId="admin.users.delete_self_warning"
+              type="warning"
+              message="This is your own account."
+              description="You'll be logged out immediately after the deletion completes."
+              closable={false}
+            />
+          )}
         </div>
       </Modal>
       <Modal
@@ -382,9 +411,20 @@ const UsersTab = () => {
         okButtonProps={{ danger: true }}
         confirmLoading={deleteUser.isLoading}
       >
-        <Typography.Text>
-          Delete {selectedUsernames.size} user{selectedUsernames.size === 1 ? '' : 's'}? This action cannot be undone.
-        </Typography.Text>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          <Typography.Text>
+            Delete {selectedUsernames.size} user{selectedUsernames.size === 1 ? '' : 's'}? This action cannot be undone.
+          </Typography.Text>
+          {selectedUsernames.has(currentUsername) && (
+            <Alert
+              componentId="admin.users.bulk_delete_self_warning"
+              type="warning"
+              message="Your own account is in this selection."
+              description="You'll be logged out immediately after the deletion completes."
+              closable={false}
+            />
+          )}
+        </div>
       </Modal>
     </div>
   );
@@ -524,15 +564,9 @@ const RolesTab = () => {
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           {selectedRoleIds.size > 0 && (
-            <Button
-              componentId="admin.roles.bulk_delete_button"
-              type="tertiary"
-              icon={<TrashIcon />}
-              onClick={() => setBulkDeleteOpen(true)}
-              danger
-            >
+            <Button componentId="admin.roles.bulk_delete_button" danger onClick={() => setBulkDeleteOpen(true)}>
               <FormattedMessage
-                defaultMessage="Delete selected ({count})"
+                defaultMessage="Delete ({count})"
                 description="Bulk-delete button on the roles table"
                 values={{ count: selectedRoleIds.size }}
               />

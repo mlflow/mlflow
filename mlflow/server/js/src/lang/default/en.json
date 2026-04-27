@@ -795,6 +795,10 @@
     "defaultMessage": "Text",
     "description": "Label for the text render mode of the prompt"
   },
+  "2ifJXM": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Bulk-delete button on the users table"
+  },
   "2igs1f": {
     "defaultMessage": "Compare",
     "description": "Compare evaluation runs action"
@@ -4826,6 +4830,10 @@
   "SNvZyR": {
     "defaultMessage": "Time",
     "description": "Label for the time axis on the runs compare chart"
+  },
+  "SOHtlg": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Bulk-delete button on the roles table"
   },
   "SQUVnW": {
     "defaultMessage": "Dataset",
@@ -9455,10 +9463,6 @@
     "defaultMessage": "Select one or more sessions to perform actions.",
     "description": "Tooltip shown when actions button is disabled due to no session selection"
   },
-  "tZKdkj": {
-    "defaultMessage": "Delete selected ({count})",
-    "description": "Bulk-delete button on the users table"
-  },
   "ta42Qe": {
     "defaultMessage": "Active",
     "description": "Webhook status field label"
@@ -9838,10 +9842,6 @@
   "wFvyI1": {
     "defaultMessage": "Registered at:",
     "description": "A label for the registration timestamp in the prompt details page"
-  },
-  "wHanrz": {
-    "defaultMessage": "Delete selected ({count})",
-    "description": "Bulk-delete button on the roles table"
   },
   "wJX0a/": {
     "defaultMessage": "Provider",
