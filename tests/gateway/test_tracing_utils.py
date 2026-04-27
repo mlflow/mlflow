@@ -325,7 +325,10 @@ async def test_maybe_traced_gateway_call_with_message_format(endpoint_config):
 
     traces = get_traces()
     assert len(traces) == 1
-    gateway_span = traces[0].data.spans[0]
+    trace = traces[0]
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
     assert gateway_span.get_attribute("mlflow.message.format") == "anthropic"
 
 
