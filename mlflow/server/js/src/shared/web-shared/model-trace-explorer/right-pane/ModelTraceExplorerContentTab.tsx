@@ -7,6 +7,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { ModelTraceExplorerDefaultSpanView } from './ModelTraceExplorerDefaultSpanView';
 import type { ModelTraceExplorerRenderMode, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
+import { SpanModelCostBadge } from './SpanModelCostBadge';
 
 export function ModelTraceExplorerContentTab({
   activeSpan,
@@ -33,13 +34,21 @@ export function ModelTraceExplorerContentTab({
     <div
       css={{
         overflowY: 'auto',
-        padding: theme.spacing.md,
         paddingTop: theme.spacing.sm,
       }}
       className={className}
       data-testid="model-trace-explorer-content-tab"
     >
-      <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginBottom: theme.spacing.sm,
+          marginRight: 'auto',
+          paddingInline: theme.spacing.sm,
+        }}
+      >
+        <SpanModelCostBadge css={{ marginRight: 'auto' }} activeSpan={activeSpan} />
         <SegmentedControlGroup
           name="content-tab-render-mode"
           componentId="shared.model-trace-explorer.content-tab.render-mode"

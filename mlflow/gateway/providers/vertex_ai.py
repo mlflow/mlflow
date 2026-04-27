@@ -9,6 +9,7 @@ and auth mechanism.
 """
 
 import json
+from enum import Enum
 from pathlib import Path
 
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
@@ -37,6 +38,8 @@ class VertexAIProvider(GeminiProvider):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.config = config
         self._enable_tracing = enable_tracing
+        provider = config.model.provider
+        self._provider_name = provider.value if isinstance(provider, Enum) else str(provider)
         self.vertex_config: VertexAIConfig = config.model.config
         self._cached_credentials = None
 

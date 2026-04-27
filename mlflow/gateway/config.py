@@ -64,6 +64,7 @@ class Provider(str, Enum):
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"
     VERTEX_AI = "vertex_ai"
+    PORTKEY = "portkey"
 
     @classmethod
     def values(cls):

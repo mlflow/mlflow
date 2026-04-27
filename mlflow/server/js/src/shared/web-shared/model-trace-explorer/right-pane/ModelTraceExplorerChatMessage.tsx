@@ -2,10 +2,8 @@ import { isNil } from 'lodash';
 import { useState } from 'react';
 
 import {
-  Button,
   ChevronDownIcon,
   ChevronRightIcon,
-  ChevronUpIcon,
   LightbulbIcon,
   Modal,
   Spinner,
