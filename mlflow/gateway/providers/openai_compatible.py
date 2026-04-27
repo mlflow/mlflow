@@ -10,7 +10,12 @@ a DISPLAY_NAME, and a default base URL.
 from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import EndpointConfig, EndpointType
-from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter, _client_provides_auth
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+    _client_provides_auth,
+)
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import stream_sse_data
