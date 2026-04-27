@@ -24,10 +24,14 @@ Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and clic
 - **Model:** `gemini-2.0-flash` (or your preferred model)
 - **Endpoint name:** choose a name, e.g. `my-gemini-endpoint`
 - **Authentication:** select **API Key** based authentication
-- **LLM Connection:** select an existing connection, or leave blank to use client credentials
+- **LLM Connection:** select an existing connection (see [Create an LLM Connection](/genai/governance/ai-gateway/api-keys/create-and-manage))
 
 :::tip
-You can leave the LLM Connection empty so all users authenticate with their own Google subscription. The gateway will use the credential provided by each request.
+**Subscription passthrough:** If your users run Gemini CLI with their own Google subscription, you can create the LLM Connection with a dummy API key (e.g. `dummy`). The gateway detects Gemini CLI's `User-Agent` and forwards the client's own credentials instead of the server-side key.
+
+**Server-side API key:** You can also create the LLM Connection with a real Gemini API key. In this case all requests are billed to that key regardless of who is running Gemini CLI.
+
+Both modes are supported — choose based on your team's billing and access control preferences.
 :::
 
 :::note
