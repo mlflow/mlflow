@@ -222,6 +222,7 @@ export const ExperimentViewRunsTable = React.memo(
       onDatasetSelected,
       expandRows,
       runsHiddenMode: uiState.runsHiddenMode,
+      rowsData,
     });
 
     const gridSizeHandler = useCallback(
