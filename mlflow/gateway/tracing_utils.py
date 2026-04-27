@@ -43,8 +43,7 @@ def _extract_caller(request_headers: dict[str, str] | None) -> str | None:
     if caller := lower.get(MLFLOW_GATEWAY_CALLER_HEADER.lower()):
         return caller
     if user_agent := lower.get("user-agent", ""):
-        product = user_agent.split("/")[0].strip()
-        if product:
+        if product := user_agent.split("/")[0].strip():
             return product
     return None
 
