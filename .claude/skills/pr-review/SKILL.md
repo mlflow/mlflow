@@ -52,7 +52,7 @@ Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
 
 **Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas).
 
-Carefully examine **only the changed lines** (added, modified, or deleted) in the diff. Ignore unchanged/context lines and pre-existing code; they are not in scope, even if they look suboptimal.
+You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted). Pre-existing code is not in scope, even if it looks suboptimal.
 
 Evaluate the changed code across these dimensions:
 
@@ -84,7 +84,7 @@ Then:
 
 ### 5. Add Review Comments
 
-For each finding, use the `add-review-comment` skill. One comment per issue, anchored to the most relevant changed line.
+For each finding, use the `add-review-comment` skill. One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
 
 Every comment MUST use this exact format: `<emoji> **<severity>:** <description>`
 
