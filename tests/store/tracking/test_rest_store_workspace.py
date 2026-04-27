@@ -2,9 +2,9 @@ from unittest import mock
 
 import pytest
 
-from mlflow.entities import Experiment, Run, RunData, RunInfo, RunStatus
+from mlflow.entities import Experiment
 from mlflow.exceptions import MlflowException
-from mlflow.protos.service_pb2 import GetExperiment, GetRun
+from mlflow.protos.service_pb2 import GetExperiment
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
 
@@ -128,27 +128,3 @@ def test_get_experiment_preserves_workspace_from_response():
         experiment = store.get_experiment("123")
 
     assert experiment.workspace == ACTIVE_WORKSPACE
-
-
-def test_get_run_preserves_workspace_from_response():
-    store = RestStore(lambda: MlflowHostCreds("https://workspace-host"))
-    response = GetRun.Response(
-        run=Run(
-            RunInfo(
-                run_id="run-id",
-                experiment_id="123",
-                user_id="user",
-                status=RunStatus.to_string(RunStatus.RUNNING),
-                start_time=1,
-                end_time=None,
-                lifecycle_stage="active",
-                workspace=ACTIVE_WORKSPACE,
-            ),
-            RunData(),
-        ).to_proto()
-    )
-
-    with mock.patch.object(store, "_call_endpoint", return_value=response):
-        run = store.get_run("run-id")
-
-    assert run.info.workspace == ACTIVE_WORKSPACE

@@ -2792,8 +2792,6 @@ message RunInfo {
   // Current life cycle stage of the experiment : OneOf("active", "deleted")
   optional string lifecycle_stage = 14;
 
-  // Workspace that owns the run.
-  optional string workspace = 16;
 }
 
 // Experiment

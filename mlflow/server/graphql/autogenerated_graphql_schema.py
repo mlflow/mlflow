@@ -214,7 +214,6 @@ class MlflowRunInfo(graphene.ObjectType):
     end_time = LongString()
     artifact_uri = graphene.String()
     lifecycle_stage = graphene.String()
-    workspace = graphene.String()
 
 
 class MlflowRun(graphene.ObjectType):

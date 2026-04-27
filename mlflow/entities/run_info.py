@@ -4,7 +4,6 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
-from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 def check_run_is_active(run_info):
@@ -43,7 +42,6 @@ class RunInfo(_MlflowObject):
         lifecycle_stage,
         artifact_uri=None,
         run_name=None,
-        workspace=None,
     ):
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
@@ -62,7 +60,6 @@ class RunInfo(_MlflowObject):
         self._lifecycle_stage = lifecycle_stage
         self._artifact_uri = artifact_uri
         self._run_name = run_name
-        self._workspace = resolve_entity_workspace_name(workspace)
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -137,11 +134,6 @@ class RunInfo(_MlflowObject):
         """
         return self._lifecycle_stage
 
-    @property
-    def workspace(self):
-        """Workspace that owns the run, if known."""
-        return self._workspace
-
     def to_proto(self):
         proto = ProtoRunInfo()
         proto.run_uuid = self.run_id
@@ -157,8 +149,6 @@ class RunInfo(_MlflowObject):
         if self.artifact_uri:
             proto.artifact_uri = self.artifact_uri
         proto.lifecycle_stage = self.lifecycle_stage
-        if self.workspace is not None:
-            proto.workspace = self.workspace
         return proto
 
     @classmethod
@@ -178,7 +168,6 @@ class RunInfo(_MlflowObject):
             end_time=end_time,
             lifecycle_stage=proto.lifecycle_stage,
             artifact_uri=proto.artifact_uri,
-            workspace=proto.workspace or None,
         )
 
     @classmethod

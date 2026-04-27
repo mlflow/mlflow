@@ -209,7 +209,6 @@ def test_runs_are_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-a"):
         fetched = workspace_tracking_store.get_run(run_a.info.run_id)
         assert fetched.info.experiment_id == exp_a_id
-        assert fetched.info.workspace == "team-a"
 
 
 def test_search_datasets_is_workspace_scoped(workspace_tracking_store):

@@ -104,7 +104,6 @@ type MlflowRunInfo {
   endTime: LongString
   artifactUri: String
   lifecycleStage: String
-  workspace: String
 }
 
 enum MlflowRunStatus {

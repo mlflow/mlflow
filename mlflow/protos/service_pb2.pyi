@@ -260,7 +260,7 @@ class ExperimentTag(_message.Message):
     def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class RunInfo(_message.Message):
-    __slots__ = ("run_id", "run_uuid", "run_name", "experiment_id", "user_id", "status", "start_time", "end_time", "artifact_uri", "lifecycle_stage", "workspace")
+    __slots__ = ("run_id", "run_uuid", "run_name", "experiment_id", "user_id", "status", "start_time", "end_time", "artifact_uri", "lifecycle_stage")
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_UUID_FIELD_NUMBER: _ClassVar[int]
     RUN_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -271,7 +271,6 @@ class RunInfo(_message.Message):
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     ARTIFACT_URI_FIELD_NUMBER: _ClassVar[int]
     LIFECYCLE_STAGE_FIELD_NUMBER: _ClassVar[int]
-    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
     run_id: str
     run_uuid: str
     run_name: str
@@ -282,8 +281,7 @@ class RunInfo(_message.Message):
     end_time: int
     artifact_uri: str
     lifecycle_stage: str
-    workspace: str
-    def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., run_name: _Optional[str] = ..., experiment_id: _Optional[str] = ..., user_id: _Optional[str] = ..., status: _Optional[_Union[RunStatus, str]] = ..., start_time: _Optional[int] = ..., end_time: _Optional[int] = ..., artifact_uri: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ..., workspace: _Optional[str] = ...) -> None: ...
+    def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., run_name: _Optional[str] = ..., experiment_id: _Optional[str] = ..., user_id: _Optional[str] = ..., status: _Optional[_Union[RunStatus, str]] = ..., start_time: _Optional[int] = ..., end_time: _Optional[int] = ..., artifact_uri: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ...) -> None: ...
 
 class Experiment(_message.Message):
     __slots__ = ("experiment_id", "name", "artifact_location", "lifecycle_stage", "last_update_time", "creation_time", "tags", "workspace")

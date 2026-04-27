@@ -901,7 +901,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sqlalchemy.orm.selectinload(SqlRun.latest_metrics),
             sqlalchemy.orm.selectinload(SqlRun.params),
             sqlalchemy.orm.selectinload(SqlRun.tags),
-            sqlalchemy.orm.selectinload(SqlRun.experiment),
         ]
 
     def _check_run_is_active(self, run):
