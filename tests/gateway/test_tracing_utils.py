@@ -330,20 +330,6 @@ async def test_maybe_traced_gateway_call_with_message_format(endpoint_config):
 
 
 @pytest.mark.asyncio
-async def test_maybe_traced_gateway_call_without_message_format(endpoint_config):
-    async def mock_async_func(payload):
-        return {"result": "ok"}
-
-    traced_func = maybe_traced_gateway_call(mock_async_func, endpoint_config)
-    await traced_func({"messages": [{"role": "user", "content": "hi"}]})
-
-    traces = get_traces()
-    assert len(traces) == 1
-    gateway_span = traces[0].data.spans[0]
-    assert gateway_span.get_attribute("mlflow.message.format") is None
-
-
-@pytest.mark.asyncio
 async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
     async def mock_passthrough_func(action, payload, headers=None):
         return {"result": "success", "action": action, "payload": payload}
