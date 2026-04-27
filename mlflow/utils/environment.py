@@ -924,12 +924,17 @@ def _validate_version_constraints(requirements):
     them using pip's `--dry-run` install option. If any version conflicts are detected, it
     raises an MlflowException with details of the conflict.
 
+    Validation is skipped entirely when the ``MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK`` environment
+    variable is set to ``True``, which is useful in air-gapped environments where pip cannot
+    reach external package indexes.
+
     Args:
         requirements (list of str): A list of package requirements (e.g., `["pandas>=1.15",
         "pandas<2"]`).
 
     Raises:
         MlflowException: If any version conflicts are detected among the provided requirements.
+            Not raised when ``MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK`` is ``True``.
 
     Returns:
         None: This function does not return anything. It either completes successfully or raises
