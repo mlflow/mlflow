@@ -5,7 +5,6 @@ from unittest import mock
 import pytest
 import yaml
 
-from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import (
     _contains_mlflow_requirement,
@@ -469,17 +468,15 @@ def test_invalid_requirements_raise(input_requirements):
         _deduplicate_requirements(input_requirements)
 
 
-def test_pip_requirements_validation_skipped_when_env_var_set():
-    with mock.patch.object(
-        environment_variables.MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK, "get", return_value=True
-    ) as mock_get:
-        # _validate_version_constraints should return early without calling pip
-        _validate_version_constraints(["markdown<2.0", "markdown>3.0"])
-        mock_get.assert_called_once()
+def test_pip_requirements_validation_skipped_when_env_var_set(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK", "true")
 
-        # _deduplicate_requirements with incompatible constraints should not raise
-        result = _deduplicate_requirements(["markdown<3", "markdown>3"])
-        assert result == ["markdown<3,>3"]
+    # _validate_version_constraints should return early without calling pip
+    _validate_version_constraints(["markdown<2.0", "markdown>3.0"])
+
+    # _deduplicate_requirements with incompatible constraints should not raise
+    result = _deduplicate_requirements(["markdown<3", "markdown>3"])
+    assert result == ["markdown<3,>3"]
 
 
 @pytest.mark.parametrize(
