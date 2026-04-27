@@ -6,21 +6,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
 import re
 import sys
 import tempfile
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
-
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ResultMessage,
-    TextBlock,
-    query,
-)
 
 from skills.github import GitHubClient, Job, JobStep, get_github_token
 
@@ -244,32 +235,34 @@ async def analyze_single_job(job: JobLogs) -> AnalysisResult:
 
     # Use an isolated temp directory to avoid conflicts with the parent Claude session
     with tempfile.TemporaryDirectory() as tmpdir:
-        options = ClaudeAgentOptions(
-            system_prompt=ANALYZE_SYSTEM_PROMPT,
-            max_turns=1,
-            model="haiku",
+        proc = await asyncio.create_subprocess_exec(
+            "claude",
+            "--print",
+            "--model",
+            "haiku",
+            "--system-prompt",
+            ANALYZE_SYSTEM_PROMPT,
+            "--tools",
+            "",
+            "--output-format",
+            "json",
             cwd=tmpdir,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
+        stdout, stderr = await proc.communicate(prompt.encode("utf-8"))
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"claude exited with code {proc.returncode}: "
+                f"{stderr.decode('utf-8', errors='replace')}"
+            )
 
-        text_parts: list[str] = []
-        total_cost_usd: float | None = None
-        usage: dict[str, Any] | None = None
-
-        async for message in query(prompt=prompt, options=options):
-            match message:
-                case AssistantMessage(content=content):
-                    for block in content:
-                        match block:
-                            case TextBlock(text=text):
-                                text_parts.append(text)
-                case ResultMessage(total_cost_usd=cost, usage=u):
-                    total_cost_usd = cost
-                    usage = u
-
+    data = json.loads(stdout)
     return AnalysisResult(
-        text="".join(text_parts),
-        total_cost_usd=total_cost_usd,
-        usage=usage,
+        text=data.get("result", ""),
+        total_cost_usd=data.get("total_cost_usd"),
+        usage=data.get("usage"),
     )
 
 
@@ -323,7 +316,4 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
 
 
 def run(args: argparse.Namespace) -> None:
-    # Unset CLAUDECODE so that claude_agent_sdk doesn't refuse to start
-    # when this skill is invoked from within a Claude Code session.
-    os.environ.pop("CLAUDECODE", None)
     asyncio.run(cmd_analyze_async(args.urls, args.debug))

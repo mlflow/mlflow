@@ -312,6 +312,27 @@ async def test_maybe_traced_gateway_call_with_output_reducer(endpoint_config):
 
 
 @pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_with_message_format(endpoint_config):
+    async def mock_async_func(payload):
+        return {"id": "msg_1", "type": "message", "role": "assistant", "content": []}
+
+    traced_func = maybe_traced_gateway_call(
+        mock_async_func,
+        endpoint_config,
+        message_format="anthropic",
+    )
+    await traced_func({"messages": [{"role": "user", "content": "hi"}]})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
+    assert gateway_span.get_attribute("mlflow.message.format") == "anthropic"
+
+
+@pytest.mark.asyncio
 async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
     async def mock_passthrough_func(action, payload, headers=None):
         return {"result": "success", "action": action, "payload": payload}

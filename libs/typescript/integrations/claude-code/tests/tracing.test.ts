@@ -97,6 +97,8 @@ jest.mock('@mlflow/core', () => {
       INPUT_TOKENS: 'input_tokens',
       OUTPUT_TOKENS: 'output_tokens',
       TOTAL_TOKENS: 'total_tokens',
+      CACHE_READ_INPUT_TOKENS: 'cache_read_input_tokens',
+      CACHE_CREATION_INPUT_TOKENS: 'cache_creation_input_tokens',
     },
     InMemoryTraceManager: {
       getInstance: jest.fn(() => ({
@@ -227,7 +229,7 @@ describe('processTranscript', () => {
   // --------------------------------------------------------------------------
 
   describe('token usage', () => {
-    it('sets token usage with cache_creation included and cache_read excluded', async () => {
+    it('preserves cache tokens as separate fields and excludes cache from total', async () => {
       await processTranscript(resolve(FIXTURES_DIR, 'with-usage.jsonl'), 'test-session-usage');
 
       const llms = getSpansByType('LLM');
@@ -235,10 +237,45 @@ describe('processTranscript', () => {
 
       const tokenUsage = llms[0].attributes['mlflow.chat.tokenUsage'];
       expect(tokenUsage).toBeDefined();
-      // input_tokens=10 + cache_creation=100 = 110 (cache_read=40 excluded)
-      expect(tokenUsage.input_tokens).toBe(110);
+      // input_tokens stays as the non-cached input the API reports.
+      expect(tokenUsage.input_tokens).toBe(10);
       expect(tokenUsage.output_tokens).toBe(25);
-      expect(tokenUsage.total_tokens).toBe(135);
+      // total = input + output, cache excluded (matches mlflow.anthropic.autolog).
+      expect(tokenUsage.total_tokens).toBe(35);
+      // Cache fields are surfaced as separate optional keys.
+      expect(tokenUsage.cache_read_input_tokens).toBe(40);
+      expect(tokenUsage.cache_creation_input_tokens).toBe(100);
+    });
+
+    it('omits cache token keys when the API does not report them', async () => {
+      const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
+      const transcriptPath = resolve(tmpDir, 'no-cache.jsonl');
+      const entries: TranscriptEntry[] = [
+        {
+          type: 'user',
+          message: { role: 'user', content: 'Hi' },
+          timestamp: '2025-01-15T10:00:00.000Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Hello!' }],
+            usage: { input_tokens: 7, output_tokens: 3 },
+          },
+          timestamp: '2025-01-15T10:00:01.000Z',
+        },
+      ];
+      writeFileSync(transcriptPath, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+
+      await processTranscript(transcriptPath, 'no-cache-session');
+
+      const tokenUsage = getSpansByType('LLM')[0].attributes['mlflow.chat.tokenUsage'];
+      expect(tokenUsage.input_tokens).toBe(7);
+      expect(tokenUsage.output_tokens).toBe(3);
+      expect(tokenUsage.total_tokens).toBe(10);
+      expect(tokenUsage).not.toHaveProperty('cache_read_input_tokens');
+      expect(tokenUsage).not.toHaveProperty('cache_creation_input_tokens');
     });
   });
 

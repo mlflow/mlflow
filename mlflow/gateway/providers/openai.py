@@ -11,6 +11,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
+    _client_provides_auth,
 )
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
 from mlflow.gateway.providers.utils import send_request, send_stream_request
@@ -237,7 +238,11 @@ class OpenAIProvider(BaseProvider):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
-            # Don't override api key or organization headers
+            if _client_provides_auth(headers):
+                # Preserve the client's own credentials for subscription-based tools
+                # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
+                result_headers.pop("authorization", None)
+                result_headers.pop("api-key", None)
             result_headers = client_headers | result_headers
 
         return result_headers

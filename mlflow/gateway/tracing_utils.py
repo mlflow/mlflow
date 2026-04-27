@@ -167,6 +167,7 @@ def maybe_traced_gateway_call(
     request_headers: dict[str, str] | None = None,
     request_type: GatewayRequestType | None = None,
     on_complete: Callable[[], None] | None = None,
+    message_format: str | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a gateway function with tracing.
@@ -181,6 +182,9 @@ def maybe_traced_gateway_call(
         request_type: The type of gateway request (e.g., GatewayRequestType.CHAT).
         on_complete: A no-arg callback invoked inside the trace context after the
             provider call completes (in ``finally``).
+        message_format: Optional message format string (e.g. ``"anthropic"``,
+            ``"gemini"``) stored as ``mlflow.message.format`` on the span so the
+            UI can render the Chat tab for provider-native response shapes.
 
     Returns:
         A traced version of the function.
@@ -191,9 +195,13 @@ def maybe_traced_gateway_call(
     if not endpoint_config.usage_tracking:
         return func
 
+    span_attributes = _gateway_span_attributes(endpoint_config, request_headers)
+    if message_format:
+        span_attributes[SpanAttributeKey.MESSAGE_FORMAT] = message_format
+
     trace_kwargs = {
         "name": _gateway_span_name(endpoint_config),
-        "attributes": _gateway_span_attributes(endpoint_config, request_headers),
+        "attributes": span_attributes,
         "output_reducer": output_reducer,
         "trace_destination": MlflowExperimentLocation(endpoint_config.experiment_id),
     }

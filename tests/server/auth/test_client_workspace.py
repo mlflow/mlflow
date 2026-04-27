@@ -5,6 +5,7 @@ import requests
 
 from mlflow import MlflowException
 from mlflow.environment_variables import (
+    MLFLOW_AUTH_CONFIG_PATH,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
@@ -23,6 +24,7 @@ from tests.server.auth.auth_test_utils import (
     ADMIN_USERNAME,
     User,
     create_user,
+    write_isolated_auth_config,
 )
 from tests.tracking.integration_test_utils import _init_server
 
@@ -35,6 +37,7 @@ def clear_credentials(monkeypatch):
 
 @pytest.fixture
 def workspace_client(tmp_path):
+    auth_config_path = write_isolated_auth_config(tmp_path)
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
@@ -44,6 +47,7 @@ def workspace_client(tmp_path):
         app="mlflow.server.auth:create_app",
         extra_env={
             MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key",
+            MLFLOW_AUTH_CONFIG_PATH.name: str(auth_config_path),
             MLFLOW_ENABLE_WORKSPACES.name: "true",
             MLFLOW_WORKSPACE_STORE_URI.name: backend_uri,
             # Force seeding on so tests don't depend on the caller's shell env.
