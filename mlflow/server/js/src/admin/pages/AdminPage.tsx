@@ -6,6 +6,8 @@ import {
   Input,
   Modal,
   PlusIcon,
+  SimpleSelect,
+  SimpleSelectOption,
   Spinner,
   Switch,
   Table,
@@ -22,6 +24,8 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { Link } from '../../common/utils/RoutingUtils';
+import { useWorkspaces } from '../../workspaces/hooks/useWorkspaces';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import AdminRoutes from '../routes';
 import {
   useUsersQuery,
@@ -271,6 +275,8 @@ const RolesTab = () => {
   const { data: rolesData, isLoading, error: queryError } = useRolesQuery();
   const createRole = useCreateRole();
   const deleteRole = useDeleteRole();
+  const { workspacesEnabled } = useWorkspacesEnabled();
+  const { workspaces } = useWorkspaces(workspacesEnabled);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
@@ -280,6 +286,14 @@ const RolesTab = () => {
   const [error, setError] = useState<string | null>(null);
 
   const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
+  // Always include "default" — useWorkspaces() returns whatever the workspace
+  // store lists, which may exclude the reserved default workspace (and is
+  // empty entirely when workspaces are disabled, see useWorkspaces(false)).
+  const workspaceOptions = useMemo(() => {
+    const names = new Set<string>(['default']);
+    for (const w of workspaces) names.add(w.name);
+    return Array.from(names);
+  }, [workspaces]);
 
   const handleCreateRole = async () => {
     setError(null);
@@ -452,12 +466,18 @@ const RolesTab = () => {
           </div>
           <div>
             <Typography.Text bold>Workspace</Typography.Text>
-            <Input
+            <SimpleSelect
+              id="admin-roles-create-workspace"
               componentId="admin.roles.create_workspace"
               value={newRoleWorkspace}
-              onChange={(e) => setNewRoleWorkspace(e.target.value)}
-              placeholder="Enter workspace"
-            />
+              onChange={({ target }) => setNewRoleWorkspace(target.value)}
+            >
+              {workspaceOptions.map((name) => (
+                <SimpleSelectOption key={name} value={name}>
+                  {name}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
           </div>
           <div>
             <Typography.Text bold>Description</Typography.Text>
