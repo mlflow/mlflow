@@ -7,7 +7,7 @@ description: Review a GitHub pull request, add review comments for issues found,
 
 # Review Pull Request
 
-Automatically review a GitHub pull request and provide feedback on code quality, style guide violations, and potential bugs. Approves the PR if no significant issues are found.
+Automatically review a GitHub pull request across correctness, security, edge cases, efficiency, readability, test coverage, and style. Approves the PR when there are no findings or only MODERATE/NIT findings.
 
 ## Usage
 
@@ -92,7 +92,7 @@ Keep comments constructive and specific: state the problem, why it matters, and 
 
 ### 6. Approve the PR
 
-Approve the PR when there are no issues or only minor issues, but **only if the PR author has the `admin` or `maintain` role**.
+Approve the PR when there are no findings or only MODERATE/NIT findings, but **only if the PR author has the `admin` or `maintain` role**.
 
 First, check the PR author's role:
 
