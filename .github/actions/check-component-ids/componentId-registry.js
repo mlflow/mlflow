@@ -704,6 +704,7 @@ module.exports = {
   "admin.users.delete_modal.error": "Inline error alert inside the delete-user modal",
   "admin.users.error": "Inline error alert on the users tab",
   "admin.users.query_error": "Error alert shown when the users list query fails",
+  "admin.users.roles_header": "'Roles' column header on the users list table — comma-separated role names per user",
   "admin.users.toggle_admin": "Switch toggling a user's is_admin flag",
   "admin.users.username_header": "'Username' column header on the users list table",
   cancel: "",

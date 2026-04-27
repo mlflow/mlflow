@@ -35,9 +35,25 @@ import {
   useRolesQuery,
   useCreateRole,
   useDeleteRole,
+  useUserRolesQuery,
 } from '../hooks';
 import type { CreateRoleRequest } from '../types';
 import { isWorkspaceAdminRole } from '../types';
+
+// Renders a comma-separated list of role names assigned to a user. Each user
+// row issues its own request — React Query caches per-username so subsequent
+// re-renders don't re-fetch.
+const UserRolesCell = ({ username }: { username: string }) => {
+  const { data, isLoading } = useUserRolesQuery(username);
+  if (isLoading) {
+    return <Spinner size="small" />;
+  }
+  const roleNames = (data?.roles ?? []).map((r) => r.name);
+  if (roleNames.length === 0) {
+    return <Typography.Text color="secondary">—</Typography.Text>;
+  }
+  return <span>{roleNames.join(', ')}</span>;
+};
 
 const UsersTab = () => {
   const { theme } = useDesignSystemTheme();
@@ -161,6 +177,12 @@ const UsersTab = () => {
           <TableHeader componentId="admin.users.username_header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Username" description="Users table username header" />
           </TableHeader>
+          <TableHeader componentId="admin.users.roles_header" css={{ flex: 2 }}>
+            <FormattedMessage
+              defaultMessage="Roles"
+              description="Users table roles header — comma-separated role names per user"
+            />
+          </TableHeader>
           <TableHeader componentId="admin.users.admin_header" css={{ flex: 1 }}>
             <FormattedMessage defaultMessage="Admin" description="Users table admin header" />
           </TableHeader>
@@ -171,6 +193,9 @@ const UsersTab = () => {
         {users.map((user) => (
           <TableRow key={user.username}>
             <TableCell css={{ flex: 2 }}>{user.username}</TableCell>
+            <TableCell css={{ flex: 2 }}>
+              <UserRolesCell username={user.username} />
+            </TableCell>
             <TableCell css={{ flex: 1 }}>
               <Switch
                 componentId="admin.users.toggle_admin"
@@ -184,6 +209,7 @@ const UsersTab = () => {
               <Button
                 componentId="admin.users.delete_button"
                 type="tertiary"
+                size="small"
                 icon={<TrashIcon />}
                 aria-label={`Delete user ${user.username}`}
                 onClick={() => setDeleteTarget(user.username)}
@@ -430,6 +456,7 @@ const RolesTab = () => {
               <Button
                 componentId="admin.roles.delete_button"
                 type="tertiary"
+                size="small"
                 icon={<TrashIcon />}
                 aria-label={`Delete role ${role.name}`}
                 onClick={() => setDeleteTarget({ id: role.id, name: role.name })}
