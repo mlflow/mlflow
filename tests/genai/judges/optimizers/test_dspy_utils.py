@@ -536,48 +536,37 @@ def test_format_demos_raises_on_invalid_demo(mock_judge):
     ("assessments_spec", "expected_count", "expected_label"),
     [
         # No conflict: all assessments agree
+        pytest.param([("pass", 1000), ("pass", 2000)], 2, "pass", id="two_agreeing_pass"),
         pytest.param(
-            [("pass", 1000), ("pass", 2000)],
-            2, "pass",
-            id="two_agreeing_pass"
-        ),
-        pytest.param(
-            [("fail", 1000), ("fail", 2000), ("fail", 3000)],
-            3, "fail",
-            id="three_agreeing_fail"
+            [("fail", 1000), ("fail", 2000), ("fail", 3000)], 3, "fail", id="three_agreeing_fail"
         ),
         # Majority wins
         pytest.param(
-            [("pass", 1000), ("pass", 2000), ("fail", 3000)],
-            2, "pass",
-            id="majority_2v1_pass_wins"
+            [("pass", 1000), ("pass", 2000), ("fail", 3000)], 2, "pass", id="majority_2v1_pass_wins"
         ),
         pytest.param(
-            [("fail", 1000), ("pass", 2000), ("fail", 3000)],
-            2, "fail",
-            id="majority_2v1_fail_wins"
+            [("fail", 1000), ("pass", 2000), ("fail", 3000)], 2, "fail", id="majority_2v1_fail_wins"
         ),
         pytest.param(
             [("pass", 1000), ("pass", 2000), ("pass", 3000), ("fail", 4000)],
-            3, "pass",
-            id="majority_3v1_pass_wins"
+            3,
+            "pass",
+            id="majority_3v1_pass_wins",
         ),
         # Tie-breaking by recency
-        pytest.param(
-            [("pass", 1000), ("fail", 2000)],
-            1, "fail",
-            id="tie_1v1_fail_more_recent"
-        ),
+        pytest.param([("pass", 1000), ("fail", 2000)], 1, "fail", id="tie_1v1_fail_more_recent"),
         pytest.param(
             [("pass", 1000), ("pass", 2000), ("fail", 3000), ("fail", 4000)],
-            2, "fail",
-            id="tie_2v2_fail_more_recent"
+            2,
+            "fail",
+            id="tie_2v2_fail_more_recent",
         ),
         # Three-way tie: most recent wins
         pytest.param(
             [("pass", 1000), ("fail", 2000), ("maybe", 3000)],
-            1, "maybe",
-            id="three_way_tie_maybe_most_recent"
+            1,
+            "maybe",
+            id="three_way_tie_maybe_most_recent",
         ),
     ],
 )
