@@ -3227,12 +3227,12 @@ def update_user_password():
         current_password = request.json.get("current_password") if request.is_json else None
         if not current_password:
             raise MlflowException(
-                "current_password is required when changing your own password.",
+                "Current password is required when changing your own password.",
                 INVALID_PARAMETER_VALUE,
             )
         if not store.authenticate_user(username, current_password):
             raise MlflowException(
-                "current_password does not match.",
+                "Current password does not match.",
                 INVALID_PARAMETER_VALUE,
             )
     store.update_user(username, password=password)

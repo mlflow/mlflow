@@ -157,11 +157,11 @@ def test_self_service_password_change_requires_current_password(client, monkeypa
 
     with User(username, password, monkeypatch):
         # Missing current_password: rejected.
-        with pytest.raises(MlflowException, match="current_password is required"):
+        with pytest.raises(MlflowException, match="Current password is required"):
             client.update_user_password(username, new_password)
 
         # Wrong current_password: rejected.
-        with pytest.raises(MlflowException, match="current_password does not match"):
+        with pytest.raises(MlflowException, match="Current password does not match"):
             client.update_user_password(
                 username, new_password, current_password="not-the-current-password"
             )
