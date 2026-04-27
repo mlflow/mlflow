@@ -24,6 +24,7 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     format_demos_as_examples,
     trace_to_dspy_example,
 )
+from mlflow.genai.judges.optimizers.memalign.optimizer import MemAlignOptimizer
 from mlflow.genai.utils.trace_utils import (
     extract_expectations_from_trace,
     extract_request_from_trace,
@@ -529,6 +530,8 @@ def test_format_demos_raises_on_invalid_demo(mock_judge):
         format_demos_as_examples(demos, mock_judge)
 
 
+# assessments_spec: list of (label, timestamp_offset) tuples
+# Each tuple creates an assessment with the given label at base_time + offset
 @pytest.mark.parametrize(
     ("assessments_spec", "expected_count", "expected_label"),
     [
@@ -611,45 +614,52 @@ def test_trace_to_dspy_example_conflict_logs_warning(mock_judge, capsys):
     captured = capsys.readouterr()
     assert "discarded" in captured.err.lower()
     assert "test_trace_123" in captured.err
-@pytest.mark.parametrize(
-    ("scenario", "assessments_fn", "expected_count"),
-    [
-        pytest.param(
-            "no_timestamps",
-            lambda t: [
-                Feedback(name="mock_judge", value="pass", rationale="R1",
-                         source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u1")),
-                Feedback(name="mock_judge", value="pass", rationale="R2",
-                         source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u2")),
-            ],
-            2,
-            id="no_timestamps"
+def test_trace_to_dspy_example_assessments_without_timestamps(mock_judge):
+    assessments = [
+        Feedback(
+            name="mock_judge", value="pass", rationale="R1",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u1")
         ),
-        pytest.param(
-            "llm_only",
-            lambda t: [
-                Feedback(name="mock_judge", value="pass", rationale="LLM",
-                         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt")),
-            ],
-            0,
-            id="llm_only"
+        Feedback(
+            name="mock_judge", value="pass", rationale="R2",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u2")
         ),
-        pytest.param("empty", lambda t: [], 0, id="empty"),
-        pytest.param(
-            "wrong_judge",
-            lambda t: [_create_human_assessment("other_judge", "pass", "Wrong", t, "user")],
-            0,
-            id="wrong_judge"
-        ),
-    ],
-)
-def test_trace_to_dspy_example_edge_cases(mock_judge, scenario, assessments_fn, expected_count):
-    base_time = int(time.time() * 1000)
-    assessments = assessments_fn(base_time)
-    trace = _create_trace_with_assessments(f"test_{scenario}", assessments)
+    ]
+    trace = _create_trace_with_assessments("test_no_timestamps", assessments)
     results = trace_to_dspy_example(trace, mock_judge)
 
-    assert len(results) == expected_count
+    assert len(results) == 2
+
+
+def test_trace_to_dspy_example_filters_out_llm_assessments(mock_judge):
+    assessments = [
+        Feedback(
+            name="mock_judge", value="pass", rationale="LLM",
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt")
+        ),
+    ]
+    trace = _create_trace_with_assessments("test_llm_only", assessments)
+    results = trace_to_dspy_example(trace, mock_judge)
+
+    assert len(results) == 0
+
+
+def test_trace_to_dspy_example_empty_assessments(mock_judge):
+    trace = _create_trace_with_assessments("test_empty", [])
+    results = trace_to_dspy_example(trace, mock_judge)
+
+    assert len(results) == 0
+
+
+def test_trace_to_dspy_example_filters_by_judge_name(mock_judge):
+    base_time = int(time.time() * 1000)
+    assessments = [
+        _create_human_assessment("other_judge", "pass", "Wrong judge", base_time, "user"),
+    ]
+    trace = _create_trace_with_assessments("test_wrong_judge", assessments)
+    results = trace_to_dspy_example(trace, mock_judge)
+
+    assert len(results) == 0
 
 
 def test_trace_to_dspy_example_mixed_human_and_llm_only_uses_human(mock_judge):
@@ -674,8 +684,6 @@ def test_trace_to_dspy_example_mixed_human_and_llm_only_uses_human(mock_judge):
 
 
 def test_memalign_optimizer_handles_multi_assessment_traces(mock_judge):
-    from mlflow.genai.judges.optimizers.memalign.optimizer import MemAlignOptimizer
-
     base_time = int(time.time() * 1000)
     optimizer = MemAlignOptimizer(
         reflection_lm="openai:/gpt-4o-mini",

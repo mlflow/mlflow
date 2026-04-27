@@ -429,10 +429,14 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
         resolved_assessments = _resolve_assessment_conflicts(assessments_with_feedback)
 
         if len(resolved_assessments) < len(assessments_with_feedback):
-            discarded_count = len(assessments_with_feedback) - len(resolved_assessments)
+            discarded = [a for a in assessments_with_feedback if a not in resolved_assessments]
+            discarded_details = ", ".join(
+                f"[source_id='{a.source.source_id}', label='{a.feedback.value}']"
+                for a in discarded
+            )
             _logger.warning(
-                f"Discarded {discarded_count} conflicting assessment(s) for judge "
-                f"'{judge.name}' in trace '{trace.info.trace_id}'"
+                f"Discarded {len(discarded)} conflicting assessment(s) for judge "
+                f"'{judge.name}' in trace '{trace.info.trace_id}': {discarded_details}"
             )
 
         # Build example kwargs (same for all examples from this trace)
