@@ -5620,16 +5620,7 @@ def _get_request_workspace_for_budget_windows():
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return workspace
 
-    is_request_workspace_resolved = getattr(
-        workspace_context, "is_request_workspace_resolved", None
-    )
-    if callable(is_request_workspace_resolved):
-        if not is_request_workspace_resolved():
-            raise MlflowException(
-                "A request workspace must be provided when workspaces are enabled.",
-                BAD_REQUEST,
-            )
-    elif workspace is None:
+    if not workspace_context.is_request_workspace_resolved():
         raise MlflowException(
             "A request workspace must be provided when workspaces are enabled.",
             BAD_REQUEST,
