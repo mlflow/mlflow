@@ -816,6 +816,33 @@ def test_live_span_add_link():
         assert span.links[0].span_id == "aabbccddeeff0011"
         assert span.links[0].attributes == {"relationship": "triggered_by"}
 
+        # Verify the link was forwarded to the underlying OTel span
+        assert len(otel_span.links) == 1
+        assert otel_span.links[0].context.trace_id == 0xABC123
+        assert otel_span.links[0].context.span_id == 0xAABBCCDDEEFF0011
+
+
+def test_span_seeds_links_from_otel_span():
+    trace_id = "tr-12345"
+    otel_link = trace_api.Link(
+        context=trace_api.SpanContext(
+            trace_id=0xAABBCCDDEEFF00112233445566778899,
+            span_id=0xAABBCCDDEEFF0011,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+        ),
+        attributes={"type": "causal"},
+    )
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span", links=[otel_link]) as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+
+    immutable_span = span.to_immutable_span()
+    assert len(immutable_span.links) == 1
+    assert immutable_span.links[0].trace_id == "tr-aabbccddeeff00112233445566778899"
+    assert immutable_span.links[0].span_id == "aabbccddeeff0011"
+    assert immutable_span.links[0].attributes == {"type": "causal"}
+
 
 def test_span_to_dict_with_links():
     from mlflow.entities.link import Link

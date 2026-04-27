@@ -116,7 +116,14 @@ class Span:
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
         self._attachments: dict[str, Attachment] = {}
-        self._links: list["Link"] = []
+        self._links: list["Link"] = [
+            Link(
+                trace_id=f"tr-{otel_link.context.trace_id:032x}",
+                span_id=f"{otel_link.context.span_id:016x}",
+                attributes=dict(otel_link.attributes) if otel_link.attributes else None,
+            )
+            for otel_link in getattr(otel_span, "links", ())
+        ]
 
     @cached_property
     def trace_id(self) -> str:
@@ -259,7 +266,7 @@ class Span:
         return self._attributes.get(key)
 
     def to_dict(self) -> dict[str, Any]:
-        result = {
+        return {
             "trace_id": _encode_bytes_to_base64(
                 _encode_trace_id_to_byte(self._span.context.trace_id)
             ),
@@ -290,8 +297,6 @@ class Span:
             "attributes": dict(self._span.attributes),
             "links": [link.to_dict() for link in self.links],
         }
-
-        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Span":
@@ -615,7 +620,14 @@ class LiveSpan(Span):
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
-        self._links: list["Link"] = []
+        self._links: list["Link"] = [
+            Link(
+                trace_id=f"tr-{otel_link.context.trace_id:032x}",
+                span_id=f"{otel_link.context.span_id:016x}",
+                attributes=dict(otel_link.attributes) if otel_link.attributes else None,
+            )
+            for otel_link in getattr(otel_span, "links", ())
+        ]
         # Track the original span name for deduplication purposes during span logging.
         # Why: When traces contain multiple spans with identical names (e.g., multiple "LLM"
         # or "query" spans), it's difficult for users to distinguish between them in the UI
@@ -933,6 +945,13 @@ class LiveSpan(Span):
             )
 
         self._links.append(link)
+
+        # Forward to the underlying OTel span so external exporters can see links
+        link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
+            TRACE_REQUEST_ID_PREFIX
+        )
+        otel_context = build_otel_context(decode_id(link_trace_id_hex), decode_id(link.span_id))
+        self._span.add_link(otel_context, link.attributes)
 
     def record_exception(self, exception: str | Exception):
         """
