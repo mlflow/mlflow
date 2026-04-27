@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   Alert,
   Button,
+  Checkbox,
   Empty,
   Input,
   Modal,
@@ -66,9 +67,40 @@ const UsersTab = () => {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [selectedUsernames, setSelectedUsernames] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
 
   const users = useMemo(() => usersData?.users ?? [], [usersData]);
+  const allSelected = users.length > 0 && users.every((u) => selectedUsernames.has(u.username));
+
+  const toggleUserSelection = (username: string) => {
+    setSelectedUsernames((prev) => {
+      const next = new Set(prev);
+      if (next.has(username)) {
+        next.delete(username);
+      } else {
+        next.add(username);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedUsernames((prev) => (prev.size === users.length ? new Set() : new Set(users.map((u) => u.username))));
+  };
+
+  const handleBulkDelete = async () => {
+    setError(null);
+    const targets = Array.from(selectedUsernames);
+    const results = await Promise.allSettled(targets.map((u) => deleteUser.mutateAsync(u)));
+    const failures = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+    if (failures.length > 0) {
+      setError(`Failed to delete ${failures.length}/${targets.length} users: ${failures[0].reason?.message ?? ''}`);
+    }
+    setSelectedUsernames(new Set());
+    setBulkDeleteOpen(false);
+  };
 
   const handleCreateUser = async () => {
     setError(null);
@@ -153,7 +185,24 @@ const UsersTab = () => {
       {error && (
         <Alert componentId="admin.users.error" type="error" message={error} closable onClose={() => setError(null)} />
       )}
-      <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          {selectedUsernames.size > 0 && (
+            <Button
+              componentId="admin.users.bulk_delete_button"
+              type="tertiary"
+              icon={<TrashIcon />}
+              onClick={() => setBulkDeleteOpen(true)}
+              danger
+            >
+              <FormattedMessage
+                defaultMessage="Delete selected ({count})"
+                description="Bulk-delete button on the users table"
+                values={{ count: selectedUsernames.size }}
+              />
+            </Button>
+          )}
+        </div>
         <Button
           componentId="admin.users.create_button"
           type="primary"
@@ -174,6 +223,14 @@ const UsersTab = () => {
         }}
       >
         <TableRow isHeader>
+          <TableHeader componentId="admin.users.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+            <Checkbox
+              componentId="admin.users.select_all"
+              isChecked={allSelected}
+              onChange={toggleSelectAll}
+              aria-label="Select all users"
+            />
+          </TableHeader>
           <TableHeader componentId="admin.users.username_header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Username" description="Users table username header" />
           </TableHeader>
@@ -192,6 +249,14 @@ const UsersTab = () => {
         </TableRow>
         {users.map((user) => (
           <TableRow key={user.username}>
+            <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+              <Checkbox
+                componentId="admin.users.select_row"
+                isChecked={selectedUsernames.has(user.username)}
+                onChange={() => toggleUserSelection(user.username)}
+                aria-label={`Select user ${user.username}`}
+              />
+            </TableCell>
             <TableCell css={{ flex: 2 }}>{user.username}</TableCell>
             <TableCell css={{ flex: 2 }}>
               <UserRolesCell username={user.username} />
@@ -292,6 +357,20 @@ const UsersTab = () => {
           </Typography.Text>
         </div>
       </Modal>
+      <Modal
+        componentId="admin.users.bulk_delete_modal"
+        title="Delete users"
+        visible={bulkDeleteOpen}
+        onCancel={() => setBulkDeleteOpen(false)}
+        onOk={handleBulkDelete}
+        okText="Delete"
+        okButtonProps={{ danger: true }}
+        confirmLoading={deleteUser.isLoading}
+      >
+        <Typography.Text>
+          Delete {selectedUsernames.size} user{selectedUsernames.size === 1 ? '' : 's'}? This action cannot be undone.
+        </Typography.Text>
+      </Modal>
     </div>
   );
 };
@@ -309,9 +388,40 @@ const RolesTab = () => {
   const [newRoleDescription, setNewRoleDescription] = useState('');
   const [newRoleWorkspace, setNewRoleWorkspace] = useState('default');
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<number>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
 
   const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
+  const allSelected = roles.length > 0 && roles.every((r) => selectedRoleIds.has(r.id));
+
+  const toggleRoleSelection = (roleId: number) => {
+    setSelectedRoleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roleId)) {
+        next.delete(roleId);
+      } else {
+        next.add(roleId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedRoleIds((prev) => (prev.size === roles.length ? new Set() : new Set(roles.map((r) => r.id))));
+  };
+
+  const handleBulkDelete = async () => {
+    setError(null);
+    const targets = Array.from(selectedRoleIds);
+    const results = await Promise.allSettled(targets.map((id) => deleteRole.mutateAsync(id)));
+    const failures = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+    if (failures.length > 0) {
+      setError(`Failed to delete ${failures.length}/${targets.length} roles: ${failures[0].reason?.message ?? ''}`);
+    }
+    setSelectedRoleIds(new Set());
+    setBulkDeleteOpen(false);
+  };
   // Always include "default" — useWorkspaces() returns whatever the workspace
   // store lists, which may exclude the reserved default workspace (and is
   // empty entirely when workspaces are disabled, see useWorkspaces(false)).
@@ -396,7 +506,24 @@ const RolesTab = () => {
       {error && (
         <Alert componentId="admin.roles.error" type="error" message={error} closable onClose={() => setError(null)} />
       )}
-      <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          {selectedRoleIds.size > 0 && (
+            <Button
+              componentId="admin.roles.bulk_delete_button"
+              type="tertiary"
+              icon={<TrashIcon />}
+              onClick={() => setBulkDeleteOpen(true)}
+              danger
+            >
+              <FormattedMessage
+                defaultMessage="Delete selected ({count})"
+                description="Bulk-delete button on the roles table"
+                values={{ count: selectedRoleIds.size }}
+              />
+            </Button>
+          )}
+        </div>
         <Button
           componentId="admin.roles.create_button"
           type="primary"
@@ -417,6 +544,14 @@ const RolesTab = () => {
         }}
       >
         <TableRow isHeader>
+          <TableHeader componentId="admin.roles.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+            <Checkbox
+              componentId="admin.roles.select_all"
+              isChecked={allSelected}
+              onChange={toggleSelectAll}
+              aria-label="Select all roles"
+            />
+          </TableHeader>
           <TableHeader componentId="admin.roles.name_header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Name" description="Roles table name header" />
           </TableHeader>
@@ -438,6 +573,14 @@ const RolesTab = () => {
         </TableRow>
         {roles.map((role) => (
           <TableRow key={role.id}>
+            <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+              <Checkbox
+                componentId="admin.roles.select_row"
+                isChecked={selectedRoleIds.has(role.id)}
+                onChange={() => toggleRoleSelection(role.id)}
+                aria-label={`Select role ${role.name}`}
+              />
+            </TableCell>
             <TableCell css={{ flex: 2 }}>
               <Link componentId="admin.roles.name_link" to={AdminRoutes.getRoleDetailRoute(role.id)}>
                 {role.name}
@@ -536,6 +679,20 @@ const RolesTab = () => {
       >
         <Typography.Text>
           Are you sure you want to delete role <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+        </Typography.Text>
+      </Modal>
+      <Modal
+        componentId="admin.roles.bulk_delete_modal"
+        title="Delete roles"
+        visible={bulkDeleteOpen}
+        onCancel={() => setBulkDeleteOpen(false)}
+        onOk={handleBulkDelete}
+        okText="Delete"
+        okButtonProps={{ danger: true }}
+        confirmLoading={deleteRole.isLoading}
+      >
+        <Typography.Text>
+          Delete {selectedRoleIds.size} role{selectedRoleIds.size === 1 ? '' : 's'}? This action cannot be undone.
         </Typography.Text>
       </Modal>
     </div>

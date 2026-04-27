@@ -678,6 +678,9 @@ module.exports = {
   "admin.roles.actions_header": "'Actions' column header on the roles list table",
   "admin.roles.admin_role_header": "'Admin' column header on the roles list table",
   "admin.roles.admin_tag": "Tag indicating a role grants workspace-admin",
+  "admin.roles.bulk_delete_button":
+    "Toolbar button that opens the bulk-delete roles confirmation modal",
+  "admin.roles.bulk_delete_modal": "Confirmation modal for deleting multiple selected roles",
   "admin.roles.create_button": "Button that opens the create-role modal on the roles tab",
   "admin.roles.create_description": "Description input inside the create-role modal",
   "admin.roles.create_modal": "Modal for creating a new role",
@@ -690,10 +693,17 @@ module.exports = {
   "admin.roles.name_header": "'Name' column header on the roles list table",
   "admin.roles.name_link": "Role-name link to the role detail page",
   "admin.roles.query_error": "Error alert shown when the roles list query fails",
+  "admin.roles.select_all": "Header checkbox toggling selection of all roles",
+  "admin.roles.select_header":
+    "Header cell hosting the select-all checkbox on the roles list table",
+  "admin.roles.select_row": "Per-row checkbox for selecting a role for bulk actions",
   "admin.roles.workspace_header": "'Workspace' column header on the roles list table",
   "admin.tabs": "Users / Roles tab switcher on the admin page",
   "admin.users.actions_header": "'Actions' column header on the users list table",
   "admin.users.admin_header": "'Admin' column header on the users list table",
+  "admin.users.bulk_delete_button":
+    "Toolbar button that opens the bulk-delete users confirmation modal",
+  "admin.users.bulk_delete_modal": "Confirmation modal for deleting multiple selected users",
   "admin.users.create_button": "Button that opens the create-user modal on the users tab",
   "admin.users.create_modal": "Modal for creating a new user",
   "admin.users.create_modal.error": "Inline error alert inside the create-user modal",
@@ -704,7 +714,12 @@ module.exports = {
   "admin.users.delete_modal.error": "Inline error alert inside the delete-user modal",
   "admin.users.error": "Inline error alert on the users tab",
   "admin.users.query_error": "Error alert shown when the users list query fails",
-  "admin.users.roles_header": "'Roles' column header on the users list table — comma-separated role names per user",
+  "admin.users.roles_header":
+    "'Roles' column header on the users list table — comma-separated role names per user",
+  "admin.users.select_all": "Header checkbox toggling selection of all users",
+  "admin.users.select_header":
+    "Header cell hosting the select-all checkbox on the users list table",
+  "admin.users.select_row": "Per-row checkbox for selecting a user for bulk actions",
   "admin.users.toggle_admin": "Switch toggling a user's is_admin flag",
   "admin.users.username_header": "'Username' column header on the users list table",
   cancel: "",
