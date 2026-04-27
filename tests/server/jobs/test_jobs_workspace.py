@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mlflow.entities import Workspace
+from mlflow.entities._job import JobProgress
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.builtin_scorers import Completeness
@@ -120,12 +121,67 @@ def test_update_status_details_workspace_isolation(monkeypatch: pytest.MonkeyPat
         assert fetched_b.status_details == {"stage": "team-b-stage"}
 
 
+def test_update_job_progress_workspace_isolation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    backend_store_uri = f"sqlite:///{tmp_path / 'workspace-progress.db'}"
+    store = WorkspaceAwareSqlAlchemyJobStore(backend_store_uri)
+
+    with WorkspaceContext("team-a"):
+        job_a = store.create_job("test_job", '{"value": 1}')
+        store.update_job_progress(
+            job_a.job_id,
+            message="team-a-progress",
+            progress=JobProgress(phase="team-a", completed=1, total=2, unit="items"),
+        )
+
+    with WorkspaceContext("team-b"):
+        job_b = store.create_job("test_job", '{"value": 2}')
+        store.update_job_progress(
+            job_b.job_id,
+            message="team-b-progress",
+            progress=JobProgress(phase="team-b", completed=1, total=3, unit="items"),
+        )
+
+    with WorkspaceContext("team-a"):
+        fetched_a = store.get_job(job_a.job_id)
+        assert fetched_a.status_message == "team-a-progress"
+        assert fetched_a.progress == JobProgress(phase="team-a", completed=1, total=2, unit="items")
+
+        with pytest.raises(MlflowException, match="not found"):
+            store.update_job_progress(
+                job_b.job_id,
+                message="attempt",
+                progress=JobProgress(phase="blocked"),
+            )
+
+    with WorkspaceContext("team-b"):
+        fetched_b = store.get_job(job_b.job_id)
+        assert fetched_b.status_message == "team-b-progress"
+        assert fetched_b.progress == JobProgress(phase="team-b", completed=1, total=3, unit="items")
+
+
 def test_create_job_initializes_metadata_as_none(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'metadata-init.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
 
     job = store.create_job("test_job", '{"param": "value"}')
     assert job.status_details is None
+    assert job.error_message is None
+    assert job.executor_backend is None
+    assert job.lease_expires_at is None
+    assert job.status_message is None
+    assert job.progress is None
+    assert job.progress_updated_at is None
+    assert job.token_hash is None
+    assert job.scoped_permissions is None
 
     fetched_job = store.get_job(job.job_id)
     assert fetched_job.status_details is None
+    assert fetched_job.error_message is None
+    assert fetched_job.executor_backend is None
+    assert fetched_job.lease_expires_at is None
+    assert fetched_job.status_message is None
+    assert fetched_job.progress is None
+    assert fetched_job.progress_updated_at is None
+    assert fetched_job.token_hash is None
+    assert fetched_job.scoped_permissions is None
