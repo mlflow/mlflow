@@ -9,12 +9,20 @@
  *   fetch. So we set `mlflow-request-header-Authorization=Basic <base64(user:password)>`
  *   and every subsequent request authenticates as the new user — no interceptor needed.
  *
- * Requires the current user to be admin (so `useUsersQuery` can list users). Passwords are
- * stored in localStorage (`admin.dev-user-credentials`) as a dev convenience.
+ * Recovery:
+ *   The cookie-forwarding mechanism means a wrong password locks every subsequent request
+ *   into 401. To avoid the trap we validate creds against `/users/current` before writing
+ *   the cookie. The "Clear" button in the panel header is the manual escape hatch — it
+ *   wipes the cookies + stored creds and reloads.
+ *
+ * Listing users requires admin. For non-admin sessions the panel falls back to two rows
+ * (`admin` and the current user) so you can always switch back. Passwords are stored in
+ * localStorage (`admin.dev-user-credentials`) as a dev convenience.
  */
 import { useCallback, useState } from 'react';
 import { Alert, Button, Input, Modal, Spinner, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { getAjaxUrl } from '../common/utils/FetchUtils';
 import { getLocalStorageItem, setLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
 import { useUsersQuery } from './hooks';
 
@@ -49,12 +57,36 @@ const applyCredentials = (username: string, password: string) => {
   document.cookie = `${MLFLOW_USER_COOKIE}=${username}; path=/`;
 };
 
+const clearAuthCookies = () => {
+  const expired = 'expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  document.cookie = `${AUTH_HEADER_COOKIE}=; ${expired}`;
+  document.cookie = `${MLFLOW_USER_COOKIE}=; ${expired}`;
+};
+
+// Validate creds against /users/current with an explicit Authorization header,
+// using plain `fetch` (not `fetchEndpoint`) so the existing cookie-forwarded
+// header doesn't override ours. Returns true on 200, false otherwise.
+const validateCredentials = async (username: string, password: string): Promise<boolean> => {
+  try {
+    const url = getAjaxUrl('ajax-api/2.0/mlflow/users/current');
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Basic ${btoa(`${username}:${password}`)}` },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
 export const DevUserSwitcher = () => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useUsersQuery();
   const [passwordPromptFor, setPasswordPromptFor] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
   // Cookies are not reactive — track the active user in state so the highlight
   // updates immediately after a switch (before queries finish refetching).
   const [currentUsername, setCurrentUsername] = useState<string>(getCurrentUsername);
@@ -78,18 +110,34 @@ export const DevUserSwitcher = () => {
         completeSwitch(username, password);
       } else {
         setPasswordInput('');
+        setPasswordError(null);
         setPasswordPromptFor(username);
       }
     },
     [completeSwitch],
   );
 
-  const handlePasswordSubmit = () => {
-    if (!passwordPromptFor || !passwordInput) return;
+  const handlePasswordSubmit = async () => {
+    if (!passwordPromptFor || !passwordInput || validating) return;
+    setValidating(true);
+    setPasswordError(null);
+    const ok = await validateCredentials(passwordPromptFor, passwordInput);
+    setValidating(false);
+    if (!ok) {
+      setPasswordError('Authentication failed. Check the password and try again.');
+      return;
+    }
     setStoredCredential(passwordPromptFor, passwordInput);
     completeSwitch(passwordPromptFor, passwordInput);
     setPasswordPromptFor(null);
     setPasswordInput('');
+  };
+
+  const handleClearCreds = () => {
+    clearAuthCookies();
+    setLocalStorageItem(CREDENTIALS_STORAGE_KEY, CREDENTIALS_STORAGE_VERSION, false, {});
+    queryClient.clear();
+    window.location.reload();
   };
 
   return (
@@ -112,9 +160,20 @@ export const DevUserSwitcher = () => {
           maxWidth: 280,
         }}
       >
-        <Typography.Text bold size="sm">
-          Dev User Switcher
-        </Typography.Text>
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <Typography.Text bold size="sm" css={{ flex: 1 }}>
+            Dev User Switcher
+          </Typography.Text>
+          <Button
+            componentId="dev.user_switcher.clear"
+            size="small"
+            type="link"
+            onClick={handleClearCreds}
+            title="Clear stored switcher creds and the auth cookie, then reload. Use to recover from a stuck Basic Auth state."
+          >
+            Clear
+          </Button>
+        </div>
         {isLoading && (
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
             <Spinner size="small" />
@@ -191,9 +250,12 @@ export const DevUserSwitcher = () => {
         onCancel={() => {
           setPasswordPromptFor(null);
           setPasswordInput('');
+          setPasswordError(null);
         }}
         onOk={handlePasswordSubmit}
         okText="Switch"
+        confirmLoading={validating}
+        okButtonProps={{ disabled: !passwordInput || validating }}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           <Typography.Text>
@@ -204,11 +266,22 @@ export const DevUserSwitcher = () => {
             componentId="dev.user_switcher.password_input"
             type="password"
             value={passwordInput}
-            onChange={(e) => setPasswordInput(e.target.value)}
+            onChange={(e) => {
+              setPasswordInput(e.target.value);
+              if (passwordError) setPasswordError(null);
+            }}
             onPressEnter={handlePasswordSubmit}
             placeholder="Password"
             autoFocus
           />
+          {passwordError && (
+            <Alert
+              componentId="dev.user_switcher.password_error"
+              type="error"
+              message={passwordError}
+              closable={false}
+            />
+          )}
         </div>
       </Modal>
     </>
