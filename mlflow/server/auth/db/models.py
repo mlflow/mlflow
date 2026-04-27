@@ -35,9 +35,20 @@ class SqlUser(Base):
     username = Column(String(255), unique=True)
     password_hash = Column(String(255))
     is_admin = Column(Boolean, default=False)
-    experiment_permissions = relationship("SqlExperimentPermission", backref="users")
-    registered_model_permissions = relationship("SqlRegisteredModelPermission", backref="users")
-    scorer_permissions = relationship("SqlScorerPermission", backref="users")
+    # `passive_deletes=True` on the next three relationships is required so
+    # that `session.delete(user)` does NOT issue an UPDATE to NULL the FK
+    # column on child rows (which would fail because user_id is NOT NULL).
+    # The `ON DELETE CASCADE` clause on each child FK takes care of cleanup
+    # at the DB level. The five tables that don't have an inverse relationship
+    # here (workspace_permissions, user_role_assignments, and the three
+    # gateway permission tables) rely solely on the FK-level CASCADE.
+    experiment_permissions = relationship(
+        "SqlExperimentPermission", backref="users", passive_deletes=True
+    )
+    registered_model_permissions = relationship(
+        "SqlRegisteredModelPermission", backref="users", passive_deletes=True
+    )
+    scorer_permissions = relationship("SqlScorerPermission", backref="users", passive_deletes=True)
 
     def to_mlflow_entity(self):
         return User(
@@ -57,7 +68,7 @@ class SqlExperimentPermission(Base):
     __tablename__ = "experiment_permissions"
     id = Column(Integer(), primary_key=True)
     experiment_id = Column(String(255), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     permission = Column(String(255))
     __table_args__ = (UniqueConstraint("experiment_id", "user_id", name="unique_experiment_user"),)
 
@@ -79,7 +90,7 @@ class SqlRegisteredModelPermission(Base):
         server_default=text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     name = Column(String(255), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     permission = Column(String(255))
     __table_args__ = (
         UniqueConstraint("workspace", "name", "user_id", name="unique_workspace_name_user"),
@@ -99,7 +110,7 @@ class SqlScorerPermission(Base):
     id = Column(Integer(), primary_key=True)
     experiment_id = Column(String(255), nullable=False)
     scorer_name = Column(String(256), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     permission = Column(String(255))
     __table_args__ = (
         UniqueConstraint("experiment_id", "scorer_name", "user_id", name="unique_scorer_user"),
@@ -118,7 +129,7 @@ class SqlGatewaySecretPermission(Base):
     __tablename__ = "gateway_secret_permissions"
     id = Column(Integer(), primary_key=True)
     secret_id = Column(String(255), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     permission = Column(String(255))
     __table_args__ = (UniqueConstraint("secret_id", "user_id", name="unique_secret_user"),)
 
@@ -134,7 +145,7 @@ class SqlGatewayEndpointPermission(Base):
     __tablename__ = "gateway_endpoint_permissions"
     id = Column(Integer(), primary_key=True)
     endpoint_id = Column(String(255), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     permission = Column(String(255))
     __table_args__ = (UniqueConstraint("endpoint_id", "user_id", name="unique_endpoint_user"),)
 
@@ -150,7 +161,7 @@ class SqlGatewayModelDefinitionPermission(Base):
     __tablename__ = "gateway_model_definition_permissions"
     id = Column(Integer(), primary_key=True)
     model_definition_id = Column(String(255), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     permission = Column(String(255))
     __table_args__ = (
         UniqueConstraint("model_definition_id", "user_id", name="unique_model_def_user"),
@@ -168,7 +179,7 @@ class SqlWorkspacePermission(Base):
     __tablename__ = "workspace_permissions"
 
     workspace = Column(String(63), nullable=False)
-    user_id = Column(Integer(), ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     permission = Column(String(32), nullable=False)
     __table_args__ = (
         PrimaryKeyConstraint("workspace", "user_id", name="workspace_permissions_pk"),
@@ -239,7 +250,7 @@ class SqlUserRoleAssignment(Base):
     __tablename__ = "user_role_assignments"
 
     id = Column(Integer(), primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     __table_args__ = (
         UniqueConstraint("user_id", "role_id", name="unique_user_role"),
