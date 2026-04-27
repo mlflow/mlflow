@@ -101,6 +101,7 @@ def test_creation_and_hydration(run_info):
         artifact_uri,
     )
 
+
 def test_searchable_attributes():
     assert set(RunInfo.get_searchable_attributes()) == {
         "status",
