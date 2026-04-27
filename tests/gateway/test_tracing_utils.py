@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 
@@ -5,8 +6,10 @@ import pytest
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
+    _extract_caller,
     _get_model_span_info,
     aggregate_anthropic_messages_stream_chunks,
     aggregate_chat_stream_chunks,
@@ -1056,10 +1059,6 @@ def test_aggregate_gemini_stream_chunks_finish_reason(finish_reasons, expected):
 # ---------------------------------------------------------------------------
 
 
-from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
-from mlflow.gateway.tracing_utils import _extract_caller
-
-
 @pytest.mark.parametrize(
     ("headers", "expected"),
     [
@@ -1091,8 +1090,6 @@ def test_maybe_traced_gateway_call_records_caller(endpoint_config):
         request_headers={"User-Agent": "openai-python/1.0.0"},
     )
 
-    import asyncio
-
     asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
 
     traces = get_traces()
@@ -1105,8 +1102,6 @@ def test_maybe_traced_gateway_call_no_caller_when_no_headers(endpoint_config):
         return {"ok": True}
 
     traced = maybe_traced_gateway_call(fake_func, endpoint_config, request_headers=None)
-
-    import asyncio
 
     asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
 
