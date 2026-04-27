@@ -17,7 +17,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "BAAI/bge-multilingual-gemma2": {
       "mode": "embedding",
@@ -35,7 +36,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "NousResearch/Hermes-3-Llama-3.1-405B": {
       "mode": "chat",
@@ -54,7 +56,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/QwQ-32B": {
       "mode": "chat",
@@ -73,7 +76,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen2-VL-72B-Instruct": {
       "mode": "chat",
@@ -92,7 +96,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen2-VL-7B-Instruct": {
       "mode": "chat",
@@ -111,7 +116,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen2.5-32B-Instruct": {
       "mode": "chat",
@@ -130,7 +136,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen2.5-72B-Instruct": {
       "mode": "chat",
@@ -149,7 +156,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen2.5-Coder-7B": {
       "mode": "chat",
@@ -168,7 +176,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen2.5-VL-72B-Instruct": {
       "mode": "chat",
@@ -187,7 +196,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen3-14B": {
       "mode": "chat",
@@ -206,7 +216,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen3-235B-A22B": {
       "mode": "chat",
@@ -225,7 +236,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen3-30B-A3B": {
       "mode": "chat",
@@ -244,7 +256,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen3-32B": {
       "mode": "chat",
@@ -263,7 +276,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen3-4B": {
       "mode": "chat",
@@ -282,7 +296,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1": {
       "mode": "chat",
@@ -301,7 +316,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1-0528": {
       "mode": "chat",
@@ -320,7 +336,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1-Distill-Llama-70B": {
       "mode": "chat",
@@ -339,7 +356,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-V3": {
       "mode": "chat",
@@ -358,7 +376,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-V3-0324": {
       "mode": "chat",
@@ -377,7 +396,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "google/gemma-3-27b-it": {
       "mode": "chat",
@@ -396,7 +416,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "intfloat/e5-mistral-7b-instruct": {
       "mode": "embedding",
@@ -414,7 +435,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Llama-3.3-70B-Instruct": {
       "mode": "chat",
@@ -433,7 +455,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Llama-Guard-3-8B": {
       "mode": "chat",
@@ -452,7 +475,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Meta-Llama-3.1-405B-Instruct": {
       "mode": "chat",
@@ -471,7 +495,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Meta-Llama-3.1-70B-Instruct": {
       "mode": "chat",
@@ -490,7 +515,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Meta-Llama-3.1-8B-Instruct": {
       "mode": "chat",
@@ -509,7 +535,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistralai/Mistral-Nemo-Instruct-2407": {
       "mode": "chat",
@@ -528,7 +555,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "nvidia/Llama-3.1-Nemotron-Ultra-253B-v1": {
       "mode": "chat",
@@ -547,7 +575,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "nvidia/Llama-3.3-Nemotron-Super-49B-v1": {
       "mode": "chat",
@@ -566,7 +595,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

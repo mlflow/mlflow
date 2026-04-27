@@ -370,6 +370,9 @@ export function ScrollableTooltip({
 
   return (
     <div
+      // Stop mouse events from bubbling to the Recharts chart container so the tooltip
+      // position freezes while the cursor is over it, making the link clickable.
+      onMouseMove={(e) => e.stopPropagation()}
       css={{
         // This ensures the tooltip is semi-transparent so the chart is visible through it.
         // 80 hex = 50% opacity

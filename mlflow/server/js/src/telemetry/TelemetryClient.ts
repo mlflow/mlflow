@@ -21,6 +21,7 @@ const LOCAL_STORAGE_INSTALLATION_ID_KEY = 'mlflow-telemetry-installation-id';
 const VIEW_EVENT_ALLOWLIST: ReadonlySet<string> = new Set([
   'mlflow.gateway.setup_guide',
   'mlflow.issue-detection.completed',
+  'mlflow.traces-tab.trace-count',
 ]);
 
 /**

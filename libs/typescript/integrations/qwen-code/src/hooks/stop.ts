@@ -1,5 +1,5 @@
 /**
- * Qwen Code Stop hook entry point.
+ * Qwen Code Stop hook handler.
  *
  * Qwen Code fires the Stop hook via stdin with JSON:
  *   {"session_id": "...", "transcript_path": "...", "cwd": "...", ...}
@@ -12,9 +12,8 @@ import { ensureInitialized } from '../config.js';
 import { processTranscript } from '../tracing.js';
 import type { StopHookInput } from '../types.js';
 
-async function main(): Promise<void> {
+export async function runStopHook(): Promise<void> {
   try {
-    // Initialize early to fail fast if MLFLOW_TRACKING_URI is not set
     if (!ensureInitialized()) {
       return;
     }
@@ -24,5 +23,3 @@ async function main(): Promise<void> {
     console.error('[mlflow]', err);
   }
 }
-
-void main();

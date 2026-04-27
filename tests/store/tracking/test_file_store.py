@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.skip(reason="FileStore is no longer supported")
+
 import hashlib
 import json
 import os
