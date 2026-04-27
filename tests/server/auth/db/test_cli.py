@@ -127,5 +127,5 @@ def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
     assert "scorer_permissions" in tables
     assert "registered_model_permissions" in tables
     assert "workspace_permissions" in tables
-    assert version[0] == "c3d4e5f6a7b8"
+    assert version[0] == "e6c5d2f7a8b9"
     assert user == ("testuser", 1)

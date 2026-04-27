@@ -16,21 +16,26 @@ branch_labels = None
 depends_on = None
 
 
-# Each entry is (table_name, existing_fk_name).
-#
-# Tables whose `user_id` FK references `users.id`. Names taken from the
-# migrations that originally created each table. The two unnamed FKs
-# (workspace_permissions, user_role_assignments) are addressed via the
-# `naming_convention` synthesized name below.
-_NAMED_FKS = (
-    ("experiment_permissions", "fk_user_id"),
-    ("registered_model_permissions", "fk_user_id"),
-    ("scorer_permissions", "fk_scorer_perm_user_id"),
-    ("gateway_secret_permissions", "fk_gateway_secret_perm_user_id"),
-    ("gateway_endpoint_permissions", "fk_gateway_endpoint_perm_user_id"),
-    ("gateway_model_definition_permissions", "fk_gateway_model_def_perm_user_id"),
-)
-_UNNAMED_FK_TABLES = (
+# Tables whose `user_id` FK references `users.id`. We can't hardcode the
+# existing FK names because the same logical table can have one of three
+# shapes in the wild:
+#   * named FK from the per-table create migration (e.g. `fk_user_id`,
+#     `fk_scorer_perm_user_id`)
+#   * unnamed FK from a migration that used `sa.ForeignKey("users.id")`
+#     (workspace_permissions, user_role_assignments)
+#   * unnamed FK from a legacy pre-Alembic schema that this codebase
+#     stamps to the initial revision (`experiment_permissions`,
+#     `registered_model_permissions` — see `test_upgrade_from_legacy_database`)
+# The migration introspects the actual FK at upgrade time and drops it by
+# name, falling back to a synthesized name (under `naming_convention`) for
+# unnamed FKs.
+_TABLES = (
+    "experiment_permissions",
+    "registered_model_permissions",
+    "scorer_permissions",
+    "gateway_secret_permissions",
+    "gateway_endpoint_permissions",
+    "gateway_model_definition_permissions",
     "workspace_permissions",
     "user_role_assignments",
 )
@@ -45,73 +50,49 @@ def _new_fk_name(table_name: str) -> str:
     return f"fk_{table_name}_user_id_users"
 
 
-def _alter_named_fk(table_name: str, old_fk_name: str, ondelete: str | None) -> None:
-    new_fk_name = _new_fk_name(table_name)
-    dialect = op.get_context().dialect.name
-    if dialect == "sqlite":
-        with op.batch_alter_table(table_name) as batch_op:
-            batch_op.drop_constraint(old_fk_name, type_="foreignkey")
-            batch_op.create_foreign_key(
-                new_fk_name, "users", ["user_id"], ["id"], ondelete=ondelete
-            )
-    else:
-        op.drop_constraint(old_fk_name, table_name, type_="foreignkey")
-        op.create_foreign_key(
-            new_fk_name, table_name, "users", ["user_id"], ["id"], ondelete=ondelete
-        )
+def _existing_user_fk_name(table_name: str) -> str | None:
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    for fk in inspector.get_foreign_keys(table_name):
+        if fk["referred_table"] == "users" and fk["constrained_columns"] == ["user_id"]:
+            return fk.get("name")
+    return None
 
 
-def _alter_unnamed_fk(table_name: str, ondelete: str | None) -> None:
+def _alter_user_fk(table_name: str, ondelete: str | None) -> None:
     new_fk_name = _new_fk_name(table_name)
+    existing_name = _existing_user_fk_name(table_name)
+    drop_name = existing_name or new_fk_name
     dialect = op.get_context().dialect.name
     if dialect == "sqlite":
-        # `naming_convention` causes Alembic to address the existing unnamed
-        # FK by the synthesized name (which equals `new_fk_name`).
+        # `naming_convention` lets `batch_alter_table` address an unnamed FK
+        # by the synthesized name. Named FKs keep their original name and
+        # are dropped by that.
         with op.batch_alter_table(table_name, naming_convention=_NAMING_CONVENTION) as batch_op:
-            batch_op.drop_constraint(new_fk_name, type_="foreignkey")
+            batch_op.drop_constraint(drop_name, type_="foreignkey")
             batch_op.create_foreign_key(
                 new_fk_name, "users", ["user_id"], ["id"], ondelete=ondelete
             )
     else:
-        # Other dialects: introspect and drop by actual name.
-        conn = op.get_bind()
-        inspector = sa.inspect(conn)
-        existing_fk = next(
-            (
-                fk
-                for fk in inspector.get_foreign_keys(table_name)
-                if fk["referred_table"] == "users" and fk["constrained_columns"] == ["user_id"]
-            ),
-            None,
-        )
-        if existing_fk and existing_fk.get("name"):
-            op.drop_constraint(existing_fk["name"], table_name, type_="foreignkey")
+        # Other dialects can ALTER directly. Skip the drop if the FK is
+        # unnamed and inspection didn't yield one (Postgres/MySQL always
+        # name FKs, so this branch should not be hit in practice).
+        if existing_name:
+            op.drop_constraint(existing_name, table_name, type_="foreignkey")
         op.create_foreign_key(
             new_fk_name, table_name, "users", ["user_id"], ["id"], ondelete=ondelete
         )
 
 
 def upgrade() -> None:
-    for table_name, old_fk_name in _NAMED_FKS:
-        _alter_named_fk(table_name, old_fk_name, ondelete="CASCADE")
-    for table_name in _UNNAMED_FK_TABLES:
-        _alter_unnamed_fk(table_name, ondelete="CASCADE")
+    for table_name in _TABLES:
+        _alter_user_fk(table_name, ondelete="CASCADE")
 
 
 def downgrade() -> None:
-    # Restore the original (no ON DELETE) FKs. The downgrade names them
-    # with the convention so subsequent upgrades can find them.
-    for table_name, old_fk_name in _NAMED_FKS:
-        # Drop the cascading FK we created in upgrade(), then restore the
-        # original-named FK without ondelete.
-        new_fk_name = _new_fk_name(table_name)
-        dialect = op.get_context().dialect.name
-        if dialect == "sqlite":
-            with op.batch_alter_table(table_name) as batch_op:
-                batch_op.drop_constraint(new_fk_name, type_="foreignkey")
-                batch_op.create_foreign_key(old_fk_name, "users", ["user_id"], ["id"])
-        else:
-            op.drop_constraint(new_fk_name, table_name, type_="foreignkey")
-            op.create_foreign_key(old_fk_name, table_name, "users", ["user_id"], ["id"])
-    for table_name in _UNNAMED_FK_TABLES:
-        _alter_unnamed_fk(table_name, ondelete=None)
+    # The original FK had no ON DELETE clause; recreate it that way. The
+    # downgrade re-uses the same `_alter_user_fk` helper, since the
+    # introspection logic identifies the upgraded FK (by `_new_fk_name`)
+    # equally well.
+    for table_name in _TABLES:
+        _alter_user_fk(table_name, ondelete=None)
