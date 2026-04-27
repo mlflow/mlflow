@@ -185,11 +185,12 @@ def test_delete_user(store):
 
 
 def test_delete_user_with_dependent_rows(store):
-    # Eight tables reference users.id via non-nullable FKs. ``session.delete(user)``
-    # cleans up children only for relationships declared on ``SqlUser`` with
-    # ``cascade="all, delete-orphan"``; this exercises the full set so a regression
-    # in any one of the cascades (e.g. a new child table without a matching
-    # relationship) is caught.
+    # Seeds a row in each of the eight tables that hold a non-nullable FK to
+    # users.id today. ``session.delete(user)`` only cleans up children whose
+    # relationship is declared on ``SqlUser`` with ``cascade="all, delete-orphan"``,
+    # so this guards against a regression in any of the existing cascades.
+    # When a new FK table is added, this test must be updated to seed it too —
+    # otherwise the missing cascade will only be caught at runtime.
     username = random_str()
     user = _user_maker(store, username, random_str())
 

@@ -41,29 +41,29 @@ class SqlUser(Base):
     # will fail with a NOT NULL or FK violation. Keep this list in sync with every
     # table that adds a ``ForeignKey("users.id")``.
     experiment_permissions = relationship(
-        "SqlExperimentPermission", backref="users", cascade="all, delete-orphan"
+        "SqlExperimentPermission", backref="user", cascade="all, delete-orphan"
     )
     registered_model_permissions = relationship(
-        "SqlRegisteredModelPermission", backref="users", cascade="all, delete-orphan"
+        "SqlRegisteredModelPermission", backref="user", cascade="all, delete-orphan"
     )
     scorer_permissions = relationship(
-        "SqlScorerPermission", backref="users", cascade="all, delete-orphan"
+        "SqlScorerPermission", backref="user", cascade="all, delete-orphan"
     )
     gateway_secret_permissions = relationship(
-        "SqlGatewaySecretPermission", backref="users", cascade="all, delete-orphan"
+        "SqlGatewaySecretPermission", backref="user", cascade="all, delete-orphan"
     )
     gateway_endpoint_permissions = relationship(
-        "SqlGatewayEndpointPermission", backref="users", cascade="all, delete-orphan"
+        "SqlGatewayEndpointPermission", backref="user", cascade="all, delete-orphan"
     )
     gateway_model_definition_permissions = relationship(
-        "SqlGatewayModelDefinitionPermission", backref="users", cascade="all, delete-orphan"
+        "SqlGatewayModelDefinitionPermission", backref="user", cascade="all, delete-orphan"
     )
     workspace_permissions = relationship(
-        "SqlWorkspacePermission", backref="users", cascade="all, delete-orphan"
+        "SqlWorkspacePermission", backref="user", cascade="all, delete-orphan"
     )
     user_role_assignments = relationship(
         "SqlUserRoleAssignment",
-        backref="users",
+        backref="user",
         foreign_keys="SqlUserRoleAssignment.user_id",
         cascade="all, delete-orphan",
     )
