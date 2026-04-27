@@ -96,6 +96,7 @@ def trace(
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
+    links: list | Callable[[], list] | None = None,
 ) -> Callable[_P, _R]: ...
 
 
@@ -108,6 +109,7 @@ def trace(
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
+    links: list | Callable[[], list] | None = None,
 ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
 
 
@@ -119,6 +121,7 @@ def trace(
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
+    links: list | Callable[[], list] | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -224,6 +227,9 @@ def trace(
             0.5 means 50% are sampled, and 0.0 means no traces are sampled. If not provided (None),
             the global sampling ratio is used. Note: This only applies to root spans; nested calls
             always trace if the parent is traced.
+        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with the span,
+            or a callable that returns such a list. When a callable is provided, it is invoked at
+            each function call, allowing links to depend on runtime state.
     """
 
     # Validate sampling_ratio_override
@@ -250,6 +256,7 @@ def trace(
                 output_reducer,
                 trace_destination,
                 sampling_ratio_override,
+                links,
             )
         else:
             if output_reducer is not None:
@@ -257,7 +264,13 @@ def trace(
                     "The output_reducer argument is only supported for generator functions."
                 )
             wrapped = _wrap_function(
-                original_fn, name, span_type, attributes, trace_destination, sampling_ratio_override
+                original_fn,
+                name,
+                span_type,
+                attributes,
+                trace_destination,
+                sampling_ratio_override,
+                links,
             )
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
@@ -278,6 +291,7 @@ def _wrap_function(
     attributes: dict[str, Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
+    links: list | Callable[[], list] | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -285,12 +299,14 @@ def _wrap_function(
         @staticmethod
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
+            resolved_links = links() if callable(links) else links
 
             with start_span(
                 name=span_name,
                 span_type=span_type,
                 attributes=attributes,
                 trace_destination=trace_destination,
+                links=resolved_links,
             ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 inputs = capture_function_input_args(fn, args, kwargs)
@@ -350,6 +366,7 @@ def _wrap_generator(
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
+    links: list | Callable[[], list] | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -380,6 +397,7 @@ def _wrap_generator(
 
     def _start_stream_span(fn, inputs):
         try:
+            resolved_links = links() if callable(links) else links
             return start_span_no_context(
                 name=name or fn.__name__,
                 parent_span=get_current_active_span(),
@@ -387,6 +405,7 @@ def _wrap_generator(
                 attributes=attributes,
                 inputs=inputs,
                 experiment_id=getattr(trace_destination, "experiment_id", None),
+                links=resolved_links,
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
@@ -497,6 +516,7 @@ def start_span(
     span_type: str | None = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
+    links: list | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -553,6 +573,8 @@ def start_span(
             set by the :py:func:`mlflow.tracing.set_destination` function. This parameter
             should only be used for root span and setting this for non-root spans will be
             ignored with a warning.
+        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+            the span.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -565,7 +587,9 @@ def start_span(
 
     try:
         otel_span = provider.start_span_in_context(
-            name, experiment_id=trace_destination.experiment_id if trace_destination else None
+            name,
+            experiment_id=trace_destination.experiment_id if trace_destination else None,
+            links=links,
         )
 
         # If the span was dropped by the sampler (e.g., due to sampling ratio),
@@ -587,6 +611,8 @@ def start_span(
             mlflow_span.set_span_type(span_type)
             attributes = dict(attributes) if attributes is not None else {}
             mlflow_span.set_attributes(attributes)
+            for link in links or []:
+                mlflow_span.add_link(link)
 
     except Exception:
         _logger.debug(f"Failed to start span {name}.", exc_info=True)
@@ -620,6 +646,7 @@ def start_span_no_context(
     metadata: dict[str, str] | None = None,
     experiment_id: str | None = None,
     start_time_ns: int | None = None,
+    links: list | None = None,
 ) -> LiveSpan:
     """
     Start a span without attaching it to the global tracing context.
@@ -643,6 +670,8 @@ def start_span_no_context(
             the current active experiment will be used.
         start_time_ns: The start time of the span in nanoseconds. If not provided,
             the current time will be used.
+        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+            the span.
 
     Returns:
         A :py:class:`mlflow.entities.Span` that represents the created span.
@@ -687,6 +716,7 @@ def start_span_no_context(
             parent=parent_span._span if parent_span else None,
             start_time_ns=start_time_ns,
             experiment_id=experiment_id,
+            links=links,
         )
 
         # If the span was dropped by the sampler, return a NoOpSpan that
@@ -714,6 +744,8 @@ def start_span_no_context(
         if inputs is not None:
             mlflow_span.set_inputs(inputs)
         mlflow_span.set_attributes(attributes or {})
+        for link in links or []:
+            mlflow_span.add_link(link)
 
         if tags := exclude_immutable_tags(tags or {}):
             # Update trace tags for trace in in-memory trace manager
