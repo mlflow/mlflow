@@ -40,21 +40,27 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
 }
 
-# User-agent substrings for subscription-based CLI tools that carry their own credentials.
+# User-agent prefixes for subscription-based CLI tools that carry their own credentials.
 # When one of these tools is detected, the gateway preserves the client's auth header
 # instead of overwriting it with the server-side API key.
 # - Claude Code sends:  claude-cli/<version> (external, cli)
 # - OpenAI Codex sends: Codex-Desktop/<version>
 # - Gemini CLI sends:   GeminiCLI/<version>/<model> (<platform>; <arch>)
-_USER_CREDENTIAL_AGENTS = ("claude-cli", "codex-desktop", "geminicli")
+_USER_CREDENTIAL_AGENTS = ("claude-cli/", "codex-desktop/", "geminicli/")
+
+# Auth header names that subscription-based CLI tools may include.
+_CLIENT_AUTH_HEADERS = ("authorization", "x-api-key", "x-goog-api-key")
 
 
 def _client_provides_auth(headers: dict[str, str] | None) -> bool:
-    """Return True when the request comes from a tool that manages its own credentials."""
+    """Return True when the request comes from a known CLI tool and includes its own auth header."""
     if not headers:
         return False
-    user_agent = headers.get("user-agent", "").lower()
-    return any(agent in user_agent for agent in _USER_CREDENTIAL_AGENTS)
+    lower_headers = {k.lower(): v for k, v in headers.items()}
+    user_agent = lower_headers.get("user-agent", "").lower()
+    is_credential_agent = any(user_agent.startswith(agent) for agent in _USER_CREDENTIAL_AGENTS)
+    has_auth = any(key in lower_headers for key in _CLIENT_AUTH_HEADERS)
+    return is_credential_agent and has_auth
 
 
 def _get_nested(d: dict[str, Any], key: str) -> Any:

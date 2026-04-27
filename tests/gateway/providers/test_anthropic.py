@@ -71,18 +71,22 @@ def parsed_completions_response():
 
 
 @pytest.mark.parametrize(
-    ("user_agent", "expected"),
+    ("headers", "expected"),
     [
-        ("claude-cli/2.0.37 (external, cli)", True),
-        ("Codex-Desktop/26.422.2437.0", True),
-        ("GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)", True),
-        ("python-httpx/0.27.0", False),
-        ("", False),
+        # Known CLI tools with auth header → True
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)", "x-api-key": "key"}, True),
+        ({"user-agent": "Codex-Desktop/26.422.2437.0", "authorization": "Bearer key"}, True),
+        ({"user-agent": "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)", "x-goog-api-key": "key"}, True),
+        # Known CLI tool but no auth header → False
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)"}, False),
+        # Unknown user-agent with auth header → False
+        ({"user-agent": "python-httpx/0.27.0", "authorization": "Bearer key"}, False),
+        # Empty / missing headers → False
+        ({}, False),
         (None, False),
     ],
 )
-def test_client_provides_auth(user_agent, expected):
-    headers = {"user-agent": user_agent} if user_agent is not None else {}
+def test_client_provides_auth(headers, expected):
     assert _client_provides_auth(headers) == expected
 
 
