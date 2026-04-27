@@ -2349,9 +2349,9 @@ class SqlJob(Base):
     Latest best-effort in-flight status message: `Text`.
     """
 
-    progress_payload = Column(MutableJSON, nullable=True)
+    progress = Column(MutableJSON, nullable=True)
     """
-    Latest best-effort structured progress payload: `JSON`.
+    Latest best-effort structured progress: `JSON`.
     """
 
     progress_updated_at = Column(BigInteger(), nullable=True)
@@ -2415,6 +2415,13 @@ class SqlJob(Base):
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            executor_backend=self.executor_backend,
+            lease_expires_at=self.lease_expires_at,
+            status_message=self.status_message,
+            progress=self.progress,
+            progress_updated_at=self.progress_updated_at,
+            token_hash=self.token_hash,
+            scoped_permissions=self.scoped_permissions,
             status_details=self.status_details,
         )
 

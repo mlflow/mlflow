@@ -95,7 +95,7 @@ CREATE TABLE jobs (
 	executor_backend VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	lease_expires_at BIGINT,
 	status_message VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	progress_payload NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	progress NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	progress_updated_at BIGINT,
 	token_hash VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	scoped_permissions NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",

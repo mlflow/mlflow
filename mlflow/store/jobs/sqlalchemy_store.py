@@ -5,7 +5,7 @@ from typing import Any, Iterator
 
 import sqlalchemy
 
-from mlflow.entities._job import Job
+from mlflow.entities._job import Job, JobProgress
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -93,7 +93,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         # should still apply the resulting field updates atomically.
         job.lease_expires_at = None
         job.status_message = None
-        job.progress_payload = None
+        job.progress = None
         job.progress_updated_at = None
         job.token_hash = None
         job.scoped_permissions = None
@@ -471,5 +471,37 @@ class SqlAlchemyJobStore(AbstractJobStore):
             current_details = job.status_details or {}
             current_details.update(status_details)
             job.status_details = current_details
-
             job.last_update_time = get_current_time_millis()
+
+    def update_job_progress(
+        self,
+        job_id: str,
+        message: str | None = None,
+        progress: JobProgress | None = None,
+    ) -> None:
+        """
+        Update structured progress fields for an in-flight job.
+
+        Args:
+            job_id: The ID of the job to update
+            message: Human-readable plain-text progress message. ``None`` leaves
+                the existing value unchanged.
+            progress: Structured machine-readable progress payload. ``None``
+                leaves the existing value unchanged.
+        """
+        if message is None and progress is None:
+            return
+
+        with self.ManagedSessionMaker() as session:
+            job = self._get_sql_job(session, job_id)
+
+            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
+                raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))
+
+            update_time = get_current_time_millis()
+            if message is not None:
+                job.status_message = message
+            if progress is not None:
+                job.progress = progress.to_dict()
+            job.progress_updated_at = update_time
+            job.last_update_time = update_time
