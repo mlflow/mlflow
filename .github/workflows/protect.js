@@ -69,8 +69,9 @@ module.exports = async ({ github, context }) => {
         latestCheckRuns[name] = run;
       }
     }
-    const checks = Object.values(latestCheckRuns).map(({ name, status, conclusion }) => ({
+    const checks = Object.values(latestCheckRuns).map(({ name, status, conclusion, html_url }) => ({
       name,
+      url: html_url,
       pendingJobs: 0,
       status:
         conclusion === "cancelled"
@@ -114,6 +115,7 @@ module.exports = async ({ github, context }) => {
         // Use run-level status directly (0 extra API calls).
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          url: run.html_url,
           pendingJobs: 0,
           status:
             run.conclusion === "cancelled"
@@ -140,6 +142,7 @@ module.exports = async ({ github, context }) => {
         }
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          url: run.html_url,
           pendingJobs: failed ? 0 : pendingJobs,
           status: failed ? STATE.failure : STATE.pending,
         });
@@ -157,9 +160,9 @@ module.exports = async ({ github, context }) => {
     ++iterationCount;
     const checks = await fetchChecks(sha);
     const longest = Math.max(...checks.map(({ name }) => name.length));
-    checks.forEach(({ name, status }) => {
+    checks.forEach(({ name, status, url }) => {
       const icon = status === STATE.success ? "✅" : status === STATE.failure ? "❌" : "🕒";
-      console.log(`- ${name.padEnd(longest)}: ${icon} ${status}`);
+      console.log(`- ${name.padEnd(longest)}: ${icon} ${status}${url ? ` (${url})` : ""}`);
     });
 
     if (checks.some(({ status }) => status === STATE.failure)) {
