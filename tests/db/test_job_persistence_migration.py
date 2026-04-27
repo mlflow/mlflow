@@ -101,7 +101,7 @@ def test_job_persistence_migration_adds_schema_and_cancels_legacy_non_terminal_j
         "executor_backend",
         "lease_expires_at",
         "status_message",
-        "progress_payload",
+        "progress",
         "progress_updated_at",
         "token_hash",
         "scoped_permissions",
