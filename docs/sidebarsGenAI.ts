@@ -1058,7 +1058,7 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'CLI Tools',
+          label: 'Coding Agents',
           items: [
             {
               type: 'doc',
