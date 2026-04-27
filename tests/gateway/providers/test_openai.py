@@ -133,6 +133,40 @@ async def _run_test_chat(provider):
         )
 
 
+def test_get_headers_uses_server_key_by_default():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={"authorization": "Bearer client-key", "X-Custom": "value"}
+    )
+    assert merged["authorization"] == "Bearer key"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={"authorization": "Bearer client-key", "user-agent": user_agent}
+    )
+    assert merged["authorization"] == "Bearer client-key"
+
+
+def test_get_headers_preserves_azure_api_key_for_credential_agents():
+    provider = OpenAIProvider(EndpointConfig(**azure_config(api_type="azure")))
+    merged = provider._get_headers(
+        headers={"api-key": "client-azure-key", "user-agent": "claude-cli/2.0.37 (external, cli)"}
+    )
+    assert merged["api-key"] == "client-azure-key"
+    assert "authorization" not in merged
+
+
 @pytest.mark.asyncio
 async def test_chat():
     config = chat_config()
