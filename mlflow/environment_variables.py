@@ -115,6 +115,14 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: When true, newly created workspaces are seeded with three default RBAC roles
+#: (``workspace-admin``, ``editor``, ``viewer``) that super-admins can assign to other
+#: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already
+#: bypasses RBAC, so the creator is not assigned to any role. Set to ``False`` to skip
+#: seeding entirely — no roles are created and no grants are issued.
+#: (default: ``True``)
+MLFLOW_RBAC_SEED_DEFAULT_ROLES = _BooleanEnvironmentVariable("MLFLOW_RBAC_SEED_DEFAULT_ROLES", True)
+
 #: Specifies the active workspace for client operations.
 #: (default: ``None``)
 MLFLOW_WORKSPACE = _EnvironmentVariable("MLFLOW_WORKSPACE", str, None)
@@ -1506,3 +1514,10 @@ MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", Tru
 #: file size is a concern.
 #: (default: ``True``)
 MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
+
+
+#: Specifies whether to allow using the deprecated filesystem backend for tracking
+#: and model registry. Set to ``True`` to opt out of the error raised when
+#: instantiating the file-based stores.
+#: (default: ``False``)
+MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE", False)

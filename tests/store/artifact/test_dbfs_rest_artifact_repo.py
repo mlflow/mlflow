@@ -348,6 +348,7 @@ def test_download_artifacts(dbfs_artifact_repo):
 
 
 def test_get_host_creds_from_default_store_file_store():
+    pytest.skip("FileStore is no longer supported.")
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=FileStore()):
         with pytest.raises(MlflowException, match="Failed to get credentials for DBFS"):
             _get_host_creds_from_default_store()

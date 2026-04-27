@@ -400,6 +400,7 @@ class Linter(ast.NodeVisitor):
         self.violations: list[Violation] = []
         self.in_TYPE_CHECKING = False
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
+        self.is_test_file = path.name.startswith("test_")
         self.imported_modules: set[str] = set()
         self.lazy_modules: dict[str, Range] = {}
         self.offset = offset or Position(0, 0)
@@ -525,7 +526,7 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _is_in_test(self) -> bool:
-        if not self.path.name.startswith("test_"):
+        if not self.is_test_file:
             return False
 
         if not self.stack:

@@ -221,6 +221,8 @@ class ServerConfig:
 def server_config(request, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     config = request.param
+    if config.backend_type == "file":
+        pytest.skip("FileStore is no longer supported.")
 
     match config.backend_type:
         case "file":
