@@ -63,7 +63,7 @@ Click **Pre-LLM Guardrails** or **Post-LLM Guardrails** to select where this gua
 - **Post-LLM Guardrails**: evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content, or `{{ inputs }}` to reference the original request. Post-LLM guardrails are **not triggered for streaming requests** — only non-streaming responses are evaluated.
 
 :::note
-Guardrails work on both **unified endpoints** and **passthrough endpoints** (OpenAI, Anthropic, Gemini, etc.).
+Guardrails work on both **unified endpoints** and **passthrough endpoints** (Anthropic, Gemini, OpenAI, etc.).
 :::
 
 When you switch between stages, the editor automatically swaps `{{ inputs }}` ↔ `{{ outputs }}` in your instructions so they remain correct.

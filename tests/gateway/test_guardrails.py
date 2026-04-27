@@ -218,10 +218,11 @@ async def test_sanitization_passes_on_good_content():
 
 
 @pytest.mark.asyncio
-async def test_sanitization_skips_response_format_for_request_payload():
-    # Request payloads are not schema-constrained during sanitization because
-    # ChatCompletionRequest shares field names with Anthropic-style payloads
-    # (both use 'messages' and 'max_tokens'), making reliable detection impossible.
+async def test_sanitization_skips_response_format_when_no_schema_provided():
+    # When payload_schema is None (the default), sanitization omits response_format.
+    # Used by passthrough endpoints, where ChatCompletionRequest shares field names
+    # with provider-specific shapes (e.g. Anthropic also uses messages/max_tokens),
+    # making reliable detection impossible — so callers explicitly opt in via payload_schema.
     scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
     guard = JudgeGuardrail(
         scorer,
