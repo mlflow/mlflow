@@ -76,7 +76,7 @@ def parsed_completions_response():
         # Known CLI tools with auth header → True
         ({"user-agent": "claude-cli/2.0.37 (external, cli)", "x-api-key": "key"}, True),
         ({"user-agent": "Codex-Desktop/26.422.2437.0", "authorization": "Bearer key"}, True),
-        ({"user-agent": "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)", "x-goog-api-key": "key"}, True),
+        ({"user-agent": "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)", "x-goog-api-key": "key"}, True),  # noqa: E501
         # Known CLI tool but no auth header → False
         ({"user-agent": "claude-cli/2.0.37 (external, cli)"}, False),
         # Unknown user-agent with auth header → False
