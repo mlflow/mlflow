@@ -186,7 +186,11 @@ const UserPermissionsPage = () => {
             <Table
               scrollable
               noMinHeight
-              empty={<Typography.Text color="secondary">This user has no role assignments yet.</Typography.Text>}
+              empty={
+                roles.length === 0 ? (
+                  <Typography.Text color="secondary">This user has no role assignments yet.</Typography.Text>
+                ) : null
+              }
               css={{
                 border: `1px solid ${theme.colors.border}`,
                 borderRadius: theme.general.borderRadiusBase,
