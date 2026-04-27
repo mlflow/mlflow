@@ -893,22 +893,14 @@ async def openai_passthrough_chat(request: Request):
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
         )
 
-    try:
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
         body = await run_pre_llm_guardrails(
             guardrails,
             body,
             auth_headers=auth_headers,
             usage_tracking=endpoint_config.usage_tracking,
         )
-        traced_passthrough = maybe_traced_gateway_call(
-            provider.passthrough,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
-            on_complete=make_budget_on_complete(store, workspace),
-        )
-        response = await traced_passthrough(
+        response = await provider.passthrough(
             action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
         )
         return await run_post_llm_guardrails_passthrough(
@@ -918,6 +910,16 @@ async def openai_passthrough_chat(request: Request):
             auth_headers=auth_headers,
             usage_tracking=endpoint_config.usage_tracking,
         )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
+            on_complete=make_budget_on_complete(store, workspace),
+        )(body)
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1047,22 +1049,14 @@ async def openai_passthrough_responses(request: Request):
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
         )
 
-    try:
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
         body = await run_pre_llm_guardrails(
             guardrails,
             body,
             auth_headers=auth_headers,
             usage_tracking=endpoint_config.usage_tracking,
         )
-        traced_passthrough = maybe_traced_gateway_call(
-            provider.passthrough,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
-            on_complete=make_budget_on_complete(store, workspace),
-        )
-        response = await traced_passthrough(
+        response = await provider.passthrough(
             action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
         )
         return await run_post_llm_guardrails_passthrough(
@@ -1072,6 +1066,16 @@ async def openai_passthrough_responses(request: Request):
             auth_headers=auth_headers,
             usage_tracking=endpoint_config.usage_tracking,
         )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+            on_complete=make_budget_on_complete(store, workspace),
+        )(body)
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1143,23 +1147,14 @@ async def anthropic_passthrough_messages(request: Request):
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
         )
 
-    try:
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
         body = await run_pre_llm_guardrails(
             guardrails,
             body,
             auth_headers=auth_headers,
             usage_tracking=endpoint_config.usage_tracking,
         )
-        traced_passthrough = maybe_traced_gateway_call(
-            provider.passthrough,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
-            on_complete=make_budget_on_complete(store, workspace),
-            message_format="anthropic",
-        )
-        response = await traced_passthrough(
+        response = await provider.passthrough(
             action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
         )
         return await run_post_llm_guardrails_passthrough(
@@ -1169,6 +1164,17 @@ async def anthropic_passthrough_messages(request: Request):
             auth_headers=auth_headers,
             usage_tracking=endpoint_config.usage_tracking,
         )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
+            on_complete=make_budget_on_complete(store, workspace),
+            message_format="anthropic",
+        )(body)
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1211,23 +1217,14 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     check_budget_limit(store, endpoint_config, workspace=workspace)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
-    try:
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
         body = await run_pre_llm_guardrails(
             guardrails,
             body,
             auth_headers=auth_headers,
             usage_tracking=endpoint_config.usage_tracking,
         )
-        traced_passthrough = maybe_traced_gateway_call(
-            provider.passthrough,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
-            on_complete=make_budget_on_complete(store, workspace),
-            message_format="gemini",
-        )
-        response = await traced_passthrough(
+        response = await provider.passthrough(
             action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
         )
         return await run_post_llm_guardrails_passthrough(
@@ -1237,6 +1234,17 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
             auth_headers=auth_headers,
             usage_tracking=endpoint_config.usage_tracking,
         )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
+            on_complete=make_budget_on_complete(store, workspace),
+            message_format="gemini",
+        )(body)
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
 
