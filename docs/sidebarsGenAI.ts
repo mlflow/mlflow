@@ -1056,6 +1056,31 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'governance/ai-gateway/benchmarks',
           label: 'Performance & Benchmarks',
         },
+        {
+          type: 'category',
+          label: 'CLI Tools',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/cli-tools/claude-code',
+              label: 'Claude Code',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/cli-tools/codex',
+              label: 'OpenAI Codex',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/cli-tools/gemini-cli',
+              label: 'Gemini CLI',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/cli-tools/index',
+          },
+        },
       ],
       link: {
         type: 'doc',
