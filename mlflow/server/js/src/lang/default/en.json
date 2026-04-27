@@ -627,6 +627,10 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
+  "1oExOp": {
+    "defaultMessage": "Rough cost: under $0.5 for ~100 traces; under $1 for ~250 traces. <link>See benchmark</link>",
+    "description": "Approximate USD cost ranges for issue detection as a hint, with link to benchmark docs"
+  },
   "1oofcq": {
     "defaultMessage": "Show less",
     "description": "Link that collapses an expanded list when clicked"
@@ -3711,6 +3715,10 @@
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
   },
+  "LgnR+r": {
+    "defaultMessage": "Configure the model to power issue detection.",
+    "description": "Description for model selection in issue detection modal"
+  },
   "LhxSrc": {
     "defaultMessage": "Incorrect",
     "description": "Evaluation results > correctness assessment > negative value label. Displayed if evaluation result is considered as incorrect."
@@ -6546,10 +6554,6 @@
   "cv/bGM": {
     "defaultMessage": "Trace ID",
     "description": "Column label for trace ID"
-  },
-  "cwuyMm": {
-    "defaultMessage": "Configure the model to power issue detection",
-    "description": "Description for the model selection step in issue detection modal"
   },
   "cy9EfG": {
     "defaultMessage": "Attributes",
