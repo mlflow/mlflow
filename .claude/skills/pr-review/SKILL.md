@@ -48,29 +48,41 @@ The current local branch may not be the PR branch being reviewed. Always rely on
 
 Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
 
-### 3. Review Changed Lines
+### 3. In-Depth Analysis
 
-**Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas)
+**Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas).
 
-Carefully examine **only the changed lines** (added, modified, or deleted) in the diff for:
+Carefully examine **only the changed lines** (added, modified, or deleted) in the diff. Ignore unchanged/context lines and pre-existing code; they are not in scope, even if they look suboptimal.
 
-- Style guide violations (see `.claude/rules/` for language-specific rules)
-- Potential bugs and code quality issues
-- Common mistakes
+Evaluate the changed code across these dimensions:
 
-**Workspace awareness reminder**: If the diff touches the SQLAlchemy tracking store or other tracking persistence layers, verify that workspace-aware behavior remains intact and that new functionality includes matching workspace-aware tests (for example, additions in `tests/store/tracking/test_sqlalchemy_store_workspace.py`).
+- **Correctness**: logic errors, off-by-one, incorrect API usage, broken invariants, regressions in behavior
+- **Security**: injection, unsafe deserialization, secret leakage, missing authz/authn, unsafe defaults
+- **Edge cases**: None/empty/zero inputs, concurrency, error paths, retries, large/unicode inputs
+- **Efficiency**: needless N+1 queries, redundant work in hot paths, allocations in tight loops
+- **Readability & maintainability**: unclear names, dead code, premature abstractions, comments that restate the code
+- **Test coverage**: new behavior lacks tests, tests assert on the wrong thing, mocks hide real failures
+- **Style guide**: see `.claude/rules/` for language-specific rules and `CLAUDE.md` for repo conventions
 
-**Important**: Ignore unchanged/context lines and pre-existing code.
+**Workspace awareness reminder**: If the diff touches the SQLAlchemy tracking store or other tracking persistence layers, verify workspace-aware behavior remains intact and that new functionality includes matching workspace-aware tests (e.g., additions in `tests/store/tracking/test_sqlalchemy_store_workspace.py`).
 
 ### 4. Decision Point
 
-- If **no issues found** → Skip to step 6 (approve)
-- If **only minor issues found** (e.g., style nits, suggestions) → Continue to step 5 (add review comments), then step 6 (approve)
-- If **significant issues found** (e.g., bugs, logic errors, security) → Continue to step 5 (add review comments), do NOT approve
+Classify each finding by severity:
+
+- **Critical**: bugs, logic errors, security issues, data loss risk, broken public API, missing tests for new behavior
+- **Improvement**: non-blocking quality concerns where the code works but could be clearer or safer
+- **Nitpick**: pure style/preference; prefix the comment with `nit:` so the author can ignore it
+
+Then:
+
+- **No findings** → skip to step 6 (approve)
+- **Only improvements/nitpicks** → step 5 (add comments), then step 6 (approve)
+- **Any critical finding** → step 5 (add comments); do NOT approve
 
 ### 5. Add Review Comments
 
-For each issue found, use the `add-review-comment` skill to post review comments.
+For each finding, use the `add-review-comment` skill. One comment per issue, anchored to the most relevant changed line. Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible. Prefix nitpicks with `nit:`.
 
 ### 6. Approve the PR
 
