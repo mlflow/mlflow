@@ -944,13 +944,20 @@ class LiveSpan(Span):
                 INVALID_PARAMETER_VALUE,
             )
 
-        self._links.append(link)
+        # Validate and forward to the underlying OTel span so external exporters can see links
+        try:
+            link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
+                TRACE_REQUEST_ID_PREFIX
+            )
+            otel_context = build_otel_context(decode_id(link_trace_id_hex), decode_id(link.span_id))
+        except (ValueError, MlflowException) as e:
+            raise MlflowException(
+                f"Invalid link: trace_id={link.trace_id!r}, span_id={link.span_id!r}. "
+                "trace_id must be a valid MLflow trace ID and span_id must be a hex string.",
+                INVALID_PARAMETER_VALUE,
+            ) from e
 
-        # Forward to the underlying OTel span so external exporters can see links
-        link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
-            TRACE_REQUEST_ID_PREFIX
-        )
-        otel_context = build_otel_context(decode_id(link_trace_id_hex), decode_id(link.span_id))
+        self._links.append(link)
         self._span.add_link(otel_context, link.attributes)
 
     def record_exception(self, exception: str | Exception):

@@ -822,6 +822,23 @@ def test_live_span_add_link():
         assert otel_span.links[0].context.span_id == 0xAABBCCDDEEFF0011
 
 
+def test_add_link_rejects_invalid_ids():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+
+        with pytest.raises(MlflowException, match="Invalid link"):
+            span.add_link(Link(trace_id="tr-abc123", span_id="not-hex"))
+
+        with pytest.raises(MlflowException, match="Invalid link"):
+            span.add_link(Link(trace_id="bad-format", span_id="aabbccddeeff0011"))
+
+        assert len(span.links) == 0
+
+
 def test_span_seeds_links_from_otel_span():
     trace_id = "tr-12345"
     otel_link = trace_api.Link(
