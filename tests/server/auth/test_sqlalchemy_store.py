@@ -204,8 +204,12 @@ def test_delete_user_with_dependent_rows(store):
 
     store.delete_user(username)
 
-    with pytest.raises(MlflowException, match=rf"User with username={username} not found"):
+    with pytest.raises(
+        MlflowException,
+        match=rf"User with username={username} not found",
+    ) as exception_context:
         store.get_user(username)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_create_experiment_permission(store):
