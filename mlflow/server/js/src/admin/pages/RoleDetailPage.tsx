@@ -223,7 +223,17 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
               ))}
             </SimpleSelect>
           </div>
-          {newResourceType !== 'workspace' && (
+          {newResourceType === 'workspace' ? (
+            <div>
+              <Typography.Text bold>Workspace</Typography.Text>
+              <Typography.Text color="secondary">
+                {roleData?.role?.workspace ?? 'default'}{' '}
+                <Typography.Text color="secondary" size="sm">
+                  (this grant applies to the role's workspace)
+                </Typography.Text>
+              </Typography.Text>
+            </div>
+          ) : (
             <div>
               <Typography.Text bold>Resource Pattern</Typography.Text>
               <Input
