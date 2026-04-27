@@ -22,6 +22,7 @@ from mlflow.environment_variables import (
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
     MLFLOW_LOCK_MODEL_DEPENDENCIES,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+    MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK,
     MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
@@ -938,6 +939,9 @@ def _validate_version_constraints(requirements):
         _validate_version_constraints(["tensorflow<2.0", "tensorflow>2.3"])
         # This will raise an exception due to boundary validity.
     """
+    if MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK.get():
+        return
+
     with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp_file:
         tmp_file.write("\n".join(requirements))
         tmp_file_name = tmp_file.name

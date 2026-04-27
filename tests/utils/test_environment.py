@@ -20,6 +20,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _remove_incompatible_requirements,
     _validate_env_arguments,
+    _validate_version_constraints,
     infer_pip_requirements,
 )
 
@@ -465,6 +466,21 @@ def test_invalid_requirements_raise(input_requirements):
         MlflowException, match="The specified requirements versions are incompatible"
     ):
         _deduplicate_requirements(input_requirements)
+
+
+def test_pip_requirements_validation_skipped_when_env_var_set():
+    from mlflow import environment_variables
+
+    with mock.patch.object(
+        environment_variables.MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK, "get", return_value=True
+    ) as mock_get:
+        # _validate_version_constraints should return early without calling pip
+        _validate_version_constraints(["markdown<2.0", "markdown>3.0"])
+        mock_get.assert_called_once()
+
+        # _deduplicate_requirements with incompatible constraints should not raise
+        result = _deduplicate_requirements(["markdown<3", "markdown>3"])
+        assert result == ["markdown<3,>3"]
 
 
 @pytest.mark.parametrize(
