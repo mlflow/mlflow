@@ -291,24 +291,24 @@ const ChatPanelContent = () => {
     if (inputValue.trim() && !isStreaming) {
       sendMessage(inputValue.trim());
       setInputValue('');
-      logTelemetryEvent({
-        componentId: 'mlflow.assistant.chat_panel.send',
-        componentViewId: viewId,
-        componentType: DesignSystemEventProviderComponentTypes.Button,
-        componentSubType: null,
-        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-      });
     }
-  }, [inputValue, isStreaming, sendMessage, logTelemetryEvent, viewId]);
+  }, [inputValue, isStreaming, sendMessage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
+        logTelemetryEvent({
+          componentId: 'mlflow.assistant.chat_panel.send',
+          componentViewId: viewId,
+          componentType: DesignSystemEventProviderComponentTypes.Button,
+          componentSubType: null,
+          eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+        });
       }
     },
-    [handleSend],
+    [handleSend, logTelemetryEvent, viewId],
   );
 
   const handleSuggestionSelect = useCallback(
