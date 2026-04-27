@@ -41,19 +41,30 @@ import {
 import type { CreateRoleRequest } from '../types';
 import { isWorkspaceAdminRole } from '../types';
 
-// Renders a comma-separated list of role names assigned to a user. Each user
-// row issues its own request — React Query caches per-username so subsequent
-// re-renders don't re-fetch.
+// Renders one line per role assigned to a user, formatted as
+// `<workspace> → <role_name>`. Mirrors the `<scope> → <value>` shape used
+// elsewhere in the admin UI (e.g. the Account page's permission lines like
+// `experiment:* → READ`). Each row issues its own request — React Query
+// caches per-username so subsequent re-renders don't re-fetch.
 const UserRolesCell = ({ username }: { username: string }) => {
+  const { theme } = useDesignSystemTheme();
   const { data, isLoading } = useUserRolesQuery(username);
   if (isLoading) {
     return <Spinner size="small" />;
   }
-  const roleNames = (data?.roles ?? []).map((r) => r.name);
-  if (roleNames.length === 0) {
+  const roles = data?.roles ?? [];
+  if (roles.length === 0) {
     return <Typography.Text color="secondary">—</Typography.Text>;
   }
-  return <span>{roleNames.join(', ')}</span>;
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs / 2 }}>
+      {roles.map((role) => (
+        <Typography.Text key={role.id} size="sm">
+          <code>{role.workspace}</code> → {role.name}
+        </Typography.Text>
+      ))}
+    </div>
+  );
 };
 
 const UsersTab = () => {
