@@ -108,9 +108,7 @@ def fake_chat_response():
 
 def test_get_headers_uses_server_key_by_default():
     provider = GeminiProvider(EndpointConfig(**chat_config()))
-    merged = provider._get_headers(
-        headers={"x-goog-api-key": "client-key", "X-Custom": "value"}
-    )
+    merged = provider._get_headers(headers={"x-goog-api-key": "client-key", "X-Custom": "value"})
     assert merged["x-goog-api-key"] == "key"
     assert merged["X-Custom"] == "value"
 
