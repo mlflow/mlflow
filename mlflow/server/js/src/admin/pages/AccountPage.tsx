@@ -207,7 +207,7 @@ const AccountPage = () => {
                     Workspace
                   </TableHeader>
                   <TableHeader componentId="account.roles.admin_header" css={{ flex: 1 }}>
-                    Admin
+                    Workspace Manager
                   </TableHeader>
                 </TableRow>
                 {roles.map((role) => (
@@ -217,7 +217,7 @@ const AccountPage = () => {
                     <TableCell css={{ flex: 1 }}>
                       {isWorkspaceAdminRole(role) ? (
                         <Tag componentId="account.role_admin_tag" color="indigo">
-                          Admin
+                          Manager
                         </Tag>
                       ) : null}
                     </TableCell>

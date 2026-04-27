@@ -387,7 +387,10 @@ const RolesTab = () => {
             <FormattedMessage defaultMessage="Description" description="Roles table description header" />
           </TableHeader>
           <TableHeader componentId="admin.roles.admin_role_header" css={{ flex: 1 }}>
-            <FormattedMessage defaultMessage="Admin Role" description="Roles table admin role header" />
+            <FormattedMessage
+              defaultMessage="Workspace Manager"
+              description="Roles table column flagging roles that grant workspace-level MANAGE"
+            />
           </TableHeader>
           <TableHeader componentId="admin.roles.actions_header" css={{ flex: 0, minWidth: 80, maxWidth: 80 }}>
             <FormattedMessage defaultMessage="Actions" description="Roles table actions header" />
@@ -405,7 +408,7 @@ const RolesTab = () => {
             <TableCell css={{ flex: 1 }}>
               {isWorkspaceAdminRole(role) ? (
                 <Tag componentId="admin.roles.admin_tag" color="indigo">
-                  Admin
+                  Manager
                 </Tag>
               ) : null}
             </TableCell>
