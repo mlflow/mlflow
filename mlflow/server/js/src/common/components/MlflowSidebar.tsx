@@ -24,6 +24,7 @@ import { Link, matchPath, useLocation, useParams, useSearchParams } from '../uti
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
+import AdminRoutes from '../../admin/routes';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -418,11 +419,23 @@ export function MlflowSidebar({
           {/* Admin and Account live inside the Settings sub-sidebar — see
               `MlflowSidebarSettingsItems`. The single Settings entry below
               opens that sub-sidebar, which gates Admin on `isAdmin` and
-              both on `isAuthAvailable`. */}
+              both on `isAuthAvailable`.
+
+              On the workspace-selection page (`!showWorkspaceMenuItems`),
+              `/settings/:section` would bounce back to `/` because
+              `WorkspaceRouterSync` requires a workspace context for
+              workspace-scoped paths. Route the click to `/account`
+              instead — it's in `ALWAYS_GLOBAL_ROUTES`, opens the same
+              Settings sub-sidebar, and lands the user somewhere they can
+              actually use without picking a workspace first. */}
           {!showNestedSettingsItems && (
             <MlflowSidebarLink
               css={{ paddingBlock: theme.spacing.sm }}
-              to={`${ExperimentTrackingRoutes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(location.pathname + location.search)}`}
+              to={
+                showWorkspaceMenuItems
+                  ? `${ExperimentTrackingRoutes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(location.pathname + location.search)}`
+                  : AdminRoutes.accountPageRoute
+              }
               componentId="mlflow.sidebar.settings_tab_link"
               isActive={isSettingsActive}
               icon={<GearIcon />}
