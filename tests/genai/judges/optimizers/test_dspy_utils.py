@@ -614,15 +614,21 @@ def test_trace_to_dspy_example_conflict_logs_warning(mock_judge, capsys):
     captured = capsys.readouterr()
     assert "discarded" in captured.err.lower()
     assert "test_trace_123" in captured.err
+
+
 def test_trace_to_dspy_example_assessments_without_timestamps(mock_judge):
     assessments = [
         Feedback(
-            name="mock_judge", value="pass", rationale="R1",
-            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u1")
+            name="mock_judge",
+            value="pass",
+            rationale="R1",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u1"),
         ),
         Feedback(
-            name="mock_judge", value="pass", rationale="R2",
-            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u2")
+            name="mock_judge",
+            value="pass",
+            rationale="R2",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="u2"),
         ),
     ]
     trace = _create_trace_with_assessments("test_no_timestamps", assessments)
@@ -634,8 +640,12 @@ def test_trace_to_dspy_example_assessments_without_timestamps(mock_judge):
 def test_trace_to_dspy_example_filters_out_llm_assessments(mock_judge):
     assessments = [
         Feedback(
-            name="mock_judge", value="pass", rationale="LLM",
-            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt")
+            name="mock_judge",
+            value="pass",
+            rationale="LLM",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt"
+            ),
         ),
     ]
     trace = _create_trace_with_assessments("test_llm_only", assessments)

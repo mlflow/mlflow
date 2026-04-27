@@ -4,7 +4,7 @@ import logging
 import os
 from collections import defaultdict
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from mlflow import __version__ as VERSION
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -36,6 +36,7 @@ except ImportError:
     raise MlflowException("DSPy library is required but not installed")
 
 if TYPE_CHECKING:
+    from mlflow.entities.assessment import Assessment
     from mlflow.genai.judges.base import Judge
 
 _logger = logging.getLogger(__name__)
@@ -336,11 +337,11 @@ def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
         raise MlflowException(f"Failed to convert LiteLLM format to MLflow URI: {e}")
 
 
-def _resolve_assessment_conflicts(assessments: list) -> list:
+def _resolve_assessment_conflicts(assessments: list["Assessment"]) -> list["Assessment"]:
     if not assessments:
         return []
 
-    groups: dict[str, list] = defaultdict(list)
+    groups: dict[str, list["Assessment"]] = defaultdict(list)
     for assessment in assessments:
         if assessment.feedback:
             label = str(assessment.feedback.value).lower()
@@ -431,7 +432,8 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
         if len(resolved_assessments) < len(assessments_with_feedback):
             discarded = [a for a in assessments_with_feedback if a not in resolved_assessments]
             discarded_details = ", ".join(
-                f"[source_id='{a.source.source_id}', label='{a.feedback.value}']"
+                f"[assessment_id='{a.assessment_id}', source_id='{a.source.source_id}', "
+                f"label='{a.feedback.value}', create_time_ms={a.create_time_ms}]"
                 for a in discarded
             )
             _logger.warning(
