@@ -144,6 +144,38 @@ def test_update_user_password(client, monkeypatch):
         client.update_user_password(username, new_password)
 
 
+def test_self_service_password_change_requires_current_password(client, monkeypatch):
+    # Defense-in-depth: a user changing their own password must re-assert the
+    # current password. Admins changing someone else's password don't (and
+    # can't) supply it — that path is exercised in `test_update_user_password`.
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+
+    new_password = random_str()
+
+    with User(username, password, monkeypatch):
+        # Missing current_password: rejected.
+        with pytest.raises(MlflowException, match="current_password is required"):
+            client.update_user_password(username, new_password)
+
+        # Wrong current_password: rejected.
+        with pytest.raises(MlflowException, match="current_password does not match"):
+            client.update_user_password(
+                username, new_password, current_password="not-the-current-password"
+            )
+
+        # Correct current_password: accepted.
+        client.update_user_password(username, new_password, current_password=password)
+
+    # Old password no longer authenticates; new one does.
+    with User(username, password, monkeypatch), assert_unauthenticated():
+        client.get_user(username)
+    with User(username, new_password, monkeypatch):
+        client.get_user(username)
+
+
 def test_update_user_admin(client, monkeypatch):
     username = random_str()
     password = random_str()

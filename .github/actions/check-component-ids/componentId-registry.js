@@ -631,6 +631,8 @@ module.exports = {
   "account.change_password_modal": "Modal hosting the change-password form on the Account page",
   "account.change_password_modal.error": "Inline error alert in the change-password modal",
   "account.confirm_password": "Confirm-password input on the change-password form",
+  "account.current_password":
+    "Current-password input on the change-password form (required for self-service)",
   "account.error": "Inline error alert on the account page",
   "account.info": "Info banner shown on the account page",
   "account.logout_button": "Logout button on the account page",

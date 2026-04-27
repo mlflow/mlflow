@@ -3215,6 +3215,26 @@ def get_current_user():
 def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
+    # Self-service password changes must re-assert the current password as a
+    # defense-in-depth check: the Basic Auth header on the request already
+    # proves identity, but a walk-up attacker on a logged-in browser session
+    # would otherwise be able to silently rotate the password and lock out
+    # the legitimate user. Admins changing *someone else's* password bypass
+    # this (they don't and can't supply the target's current password).
+    sender = authenticate_request()
+    sender_username = getattr(sender, "username", None)
+    if sender_username == username:
+        current_password = request.json.get("current_password") if request.is_json else None
+        if not current_password:
+            raise MlflowException(
+                "current_password is required when changing your own password.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if not store.authenticate_user(username, current_password):
+            raise MlflowException(
+                "current_password does not match.",
+                INVALID_PARAMETER_VALUE,
+            )
     store.update_user(username, password=password)
     _invalidate_user_auth_cache(username)
     return make_response({})

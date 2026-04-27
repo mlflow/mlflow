@@ -96,6 +96,9 @@ export interface CreateUserRequest {
 export interface UpdatePasswordRequest {
   username: string;
   password: string;
+  // Required when a user changes their own password; omitted when an admin
+  // changes someone else's password. Backend enforces.
+  current_password?: string;
 }
 
 export interface UpdateAdminRequest {

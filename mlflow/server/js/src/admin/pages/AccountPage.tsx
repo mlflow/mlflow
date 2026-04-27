@@ -24,6 +24,7 @@ import { isWorkspaceAdminRole } from '../types';
 const AccountPage = () => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +38,7 @@ const AccountPage = () => {
 
   const closeChangePassword = () => {
     setChangePasswordOpen(false);
+    setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setError(null);
@@ -49,6 +51,11 @@ const AccountPage = () => {
     setError(null);
     setSuccessMessage(null);
 
+    if (!currentPassword) {
+      setError('Current password is required');
+      return;
+    }
+
     if (!newPassword) {
       setError('Password cannot be empty');
       return;
@@ -60,8 +67,13 @@ const AccountPage = () => {
     }
 
     try {
-      await updatePassword.mutateAsync({ username, password: newPassword });
+      await updatePassword.mutateAsync({
+        username,
+        password: newPassword,
+        current_password: currentPassword,
+      });
       setSuccessMessage('Password updated successfully');
+      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setChangePasswordOpen(false);
@@ -173,6 +185,16 @@ const AccountPage = () => {
                 onClose={() => setError(null)}
               />
             )}
+            <div>
+              <Typography.Text bold>Current password</Typography.Text>
+              <Input
+                componentId="account.current_password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+              />
+            </div>
             <div>
               <Typography.Text bold>New password</Typography.Text>
               <Input
