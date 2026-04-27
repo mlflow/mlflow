@@ -26,11 +26,7 @@ Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and clic
 - **LLM Connection:** select an existing connection (see [Create an LLM Connection](/genai/governance/ai-gateway/api-keys/create-and-manage))
 
 :::tip
-**Subscription passthrough:** If your users run Codex with their own OpenAI subscription, you can create the LLM Connection with a dummy API key (e.g. `dummy`). The gateway detects Codex's `User-Agent` and forwards the client's own credentials instead of the server-side key.
-
-**Server-side API key:** You can also create the LLM Connection with a real OpenAI API key. In this case all requests are billed to that key regardless of who is running Codex.
-
-Both modes are supported — choose based on your team's billing and access control preferences.
+The server-side API key in the LLM Connection can be set to a dummy value (e.g. `dummy`). The gateway detects Codex's `User-Agent` and forwards the client's own credentials — either their OpenAI subscription or their own API key — to the upstream provider instead.
 :::
 
 ## Step 2: Configure Environment Variables
