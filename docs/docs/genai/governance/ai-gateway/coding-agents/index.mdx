@@ -5,25 +5,37 @@ description: Use Claude Code, OpenAI Codex, and Gemini CLI with the MLflow AI Ga
 
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { BarChart3, DollarSign } from "lucide-react";
+import { BarChart3, DollarSign, Shield } from "lucide-react";
 
 # Coding Agents & AI Gateway
 
 The MLflow AI Gateway supports popular AI coding agents such as **Claude Code**, **OpenAI Codex**, and **Gemini CLI** out of the box.
 
-Routing coding agents through the gateway gives your team two key capabilities:
+Routing coding agents through the gateway gives your team three key capabilities:
 
-## Observability
-
-Every request made by a coding agent is automatically captured as an MLflow trace, giving you full visibility into what your team's agents are doing — inputs, outputs, model used, token counts, and latency — without any code changes.
-
-[→ Learn about Usage Tracking](/genai/governance/ai-gateway/usage-tracking)
-
-## Budget Control
-
-Set spending limits per endpoint to prevent runaway costs from coding agent sessions. Configure alerts to notify you before a budget is exhausted, and hard limits to stop requests once the threshold is reached.
-
-[→ Learn about Budget Alerts & Limits](/genai/governance/ai-gateway/budget-alerts-limits)
+<TilesGrid>
+  <TileCard
+    icon={BarChart3}
+    title="Observability"
+    description="Every request is automatically captured as an MLflow trace, giving you full visibility into inputs, outputs, token counts, and latency, without any code changes."
+    href="/genai/governance/ai-gateway/usage-tracking"
+    linkText="Learn about Usage Tracking →"
+  />
+  <TileCard
+    icon={DollarSign}
+    title="Budget Control"
+    description="Set spending limits per endpoint to prevent runaway costs. Configure alerts and hard limits to keep coding agent sessions within budget."
+    href="/genai/governance/ai-gateway/budget-alerts-limits"
+    linkText="Learn about Budget Alerts & Limits →"
+  />
+  <TileCard
+    icon={Shield}
+    title="Guardrails"
+    description="Enforce content policies on all coding agent requests. Block sensitive topics, redact PII, and ensure responses meet your organization's standards."
+    href="/genai/governance/ai-gateway/guardrails"
+    linkText="Learn about Guardrails →"
+  />
+</TilesGrid>
 
 ---
 
