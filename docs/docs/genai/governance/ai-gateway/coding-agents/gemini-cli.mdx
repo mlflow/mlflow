@@ -34,10 +34,6 @@ Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and clic
 Both modes are supported — choose based on your team's billing and access control preferences.
 :::
 
-:::note
-Gemini CLI uses API key based authentication. Make sure to select **API Key** as the authentication type when creating the endpoint.
-:::
-
 ## Step 2: Configure Environment Variables
 
 Set the following environment variables so Gemini CLI routes through the gateway and uses your endpoint:
@@ -45,6 +41,7 @@ Set the following environment variables so Gemini CLI routes through the gateway
 ```bash
 export GOOGLE_GEMINI_BASE_URL="http://localhost:5000/gateway/gemini"
 export GEMINI_MODEL="my-gemini-endpoint"   # your endpoint name from Step 1
+export GEMINI_API_KEY="your-google-api-key"
 ```
 
 ## Step 3: Run Gemini CLI
