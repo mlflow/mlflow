@@ -673,7 +673,7 @@ def test_experiment_validators_read_permission_blocks_writes(workspace_permissio
 def test_contribute_workspace_permission_allows_create(workspace_permission_setup):
     """A direct ``(workspace, *, CONTRIBUTE)`` row should allow create_experiment and
     create_registered_model, but not update/delete on existing resources owned by
-    others.
+    others (verified for both experiments and registered models).
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -690,6 +690,21 @@ def test_contribute_workspace_permission_allows_create(workspace_permission_setu
         assert auth_module.validate_can_read_experiment()
         assert not auth_module.validate_can_update_experiment()
         assert not auth_module.validate_can_delete_experiment()
+
+    with (
+        workspace_context.WorkspaceContext("team-a"),
+        auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/get",
+            method="GET",
+            query_string={"name": "model-xyz"},
+        ),
+    ):
+        # Same property for registered models: read-only on resources the user
+        # didn't create.
+        assert auth_module.validate_can_read_registered_model()
+        assert not auth_module.validate_can_update_registered_model()
+        assert not auth_module.validate_can_delete_registered_model()
+        assert not auth_module.validate_can_manage_registered_model()
 
 
 def test_edit_workspace_permission_allows_create(workspace_permission_setup):

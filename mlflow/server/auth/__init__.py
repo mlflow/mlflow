@@ -2560,24 +2560,27 @@ def filter_list_workspaces(resp: Response) -> None:
 # ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is on. ``CreateWorkspace`` is gated to
 # ``sender_is_admin``, so the creator is always a super-admin whose ``is_admin``
 # flag already bypasses RBAC checks — we therefore don't assign the creator to
-# any of these roles. The three roles exist as ready-made scaffolding for the
+# any of these roles. The four roles exist as ready-made scaffolding for the
 # admin to hand out to other users.
 #
-# All three roles use ``(resource_type='workspace', resource_pattern='*')`` — the
+# All four roles use ``(resource_type='workspace', resource_pattern='*')`` — the
 # workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``. The permission
 # level differentiates them: only ``MANAGE`` additionally grants workspace-admin
-# capability (role/user management within the workspace); ``EDIT`` / ``READ`` give
-# workspace-wide resource access without admin authority.
+# capability (role/user management within the workspace); ``EDIT`` / ``CONTRIBUTE``
+# / ``READ`` give workspace-wide resource access at progressively narrower scopes
+# without admin authority.
 _DEFAULT_WORKSPACE_ROLES = (
     ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
     ("editor", EDIT.name, "EDIT access to every resource in the workspace."),
     (
         "contributor",
         CONTRIBUTE.name,
-        # Pairs with creator-as-owner: a CONTRIBUTOR can create new resources and gets
-        # MANAGE on the rows they create, but cannot update or delete resources owned
-        # by other users in the workspace.
-        "Create new resources; manage your own. No access to other users' resources.",
+        # Pairs with creator-as-owner: a CONTRIBUTOR can read and use every resource
+        # in the workspace and create new ones, automatically owning what they
+        # create (the AFTER_REQUEST_PATH_HANDLERS grant the creator MANAGE on the
+        # new row). Update / delete authority is limited to their own resources;
+        # they cannot modify or delete resources owned by other users.
+        "Create new resources; manage your own. Read/use resources across the workspace.",
     ),
     ("viewer", READ.name, "READ access to every resource in the workspace."),
 )
