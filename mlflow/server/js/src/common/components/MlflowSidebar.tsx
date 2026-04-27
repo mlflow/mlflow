@@ -329,26 +329,31 @@ export function MlflowSidebar({
             margin: 0,
           }}
         >
-          {showWorkspaceMenuItems &&
-            (showNestedSettingsItems ? (
-              <MlflowSidebarSettingsItems collapsed={!showSidebar} />
-            ) : (
-              menuItems.map(
-                ({ icon, linkProps, componentId, nestedItems }) =>
-                  nestedItems ?? (
-                    <MlflowSidebarLink
-                      key={componentId}
-                      to={linkProps.to}
-                      componentId={componentId}
-                      isActive={linkProps.isActive}
-                      icon={icon}
-                      collapsed={!showSidebar}
-                    >
-                      {linkProps.children}
-                    </MlflowSidebarLink>
-                  ),
-              )
-            ))}
+          {showNestedSettingsItems ? (
+            // Settings sub-sidebar renders regardless of workspace context —
+            // its always-global entries (Admin / Account) are reachable from
+            // anywhere, and the component itself gates its workspace-scoped
+            // entries (General / LLM Connections / Webhooks) on
+            // `hasWorkspaceContext`.
+            <MlflowSidebarSettingsItems collapsed={!showSidebar} hasWorkspaceContext={showWorkspaceMenuItems} />
+          ) : (
+            showWorkspaceMenuItems &&
+            menuItems.map(
+              ({ icon, linkProps, componentId, nestedItems }) =>
+                nestedItems ?? (
+                  <MlflowSidebarLink
+                    key={componentId}
+                    to={linkProps.to}
+                    componentId={componentId}
+                    isActive={linkProps.isActive}
+                    icon={icon}
+                    collapsed={!showSidebar}
+                  >
+                    {linkProps.children}
+                  </MlflowSidebarLink>
+                ),
+            )
+          )}
         </ul>
         <div>
           {isLocalServer && (
