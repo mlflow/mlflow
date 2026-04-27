@@ -184,6 +184,30 @@ def test_delete_user(store):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+def test_delete_user_with_dependent_rows(store):
+    # Eight tables reference users.id via non-nullable FKs; SQLite (with
+    # PRAGMA foreign_keys = ON, which the auth store enables) rejects
+    # ``DELETE FROM users`` if any child rows remain. This exercises the
+    # full set so a regression in any one of the cascades is caught.
+    username = random_str()
+    user = _user_maker(store, username, random_str())
+
+    _ep_maker(store, random_str(), username, READ.name)
+    _rmp_maker(store, random_str(), username, EDIT.name)
+    _sp_maker(store, random_str(), random_str(), username, READ.name)
+    _gsp_maker(store, random_str(), username, READ.name)
+    _gep_maker(store, random_str(), username, READ.name)
+    _gmdp_maker(store, random_str(), username, READ.name)
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, username, READ.name)
+    role = store.create_role(name=random_str(), workspace=DEFAULT_WORKSPACE_NAME)
+    store.assign_role_to_user(user_id=user.id, role_id=role.id)
+
+    store.delete_user(username)
+
+    with pytest.raises(MlflowException, match=rf"User with username={username} not found"):
+        store.get_user(username)
+
+
 def test_create_experiment_permission(store):
     username1 = random_str()
     password1 = random_str()

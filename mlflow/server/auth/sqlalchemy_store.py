@@ -141,6 +141,31 @@ class SqlAlchemyStore:
     def delete_user(self, username: str):
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username)
+            # Eight tables reference users.id via non-nullable FKs without
+            # ON DELETE CASCADE, so SQLite (and any FK-enforcing backend)
+            # rejects ``DELETE FROM users`` while child rows remain. Three
+            # of these (experiment/registered_model/scorer permissions)
+            # have backref relationships on ``SqlUser`` but no cascade
+            # configured, and the other five (workspace, role-assignment,
+            # the three gateway permission tables) have no relationship
+            # declaration at all. Clean them up explicitly here so the
+            # admin "delete user" flow works for any user, not only those
+            # without permissions or role assignments.
+            user_id = user.id
+            child_tables = (
+                SqlUserRoleAssignment,
+                SqlWorkspacePermission,
+                SqlExperimentPermission,
+                SqlRegisteredModelPermission,
+                SqlScorerPermission,
+                SqlGatewaySecretPermission,
+                SqlGatewayEndpointPermission,
+                SqlGatewayModelDefinitionPermission,
+            )
+            for child in child_tables:
+                session.query(child).filter(child.user_id == user_id).delete(
+                    synchronize_session=False
+                )
             session.delete(user)
 
     def create_experiment_permission(
