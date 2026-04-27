@@ -19,7 +19,6 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
-  SCROLLABLE_TOOLTIP_WRAPPER_STYLE,
 } from './OverviewChartComponents';
 import { useChartColors, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 
@@ -136,7 +135,7 @@ export const TraceCostOverTimeChart: React.FC = () => {
                   />
                 }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                wrapperStyle={SCROLLABLE_TOOLTIP_WRAPPER_STYLE}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               {displayedItems.map((itemName) => {
                 const originalIndex = dimensionValues.indexOf(itemName);

@@ -14,7 +14,6 @@ import {
   useChartZoomSelectionProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
   ScrollableTooltip,
-  SCROLLABLE_TOOLTIP_WRAPPER_STYLE,
 } from './OverviewChartComponents';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
@@ -88,7 +87,7 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ title })
             >
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
-              <Tooltip content={tooltipContent} cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }} wrapperStyle={SCROLLABLE_TOOLTIP_WRAPPER_STYLE} />
+              <Tooltip content={tooltipContent} cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }} wrapperStyle={{ pointerEvents: 'auto' }} />
               <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
               {avgRequests > 0 && (
                 <ReferenceLine

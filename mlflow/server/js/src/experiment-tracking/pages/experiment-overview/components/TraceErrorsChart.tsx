@@ -17,7 +17,6 @@ import {
   DEFAULT_CHART_CONTENT_HEIGHT,
   getTracesFilteredByTimeRangeUrl,
   createSpanStatusEqualsFilter,
-  SCROLLABLE_TOOLTIP_WRAPPER_STYLE,
 } from './OverviewChartComponents';
 import { useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -104,7 +103,7 @@ export const TraceErrorsChart: React.FC<TraceErrorsChartProps> = ({ enableTraceN
                   />
                 }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                wrapperStyle={SCROLLABLE_TOOLTIP_WRAPPER_STYLE}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Bar
                 yAxisId="left"

@@ -14,7 +14,6 @@ import {
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
-  SCROLLABLE_TOOLTIP_WRAPPER_STYLE,
 } from './OverviewChartComponents';
 import { ItemSelector } from './ItemSelector';
 import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
@@ -100,7 +99,7 @@ export const ToolUsageChart: React.FC = () => {
                   />
                 }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                wrapperStyle={SCROLLABLE_TOOLTIP_WRAPPER_STYLE}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               {displayedItems.map((toolName) => {
                 const originalIndex = toolNames.indexOf(toolName);
