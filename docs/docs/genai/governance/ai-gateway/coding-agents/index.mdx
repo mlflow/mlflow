@@ -27,11 +27,7 @@ Set spending limits per endpoint to prevent runaway costs from coding agent sess
 
 ---
 
-When coding agents send requests through the gateway, it automatically detects them via their `User-Agent` header and forwards their own credentials to the upstream provider, instead of substituting the server-side API key. Configuration is minimal, just set an environment variable.
-
-:::info
-This passthrough behavior only activates when the agent includes its own auth header (`Authorization`, `x-api-key`, or `x-goog-api-key`). If no client credential is present, the gateway falls back to the server-side API key as usual.
-:::
+Configuration is minimal, just set an environment variable.
 
 ## Get Started
 
