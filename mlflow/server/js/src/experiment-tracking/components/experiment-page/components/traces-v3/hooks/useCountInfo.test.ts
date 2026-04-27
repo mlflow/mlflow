@@ -1,10 +1,11 @@
-import { jest, describe, it, expect } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 
 import { useCountInfo } from './useCountInfo';
 import { AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { shouldUseInfinitePaginatedTraces } from '@databricks/web-shared/genai-traces-table';
 import { createTestTraceInfoV3 } from '@databricks/web-shared/genai-traces-table';
+import { FilterOperator } from '@databricks/web-shared/genai-traces-table';
 
 jest.mock('@databricks/web-shared/genai-traces-table', () => ({
   ...jest.requireActual<typeof import('@databricks/web-shared/genai-traces-table')>(
@@ -29,6 +30,11 @@ describe('useCountInfo', () => {
     metadataTotalCount: 0,
     disabled: false,
   };
+
+  beforeEach(() => {
+    mockShouldUseInfinitePaginatedTraces.mockReturnValue(false);
+    mockUseTraceMetricsQuery.mockReset();
+  });
 
   it('counts unique session ids when grouped by session', () => {
     mockUseTraceMetricsQuery.mockReturnValue({
@@ -133,5 +139,53 @@ describe('useCountInfo', () => {
     expect(result.current.currentCount).toBe(2);
 
     mockShouldUseInfinitePaginatedTraces.mockReturnValue(false);
+  });
+
+  it('falls back to traceInfosCount when traceInfos is unavailable', () => {
+    mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isLoading: false });
+
+    const { result } = renderHook(() =>
+      useCountInfo({
+        ...defaultParams,
+        traceInfos: undefined,
+        traceInfosCount: 4,
+        metadataTotalCount: 9,
+      }),
+    );
+
+    expect(result.current).toEqual({
+      currentCount: 4,
+      logCountLoading: false,
+      totalCount: 9,
+      maxAllowedCount: 1000,
+    });
+  });
+
+  it('includes additional filters alongside run filters in grouped session metrics queries', () => {
+    mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isLoading: false });
+
+    const traceInfos = [
+      {
+        ...createTestTraceInfoV3('tr-1', 'req-1', 'request-1'),
+        trace_metadata: { 'mlflow.trace.session': 'session-a' },
+      },
+    ];
+
+    renderHook(() =>
+      useCountInfo({
+        ...defaultParams,
+        runUuid: 'run-123',
+        traceInfos,
+        metadataTraceInfos: traceInfos,
+        isGroupedBySession: true,
+        additionalFilters: [{ column: 'prompt', operator: FilterOperator.EQUALS, value: 'test-prompt/1' }],
+      }),
+    );
+
+    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: ['trace.metadata.`mlflow.sourceRun` = "run-123"', "prompt = 'test-prompt/1'"],
+      }),
+    );
   });
 });

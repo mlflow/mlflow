@@ -381,6 +381,7 @@ const TracesV3LogsImpl = React.memo(
       experimentIds,
       timeRange,
       traceInfos,
+      additionalFilters,
       metadataTraceInfos: evaluatedTraces
         .map((trace) => trace.traceInfo)
         .filter((traceInfo): traceInfo is NonNullable<(typeof evaluatedTraces)[number]['traceInfo']> =>

@@ -3,6 +3,7 @@ import {
   shouldUseInfinitePaginatedTraces,
   getEvalTabTotalTracesLimit,
 } from '@databricks/web-shared/genai-traces-table';
+import type { TableFilter } from '@databricks/web-shared/genai-traces-table';
 import { useTraceMetricsQuery } from '../../../../../pages/experiment-overview/hooks/useTraceMetricsQuery';
 import {
   MetricViewType,
@@ -12,6 +13,7 @@ import {
   SESSION_ID_METADATA_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { createMlflowSearchFilter } from '../../../../../../shared/web-shared/genai-traces-table/hooks/useMlflowTraces';
 
 const getUniqueSessionCount = (traceInfos: ModelTraceInfoV3[] | undefined) =>
   new Set(
@@ -35,27 +37,43 @@ export function useCountInfo({
   runUuid,
   timeRange,
   traceInfos,
+  traceInfosCount,
   metadataTraceInfos,
   traceInfosLoading,
   metadataTotalCount,
   disabled,
   isGroupedBySession = false,
+  additionalFilters,
 }: {
   experimentIds: string[];
   runUuid?: string;
   timeRange?: { startTime?: string; endTime?: string };
-  traceInfos: ModelTraceInfoV3[] | undefined;
+  traceInfos?: ModelTraceInfoV3[];
+  traceInfosCount?: number;
   metadataTraceInfos?: ModelTraceInfoV3[];
   traceInfosLoading: boolean;
   metadataTotalCount: number;
   disabled: boolean;
   isGroupedBySession?: boolean;
+  additionalFilters?: TableFilter[];
 }) {
   const usingInfinitePagination = shouldUseInfinitePaginatedTraces();
-  const filters = useMemo(
-    () => (runUuid ? [createTraceMetadataFilter('mlflow.sourceRun', runUuid)] : undefined),
-    [runUuid],
-  );
+  const filters = useMemo(() => {
+    const queryFilters: string[] = [];
+
+    if (runUuid) {
+      queryFilters.push(createTraceMetadataFilter('mlflow.sourceRun', runUuid));
+    }
+
+    if (additionalFilters?.length) {
+      const additionalFilterQuery = createMlflowSearchFilter(undefined, undefined, additionalFilters);
+      if (additionalFilterQuery) {
+        queryFilters.push(additionalFilterQuery);
+      }
+    }
+
+    return queryFilters.length > 0 ? queryFilters : undefined;
+  }, [additionalFilters, runUuid]);
 
   const startTimeMs = timeRange?.startTime ? Number(timeRange.startTime) : undefined;
   const endTimeMs = timeRange?.endTime ? Number(timeRange.endTime) : undefined;
@@ -71,7 +89,9 @@ export function useCountInfo({
     filters,
   });
   const metricsTotal = traceCountMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT];
-  const currentCount = isGroupedBySession ? getUniqueSessionCount(traceInfos) : traceInfos?.length;
+  const currentCount = isGroupedBySession
+    ? getUniqueSessionCount(traceInfos)
+    : traceInfos?.length ?? traceInfosCount ?? 0;
   const filteredTotalCount = isGroupedBySession ? getUniqueSessionCount(metadataTraceInfos) : metadataTotalCount;
 
   return useMemo(() => {
