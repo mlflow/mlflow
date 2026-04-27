@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 
@@ -5,8 +6,10 @@ import pytest
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
+    _extract_caller,
     _get_model_span_info,
     aggregate_anthropic_messages_stream_chunks,
     aggregate_chat_stream_chunks,
@@ -1049,3 +1052,59 @@ def test_aggregate_gemini_stream_chunks_finish_reason(finish_reasons, expected):
     chunks = [_gemini_text_chunk(f"t{i}", finish_reason=fr) for i, fr in enumerate(finish_reasons)]
     result = aggregate_gemini_stream_generate_content_chunks(chunks)
     assert result["candidates"][0]["finishReason"] == expected
+
+
+# ---------------------------------------------------------------------------
+# _extract_caller tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        (None, None),
+        ({}, None),
+        ({"User-Agent": "openai-python/1.0.0"}, "openai-python"),
+        ({"user-agent": "claude-cli/1.2.3"}, "claude-cli"),
+        ({"User-Agent": "GeminiCLI/1.0 (Linux; x64)"}, "GeminiCLI"),
+        ({"User-Agent": "anthropic/0.20.0 CPython/3.11.0 Darwin/23.0.0"}, "anthropic"),
+        (
+            {MLFLOW_GATEWAY_CALLER_HEADER: "judge", "User-Agent": "openai-python/1.0.0"},
+            "judge",
+        ),
+        ({MLFLOW_GATEWAY_CALLER_HEADER: "judge"}, "judge"),
+        ({"User-Agent": "   "}, None),
+    ],
+)
+def test_extract_caller(headers, expected):
+    assert _extract_caller(headers) == expected
+
+
+def test_maybe_traced_gateway_call_records_caller(endpoint_config):
+    async def fake_func(payload):
+        return {"ok": True}
+
+    traced = maybe_traced_gateway_call(
+        fake_func,
+        endpoint_config,
+        request_headers={"User-Agent": "openai-python/1.0.0"},
+    )
+
+    asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
+
+    traces = get_traces()
+    assert traces
+    assert traces[0].info.request_metadata.get(TraceMetadataKey.GATEWAY_CALLER) == "openai-python"
+
+
+def test_maybe_traced_gateway_call_no_caller_when_no_headers(endpoint_config):
+    async def fake_func(payload):
+        return {"ok": True}
+
+    traced = maybe_traced_gateway_call(fake_func, endpoint_config, request_headers=None)
+
+    asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
+
+    traces = get_traces()
+    assert traces
+    assert TraceMetadataKey.GATEWAY_CALLER not in (traces[0].info.request_metadata or {})
