@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 import yaml
 
+from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import (
     _contains_mlflow_requirement,
@@ -469,8 +470,6 @@ def test_invalid_requirements_raise(input_requirements):
 
 
 def test_pip_requirements_validation_skipped_when_env_var_set():
-    from mlflow import environment_variables
-
     with mock.patch.object(
         environment_variables.MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK, "get", return_value=True
     ) as mock_get:
