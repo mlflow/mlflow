@@ -1132,6 +1132,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
         on_complete=make_budget_on_complete(store, workspace),
+        message_format="gemini",
     )
     return await traced_passthrough(
         action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
