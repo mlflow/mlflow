@@ -64,6 +64,8 @@ class Provider(str, Enum):
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"
     VERTEX_AI = "vertex_ai"
+    ASTRAFLOW = "astraflow"
+    ASTRAFLOW_CN = "astraflow-cn"
     PORTKEY = "portkey"
 
     @classmethod
