@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777353551052,
+  "lastUpdate": 1777355097198,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -132,6 +132,72 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.014516964837542645",
             "extra": "mean: 20.987638400001174 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hkawamura0130@gmail.com",
+            "name": "Harutaka Kawamura",
+            "username": "harupy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cc5e6b33bc0bd29f44853265b34fae89c1159a76",
+          "message": "Disable commit comments on tracing benchmark alerts (#22958)\n\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-04-28T14:43:36+09:00",
+          "tree_id": "2a315405ea7682459ac799a0a035df784603d7a2",
+          "url": "https://github.com/mlflow/mlflow/commit/cc5e6b33bc0bd29f44853265b34fae89c1159a76"
+        },
+        "date": 1777355096099,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 21.118873348317234,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02511332508609094",
+            "extra": "mean: 47.351010799999926 msec\nrounds: 20"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 42.409459937959774,
+            "unit": "iter/sec",
+            "range": "stddev: 0.028817671945298107",
+            "extra": "mean: 23.579644764703122 msec\nrounds: 34"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 45.54466536461062,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02738994680051884",
+            "extra": "mean: 21.95646827118914 msec\nrounds: 59"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 41.51771528266485,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0295889861050552",
+            "extra": "mean: 24.08610380392334 msec\nrounds: 51"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 39.445416203358015,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03161831080790349",
+            "extra": "mean: 25.351488113208685 msec\nrounds: 53"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 14.375247599264963,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07412911046751611",
+            "extra": "mean: 69.56401919999848 msec\nrounds: 5"
           }
         ]
       }
