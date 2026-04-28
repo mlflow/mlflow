@@ -1,4 +1,5 @@
 import os
+from unittest import mock
 
 import pytest
 
@@ -13,6 +14,11 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue import IssueStatus
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.distributed import (
+    get_tracing_context_headers_for_http_request,
+    set_tracing_context_from_http_request_headers,
+)
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
@@ -976,3 +982,38 @@ def test_log_multiple_assessment_types(trace_id):
     assert assessments_by_type["issue"].name == "iss-11111"
     assert assessments_by_type["issue"].issue_name == "data_quality_issue"
     assert assessments_by_type["issue"].issue_id == "iss-11111"
+
+
+def test_log_feedback_in_distributed_trace_persists_to_backend():
+    # Simulate a root endpoint: start and complete a trace, capture propagation headers
+    captured_headers = {}
+
+    @mlflow.trace(name="root")
+    def root():
+        nonlocal captured_headers
+        captured_headers = get_tracing_context_headers_for_http_request()
+
+    root()
+
+    # Simulate a child endpoint: restore distributed context and log feedback
+    with mock.patch.object(TracingClient, "store") as mock_store:
+        mock_assessment = mock.MagicMock()
+        mock_assessment.assessment_id = "a-test-assessment-id"
+        mock_store.create_assessment.return_value = mock_assessment
+
+        with set_tracing_context_from_http_request_headers(captured_headers):
+
+            @mlflow.trace(name="child")
+            def child():
+                trace_id = mlflow.get_active_trace_id()
+                return mlflow.log_feedback(
+                    trace_id=trace_id,
+                    name="child_was_called",
+                    value="yes",
+                )
+
+            result = child()
+
+        # The assessment must be persisted via the store, not dropped silently
+        mock_store.create_assessment.assert_called_once()
+        assert result.assessment_id == "a-test-assessment-id"
