@@ -395,8 +395,7 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs
     dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
-        tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri(f"file://{tracking_dir}")
+        mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
@@ -472,8 +471,7 @@ def test_sparkml_estimator_model_log(
     dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
-        tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri(f"file://{tracking_dir}")
+        mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
