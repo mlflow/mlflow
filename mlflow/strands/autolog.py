@@ -21,6 +21,7 @@ from opentelemetry.trace import (
     set_tracer_provider,
 )
 
+import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
@@ -33,6 +34,15 @@ from mlflow.tracing.utils import (
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def patched_agent_call(original, self, *args, **kwargs):
+    """Patch Agent.__call__ to automatically extract session_id from session_manager."""
+    session_manager = getattr(self, "_session_manager", None)
+    if session_id := getattr(session_manager, "session_id", None):
+        with mlflow.set_session(session_id):
+            return original(self, *args, **kwargs)
+    return original(self, *args, **kwargs)
 
 
 class StrandsSpanProcessor(SimpleSpanProcessor):
