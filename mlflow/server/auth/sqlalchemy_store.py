@@ -446,7 +446,14 @@ class SqlAlchemyStore:
 
     def get_workspace_permission(self, workspace_name: str, username: str) -> Permission | None:
         """
-        Get the workspace permission for a user.
+        Get the workspace permission for a user from the legacy
+        ``workspace_permissions`` table.
+
+        Does NOT include role-based grants — callers that need the full
+        authorization picture should also consult ``get_role_workspace_permission``
+        and ``max_permission``-merge the two. See
+        ``mlflow.server.auth.__init__._workspace_permission`` for the canonical
+        aggregation.
         """
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
@@ -454,6 +461,44 @@ class SqlAlchemyStore:
             if entity is not None:
                 return get_permission(entity.permission)
         return None
+
+    def get_role_workspace_permission(
+        self, workspace_name: str, username: str
+    ) -> Permission | None:
+        """
+        Highest **role-based** permission ``username`` has on ``workspace_name``
+        where the role grant is workspace-wide (``resource_type='workspace'``,
+        ``resource_pattern='*'``). Returns ``None`` when there are no such
+        grants.
+
+        Complements ``get_workspace_permission``: that helper only reads the
+        legacy ``workspace_permissions`` table; this one only reads role
+        grants. Callers that need the effective workspace-level permission
+        should max-merge the two — pre-RBAC deployments only had legacy
+        grants, post-RBAC deployments increasingly use roles, and operators
+        mid-migration may have both.
+        """
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            rows = (
+                session
+                .query(SqlRolePermission.permission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user.id,
+                    SqlRole.workspace == workspace_name,
+                    SqlRolePermission.resource_type == "workspace",
+                    SqlRolePermission.resource_pattern == "*",
+                )
+                .all()
+            )
+        if not rows:
+            return None
+        best: str | None = None
+        for (perm,) in rows:
+            best = perm if best is None else max_permission(best, perm)
+        return get_permission(best)
 
     def create_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str

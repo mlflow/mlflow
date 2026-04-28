@@ -541,9 +541,21 @@ def _workspace_permission(
         return NO_PERMISSIONS
 
     try:
-        permission = store.get_workspace_permission(workspace_name, username)
-        if permission is not None:
-            return permission
+        # The effective workspace-level permission is the max of:
+        #   (a) ``workspace_permissions`` table entry (legacy, pre-RBAC)
+        #   (b) role-based grants where (resource_type='workspace',
+        #       resource_pattern='*') applied to this workspace
+        # Operators mid-migration may have both; resource-level checks already
+        # union role grants via ``_get_permission_from_store_or_default``, so
+        # the workspace-level path needs to do the same to stay consistent.
+        legacy = store.get_workspace_permission(workspace_name, username)
+        role = store.get_role_workspace_permission(workspace_name, username)
+        if legacy is not None and role is not None:
+            return get_permission(max_permission(legacy.name, role.name))
+        if legacy is not None:
+            return legacy
+        if role is not None:
+            return role
 
         if auth_config.grant_default_workspace_access and auth_config.default_permission:
             default_workspace, _ = get_default_workspace_optional(_get_workspace_store())

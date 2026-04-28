@@ -438,6 +438,9 @@ def test_workspace_permission_grants_default_access(monkeypatch):
         def get_workspace_permission(self, workspace_name, username):
             return None
 
+        def get_role_workspace_permission(self, workspace_name, username):
+            return None
+
         def list_accessible_workspace_names(self, username):
             return []
 
@@ -640,6 +643,56 @@ def test_experiment_validators_allow_manage_permission(workspace_permission_setu
         query_string={"experiment_name": "Primary Experiment"},
     ):
         assert auth_module.validate_can_read_experiment_by_name()
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+
+
+def test_experiment_validators_allow_role_based_workspace_manage(workspace_permission_setup):
+    # Grant MANAGE on the workspace via a role (with no legacy
+    # ``workspace_permissions`` row). Pre-fix this returned 403 — the
+    # workspace-level permission check only consulted the legacy table.
+    # ``_workspace_permission`` now max-merges role-based grants.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # Drop the legacy grant the fixture installs so we exercise the role path
+    # in isolation.
+    store.delete_workspace_permission("team-a", username)
+    assert store.get_workspace_permission("team-a", username) is None
+
+    role = store.create_role(name="ws-admin", workspace="team-a")
+    store.add_role_permission(role.id, "workspace", "*", MANAGE.name)
+    user = store.get_user(username)
+    store.assign_role_to_user(user.id, role.id)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
+    ):
+        assert auth_module.validate_can_read_experiment()
+        assert auth_module.validate_can_update_experiment()
+        assert auth_module.validate_can_delete_experiment()
+        assert auth_module.validate_can_manage_experiment()
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+
+
+def test_workspace_permission_max_merges_legacy_and_role(workspace_permission_setup):
+    # Operators mid-migration may have BOTH a legacy grant and a role grant.
+    # The effective permission must be the higher of the two — neither side
+    # should silently downgrade the other.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # Legacy READ + role MANAGE → effective MANAGE.
+    store.delete_workspace_permission("team-a", username)
+    store.set_workspace_permission("team-a", username, READ.name)
+
+    role = store.create_role(name="ws-admin", workspace="team-a")
+    store.add_role_permission(role.id, "workspace", "*", MANAGE.name)
+    user = store.get_user(username)
+    store.assign_role_to_user(user.id, role.id)
 
     with workspace_context.WorkspaceContext("team-a"):
         assert auth_module.validate_can_create_experiment()
