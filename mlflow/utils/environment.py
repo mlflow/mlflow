@@ -48,6 +48,7 @@ from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 from mlflow.utils.uv_utils import (
     detect_uv_project,
     export_uv_requirements,
+    extract_index_urls_from_uv_lock,
 )
 from mlflow.version import VERSION
 
@@ -461,7 +462,9 @@ def infer_pip_requirements(
                     f"Successfully exported {len(uv_requirements)} requirements from uv project. "
                     "Skipping package capture based inference."
                 )
-                return uv_requirements
+                private_index_urls = extract_index_urls_from_uv_lock(uv_project.uv_lock)
+                index_url_reqs = [f"--extra-index-url {url}" for url in private_index_urls]
+                return index_url_reqs + uv_requirements
             else:
                 _logger.warning(
                     "uv export failed or returned no requirements. "
