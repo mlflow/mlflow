@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777355434650,
+  "lastUpdate": 1777355564300,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -264,6 +264,72 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0009358135010021776",
             "extra": "mean: 8.429481400006011 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "198982749+Copilot@users.noreply.github.com",
+            "name": "Copilot",
+            "username": "Copilot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "06bdc1d9851c9330c6826e6f33e9c0f147614680",
+          "message": "Add `MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK` env var to bypass pip validation in air-gapped environments (#22920)\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: serena-ruan <82044803+serena-ruan@users.noreply.github.com>",
+          "timestamp": "2026-04-28T05:49:00Z",
+          "tree_id": "3ca4fa4c60781b2bc0929b3014bcaaa02bb452c3",
+          "url": "https://github.com/mlflow/mlflow/commit/06bdc1d9851c9330c6826e6f33e9c0f147614680"
+        },
+        "date": 1777355563244,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 27.194963608046432,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006634728844009041",
+            "extra": "mean: 36.771514550000006 msec\nrounds: 20"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 43.873495518879544,
+            "unit": "iter/sec",
+            "range": "stddev: 0.028320741348213184",
+            "extra": "mean: 22.792804361113244 msec\nrounds: 36"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 44.14758242868384,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02903690743541827",
+            "extra": "mean: 22.651296967742308 msec\nrounds: 62"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 62.39376924588999,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005703171713977128",
+            "extra": "mean: 16.02724137500111 msec\nrounds: 8"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 46.1364612615418,
+            "unit": "iter/sec",
+            "range": "stddev: 0.025907786093426206",
+            "extra": "mean: 21.674830983051034 msec\nrounds: 59"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 139.80212686569706,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0015547790624029947",
+            "extra": "mean: 7.1529669999989665 msec\nrounds: 5"
           }
         ]
       }
