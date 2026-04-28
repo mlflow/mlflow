@@ -184,6 +184,7 @@ from mlflow.server.auth.permissions import (
     MANAGE,
     NO_PERMISSIONS,
     READ,
+    USE,
     Permission,
     get_permission,
     max_permission,
@@ -587,25 +588,28 @@ def _user_can_create_in_workspace(
     True if the user is authorized to create new resources of ``resource_type`` in the
     given workspace.
 
-    Creation is gated on **read access** to the workspace's resources of this type:
+    Creation is gated on **USE-level** access to the workspace's resources of this
+    type:
 
-    - any workspace-level read returned by ``_workspace_permission`` — covers an
-      explicit ``SqlWorkspacePermission`` row, a workspace-wide role grant
-      ``(workspace, *, X)``, and the implicit default-workspace access enabled by
-      ``auth_config.grant_default_workspace_access`` / ``default_permission``
-    - a type-scoped role grant ``(<resource_type>, *, X)`` with ``X.can_read``
+    - any workspace-level USE-or-higher returned by ``_workspace_permission`` —
+      covers an explicit ``SqlWorkspacePermission`` row, a workspace-wide role
+      grant ``(workspace, *, X)``, and the implicit default-workspace access
+      enabled by ``auth_config.grant_default_workspace_access`` /
+      ``default_permission``
+    - a type-scoped role grant ``(<resource_type>, *, X)`` with ``X.can_use``
 
-    Pairs with creator-as-owner: ``AFTER_REQUEST_PATH_HANDLERS`` insert
+    USE is the minimum "I'm an active member of this workspace" signal — strictly
+    stronger than READ (which is purely "can see"), strictly weaker than EDIT
+    (which would let the user modify resources owned by others). Pairs with
+    creator-as-owner: ``AFTER_REQUEST_PATH_HANDLERS`` insert
     ``(creator, new_resource_id, MANAGE)`` after a successful CREATE, so the
-    creator gains full authority on what they created without needing pre-existing
-    write access to the workspace. Read access is the minimum "you're a member
-    here" signal — enough to scaffold the create flow without leaking access to
-    other users' resources.
+    creator gains full authority on what they created without needing pre-
+    existing write access to the workspace.
     """
     if username is None:
         return False
     workspace_perm = _workspace_permission(username, workspace_name)
-    if workspace_perm is not None and workspace_perm.can_read:
+    if workspace_perm is not None and workspace_perm.can_use:
         return True
     try:
         user = store.get_user(username)
@@ -617,7 +621,7 @@ def _user_can_create_in_workspace(
             e,
         )
         return False
-    return store.user_has_type_scoped_read_grant(user.id, resource_type, workspace_name)
+    return store.user_has_type_scoped_use_grant(user.id, resource_type, workspace_name)
 
 
 def _get_resource_workspace(
@@ -2588,32 +2592,35 @@ def filter_list_workspaces(resp: Response) -> None:
 # ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is on. ``CreateWorkspace`` is gated to
 # ``sender_is_admin``, so the creator is always a super-admin whose ``is_admin``
 # flag already bypasses RBAC checks — we therefore don't assign the creator to
-# any of these roles. The three roles exist as ready-made scaffolding for the
+# any of these roles. The four roles exist as ready-made scaffolding for the
 # admin to hand out to other users.
 #
-# All three roles use ``(resource_type='workspace', resource_pattern='*')`` — the
+# All four roles use ``(resource_type='workspace', resource_pattern='*')`` — the
 # workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``. The permission
-# level differentiates them: only ``MANAGE`` additionally grants workspace-admin
-# capability (role/user management within the workspace); ``EDIT`` / ``READ`` give
-# workspace-wide resource access without admin authority. Note that ``READ`` (the
-# "viewer" role) is sufficient to create new experiments and registered models —
-# the creator-as-owner mechanism then grants the creator MANAGE on the new row,
-# so a viewer can manage their own resources without gaining access to others'.
+# level differentiates them along the standard ladder:
+#
+# - ``viewer`` (READ): purely "can see" — no resource creation, no writes.
+# - ``contributor`` (USE): can see + create new experiments and registered models;
+#   creator-as-owner grants the creator MANAGE on the rows they create, so a
+#   contributor manages their own resources without ever gaining access to
+#   resources owned by other users.
+# - ``editor`` (EDIT): contributor + can update every existing resource in the
+#   workspace (including resources owned by others).
+# - ``workspace-admin`` (MANAGE): editor + can delete and additionally
+#   manage roles / user assignments within the workspace.
 _DEFAULT_WORKSPACE_ROLES = (
     ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
     ("editor", EDIT.name, "EDIT access to every resource in the workspace."),
     (
-        "viewer",
-        READ.name,
-        # Viewer pairs with creator-as-owner to enable a "personal contributor" flow
-        # without raising the floor on others' resources — see the comment block
-        # above for the full rationale.
+        "contributor",
+        USE.name,
         (
-            "READ access to every resource in the workspace; can create new "
-            "experiments and registered models (creator gets MANAGE on the rows "
-            "they create, no access to others')."
+            "Read every resource in the workspace and create new experiments and "
+            "registered models; the creator-as-owner mechanism grants MANAGE on "
+            "what you create, with no access to other users' resources."
         ),
     ),
+    ("viewer", READ.name, "READ access to every resource in the workspace."),
 )
 
 

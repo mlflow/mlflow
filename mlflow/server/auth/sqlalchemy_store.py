@@ -1231,23 +1231,23 @@ class SqlAlchemyStore:
                 return None
             return get_permission(best_permission_name)
 
-    def user_has_type_scoped_read_grant(
+    def user_has_type_scoped_use_grant(
         self, user_id: int, resource_type: str, workspace: str
     ) -> bool:
         """
         True if the user holds a type-scoped wildcard role grant
-        ``(<resource_type>, *, X)`` in ``workspace`` whose level has ``can_read``.
+        ``(<resource_type>, *, X)`` in ``workspace`` whose level has ``can_use``.
 
         Workspace-wide grants ``(workspace, *, X)`` are handled separately via
         ``get_role_workspace_permission`` (consumed by ``_workspace_permission``);
         this helper covers the remaining type-scoped case so callers that need
-        "is the user a member with read access to this resource type" can union
-        the two without overlap.
+        "is the user a USE-level member with respect to this resource type" can
+        union the two without overlap.
 
         The DB query short-circuits as soon as a single matching row is found —
         we don't materialize all role permissions just to compute ``any()``.
         """
-        readable_levels = [name for name, perm in ALL_PERMISSIONS.items() if perm.can_read]
+        usable_levels = [name for name, perm in ALL_PERMISSIONS.items() if perm.can_use]
         with self.ManagedSessionMaker() as session:
             return (
                 session
@@ -1259,7 +1259,7 @@ class SqlAlchemyStore:
                     SqlRole.workspace == workspace,
                     SqlRolePermission.resource_pattern == "*",
                     SqlRolePermission.resource_type == resource_type,
-                    SqlRolePermission.permission.in_(readable_levels),
+                    SqlRolePermission.permission.in_(usable_levels),
                 )
                 .first()
                 is not None
