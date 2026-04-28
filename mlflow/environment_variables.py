@@ -1521,3 +1521,13 @@ MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
 #: instantiating the file-based stores.
 #: (default: ``False``)
 MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE", False)
+
+
+#: Specifies whether to skip the pip requirements compatibility check when saving or logging
+#: a model. When set to ``True``, MLflow will not run ``pip install --dry-run`` to validate
+#: that the provided pip requirements are mutually compatible. This is useful in air-gapped
+#: environments where pip cannot reach external package indexes.
+#: (default: ``False``)
+MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK = _BooleanEnvironmentVariable(
+    "MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK", False
+)

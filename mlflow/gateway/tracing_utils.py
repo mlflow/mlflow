@@ -10,6 +10,7 @@ import mlflow
 from mlflow.entities import SpanStatus, SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.config import GatewayRequestType
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
@@ -27,6 +28,24 @@ class _ModelSpanInfo:
     status: SpanStatus | None = None
     start_time_ns: int | None = None
     end_time_ns: int | None = None
+
+
+def _extract_caller(request_headers: dict[str, str] | None) -> str | None:
+    """Extract a caller identifier from request headers.
+
+    Checks the ``X-MLflow-Gateway-Caller`` header first, then falls back to the
+    product token of the ``User-Agent`` header (the part before the first ``/``).
+    Returns ``None`` when no useful identifier is found.
+    """
+    if not request_headers:
+        return None
+    lower = {k.lower(): v for k, v in request_headers.items()}
+    if caller := lower.get(MLFLOW_GATEWAY_CALLER_HEADER.lower()):
+        return caller
+    if user_agent := lower.get("user-agent", ""):
+        if product := user_agent.split("/")[0].strip():
+            return product
+    return None
 
 
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
@@ -211,6 +230,8 @@ def maybe_traced_gateway_call(
     combined_metadata[TraceMetadataKey.GATEWAY_ENDPOINT_ID] = endpoint_config.endpoint_id
     if request_type:
         combined_metadata[TraceMetadataKey.GATEWAY_REQUEST_TYPE] = request_type
+    if caller := _extract_caller(request_headers):
+        combined_metadata[TraceMetadataKey.GATEWAY_CALLER] = caller
 
     # Wrap function to set metadata inside the trace context
     if inspect.isasyncgenfunction(func):

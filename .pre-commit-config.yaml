@@ -72,7 +72,8 @@ repos:
             dev/tests/.*\.py|
             dev/benchmarks/gateway/fake_server\.py|
             dev/benchmarks/gateway/benchmark\.py|
-            dev/benchmarks/gateway/run\.py
+            dev/benchmarks/gateway/run\.py|
+            dev/benchmarks/tracing/.*\.py
           )$
         entry: uv run --frozen --only-group lint mypy
         require_serial: true

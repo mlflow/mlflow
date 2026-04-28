@@ -541,9 +541,27 @@ def _workspace_permission(
         return NO_PERMISSIONS
 
     try:
-        permission = store.get_workspace_permission(workspace_name, username)
-        if permission is not None:
-            return permission
+        # The effective workspace-level permission is the max of:
+        #   (a) direct ``workspace_permissions`` row for this user/workspace
+        #   (b) role-based grants where (resource_type='workspace',
+        #       resource_pattern='*') applied to this workspace
+        # Both sources are first-class — direct grants are not deprecated by
+        # roles. Resource-level checks already union role grants via
+        # ``_get_permission_from_store_or_default``, so the workspace-level
+        # path needs to do the same to stay consistent.
+        direct = store.get_workspace_permission(workspace_name, username)
+        # MANAGE is the ceiling — a role grant can't raise it, so skip the
+        # extra DB round-trip in the common workspace-admin case. Mirrors
+        # the optimization in ``_get_permission_from_store_or_default``.
+        if direct is not None and direct.name == MANAGE.name:
+            return direct
+        role = store.get_role_workspace_permission(workspace_name, username)
+        if direct is not None and role is not None:
+            return get_permission(max_permission(direct.name, role.name))
+        if direct is not None:
+            return direct
+        if role is not None:
+            return role
 
         if auth_config.grant_default_workspace_access and auth_config.default_permission:
             default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
@@ -569,20 +587,24 @@ def _user_can_create_in_workspace(
     True if the user is authorized to create new resources of ``resource_type`` in the
     given workspace.
 
-    Creation is gated on **read access** to the workspace's resources of this type
-    (either a direct ``SqlWorkspacePermission`` row with ``can_read`` or a wildcard
-    role grant ``(workspace, *, X)`` / ``(resource_type, *, X)`` with ``X.can_read``).
-    Pairs with the existing creator-as-owner mechanism: the
-    ``AFTER_REQUEST_PATH_HANDLERS`` insert ``(creator, new_resource_id, MANAGE)``
-    after a successful CREATE, so the creator gains full authority on what they
-    created without needing pre-existing write access to the workspace. Read-on-
-    workspace is the minimum "you're a member here" signal — enough to scaffold
-    the create flow without leaking access to other users' resources.
+    Creation is gated on **read access** to the workspace's resources of this type:
+
+    - a direct ``SqlWorkspacePermission`` row or workspace-wide role grant
+      ``(workspace, *, X)`` whose level has ``can_read`` — both handled by
+      ``_workspace_permission`` (which already max-merges direct + role)
+    - a type-scoped role grant ``(<resource_type>, *, X)`` with ``X.can_read``
+
+    Pairs with creator-as-owner: ``AFTER_REQUEST_PATH_HANDLERS`` insert
+    ``(creator, new_resource_id, MANAGE)`` after a successful CREATE, so the
+    creator gains full authority on what they created without needing pre-existing
+    write access to the workspace. Read access is the minimum "you're a member
+    here" signal — enough to scaffold the create flow without leaking access to
+    other users' resources.
     """
     if username is None:
         return False
-    direct = _workspace_permission(username, workspace_name)
-    if direct is not None and direct.can_read:
+    workspace_perm = _workspace_permission(username, workspace_name)
+    if workspace_perm is not None and workspace_perm.can_read:
         return True
     try:
         user = store.get_user(username)
@@ -594,7 +616,7 @@ def _user_can_create_in_workspace(
             e,
         )
         return False
-    return store.user_has_workspace_read_access(user.id, resource_type, workspace_name)
+    return store.user_has_type_scoped_read_grant(user.id, resource_type, workspace_name)
 
 
 def _get_resource_workspace(

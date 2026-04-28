@@ -197,6 +197,7 @@ lint = [
 pytest = [
   "pytest==9.0.2",
   "pytest-asyncio",
+  "pytest-benchmark",
   "pytest-repeat",
   "pytest-cov",
   "pytest-timeout",
