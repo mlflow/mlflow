@@ -19,6 +19,7 @@ from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
     set_tracing_context_from_http_request_headers,
 )
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
@@ -984,8 +985,7 @@ def test_log_multiple_assessment_types(trace_id):
     assert assessments_by_type["issue"].issue_id == "iss-11111"
 
 
-def test_log_feedback_in_distributed_trace_persists_to_backend():
-    # Simulate a root endpoint: start and complete a trace, capture propagation headers
+def test_log_feedback_in_distributed_trace_same_process():
     captured_headers = {}
 
     @mlflow.trace(name="root")
@@ -995,7 +995,54 @@ def test_log_feedback_in_distributed_trace_persists_to_backend():
 
     root()
 
-    # Simulate a child endpoint: restore distributed context and log feedback
+    root_trace_id = mlflow.get_last_active_trace_id()
+    assert root_trace_id is not None
+    tm = InMemoryTraceManager.get_instance()
+    with tm.get_trace(root_trace_id) as t:
+        assert t is not None
+        assert not t.is_remote_trace
+
+    with set_tracing_context_from_http_request_headers(captured_headers):
+
+        @mlflow.trace(name="child")
+        def child():
+            trace_id = mlflow.get_active_trace_id()
+            return mlflow.log_feedback(
+                trace_id=trace_id,
+                name="child_was_called",
+                value="yes",
+            )
+
+        child()
+
+    with tm.get_trace(root_trace_id) as t:
+        assert t is not None
+        assert len(t.info.assessments) == 1
+        assert t.info.assessments[0].name == "child_was_called"
+
+    mlflow.flush_trace_async_logging()
+    trace = mlflow.get_trace(root_trace_id)
+    assert len(trace.info.assessments) == 1
+    assert trace.info.assessments[0].name == "child_was_called"
+    assert trace.info.assessments[0].feedback.value == "yes"
+
+
+def test_log_feedback_in_distributed_trace_cross_process():
+    captured_headers = {}
+
+    @mlflow.trace(name="root")
+    def root():
+        nonlocal captured_headers
+        captured_headers = get_tracing_context_headers_for_http_request()
+
+    root()
+    mlflow.flush_trace_async_logging()
+
+    root_trace_id = mlflow.get_last_active_trace_id()
+    tm = InMemoryTraceManager.get_instance()
+    with tm.get_trace(root_trace_id) as t:
+        assert t is None
+
     with mock.patch.object(TracingClient, "store") as mock_store:
         mock_assessment = mock.MagicMock()
         mock_assessment.assessment_id = "a-test-assessment-id"
@@ -1014,6 +1061,5 @@ def test_log_feedback_in_distributed_trace_persists_to_backend():
 
             result = child()
 
-        # The assessment must be persisted via the store, not dropped silently
         mock_store.create_assessment.assert_called_once()
         assert result.assessment_id == "a-test-assessment-id"
