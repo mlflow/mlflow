@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777355097198,
+  "lastUpdate": 1777355434650,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -198,6 +198,72 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.07412911046751611",
             "extra": "mean: 69.56401919999848 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "82044803+serena-ruan@users.noreply.github.com",
+            "name": "Serena Ruan",
+            "username": "serena-ruan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a36fcfa76d833f1e922cd1b76187f292b3396d9",
+          "message": "Fix uv custom index URLs omitted from model `requirements.txt` (#22921)\n\nSigned-off-by: Serena Ruan <serena.rxy@gmail.com>",
+          "timestamp": "2026-04-28T05:47:06Z",
+          "tree_id": "4557e776f7b4687d12fb2ea3b9b1e7cf476d3ed3",
+          "url": "https://github.com/mlflow/mlflow/commit/5a36fcfa76d833f1e922cd1b76187f292b3396d9"
+        },
+        "date": 1777355433498,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 13.042975116762596,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06349687243720512",
+            "extra": "mean: 76.66962415000071 msec\nrounds: 20"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 45.15901016103713,
+            "unit": "iter/sec",
+            "range": "stddev: 0.025384227135216604",
+            "extra": "mean: 22.14397517647083 msec\nrounds: 34"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 50.68380538741303,
+            "unit": "iter/sec",
+            "range": "stddev: 0.022548674288442202",
+            "extra": "mean: 19.730168095238227 msec\nrounds: 63"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 51.05397271002534,
+            "unit": "iter/sec",
+            "range": "stddev: 0.019447656721053218",
+            "extra": "mean: 19.587114320755543 msec\nrounds: 53"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 47.01414787801552,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02366926910974108",
+            "extra": "mean: 21.27019301922973 msec\nrounds: 52"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 118.63126004397932,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009358135010021776",
+            "extra": "mean: 8.429481400006011 msec\nrounds: 5"
           }
         ]
       }
