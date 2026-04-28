@@ -1185,15 +1185,15 @@ class SqlAlchemyStore:
                 return None
             return get_permission(best_permission_name)
 
-    def user_has_can_create_in_workspace(
+    def user_has_workspace_read_access(
         self, user_id: int, resource_type: str, workspace: str
     ) -> bool:
         """
         True if the user has any role grant in ``workspace`` whose permission level
-        includes ``can_create`` and whose pattern enables creation of ``resource_type``:
+        includes ``can_read`` and whose pattern matches ``resource_type``:
 
-        - ``(workspace, *, X)`` where ``X.can_create`` — applies to every resource type
-        - ``(resource_type, *, X)`` where ``X.can_create`` — type-scoped create grant
+        - ``(workspace, *, X)`` where ``X.can_read`` — applies to every resource type
+        - ``(resource_type, *, X)`` where ``X.can_read`` — type-scoped grant
 
         Direct ``SqlWorkspacePermission`` rows are checked separately by the caller via
         ``_workspace_permission`` so this function only inspects role grants.
@@ -1215,7 +1215,7 @@ class SqlAlchemyStore:
                 )
                 .all()
             )
-            return any(get_permission(r.permission).can_create for r in rows)
+            return any(get_permission(r.permission).can_read for r in rows)
 
     @staticmethod
     def _workspace_admin_workspaces(session, user_id: int) -> set[str]:

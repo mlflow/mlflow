@@ -180,7 +180,6 @@ from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_
 from mlflow.server.auth.entities import User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
-    CONTRIBUTE,
     EDIT,
     MANAGE,
     NO_PERMISSIONS,
@@ -568,16 +567,22 @@ def _user_can_create_in_workspace(
 ) -> bool:
     """
     True if the user is authorized to create new resources of ``resource_type`` in the
-    given workspace. Considers both the direct ``SqlWorkspacePermission`` row and any
-    workspace-wide / type-scoped role grant whose level includes ``can_create``.
+    given workspace.
 
-    Mirrors the resolver shape: a workspace-wide grant via roles must work even when
-    the user has no direct ``workspace_permissions`` row.
+    Creation is gated on **read access** to the workspace's resources of this type
+    (either a direct ``SqlWorkspacePermission`` row with ``can_read`` or a wildcard
+    role grant ``(workspace, *, X)`` / ``(resource_type, *, X)`` with ``X.can_read``).
+    Pairs with the existing creator-as-owner mechanism: the
+    ``AFTER_REQUEST_PATH_HANDLERS`` insert ``(creator, new_resource_id, MANAGE)``
+    after a successful CREATE, so the creator gains full authority on what they
+    created without needing pre-existing write access to the workspace. Read-on-
+    workspace is the minimum "you're a member here" signal — enough to scaffold
+    the create flow without leaking access to other users' resources.
     """
     if username is None:
         return False
     direct = _workspace_permission(username, workspace_name)
-    if direct is not None and direct.can_create:
+    if direct is not None and direct.can_read:
         return True
     try:
         user = store.get_user(username)
@@ -589,7 +594,7 @@ def _user_can_create_in_workspace(
             e,
         )
         return False
-    return store.user_has_can_create_in_workspace(user.id, resource_type, workspace_name)
+    return store.user_has_workspace_read_access(user.id, resource_type, workspace_name)
 
 
 def _get_resource_workspace(
@@ -2560,28 +2565,20 @@ def filter_list_workspaces(resp: Response) -> None:
 # ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is on. ``CreateWorkspace`` is gated to
 # ``sender_is_admin``, so the creator is always a super-admin whose ``is_admin``
 # flag already bypasses RBAC checks — we therefore don't assign the creator to
-# any of these roles. The four roles exist as ready-made scaffolding for the
+# any of these roles. The three roles exist as ready-made scaffolding for the
 # admin to hand out to other users.
 #
-# All four roles use ``(resource_type='workspace', resource_pattern='*')`` — the
+# All three roles use ``(resource_type='workspace', resource_pattern='*')`` — the
 # workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``. The permission
 # level differentiates them: only ``MANAGE`` additionally grants workspace-admin
-# capability (role/user management within the workspace); ``EDIT`` / ``CONTRIBUTE``
-# / ``READ`` give workspace-wide resource access at progressively narrower scopes
-# without admin authority.
+# capability (role/user management within the workspace); ``EDIT`` / ``READ`` give
+# workspace-wide resource access without admin authority. Note that ``READ`` (the
+# "viewer" role) is sufficient to create new experiments and registered models —
+# the creator-as-owner mechanism then grants the creator MANAGE on the new row,
+# so a viewer can manage their own resources without gaining access to others'.
 _DEFAULT_WORKSPACE_ROLES = (
     ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
     ("editor", EDIT.name, "EDIT access to every resource in the workspace."),
-    (
-        "contributor",
-        CONTRIBUTE.name,
-        # Pairs with creator-as-owner: a CONTRIBUTOR can read and use every resource
-        # in the workspace and create new ones, automatically owning what they
-        # create (the AFTER_REQUEST_PATH_HANDLERS grant the creator MANAGE on the
-        # new row). Update / delete authority is limited to their own resources;
-        # they cannot modify or delete resources owned by other users.
-        "Create new resources; manage your own. Read/use resources across the workspace.",
-    ),
     ("viewer", READ.name, "READ access to every resource in the workspace."),
 )
 
