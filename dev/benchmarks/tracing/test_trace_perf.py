@@ -42,7 +42,6 @@ def test_search_by_tag(
     experiment_id: str,
     seeded: list[str],
 ) -> None:
-    del seeded
     benchmark(
         store.search_traces,
         locations=[experiment_id],
@@ -57,7 +56,6 @@ def test_search_by_state(
     experiment_id: str,
     seeded: list[str],
 ) -> None:
-    del seeded
     benchmark(
         store.search_traces,
         locations=[experiment_id],
@@ -72,7 +70,6 @@ def test_search_by_name_like(
     experiment_id: str,
     seeded: list[str],
 ) -> None:
-    del seeded
     benchmark(
         store.search_traces,
         locations=[experiment_id],
@@ -87,7 +84,6 @@ def test_search_by_timestamp(
     experiment_id: str,
     seeded: list[str],
 ) -> None:
-    del seeded
     benchmark(
         store.search_traces,
         locations=[experiment_id],
@@ -134,7 +130,6 @@ def _run_agent_workflow(num_tools: int, num_docs: int, query: str) -> None:
 
 
 def test_e2e_agent(benchmark: BenchmarkFixture, e2e_setup: None) -> None:
-    del e2e_setup
     counter = [0]
 
     def do():
