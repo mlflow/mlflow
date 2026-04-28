@@ -632,9 +632,7 @@ def test_trace_to_dspy_example_filters_out_llm_assessments(mock_judge):
             name="mock_judge",
             value="pass",
             rationale="LLM",
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt"
-            ),
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt"),
         ),
     ]
     trace = _create_trace_with_assessments("test_llm_only", assessments)
@@ -667,7 +665,9 @@ def test_trace_to_dspy_example_mixed_human_and_llm_only_uses_human(mock_judge):
     assessments = [
         _create_human_assessment("mock_judge", "fail", "Human 1", base_time - 1000),
         Feedback(
-            name="mock_judge", value="pass", rationale="LLM",
+            name="mock_judge",
+            value="pass",
+            rationale="LLM",
             source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt"),
             create_time_ms=base_time,
         ),
@@ -697,10 +697,14 @@ def test_memalign_optimizer_handles_multi_assessment_traces(mock_judge):
         ],
     )
 
-    with patch(
-        "mlflow.genai.judges.optimizers.memalign.optimizer.distill_guidelines"
-    ) as mock_distill:
-        mock_distill.return_value = []
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer.distill_guidelines",
+            return_value=[],
+        ),
+        patch("dspy.Embedder"),
+        patch("dspy.retrievers.Embeddings"),
+    ):
         aligned_judge = optimizer.align(mock_judge, [trace])
 
         assert len(aligned_judge._episodic_memory) == 3
