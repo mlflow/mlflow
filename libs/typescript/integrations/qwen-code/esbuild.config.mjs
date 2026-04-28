@@ -2,11 +2,11 @@ import { build } from 'esbuild';
 import { chmodSync } from 'node:fs';
 
 await build({
-  entryPoints: ['dist/hooks/stop.js'],
+  entryPoints: ['dist/cli.js'],
   bundle: true,
   platform: 'node',
   format: 'esm',
-  outfile: 'bundle/stop.js',
+  outfile: 'bundle/cli.js',
   external: ['node:*'],
   banner: {
     js: [
@@ -17,4 +17,4 @@ await build({
   },
 });
 
-chmodSync('bundle/stop.js', 0o755);
+chmodSync('bundle/cli.js', 0o755);

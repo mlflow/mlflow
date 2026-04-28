@@ -33,6 +33,18 @@ def test_detect_environment_from_env_var(monkeypatch, env_var, expected):
     assert _detect_environment() == expected
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("demo", Environment.DEMO.value),
+        ("staging", None),
+    ],
+)
+def test_detect_environment_deployment_env(monkeypatch, value, expected):
+    monkeypatch.setenv("MLFLOW_DEPLOYMENT_ENV", value)
+    assert _detect_environment() == expected
+
+
 def test_detect_environment_sagemaker_notebook(tmp_path, monkeypatch):
     metadata_file = tmp_path / "resource-metadata.json"
     metadata_file.write_text("{}")

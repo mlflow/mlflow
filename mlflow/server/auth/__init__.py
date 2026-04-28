@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import base64
 import functools
+import hmac
 import importlib
 import json
 import logging
 import re
 import secrets
+import threading
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -45,6 +47,7 @@ from mlflow.environment_variables import (
     _MLFLOW_SGI_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
 from mlflow.protos.databricks_pb2 import (
@@ -177,8 +180,10 @@ from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_
 from mlflow.server.auth.entities import User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
+    EDIT,
     MANAGE,
     NO_PERMISSIONS,
+    READ,
     Permission,
     get_permission,
     max_permission,
@@ -301,6 +306,87 @@ _RESOURCE_WORKSPACE_CACHE: TTLCache[str, str | None] = TTLCache(
     maxsize=auth_config.workspace_cache_max_size,
     ttl=auth_config.workspace_cache_ttl_seconds,
 )
+
+# Cache for successful basic-auth credential checks. Keys derive from the password via
+# HMAC-SHA256 using a per-process secret, so the plaintext password is not stored in the
+# cache key *and* the digest is not usable for offline dictionary attack if process memory
+# is ever compromised (an attacker without the HMAC key cannot recompute the digest).
+# Skipping the PBKDF2 hash comparison inside ``store.authenticate_user`` on cache hits is
+# the dominant cost saving — a single check_password_hash call costs tens of milliseconds
+# by design.
+_USER_AUTH_CACHE: TTLCache[tuple[str, bytes], User] | None = (
+    TTLCache(
+        maxsize=auth_config.auth_cache_max_size,
+        ttl=auth_config.auth_cache_ttl_seconds,
+    )
+    if auth_config.auth_cache_ttl_seconds > 0
+    else None
+)
+# cachetools.TTLCache is not thread-safe — Flask handlers run under gunicorn's thread
+# pool, so every touch of the cache needs to hold this lock.
+_USER_AUTH_CACHE_LOCK = threading.Lock()
+# Random per-process key for the HMAC that turns the password into a cache-key digest.
+# Regenerated at every server start; the cache is ephemeral anyway (process-local, TTL'd),
+# so invalidating the key on restart costs nothing beyond a one-time re-auth for each
+# active credential.
+_USER_AUTH_CACHE_HMAC_KEY = secrets.token_bytes(32)
+
+
+def _auth_cache_key(username: str, password: str) -> tuple[str, bytes]:
+    digest = hmac.new(_USER_AUTH_CACHE_HMAC_KEY, password.encode("utf-8"), "sha256").digest()
+    return (username, digest)
+
+
+def _authenticate_cached(username: str, password: str) -> User | None:
+    """Run basic-auth verification with the credential cache in front of it.
+
+    Used by both the Flask (``authenticate_request_basic_auth``) and FastAPI
+    (``_authenticate_fastapi_request``) auth paths so neither pays the PBKDF2
+    cost twice for the same credential within ``auth_cache_ttl_seconds``.
+
+    Returns the ``User`` on success, or ``None`` when the credential is invalid
+    or the user has been deleted between ``authenticate_user`` and ``get_user``.
+    """
+    if _USER_AUTH_CACHE is None:
+        if not store.authenticate_user(username, password):
+            return None
+        try:
+            return store.get_user(username)
+        except MlflowException:
+            return None
+
+    key = _auth_cache_key(username, password)
+    with _USER_AUTH_CACHE_LOCK:
+        cached = _USER_AUTH_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    # Keep the PBKDF2 comparison outside the lock so concurrent verifications for
+    # *different* credentials still run in parallel.
+    if not store.authenticate_user(username, password):
+        return None
+    try:
+        user = store.get_user(username)
+    except MlflowException:
+        # User was deleted between authenticate_user and get_user — treat as auth
+        # failure and don't cache anything.
+        return None
+    with _USER_AUTH_CACHE_LOCK:
+        _USER_AUTH_CACHE[key] = user
+    return user
+
+
+def _invalidate_user_auth_cache(username: str) -> None:
+    """Drop every cached credential for ``username``.
+
+    Called from user-mutation routes (password change, admin flag change, deletion)
+    so those changes take effect immediately instead of after ``auth_cache_ttl_seconds``.
+    """
+    if _USER_AUTH_CACHE is None:
+        return
+    with _USER_AUTH_CACHE_LOCK:
+        for key in [k for k in _USER_AUTH_CACHE if k[0] == username]:
+            _USER_AUTH_CACHE.pop(key, None)
 
 
 def is_unprotected_route(path: str) -> bool:
@@ -455,9 +541,27 @@ def _workspace_permission(
         return NO_PERMISSIONS
 
     try:
-        permission = store.get_workspace_permission(workspace_name, username)
-        if permission is not None:
-            return permission
+        # The effective workspace-level permission is the max of:
+        #   (a) direct ``workspace_permissions`` row for this user/workspace
+        #   (b) role-based grants where (resource_type='workspace',
+        #       resource_pattern='*') applied to this workspace
+        # Both sources are first-class — direct grants are not deprecated by
+        # roles. Resource-level checks already union role grants via
+        # ``_get_permission_from_store_or_default``, so the workspace-level
+        # path needs to do the same to stay consistent.
+        direct = store.get_workspace_permission(workspace_name, username)
+        # MANAGE is the ceiling — a role grant can't raise it, so skip the
+        # extra DB round-trip in the common workspace-admin case. Mirrors
+        # the optimization in ``_get_permission_from_store_or_default``.
+        if direct is not None and direct.name == MANAGE.name:
+            return direct
+        role = store.get_role_workspace_permission(workspace_name, username)
+        if direct is not None and role is not None:
+            return get_permission(max_permission(direct.name, role.name))
+        if direct is not None:
+            return direct
+        if role is not None:
+            return role
 
         if auth_config.grant_default_workspace_access and auth_config.default_permission:
             default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
@@ -2090,11 +2194,16 @@ def authenticate_request_basic_auth() -> Authorization | Response:
 
     username = request.authorization.username
     password = request.authorization.password
-    if store.authenticate_user(username, password):
+    # When the cache is disabled, don't pay the extra get_user round-trip that
+    # _authenticate_cached does for the sake of cache-population — the Flask
+    # path only cares about the yes/no auth decision.
+    if _USER_AUTH_CACHE is None:
+        if store.authenticate_user(username, password):
+            return request.authorization
+    elif _authenticate_cached(username, password):
         return request.authorization
-    else:
-        # let user attempt login again
-        return make_basic_auth_response()
+    # let user attempt login again
+    return make_basic_auth_response()
 
 
 def _find_validator(req: Request) -> Callable[[], bool] | None:
@@ -2433,6 +2542,80 @@ def filter_list_workspaces(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
+# Default roles seeded into every new workspace when
+# ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is on. ``CreateWorkspace`` is gated to
+# ``sender_is_admin``, so the creator is always a super-admin whose ``is_admin``
+# flag already bypasses RBAC checks — we therefore don't assign the creator to
+# any of these roles. The three roles exist as ready-made scaffolding for the
+# admin to hand out to other users.
+#
+# All three roles use ``(resource_type='workspace', resource_pattern='*')`` — the
+# workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``. The permission
+# level differentiates them: only ``MANAGE`` additionally grants workspace-admin
+# capability (role/user management within the workspace); ``EDIT`` / ``READ`` give
+# workspace-wide resource access without admin authority.
+_DEFAULT_WORKSPACE_ROLES = (
+    ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
+    ("editor", EDIT.name, "EDIT access to every resource in the workspace."),
+    ("viewer", READ.name, "READ access to every resource in the workspace."),
+)
+
+
+def _seed_default_workspace_roles(resp: Response) -> None:
+    """After a successful ``CreateWorkspace``, seed default RBAC roles into the new
+    workspace. Partial failures are logged rather than raised — the workspace
+    creation has already succeeded at this point.
+
+    No creator-assignment logic: the ``before_request`` handler gates
+    ``CreateWorkspace`` to super-admins (via ``sender_is_admin``), and super-admins
+    already bypass RBAC checks via their ``is_admin`` flag. The seeded roles are
+    therefore a convenience for the admin to hand out to other users, not
+    something the creator needs assigned to themselves.
+    """
+    if not MLFLOW_RBAC_SEED_DEFAULT_ROLES.get():
+        return
+
+    response_message = CreateWorkspace.Response()
+    parse_dict(resp.json, response_message)
+    workspace_name = response_message.workspace.name
+
+    for role_name, permission, description in _DEFAULT_WORKSPACE_ROLES:
+        try:
+            role = store.create_role(
+                name=role_name, workspace=workspace_name, description=description
+            )
+        except MlflowException as e:
+            _logger.error(
+                "Failed to create default role '%s' for workspace '%s': %s",
+                role_name,
+                workspace_name,
+                e,
+            )
+            continue
+        try:
+            store.add_role_permission(role.id, "workspace", "*", permission)
+        except MlflowException as e:
+            _logger.error(
+                "Failed to add permission to default role '%s' for workspace '%s': %s. "
+                "Rolling back the orphan role.",
+                role_name,
+                workspace_name,
+                e,
+            )
+            # Remove the orphan role so the workspace doesn't end up with a named
+            # role that grants nothing. Best-effort: log on failure.
+            try:
+                store.delete_role(role.id)
+            except MlflowException as delete_err:
+                _logger.error(
+                    "Failed to roll back orphan role '%s' (id=%s) for workspace '%s': %s",
+                    role_name,
+                    role.id,
+                    workspace_name,
+                    delete_err,
+                )
+
+
 def _cleanup_workspace_permissions(resp: Response) -> None:
     # This handler runs only on successful DELETE responses. Cleanup failures are logged
     # instead of raised because the workspace deletion has already succeeded at this point.
@@ -2757,6 +2940,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateGatewayModelDefinition: set_can_manage_gateway_model_definition_permission,
     DeleteGatewayModelDefinition: delete_gateway_model_definition_permissions_cascade,
     ListWorkspaces: filter_list_workspaces,
+    CreateWorkspace: _seed_default_workspace_roles,
     DeleteWorkspace: _cleanup_workspace_permissions,
 }
 
@@ -2984,6 +3168,7 @@ def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
     store.update_user(username, password=password)
+    _invalidate_user_auth_cache(username)
     return make_response({})
 
 
@@ -2992,6 +3177,7 @@ def update_user_admin():
     username = _get_request_param("username")
     is_admin = _get_request_param("is_admin")
     store.update_user(username, is_admin=is_admin)
+    _invalidate_user_auth_cache(username)
     return make_response({})
 
 
@@ -2999,6 +3185,7 @@ def update_user_admin():
 def delete_user():
     username = _get_request_param("username")
     store.delete_user(username)
+    _invalidate_user_auth_cache(username)
     return make_response({})
 
 
@@ -3463,12 +3650,9 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         ):
             return store.get_user(username)
 
-        if store.authenticate_user(username, password):
-            return store.get_user(username)
+        return _authenticate_cached(username, password)
     except Exception:
         return None
-
-    return None
 
 
 def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> str | None:
@@ -3497,9 +3681,7 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
     # TODO: we need to query endpoint ID by name from the database.
     # Revisit the mutability of the endpoint name if it causes latency issues.
     try:
-        from mlflow.tracking._tracking_service.utils import _get_store
-
-        tracking_store = _get_store()
+        tracking_store = _get_tracking_store()
         endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
         endpoint_id = endpoint.endpoint_id
 
@@ -3507,6 +3689,16 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
             lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission,
             workspace_level_permission_func=lambda: _workspace_permission_for_gateway_endpoint(
                 username, endpoint_id
+            ),
+            role_permission_func=_role_permission_for(
+                username=username,
+                resource_type="gateway_endpoint",
+                resource_key=endpoint_id,
+                workspace_lookup_id=endpoint_id,
+                workspace_fetcher=lambda eid: _get_tracking_store().get_gateway_endpoint(
+                    endpoint_id=eid
+                ),
+                workspace_label="gateway endpoint",
             ),
         )
         return permission.can_use

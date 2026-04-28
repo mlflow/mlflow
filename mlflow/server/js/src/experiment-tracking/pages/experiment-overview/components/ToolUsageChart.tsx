@@ -99,6 +99,7 @@ export const ToolUsageChart: React.FC = () => {
                   />
                 }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               {displayedItems.map((toolName) => {
                 const originalIndex = toolNames.indexOf(toolName);

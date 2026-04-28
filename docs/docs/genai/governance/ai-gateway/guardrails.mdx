@@ -9,10 +9,6 @@ import ImageBox from "@site/src/components/ImageBox";
 
 Guardrails let you enforce content policies on traffic flowing through your AI Gateway endpoints. Each guardrail uses an LLM judge to evaluate requests or responses against a set of natural-language instructions — then either **blocks** the traffic or **sanitizes** (redacts) it before allowing it through.
 
-:::note
-Guardrails are only supported on **unified endpoints**. They are not available for passthrough endpoints.
-:::
-
 Common use cases include:
 
 - **Safety filtering**: reject harmful, offensive, or toxic content before it reaches your users or your LLM.
@@ -65,6 +61,10 @@ Click **Pre-LLM Guardrails** or **Post-LLM Guardrails** to select where this gua
 
 - **Pre-LLM Guardrails**: evaluates the incoming request before it reaches the LLM. Use `{{ inputs }}` in your instructions to reference the request content.
 - **Post-LLM Guardrails**: evaluates the LLM's response before it is returned to the caller. Use `{{ outputs }}` in your instructions to reference the response content, or `{{ inputs }}` to reference the original request. Post-LLM guardrails are **not triggered for streaming requests** — only non-streaming responses are evaluated.
+
+:::note
+Guardrails work on both **unified endpoints** and **passthrough endpoints** (Anthropic, Gemini, OpenAI, etc.).
+:::
 
 When you switch between stages, the editor automatically swaps `{{ inputs }}` ↔ `{{ outputs }}` in your instructions so they remain correct.
 

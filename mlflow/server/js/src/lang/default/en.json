@@ -6159,6 +6159,10 @@
     "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
     "description": "Feature card summary for experiments"
   },
+  "agq01I": {
+    "defaultMessage": "Create Gateway endpoint",
+    "description": "Option to create a new AI Gateway endpoint"
+  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -6543,6 +6547,10 @@
     "defaultMessage": "Trace ID",
     "description": "Column label for trace ID"
   },
+  "cwuyMm": {
+    "defaultMessage": "Configure the model to power issue detection",
+    "description": "Description for the model selection step in issue detection modal"
+  },
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
@@ -6902,10 +6910,6 @@
   "f4CfIz": {
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
-  },
-  "f6q6EM": {
-    "defaultMessage": "Configure the model to power issue detection",
-    "description": "Description for the model selection step"
   },
   "fBB0xR": {
     "defaultMessage": "Assistant Not Available",

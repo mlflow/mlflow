@@ -13,6 +13,7 @@ from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
     ProviderAdapter,
+    _client_provides_auth,
 )
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
@@ -514,7 +515,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
-            # Don't override api key or version headers
+            if _client_provides_auth(headers):
+                # Preserve the client's own credentials for subscription-based tools
+                # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
+                result_headers.pop("x-api-key", None)
             result_headers = client_headers | result_headers
 
         return result_headers
