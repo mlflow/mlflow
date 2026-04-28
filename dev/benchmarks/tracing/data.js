@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777355564300,
+  "lastUpdate": 1777357501974,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -330,6 +330,72 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0015547790624029947",
             "extra": "mean: 7.1529669999989665 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "198982749+Copilot@users.noreply.github.com",
+            "name": "Copilot",
+            "username": "Copilot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "730bdd1226ada8c46c54d77b2b6347d06945661b",
+          "message": "Filter `_list_budget_windows` results by active workspace when request is workspace-scoped (#22885)\n\nSigned-off-by: TomuHirata <tomu.hirata@gmail.com>\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: TomeHirata <33407409+TomeHirata@users.noreply.github.com>\nCo-authored-by: TomuHirata <tomu.hirata@gmail.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-04-28T15:23:44+09:00",
+          "tree_id": "d44afd42b7e8589c41a28ac930feec07063cae0f",
+          "url": "https://github.com/mlflow/mlflow/commit/730bdd1226ada8c46c54d77b2b6347d06945661b"
+        },
+        "date": 1777357501123,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 24.518830577120845,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012356053804372625",
+            "extra": "mean: 40.784979400001475 msec\nrounds: 20"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 44.88625164006128,
+            "unit": "iter/sec",
+            "range": "stddev: 0.026497779617802638",
+            "extra": "mean: 22.278536600001885 msec\nrounds: 35"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 44.931735439007184,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027986451171920095",
+            "extra": "mean: 22.255984333332844 msec\nrounds: 63"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 62.24090327609408,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007191817105220264",
+            "extra": "mean: 16.066604874998447 msec\nrounds: 8"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 47.104089672918114,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02502148179151734",
+            "extra": "mean: 21.229579150001854 msec\nrounds: 60"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 110.54084073956965,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0014237109464764173",
+            "extra": "mean: 9.04643020000151 msec\nrounds: 5"
           }
         ]
       }
