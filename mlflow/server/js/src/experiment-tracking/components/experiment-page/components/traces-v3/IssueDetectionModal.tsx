@@ -291,7 +291,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
                   />
                   <br />
                   <FormattedMessage
-                    defaultMessage="Rough cost: under $0.5 for ~100 traces; under $1 for ~250 traces. <link>See benchmark</link>"
+                    defaultMessage="Rough cost: under $0.5 for ~100 traces, actual cost varies by selected model. <link>See benchmark</link>."
                     description="Approximate USD cost ranges for issue detection as a hint, with link to benchmark docs"
                     values={{
                       link: (chunks: React.ReactNode) => (
