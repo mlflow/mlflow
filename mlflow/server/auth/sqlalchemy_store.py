@@ -446,14 +446,14 @@ class SqlAlchemyStore:
 
     def get_workspace_permission(self, workspace_name: str, username: str) -> Permission | None:
         """
-        Get the workspace permission for a user from the legacy
-        ``workspace_permissions`` table.
+        Get the **direct** workspace permission for a user — the row in the
+        ``workspace_permissions`` table, if any.
 
-        Does NOT include role-based grants — callers that need the full
-        authorization picture should also consult ``get_role_workspace_permission``
-        and ``max_permission``-merge the two. See
-        ``mlflow.server.auth.__init__._workspace_permission`` for the canonical
-        aggregation.
+        Does NOT include role-based grants. Callers that need the full
+        authorization picture should also consult
+        ``get_role_workspace_permission`` and ``max_permission``-merge the
+        two. See ``mlflow.server.auth.__init__._workspace_permission`` for
+        the canonical aggregation.
         """
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
@@ -471,16 +471,15 @@ class SqlAlchemyStore:
         ``resource_pattern='*'``). Returns ``None`` when there are no such
         grants.
 
-        Complements ``get_workspace_permission``: that helper only reads the
-        legacy ``workspace_permissions`` table; this one only reads role
-        grants. Callers that need the effective workspace-level permission
-        should max-merge the two — pre-RBAC deployments only had legacy
-        grants, post-RBAC deployments increasingly use roles, and operators
-        mid-migration may have both.
+        Complements ``get_workspace_permission`` — that helper reads the
+        ``workspace_permissions`` table directly, this one reads role
+        grants. Both are first-class authorization sources; callers that
+        need the effective workspace-level permission should max-merge the
+        two.
         """
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
-            rows = (
+            permissions = (
                 session
                 .query(SqlRolePermission.permission)
                 .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
@@ -491,12 +490,13 @@ class SqlAlchemyStore:
                     SqlRolePermission.resource_type == "workspace",
                     SqlRolePermission.resource_pattern == "*",
                 )
+                .distinct()
                 .all()
             )
-        if not rows:
+        if not permissions:
             return None
         best: str | None = None
-        for (perm,) in rows:
+        for (perm,) in permissions:
             best = perm if best is None else max_permission(best, perm)
         return get_permission(best)
 

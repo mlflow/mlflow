@@ -542,18 +542,24 @@ def _workspace_permission(
 
     try:
         # The effective workspace-level permission is the max of:
-        #   (a) ``workspace_permissions`` table entry (legacy, pre-RBAC)
+        #   (a) direct ``workspace_permissions`` row for this user/workspace
         #   (b) role-based grants where (resource_type='workspace',
         #       resource_pattern='*') applied to this workspace
-        # Operators mid-migration may have both; resource-level checks already
-        # union role grants via ``_get_permission_from_store_or_default``, so
-        # the workspace-level path needs to do the same to stay consistent.
-        legacy = store.get_workspace_permission(workspace_name, username)
+        # Both sources are first-class — direct grants are not deprecated by
+        # roles. Resource-level checks already union role grants via
+        # ``_get_permission_from_store_or_default``, so the workspace-level
+        # path needs to do the same to stay consistent.
+        direct = store.get_workspace_permission(workspace_name, username)
+        # MANAGE is the ceiling — a role grant can't raise it, so skip the
+        # extra DB round-trip in the common workspace-admin case. Mirrors
+        # the optimization in ``_get_permission_from_store_or_default``.
+        if direct is not None and direct.name == MANAGE.name:
+            return direct
         role = store.get_role_workspace_permission(workspace_name, username)
-        if legacy is not None and role is not None:
-            return get_permission(max_permission(legacy.name, role.name))
-        if legacy is not None:
-            return legacy
+        if direct is not None and role is not None:
+            return get_permission(max_permission(direct.name, role.name))
+        if direct is not None:
+            return direct
         if role is not None:
             return role
 
