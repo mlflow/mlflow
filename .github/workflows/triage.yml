@@ -34,7 +34,9 @@ jobs:
         run: python .github/workflows/triage.py test
 
   # Main job: runs on new issues
-  # Comments are only posted for area/uiux bugs; other issues are triaged silently for observation.
+  # All new issues are screened for prompt injection; only bug-labeled issues that pass
+  # the screen proceed to triage. Comments are only posted for area/uiux bugs; other
+  # bugs are triaged silently for observation.
   triage:
     if: github.event_name == 'issues'
     runs-on: ubuntu-slim
@@ -52,13 +54,21 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Check issue for prompt injection
+        id: injection
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          payload=$(jq -n --arg title "$ISSUE_TITLE" --arg body "$ISSUE_BODY" '{
+          # Strip HTML comments and empty checkboxes, then truncate to 10k chars (same as triage.py)
+          body=$(jq -nr --arg b "$ISSUE_BODY" '
+            $b
+            | gsub("<!--[\\s\\S]*?-->"; "")
+            | gsub("(?m)^\\s{0,3}[-*]\\s+\\[\\s*\\]\\s+.+\\n?"; "")
+            | .[0:10000]
+          ')
+          payload=$(jq -n --arg title "$ISSUE_TITLE" --arg body "$body" '{
             model: "claude-haiku-4-5-20251001",
             max_tokens: 512,
             temperature: 0,
@@ -120,13 +130,23 @@ jobs:
             echo "- output tokens: $output_tokens"
             echo "- cost: \$$cost"
           } >> "$GITHUB_STEP_SUMMARY"
+          echo "malicious=$malicious" >> "$GITHUB_OUTPUT"
           if [ "$malicious" = "true" ]; then
-            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "malicious"
+            if label_output=$(gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "malicious" 2>&1); then
+              echo "- label: applied" >> "$GITHUB_STEP_SUMMARY"
+            else
+              {
+                echo "- label: failed to apply"
+                echo '```'
+                echo "$label_output"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
 
       - name: Triage issue
         id: triage
-        if: contains(github.event.issue.labels.*.name, 'bug')
+        if: contains(github.event.issue.labels.*.name, 'bug') && steps.injection.outputs.malicious != 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
