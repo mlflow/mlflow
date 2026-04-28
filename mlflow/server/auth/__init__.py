@@ -589,9 +589,10 @@ def _user_can_create_in_workspace(
 
     Creation is gated on **read access** to the workspace's resources of this type:
 
-    - a direct ``SqlWorkspacePermission`` row or workspace-wide role grant
-      ``(workspace, *, X)`` whose level has ``can_read`` — both handled by
-      ``_workspace_permission`` (which already max-merges direct + role)
+    - any workspace-level read returned by ``_workspace_permission`` — covers an
+      explicit ``SqlWorkspacePermission`` row, a workspace-wide role grant
+      ``(workspace, *, X)``, and the implicit default-workspace access enabled by
+      ``auth_config.grant_default_workspace_access`` / ``default_permission``
     - a type-scoped role grant ``(<resource_type>, *, X)`` with ``X.can_read``
 
     Pairs with creator-as-owner: ``AFTER_REQUEST_PATH_HANDLERS`` insert
@@ -2601,7 +2602,18 @@ def filter_list_workspaces(resp: Response) -> None:
 _DEFAULT_WORKSPACE_ROLES = (
     ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
     ("editor", EDIT.name, "EDIT access to every resource in the workspace."),
-    ("viewer", READ.name, "READ access to every resource in the workspace."),
+    (
+        "viewer",
+        READ.name,
+        # Viewer pairs with creator-as-owner to enable a "personal contributor" flow
+        # without raising the floor on others' resources — see the comment block
+        # above for the full rationale.
+        (
+            "READ access to every resource in the workspace; can create new "
+            "experiments and registered models (creator gets MANAGE on the rows "
+            "they create, no access to others')."
+        ),
+    ),
 )
 
 

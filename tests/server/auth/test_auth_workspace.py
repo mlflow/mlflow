@@ -765,7 +765,10 @@ def test_role_grant_workspace_read_allows_create(workspace_permission_setup, mon
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
-    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    # Drop the legacy grant the fixture installs so we exercise the role-only path
+    # in isolation (the explicit ``NO_PERMISSIONS`` row would otherwise still
+    # short-circuit the workspace lookup).
+    store.delete_workspace_permission("team-a", username)
 
     role = store.create_role(name="ws-viewer", workspace="team-a")
     store.add_role_permission(role.id, "workspace", "*", READ.name)
@@ -785,7 +788,7 @@ def test_role_grant_resource_type_read_is_type_scoped(workspace_permission_setup
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
-    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    store.delete_workspace_permission("team-a", username)
 
     role = store.create_role(name="exp-reader", workspace="team-a")
     store.add_role_permission(role.id, "experiment", "*", READ.name)

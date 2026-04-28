@@ -38,6 +38,7 @@ from mlflow.server.auth.entities import (
     WorkspacePermission,
 )
 from mlflow.server.auth.permissions import (
+    ALL_PERMISSIONS,
     MANAGE,
     Permission,
     _validate_permission,
@@ -1242,11 +1243,15 @@ class SqlAlchemyStore:
         this helper covers the remaining type-scoped case so callers that need
         "is the user a member with read access to this resource type" can union
         the two without overlap.
+
+        The DB query short-circuits as soon as a single matching row is found —
+        we don't materialize all role permissions just to compute ``any()``.
         """
+        readable_levels = [name for name, perm in ALL_PERMISSIONS.items() if perm.can_read]
         with self.ManagedSessionMaker() as session:
-            rows = (
+            return (
                 session
-                .query(SqlRolePermission)
+                .query(SqlRolePermission.id)
                 .join(SqlRole, SqlRolePermission.role_id == SqlRole.id)
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(
@@ -1254,10 +1259,11 @@ class SqlAlchemyStore:
                     SqlRole.workspace == workspace,
                     SqlRolePermission.resource_pattern == "*",
                     SqlRolePermission.resource_type == resource_type,
+                    SqlRolePermission.permission.in_(readable_levels),
                 )
-                .all()
+                .first()
+                is not None
             )
-            return any(get_permission(r.permission).can_read for r in rows)
 
     @staticmethod
     def _workspace_admin_workspaces(session, user_id: int) -> set[str]:
