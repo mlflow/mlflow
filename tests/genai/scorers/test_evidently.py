@@ -121,7 +121,6 @@ def test_concrete_scorer_classes():
 @pytest.mark.parametrize(
     ("scorer_class_name", "expected_metric"),
     [
-        ("ValueDrift", "ValueDrift"),
         ("MissingValues", "MissingValueCount"),
         ("UniqueValues", "UniqueValueCount"),
     ],

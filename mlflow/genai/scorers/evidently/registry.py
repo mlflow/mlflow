@@ -3,7 +3,6 @@ from __future__ import annotations
 from mlflow.exceptions import MlflowException
 
 _SUPPORTED_METRICS = {
-    "ValueDrift": "evidently.metrics.ValueDrift",
     "MissingValueCount": "evidently.metrics.MissingValueCount",
     "UniqueValueCount": "evidently.metrics.UniqueValueCount",
 }

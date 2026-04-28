@@ -2,28 +2,24 @@
 Evidently AI integration for MLflow.
 
 This module provides integration with Evidently AI metrics, allowing them to be used
-with MLflow's scorer interface for data drift detection, data quality monitoring,
-and model performance evaluation.
+with MLflow's scorer interface for data quality monitoring and model performance evaluation.
 
 Example usage:
 
 .. code-block:: python
 
-    from mlflow.genai.scorers.evidently import ValueDrift, MissingValues, get_scorer
-
-    # Detect data drift
-    scorer = ValueDrift(column="feature_1")
-    feedback = scorer(
-        outputs={"feature_1": 0.5},
-        expectations={"reference_data": [{"feature_1": 0.1}, {"feature_1": 0.2}]},
-    )
+    from mlflow.genai.scorers.evidently import MissingValues, UniqueValues, get_scorer
 
     # Check for missing values
     scorer = MissingValues(column="feature_1")
     feedback = scorer(outputs={"feature_1": None})
 
+    # Count unique values
+    scorer = UniqueValues(column="category")
+    feedback = scorer(outputs={"category": "A"})
+
     # Use factory function
-    scorer = get_scorer("ValueDrift", column="feature_1")
+    scorer = get_scorer("MissingValueCount", column="feature_1")
 """
 
 from __future__ import annotations
@@ -60,7 +56,7 @@ class EvidentlyScorer(Scorer):
     scorer interface.
 
     Args:
-        metric_name: Name of the Evidently metric (e.g., "ValueDrift")
+        metric_name: Name of the Evidently metric (e.g., "MissingValueCount")
         **metric_kwargs: Additional arguments passed to the Evidently metric
     """
 
@@ -184,21 +180,17 @@ class EvidentlyScorer(Scorer):
             return None
 
         value = metrics[0].get("value")
-        if value is None:
+        if not isinstance(value, dict):
             return None
 
-        # Scalar value (e.g., ValueDrift returns a p-value float)
-        if isinstance(value, (int, float)):
-            return float(value)
+        # MissingValueCount / UniqueValueCount return {"count": N, "share": M}
+        if "count" in value:
+            return float(value["count"])
 
-        # Dict value (e.g., MissingValueCount returns {"count": 1.0, "share": 0.33})
-        if isinstance(value, dict):
-            if "count" in value:
-                return float(value["count"])
-            # Fallback: return first numeric value found
-            for v in value.values():
-                if isinstance(v, (int, float)):
-                    return float(v)
+        # Fallback: return first numeric value found
+        for v in value.values():
+            if isinstance(v, (int, float)):
+                return float(v)
 
         return None
 
@@ -208,21 +200,11 @@ class EvidentlyScorer(Scorer):
         if not metrics:
             return None
 
-        metric = metrics[0]
-        value = metric.get("value")
-        parts = []
+        value = metrics[0].get("value")
+        if not isinstance(value, dict):
+            return None
 
-        if isinstance(value, (int, float)):
-            parts.append(f"Value: {value}")
-        elif isinstance(value, dict):
-            for k, v in value.items():
-                parts.append(f"{k}: {v}")
-
-        config = metric.get("config")
-        if isinstance(config, dict) and "stattest" in config:
-            parts.append(f"Statistical test: {config['stattest']}")
-
-        return "; ".join(parts) if parts else None
+        return "; ".join(f"{k}: {v}" for k, v in value.items()) or None
 
 
 @experimental(version="3.12.0")
@@ -233,7 +215,7 @@ def get_scorer(
     """Get an Evidently metric as an MLflow scorer.
 
     Args:
-        metric_name: Name of the Evidently metric (e.g., "ValueDrift", "MissingValueCount")
+        metric_name: Name of the Evidently metric (e.g., "MissingValueCount", "UniqueValueCount")
         metric_kwargs: Additional keyword arguments to pass to the metric.
 
     Returns:
@@ -242,51 +224,16 @@ def get_scorer(
     Examples:
         .. code-block:: python
 
-            scorer = get_scorer("ValueDrift", column="feature_1")
-            feedback = scorer(
-                outputs={"feature_1": 0.5},
-                expectations={"reference_data": [{"feature_1": 0.1}, {"feature_1": 0.2}]},
-            )
-
             scorer = get_scorer("MissingValueCount", column="feature_1")
             feedback = scorer(outputs={"feature_1": None})
+
+            scorer = get_scorer("UniqueValueCount", column="category")
+            feedback = scorer(outputs={"category": "A"})
     """
     return EvidentlyScorer(
         metric_name=metric_name,
         **metric_kwargs,
     )
-
-
-@experimental(version="3.12.0")
-class ValueDrift(EvidentlyScorer):
-    """Detect data drift for a specific column using statistical tests.
-
-    Compares the distribution of values in current data against reference data
-    to detect significant changes (drift).
-
-    .. note::
-        ``ValueDrift`` is a **distribution-level** metric: it compares the aggregate
-        distribution of the current dataset against a reference dataset. It cannot be
-        used to evaluate a single row in isolation. Always supply ``reference_data``
-        (a list of dicts or a DataFrame) via the ``expectations`` argument; omitting it
-        will cause the underlying Evidently metric to raise an error.
-
-    Args:
-        column: Name of the column to check for drift
-
-    Examples:
-        .. code-block:: python
-
-            from mlflow.genai.scorers.evidently import ValueDrift
-
-            scorer = ValueDrift(column="prediction")
-            feedback = scorer(
-                outputs={"prediction": 0.9},
-                expectations={"reference_data": [{"prediction": 0.1}, {"prediction": 0.2}]},
-            )
-    """
-
-    metric_name: ClassVar[str] = "ValueDrift"
 
 
 @experimental(version="3.12.0")
@@ -336,7 +283,6 @@ class UniqueValues(EvidentlyScorer):
 __all__ = [
     "EvidentlyScorer",
     "get_scorer",
-    "ValueDrift",
     "MissingValues",
     "UniqueValues",
 ]
