@@ -29,9 +29,6 @@ def generate_trace_data(
     num_spans: int,
     rng: random.Random,
 ) -> tuple[TraceInfo, list[Span]]:
-    # Names, envs, and timestamps are drawn from small fixed sets so that
-    # filter-by-tag / range scenarios match a meaningful fraction of the
-    # seeded dataset.
     trace_id = f"tr-{uuid.uuid4().hex}"
     request_time = int(time.time() * 1000) - rng.randint(0, WEEK_MS)
     name_prefix = rng.choice(NAME_PREFIXES)
