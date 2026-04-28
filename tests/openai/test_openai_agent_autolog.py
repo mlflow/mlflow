@@ -16,11 +16,13 @@ from agents.tracing.processors import default_processor
 from agents.tracing.setup import get_trace_provider
 from openai.types.responses.function_tool import FunctionTool
 from openai.types.responses.response import Response
+from openai.types.responses.response_completed_event import ResponseCompletedEvent
 from openai.types.responses.response_output_item import (
     ResponseFunctionToolCall,
     ResponseOutputMessage,
 )
 from openai.types.responses.response_output_text import ResponseOutputText
+from openai.types.responses.response_text_delta_event import ResponseTextDeltaEvent
 
 import mlflow
 from mlflow.entities import SpanType
@@ -395,6 +397,138 @@ async def test_disable_enable_autolog():
     await Runner.run(agent, messages)
 
     assert get_traces() == []
+
+
+def _make_streamed_response(text: str) -> Response:
+    return Response(
+        id="123",
+        created_at=12345678.0,
+        error=None,
+        model="gpt-4o-mini",
+        object="response",
+        output=[
+            ResponseOutputMessage(
+                id="123",
+                content=[
+                    ResponseOutputText(
+                        annotations=[],
+                        text=text,
+                        type="output_text",
+                    )
+                ],
+                role="assistant",
+                status="completed",
+                type="message",
+            )
+        ],
+        tools=[],
+        tool_choice="auto",
+        temperature=1,
+        parallel_tool_calls=True,
+    )
+
+
+def _patch_stream_response(events):
+    async def _stream(*args, **kwargs):
+        for event in events:
+            yield event
+
+    return mock.patch(
+        "agents.models.openai_responses.OpenAIResponsesModel.stream_response",
+        side_effect=_stream,
+    )
+
+
+@pytest.mark.asyncio
+async def test_autolog_agent_run_streamed():
+    mlflow.openai.autolog()
+
+    final_response = _make_streamed_response("Hello! Streaming response.")
+    stream_events = [
+        ResponseTextDeltaEvent(
+            content_index=0,
+            delta="Hello! ",
+            item_id="123",
+            logprobs=[],
+            output_index=0,
+            sequence_number=0,
+            type="response.output_text.delta",
+        ),
+        ResponseTextDeltaEvent(
+            content_index=0,
+            delta="Streaming response.",
+            item_id="123",
+            logprobs=[],
+            output_index=0,
+            sequence_number=1,
+            type="response.output_text.delta",
+        ),
+        ResponseCompletedEvent(
+            type="response.completed",
+            response=final_response,
+            sequence_number=2,
+        ),
+    ]
+
+    set_dummy_client([])
+    agent = Agent(name="assistant", instructions="You are a helpful assistant.")
+
+    with _patch_stream_response(stream_events):
+        result = Runner.run_streamed(agent, "Hello")
+        async for _ in result.stream_events():
+            pass
+
+    assert result.final_output == "Hello! Streaming response."
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.status == "OK"
+    assert json.loads(trace.info.request_preview) == "Hello"
+    assert json.loads(trace.info.response_preview) == "Hello! Streaming response."
+
+    spans = trace.data.spans
+    assert spans[0].name == "AgentRunner.run_streamed"
+    assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].inputs == "Hello"
+    assert spans[0].outputs == "Hello! Streaming response."
+    # All non-root spans should be transitively descended from the streamed root
+    span_ids = {span.span_id for span in spans}
+    for span in spans[1:]:
+        assert span.parent_id in span_ids
+
+
+@pytest.mark.asyncio
+async def test_autolog_agent_run_streamed_exception():
+    mlflow.openai.autolog()
+
+    async def _raise(*args, **kwargs):
+        raise RuntimeError("Streaming failed")
+        yield  # pragma: no cover - needed to make this an async generator
+
+    set_dummy_client([])
+    agent = Agent(name="assistant", instructions="You are helpful.")
+
+    async def _consume_stream():
+        result = Runner.run_streamed(agent, "Hello")
+        async for _ in result.stream_events():
+            pass
+
+    with mock.patch(
+        "agents.models.openai_responses.OpenAIResponsesModel.stream_response",
+        side_effect=_raise,
+    ):
+        with pytest.raises(RuntimeError, match="Streaming failed"):
+            await _consume_stream()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.status == "ERROR"
+    spans = trace.data.spans
+    assert spans[0].name == "AgentRunner.run_streamed"
+    assert spans[0].status.status_code == "ERROR"
+    assert any(event.name == "exception" for event in spans[0].events)
 
 
 def test_autolog_disable_openai_agent_tracer():

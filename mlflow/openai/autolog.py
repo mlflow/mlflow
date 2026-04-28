@@ -81,12 +81,13 @@ def autolog(
     try:
         from agents.run import AgentRunner
 
-        from mlflow.openai._agent_tracer import _patched_agent_run
+        from mlflow.openai._agent_tracer import _patched_agent_run, _patched_agent_run_streamed
 
         # NB: The OpenAI's built-in tracer does not capture inputs/outputs of the
         # root span, which is not inconvenient. Therefore, we add a patch for the
         # runner.run() method instead.
         safe_patch(FLAVOR_NAME, AgentRunner, "run", _patched_agent_run)
+        safe_patch(FLAVOR_NAME, AgentRunner, "run_streamed", _patched_agent_run_streamed)
 
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,

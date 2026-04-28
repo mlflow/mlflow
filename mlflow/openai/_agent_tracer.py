@@ -8,7 +8,7 @@ import agents.tracing as oai
 from agents import add_trace_processor, set_trace_processors
 from agents.tracing.setup import get_trace_provider
 
-from mlflow.entities.span import SpanType
+from mlflow.entities.span import LiveSpan, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
@@ -29,6 +29,10 @@ _logger = logging.getLogger(__name__)
 
 
 _AGENT_RUN_SPAN_NAME = "AgentRunner.run"
+_AGENT_RUN_STREAMED_SPAN_NAME = "AgentRunner.run_streamed"
+# Private marker attribute used to identify a root span created by our patches,
+# decoupling root detection from the human-readable span name.
+_AGENT_RUN_ROOT_MARKER = "mlflow.openai.agent_run_root"
 
 
 class OpenAISpanType:
@@ -91,8 +95,8 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
         self._span_id_to_mlflow_span: dict[str, SpanWithToken] = {}
 
     def on_trace_start(self, trace: oai.Trace) -> None:
-        if (active_span := get_current_active_span()) and active_span.name == _AGENT_RUN_SPAN_NAME:
-            # The root span is already started by the _patched_agent_run
+        if (active_span := get_current_active_span()) and _is_agent_run_root(active_span):
+            # The root span is already started by _patched_agent_run / _patched_agent_run_streamed
             mlflow_span = active_span
             token = None
         else:
@@ -282,24 +286,104 @@ def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any
     return inputs, outputs, attributes
 
 
-async def _patched_agent_run(original, self, *args, **kwargs):
-    inputs = construct_full_inputs(original, self, *args, **kwargs)
-    # Exclude "run_config" because it may contain the model_provider which holds
-    # the AsyncOpenAI client. Serializing it triggers copy.deepcopy on the internal
-    # AsyncHttpxClientWrapper, which fails due to unpicklable locks and causes
-    # "AttributeError: 'AsyncHttpxClientWrapper' object has no attribute '_state'"
-    # errors during garbage collection. See https://github.com/mlflow/mlflow/issues/19911
+def _is_agent_run_root(span: LiveSpan) -> bool:
+    return bool(span.get_attribute(_AGENT_RUN_ROOT_MARKER))
+
+
+def _build_agent_run_span_args(original, self_, args, kwargs):
+    """Build inputs and attributes for the agent run root span.
+
+    Excludes "run_config" because it may contain the model_provider which holds
+    the AsyncOpenAI client. Serializing it triggers copy.deepcopy on the internal
+    AsyncHttpxClientWrapper, which fails due to unpicklable locks and causes
+    "AttributeError: 'AsyncHttpxClientWrapper' object has no attribute '_state'"
+    errors during garbage collection. See https://github.com/mlflow/mlflow/issues/19911
+    """
+    inputs = construct_full_inputs(original, self_, *args, **kwargs)
     attributes = {
         k: v for k, v in inputs.items() if k not in ("starting_agent", "input", "run_config")
     }
+    return inputs, attributes
+
+
+async def _patched_agent_run(original, self, *args, **kwargs):
+    inputs, attributes = _build_agent_run_span_args(original, self, args, kwargs)
 
     with start_span(
         name=_AGENT_RUN_SPAN_NAME,
         span_type=SpanType.AGENT,
         attributes=attributes,
     ) as span:
+        span.set_attribute(_AGENT_RUN_ROOT_MARKER, True)
         span.set_inputs(inputs.get("input"))
         result = await original(self, *args, **kwargs)
         span.set_outputs(result.final_output)
 
     return result
+
+
+def _patched_agent_run_streamed(original, self, *args, **kwargs):
+    """Patch ``AgentRunner.run_streamed`` to record an MLflow root span.
+
+    ``run_streamed`` is sync and returns a ``RunResultStreaming`` immediately
+    while spawning the actual run as an ``asyncio`` background task. The span
+    must therefore outlive the patched call and be closed only after the user
+    consumes ``stream_events()``. We attach the span to the OTel context
+    before calling ``original`` so the background task inherits it as parent,
+    and we wrap ``stream_events()`` to detach + end the span on completion.
+    """
+    inputs, attributes = _build_agent_run_span_args(original, self, args, kwargs)
+
+    span = start_span_no_context(
+        name=_AGENT_RUN_STREAMED_SPAN_NAME,
+        span_type=SpanType.AGENT,
+        inputs=inputs.get("input"),
+        attributes=attributes,
+    )
+    span.set_attribute(_AGENT_RUN_ROOT_MARKER, True)
+    # Attach the span before original() runs so the asyncio task it spawns
+    # captures this span as its OTel context.
+    token = set_span_in_context(span)
+
+    try:
+        result = original(self, *args, **kwargs)
+    except Exception as e:
+        _finalize_streamed_span(span, token, error=e)
+        raise
+
+    original_stream_events = result.stream_events
+    finalized = False
+
+    async def wrapped_stream_events(*args, **kwargs):
+        nonlocal finalized
+        error: Exception | None = None
+        try:
+            async for event in original_stream_events(*args, **kwargs):
+                yield event
+        except Exception as e:
+            error = e
+            raise
+        finally:
+            # Guard against unexpected re-iteration: detaching the same OTel
+            # token twice is undefined behavior, so only finalize once.
+            if not finalized:
+                finalized = True
+                outputs = None if error else getattr(result, "final_output", None)
+                _finalize_streamed_span(span, token, error=error, outputs=outputs)
+
+    result.stream_events = wrapped_stream_events
+    return result
+
+
+def _finalize_streamed_span(span, token, *, error=None, outputs=None):
+    try:
+        detach_span_from_context(token)
+        if error is not None:
+            span.record_exception(error)
+            span.end()
+            return
+        if outputs is not None:
+            span.set_outputs(outputs)
+        span.end(status=SpanStatusCode.OK)
+    except Exception:
+        _logger.debug("Failed to finalize streamed agent run span", exc_info=True)
