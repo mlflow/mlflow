@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777351242001,
+  "lastUpdate": 1777353551052,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -66,6 +66,72 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0021557540169406834",
             "extra": "mean: 8.833516000004238 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pattara.sk127@gmail.com",
+            "name": "Pat Sukprasert",
+            "username": "PattaraS"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7686229ee4c11a3177426f3463664c3852f880ad",
+          "message": "Aggregate role-based grants in workspace-level permission checks (#22954)\n\nSigned-off-by: Pat Sukprasert <pattara.sk127@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-04-28T05:15:38Z",
+          "tree_id": "6cd489597b715baeeb44aa21b1b7d748d404d8cf",
+          "url": "https://github.com/mlflow/mlflow/commit/7686229ee4c11a3177426f3463664c3852f880ad"
+        },
+        "date": 1777353550256,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 23.58030780623103,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008200250213432247",
+            "extra": "mean: 42.40826745000135 msec\nrounds: 20"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 39.848594094721356,
+            "unit": "iter/sec",
+            "range": "stddev: 0.032496170943215975",
+            "extra": "mean: 25.094988235293037 msec\nrounds: 34"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 40.654476881605156,
+            "unit": "iter/sec",
+            "range": "stddev: 0.033520151741452155",
+            "extra": "mean: 24.597537016949484 msec\nrounds: 59"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 40.841148324309856,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03144925075196385",
+            "extra": "mean: 24.48510977358515 msec\nrounds: 53"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 40.47858618466851,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03107582982785137",
+            "extra": "mean: 24.70442014545349 msec\nrounds: 55"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 47.647094968052436,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014516964837542645",
+            "extra": "mean: 20.987638400001174 msec\nrounds: 5"
           }
         ]
       }
