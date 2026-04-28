@@ -114,8 +114,8 @@ class DBConnectArtifactCache:
 
         if session_id := os.environ.get("DB_SESSION_UUID"):
             task_context = TaskContext.get()
-            if hasattr(task_context, "artifact_dir"):
-                return os.path.join(task_context.artifact_dir(), "archives", archive_file_name)
+            if hasattr(task_context, "artifactDir"):
+                return os.path.join(task_context.artifactDir(), "archives", archive_file_name)
 
             return (
                 f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
