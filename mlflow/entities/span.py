@@ -545,7 +545,7 @@ class Span:
                 TRACE_REQUEST_ID_PREFIX
             )
             proto_link.trace_id = decode_id(link_trace_id_hex).to_bytes(16, "big")
-            proto_link.span_id = bytes.fromhex(link.span_id)
+            proto_link.span_id = decode_id(link.span_id).to_bytes(8, "big")
 
             # Add link attributes
             if link.attributes:
@@ -1119,6 +1119,8 @@ class LiveSpan(Span):
             clone_span.set_outputs(span.outputs)
         for event in span.events:
             clone_span.add_event(event)
+        for link in span.links:
+            clone_span.add_link(link)
 
         # Update trace ID and span ID
         context = span._span.get_span_context()
