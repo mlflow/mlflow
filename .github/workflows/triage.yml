@@ -61,14 +61,8 @@ jobs:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          # Strip HTML comments and empty checkboxes, then truncate to 10k chars (same as triage.py)
-          body=$(jq -nr --arg b "$ISSUE_BODY" '
-            $b
-            | gsub("<!--[\\s\\S]*?-->"; "")
-            | gsub("(?m)^\\s{0,3}[-*]\\s+\\[\\s*\\]\\s+.+\\n?"; "")
-            | .[0:10000]
-          ')
-          payload=$(jq -n --arg title "$ISSUE_TITLE" --arg body "$body" '{
+          # Send the raw body so hidden HTML comments / checkbox content are visible to the check
+          payload=$(jq -n --arg title "$ISSUE_TITLE" --arg body "$ISSUE_BODY" '{
             model: "claude-haiku-4-5-20251001",
             max_tokens: 512,
             temperature: 0,
