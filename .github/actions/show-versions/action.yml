@@ -14,4 +14,6 @@ runs:
           fi
         fi
         pip --disable-pip-version-check install aiohttp > /dev/null
+        echo ">>> package versions"
         python dev/show_package_release_dates.py
+        echo "<<< package versions"
