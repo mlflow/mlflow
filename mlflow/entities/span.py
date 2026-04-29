@@ -949,8 +949,12 @@ class LiveSpan(Span):
             link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
                 TRACE_REQUEST_ID_PREFIX
             )
-            otel_context = build_otel_context(decode_id(link_trace_id_hex), decode_id(link.span_id))
-        except (ValueError, MlflowException) as e:
+            trace_id_int = decode_id(link_trace_id_hex)
+            span_id_int = decode_id(link.span_id)
+            trace_id_int.to_bytes(16, "big")
+            span_id_int.to_bytes(8, "big")
+            otel_context = build_otel_context(trace_id_int, span_id_int)
+        except (ValueError, OverflowError, MlflowException) as e:
             raise MlflowException(
                 f"Invalid link: trace_id={link.trace_id!r}, span_id={link.span_id!r}. "
                 "trace_id must be a valid MLflow trace ID and span_id must be a hex string.",

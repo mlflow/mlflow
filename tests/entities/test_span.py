@@ -836,6 +836,9 @@ def test_add_link_rejects_invalid_ids():
         with pytest.raises(MlflowException, match="Invalid link"):
             span.add_link(Link(trace_id="bad-format", span_id="aabbccddeeff0011"))
 
+        with pytest.raises(MlflowException, match="Invalid link"):
+            span.add_link(Link(trace_id="tr-abc123", span_id="aabbccddeeff0011aabbccddeeff0011"))
+
         assert len(span.links) == 0
 
 
