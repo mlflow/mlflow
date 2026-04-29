@@ -17,6 +17,14 @@ export const getAdminRouteDefs = () => {
       handle: { getPageTitle: (params) => `Role ${params['roleId']}` } satisfies DocumentTitleHandle,
     },
     {
+      path: AdminRoutePaths.userPermissionsPage,
+      element: createLazyRouteElement(() => import('./pages/UserPermissionsPage')),
+      pageId: AdminPageId.userPermissionsPage,
+      handle: {
+        getPageTitle: (params) => `User permissions: ${params['username']}`,
+      } satisfies DocumentTitleHandle,
+    },
+    {
       path: AdminRoutePaths.accountPage,
       element: createLazyRouteElement(() => import('./pages/AccountPage')),
       pageId: AdminPageId.accountPage,

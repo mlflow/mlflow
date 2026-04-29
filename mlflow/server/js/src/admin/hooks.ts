@@ -1,4 +1,8 @@
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
+import { useSearchParams } from '../common/utils/RoutingUtils';
+import { SETTINGS_RETURN_TO_PARAM } from '../settings/settingsSectionConstants';
 import { AdminApi } from './api';
 import type {
   CreateRoleRequest,
@@ -9,6 +13,25 @@ import type {
   UpdatePasswordRequest,
   UpdateAdminRequest,
 } from './types';
+
+/**
+ * Opt-in dev flag to render the DevUserSwitcher (bottom-right floating toolbar).
+ *
+ * Two gates must both be true:
+ *   1. Build is development (``process.env['NODE_ENV'] === 'development'``).
+ *      The DevUserSwitcher stores plaintext passwords in localStorage and sets
+ *      an ``Authorization`` cookie — gating at build time prevents it from
+ *      being shipped in production bundles even if the localStorage flag is
+ *      somehow set.
+ *   2. The localStorage flag is set:
+ *        localStorage.setItem('mlflow.settings.admin.enable-dev-user-switcher_v1', 'true')
+ *      Mirrors the ``mlflow.settings.telemetry.enable-dev-logging`` pattern.
+ */
+export const ADMIN_ENABLE_DEV_USER_SWITCHER_STORAGE_KEY = 'mlflow.settings.admin.enable-dev-user-switcher';
+
+export const DEV_USER_SWITCHER_ENABLED: boolean =
+  process.env['NODE_ENV'] === 'development' &&
+  getLocalStorageItem(ADMIN_ENABLE_DEV_USER_SWITCHER_STORAGE_KEY, 1, false, false);
 
 /**
  * Fetches the currently authenticated user's identity (id, username, is_admin)
@@ -27,6 +50,28 @@ export const useCurrentUserQuery = () => {
 export const useCurrentUserIsAdmin = () => {
   const { data } = useCurrentUserQuery();
   return Boolean(data?.user?.is_admin);
+};
+
+/**
+ * Returns a helper that appends the current ``returnTo`` query param (used by
+ * the Settings sub-sidebar exit link) to a destination path. When users
+ * navigate into Admin from Settings, internal Admin links must preserve
+ * ``returnTo`` so the Settings exit link still goes back to the originating
+ * page after they drill into a user or role detail.
+ */
+export const useWithSettingsReturnTo = () => {
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get(SETTINGS_RETURN_TO_PARAM);
+  return useCallback(
+    (path: string) => {
+      if (!returnTo) {
+        return path;
+      }
+      const separator = path.includes('?') ? '&' : '?';
+      return `${path}${separator}${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(returnTo)}`;
+    },
+    [returnTo],
+  );
 };
 
 /**
@@ -222,5 +267,18 @@ export const useUserRolesQuery = (username: string) => {
     retry: false,
     refetchOnWindowFocus: false,
     enabled: Boolean(username),
+  });
+};
+
+/**
+ * Grant a per-user permission via the legacy per-resource CRUD endpoints.
+ * Single mutation hook that dispatches based on `resource_type`. Bridges to
+ * the synthetic-role mechanism after Phase 2 (#22855) — same API call,
+ * different storage on the server side.
+ */
+export const useGrantUserPermission = () => {
+  return useMutation({
+    mutationFn: (request: { resource_type: string; resource_id: string; username: string; permission: string }) =>
+      AdminApi.grantUserPermission(request.resource_type, request.resource_id, request.username, request.permission),
   });
 };

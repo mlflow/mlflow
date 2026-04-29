@@ -37,6 +37,7 @@ import {
   useAssignRole,
   useUnassignRole,
   useUsersQuery,
+  useWithSettingsReturnTo,
 } from '../hooks';
 import type { RolePermission } from '../types';
 import { RESOURCE_TYPES, PERMISSIONS, isWorkspaceAdminRole } from '../types';
@@ -554,6 +555,7 @@ const RoleDetailPage = () => {
 
   const { data: roleData, isLoading, error: loadError } = useRoleDetailQuery(roleId);
   const updateRole = useUpdateRole(roleId);
+  const withReturnTo = useWithSettingsReturnTo();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -649,8 +651,14 @@ const RoleDetailPage = () => {
           <Breadcrumb includeTrailingCaret>
             <Breadcrumb.Item>
               {/* Preserve the Roles tab when going "back to Admin" — without
-                  the query param, AdminPage falls back to the Users tab. */}
-              <Link componentId="admin.role.breadcrumb_admin" to={`${AdminRoutes.adminPageRoute}?tab=roles`}>
+                  the query param, AdminPage falls back to the Users tab.
+                  Also carry through the Settings ``returnTo`` param so the
+                  Settings exit link still goes back to the originating page
+                  if the user entered Admin from Settings. */}
+              <Link
+                componentId="admin.role.breadcrumb_admin"
+                to={withReturnTo(`${AdminRoutes.adminPageRoute}?tab=roles`)}
+              >
                 Platform Admin
               </Link>
             </Breadcrumb.Item>
