@@ -627,6 +627,10 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
+  "1oofcq": {
+    "defaultMessage": "Show less",
+    "description": "Link that collapses an expanded list when clicked"
+  },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
     "description": "Issue detection summary > View issues button"
@@ -2703,6 +2707,10 @@
     "defaultMessage": "Using regular expression quick filter. The following query will be used: {filterSample}",
     "description": "Experiment page > control bar > search filter > a label displayed when user has entered a simple query that will be automatically transformed into RLIKE SQL query before being sent to the API"
   },
+  "ETbUBU": {
+    "defaultMessage": "Rough cost: under $0.5 for ~100 traces, actual cost varies by selected model. <link>See benchmark</link>.",
+    "description": "Approximate USD cost ranges for issue detection as a hint, with link to benchmark docs"
+  },
   "EWf8NH": {
     "defaultMessage": "Learn more",
     "description": "Documentation link text"
@@ -3707,6 +3715,10 @@
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
   },
+  "LgnR+r": {
+    "defaultMessage": "Configure the model to power issue detection.",
+    "description": "Description for model selection in issue detection modal"
+  },
   "LhxSrc": {
     "defaultMessage": "Incorrect",
     "description": "Evaluation results > correctness assessment > negative value label. Displayed if evaluation result is considered as incorrect."
@@ -3938,6 +3950,10 @@
   "N53jAt": {
     "defaultMessage": "Create custom code judge",
     "description": "Title for new custom code judge modal"
+  },
+  "N5IyPh": {
+    "defaultMessage": "Click on a stage to choose when this guardrail runs.",
+    "description": "Stage help text"
   },
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
@@ -4178,6 +4194,10 @@
   "OUPWd8": {
     "defaultMessage": "View chat session",
     "description": "Tooltip for the session id tag"
+  },
+  "OW3pF8": {
+    "defaultMessage": "Show {count} more intermediate {count, plural, =1 {step} other {steps}}",
+    "description": "Link that expands a collapsed list of intermediate function execution steps when clicked"
   },
   "OWCfFp": {
     "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
@@ -4470,10 +4490,6 @@
   "QK/Qyx": {
     "defaultMessage": "Total",
     "description": "Label for total token usage"
-  },
-  "QK9qFL": {
-    "defaultMessage": "Hide assessments",
-    "description": "Label for the button to hide the assessments pane"
   },
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
@@ -5179,10 +5195,6 @@
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
   },
-  "V3RNMD": {
-    "defaultMessage": "After Guardrails",
-    "description": "Pipeline AFTER stage label"
-  },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
     "description": "Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
@@ -5390,6 +5402,10 @@
   "W99FRU": {
     "defaultMessage": "Model Name",
     "description": "Label for model name input in model config form"
+  },
+  "WDmiPW": {
+    "defaultMessage": "You need another endpoint to use guardrails.",
+    "description": "Tooltip shown when no alternate endpoint exists for guardrail model selection"
   },
   "WDqWWa": {
     "defaultMessage": "Show all runs",
@@ -6147,6 +6163,10 @@
     "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
     "description": "Feature card summary for experiments"
   },
+  "agq01I": {
+    "defaultMessage": "Create Gateway endpoint",
+    "description": "Option to create a new AI Gateway endpoint"
+  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -6210,10 +6230,6 @@
   "bCdY2j": {
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
-  },
-  "bFG2sC": {
-    "defaultMessage": "Before Guardrails",
-    "description": "Pipeline BEFORE stage label"
   },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
@@ -6546,6 +6562,10 @@
   "d1Ou4x": {
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
+  },
+  "d2b9xa": {
+    "defaultMessage": "Enable Usage Tracking in the Overview tab to configure guardrails",
+    "description": "Tooltip shown on disabled Guardrails tab explaining that usage tracking must be enabled first"
   },
   "d34yzQ": {
     "defaultMessage": "Rejected",
@@ -6883,13 +6903,13 @@
     "defaultMessage": "Select ({count})",
     "description": "Confirm button in the select sessions modal showing number of selected sessions"
   },
+  "f3cOoh": {
+    "defaultMessage": "Post-LLM Guardrails",
+    "description": "Pipeline AFTER stage label"
+  },
   "f4CfIz": {
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
-  },
-  "f6q6EM": {
-    "defaultMessage": "Configure the model to power issue detection",
-    "description": "Description for the model selection step"
   },
   "fBB0xR": {
     "defaultMessage": "Assistant Not Available",
@@ -7687,6 +7707,10 @@
     "defaultMessage": "{numValue} for run \"{runName}\"",
     "description": "Error/null assessment tooltip"
   },
+  "jpvRrY": {
+    "defaultMessage": "Pre-LLM Guardrails",
+    "description": "Pipeline BEFORE stage label"
+  },
   "jq95vC": {
     "defaultMessage": "Group: {groupName}",
     "description": "Experiment page > grouped runs table > run group header label"
@@ -7766,10 +7790,6 @@
   "kCsAho": {
     "defaultMessage": "Correctness",
     "description": "LLM template option"
-  },
-  "kDCMl+": {
-    "defaultMessage": "Click on a stage to choose where this guardrail runs.",
-    "description": "Stage help text"
   },
   "kHDQiE": {
     "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
@@ -8771,6 +8791,10 @@
     "defaultMessage": "{registeredCount}/{loggedCount} logged models are registered",
     "description": "Run page > Header > Register model dropdown > Button tooltip"
   },
+  "qEq4S6": {
+    "defaultMessage": "You need another endpoint to use guardrails.",
+    "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
+  },
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
@@ -8898,6 +8922,10 @@
   "r/mP0/": {
     "defaultMessage": "Add rationale (optional)",
     "description": "Evaluation review > assessments > rationale input placeholder"
+  },
+  "r0J+Jm": {
+    "defaultMessage": "Selected guardrail model endpoint is unavailable. Please choose another endpoint.",
+    "description": "Error shown when selected guardrail model endpoint is no longer available"
   },
   "r0mM8+": {
     "defaultMessage": "An error occurred while creating the API key. Please try again.",
@@ -9290,6 +9318,10 @@
   "tD0/e2": {
     "defaultMessage": "Model {modelName} does not exist",
     "description": "Sub-message text for error message on overall model page"
+  },
+  "tEX/Gk": {
+    "defaultMessage": "Select a Guardrail Model endpoint to create this guardrail.",
+    "description": "Tooltip shown when create button is disabled because guardrail model is not selected"
   },
   "tEwQWS": {
     "defaultMessage": "Active",

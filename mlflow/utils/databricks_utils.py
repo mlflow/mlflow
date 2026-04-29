@@ -785,12 +785,13 @@ def get_databricks_host_creds(server_uri=None):
         if key_prefix is not None:
             try:
                 config = TrackingURIConfigProvider(server_uri).get_config()
-                WorkspaceClient(host=config.host, token=config.token)
+                ws = WorkspaceClient(host=config.host, token=config.token)
                 return MlflowHostCreds(
                     config.host,
                     token=config.token,
                     use_databricks_sdk=True,
                     use_secret_scope_token=True,
+                    workspace_id=ws.config.workspace_id,
                 )
             except Exception as e:
                 raise MlflowException(
@@ -817,16 +818,27 @@ def get_databricks_host_creds(server_uri=None):
             # support various authentication ways, so that it does not provide API
             # to get credential values. Instead, we can use ``WorkspaceClient``
             # API to invoke databricks shard restful APIs.
-            WorkspaceClient(profile=profile)
+            ws = WorkspaceClient(profile=profile)
             use_databricks_sdk = True
             databricks_auth_profile = profile
+            workspace_id = ws.config.workspace_id
         except Exception as e:
             _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
             use_databricks_sdk = False
             databricks_auth_profile = None
+            # Config resolves workspace_id from env vars, .databrickscfg, or host
+            # discovery without requiring valid credentials, so try reading it even
+            # when WorkspaceClient auth fails (needed for SPOG header propagation).
+            try:
+                from databricks.sdk.config import Config as DatabricksConfig
+
+                workspace_id = DatabricksConfig(profile=profile).workspace_id
+            except Exception:
+                workspace_id = None
     else:
         use_databricks_sdk = False
         databricks_auth_profile = None
+        workspace_id = None
 
     config = _get_databricks_creds_config(server_uri)
 
@@ -843,6 +855,7 @@ def get_databricks_host_creds(server_uri=None):
         client_secret=config.client_secret,
         use_databricks_sdk=use_databricks_sdk,
         databricks_auth_profile=databricks_auth_profile,
+        workspace_id=workspace_id,
     )
 
 

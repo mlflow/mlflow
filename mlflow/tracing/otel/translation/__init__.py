@@ -184,16 +184,30 @@ def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
         output_tokens = _parse_int_attribute(translator.get_output_tokens(attributes))
         total_tokens = _parse_int_attribute(translator.get_total_tokens(attributes))
 
-        # Calculate total tokens if not provided but input/output are available
-        if input_tokens and output_tokens and (total_tokens is None):
+        # Calculate total tokens if not provided but both input and output are available
+        if total_tokens is None and input_tokens is not None and output_tokens is not None:
             total_tokens = input_tokens + output_tokens
 
-        if input_tokens and output_tokens and total_tokens:
-            return {
-                TokenUsageKey.INPUT_TOKENS: input_tokens,
-                TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-                TokenUsageKey.TOTAL_TOKENS: total_tokens,
-            }
+        if input_tokens is not None or output_tokens is not None or total_tokens is not None:
+            usage = {}
+            if input_tokens is not None:
+                usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+            if output_tokens is not None:
+                usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+            if total_tokens is not None:
+                usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+            cache_read = _parse_int_attribute(translator.get_cache_read_input_tokens(attributes))
+            if cache_read is not None:
+                usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+
+            cache_creation = _parse_int_attribute(
+                translator.get_cache_creation_input_tokens(attributes)
+            )
+            if cache_creation is not None:
+                usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+
+            return usage
 
 
 def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | None = None) -> Any:

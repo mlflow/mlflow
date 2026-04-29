@@ -3,11 +3,14 @@
  * Displays the chat interface for the Assistant.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Button,
   Card,
   CloseIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   GearIcon,
   RefreshIcon,
   SparkleDoubleIcon,
@@ -28,6 +31,7 @@ import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import type { ChatMessage, ToolUseInfo } from './types';
 import { AssistantSetupWizard } from './setup';
+import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 import { useAssistantPrompts } from '../common/utils/RoutingUtils';
@@ -262,6 +266,8 @@ const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
   const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } =
     useAssistant();
+  const logTelemetryEvent = useLogTelemetryEvent();
+  const viewId = useMemo(() => uuidv4(), []);
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -292,10 +298,19 @@ const ChatPanelContent = () => {
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
+        if (inputValue.trim() && !isStreaming) {
+          logTelemetryEvent({
+            componentId: 'mlflow.assistant.chat_panel.send',
+            componentViewId: viewId,
+            componentType: DesignSystemEventProviderComponentTypes.Button,
+            componentSubType: null,
+            eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+          });
+        }
         handleSend();
       }
     },
-    [handleSend],
+    [handleSend, inputValue, isStreaming, logTelemetryEvent, viewId],
   );
 
   const handleSuggestionSelect = useCallback(

@@ -517,7 +517,7 @@ class GatewayAdapter(BaseJudgeAdapter):
         # Resolve provider for config, URL, headers, and request/response transformation.
         # Each provider's get_endpoint_url() returns the full endpoint path
         # (e.g. OpenAI: .../chat/completions, Anthropic: .../messages).
-        provider_instance = _get_provider_instance(provider, model_name)
+        provider_instance = _get_provider_instance(provider, model_name, base_url=base_url)
         endpoint = base_url or provider_instance.get_endpoint_url("llm/v1/chat")
         headers = dict(provider_instance.headers or {})
         # Tag gateway requests so the server can attribute traffic to the judge

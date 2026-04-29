@@ -16,6 +16,7 @@ Usage:
 """
 
 import argparse
+import base64
 import contextlib
 import json
 import os
@@ -31,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
+import aiohttp  # type: ignore[import-not-found]
 import benchmark as bm  # local module; path inserted above
 from rich.console import Console  # type: ignore[import-not-found]
 from rich.panel import Panel  # type: ignore[import-not-found]
@@ -144,30 +146,35 @@ def _start_mlflow(
     backend_uri: str,
     label: str = "MLflow server",
     host: str = "127.0.0.1",
+    auth: bool = False,
 ) -> Generator[None, None, None]:
     prefix = _uv_prefix()
+    # basic-auth requires the `auth` extra (Flask-WTF) at runtime.
+    if auth and prefix:
+        prefix = [*prefix, "--extra", "auth"]
+    # psycopg2-binary lives in the `db` extra.
+    if backend_uri.startswith("postgresql") and prefix:
+        prefix = [*prefix, "--extra", "db"]
     log_file = Path(work_dir) / f"mlflow-{port}.log"
+    cmd = [
+        *prefix,
+        "mlflow",
+        "server",
+        "--backend-store-uri",
+        backend_uri,
+        "--host",
+        host,
+        "--port",
+        str(port),
+        "--workers",
+        str(workers),
+        "--disable-security-middleware",
+    ]
+    if auth:
+        cmd += ["--app-name", "basic-auth"]
     with (
         log_file.open("w") as f,
-        subprocess.Popen(
-            [
-                *prefix,
-                "mlflow",
-                "server",
-                "--backend-store-uri",
-                backend_uri,
-                "--host",
-                host,
-                "--port",
-                str(port),
-                "--workers",
-                str(workers),
-                "--disable-security-middleware",
-            ],
-            stdout=f,
-            stderr=f,
-            env=_subprocess_env(),
-        ) as proc,
+        subprocess.Popen(cmd, cwd=SCRIPT_DIR, stdout=f, stderr=f, env=_subprocess_env()) as proc,
     ):
         _wait_for_port(port, label, log_file)
         try:
@@ -244,11 +251,22 @@ def _start_postgres(container_name: str = "benchmark-postgres") -> Generator[str
             subprocess.run(["docker", "kill", container_name], capture_output=True)
 
 
-def _api_post(tracking_uri: str, path: str, body: dict[str, Any]) -> Any:
+def _basic_auth_header(creds: tuple[str, str] | None) -> dict[str, str]:
+    if creds is None:
+        return {}
+    token = base64.b64encode(f"{creds[0]}:{creds[1]}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
+
+
+def _api_post(
+    tracking_uri: str,
+    path: str,
+    body: dict[str, Any],
+    creds: tuple[str, str] | None = None,
+) -> Any:
     url = f"{tracking_uri.rstrip('/')}/api/3.0/mlflow/{path}"
-    req = urllib.request.Request(
-        url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
-    )
+    headers = {"Content-Type": "application/json", **_basic_auth_header(creds)}
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read())
@@ -261,7 +279,11 @@ def _api_post(tracking_uri: str, path: str, body: dict[str, Any]) -> Any:
 
 
 def _setup_endpoint(
-    tracking_uri: str, fake_server_url: str, endpoint_name: str, usage_tracking: bool
+    tracking_uri: str,
+    fake_server_url: str,
+    endpoint_name: str,
+    usage_tracking: bool,
+    creds: tuple[str, str] | None = None,
 ) -> str:
     """Create secret → model definition → endpoint. Returns the invocation URL."""
     console.print("  Creating secret...")
@@ -274,6 +296,7 @@ def _setup_endpoint(
             "provider": "openai",
             "auth_config": {"api_base": fake_server_url},
         },
+        creds,
     )["secret"]["secret_id"]
 
     console.print("  Creating model definition...")
@@ -286,6 +309,7 @@ def _setup_endpoint(
             "provider": "openai",
             "model_name": "gpt-4o-mini",
         },
+        creds,
     )["model_definition"]["model_definition_id"]
 
     console.print(f"  Creating endpoint '{endpoint_name}' (usage_tracking={usage_tracking})...")
@@ -299,6 +323,7 @@ def _setup_endpoint(
             ],
             "usage_tracking": usage_tracking,
         },
+        creds,
     )
 
     invoke_url = f"{tracking_uri.rstrip('/')}/gateway/{endpoint_name}/mlflow/invocations"
@@ -306,10 +331,11 @@ def _setup_endpoint(
     return invoke_url
 
 
-def _sanity_check(url: str) -> None:
+def _sanity_check(url: str, creds: tuple[str, str] | None = None) -> None:
     console.print("  Sending sanity-check request...")
     body = json.dumps({"messages": [{"role": "user", "content": "test"}]}).encode()
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json", **_basic_auth_header(creds)}
+    req = urllib.request.Request(url, data=body, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             if resp.status != 200:
@@ -330,8 +356,10 @@ def _run_benchmark(
     max_p50_ms: float | None = None,
     max_p99_ms: float | None = None,
     output: Path | None = None,
+    creds: tuple[str, str] | None = None,
 ) -> None:
-    results = bm.run_benchmark(url, n_requests, max_concurrent, runs)
+    auth = aiohttp.BasicAuth(*creds) if creds else None
+    results = bm.run_benchmark(url, n_requests, max_concurrent, runs, auth)
     bm.print_results(results)
     if output is not None:
         output.write_text(json.dumps(bm.results_to_dict(results), indent=2))
@@ -446,12 +474,14 @@ def _start_nginx(
 def cmd_bench(args: argparse.Namespace) -> None:
     instances = args.instances
     mode = "1 instance" if instances == 1 else f"{instances} instances, nginx LB"
+    creds = (args.auth_username, args.auth_password) if args.auth else None
 
     if args.url:
         console.print(
             Panel.fit(
                 f"[bold]Gateway Benchmark[/bold] ({mode})\n"
                 f"URL: [cyan]{args.url}[/cyan]\n"
+                f"Auth: {'basic-auth as ' + args.auth_username if creds else 'disabled'}\n"
                 f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}"
                 f"  ·  Runs: {args.runs}",
                 border_style="cyan",
@@ -467,6 +497,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
             args.max_p50_ms,
             args.max_p99_ms,
             args.output,
+            creds,
         )
         return
 
@@ -479,11 +510,12 @@ def cmd_bench(args: argparse.Namespace) -> None:
         fake_port = args.fake_server_port
         instance_ports = [args.base_port + i for i in range(instances)]
 
+        auth_line = f"basic-auth as {args.auth_username}" if creds else "disabled"
         if instances == 1:
             panel = (
                 f"[bold]Gateway Benchmark[/bold] ({mode})\n"
                 f"Workers: {args.workers}  ·  DB: {args.database.upper()}  ·  "
-                f"Usage tracking: {args.usage_tracking}\n"
+                f"Usage tracking: {args.usage_tracking}  ·  Auth: {auth_line}\n"
                 f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
                 f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
                 f"Ports: MLflow :{port}  ·  Fake server :{fake_port}"
@@ -493,7 +525,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
                 f"[bold]Gateway Benchmark[/bold] ({mode})\n"
                 f"Workers/instance: {args.workers}  ·  "
                 f"Total workers: {instances * args.workers}  ·  "
-                f"Usage tracking: {args.usage_tracking}\n"
+                f"Usage tracking: {args.usage_tracking}  ·  Auth: {auth_line}\n"
                 f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
                 f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
                 f"Ports: instances {instance_ports[0]}–{instance_ports[-1]}"
@@ -520,7 +552,9 @@ def cmd_bench(args: argparse.Namespace) -> None:
             )
 
             if instances == 1:
-                stack.enter_context(_start_mlflow(work_dir, port, args.workers, backend_uri))
+                stack.enter_context(
+                    _start_mlflow(work_dir, port, args.workers, backend_uri, auth=args.auth)
+                )
 
                 console.print("\n[bold]Setting up gateway endpoint[/bold]")
                 invoke_url = _setup_endpoint(
@@ -528,8 +562,9 @@ def cmd_bench(args: argparse.Namespace) -> None:
                     f"http://127.0.0.1:{fake_port}/v1",
                     ENDPOINT_NAME,
                     usage_tracking=args.usage_tracking,
+                    creds=creds,
                 )
-                _sanity_check(invoke_url)
+                _sanity_check(invoke_url, creds)
             else:
                 # Start instance 0 first — it initializes the DB schema.
                 # All instances share the same PostgreSQL DB, so starting concurrently
@@ -542,6 +577,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
                         backend_uri,
                         "MLflow instance 0",
                         host="0.0.0.0",
+                        auth=args.auth,
                     )
                 )
                 for i, p in enumerate(instance_ports[1:], start=1):
@@ -553,6 +589,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
                             backend_uri,
                             f"MLflow instance {i}",
                             host="0.0.0.0",
+                            auth=args.auth,
                         )
                     )
 
@@ -562,6 +599,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
                     f"http://127.0.0.1:{fake_port}/v1",
                     ENDPOINT_NAME,
                     usage_tracking=args.usage_tracking,
+                    creds=creds,
                 )
 
                 console.print("\n[bold]Starting nginx load balancer[/bold]")
@@ -578,7 +616,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
                 time.sleep(1)
 
                 invoke_url = f"http://127.0.0.1:{port}/gateway/{ENDPOINT_NAME}/mlflow/invocations"
-                _sanity_check(invoke_url)
+                _sanity_check(invoke_url, creds)
 
             console.print("\n[bold]Running benchmark[/bold]")
             _run_benchmark(
@@ -590,6 +628,7 @@ def cmd_bench(args: argparse.Namespace) -> None:
                 args.max_p50_ms,
                 args.max_p99_ms,
                 args.output,
+                creds,
             )
 
 
@@ -724,6 +763,25 @@ def main() -> None:
         default=None,
         metavar="N",
         help="Exit 1 if average P99 latency across runs exceeds N ms (CI threshold)",
+    )
+    parser.add_argument(
+        "--auth",
+        action="store_true",
+        default=os.environ.get("AUTH", "").lower() in ("1", "true"),
+        help=(
+            "Start MLflow with --app-name=basic-auth and authenticate every setup + "
+            "benchmark request using --auth-username/--auth-password."
+        ),
+    )
+    parser.add_argument(
+        "--auth-username",
+        default=os.environ.get("AUTH_USERNAME", "admin"),
+        help="Basic auth username (default: admin, from basic_auth.ini)",
+    )
+    parser.add_argument(
+        "--auth-password",
+        default=os.environ.get("AUTH_PASSWORD", "password1234"),
+        help="Basic auth password (default: password1234, from basic_auth.ini)",
     )
 
     args = parser.parse_args()
