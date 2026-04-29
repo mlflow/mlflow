@@ -1,6 +1,7 @@
 {{- if and .Values.serviceAccount.create .Values.rbac.create }}
+{{- $kind := ternary "ClusterRole" "Role" .Values.rbac.clusterScoped }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: {{ $kind }}
 metadata:
   name: {{ include "mlflow.fullname" . }}
   labels:
@@ -9,14 +10,14 @@ rules:
   {{- toYaml .Values.rbac.extraRules | nindent 2 }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: {{ $kind }}Binding
 metadata:
   name: {{ include "mlflow.fullname" . }}
   labels:
     {{- include "mlflow.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: {{ $kind }}
   name: {{ include "mlflow.fullname" . }}
 subjects:
   - kind: ServiceAccount

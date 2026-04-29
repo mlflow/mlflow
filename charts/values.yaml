@@ -121,6 +121,10 @@ serviceAccount:
 
 rbac:
   create: false
+  # Set to true to create a ClusterRole/ClusterRoleBinding instead of a
+  # namespace-scoped Role/RoleBinding. Required when extraRules reference
+  # cluster-scoped resources (e.g. namespaces).
+  clusterScoped: false
   extraRules: []
 
 storage:
