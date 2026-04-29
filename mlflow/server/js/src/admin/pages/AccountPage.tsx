@@ -81,12 +81,11 @@ const AccountPage = () => {
       setChangePasswordOpen(false);
       // The browser keeps sending the OLD HTTP Basic Auth credentials until
       // it's forced through a fresh prompt, so subsequent API calls would
-      // 401 even though the password change succeeded. Navigate to /logout
-      // immediately — the logout page gives the user a clear "signed out
-      // → sign back in" affordance and forces re-auth with the new
-      // password, which is also the success signal in lieu of an inline
-      // alert that they'd never see.
-      window.location.assign(new URL('logout', window.location.href).toString());
+      // 401 even though the password change succeeded. Drop the cached
+      // creds and bounce home so the next request triggers a fresh
+      // password prompt — also the success signal, since we have no
+      // inline alert the user would see before the redirect.
+      performLogout(queryClient);
     } catch (e: any) {
       setError(e.message || 'Failed to update password');
     }
