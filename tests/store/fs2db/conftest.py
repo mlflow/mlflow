@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import warnings
@@ -13,11 +14,19 @@ from mlflow.tracking import MlflowClient
 @pytest.fixture(scope="module")
 def clients(
     tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch_module: pytest.MonkeyPatch,
 ) -> Generator[tuple[MlflowClient, MlflowClient]]:
     tmp = tmp_path_factory.mktemp("fs2db")
     source = tmp / "source"
     target_uri = f"sqlite:///{tmp / 'migrated.db'}"
 
+    # Disable async trace logging in the subprocess so traces are written
+    # synchronously and immediately available for set_trace_tag calls.
+    env = {
+        **os.environ,
+        "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING": "false",
+        "MLFLOW_ALLOW_FILE_STORE": "true",
+    }
     subprocess.check_call(
         [
             sys.executable,
@@ -27,12 +36,14 @@ def clients(
             source,
             "--size",
             "small",
-        ]
+        ],
+        env=env,
     )
 
     migrate(Path(source), target_uri, progress=False)
 
     mlruns = _resolve_mlruns(Path(source))
+    monkeypatch_module.setenv("MLFLOW_ALLOW_FILE_STORE", "true")
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", module="mlflow")
         src = MlflowClient(tracking_uri=mlruns.as_uri())

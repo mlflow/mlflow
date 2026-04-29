@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import sys
@@ -18,6 +19,24 @@ from tests.helper_functions import get_safe_port
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
 REQUEST_TIMEOUT = 30
+_TRACE_POLL_TIMEOUT = 10  # seconds to wait for subprocess spans to be exported
+
+
+def _wait_for_trace(trace_id: str, expected_span_count: int) -> "mlflow.entities.Trace":
+    """Poll until the trace contains the expected number of spans or timeout expires."""
+    deadline = time.time() + _TRACE_POLL_TIMEOUT
+    trace = None
+    while time.time() < deadline:
+        mlflow.flush_trace_async_logging()
+        trace = mlflow.get_trace(trace_id)
+        if trace is not None and len(trace.data.spans) >= expected_span_count:
+            return trace
+        time.sleep(0.1)
+    spans_found = len(trace.data.spans) if trace else 0
+    raise AssertionError(
+        f"Expected {expected_span_count} spans in trace {trace_id} within "
+        f"{_TRACE_POLL_TIMEOUT}s, got {spans_found}"
+    )
 
 
 @contextmanager
@@ -29,7 +48,10 @@ def flask_server(
     health_endpoint: str = "/health",
 ) -> Iterator[str]:
     """Context manager to run a Flask server in a subprocess."""
-    with subprocess.Popen([sys.executable, str(server_script_path), str(port)]) as proc:
+    server_env = {**os.environ, "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING": "false"}
+    with subprocess.Popen(
+        [sys.executable, str(server_script_path), str(port)], env=server_env
+    ) as proc:
         base_url = f"http://127.0.0.1:{port}"
 
         try:
@@ -124,10 +146,8 @@ def test_distributed_tracing_e2e(tmp_path):
             assert payload["trace_id"] == client_span.trace_id
             assert payload["parent_id"] == client_span.span_id
 
-    mlflow.flush_trace_async_logging()
-    trace = mlflow.get_trace(client_span.trace_id)
-
-    assert trace is not None, "Trace not found"
+    # Poll until the server subprocess's BatchSpanProcessor has exported its span.
+    trace = _wait_for_trace(client_span.trace_id, expected_span_count=2)
     spans = trace.data.spans
     assert len(spans) == 2
 
@@ -171,10 +191,7 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
                 assert payload["nested_call_resp"]["parent_id"] == child_span1_id
                 child_span2_id = payload["nested_call_resp"]["span_id"]
 
-    mlflow.flush_trace_async_logging()
-    trace = mlflow.get_trace(client_span.trace_id)
-
-    assert trace is not None, "Trace not found"
+    trace = _wait_for_trace(client_span.trace_id, expected_span_count=3)
     spans = trace.data.spans
     assert len(spans) == 3
 

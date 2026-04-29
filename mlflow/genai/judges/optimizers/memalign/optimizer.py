@@ -12,7 +12,6 @@ from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
     construct_dspy_lm,
-    convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     trace_to_dspy_example,
 )
@@ -37,6 +36,7 @@ from mlflow.genai.utils.trace_utils import (
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
+from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
@@ -366,7 +366,8 @@ class MemoryAugmentedJudge(Judge):
         for trace_id in self._episodic_trace_ids:
             trace = mlflow.get_trace(trace_id, silent=True)
             if trace is not None:
-                if example := trace_to_dspy_example(trace, self._base_judge):
+                trace_examples = trace_to_dspy_example(trace, self._base_judge)
+                for example in trace_examples:
                     example._trace_id = trace.info.trace_id
                     examples.append(example)
             else:
@@ -650,8 +651,8 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             new_examples = []
             for trace in traces:
-                example = trace_to_dspy_example(trace, judge)
-                if example is not None:
+                examples = trace_to_dspy_example(trace, judge)
+                for example in examples:
                     example._trace_id = trace.info.trace_id
                     new_examples.append(example)
 

@@ -1,5 +1,6 @@
 import pprint
 from abc import abstractmethod
+from functools import cached_property
 
 
 class _MlflowObject:
@@ -10,7 +11,9 @@ class _MlflowObject:
 
     @classmethod
     def _get_properties_helper(cls):
-        return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), property)])
+        return sorted([
+            p for p in cls.__dict__ if isinstance(getattr(cls, p), (property, cached_property))
+        ])
 
     @classmethod
     def _properties(cls):

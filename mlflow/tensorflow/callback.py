@@ -29,13 +29,11 @@ class MlflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
         data = tf.random.uniform([8, 28, 28, 3])
         label = tf.convert_to_tensor(np.random.randint(2, size=8))
 
-        model = keras.Sequential(
-            [
-                keras.Input([28, 28, 3]),
-                keras.layers.Flatten(),
-                keras.layers.Dense(2),
-            ]
-        )
+        model = keras.Sequential([
+            keras.Input([28, 28, 3]),
+            keras.layers.Flatten(),
+            keras.layers.Dense(2),
+        ])
 
         model.compile(
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -140,13 +138,11 @@ class MlflowModelCheckpointCallback(Callback, MlflowModelCheckpointCallbackBase)
         data = tf.random.uniform([8, 28, 28, 3])
         label = tf.convert_to_tensor(np.random.randint(2, size=8))
 
-        model = keras.Sequential(
-            [
-                keras.Input([28, 28, 3]),
-                keras.layers.Flatten(),
-                keras.layers.Dense(2),
-            ]
-        )
+        model = keras.Sequential([
+            keras.Input([28, 28, 3]),
+            keras.layers.Flatten(),
+            keras.layers.Dense(2),
+        ])
 
         model.compile(
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),

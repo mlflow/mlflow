@@ -61,16 +61,16 @@ export function calculatePieActiveShapeGeometry(
   const sin = Math.sin(-RADIAN * midAngle);
   const cos = Math.cos(-RADIAN * midAngle);
 
-  // Line start point (just outside the pie slice)
-  const sx = cx + (outerRadius + theme.spacing.sm) * cos;
-  const sy = cy + (outerRadius + theme.spacing.sm) * sin;
+  // Line start point (just outside the outer highlight arc)
+  const sx = cx + (outerRadius + theme.spacing.md) * cos;
+  const sy = cy + (outerRadius + theme.spacing.md) * sin;
 
   // Line bend point (further out, creates an elbow in the line)
-  const mx = cx + (outerRadius + theme.spacing.md) * cos;
-  const my = cy + (outerRadius + theme.spacing.md) * sin;
+  const mx = cx + (outerRadius + theme.spacing.lg) * cos;
+  const my = cy + (outerRadius + theme.spacing.lg) * sin;
 
   // Line end point (horizontal offset from bend, direction based on left/right side)
-  const ex = mx + (cos >= 0 ? 1 : -1) * theme.spacing.md;
+  const ex = mx + (cos >= 0 ? 1 : -1) * theme.spacing.lg;
   const ey = my;
   const textAnchor = cos >= 0 ? 'start' : 'end';
 

@@ -386,12 +386,10 @@ class Method:
         prepped_title = self.title or " ".join(re.split(r"\W+", self.path)[2:]).title().lstrip()
         title = _gen_h1(self.id, prepped_title)
         tbl = Texttable(max_width=200)
-        tbl.add_rows(
-            [
-                ["Endpoint", "HTTP Method"],
-                [f"``{self.api_version}{self.path}``", f"``{self.method}``"],
-            ]
-        )
+        tbl.add_rows([
+            ["Endpoint", "HTTP Method"],
+            [f"``{self.api_version}{self.path}``", f"``{self.method}``"],
+        ])
         parameters = tbl.draw()
         body = f"""
 {parameters}

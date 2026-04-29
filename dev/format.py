@@ -43,12 +43,10 @@ def main() -> None:
             sys.stderr.write(stderr)
             sys.exit(prc.returncode)
     else:
-        with subprocess.Popen(
-            [
-                *RUFF_FORMAT,
-                *sys.argv[1:],
-            ]
-        ) as prc:
+        with subprocess.Popen([
+            *RUFF_FORMAT,
+            *sys.argv[1:],
+        ]) as prc:
             prc.communicate()
             sys.exit(prc.returncode)
 

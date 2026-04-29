@@ -39,6 +39,7 @@ const RunNameInner = ({ experimentId, runUuid }: { experimentId: string; runUuid
 
   return (
     <Link
+      componentId="mlflow.genai-traces-table.run_name_link"
       css={{
         display: 'flex',
         maxWidth: '100%',

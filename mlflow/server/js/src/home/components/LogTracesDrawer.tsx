@@ -355,6 +355,7 @@ export const LogTracesDrawer = () => {
                       values={{
                         experimentsLink: (
                           <Link
+                            componentId="mlflow.home.log_traces.experiments_link"
                             to={Routes.experimentsObservatoryRoute}
                             target="_blank"
                             rel="noopener noreferrer"

@@ -176,8 +176,8 @@ class SearchUtils:
     DESC_OPERATOR = "desc"
     VALID_ORDER_BY_TAGS = [ASC_OPERATOR, DESC_OPERATOR]
     VALID_METRIC_COMPARATORS = {">", ">=", "!=", "=", "<", "<="}
-    VALID_PARAM_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
-    VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
+    VALID_PARAM_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IS NULL", "IS NOT NULL"}
+    VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IS NULL", "IS NOT NULL"}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
     VALID_DATASET_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
@@ -492,18 +492,16 @@ class SearchUtils:
     @classmethod
     def _validate_comparison(cls, tokens):
         base_error_string = "Invalid comparison clause"
+        if len(tokens) == 2:
+            comparator = tokens[1].value.upper()
+            if comparator in ("IS NULL", "IS NOT NULL"):
+                if not isinstance(tokens[0], Identifier):
+                    raise MlflowException(
+                        f"{base_error_string}. Expected 'Identifier' found '{tokens[0]}'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return
         if len(tokens) != 3:
-            # Provide a clear error for IS NULL / IS NOT NULL which are only
-            # supported in experiment and trace search
-            if (
-                len(tokens) == 2
-                and tokens[1].ttype == TokenType.Keyword
-                and tokens[1].value.upper() in ("IS NULL", "IS NOT NULL")
-            ):
-                raise MlflowException(
-                    f"Invalid clause(s) in filter string: '{tokens[0]} {tokens[1]}'",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
             raise MlflowException(
                 f"{base_error_string}. Expected 3 tokens found {len(tokens)}",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -531,6 +529,23 @@ class SearchUtils:
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
+
+        # Handle IS NULL / IS NOT NULL (2 tokens: identifier + comparator, no value)
+        if len(stripped_comparison) == 2:
+            comparator = stripped_comparison[1].value.upper()
+            comp = cls._get_identifier(
+                stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS
+            )
+            if comp["type"] not in (cls._TAG_IDENTIFIER, cls._PARAM_IDENTIFIER):
+                raise MlflowException(
+                    "IS NULL / IS NOT NULL is only supported for tags and params, "
+                    f"not for '{comp['type']}' '{comp['key']}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            comp["comparator"] = comparator
+            comp["value"] = None
+            return comp
+
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
@@ -704,6 +719,9 @@ class SearchUtils:
             raise MlflowException(
                 f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
+        if comparator in ("IS NULL", "IS NOT NULL"):
+            return (lhs is None) if comparator == "IS NULL" else (lhs is not None)
+
         if lhs is None:
             return False
 
@@ -1250,6 +1268,7 @@ class SearchModelUtils(SearchUtils):
     NUMERIC_ATTRIBUTES = {"creation_timestamp", "last_updated_timestamp"}
     VALID_SEARCH_ATTRIBUTE_KEYS = {"name"}
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = {"name", "creation_timestamp", "last_updated_timestamp"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
 
     @classmethod
     def _does_registered_model_match_clauses(cls, model, sed):
@@ -1445,6 +1464,7 @@ class SearchModelVersionUtils(SearchUtils):
         "last_updated_timestamp",
     }
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IN"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
 
     @classmethod
     def _does_model_version_match_clauses(cls, mv, sed):
@@ -1723,6 +1743,7 @@ class SearchTraceUtils(SearchUtils):
     _SPAN_IDENTIFIER = "span"
     _FEEDBACK_IDENTIFIER = "feedback"
     _EXPECTATION_IDENTIFIER = "expectation"
+    _ISSUE_IDENTIFIER = "issue"
 
     # These are aliases for the base identifiers
     # e.g. trace.status is equivalent to attribute.status
@@ -1739,6 +1760,7 @@ class SearchTraceUtils(SearchUtils):
         _SPAN_IDENTIFIER,
         _FEEDBACK_IDENTIFIER,
         _EXPECTATION_IDENTIFIER,
+        _ISSUE_IDENTIFIER,
     }
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
@@ -1746,6 +1768,10 @@ class SearchTraceUtils(SearchUtils):
     _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status"}
     _SPAN_CONTENT_KEY = "content"
     VALID_SPAN_CONTENT_COMPARATORS = {"LIKE", "ILIKE"}
+
+    # Supported issue attributes
+    _SUPPORTED_ISSUE_ATTRIBUTES = {"id"}
+    VALID_ISSUE_COMPARATORS = {"="}
 
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {
         "name",
@@ -1942,6 +1968,25 @@ class SearchTraceUtils(SearchUtils):
             return True
         return False
 
+    @classmethod
+    def is_issue(cls, key_type, key_name, comparator):
+        if key_type == cls._ISSUE_IDENTIFIER:
+            if key_name not in cls._SUPPORTED_ISSUE_ATTRIBUTES:
+                supported_attrs = ", ".join(sorted(cls._SUPPORTED_ISSUE_ATTRIBUTES))
+                raise MlflowException(
+                    f"Invalid issue attribute '{key_name}'. "
+                    f"Supported attributes: {supported_attrs}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if comparator not in cls.VALID_ISSUE_COMPARATORS:
+                raise MlflowException(
+                    f"issue.{key_name} comparator '{comparator}' not one of "
+                    f"'{cls.VALID_ISSUE_COMPARATORS}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            return True
+        return False
+
     @staticmethod
     def _get_sql_json_comparison_func(
         comparator: str, dialect: str
@@ -2094,7 +2139,11 @@ class SearchTraceUtils(SearchUtils):
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        elif identifier_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
+        elif identifier_type in (
+            cls._FEEDBACK_IDENTIFIER,
+            cls._EXPECTATION_IDENTIFIER,
+            cls._ISSUE_IDENTIFIER,
+        ):
             # Feedback and expectation values are stored as JSON, so we expect string values
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
@@ -2317,6 +2366,7 @@ class SearchEvaluationDatasetsUtils(SearchUtils):
     }
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "created_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"created_time", "last_update_time"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
 
     @classmethod
     def _invalid_statement_token(cls, token):
@@ -2395,6 +2445,8 @@ class SearchLoggedModelsUtils(SearchUtils):
         "status",
         "source_run_id",
     } | NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    VALID_PARAM_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
     VALID_ORDER_BY_ATTRIBUTE_KEYS = VALID_SEARCH_ATTRIBUTE_KEYS
 
     @classmethod
@@ -2641,3 +2693,75 @@ class SearchLoggedModelsPaginationToken:
                 f"Order by in the page token does not match the requested order by. "
                 f"Expected: {order_by}. Found: {self.order_by}"
             )
+
+
+class SearchIssuesUtils(SearchUtils):
+    """Utility class for parsing issue search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {"status", "source_run_id"}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"=", "!="}
+
+    @classmethod
+    def _invalid_statement_token(cls, token):
+        """Check if a token is invalid for issue search filters."""
+        if (
+            isinstance(token, Comparison)
+            or token.is_whitespace
+            or token.match(ttype=TokenType.Keyword, values=["AND"])
+        ):
+            return False
+        return True
+
+    @classmethod
+    def _process_statement(cls, statement):
+        """Process SQL statement and extract comparisons."""
+        tokens = _join_in_comparison_tokens(statement.tokens)
+        invalids = list(filter(cls._invalid_statement_token, tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join(map(str, invalids))
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid clause(s) in filter string: {invalid_clauses}"
+            )
+        return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
+
+    @classmethod
+    def _get_comparison(cls, comparison):
+        """Extract comparison details from a Comparison token."""
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+
+        if len(stripped_comparison) != 3:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid comparison: expected 3 tokens, got {len(stripped_comparison)}"
+            )
+
+        left, comparator_token, right = stripped_comparison
+
+        # Get field name
+        if not isinstance(left, Identifier):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid comparison: left side must be an identifier, got {type(left)}"
+            )
+
+        key = cls._strip_quotes(left.value).strip()
+        if key not in cls.VALID_SEARCH_ATTRIBUTE_KEYS:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid filter field '{key}'. Supported fields: {cls.VALID_SEARCH_ATTRIBUTE_KEYS}"
+            )
+
+        # Get comparator
+        comparator = comparator_token.value.upper()
+        if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid comparator '{comparator}'. "
+                f"Supported comparators: {cls.VALID_STRING_ATTRIBUTE_COMPARATORS}"
+            )
+
+        # Get value
+        value = cls._strip_quotes(right.value).strip()
+
+        return {
+            "type": cls._ATTRIBUTE_IDENTIFIER,
+            "key": key,
+            "comparator": comparator,
+            "value": value,
+        }

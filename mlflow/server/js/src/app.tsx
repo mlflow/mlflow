@@ -1,3 +1,4 @@
+/* eslint-disable @databricks/no-singleton-query-client -- OSS MLflow (oss_MLFlowRoot) uses singleton, file copied to OSS */
 import React, { useCallback, useMemo } from 'react';
 import { ApolloProvider } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { RawIntlProvider } from 'react-intl';

@@ -20,6 +20,7 @@ import {
   STATE_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
   USER_COLUMN_ID,
+  SESSION_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   LINKED_PROMPTS_COLUMN_ID,
@@ -47,6 +48,7 @@ const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
       STATE_COLUMN_ID,
       TRACE_NAME_COLUMN_ID,
       USER_COLUMN_ID,
+      SESSION_COLUMN_ID,
       RUN_NAME_COLUMN_ID,
       LOGGED_MODEL_COLUMN_ID,
       SOURCE_COLUMN_ID,
@@ -60,6 +62,7 @@ const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
     STATE_COLUMN_ID,
     TRACE_NAME_COLUMN_ID,
     USER_COLUMN_ID,
+    SESSION_COLUMN_ID,
     RUN_NAME_COLUMN_ID,
     LOGGED_MODEL_COLUMN_ID,
     SOURCE_COLUMN_ID,
@@ -67,7 +70,7 @@ const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
   ];
 };
 
-const getAvailableOperators = (column: string, key?: string): FilterOperator[] => {
+const getAvailableOperators = (column: string, key?: string, usesV4APIs?: boolean): FilterOperator[] => {
   if (column === EXECUTION_DURATION_COLUMN_ID) {
     return [
       FilterOperator.EQUALS,
@@ -96,7 +99,28 @@ const getAvailableOperators = (column: string, key?: string): FilterOperator[] =
   }
 
   if (column === TracesTableColumnGroup.ASSESSMENT) {
+    return [
+      FilterOperator.EQUALS,
+      FilterOperator.NOT_EQUALS,
+      FilterOperator.GREATER_THAN,
+      FilterOperator.LESS_THAN,
+      FilterOperator.GREATER_THAN_OR_EQUALS,
+      FilterOperator.LESS_THAN_OR_EQUALS,
+      FilterOperator.IS_NULL,
+      FilterOperator.IS_NOT_NULL,
+    ];
+  }
+
+  if (column === SESSION_COLUMN_ID) {
+    return usesV4APIs ? [FilterOperator.EQUALS, FilterOperator.CONTAINS] : [FilterOperator.EQUALS];
+  }
+
+  if (column === TracesTableColumnGroup.TAG) {
     return [FilterOperator.EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
+  }
+
+  if (column === SESSION_COLUMN_ID) {
+    return [FilterOperator.EQUALS, FilterOperator.CONTAINS];
   }
 
   return [FilterOperator.EQUALS];
@@ -128,12 +152,8 @@ export const TableFilterItem = ({
 
   const availableFilterableInfoColumns = useMemo(() => getFilterableInfoColumns(usesV4APIs), [usesV4APIs]);
 
-  // For now, we don't support filtering on numeric values.
   const assessmentKeyOptions: TableFilterOption[] = useMemo(
-    () =>
-      assessmentInfos
-        .filter((assessment) => assessment.dtype !== 'numeric')
-        .map((assessment) => ({ value: assessment.name, renderValue: () => assessment.displayName })),
+    () => assessmentInfos.map((assessment) => ({ value: assessment.name, renderValue: () => assessment.displayName })),
     [assessmentInfos],
   );
 
@@ -203,7 +223,7 @@ export const TableFilterItem = ({
             options={columnOptions}
             onChange={(value: string) => {
               if (value !== column) {
-                const defaultOperator = getAvailableOperators(value)[0];
+                const defaultOperator = getAvailableOperators(value, undefined, usesV4APIs)[0];
                 onChange({ column: value, operator: defaultOperator, value: '' }, index);
               }
             }}
@@ -278,7 +298,8 @@ export const TableFilterItem = ({
             />
           </FormUI.Label>
           {(() => {
-            const isOperatorSelectorDisabled = column !== '' && getAvailableOperators(column, key).length === 1;
+            const isOperatorSelectorDisabled =
+              column !== '' && getAvailableOperators(column, key, usesV4APIs).length === 1;
             return (
               <SimpleSelect
                 aria-label="Operator"
@@ -290,13 +311,13 @@ export const TableFilterItem = ({
                   // Set the z-index to be higher than the Popover
                   style: { zIndex: theme.options.zIndexBase + 100 },
                 }}
-                value={!isOperatorSelectorDisabled ? operator : getAvailableOperators(column, key)[0]}
+                value={!isOperatorSelectorDisabled ? operator : getAvailableOperators(column, key, usesV4APIs)[0]}
                 disabled={isOperatorSelectorDisabled}
                 onChange={(e) => {
                   onChange({ ...tableFilter, operator: e.target.value as FilterOperator }, index);
                 }}
               >
-                {getAvailableOperators(column, key).map((op) => (
+                {getAvailableOperators(column, key, usesV4APIs).map((op) => (
                   <SimpleSelectOption key={op} value={op}>
                     {op}
                   </SimpleSelectOption>

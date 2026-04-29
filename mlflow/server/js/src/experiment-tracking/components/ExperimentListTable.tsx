@@ -270,6 +270,7 @@ const ExperimentListTableCell: ExperimentTableColumnDef['cell'] = ({ row: { orig
     return (
       <div css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         <Link
+          componentId="mlflow.experiment_tracking.experiment_list.demo_experiment_link"
           to={Routes.getExperimentPageRoute(original.experimentId)}
           title={original.name}
           data-testid="experiment-list-item-link"
@@ -284,6 +285,7 @@ const ExperimentListTableCell: ExperimentTableColumnDef['cell'] = ({ row: { orig
         </Link>
         <Tooltip
           componentId="mlflow.experiment_list.demo_tooltip"
+          disableHoverableContent={false}
           content={
             <FormattedMessage
               defaultMessage="A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings."
@@ -300,6 +302,7 @@ const ExperimentListTableCell: ExperimentTableColumnDef['cell'] = ({ row: { orig
   }
   return (
     <Link
+      componentId="mlflow.experiment_tracking.experiment_list.experiment_name_link"
       className="experiment-link"
       css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}
       to={Routes.getExperimentPageRoute(original.experimentId)}

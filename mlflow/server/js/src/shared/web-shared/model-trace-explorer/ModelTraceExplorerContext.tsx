@@ -31,6 +31,7 @@ export interface ModelTraceExplorerContextValue {
   DrawerComponent: DrawerComponentType;
   /** When set (e.g. by the evaluation review drawer), content can show "Add to dataset" that calls openModal */
   addToDatasetAction?: AddToDatasetAction;
+  drawerWidth?: string | number;
 }
 
 const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>({
@@ -43,19 +44,22 @@ interface ModelTraceExplorerContextProviderProps {
   children: React.ReactNode;
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
   DrawerComponent?: DrawerComponentType;
+  drawerWidth?: string | number;
 }
 
 export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerContextProviderProps> = ({
   children,
   renderExportTracesToDatasetsModal,
   DrawerComponent = Drawer,
+  drawerWidth,
 }) => {
   const value = useMemo(
     () => ({
       renderExportTracesToDatasetsModal,
       DrawerComponent,
+      drawerWidth,
     }),
-    [renderExportTracesToDatasetsModal, DrawerComponent],
+    [renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth],
   );
 
   return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;

@@ -1,3 +1,4 @@
+// eslint-disable-next-line @databricks/no-use-react-table
 import { useReactTable as tanstackUseReactTable } from '@tanstack/react-table';
 // eslint-disable-next-line import/no-extraneous-dependencies -- TODO(FEINF-4887)
 import type { TableOptions, RowData } from '@tanstack/table-core';

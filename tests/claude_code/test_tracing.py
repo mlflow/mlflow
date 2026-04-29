@@ -17,6 +17,7 @@ import mlflow
 import mlflow.claude_code.tracing as tracing_module
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
+    METADATA_KEY_CLAUDE_CODE_VERSION,
     find_last_user_message_index,
     get_hook_response,
     parse_timestamp_to_ns,
@@ -344,6 +345,56 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert trace.info.token_usage["total_tokens"] == 175
 
 
+def test_process_transcript_preserves_cache_tokens(tmp_path):
+    """Verify cache_read/cache_creation fields from Anthropic usage survive on the
+    CHAT_USAGE span attribute so prompt-cache hit rate is observable.
+    """
+    transcript_entries = [
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Cached prompt"},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+            "sessionId": "cache-transcript-session",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Answer using cache."}],
+                "model": "claude-sonnet-4-20250514",
+                "usage": {
+                    "input_tokens": 36,
+                    "cache_creation_input_tokens": 23554,
+                    "cache_read_input_tokens": 139035,
+                    "output_tokens": 3344,
+                },
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+    ]
+
+    transcript_path = tmp_path / "transcript_cache.jsonl"
+    with open(transcript_path, "w") as f:
+        for entry in transcript_entries:
+            f.write(json.dumps(entry) + "\n")
+
+    trace = process_transcript(str(transcript_path), "cache-transcript-session")
+
+    assert trace is not None
+    llm_spans = [s for s in trace.search_spans() if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 1
+
+    # input_tokens is the non-cached input the Anthropic API reports, matching
+    # mlflow.anthropic.autolog. Cache fields are exposed as separate keys so
+    # consumers can compute cache hit rate.
+    token_usage = llm_spans[0].get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage["input_tokens"] == 36
+    assert token_usage["output_tokens"] == 3344
+    assert token_usage["total_tokens"] == 36 + 3344
+    assert token_usage["cache_read_input_tokens"] == 139035
+    assert token_usage["cache_creation_input_tokens"] == 23554
+
+
 # ============================================================================
 # SDK MESSAGE PROCESSING TESTS
 # ============================================================================
@@ -496,14 +547,18 @@ def test_process_sdk_messages_cache_tokens():
     assert trace is not None
     root_span = trace.data.spans[0]
 
-    # input_tokens should include cache_creation but not cache_read: 36 + 23554 = 23590
+    # input_tokens is the non-cached input the Anthropic API reports, matching
+    # mlflow.anthropic.autolog. Cache fields are exposed as separate keys so
+    # consumers can compute cache hit rate without scraping transcripts.
     token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
-    assert token_usage["input_tokens"] == 23590
+    assert token_usage["input_tokens"] == 36
     assert token_usage["output_tokens"] == 3344
-    assert token_usage["total_tokens"] == 23590 + 3344
+    assert token_usage["total_tokens"] == 36 + 3344
+    assert token_usage["cache_read_input_tokens"] == 139035
+    assert token_usage["cache_creation_input_tokens"] == 23554
 
     # Trace-level aggregation should match
-    assert trace.info.token_usage["input_tokens"] == 23590
+    assert trace.info.token_usage["input_tokens"] == 36
     assert trace.info.token_usage["output_tokens"] == 3344
 
 
@@ -753,6 +808,46 @@ def test_find_last_user_message_skips_consecutive_skill_injections():
     # Should skip both skill injections (entries 3 and 6) and return entry 0
     assert idx == 0
     assert transcript[idx]["message"]["content"] == "Do the thing."
+
+
+def test_process_transcript_captures_claude_code_version(tmp_path):
+    transcript = [
+        {
+            "type": "queue-operation",
+            "operation": "dequeue",
+            "timestamp": "2025-01-15T09:59:59.000Z",
+            "sessionId": "test-version-session",
+        },
+        {
+            "type": "user",
+            "version": "2.1.34",
+            "message": {"role": "user", "content": "Hello!"},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        {
+            "type": "assistant",
+            "version": "2.1.34",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hi there!"}],
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+    ]
+
+    transcript_path = tmp_path / "version_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(entry) for entry in transcript) + "\n")
+    trace = process_transcript(str(transcript_path), "test-version-session")
+
+    assert trace is not None
+    assert trace.info.trace_metadata.get(METADATA_KEY_CLAUDE_CODE_VERSION) == "2.1.34"
+
+
+def test_process_transcript_no_version_field(mock_transcript_file):
+    trace = process_transcript(mock_transcript_file, "test-session-no-version")
+
+    assert trace is not None
+    assert METADATA_KEY_CLAUDE_CODE_VERSION not in trace.info.trace_metadata
 
 
 def test_process_transcript_includes_steer_messages(tmp_path):

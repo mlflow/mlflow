@@ -1,4 +1,4 @@
-import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
+import { describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import { render, renderHook, waitFor, screen } from '@testing-library/react';
 import React from 'react';
 import { rest } from 'msw';
@@ -156,99 +156,111 @@ const renderWithProviders = (ui: React.ReactElement, queryClient: QueryClient) =
 };
 
 describe('useWorkspacesEnabled and getWorkspacesEnabledSync', () => {
-  // Mock fetch globally for these tests
-  const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
-  const originalFetch = global.fetch;
-
   let queryClient: QueryClient;
 
   beforeEach(() => {
     queryClient = createTestQueryClient();
-    global.fetch = mockFetch;
-    mockFetch.mockReset();
   });
 
   afterEach(() => {
     resetServerInfoCache();
     queryClient.clear();
-    global.fetch = originalFetch;
   });
 
-  test('should enable workspaces when server returns enabled', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ store_type: 'SqlStore', workspaces_enabled: true }),
-    } as Response);
+  describe('when server returns workspaces enabled', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: true }));
+      }),
+    );
 
-    renderWithProviders(<WorkspacesTestComponent />, queryClient);
+    test('should enable workspaces', async () => {
+      renderWithProviders(<WorkspacesTestComponent />, queryClient);
 
-    await waitFor(() => {
-      expect(screen.getByTestId('loading').textContent).toBe('loaded');
+      await waitFor(() => {
+        expect(screen.getByTestId('loading').textContent).toBe('loaded');
+      });
+
+      expect(screen.getByTestId('workspaces-enabled').textContent).toBe('true');
+      expect(getWorkspacesEnabledSync()).toBe(true);
     });
-
-    expect(screen.getByTestId('workspaces-enabled').textContent).toBe('true');
-    expect(getWorkspacesEnabledSync()).toBe(true);
   });
 
-  test('should disable workspaces when server returns disabled', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ store_type: 'SqlStore', workspaces_enabled: false }),
-    } as Response);
+  describe('when server returns workspaces disabled', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false }));
+      }),
+    );
 
-    renderWithProviders(<WorkspacesTestComponent />, queryClient);
+    test('should disable workspaces', async () => {
+      renderWithProviders(<WorkspacesTestComponent />, queryClient);
 
-    await waitFor(() => {
-      expect(screen.getByTestId('loading').textContent).toBe('loaded');
+      await waitFor(() => {
+        expect(screen.getByTestId('loading').textContent).toBe('loaded');
+      });
+
+      expect(screen.getByTestId('workspaces-enabled').textContent).toBe('false');
+      expect(getWorkspacesEnabledSync()).toBe(false);
     });
-
-    expect(screen.getByTestId('workspaces-enabled').textContent).toBe('false');
-    expect(getWorkspacesEnabledSync()).toBe(false);
   });
 
-  test('should disable workspaces on network error', async () => {
-    mockFetch.mockRejectedValue(new Error('Network error'));
+  describe('when network error occurs', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res) => {
+        return res.networkError('Failed to connect');
+      }),
+    );
 
-    renderWithProviders(<WorkspacesTestComponent />, queryClient);
+    test('should disable workspaces', async () => {
+      renderWithProviders(<WorkspacesTestComponent />, queryClient);
 
-    await waitFor(() => {
-      expect(screen.getByTestId('loading').textContent).toBe('loaded');
+      await waitFor(() => {
+        expect(screen.getByTestId('loading').textContent).toBe('loaded');
+      });
+
+      expect(screen.getByTestId('workspaces-enabled').textContent).toBe('false');
+      expect(getWorkspacesEnabledSync()).toBe(false);
     });
-
-    expect(screen.getByTestId('workspaces-enabled').textContent).toBe('false');
-    expect(getWorkspacesEnabledSync()).toBe(false);
   });
 
-  test('should disable workspaces on server error', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    } as Response);
+  describe('when server error occurs', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.status(500));
+      }),
+    );
 
-    renderWithProviders(<WorkspacesTestComponent />, queryClient);
+    test('should disable workspaces', async () => {
+      renderWithProviders(<WorkspacesTestComponent />, queryClient);
 
-    await waitFor(() => {
-      expect(screen.getByTestId('loading').textContent).toBe('loaded');
+      await waitFor(() => {
+        expect(screen.getByTestId('loading').textContent).toBe('loaded');
+      });
+
+      expect(screen.getByTestId('workspaces-enabled').textContent).toBe('false');
+      expect(getWorkspacesEnabledSync()).toBe(false);
     });
-
-    expect(screen.getByTestId('workspaces-enabled').textContent).toBe('false');
-    expect(getWorkspacesEnabledSync()).toBe(false);
   });
 
-  test('getWorkspacesEnabledSync returns false before fetch completes', () => {
-    const freshQueryClient = createTestQueryClient();
-    mockFetch.mockImplementation(() => new Promise(() => {}));
+  describe('when fetch has not completed', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false }));
+        // Never resolve to simulate pending request
+        return new Promise(() => {});
+      }),
+    );
 
-    // Before render, no queryClient reference is set
-    expect(getWorkspacesEnabledSync()).toBe(false);
+    test('getWorkspacesEnabledSync returns false before fetch completes', () => {
+      // Before render, no queryClient reference is set
+      expect(getWorkspacesEnabledSync()).toBe(false);
 
-    // Render to set up the queryClient reference
-    renderWithProviders(<WorkspacesTestComponent />, freshQueryClient);
+      const freshQueryClient = createTestQueryClient();
+      renderWithProviders(<WorkspacesTestComponent />, freshQueryClient);
 
-    // While still loading (fetch not complete), should return false
-    expect(getWorkspacesEnabledSync()).toBe(false);
+      // While still loading (fetch not complete), should return false
+      expect(getWorkspacesEnabledSync()).toBe(false);
+    });
   });
 });

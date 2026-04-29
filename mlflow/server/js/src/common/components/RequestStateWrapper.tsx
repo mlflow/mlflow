@@ -109,8 +109,6 @@ export class RequestStateWrapper extends Component<RequestStateWrapperProps, Req
 
 export const triggerError = (requests: any) => {
   // This triggers the OOPS error boundary.
-  // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-  console.error('ERROR', requests);
   throw Error(`${DEFAULT_ERROR_MESSAGE}: ${requests.error}`);
 };
 

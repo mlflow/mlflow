@@ -1,4 +1,4 @@
-import { Button, Tooltip, Typography, useDesignSystemTheme, Input } from '@databricks/design-system';
+import { Button, InfoTooltip, Typography, useDesignSystemTheme, Input } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
@@ -11,7 +11,7 @@ const ERROR_LINE_MIN_HEIGHT = '1.5em';
 export interface TryItPanelProps {
   description: ReactNode;
   requestTooltipContent: ReactNode;
-  requestTooltipComponentId: string;
+  componentId: string;
   tryItRequestUrl: string;
   tryItDefaultBody: string;
   /** Optional fetch options (headers, signal) passed through to Try-it requests. */
@@ -21,7 +21,7 @@ export interface TryItPanelProps {
 export const TryItPanel = ({
   description,
   requestTooltipContent,
-  requestTooltipComponentId,
+  componentId,
   tryItRequestUrl,
   tryItDefaultBody,
   tryItOptions,
@@ -58,101 +58,112 @@ export const TryItPanel = ({
   }, [handleResetExample]);
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <Typography.Text color="secondary">{description}</Typography.Text>
+    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <div
         css={{
-          display: 'flex',
-          gap: theme.spacing.md,
-          minHeight: 0,
           flex: 1,
+          overflowY: 'auto',
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.md,
         }}
       >
-        <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.xs,
-              marginBottom: theme.spacing.xs,
-            }}
-          >
-            <Typography.Text bold>
-              <FormattedMessage defaultMessage="Request" description="Request body label" />
-            </Typography.Text>
-            <Tooltip componentId={requestTooltipComponentId} content={requestTooltipContent}>
-              <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Request help">
-                ?
-              </span>
-            </Tooltip>
-          </div>
-          <Input.TextArea
-            componentId="mlflow.gateway.usage-modal.try-it.request"
-            value={requestBody}
-            onChange={(e) => setRequestBody(e.target.value)}
-            disabled={isLoading}
-            rows={TEXTAREA_ROWS}
-            css={{
-              fontFamily: 'monospace',
-              fontSize: theme.typography.fontSizeSm,
-              minHeight: TEXTAREA_MIN_HEIGHT_PX,
-            }}
-          />
-        </div>
-        <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.xs,
-              marginBottom: theme.spacing.xs,
-            }}
-          >
-            <Typography.Text bold>
-              <FormattedMessage defaultMessage="Response" description="Response body label" />
-            </Typography.Text>
-            <Tooltip
-              componentId="mlflow.gateway.usage-modal.try-it.response-tooltip"
-              content={
-                <FormattedMessage
-                  defaultMessage="Response from the endpoint after clicking Send request."
-                  description="Response body tooltip"
-                />
-              }
+        <Typography.Text color="secondary">{description}</Typography.Text>
+        <div
+          css={{
+            display: 'flex',
+            gap: theme.spacing.md,
+          }}
+        >
+          <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                marginBottom: theme.spacing.xs,
+              }}
             >
-              <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Response help">
-                ?
-              </span>
-            </Tooltip>
-          </div>
-          <div aria-live="polite" aria-atomic="true" role="status">
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Request" description="Request body label" />
+              </Typography.Text>
+              <InfoTooltip componentId={componentId} content={requestTooltipContent} />
+            </div>
             <Input.TextArea
-              componentId="mlflow.gateway.usage-modal.try-it.response"
-              value={responseBody}
-              readOnly
+              componentId="mlflow.gateway.usage-modal.try-it.request"
+              value={requestBody}
+              onChange={(e) => setRequestBody(e.target.value)}
+              disabled={isLoading}
               rows={TEXTAREA_ROWS}
-              placeholder={
-                sendError ? undefined : isLoading ? undefined : 'Click "Send request" to see the response here.'
-              }
               css={{
                 fontFamily: 'monospace',
                 fontSize: theme.typography.fontSizeSm,
-                backgroundColor: theme.colors.backgroundSecondary,
                 minHeight: TEXTAREA_MIN_HEIGHT_PX,
               }}
             />
           </div>
-          <div
-            css={{ minHeight: ERROR_LINE_MIN_HEIGHT, marginTop: theme.spacing.xs }}
-            aria-live="polite"
-            aria-atomic="true"
-            role="status"
-          >
-            {sendError && <Typography.Text color="error">{sendError}</Typography.Text>}
+          <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                marginBottom: theme.spacing.xs,
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Response" description="Response body label" />
+              </Typography.Text>
+              <InfoTooltip
+                componentId="mlflow.gateway.usage-modal.try-it.response-tooltip"
+                content={
+                  <FormattedMessage
+                    defaultMessage="Response from the endpoint after clicking Send request."
+                    description="Response body tooltip"
+                  />
+                }
+              />
+            </div>
+            <div aria-live="polite" aria-atomic="true" role="status">
+              <Input.TextArea
+                componentId="mlflow.gateway.usage-modal.try-it.response"
+                value={responseBody}
+                readOnly
+                rows={TEXTAREA_ROWS}
+                placeholder={
+                  sendError ? undefined : isLoading ? undefined : 'Click "Send request" to see the response here.'
+                }
+                css={{
+                  fontFamily: 'monospace',
+                  fontSize: theme.typography.fontSizeSm,
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  minHeight: TEXTAREA_MIN_HEIGHT_PX,
+                }}
+              />
+            </div>
+            <div
+              css={{ minHeight: ERROR_LINE_MIN_HEIGHT, marginTop: theme.spacing.xs }}
+              aria-live="polite"
+              aria-atomic="true"
+              role="status"
+            >
+              {sendError && <Typography.Text color="error">{sendError}</Typography.Text>}
+            </div>
           </div>
         </div>
       </div>
-      <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          gap: theme.spacing.sm,
+          flexShrink: 0,
+          backgroundColor: theme.colors.backgroundPrimary,
+          paddingTop: theme.spacing.sm,
+          paddingBottom: theme.spacing.sm,
+          borderTop: `1px solid ${theme.colors.border}`,
+        }}
+      >
         <Button
           componentId="mlflow.gateway.usage-modal.try-it.send"
           type="primary"

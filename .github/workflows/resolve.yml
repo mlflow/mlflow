@@ -26,17 +26,12 @@ jobs:
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
-       (
-        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
-        (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-       ))
+       github.event.pull_request.draft == false &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       (
-        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) ||
-        (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
-       ) &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/resolve'))
     outputs:
@@ -46,9 +41,10 @@ jobs:
       comment_id: ${{ github.event.comment.id }}
     steps:
       - name: Check authorization
-        if: ${{ github.event_name == 'issue_comment' }}
+        if: github.event_name == 'issue_comment'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
+          retries: 3
           script: |
             const { comment } = context.payload;
 
@@ -59,12 +55,12 @@ jobs:
             let message;
             if (isAllowed) {
               const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
-              message = `🚀 [Resolve workflow started](${workflowUrl})`;
+              message = `🚀 [Resolve running...](${workflowUrl})`;
             } else {
               message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
             }
 
-            const updatedBody = `${comment.body}\n\n---\n${message}`;
+            const updatedBody = `${comment.body}\n\n---\n\n${message}`;
 
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
@@ -88,7 +84,7 @@ jobs:
             const isFork = pr.head.repo && pr.head.repo.full_name !== pr.base.repo.full_name;
             if (isFork && !pr.maintainer_can_modify) {
               const forkMessage = `⚠️ This PR does not allow maintainers to push changes. Please enable "Allow edits by maintainers" in the PR settings and re-trigger the workflow.`;
-              const forkUpdatedBody = `${updatedBody}\n\n---\n${forkMessage}`;
+              const forkUpdatedBody = `${updatedBody}\n\n---\n\n${forkMessage}`;
 
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
@@ -106,6 +102,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         with:
+          retries: 3
           script: |
             const prNumber = parseInt(process.env.PR_NUMBER, 10);
             const { data: pr } = await github.rest.pulls.get({
@@ -123,8 +120,12 @@ jobs:
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve\s*||' | xargs)
-          echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
+          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve||')
+          {
+            echo 'prompt<<PROMPT_EOF'
+            echo "$PROMPT"
+            echo 'PROMPT_EOF'
+          } >> "$GITHUB_OUTPUT"
 
   resolve:
     needs: precheck
@@ -133,22 +134,29 @@ jobs:
       pull-requests: read
     timeout-minutes: 30
     steps:
-      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
         id: app-token
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: true
           repository: ${{ needs.precheck.outputs.head_repository }}
           ref: ${{ needs.precheck.outputs.head_ref }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          REPO: ${{ github.repository }}
         run: |
-          git config user.name 'mlflow-app[bot]'
-          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          AUTHOR_LOGIN=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json author --jq '.author.login')
+          AUTHOR_ID=$(gh api "users/$AUTHOR_LOGIN" --jq '.id')
+          git config user.name "$AUTHOR_LOGIN"
+          git config user.email "${AUTHOR_ID}+${AUTHOR_LOGIN}@users.noreply.github.com"
 
       - uses: ./.github/actions/setup-python
 
@@ -159,7 +167,10 @@ jobs:
 
       - name: Install Claude CLI
         run: |
-          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.29
+          .claude/scripts/install-claude.sh
+      - name: Verify Claude CLI
+        run: |
+          claude --version
 
       - name: Run Claude resolve command
         id: claude-fix
@@ -174,24 +185,23 @@ jobs:
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
           ARGS=("/resolve")
           [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
-          timeout 10m claude --model claude-opus-4-5-20251101 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" || true
-
-          # Display output in workflow logs (pretty print if valid JSON)
-          echo "=== Claude Output ==="
-          if jq empty "$OUTPUT_FILE" 2>/dev/null; then
-            jq . "$OUTPUT_FILE"
-          else
-            cat "$OUTPUT_FILE"
-          fi
-          echo "===================="
+          # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
+          timeout 10m claude --model claude-opus-4-6 --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || true
 
       - name: Upload Claude output
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: claude-output
           path: /tmp/output.json
           if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Commit changes
+        run: |
+          git add .
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -s -m "Address PR review comments"
 
       - name: Push changes
         env:
@@ -217,7 +227,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Download Claude output
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: claude-output
           path: /tmp
@@ -229,15 +239,16 @@ jobs:
           COMMENT_ID: ${{ needs.precheck.outputs.comment_id }}
           RESOLVE_JOB_STATUS: ${{ needs.resolve.result }}
         with:
+          retries: 3
           script: |
             const fs = require('fs');
 
             const resolveJobStatus = process.env.RESOLVE_JOB_STATUS;
-            const statusMessage = resolveJobStatus !== 'success'
-              ? `⚠️ Workflow encountered an error.`
-              : `✅ Workflow completed successfully.`;
+            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
 
-            let resultMessage = statusMessage;
+            let resultLine = resolveJobStatus !== 'success'
+              ? `⚠️ [Resolve](${workflowUrl}) encountered an error`
+              : `✅ [Resolve](${workflowUrl}) completed`;
 
             // Read Claude output from file instead of environment variable
             const outputPath = '/tmp/output.json';
@@ -250,20 +261,24 @@ jobs:
               console.log('Failed to read Claude output file:', e);
             }
 
-            // Extract and display Claude's result and raw output
+            // Extract and display Claude's result from JSON output
             if (claudeOutput) {
               try {
-                const events = JSON.parse(claudeOutput);
-                const resultEvent = events.find(({ type }) => type === 'result');
+                const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
+                const resultEvent = events.findLast(({ type }) => type === 'result');
                 if (resultEvent) {
-                  resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${resultEvent.result}\n\n</details>`;
+                  const seconds = (resultEvent.duration_ms / 1000).toFixed(1);
+                  const tokens = (resultEvent.usage?.input_tokens ?? 0) + (resultEvent.usage?.output_tokens ?? 0);
+                  const cost = (Math.round(resultEvent.total_cost_usd * 100) / 100).toFixed(2);
+                  resultLine += ` (${seconds}s, ${resultEvent.num_turns} turns, ${tokens} tokens, $${cost})`;
+                  resultLine += `\n<details><summary>Resolve Output</summary>\n\n${resultEvent.result}\n\n</details>`;
                 }
               } catch (e) {
                 console.log('Failed to parse Claude output as JSON:', e);
               }
             }
 
-            console.log('Result message to post:', resultMessage);
+            console.log('Result line to post:', resultLine);
 
             if (process.env.COMMENT_ID) {
               const commentId = parseInt(process.env.COMMENT_ID, 10);
@@ -273,7 +288,8 @@ jobs:
                 comment_id: commentId,
               });
 
-              const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+              const originalBody = currentComment.body.split('\n\n---\n\n🚀 ')[0];
+              const updatedBody = `${originalBody}\n\n---\n\n${resultLine}`;
 
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,

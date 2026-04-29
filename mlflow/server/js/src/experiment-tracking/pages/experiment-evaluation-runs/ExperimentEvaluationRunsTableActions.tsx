@@ -1,4 +1,5 @@
 import { Button, ChevronDownIcon, DropdownMenu, Modal } from '@databricks/design-system';
+import { useIntl } from '@databricks/i18n';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -13,6 +14,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid,
   compareToRunUuid,
   enableImprovedComparison,
+  setIsComparisonMode,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -21,7 +23,9 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   enableImprovedComparison?: boolean;
+  setIsComparisonMode?: (isComparisonMode: boolean) => void;
 }) => {
+  const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const selectedRunUuids = useMemo(
@@ -48,8 +52,9 @@ export const ExperimentEvaluationRunsTableActions = ({
   const handleCompare = useCallback(() => {
     if (selectedRunUuids.length === 2 && onCompare) {
       onCompare(selectedRunUuids[0], selectedRunUuids[1]);
+      setIsComparisonMode?.(true);
     }
-  }, [onCompare, selectedRunUuids]);
+  }, [onCompare, selectedRunUuids, setIsComparisonMode]);
 
   const isCompareEnabled = selectedRunUuids.length === 2;
 

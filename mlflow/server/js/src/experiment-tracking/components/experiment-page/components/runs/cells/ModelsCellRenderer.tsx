@@ -11,10 +11,7 @@ import { FormattedMessage } from 'react-intl';
 import { useExperimentLoggedModelRegisteredVersions } from '../../../../experiment-logged-models/hooks/useExperimentLoggedModelRegisteredVersions';
 import { isEmpty, uniqBy, values } from 'lodash';
 import { isUCModelName } from '../../../../../utils/IsUCModelName';
-import {
-  shouldUnifyLoggedModelsAndRegisteredModels,
-  shouldUseGetLoggedModelsBatchAPI,
-} from '../../../../../../common/utils/FeatureUtils';
+import { shouldUnifyLoggedModelsAndRegisteredModels } from '../../../../../../common/utils/FeatureUtils';
 
 const EMPTY_CELL_PLACEHOLDER = '-';
 
@@ -69,6 +66,7 @@ const ModelLink = ({
             values={{
               originalModelLink: (
                 <Link
+                  componentId="mlflow.experiment_tracking.runs_table.logged_model_tooltip_link"
                   to={Routes.getExperimentLoggedModelDetailsPage(loggedModelExperimentId, loggedModelId)}
                   css={{ color: 'inherit', textDecoration: 'underline' }}
                 >
@@ -135,6 +133,7 @@ const ModelLink = ({
         {renderModelIcon()}
       </div>
       <Link
+        componentId="mlflow.experiment_tracking.runs_table.model_version_link"
         to={renderModelLink()}
         target="_blank"
         css={{ textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer' }}
@@ -157,6 +156,7 @@ const LoggedModelV3Link = ({ model }: { model: LoggedModelProto }) => {
         <ModelsIcon css={{ color: theme.colors.actionPrimaryBackgroundDefault }} />
       </div>
       <Link
+        componentId="mlflow.experiment_tracking.runs_table.logged_model_v3_link"
         to={Routes.getExperimentLoggedModelDetailsPage(model.info.experiment_id, model.info.model_id)}
         target="_blank"
         css={{ textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer' }}
@@ -192,10 +192,9 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
 
   // We create a map of registered model versions by their source logged model.
   // This allows to unfurl logged model to registered model versions while hiding the original logged model.
+  // Always build this map (not just when GetLoggedModelsBatchAPI is used) so registered models
+  // display consistently on Runs page vs Models page regardless of navigation path.
   const registeredModelVersionsByLoggedModel = useMemo(() => {
-    if (!shouldUseGetLoggedModelsBatchAPI()) {
-      return {};
-    }
     const map: Record<string, CombinedModelType[]> = {};
     registeredModelVersions.forEach((modelVersion) => {
       const loggedModelId = modelVersion.sourceLoggedModel?.info?.model_id;

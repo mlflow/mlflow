@@ -13,13 +13,11 @@ def test_tf_mlflow_callback(log_every_epoch, log_every_n_steps):
     data = tf.random.uniform([20, 28, 28, 3])
     label = tf.convert_to_tensor(np.random.randint(2, size=20))
 
-    model = keras.Sequential(
-        [
-            keras.Input([28, 28, 3]),
-            keras.layers.Flatten(),
-            keras.layers.Dense(2),
-        ]
-    )
+    model = keras.Sequential([
+        keras.Input([28, 28, 3]),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+    ])
 
     model.compile(
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),

@@ -37,6 +37,7 @@ const TracesV3Content = ({
         // TODO: Remove this once the endpointName is not needed
         endpointName={endpointName || ''}
         timeRange={timeRange}
+        drawerWidth="80vw"
       />
     );
   }

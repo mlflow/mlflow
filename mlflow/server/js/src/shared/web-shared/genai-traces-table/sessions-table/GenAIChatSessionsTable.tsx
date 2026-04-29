@@ -116,6 +116,7 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
             <TableCell key={cell.id} css={{ flex: `calc(var(--col-${cell.column.id}-size) / 100)` }}>
               {enableLinks ? (
                 <Link
+                  componentId="mlflow.genai-traces-table.chat_sessions_table.session_row_link"
                   to={{
                     pathname: MlflowUtils.getExperimentChatSessionPageRoute(
                       row.original.experimentId,

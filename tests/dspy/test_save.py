@@ -35,9 +35,9 @@ _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
 @pytest.fixture
 def dummy_model():
-    return DummyLM(
-        [{"answer": answer, _REASONING_KEYWORD: "reason"} for answer in ["4", "6", "8", "10"]]
-    )
+    return DummyLM([
+        {"answer": answer, _REASONING_KEYWORD: "reason"} for answer in ["4", "6", "8", "10"]
+    ])
 
 
 class CoT(dspy.Module):
@@ -449,12 +449,10 @@ def test_infer_signature_from_input_examples(dummy_model):
 
         loaded_model = Model.load(model_info.model_uri)
         assert loaded_model.signature.inputs == Schema([ColSpec("string")])
-        assert loaded_model.signature.outputs == Schema(
-            [
-                ColSpec(name="answer", type="string"),
-                ColSpec(name=_REASONING_KEYWORD, type="string"),
-            ]
-        )
+        assert loaded_model.signature.outputs == Schema([
+            ColSpec(name="answer", type="string"),
+            ColSpec(name=_REASONING_KEYWORD, type="string"),
+        ])
 
 
 @skip_if_2_6_23_or_older

@@ -314,15 +314,13 @@ def test_model_log_with_databricks_runtime_gpu():
 def test_model_log_with_input_example_succeeds():
     with TempDir(chdr=True) as tmp:
         sig = ModelSignature(
-            inputs=Schema(
-                [
-                    ColSpec("integer", "a"),
-                    ColSpec("string", "b"),
-                    ColSpec("boolean", "c"),
-                    ColSpec("string", "d"),
-                    ColSpec("datetime", "e"),
-                ]
-            ),
+            inputs=Schema([
+                ColSpec("integer", "a"),
+                ColSpec("string", "b"),
+                ColSpec("boolean", "c"),
+                ColSpec("string", "d"),
+                ColSpec("datetime", "e"),
+            ]),
             outputs=Schema([ColSpec(name=None, type="double")]),
         )
         input_example = pd.DataFrame(
@@ -366,19 +364,18 @@ def test_model_input_example_with_params_log_load_succeeds(tmp_path):
     input_example = (pdf, {"a": 1, "b": "string"})
 
     sig = ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec("integer", "a"),
-                ColSpec("string", "b"),
-                ColSpec("boolean", "c"),
-                ColSpec("string", "d"),
-                ColSpec("datetime", "e"),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec("integer", "a"),
+            ColSpec("string", "b"),
+            ColSpec("boolean", "c"),
+            ColSpec("string", "d"),
+            ColSpec("datetime", "e"),
+        ]),
         outputs=Schema([ColSpec(name=None, type="double")]),
-        params=ParamSchema(
-            [ParamSpec("a", DataType.long, 1), ParamSpec("b", DataType.string, "string")]
-        ),
+        params=ParamSchema([
+            ParamSpec("a", DataType.long, 1),
+            ParamSpec("b", DataType.string, "string"),
+        ]),
     )
 
     local_path, _ = _log_model_with_signature_and_example(tmp_path, sig, input_example)
@@ -441,12 +438,12 @@ def test_model_load_input_example_failures():
         loaded_example = loaded_model.load_input_example(local_path)
         assert loaded_example is not None
 
-        with pytest.raises(MlflowException, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             loaded_model.load_input_example(os.path.join(local_path, "folder_which_does_not_exist"))
 
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         os.remove(path)
-        with pytest.raises(MlflowException, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             loaded_model.load_input_example(local_path)
 
 

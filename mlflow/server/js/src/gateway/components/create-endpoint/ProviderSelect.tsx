@@ -1,23 +1,23 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import { useDesignSystemTheme, FormUI, Spinner, Typography } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { NavigableCombobox } from '../../../common/components/navigable-combobox/NavigableCombobox';
 import type {
   NavigableComboboxConfig,
   ComboboxModalTriggerItem,
-  ComboboxGroupItem,
   ComboboxSelectableItem,
 } from '../../../common/components/navigable-combobox/types';
 import type { SelectorItem } from '../../../common/components/selector-modal/types';
 import { useProvidersQuery } from '../../hooks/useProvidersQuery';
-import { formatProviderName, buildProviderGroups, COMMON_PROVIDERS } from '../../utils/providerUtils';
+import { formatProviderName, COMMON_PROVIDERS } from '../../utils/providerUtils';
 
 interface ProviderSelectProps {
   value: string;
   onChange: (provider: string) => void;
   disabled?: boolean;
   error?: string;
-  componentIdPrefix?: string;
+  componentId?: string;
+  hideLabel?: boolean;
 }
 
 export const ProviderSelect = ({
@@ -25,10 +25,12 @@ export const ProviderSelect = ({
   onChange,
   disabled,
   error,
-  componentIdPrefix = 'mlflow.gateway.provider-select',
+  componentId = 'mlflow.gateway.provider-select',
+  hideLabel = false,
 }: ProviderSelectProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const domId = useRef(`provider-select-${Math.random().toString(36).slice(2, 9)}`).current;
   const { data: providers, isLoading, error: queryError } = useProvidersQuery();
 
   const { config, hasOtherProviders } = useMemo((): {
@@ -42,44 +44,21 @@ export const ProviderSelect = ({
       };
     }
 
-    const { groups, ungroupedProviders } = buildProviderGroups(providers);
     const commonSet = new Set<string>(COMMON_PROVIDERS);
 
-    const commonUngrouped: string[] = [];
+    const commonProviders: string[] = [];
     const otherUngrouped: string[] = [];
-    for (const provider of ungroupedProviders) {
+    for (const provider of providers) {
       if (commonSet.has(provider)) {
-        commonUngrouped.push(provider);
+        commonProviders.push(provider);
       } else {
         otherUngrouped.push(provider);
       }
     }
 
-    const items: (ComboboxSelectableItem<string> | ComboboxGroupItem<string> | ComboboxModalTriggerItem<string>)[] = [];
+    const items: (ComboboxSelectableItem<string> | ComboboxModalTriggerItem<string>)[] = [];
 
-    for (const group of groups) {
-      const isCommonGroup = group.groupId === 'openai_azure' || group.groupId === 'vertex_ai';
-      if (isCommonGroup) {
-        const groupItem: ComboboxGroupItem<string> = {
-          type: 'group',
-          key: `group-${group.groupId}`,
-          label: group.displayName,
-          backLabel: intl.formatMessage({
-            defaultMessage: 'Back to providers',
-            description: 'Navigation back to main provider list',
-          }),
-          children: group.providers.map((provider) => ({
-            type: 'item' as const,
-            key: provider,
-            label: formatProviderName(provider),
-            value: provider,
-          })),
-        };
-        items.push(groupItem);
-      }
-    }
-
-    for (const provider of commonUngrouped) {
+    for (const provider of commonProviders) {
       items.push({
         type: 'item',
         key: provider,
@@ -89,11 +68,10 @@ export const ProviderSelect = ({
     }
 
     const getCommonProviderIndex = (
-      item: ComboboxSelectableItem<string> | ComboboxGroupItem<string> | ComboboxModalTriggerItem<string>,
+      item: ComboboxSelectableItem<string> | ComboboxModalTriggerItem<string>,
     ): number => {
       if (item.type === 'modal-trigger') return Infinity;
-      const providerKey = item.type === 'group' ? item.children[0]?.value : item.value;
-      const index = COMMON_PROVIDERS.indexOf(providerKey as (typeof COMMON_PROVIDERS)[number]);
+      const index = COMMON_PROVIDERS.indexOf(item.value as (typeof COMMON_PROVIDERS)[number]);
       return index === -1 ? Infinity : index;
     };
     items.sort((a, b) => getCommonProviderIndex(a) - getCommonProviderIndex(b));
@@ -168,9 +146,11 @@ export const ProviderSelect = ({
   if (queryError) {
     return (
       <div>
-        <FormUI.Label htmlFor={componentIdPrefix}>
-          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-        </FormUI.Label>
+        {!hideLabel && (
+          <FormUI.Label htmlFor={domId}>
+            <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+          </FormUI.Label>
+        )}
         <FormUI.Message type="error" message={queryError.message || 'Failed to load providers'} />
       </div>
     );
@@ -179,9 +159,11 @@ export const ProviderSelect = ({
   if (isLoading || config.views[0].items.length === 0) {
     return (
       <div>
-        <FormUI.Label htmlFor={componentIdPrefix}>
-          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-        </FormUI.Label>
+        {!hideLabel && (
+          <FormUI.Label htmlFor={domId}>
+            <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+          </FormUI.Label>
+        )}
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
           <Spinner size="small" />
           <FormattedMessage defaultMessage="Loading providers..." description="Loading message for providers" />
@@ -192,11 +174,13 @@ export const ProviderSelect = ({
 
   return (
     <div css={{ minWidth: 300 }}>
-      <FormUI.Label htmlFor={componentIdPrefix}>
-        <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-      </FormUI.Label>
+      {!hideLabel && (
+        <FormUI.Label htmlFor={domId}>
+          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+        </FormUI.Label>
+      )}
       <NavigableCombobox
-        componentId="codegen_mlflow_app_src_oss_gateway_components_create-endpoint_ProviderSelect.tsx_199"
+        componentId={componentId}
         config={config}
         value={value || null}
         onChange={handleChange}

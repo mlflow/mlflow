@@ -1,12 +1,17 @@
+---
+title: MLflow AI Gateway for LLMs
+description: Manage multiple LLM providers through a single, secure endpoint. Centralize access control, cost tracking, and rate limiting for OpenAI, Anthropic, and more.
+---
+
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import { Shield, Globe, Zap, Users, Wrench, Play, GitBranch, BarChart3, Lock } from "lucide-react";
+import { Shield, Globe, Zap, Users, Wrench, Play, GitBranch, BarChart3, Lock, DollarSign, Gauge, ShieldCheck } from "lucide-react";
 import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
 
 # MLflow AI Gateway
 
-MLflow AI Gateway provides a unified interface for deploying and managing multiple LLM providers within your organization. It simplifies interactions with services like OpenAI, Anthropic, and others through a single, secure endpoint.
+MLflow's [AI Gateway](https://mlflow.org/ai-gateway) provides a unified interface for deploying and managing multiple LLM providers within your organization. It simplifies interactions with services like OpenAI, Anthropic, and others through a single, secure endpoint.
 
 The gateway excels in production environments where organizations need to manage multiple LLM providers securely while maintaining operational flexibility. Advanced routing capabilities enable traffic splitting for A/B testing and automatic failover chains for high availability.
 
@@ -21,7 +26,7 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
   {
     icon: Shield,
     title: "Centralized Security",
-    description: "Store API keys in one secure location with request/response logging for audit trails and compliance."
+    description: "Store LLM provider API keys in one secure location with request/response logging for audit trails and compliance."
   },
   {
     icon: GitBranch,
@@ -59,10 +64,10 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
   />
   <TileCard
     icon={Shield}
-    title="API Keys"
-    description="Create and manage API keys for secure credential management"
+    title="LLM Connections"
+    description="Create and manage LLM connections to securely store provider API keys"
     href="./api-keys/create-and-manage"
-    linkText="Manage keys →"
+    linkText="Manage connections →"
   />
   <TileCard
     icon={Wrench}
@@ -86,10 +91,31 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
     linkText="View metrics →"
   />
   <TileCard
+    icon={DollarSign}
+    title="Budget Alerts & Limits"
+    description="Set spending limits and configure alerts for cost management"
+    href="./budget-alerts-limits"
+    linkText="Manage budgets →"
+  />
+  <TileCard
+    icon={ShieldCheck}
+    title="Guardrails"
+    description="Enforce content policies with LLM-powered judges that block or sanitize requests and responses"
+    href="./guardrails"
+    linkText="Configure guardrails →"
+  />
+  <TileCard
     icon={Lock}
     title="Authentication"
     description="Configure HTTP Basic Authentication for AI Gateway resources"
     href="/self-hosting/security/basic-http-auth#ai-gateway-permissions"
     linkText="Learn more →"
+  />
+  <TileCard
+    icon={Gauge}
+    title="Performance & Benchmarks"
+    description="Benchmark results and how to measure gateway overhead in your own environment"
+    href="./benchmarks"
+    linkText="View benchmarks →"
   />
 </TilesGrid>

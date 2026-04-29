@@ -30,6 +30,23 @@ import type {
   ListEndpointBindingsResponse,
   SecretsConfigResponse,
   ListUsersResponse,
+  CreateBudgetPolicyRequest,
+  CreateBudgetPolicyResponse,
+  GetBudgetPolicyResponse,
+  UpdateBudgetPolicyRequest,
+  UpdateBudgetPolicyResponse,
+  ListBudgetPoliciesResponse,
+  ListBudgetWindowsResponse,
+  CreateGatewayGuardrailRequest,
+  CreateGatewayGuardrailResponse,
+  GetGatewayGuardrailResponse,
+  ListGatewayGuardrailsResponse,
+  AddGuardrailToEndpointRequest,
+  AddGuardrailToEndpointResponse,
+  RemoveGuardrailFromEndpointRequest,
+  ListEndpointGuardrailConfigsResponse,
+  UpdateEndpointGuardrailConfigRequest,
+  UpdateEndpointGuardrailConfigResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -304,5 +321,137 @@ export const GatewayApi = {
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/config',
       error: defaultErrorHandler,
     }) as Promise<SecretsConfigResponse>;
+  },
+
+  // Budget Policies Management
+  createBudgetPolicy: (request: CreateBudgetPolicyRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/budgets/create',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<CreateBudgetPolicyResponse>;
+  },
+
+  getBudgetPolicy: (budgetPolicyId: string) => {
+    const params = new URLSearchParams();
+    params.append('budget_policy_id', budgetPolicyId);
+    const relativeUrl = ['ajax-api/3.0/mlflow/gateway/budgets/get', params.toString()].join('?');
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<GetBudgetPolicyResponse>;
+  },
+
+  updateBudgetPolicy: (request: UpdateBudgetPolicyRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/budgets/update',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<UpdateBudgetPolicyResponse>;
+  },
+
+  deleteBudgetPolicy: (budgetPolicyId: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/budgets/delete',
+      method: 'DELETE',
+      body: JSON.stringify({ budget_policy_id: budgetPolicyId }),
+      error: defaultErrorHandler,
+    });
+  },
+
+  listBudgetPolicies: (maxResults: number, pageToken?: string) => {
+    const params = new URLSearchParams();
+    params.append('max_results', maxResults.toString());
+    if (pageToken) {
+      params.append('page_token', pageToken);
+    }
+    const relativeUrl = `ajax-api/3.0/mlflow/gateway/budgets/list?${params.toString()}`;
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<ListBudgetPoliciesResponse>;
+  },
+
+  getBudgetWindows: () => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/budgets/windows',
+      error: defaultErrorHandler,
+    }) as Promise<ListBudgetWindowsResponse>;
+  },
+
+  // Guardrails
+  createGuardrail: (request: CreateGatewayGuardrailRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/create',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<CreateGatewayGuardrailResponse>;
+  },
+
+  getGuardrail: (guardrailId: string) => {
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/gateway/guardrails/get?guardrail_id=${encodeURIComponent(guardrailId)}`,
+      error: defaultErrorHandler,
+    }) as Promise<GetGatewayGuardrailResponse>;
+  },
+
+  deleteGuardrail: (guardrailId: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/delete',
+      method: 'DELETE',
+      body: JSON.stringify({ guardrail_id: guardrailId }),
+      error: defaultErrorHandler,
+    });
+  },
+
+  listGuardrails: (maxResults?: number, pageToken?: string) => {
+    const params = new URLSearchParams();
+    if (maxResults) {
+      params.append('max_results', maxResults.toString());
+    }
+    if (pageToken) {
+      params.append('page_token', pageToken);
+    }
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/gateway/guardrails/list?${params.toString()}`,
+      error: defaultErrorHandler,
+    }) as Promise<ListGatewayGuardrailsResponse>;
+  },
+
+  addGuardrailToEndpoint: (request: AddGuardrailToEndpointRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/add-to-endpoint',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<AddGuardrailToEndpointResponse>;
+  },
+
+  removeGuardrailFromEndpoint: (request: RemoveGuardrailFromEndpointRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/remove-from-endpoint',
+      method: 'DELETE',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    });
+  },
+
+  listEndpointGuardrailConfigs: (endpointId: string) => {
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/gateway/guardrails/list-for-endpoint?endpoint_id=${encodeURIComponent(endpointId)}`,
+      error: defaultErrorHandler,
+    }) as Promise<ListEndpointGuardrailConfigsResponse>;
+  },
+
+  updateEndpointGuardrailConfig: (request: UpdateEndpointGuardrailConfigRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/update-config',
+      method: 'PATCH',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<UpdateEndpointGuardrailConfigResponse>;
   },
 };

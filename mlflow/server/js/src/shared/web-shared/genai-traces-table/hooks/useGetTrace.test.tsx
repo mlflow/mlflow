@@ -57,7 +57,7 @@ describe('useGetTrace', () => {
 
   test('should be disabled when getTrace is not provided', () => {
     const mockGetTrace = jest.fn();
-    const { result } = renderHook(() => useGetTrace(undefined, demoTraceInfo), { wrapper });
+    const { result } = renderHook(() => useGetTrace({ getTrace: undefined, traceInfo: demoTraceInfo }), { wrapper });
 
     // Query should be disabled when getTrace is nil (enabled: !isNil(getTrace) && ...)
     // The enabled condition evaluates to false when getTrace is undefined
@@ -71,7 +71,7 @@ describe('useGetTrace', () => {
 
   test('should be disabled when traceId is not provided', () => {
     const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(mockTrace);
-    const { result } = renderHook(() => useGetTrace(mockGetTrace, undefined), { wrapper });
+    const { result } = renderHook(() => useGetTrace({ getTrace: mockGetTrace, traceInfo: undefined }), { wrapper });
 
     // Query should be disabled when both requestId and traceId are nil
     // The enabled condition evaluates to false when both requestId and traceId are undefined
@@ -82,7 +82,7 @@ describe('useGetTrace', () => {
 
   test('should fetch trace when getTrace and traceId are provided', async () => {
     const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(mockTrace);
-    const { result } = renderHook(() => useGetTrace(mockGetTrace, demoTraceInfo), { wrapper });
+    const { result } = renderHook(() => useGetTrace({ getTrace: mockGetTrace, traceInfo: demoTraceInfo }), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -92,6 +92,7 @@ describe('useGetTrace', () => {
     expect(mockGetTrace).toHaveBeenCalledWith(
       'trace-id-123',
       demoTraceInfo,
+      undefined,
     );
     expect(result.current.data).toEqual(mockTrace);
   });
@@ -113,7 +114,10 @@ describe('useGetTrace', () => {
       };
 
       const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithOKState);
-      const { result } = renderHook(() => useGetTrace(mockGetTrace, traceWithOKState.info, true), { wrapper });
+      const { result } = renderHook(
+        () => useGetTrace({ getTrace: mockGetTrace, traceInfo: traceWithOKState.info, enablePolling: true }),
+        { wrapper },
+      );
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -167,7 +171,10 @@ describe('useGetTrace', () => {
       });
 
       let currentTraceInfo = traceInfoA;
-      const { result, rerender } = renderHook(() => useGetTrace(mockGetTrace, currentTraceInfo, true), { wrapper });
+      const { result, rerender } = renderHook(
+        () => useGetTrace({ getTrace: mockGetTrace, traceInfo: currentTraceInfo, enablePolling: true }),
+        { wrapper },
+      );
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -186,7 +193,7 @@ describe('useGetTrace', () => {
       rerender();
 
       await waitFor(() => {
-        expect(mockGetTrace).toHaveBeenCalledWith('trace-B', traceInfoB);
+        expect(mockGetTrace).toHaveBeenCalledWith('trace-B', traceInfoB, undefined);
       });
 
       // Advance timers to let trace B poll for a bit
@@ -197,6 +204,42 @@ describe('useGetTrace', () => {
         // Trace B should get its own full set of polling attempts (not reduced by trace A's count)
         expect(callsForTraceB).toBeGreaterThan(1);
       });
+    });
+
+    test('should stop polling when actual span count exceeds expected (distributed tracing)', async () => {
+      // In distributed tracing, sizeStats.num_spans only counts spans from the originating process,
+      // so the actual span count can exceed the expected count when spans from other services arrive.
+      const traceWithExtraSpans: ModelTrace = {
+        data: {
+          spans: [{ name: 'client-root' }, { name: 'server-handler' }, { name: 'db-query' }] as any,
+        },
+        info: {
+          trace_id: 'trace-id-123',
+          trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+          request_time: '1625247600000',
+          state: 'OK',
+          trace_metadata: {
+            'mlflow.trace.sizeStats': JSON.stringify({ num_spans: 2 }), // Only 2 expected, but 3 actual spans
+          },
+          tags: {},
+        } as ModelTraceInfoV3,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithExtraSpans);
+      const { result } = renderHook(
+        () => useGetTrace({ getTrace: mockGetTrace, traceInfo: traceWithExtraSpans.info, enablePolling: true }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      // Advance timers to ensure no additional polling calls are made
+      jest.advanceTimersByTime(3000);
+
+      // Should have been called only once — polling stops immediately when actual >= expected
+      expect(mockGetTrace).toHaveBeenCalledTimes(1);
     });
 
     test('should not poll when trace state is ERROR', async () => {
@@ -213,7 +256,10 @@ describe('useGetTrace', () => {
       };
 
       const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithErrorState);
-      const { result } = renderHook(() => useGetTrace(mockGetTrace, traceWithErrorState.info, true), { wrapper });
+      const { result } = renderHook(
+        () => useGetTrace({ getTrace: mockGetTrace, traceInfo: traceWithErrorState.info, enablePolling: true }),
+        { wrapper },
+      );
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);

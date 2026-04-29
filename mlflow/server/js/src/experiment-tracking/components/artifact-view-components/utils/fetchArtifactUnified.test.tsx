@@ -22,17 +22,18 @@ describe('fetchArtifactUnified', () => {
   const runArtifactContent = 'test-run-artifact-content';
   const loggedModelArtifactContent = 'test-logged-model-artifact-content';
 
+  let capturedRequests: { url: string; workspaceHeader: string | null }[] = [];
   const server = setupServer(
     rest.get(/\/?get-artifact/, (req, res, ctx) => {
-      expect(req.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(ctx.body(runArtifactContent));
     }),
     rest.get(/\/?ajax-api\/2\.0\/mlflow\/get-artifact/, (req, res, ctx) => {
-      expect(req.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(ctx.body(runArtifactContent));
     }),
     rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/test-logged-model-id\/artifacts\/files/, (req, res, ctx) => {
-      expect(req.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(ctx.body(loggedModelArtifactContent));
     }),
   );
@@ -44,6 +45,7 @@ describe('fetchArtifactUnified', () => {
   });
 
   afterEach(() => {
+    capturedRequests = [];
     server.resetHandlers();
   });
 
@@ -64,7 +66,11 @@ describe('fetchArtifactUnified', () => {
     });
 
     expect(result).toEqual(runArtifactContent);
-    consoleErrorSpy.mockRestore();
+
+    expect(capturedRequests.length).toBeGreaterThan(0);
+    for (const req of capturedRequests) {
+      expect(req.workspaceHeader).toBe('team-a');
+    }
   });
 
   it('fetches logged model artifact from workspace API', async () => {
@@ -72,6 +78,10 @@ describe('fetchArtifactUnified', () => {
     const result = await fetchArtifactUnified({ experimentId, path, runUuid, isLoggedModelsMode, loggedModelId });
 
     expect(result).toEqual(loggedModelArtifactContent);
-    consoleErrorSpy.mockRestore();
+
+    expect(capturedRequests.length).toBeGreaterThan(0);
+    for (const req of capturedRequests) {
+      expect(req.workspaceHeader).toBe('team-a');
+    }
   });
 });

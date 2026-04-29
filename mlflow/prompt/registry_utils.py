@@ -414,6 +414,13 @@ class PromptCache:
         with self._lock:
             self._cache.pop(key, None)
 
+    def delete_all(self, prompt_name: str) -> None:
+        """Delete all cached entries for a prompt name."""
+        with self._lock:
+            keys_to_delete = [key for key in self._cache if key.name == prompt_name]
+            for key in keys_to_delete:
+                self._cache.pop(key, None)
+
     def clear(self) -> None:
         """Clear all cached prompts."""
         with self._lock:

@@ -578,19 +578,17 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         """Convert to dictionary representation."""
         result = super().to_dict()
 
-        result.update(
-            {
-                "dataset_id": self.dataset_id,
-                "tags": self.tags,
-                "schema": self.schema,
-                "profile": self.profile,
-                "created_time": self.created_time,
-                "last_update_time": self.last_update_time,
-                "created_by": self.created_by,
-                "last_updated_by": self.last_updated_by,
-                "experiment_ids": self.experiment_ids,
-            }
-        )
+        result.update({
+            "dataset_id": self.dataset_id,
+            "tags": self.tags,
+            "schema": self.schema,
+            "profile": self.profile,
+            "created_time": self.created_time,
+            "last_update_time": self.last_update_time,
+            "created_by": self.created_by,
+            "last_updated_by": self.last_updated_by,
+            "experiment_ids": self.experiment_ids,
+        })
 
         result["records"] = [record.to_dict() for record in self.records]
 

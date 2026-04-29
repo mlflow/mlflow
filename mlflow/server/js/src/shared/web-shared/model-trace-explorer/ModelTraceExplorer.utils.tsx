@@ -39,6 +39,7 @@ import type {
   RetrieverDocument,
   ModelTraceEvent,
   ModelTraceLocation,
+  ModelTraceInputAudio,
 } from './ModelTrace.types';
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
@@ -76,6 +77,7 @@ import {
   COST_METADATA_KEY,
   MLFLOW_SPAN_OUTPUT_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
+  SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
@@ -392,9 +394,27 @@ const getChatMessagesFromSpan = (
     }
   }
 
-  // when either input or output is not chat messages, we do not set the chat message fiels.
+  // When the output is a plain string and inputs parsed as chat messages,
+  // wrap the output as an assistant message so the chat UI can render.
+  if (messagesFromInputs.length > 0 && messagesFromOutputs.length === 0 && typeof outputs === 'string') {
+    return messagesFromInputs.concat([{ role: 'assistant', content: outputs }]);
+  }
+
+  // when either input or output is not chat messages, we do not set the chat message field.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
     return undefined;
+  }
+
+  // LangGraph (and similar frameworks) accumulate all messages in the output state,
+  // so outputs already contain the input messages as a prefix. Detect this overlap
+  // and use only the output messages to avoid duplication.
+  if (
+    messagesFromOutputs.length >= messagesFromInputs.length &&
+    messagesFromInputs.every(
+      (msg, i) => msg.role === messagesFromOutputs[i].role && msg.content === messagesFromOutputs[i].content,
+    )
+  ) {
+    return messagesFromOutputs;
   }
 
   return messagesFromInputs.concat(messagesFromOutputs);
@@ -461,10 +481,13 @@ export const normalizeNewSpanData = (
     inputs,
   );
 
-  // Extract model name and cost info
+  // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
   const cost = getCostFromSpan(
     tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
+  );
+  const linkedGatewayTraceId = tryDeserializeAttribute(
+    getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
   );
 
   // remove other private mlflow attributes
@@ -502,6 +525,7 @@ export const normalizeNewSpanData = (
     traceId,
     modelName,
     cost,
+    linkedGatewayTraceId,
   };
 };
 
@@ -802,6 +826,25 @@ export const createListFromObject = (
   });
 };
 
+/**
+ * Builds a single JSON string from a key-value list
+ * Used for aggregated table view. Duplicate keys overwrite; parse errors fall back to raw string.
+ */
+export const buildAggregatedJsonFromKeyValueList = (list: { key: string; value: string }[]): string => {
+  if (!Array.isArray(list)) {
+    return '{}';
+  }
+  const obj: Record<string, unknown> = {};
+  for (const { key, value } of list) {
+    try {
+      obj[key] = JSON.parse(value);
+    } catch {
+      obj[key] = value;
+    }
+  }
+  return JSON.stringify(obj, null, 2);
+};
+
 export const getHighlightedSpanComponents = ({
   searchFilter,
   data,
@@ -936,6 +979,9 @@ const isContentPart = (part: any) => {
         return false;
       }
       return isString(input_audio.data) && (isNil(input_audio.format) || ['wav', 'mp3'].includes(input_audio.format));
+    case 'image':
+      // Anthropic format: {"type": "image", "source": {"type": "base64", "data": "..."}}
+      return !isNil(part.source) && isString((part as any).source.data);
     default:
       return false;
   }
@@ -1006,7 +1052,7 @@ export const isModelTraceChoices = (obj: any): obj is ModelTraceChatResponse['ch
   return (
     Array.isArray(obj) &&
     obj.length > 0 &&
-    obj.every((choice: any) => has(choice, 'message') && isModelTraceChatMessage(choice.message))
+    obj.every((choice: any) => has(choice, 'message') && isRawModelTraceChatMessage(choice.message))
   );
 };
 
@@ -1060,10 +1106,16 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
     }
 
     switch (messageFormat) {
-      case 'langchain':
-        const langchainMessages = normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
+      case 'langchain': {
+        const langchainMessages =
+          normalizeLangchainChatInput(input) ??
+          normalizeLangchainChatResult(input) ??
+          // LangChain autolog may serialize messages in OpenAI format
+          normalizeOpenAIFormats(input) ??
+          normalizeOpenAIResponsesInput(input);
         if (langchainMessages) return langchainMessages;
         break;
+      }
       case 'llamaindex':
         const llamaIndexMessages = normalizeLlamaIndexChatInput(input) ?? normalizeLlamaIndexChatResponse(input);
         if (llamaIndexMessages) return llamaIndexMessages;
@@ -1113,8 +1165,11 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
-        const chatMessages = normalizeOpenAIFormats(input);
+        const chatMessages =
+          normalizeOpenAIFormats(input) ?? normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
         if (chatMessages) return chatMessages;
+        const geminiFallbackMessages = normalizeGeminiChatInput(input) ?? normalizeGeminiChatOutput(input);
+        if (geminiFallbackMessages) return geminiFallbackMessages;
         break;
     }
 
@@ -1161,15 +1216,42 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
         case 'image_url':
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
+        case 'image': {
+          // Anthropic format: {"type": "image", "source": {"type": "base64", "media_type": "...", "data": "..."}}
+          const source = (part as any)?.source;
+          const imageData = source?.data;
+          if (!imageData) return '[image]';
+          if (isString(imageData) && imageData.startsWith('mlflow-attachment://')) {
+            return `![](${imageData})`;
+          }
+          const mediaType = source?.media_type;
+          return mediaType ? `![](data:${mediaType};base64,${imageData})` : '[image]';
+        }
         case 'input_audio':
-          // raw encoded audio content is not displayed in the UI
-          return '[audio]';
+          // Audio parts are rendered as <audio> elements by the component,
+          // so they are excluded from the markdown string
+          return undefined;
       }
     })
     .filter((part) => part !== undefined);
 
   // Join with double line breaks for better visual separation
   return contentParts.join('\n\n');
+};
+
+const extractAudioParts = (content?: ModelTraceContentType | null): ModelTraceInputAudio[] => {
+  if (isNil(content) || isString(content)) {
+    return [];
+  }
+  return content
+    .filter(
+      (part): part is { type: 'input_audio'; input_audio: ModelTraceInputAudio } =>
+        part.type === 'input_audio' &&
+        isObject((part as any).input_audio) &&
+        isString(((part as any).input_audio as any).data) &&
+        isString(((part as any).input_audio as any).format),
+    )
+    .map((part) => part.input_audio);
 };
 
 export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): ModelTraceChatMessage | null => {
@@ -1181,10 +1263,21 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
     return null;
   }
 
+  const audioParts = extractAudioParts(message.content);
+
+  // Extract audio from assistant message output (e.g., gpt-4o-audio-preview response)
+  const messageAudio = (message as any).audio;
+  if (messageAudio && isString(messageAudio.data)) {
+    const format =
+      isString(messageAudio.format) && ['wav', 'mp3'].includes(messageAudio.format) ? messageAudio.format : 'wav';
+    audioParts.push({ data: messageAudio.data, format });
+  }
+
   return {
     ...message,
     content: formatChatContent(message.content),
     tool_calls: message.tool_calls?.map(prettyPrintToolCall),
+    ...(audioParts.length > 0 ? { audioParts } : {}),
   };
 };
 
@@ -1279,13 +1372,7 @@ export const useIntermediateNodes = (rootNode: ModelTraceSpanNode | null) => {
   return intermediateNodes;
 };
 
-/**
- * Determines if a trace (by provided info object) supports being queried using V4 API.
- * For now, only UC_SCHEMA-located traces are supported.
- */
-export const doesTraceSupportV4API = (traceInfo?: ModelTrace['info'] | Partial<ModelTraceInfoV3>) => {
-  return Boolean(traceInfo && isV3ModelTraceInfo(traceInfo) && traceInfo.trace_location?.type === 'UC_SCHEMA');
-};
+export { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 
 export const createTraceV4SerializedLocation = (location: ModelTraceLocation) => {
   if (location.type === 'MLFLOW_EXPERIMENT') {
@@ -1297,13 +1384,22 @@ export const createTraceV4SerializedLocation = (location: ModelTraceLocation) =>
   if (location.type === 'UC_SCHEMA') {
     return `${location.uc_schema?.catalog_name}.${location.uc_schema?.schema_name}`;
   }
+  if (location.type === 'UC_TABLE_PREFIX') {
+    return `${location.uc_table_prefix?.catalog_name}.${location.uc_table_prefix?.schema_name}.${location.uc_table_prefix?.table_prefix}`;
+  }
   return undefined;
 };
 
 export const parseTraceV4SerializedLocation = (locationString: string): ModelTraceLocation => {
-  const [catalog_name, schema_name] = locationString.split('.');
-  if (catalog_name && schema_name) {
-    return { type: 'UC_SCHEMA', uc_schema: { catalog_name, schema_name } };
+  const parts = locationString.split('.');
+  if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
+    return {
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: { catalog_name: parts[0], schema_name: parts[1], table_prefix: parts[2] },
+    };
+  }
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return { type: 'UC_SCHEMA', uc_schema: { catalog_name: parts[0], schema_name: parts[1] } };
   }
   return { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: locationString } };
 };
@@ -1391,10 +1487,10 @@ export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
 
 /**
  * Filters the provided assessments to only include those that are at the trace level
- * (i.e., not associated with a specific session).
+ * (i.e., not associated with a specific session) or are IssueReferenceAssessment types.
  */
 export const getTraceLevelAssessments = (assessments?: Assessment[]) =>
-  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment) || 'issue' in assessment) ?? [];
 
 export const isValidException = (
   event: ModelTraceEvent,

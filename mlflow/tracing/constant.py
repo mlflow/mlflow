@@ -11,6 +11,12 @@ class TraceMetadataKey:
     SIZE_STATS = "mlflow.trace.sizeStats"
     # Aggregated token usage information in a single trace, stored as a dumped JSON string.
     TOKEN_USAGE = "mlflow.trace.tokenUsage"
+    # Set by start_trace() when it writes the authoritative (DFS-dedup) TOKEN_USAGE / COST
+    # so that concurrent log_spans() calls do not accumulate on top of them.
+    # Set by start_trace() after writing authoritative trace-level values (TOKEN_USAGE,
+    # COST, session ID, request_time, execution_duration) so that concurrent log_spans()
+    # calls do not overwrite them.
+    TRACE_INFO_FINALIZED = "mlflow.trace.infoFinalized"
     # Aggregated cost information in a single trace, stored as a dumped JSON string (USD).
     COST = "mlflow.trace.cost"
     # Store the user ID/name of the application request. Do not confuse this with mlflow.user
@@ -25,6 +31,7 @@ class TraceMetadataKey:
     # Gateway-specific metadata keys
     GATEWAY_ENDPOINT_ID = "mlflow.gateway.endpointId"
     GATEWAY_REQUEST_TYPE = "mlflow.gateway.requestType"
+    GATEWAY_CALLER = "mlflow.gateway.caller"
     # Store the user ID/name from authentication
     AUTH_USER_ID = "mlflow.auth.userId"
     AUTH_USERNAME = "mlflow.auth.username"
@@ -208,10 +215,18 @@ class TraceMetricKey:
     INPUT_TOKENS = "input_tokens"
     OUTPUT_TOKENS = "output_tokens"
     TOTAL_TOKENS = "total_tokens"
+    CACHE_READ_INPUT_TOKENS = "cache_read_input_tokens"
+    CACHE_CREATION_INPUT_TOKENS = "cache_creation_input_tokens"
 
     @classmethod
     def token_usage_keys(cls) -> list[str]:
-        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
+        return [
+            cls.INPUT_TOKENS,
+            cls.OUTPUT_TOKENS,
+            cls.TOTAL_TOKENS,
+            cls.CACHE_READ_INPUT_TOKENS,
+            cls.CACHE_CREATION_INPUT_TOKENS,
+        ]
 
 
 class TraceMetricDimensionKey:
@@ -341,3 +356,26 @@ class AssessmentMetricSearchKey:
             cls.NAME: False,
             cls.TYPE: False,
         }
+
+
+# OpenTelemetry GenAI Semantic Convention attribute keys.
+# https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+class GenAiSemconvKey:
+    OPERATION_NAME = "gen_ai.operation.name"
+    REQUEST_MODEL = "gen_ai.request.model"
+    RESPONSE_MODEL = "gen_ai.response.model"
+    RESPONSE_ID = "gen_ai.response.id"
+    PROVIDER_NAME = "gen_ai.provider.name"
+    USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
+    USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
+    INPUT_MESSAGES = "gen_ai.input.messages"
+    OUTPUT_MESSAGES = "gen_ai.output.messages"
+    SYSTEM_INSTRUCTIONS = "gen_ai.system_instructions"
+    REQUEST_TEMPERATURE = "gen_ai.request.temperature"
+    REQUEST_MAX_TOKENS = "gen_ai.request.max_tokens"
+    REQUEST_TOP_P = "gen_ai.request.top_p"
+    REQUEST_STOP_SEQUENCES = "gen_ai.request.stop_sequences"
+    RESPONSE_FINISH_REASONS = "gen_ai.response.finish_reasons"
+    TOOL_DEFINITIONS = "gen_ai.tool.definitions"
+    TOOL_CALL_ARGUMENTS = "gen_ai.tool.call.arguments"
+    TOOL_CALL_RESULT = "gen_ai.tool.call.result"

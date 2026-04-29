@@ -406,6 +406,30 @@ describe('normalizeConversation', () => {
     ]);
   });
 
+  it('handles an OpenAI-compatible chat output with array content (e.g. non-OpenAI model via gateway)', () => {
+    const outputWithArrayContent = {
+      id: 'chatcmpl-abc123',
+      choices: [
+        {
+          finish_reason: 'stop',
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Hello from Anthropic model!' }],
+          },
+        },
+      ],
+      model: 'anthropic-claude-sonnet-4',
+      object: 'chat.completion',
+    };
+    expect(normalizeConversation(outputWithArrayContent, 'openai')).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Hello from Anthropic model!',
+      }),
+    ]);
+  });
+
   it('handles an OpenAI responses formats', () => {
     expect(normalizeConversation(MOCK_OPENAI_RESPONSES_INPUT, 'openai')).toEqual([
       expect.objectContaining({
@@ -459,6 +483,69 @@ describe('normalizeConversation', () => {
         tool_call_id: 'call_SfBoaQhlkGzpziAczZG8SmgT',
       }),
     ]);
+  });
+
+  it('combines multi-part Responses API input into a single message', () => {
+    const input = {
+      input: [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'Describe this image.' },
+            { type: 'input_image', image_url: 'data:image/jpeg;base64,abc123' },
+          ],
+        },
+      ],
+    };
+    const result = normalizeConversation(input, 'openai');
+    // Should produce a single user message, not two separate ones
+    expect(result).toHaveLength(1);
+    expect(result?.[0]).toMatchObject({ role: 'user' });
+    expect(result?.[0]?.content).toContain('Describe this image.');
+    expect(result?.[0]?.content).toContain('data:image/jpeg;base64,abc123');
+  });
+
+  it('handles input_file content in Responses API input', () => {
+    const input = {
+      input: [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'What is in this file?' },
+            {
+              type: 'input_file',
+              filename: 'test.pdf',
+              file_data: 'mlflow-attachment://pdf-123?content_type=application%2Fpdf&trace_id=tr-456',
+            },
+          ],
+        },
+      ],
+    };
+    const result = normalizeConversation(input, 'openai');
+    expect(result).toHaveLength(1);
+    expect(result?.[0]).toMatchObject({ role: 'user' });
+    expect(result?.[0]?.content).toContain('What is in this file?');
+    // The attachment URI should be passed through as an image_url for rendering
+    expect(result?.[0]?.content).toContain('mlflow-attachment://pdf-123');
+  });
+
+  it('handles input_file with non-attachment data as filename text', () => {
+    const input = {
+      input: [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'Summarize this.' },
+            { type: 'input_file', filename: 'report.pdf', file_data: 'data:application/pdf;base64,abc' },
+          ],
+        },
+      ],
+    };
+    const result = normalizeConversation(input, 'openai');
+    expect(result).toHaveLength(1);
+    expect(result?.[0]?.content).toContain('Summarize this.');
+    // Non-attachment file_data falls back to filename text
+    expect(result?.[0]?.content).toContain('[File: report.pdf]');
   });
 
   describe('OpenAI reasoning support', () => {

@@ -238,9 +238,9 @@ class ModelVersion(_ModelRegistryEntity):
             model_version.status = ModelVersionStatus.from_string(self.status)
         if self.status_message:
             model_version.status_message = self.status_message
-        model_version.tags.extend(
-            [ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()]
-        )
+        model_version.tags.extend([
+            ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()
+        ])
         model_version.aliases.extend(self.aliases)
         if self.deployment_job_state is not None:
             ModelVersionDeploymentJobState.to_proto(self.deployment_job_state)

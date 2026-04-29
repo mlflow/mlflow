@@ -11,7 +11,10 @@ import yaml
 from pydantic import ConfigDict, ValidationError, field_validator, model_validator
 from pydantic.json import pydantic_encoder
 
-from mlflow.environment_variables import MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE
+from mlflow.environment_variables import (
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
 from mlflow.gateway.constants import (
@@ -55,6 +58,13 @@ class Provider(str, Enum):
     TOGETHERAI = "togetherai"
     LITELLM = "litellm"
     AZURE = "azure"
+    GROQ = "groq"
+    DEEPSEEK = "deepseek"
+    XAI = "xai"
+    OPENROUTER = "openrouter"
+    OLLAMA = "ollama"
+    VERTEX_AI = "vertex_ai"
+    PORTKEY = "portkey"
 
     @classmethod
     def values(cls):
@@ -234,9 +244,13 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: str | None = None
 
 
+class AWSBearerToken(AWSBaseConfig):
+    aws_bearer_token: str
+
+
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
-    aws_config: AWSRole | AWSIdAndKey | AWSBaseConfig
+    aws_config: AWSBearerToken | AWSRole | AWSIdAndKey | AWSBaseConfig
 
 
 class MistralConfig(ConfigModel):
@@ -253,6 +267,29 @@ class _AuthConfigKey:
     AUTH_MODE = "auth_mode"
     API_KEY = "api_key"
     API_BASE = "api_base"
+
+
+class _OpenAICompatibleConfig(ConfigModel):
+    """Config for providers that use the OpenAI-compatible API format.
+
+    Args:
+        api_key: API key for authentication (resolved via ``_resolve_api_key_from_input``).
+        api_base: Optional base URL override. When ``None``, the provider's
+            ``DEFAULT_API_BASE`` class attribute is used instead.
+    """
+
+    api_key: str
+    api_base: str | None = None
+
+    @field_validator("api_key", mode="before")
+    def validate_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class VertexAIConfig(ConfigModel):
+    vertex_project: str
+    vertex_location: str | None = None
+    vertex_credentials: str | None = None
 
 
 class LiteLLMConfig(ConfigModel):
@@ -301,6 +338,7 @@ def _resolve_api_key_from_input(api_key_input):
     Input formats accepted:
 
     - environment variable name that stores the api key (prefixed with ``$``)
+      (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV`` is ``true``)
     - Path to a file as a string which will have the key loaded from it
       (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``)
     - the api key itself
@@ -311,8 +349,8 @@ def _resolve_api_key_from_input(api_key_input):
             "variable key, a path to a file containing the api key, or the api key itself"
         )
 
-    # try reading as an environment variable
-    if api_key_input.startswith("$"):
+    # try reading as an environment variable (only for legacy YAML-config gateway)
+    if api_key_input.startswith("$") and MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV.get():
         env_var_name = api_key_input[1:]
         if env_var := os.environ.get(env_var_name):
             return env_var

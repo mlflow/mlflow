@@ -59,6 +59,7 @@ describe('ShowArtifactHtmlView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render html content in IFrame', (done: any) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('my text');

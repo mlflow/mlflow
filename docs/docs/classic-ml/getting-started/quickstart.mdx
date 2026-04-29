@@ -31,6 +31,10 @@ MLflow is available on PyPI. If you don't already have it installed on your syst
 pip install mlflow
 ```
 
+:::info
+See [Secure Installs](/self-hosting/security/secure-installs) to learn how to pin dependencies to known good versions using hash checking and upload-time filtering.
+:::
+
 Then, follow the instructions in the [Set Up MLflow](/ml/getting-started/running-notebooks) guide to set up MLflow.
 
 If you just want to start super quick, run the following code in a notebook cell:
@@ -56,9 +60,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 X, y = datasets.load_iris(return_X_y=True)
 
 # Split the data into training and test sets
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # Define the model hyperparameters
 params = {

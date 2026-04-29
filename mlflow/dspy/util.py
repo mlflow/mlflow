@@ -45,9 +45,9 @@ def log_dspy_module_params(program):
         flat_state_dict = _flatten_dspy_module_state(
             states, exclude_keys=("metadata", "lm", "traces", "train")
         )
-        mlflow.log_params(
-            {f"{program.__class__.__name__}.{k}": v for k, v in flat_state_dict.items()}
-        )
+        mlflow.log_params({
+            f"{program.__class__.__name__}.{k}": v for k, v in flat_state_dict.items()
+        })
     except Exception as e:
         _logger.warning(f"Failed to log dspy module params: {e}")
 

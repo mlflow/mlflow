@@ -8,12 +8,14 @@ import tailwindPlugin from './src/plugins/tailwind-config.cjs';
 const baseUrl = (process.env.DOCS_BASE_URL ?? '/docs/latest/').replace(/\/?$/, '/');
 
 const config: Config = {
-  title: 'MLflow',
+  title: 'MLflow AI Platform',
   tagline: 'MLflow Documentation',
   favicon: 'images/favicon.ico',
 
   // Docusaurus sets the canonical URL to the preferred one, so the pages are consolidated and double search results are prevented.
   trailingSlash: true,
+  // Versioned builds (e.g. /docs/2.x.x/) are noindexed so only /docs/latest/ appears in search results.
+  noIndex: process.env.DOCS_NO_INDEX === 'true',
 
   // Set the production url of your site here
   url: 'https://mlflow.org',
@@ -31,13 +33,12 @@ const config: Config = {
 
   // change to throw when migration is done
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'throw',
   onBrokenAnchors: 'throw',
   onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
 
   future: {
     v4: true, // opt-in for Docusaurus v4 planned changes
-    experimental_faster: true, // turns Docusaurus Faster on globally
+    faster: true, // turns Docusaurus Faster on globally
   },
 
   // Even if you don't use internationalization, you can use this field to set
@@ -62,6 +63,9 @@ const config: Config = {
   themes: ['@docusaurus/theme-mermaid', '@signalwire/docusaurus-theme-llms-txt'],
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'throw',
+    },
   },
 
   presets: [
@@ -84,6 +88,71 @@ const config: Config = {
   ],
 
   clientModules: [require.resolve('./src/docusaurus.theme.js')],
+
+  headTags: [
+    // Open Graph
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:type', content: 'website' },
+    },
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:site_name', content: 'MLflow' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    // Twitter Card
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:card', content: 'summary_large_image' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:site', content: '@mlflow' },
+    },
+  ],
 
   themeConfig: {
     docs: {
@@ -109,21 +178,21 @@ const config: Config = {
           type: 'custom-docsDropdown',
           label: 'Documentation',
           items: [
-            // Classic ML docs
-            {
-              type: 'docSidebar',
-              sidebarId: 'classicMLSidebar',
-              label: 'ML Docs',
-              docsPluginId: 'classic-ml',
-              className: 'ml-docs-link',
-            },
             // GenAI docs
             {
               type: 'docSidebar',
               sidebarId: 'genAISidebar',
-              label: 'GenAI Docs',
+              label: 'LLMs & Agents',
               docsPluginId: 'genai',
               className: 'genai-docs-link',
+            },
+            // Classic ML docs
+            {
+              type: 'docSidebar',
+              sidebarId: 'classicMLSidebar',
+              label: 'Machine Learning',
+              docsPluginId: 'classic-ml',
+              className: 'ml-docs-link',
             },
           ],
         },
@@ -298,6 +367,11 @@ const config: Config = {
             to: '/',
             from: ['/new-features'],
           },
+          // Redirect webhooks from classic-ml to self-hosting
+          {
+            to: '/self-hosting/webhooks',
+            from: ['/ml/webhooks'],
+          },
           // Redirect to the new self-hosting guide
           {
             to: '/self-hosting/architecture/tracking-server',
@@ -338,6 +412,10 @@ const config: Config = {
               '/getting-started/community-edition',
               '/ml/getting-started/databricks-trial',
             ],
+          },
+          {
+            to: '/genai/tracing/quickstart',
+            from: ['/genai/getting-started'],
           },
           // Redirect deleted data-model pages to GenAI main page
           {
@@ -745,7 +823,7 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/governance/ai-gateway/legacy/setup',
+            to: '/genai/governance/ai-gateway',
             from: [
               '/llms/deployments/guides/step1-create-deployments',
               '/llms/gateway/guides/step1-create-gateway',
@@ -757,12 +835,22 @@ const config: Config = {
             from: ['/genai/governance/ai-gateway/setup'],
           },
           {
-            to: '/genai/governance/ai-gateway/legacy/usage',
+            to: '/genai/governance/ai-gateway',
             from: [
               '/llms/deployments/guides/step2-query-deployments',
               '/llms/gateway/guides/step2-query-gateway',
               '/genai/governance/ai-gateway/guides/step2-query-deployments',
               '/genai/governance/ai-gateway/usage',
+            ],
+          },
+          {
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/genai/governance/ai-gateway/legacy',
+              '/genai/governance/ai-gateway/legacy/index',
+              '/genai/governance/ai-gateway/legacy/setup',
+              '/genai/governance/ai-gateway/legacy/configuration',
+              '/genai/governance/ai-gateway/legacy/usage',
             ],
           },
           {

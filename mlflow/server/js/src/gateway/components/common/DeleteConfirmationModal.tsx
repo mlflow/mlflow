@@ -9,7 +9,7 @@ export interface DeleteConfirmationModalProps {
   title: string;
   itemName: string;
   itemType: string;
-  componentIdPrefix: string;
+  componentId: string;
   warningMessage?: React.ReactNode;
   additionalContent?: React.ReactNode;
   requireConfirmation?: boolean;
@@ -22,7 +22,7 @@ export const DeleteConfirmationModal = ({
   title,
   itemName,
   itemType,
-  componentIdPrefix,
+  componentId,
   warningMessage,
   additionalContent,
   requireConfirmation = false,
@@ -74,21 +74,17 @@ export const DeleteConfirmationModal = ({
 
   return (
     <Modal
-      componentId="codegen_mlflow_app_src_oss_gateway_components_common_DeleteConfirmationModal.tsx_77"
+      componentId={`${componentId}.modal`}
       title={title}
       visible={open}
       onCancel={handleClose}
       footer={
         <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
-          <Button
-            componentId="codegen_mlflow_app_src_oss_gateway_components_common_DeleteConfirmationModal.tsx_83"
-            onClick={handleClose}
-            disabled={isDeleting}
-          >
+          <Button componentId={`${componentId}.cancel`} onClick={handleClose} disabled={isDeleting}>
             <FormattedMessage defaultMessage="Cancel" description="Cancel button text" />
           </Button>
           <Button
-            componentId="codegen_mlflow_app_src_oss_gateway_components_common_DeleteConfirmationModal.tsx_87"
+            componentId={`${componentId}.delete`}
             type="primary"
             danger
             onClick={handleDelete}
@@ -102,14 +98,7 @@ export const DeleteConfirmationModal = ({
       size="normal"
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-        {error && (
-          <Alert
-            componentId="codegen_mlflow_app_src_oss_gateway_components_common_DeleteConfirmationModal.tsx_101"
-            type="error"
-            message={error}
-            closable={false}
-          />
-        )}
+        {error && <Alert componentId={`${componentId}.error`} type="error" message={error} closable={false} />}
 
         <Typography.Text>
           <FormattedMessage
@@ -123,12 +112,7 @@ export const DeleteConfirmationModal = ({
         </Typography.Text>
 
         {warningMessage && (
-          <Alert
-            componentId="codegen_mlflow_app_src_oss_gateway_components_common_DeleteConfirmationModal.tsx_116"
-            type="warning"
-            message={warningMessage}
-            closable={false}
-          />
+          <Alert componentId={`${componentId}.warning`} type="warning" message={warningMessage} closable={false} />
         )}
 
         {additionalContent}
@@ -143,7 +127,7 @@ export const DeleteConfirmationModal = ({
               />
             </Typography.Text>
             <Input
-              componentId="codegen_mlflow_app_src_oss_gateway_components_common_DeleteConfirmationModal.tsx_135"
+              componentId={`${componentId}.confirmation-input`}
               value={confirmationText}
               onChange={(e) => setConfirmationText(e.target.value)}
               placeholder={itemName}

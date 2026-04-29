@@ -390,6 +390,11 @@ const sidebarsClassicML: SidebarsConfig = {
               id: 'community-model-flavors/index',
               label: 'Community-Managed Model Integrations',
             },
+            {
+              type: 'doc',
+              id: 'tracking/pickle-free-models/index',
+              label: 'Pickle-Free Model format',
+            },
           ],
         },
         {
@@ -468,11 +473,6 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
     },
     {
-      type: 'doc',
-      id: 'webhooks/index',
-      label: 'Webhooks',
-    },
-    {
       type: 'category',
       label: 'Team Collaboration',
       className: 'sidebar-top-level-category',
@@ -485,7 +485,7 @@ const sidebarsClassicML: SidebarsConfig = {
         },
         {
           type: 'link',
-          href: '/ml/#running-mlflow-anywhere',
+          href: '/ml/#running-mlflow-for-ml-models-anywhere',
           label: 'Managed Services',
         },
         {

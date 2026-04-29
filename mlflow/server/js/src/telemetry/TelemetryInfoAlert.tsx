@@ -1,5 +1,5 @@
 import { TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_KEY, TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_VERSION } from './utils';
-import { useLocalStorage } from '../shared/web-shared/hooks';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { Link } from '../common/utils/RoutingUtils';
@@ -32,6 +32,7 @@ export const TelemetryInfoAlert = () => {
               values={{
                 documentation: (chunks: any) => (
                   <Link
+                    componentId="mlflow.telemetry.info_alert.documentation_link"
                     to="https://mlflow.org/docs/latest/community/usage-tracking.html"
                     target="_blank"
                     rel="noopener noreferrer"

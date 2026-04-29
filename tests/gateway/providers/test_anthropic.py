@@ -12,8 +12,13 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.anthropic import AnthropicAdapter, AnthropicProvider
-from mlflow.gateway.providers.base import PassthroughAction
+from mlflow.gateway.providers.anthropic import (
+    AnthropicAdapter,
+    AnthropicProvider,
+    _enforce_strict_schema,
+    _UnsupportedSchemaError,
+)
+from mlflow.gateway.providers.base import PassthroughAction, _client_provides_auth
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
@@ -63,6 +68,53 @@ def parsed_completions_response():
         ],
         "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # Known CLI tools with auth header → True
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)", "x-api-key": "key"}, True),
+        ({"user-agent": "Codex-Desktop/26.422.2437.0", "authorization": "Bearer key"}, True),
+        (
+            {
+                "user-agent": "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+                "x-goog-api-key": "key",
+            },
+            True,
+        ),
+        # Known CLI tool but no auth header → False
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)"}, False),
+        # Unknown user-agent with auth header → False
+        ({"user-agent": "python-httpx/0.27.0", "authorization": "Bearer key"}, False),
+        # Empty / missing headers → False
+        ({}, False),
+        (None, False),
+    ],
+)
+def test_client_provides_auth(headers, expected):
+    assert _client_provides_auth(headers) == expected
+
+
+def test_get_headers_uses_server_key_by_default():
+    provider = AnthropicProvider(EndpointConfig(**completions_config()))
+    merged = provider._get_headers(headers={"x-api-key": "client-key", "X-Custom": "value"})
+    assert merged["x-api-key"] == "key"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = AnthropicProvider(EndpointConfig(**completions_config()))
+    merged = provider._get_headers(headers={"x-api-key": "client-key", "user-agent": user_agent})
+    assert merged["x-api-key"] == "client-key"
 
 
 @pytest.mark.asyncio
@@ -266,6 +318,7 @@ async def test_chat():
             "object": "chat.completion",
             "created": 1677858242,
             "model": "claude-2.1",
+            "provider": "anthropic",
             "choices": [
                 {
                     "message": {
@@ -386,6 +439,7 @@ async def test_chat_function_calling():
             "object": "chat.completion",
             "created": 1677858242,
             "model": "claude-2.1",
+            "provider": "anthropic",
             "choices": [
                 {
                     "index": 0,
@@ -546,6 +600,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -564,6 +619,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -582,6 +638,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -600,6 +657,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -690,6 +748,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -715,6 +774,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -740,6 +800,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -765,6 +826,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -1053,14 +1115,151 @@ async def test_chat_with_structured_output():
         assert response.choices[0].finish_reason == "stop"
 
         call_kwargs = mock_session_client.post.call_args[1]
-        assert call_kwargs["json"]["output_format"] == {
-            "type": "json_schema",
-            "schema": json_schema,
+        assert call_kwargs["json"]["output_config"] == {
+            "format": {
+                "type": "json_schema",
+                "schema": json_schema["schema"],
+            }
         }
 
         assert captured_session_headers["x-api-key"] == "key"
         assert captured_session_headers["anthropic-version"] == "2023-06-01"
-        assert captured_session_headers["anthropic-beta"] == "structured-outputs-2025-11-13"
+        assert "anthropic-beta" not in captured_session_headers
+
+
+@pytest.mark.asyncio
+async def test_chat_with_structured_output_sanitizes_schema():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "anthropic",
+            "name": "claude-sonnet-4-5",
+            "config": {
+                "anthropic_api_key": "key",
+            },
+        },
+    }
+
+    # Schema with dict-like additionalProperties (as Pydantic generates for dict[str, str])
+    json_schema = {
+        "name": "result",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                }
+            },
+            "required": ["metadata"],
+            "additionalProperties": {"type": "string"},
+        },
+    }
+
+    resp = {
+        "id": "msg_test",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": '{"metadata": {}}'}],
+        "model": "claude-sonnet-4-5",
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session_client):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Extract metadata"}],
+            "response_format": {"type": "json_schema", "json_schema": json_schema},
+        }
+        await provider.chat(chat.RequestPayload(**payload))
+
+        # Schema contains a free-form dict (metadata without properties),
+        # so output_config should NOT be set (falls back to plain text)
+        call_kwargs = mock_session_client.post.call_args[1]
+        assert "output_config" not in call_kwargs["json"]
+
+
+def test_enforce_strict_schema_sets_additional_properties_false():
+    schema = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "nested": {
+                "type": "object",
+                "properties": {"key": {"type": "string"}},
+            },
+        },
+    }
+    _enforce_strict_schema(schema)
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["nested"]["additionalProperties"] is False
+
+
+def test_enforce_strict_schema_raises_on_free_form_dict():
+    # Object with properties containing a free-form dict (no properties defined)
+    schema = {
+        "type": "object",
+        "properties": {
+            "tags": {
+                "type": "object",
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    with pytest.raises(_UnsupportedSchemaError, match="free-form dict"):
+        _enforce_strict_schema(schema)
+
+
+def test_enforce_strict_schema_raises_on_top_level_free_form_dict():
+    schema = {
+        "type": "object",
+        "additionalProperties": {"type": "string"},
+    }
+    with pytest.raises(_UnsupportedSchemaError, match="free-form dict"):
+        _enforce_strict_schema(schema)
+
+
+def test_enforce_strict_schema_handles_arrays_with_object_items():
+    schema = {
+        "type": "object",
+        "properties": {
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"id": {"type": "integer"}},
+                },
+            }
+        },
+    }
+    _enforce_strict_schema(schema)
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["items"]["items"]["additionalProperties"] is False
+
+
+def test_enforce_strict_schema_handles_anyof():
+    schema = {
+        "type": "object",
+        "properties": {
+            "value": {
+                "anyOf": [
+                    {"type": "string"},
+                    {
+                        "type": "object",
+                        "properties": {"x": {"type": "number"}},
+                    },
+                ]
+            }
+        },
+    }
+    _enforce_strict_schema(schema)
+    assert schema["additionalProperties"] is False
+    # The object inside anyOf should also get sanitized
+    assert schema["properties"]["value"]["anyOf"][1]["additionalProperties"] is False
 
 
 def test_anthropic_extract_passthrough_token_usage():
@@ -1201,10 +1400,12 @@ def test_anthropic_extract_passthrough_token_usage_with_cached_tokens():
     token_usage = provider._extract_passthrough_token_usage(
         PassthroughAction.ANTHROPIC_MESSAGES, result
     )
+    # Anthropic's input_tokens (100) excludes cache tokens, so after normalization
+    # input_tokens = 100 + 25 + 15 = 140
     assert token_usage == {
-        "input_tokens": 100,
+        "input_tokens": 140,
         "output_tokens": 50,
-        "total_tokens": 150,
+        "total_tokens": 190,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
@@ -1219,8 +1420,10 @@ def test_anthropic_extract_streaming_token_usage_message_start_with_cached_token
         b'"cache_creation_input_tokens":15}}}\n'
     )
     result = provider._extract_streaming_token_usage(chunk)
+    # Anthropic's input_tokens (100) excludes cache tokens, so after normalization
+    # input_tokens = 100 + 25 + 15 = 140
     assert result == {
-        "input_tokens": 100,
+        "input_tokens": 140,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
@@ -1231,13 +1434,14 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     accumulated_usage = {}
 
     # message_start with input_tokens and cached tokens
+    # Anthropic's input_tokens (100) excludes cache, normalized to 100 + 25 = 125
     chunk1 = (
         b"event: message_start\n"
         b'data: {"type":"message_start","message":{"id":"msg_123",'
         b'"usage":{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
-    assert accumulated_usage == {"input_tokens": 100, "cache_read_input_tokens": 25}
+    assert accumulated_usage == {"input_tokens": 125, "cache_read_input_tokens": 25}
 
     # message_delta with output_tokens
     chunk2 = (
@@ -1247,7 +1451,7 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
     assert accumulated_usage == {
-        "input_tokens": 100,
+        "input_tokens": 125,
         "output_tokens": 50,
         "cache_read_input_tokens": 25,
     }
@@ -1261,9 +1465,10 @@ def test_anthropic_adapter_build_chat_usage_with_cached_tokens():
         "cache_creation_input_tokens": 10,
     }
     usage = AnthropicAdapter._build_chat_usage(usage_data)
-    assert usage.prompt_tokens == 50
+    # Anthropic's input_tokens (50) excludes cache tokens, so prompt_tokens = 50 + 30 + 10 = 90
+    assert usage.prompt_tokens == 90
     assert usage.completion_tokens == 20
-    assert usage.total_tokens == 70
+    assert usage.total_tokens == 110
     assert usage.prompt_tokens_details is not None
     assert usage.prompt_tokens_details.cached_tokens == 30
     assert getattr(usage, "cache_creation_input_tokens") == 10

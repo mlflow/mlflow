@@ -76,6 +76,8 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
                 _set_inputs_outputs(mlflow_span, span)
                 if model := span.attributes.get("gen_ai.request.model"):
                     mlflow_span.set_attribute(SpanAttributeKey.MODEL, model)
+                if provider := span.attributes.get("gen_ai.system"):
+                    mlflow_span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
                 _set_token_usage(mlflow_span, span)
             tracer = _get_tracer(__name__)
             tracer.span_processor.on_end(span)
@@ -130,18 +132,32 @@ def _parse_json(value):
 
 
 def _set_inputs_outputs(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
-    inputs = []
     outputs = []
-    for event in span.events:
-        if event.name in {"gen_ai.user.message", "gen_ai.tool.message"}:
-            content = _parse_json(event.attributes.get("content"))
-            role = "user" if event.name == "gen_ai.user.message" else "tool"
-            inputs.append({"role": role, "content": content})
-        elif event.name == "gen_ai.choice":
-            message = _parse_json(event.attributes.get("message"))
-            outputs.append(message)
-    if inputs:
-        mlflow_span.set_inputs(inputs)
+    span_type = mlflow_span.get_attribute(SpanAttributeKey.SPAN_TYPE)
+
+    if span_type == SpanType.TOOL:
+        for event in span.events:
+            if event.name == "gen_ai.tool.message":
+                content = _parse_json(event.attributes.get("content"))
+                mlflow_span.set_inputs(content)
+            elif event.name == "gen_ai.choice":
+                message = _parse_json(event.attributes.get("message"))
+                outputs.append(message)
+    else:
+        # CHAT_MODEL/AGENT spans: collect into conversation list
+        inputs = []
+        for event in span.events:
+            if event.name in ("gen_ai.user.message", "gen_ai.tool.message"):
+                content = _parse_json(event.attributes.get("content"))
+                role = "user" if event.name == "gen_ai.user.message" else "tool"
+                inputs.append({"role": role, "content": content})
+            elif event.name == "gen_ai.choice":
+                message = _parse_json(event.attributes.get("message"))
+                outputs.append(message)
+
+        if inputs:
+            mlflow_span.set_inputs(inputs)
+
     if outputs:
         mlflow_span.set_outputs(outputs if len(outputs) > 1 else outputs[0])
 

@@ -168,6 +168,29 @@ def test_get_s3_client_region_name_set_correctly_with_non_throwing_response(s3_a
         )
 
 
+def test_get_region_name_client_error_without_region_header():
+    from botocore.exceptions import ClientError
+
+    from mlflow.exceptions import MlflowException
+
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        mock_get_s3_client.return_value = s3_client_mock
+        error = ClientError(
+            {
+                "Error": {"Code": "403", "Message": "Forbidden"},
+                "ResponseMetadata": {"HTTPHeaders": {}},
+            },
+            "head_bucket",
+        )
+        s3_client_mock.head_bucket.side_effect = error
+
+        with pytest.raises(MlflowException, match="AWS_DEFAULT_REGION"):
+            OptimizedS3ArtifactRepository("s3://mock-bucket/some/path")
+
+        s3_client_mock.head_bucket.assert_called_once()
+
+
 def test_s3_client_config_set_correctly(s3_artifact_root):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
     s3_client = repo._get_s3_client()

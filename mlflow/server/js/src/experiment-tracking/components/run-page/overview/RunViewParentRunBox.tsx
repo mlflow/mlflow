@@ -54,6 +54,11 @@ export const RunViewParentRunBox = ({ parentRunUuid }: { parentRunUuid: string }
   }
 
   return (
-    <Link to={Routes.getRunPageRoute(parentRunInfo.experimentId, parentRunInfo.runUuid)}>{parentRunInfo.runName}</Link>
+    <Link
+      componentId="mlflow.run_page.overview.parent_run_link"
+      to={Routes.getRunPageRoute(parentRunInfo.experimentId, parentRunInfo.runUuid)}
+    >
+      {parentRunInfo.runName}
+    </Link>
   );
 };

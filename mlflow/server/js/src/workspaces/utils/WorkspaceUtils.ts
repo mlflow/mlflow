@@ -23,6 +23,7 @@ export const getLastUsedWorkspace = (): string | null => {
     return null;
   }
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
   } catch {
     return null;
@@ -37,8 +38,10 @@ export const setLastUsedWorkspace = (workspace: string | null) => {
   if (typeof window !== 'undefined') {
     try {
       if (workspace) {
+        // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
         window.localStorage.setItem(WORKSPACE_STORAGE_KEY, workspace);
       } else {
+        // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
         window.localStorage.removeItem(WORKSPACE_STORAGE_KEY);
       }
     } catch {
@@ -48,7 +51,7 @@ export const setLastUsedWorkspace = (workspace: string | null) => {
 };
 
 // Workspace name validation constants (must match backend: mlflow/store/workspace/abstract_store.py)
-export const WORKSPACE_NAME_PATTERN = /^(?!.*--)[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+const WORKSPACE_NAME_PATTERN = /^(?!.*--)[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
 export const WORKSPACE_NAME_MIN_LENGTH = 2;
 export const WORKSPACE_NAME_MAX_LENGTH = 63;
 
@@ -85,7 +88,7 @@ export const extractWorkspaceFromSearchParams = (search: string | URLSearchParam
   const params = typeof search === 'string' ? new URLSearchParams(search) : search;
   const workspaceName = params.get(WORKSPACE_QUERY_PARAM);
 
-  if (!workspaceName || !WORKSPACE_NAME_PATTERN.test(workspaceName)) {
+  if (!workspaceName || !validateWorkspaceName(workspaceName).valid) {
     return null;
   }
 
@@ -170,7 +173,13 @@ export const prefixRouteWithWorkspace = (to: string): string => {
     return to;
   }
 
-  if (!getWorkspacesEnabledSync() || isAbsoluteUrl(to)) {
+  if (isAbsoluteUrl(to)) {
+    return to;
+  }
+  // Keep workspace prefixing when an active workspace is already known, even if
+  // the async server feature flags have not resolved yet. This avoids dropping
+  // workspace context during early navigation on initial load.
+  if (!getWorkspacesEnabledSync() && !getActiveWorkspace()) {
     return to;
   }
 
@@ -218,7 +227,10 @@ export const appendWorkspaceSearchParams = (pathname: string | undefined): strin
   if (!pathname) {
     return pathname;
   }
-  if (!getWorkspacesEnabledSync() || isAbsoluteUrl(pathname)) {
+  if (isAbsoluteUrl(pathname)) {
+    return pathname;
+  }
+  if (!getWorkspacesEnabledSync() && !getActiveWorkspace()) {
     return pathname;
   }
 

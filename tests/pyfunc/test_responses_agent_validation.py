@@ -13,43 +13,39 @@ from mlflow.types.responses_helpers import FunctionCallOutput, Message
 
 def test_responses_request_validation():
     with pytest.raises(ValueError, match="content.0.text"):
-        ResponsesAgentRequest(
-            **{
-                "input": [
-                    {
-                        "type": "message",
-                        "id": "1",
-                        "status": "completed",
-                        "role": "assistant",
-                        "content": [
-                            {
-                                "type": "output_text",
-                            }
-                        ],
-                    }
-                ],
-            }
-        )
+        ResponsesAgentRequest(**{
+            "input": [
+                {
+                    "type": "message",
+                    "id": "1",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "output_text",
+                        }
+                    ],
+                }
+            ],
+        })
 
     with pytest.raises(ValueError, match="role"):
-        ResponsesAgentRequest(
-            **{
-                "input": [
-                    {
-                        "type": "message",
-                        "id": "1",
-                        "status": "completed",
-                        "role": "asdf",
-                        "content": [
-                            {
-                                "type": "output_text",
-                                "text": "asdf",
-                            }
-                        ],
-                    }
-                ],
-            }
-        )
+        ResponsesAgentRequest(**{
+            "input": [
+                {
+                    "type": "message",
+                    "id": "1",
+                    "status": "completed",
+                    "role": "asdf",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": "asdf",
+                        }
+                    ],
+                }
+            ],
+        })
 
 
 def test_message_content_validation():
@@ -68,60 +64,54 @@ def test_message_content_validation():
 
 def test_responses_response_validation():
     with pytest.raises(ValueError, match="output.0.content.0.text"):
-        ResponsesAgentResponse(
-            **{
-                "output": [
-                    {
-                        "type": "message",
-                        "id": "1",
-                        "status": "completed",
-                        "role": "assistant",
-                        "content": [
-                            {
-                                "type": "output_text",
-                            }
-                        ],
-                    }
-                ],
-            }
-        )
-
-
-def test_responses_stream_event_validation():
-    with pytest.raises(ValueError, match="content must not be an empty"):
-        ResponsesAgentStreamEvent(
-            **{
-                "type": "response.output_item.done",
-                "output_index": 0,
-                "item": {
+        ResponsesAgentResponse(**{
+            "output": [
+                {
                     "type": "message",
-                    "status": "in_progress",
-                    "role": "assistant",
-                    "content": [],
                     "id": "1",
-                },
-            }
-        )
-
-    with pytest.raises(ValueError, match="Invalid status"):
-        ResponsesAgentStreamEvent(
-            **{
-                "type": "response.output_item.done",
-                "output_index": 0,
-                "item": {
-                    "type": "message",
-                    "status": "asdf",
+                    "status": "completed",
                     "role": "assistant",
                     "content": [
                         {
                             "type": "output_text",
-                            "text": "asdf",
                         }
                     ],
-                    "id": "1",
-                },
-            }
-        )
+                }
+            ],
+        })
+
+
+def test_responses_stream_event_validation():
+    with pytest.raises(ValueError, match="content must not be an empty"):
+        ResponsesAgentStreamEvent(**{
+            "type": "response.output_item.done",
+            "output_index": 0,
+            "item": {
+                "type": "message",
+                "status": "in_progress",
+                "role": "assistant",
+                "content": [],
+                "id": "1",
+            },
+        })
+
+    with pytest.raises(ValueError, match="Invalid status"):
+        ResponsesAgentStreamEvent(**{
+            "type": "response.output_item.done",
+            "output_index": 0,
+            "item": {
+                "type": "message",
+                "status": "asdf",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": "asdf",
+                    }
+                ],
+                "id": "1",
+            },
+        })
 
     with pytest.raises(ValueError, match="item.content.0.annotations.0.url"):
         ResponsesAgentStreamEvent(
@@ -217,9 +207,11 @@ def test_responses_to_cc_fallback_to_str_on_non_serializable():
     class NonSerializable:
         pass
 
-    result = responses_to_cc(
-        {"type": "function_call_output", "call_id": "c", "output": [NonSerializable()]}
-    )
+    result = responses_to_cc({
+        "type": "function_call_output",
+        "call_id": "c",
+        "output": [NonSerializable()],
+    })
     assert isinstance(result[0]["content"], str)
 
 

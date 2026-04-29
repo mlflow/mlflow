@@ -90,12 +90,10 @@ def reg_model():
 
 def get_reg_model_signature():
     return ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="sepal length (cm)", type=DataType.double),
-                ColSpec(name="sepal width (cm)", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="sepal length (cm)", type=DataType.double),
+            ColSpec(name="sepal width (cm)", type=DataType.double),
+        ]),
         outputs=Schema([ColSpec(type=DataType.double)]),
     )
 
@@ -525,12 +523,10 @@ def test_model_log_with_signature_inference(cb_model):
         )
 
     loaded_model_info = Model.load(model_info.model_uri)
-    assert loaded_model_info.signature.inputs == Schema(
-        [
-            ColSpec(name="sepal length (cm)", type=DataType.double),
-            ColSpec(name="sepal width (cm)", type=DataType.double),
-        ]
-    )
+    assert loaded_model_info.signature.inputs == Schema([
+        ColSpec(name="sepal length (cm)", type=DataType.double),
+        ColSpec(name="sepal width (cm)", type=DataType.double),
+    ])
     assert loaded_model_info.signature.outputs in [
         # when the model output is a 1D numpy array, it is cast into a `ColSpec`
         Schema([ColSpec(type=DataType.double)]),

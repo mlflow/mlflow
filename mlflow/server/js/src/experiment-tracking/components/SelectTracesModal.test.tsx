@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { SelectTracesModal } from './SelectTracesModal';
-import { useGenAiTraceTableRowSelection } from '../../shared/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
-import { useActiveEvaluation } from '../../shared/web-shared/genai-traces-table/hooks/useActiveEvaluation';
+import { useGenAiTraceTableRowSelection, useActiveEvaluation } from '@databricks/web-shared/genai-traces-table';
 import { TracesV3Logs } from './experiment-page/components/traces-v3/TracesV3Logs';
 import { TestRouter, setupTestRouter, testRoute, waitForRoutesToBeRendered } from '../../common/utils/RoutingTestUtils';
+import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 
 // Mock TracesV3Logs to keep this test simple
 jest.mock('./experiment-page/components/traces-v3/TracesV3Logs', () => ({
@@ -169,8 +169,62 @@ describe('SelectTracesModal', () => {
     // Verify window.open was called with the correct URL
     expect(mockWindowOpen).toHaveBeenCalledTimes(1);
     expect(mockWindowOpen).toHaveBeenCalledWith(
-      `/#/experiments/${testExperimentId}/traces?selectedEvaluationId=trace-1&startTimeLabel=LAST_7_DAYS`,
+      `/#${createMLflowRoutePath(`/experiments/${testExperimentId}/traces`)}?selectedEvaluationId=trace-1&startTimeLabel=LAST_7_DAYS`,
       '_blank',
     );
+  });
+
+  test('should pass initialGroupBySession=true to TracesV3Logs when defaultGroupBySession is true', async () => {
+    render(
+      <IntlProvider locale="en">
+        <TestRouter
+          history={history}
+          routes={[
+            testRoute(
+              <DesignSystemProvider>
+                <SelectTracesModal defaultGroupBySession />
+              </DesignSystemProvider>,
+              '/experiments/:experimentId',
+            ),
+          ]}
+          initialEntries={[`/experiments/${testExperimentId}`]}
+        />
+      </IntlProvider>,
+    );
+    await waitForRoutesToBeRendered();
+
+    // Verify TracesV3Logs was called with initialGroupBySession=true
+    const calls = jest.mocked(TracesV3Logs).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[calls.length - 1][0]).toMatchObject({
+      initialGroupBySession: true,
+    });
+  });
+
+  test('should pass initialGroupBySession=false to TracesV3Logs when defaultGroupBySession is false', async () => {
+    render(
+      <IntlProvider locale="en">
+        <TestRouter
+          history={history}
+          routes={[
+            testRoute(
+              <DesignSystemProvider>
+                <SelectTracesModal defaultGroupBySession={false} />
+              </DesignSystemProvider>,
+              '/experiments/:experimentId',
+            ),
+          ]}
+          initialEntries={[`/experiments/${testExperimentId}`]}
+        />
+      </IntlProvider>,
+    );
+    await waitForRoutesToBeRendered();
+
+    // Verify TracesV3Logs was called with initialGroupBySession=false
+    const calls = jest.mocked(TracesV3Logs).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[calls.length - 1][0]).toMatchObject({
+      initialGroupBySession: false,
+    });
   });
 });

@@ -36,6 +36,8 @@ from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
 )
 from mlflow.store.workspace.utils import get_default_workspace_optional
+from mlflow.telemetry.events import TrackingServerStartEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracking import _get_store
 from mlflow.tracking._tracking_service.utils import (
     _get_default_tracking_uri,
@@ -327,16 +329,14 @@ def _validate_server_args(
 
     security_params_specified = False
     if ctx:
-        security_params_specified = any(
-            [
-                ctx.get_parameter_source("allowed_hosts") == ParameterSource.COMMANDLINE,
-                ctx.get_parameter_source("cors_allowed_origins") == ParameterSource.COMMANDLINE,
-                (
-                    ctx.get_parameter_source("disable_security_middleware")
-                    == ParameterSource.COMMANDLINE
-                ),
-            ]
-        )
+        security_params_specified = any([
+            ctx.get_parameter_source("allowed_hosts") == ParameterSource.COMMANDLINE,
+            ctx.get_parameter_source("cors_allowed_origins") == ParameterSource.COMMANDLINE,
+            (
+                ctx.get_parameter_source("disable_security_middleware")
+                == ParameterSource.COMMANDLINE
+            ),
+        ])
 
     if using_flask_only and security_params_specified:
         raise click.UsageError(
@@ -682,6 +682,21 @@ def server(
                 origins_list.append(f"and {len(cors_allowed_origins.split(',')) - 3} more")
             parts.append(f"CORS origins: {', '.join(origins_list)}")
         click.echo(". ".join(parts) + ".", err=True)
+
+    _record_event(
+        TrackingServerStartEvent,
+        TrackingServerStartEvent.parse({
+            "backend_store_uri": backend_store_uri,
+            "serve_artifacts": serve_artifacts,
+            "artifacts_only": artifacts_only,
+            "expose_prometheus": expose_prometheus,
+            "app_name": app_name,
+            "enable_workspaces": enable_workspaces,
+            "workers": workers,
+            "dev": dev,
+        })
+        or {},
+    )
 
     try:
         _run_server(

@@ -34,8 +34,13 @@ MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
 MLFLOW_LOGGED_IMAGES = "mlflow.loggedImages"
 MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
 
-# Indicates that an MLflow run was created by an evaluation
-MLFLOW_RUN_IS_EVALUATION = "mlflow.run.isEval"
+# Enum tag for classifying run types (e.g. "genai_evaluate", "issue_detection")
+MLFLOW_RUN_TYPE = "mlflow.runType"
+MLFLOW_RUN_TYPE_GENAI_EVALUATE = "genai_evaluate"
+MLFLOW_RUN_TYPE_ISSUE_DETECTION = "issue_detection"
+
+# The ID of the job that is running issue detection
+MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
@@ -83,6 +88,21 @@ MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
 MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = "mlflow.experiment.primaryMetric.name"
 MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
     "mlflow.experiment.primaryMetric.greaterIsBetter"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID = (
+    "mlflow.experiment.databricksTelemetryDestinationId"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH = (
+    "mlflow.experiment.databricksTraceDestinationPath"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE = (
+    "mlflow.experiment.databricksTraceSpanStorageTable"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE = (
+    "mlflow.experiment.databricksTraceLogStorageTable"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE = (
+    "mlflow.experiment.databricksTraceAnnotationsTable"
 )
 
 # For automatic model checkpointing

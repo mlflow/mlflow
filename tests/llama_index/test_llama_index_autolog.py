@@ -301,7 +301,11 @@ async def test_autolog_link_traces_to_loaded_model_workflow():
     span = traces[0].data.spans[0]
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
-    assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
+    # In llama-index >= 0.14.16, kwargs are flattened in span inputs
+    if llama_core_version >= Version("0.14.16"):
+        assert span.inputs["topic"] == f"Hello {model_id}"
+    else:
+        assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
 
 
 @skip_when_testing_trace_sdk
@@ -325,7 +329,10 @@ def test_autolog_link_traces_to_loaded_model_workflow_pyfunc():
     span = traces[0].data.spans[0]
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
-    assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
+    if llama_core_version >= Version("0.14.16"):
+        assert span.inputs["topic"] == f"Hello {model_id}"
+    else:
+        assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
 
 
 @skip_when_testing_trace_sdk
@@ -374,4 +381,7 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     span = traces[0].data.spans[0]
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
-    assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
+    if llama_core_version >= Version("0.14.16"):
+        assert span.inputs["topic"] == f"Hello {model_id}"
+    else:
+        assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"

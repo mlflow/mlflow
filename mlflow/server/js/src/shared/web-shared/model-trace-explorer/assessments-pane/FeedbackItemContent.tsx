@@ -19,7 +19,6 @@ import {
   MLFLOW_ASSESSMENT_SCORER_TRACE_ID,
 } from '../constants';
 import { getExperimentPageTracesTabRoute } from '../routes';
-import { isSessionLevelAssessment } from '../ModelTraceExplorer.utils';
 import { ModelTraceHeaderSessionIdTag } from '../ModelTraceHeaderSessionIdTag';
 import { formatCostUSD } from '../CostUtils';
 
@@ -191,7 +190,12 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
         </div>
       )}
       {judgeTraceHref && (
-        <Link to={judgeTraceHref} target="_blank" rel="noreferrer">
+        <Link
+          componentId="mlflow.model_trace_explorer.feedback_item.judge_trace_link"
+          to={judgeTraceHref}
+          target="_blank"
+          rel="noreferrer"
+        >
           <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
             <FormattedMessage
               defaultMessage="View trace"

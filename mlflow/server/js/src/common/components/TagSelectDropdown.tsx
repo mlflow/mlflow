@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { PlusIcon, LegacySelect, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import type { KeyValueEntity } from '../types';
+import { isValidTagKey } from '../utils/tagKeyValidation';
 
 /**
  * Will show an extra row at the bottom of the dropdown menu to create a new tag when
@@ -26,7 +27,7 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
     const doesTagExists = sortedIndexOf(allAvailableTags, searchValue) >= 0;
     if (doesTagExists) return menu;
 
-    const isValidTagKey = /^[^,.:/=\-\s]+$/.test(searchValue);
+    const tagKeyValid = isValidTagKey(searchValue);
 
     // Overriding the menu to add a new option at the top
     return React.cloneElement(menu, {
@@ -34,17 +35,18 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
         {
           data: {
             value: searchValue,
-            disabled: !isValidTagKey,
+            disabled: !tagKeyValid,
             style: {
-              color: isValidTagKey ? theme.colors.actionTertiaryTextDefault : theme.colors.actionDisabledText,
+              color: tagKeyValid ? theme.colors.actionTertiaryTextDefault : theme.colors.actionDisabledText,
             },
             children: (
               <Tooltip
                 content={
-                  isValidTagKey
+                  tagKeyValid
                     ? undefined
                     : intl.formatMessage({
-                        defaultMessage: ', . : / - = and blank spaces are not allowed',
+                        defaultMessage:
+                          "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
                         description:
                           'Key-value tag editor modal > Tag dropdown Manage Modal > Invalid characters error',
                       })

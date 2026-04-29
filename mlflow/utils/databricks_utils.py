@@ -134,6 +134,13 @@ def _get_dbutils():
         raise _NoDbutilsError
 
 
+def _get_runtime_integration_client():
+    from dbruntime import UserNamespaceInitializer
+
+    driver_connection = UserNamespaceInitializer.getOrCreate().get_driver_connection()
+    return driver_connection.runtime_integration_client
+
+
 class _NoDbutilsError(Exception):
     pass
 
@@ -209,7 +216,7 @@ def is_in_databricks_model_serving_environment():
     The environment variable set by Databricks when starting the serving container.
     """
     val = os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false")
-    return val.lower() == "true"
+    return val.lower() in ("true", "1")
 
 
 def is_mlflow_tracing_enabled_in_model_serving() -> bool:
@@ -501,8 +508,12 @@ def get_repl_id():
     Returns:
         The ID of the current Databricks Python REPL.
     """
-    # Attempt to fetch the REPL ID from the Python REPL's entrypoint object. This REPL ID
-    # is guaranteed to be set upon REPL startup in DBR / MLR 9.0
+    try:
+        return _get_runtime_integration_client().getReplId()
+    except Exception:
+        pass
+
+    # Fallback for runtimes without runtime_integration_client: use entry_point directly.
     try:
         dbutils = _get_dbutils()
         repl_id = dbutils.entry_point.getReplId()
@@ -774,12 +785,13 @@ def get_databricks_host_creds(server_uri=None):
         if key_prefix is not None:
             try:
                 config = TrackingURIConfigProvider(server_uri).get_config()
-                WorkspaceClient(host=config.host, token=config.token)
+                ws = WorkspaceClient(host=config.host, token=config.token)
                 return MlflowHostCreds(
                     config.host,
                     token=config.token,
                     use_databricks_sdk=True,
                     use_secret_scope_token=True,
+                    workspace_id=ws.config.workspace_id,
                 )
             except Exception as e:
                 raise MlflowException(
@@ -808,23 +820,45 @@ def get_databricks_host_creds(server_uri=None):
             # to get credential values. Instead, we can use ``WorkspaceClient``
             # API to invoke databricks shard restful APIs.
             #
-            # Note: Only pass profile if explicitly set. Passing profile=None may cause the SDK
-            # to skip environment variable-based auth methods like OIDC (file-oidc auth type).
-            if profile:
-                WorkspaceClient(profile=profile)
-            else:
-                WorkspaceClient()
+            # Only pass profile if explicitly set. Passing profile=None causes the SDK to skip
+            # environment-variable-based auth methods like OIDC (file-oidc auth type).
+            ws = WorkspaceClient(profile=profile) if profile else WorkspaceClient()
             use_databricks_sdk = True
             databricks_auth_profile = profile
+            workspace_id = ws.config.workspace_id
         except Exception as e:
             _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
             use_databricks_sdk = False
             databricks_auth_profile = None
+            # Config resolves workspace_id from env vars, .databrickscfg, or host
+            # discovery without requiring valid credentials, so try reading it even
+            # when WorkspaceClient auth fails (needed for SPOG header propagation).
+            try:
+                from databricks.sdk.config import Config as DatabricksConfig
+
+                workspace_id = DatabricksConfig(profile=profile).workspace_id
+            except Exception:
+                workspace_id = None
     else:
         use_databricks_sdk = False
         databricks_auth_profile = None
+        workspace_id = None
 
-    config = _get_databricks_creds_config(server_uri)
+    try:
+        config = _get_databricks_creds_config(server_uri)
+    except MlflowException:
+        # Legacy credential providers require a token or password and fail for SDK-only
+        # auth flows like OIDC, Azure CLI, or Azure Managed Identity. When the SDK
+        # already authenticated, fall back to the SDK's resolved host and skip MLflow's
+        # legacy credential fields (the SDK handles auth internally on each request).
+        if use_databricks_sdk:
+            return MlflowHostCreds(
+                ws.config.host,
+                use_databricks_sdk=True,
+                databricks_auth_profile=databricks_auth_profile,
+                workspace_id=workspace_id,
+            )
+        raise
 
     return MlflowHostCreds(
         config.host,
@@ -836,6 +870,7 @@ def get_databricks_host_creds(server_uri=None):
         client_secret=config.client_secret,
         use_databricks_sdk=use_databricks_sdk,
         databricks_auth_profile=databricks_auth_profile,
+        workspace_id=workspace_id,
     )
 
 
@@ -1412,6 +1447,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url, token=api_token, insecure=ssl_trust_all
                 )
+
     elif dbr_major_minor_version >= (10, 3):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
@@ -1442,6 +1478,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
                 )
+
     else:
 
         class DynamicConfigProvider(DatabricksConfigProvider):
@@ -1478,30 +1515,28 @@ def get_databricks_nfs_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplNFSTempDir()
-    else:
-        try:
-            # If it is not ROOT user, it means the code is running in Safe-spark.
-            # In this case, we should get temporary directory of current user.
-            # and `getReplNFSTempDir` will be deprecated for this case.
-            return entry_point.getUserNFSTempDir()
-        except Exception:
-            # fallback
-            return entry_point.getReplNFSTempDir()
+    try:
+        return _get_runtime_integration_client().getUserNFSTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserNFSTempDir()
+    except Exception:
+        return entry_point.getReplNFSTempDir()
 
 
 def get_databricks_local_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplLocalTempDir()
-    else:
-        try:
-            # If it is not ROOT user, it means the code is running in Safe-spark.
-            # In this case, we should get temporary directory of current user.
-            # and `getReplLocalTempDir` will be deprecated for this case.
-            return entry_point.getUserLocalTempDir()
-        except Exception:
-            # fallback
-            return entry_point.getReplLocalTempDir()
+    try:
+        return _get_runtime_integration_client().getUserLocalTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserLocalTempDir()
+    except Exception:
+        return entry_point.getReplLocalTempDir()
 
 
 def stage_model_for_databricks_model_serving(model_name: str, model_version: str):

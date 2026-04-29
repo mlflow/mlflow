@@ -13,7 +13,6 @@ import {
   generatePath,
   Route,
   UNSAFE_NavigationContext,
-  NavLink as NavLinkDirect,
   Outlet as OutletDirect,
   Link as LinkDirect,
   useNavigate as useNavigateDirect,
@@ -37,7 +36,12 @@ import {
  */
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
 import type { ComponentProps } from 'react';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
+} from '@databricks/design-system';
 
 import {
   prefixRouteWithWorkspace,
@@ -53,13 +57,17 @@ const useSearchParams = useSearchParamsDirect;
 
 const useParams = useParamsDirect;
 
+const useMatches = useMatchesDirect;
+
 type UseNavigateOptions = {
   bypassWorkspacePrefix?: boolean;
 };
 
 const useNavigate = (options: UseNavigateOptions = { bypassWorkspacePrefix: false }): NavigateFunction => {
   const { bypassWorkspacePrefix } = options;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const navigate = useNavigateDirect();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const wrappedNavigate = useCallback(
     (to: To | number, options?: NavigateOptions) => {
       if (typeof to === 'number') {
@@ -73,8 +81,6 @@ const useNavigate = (options: UseNavigateOptions = { bypassWorkspacePrefix: fals
 
   return wrappedNavigate as NavigateFunction;
 };
-
-const useMatches = useMatchesDirect;
 
 const Outlet = OutletDirect;
 
@@ -92,8 +98,9 @@ const prefixRouteWithWorkspaceForTo = (to: To): To => {
   if (typeof to === 'object' && to !== null) {
     const pathname = 'pathname' in to ? to.pathname : undefined;
 
-    // Skip if workspaces not enabled or pathname not provided
-    if (!getWorkspacesEnabledSync() || typeof pathname !== 'string') {
+    // Keep workspace prefixing when an active workspace is already known, even
+    // if the async server feature flags have not resolved yet.
+    if ((!getWorkspacesEnabledSync() && !getActiveWorkspace()) || typeof pathname !== 'string') {
       return to;
     }
 
@@ -134,20 +141,23 @@ const prefixRouteWithWorkspaceForTo = (to: To): To => {
 
 const Link = React.forwardRef<
   HTMLAnchorElement,
-  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean }
+  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
 >(function Link(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
+  const { to, disableWorkspacePrefix, componentId, onClick, ...rest } = props;
   const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <LinkDirect ref={ref} to={finalTo} {...rest} />;
-});
+  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId,
+    analyticsEvents: events,
+  });
 
-const NavLink = React.forwardRef<
-  HTMLAnchorElement,
-  ComponentProps<typeof NavLinkDirect> & { disableWorkspacePrefix?: boolean }
->(function NavLink(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
-  const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <NavLinkDirect ref={ref} to={finalTo} {...rest} />;
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    eventContext?.onClick(e);
+    onClick?.(e);
+  };
+
+  return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
 });
 
 export const createMLflowRoutePath = (routePath: string) => {
@@ -159,12 +169,10 @@ export {
   BrowserRouter,
   MemoryRouter,
   Link,
-  NavLink,
   useNavigate,
   useLocation,
   useParams,
   useSearchParams,
-  useMatches,
   generatePath,
   matchPath,
   Route,
@@ -182,6 +190,7 @@ export {
 export const createLazyRouteElement = (
   // Load the module's default export and turn it into React Element
   componentLoader: () => Promise<{ default: React.ComponentType<React.PropsWithChildren<any>> }>,
+  // eslint-disable-next-line @databricks/react-lazy-only-at-top-level
 ) => React.createElement(React.lazy(componentLoader));
 export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
   React.createElement(component);

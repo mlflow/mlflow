@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { OverviewChartLoadingState } from './OverviewChartComponents';
 
 const ToolLatencyChart = React.lazy(() =>
@@ -6,7 +6,7 @@ const ToolLatencyChart = React.lazy(() =>
 );
 
 export const LazyToolLatencyChart: React.FC = () => (
-  <Suspense fallback={<OverviewChartLoadingState />}>
+  <React.Suspense fallback={<OverviewChartLoadingState />}>
     <ToolLatencyChart />
-  </Suspense>
+  </React.Suspense>
 );

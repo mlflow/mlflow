@@ -159,6 +159,8 @@ def set_token_usage(mlflow_span: LiveSpan) -> None:
 
 
 def set_model(mlflow_span: LiveSpan) -> None:
-    """Set model name attribute on the MLflow span."""
+    """Set model name and provider attributes on the MLflow span."""
     if model := mlflow_span.get_attribute(model_gen_ai_attributes.MODEL):
         mlflow_span.set_attribute(SpanAttributeKey.MODEL, model)
+    if provider := mlflow_span.get_attribute(model_gen_ai_attributes.SYSTEM):
+        mlflow_span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)

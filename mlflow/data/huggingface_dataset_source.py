@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Any, Mapping, Sequence, Union
 
+from packaging.version import Version
+
 from mlflow.data.dataset_source import DatasetSource
 
 if TYPE_CHECKING:
@@ -59,7 +61,6 @@ class HuggingFaceDatasetSource(DatasetSource):
             An instance of `datasets.Dataset`.
         """
         import datasets
-        from packaging.version import Version
 
         load_kwargs = {
             "path": self.path,

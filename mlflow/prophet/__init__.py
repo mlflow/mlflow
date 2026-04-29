@@ -18,6 +18,7 @@ import os
 from typing import Any
 
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -69,7 +70,6 @@ def get_default_pip_requirements():
     # If a pystan installation error occurs, ensure gcc>=8 is installed in your environment.
     # See: https://gcc.gnu.org/install/
     import prophet
-    from packaging.version import Version
 
     pip_deps = [_get_pinned_requirement("prophet")]
 

@@ -6,8 +6,13 @@
  */
 /* eslint-disable no-restricted-imports */
 
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
+} from '@databricks/design-system';
 import type { ComponentProps } from 'react';
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   generatePath,
   useParams as useParamsDirect,
@@ -16,6 +21,7 @@ import {
   BrowserRouter,
   type To,
 } from 'react-router-dom';
+import { Typography } from '@databricks/design-system';
 
 /**
  * Workspace utilities — minimal self-contained copies for web-shared.
@@ -32,11 +38,12 @@ const WORKSPACE_QUERY_PARAM = 'workspace';
  * Mirrors getActiveWorkspace() from WorkspaceUtils.ts — uses the same storage key
  * that the main app writes to, so it reads the correct value at runtime.
  */
-const getActiveWorkspace = (): string | null => {
+export const getActiveWorkspace = (): string | null => {
   if (typeof window === 'undefined') {
     return null;
   }
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
   } catch {
     return null;
@@ -223,11 +230,26 @@ const useLocation = useLocationDirect;
 
 const Link = React.forwardRef<
   HTMLAnchorElement,
-  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean }
+  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
 >(function Link(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
+  const { to, disableWorkspacePrefix, componentId, onClick, ...rest } = props;
   const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <LinkDirect ref={ref} to={finalTo} {...rest} />;
+  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId,
+    analyticsEvents: events,
+  });
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      eventContext?.onClick(e);
+      onClick?.(e);
+    },
+    [eventContext, onClick],
+  );
+
+  return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
 });
 
 export const createMLflowRoutePath = (routePath: string) => {

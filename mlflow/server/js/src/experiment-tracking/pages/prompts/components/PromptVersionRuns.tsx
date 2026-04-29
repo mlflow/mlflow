@@ -44,7 +44,12 @@ export const PromptVersionRuns = ({
                   return (
                     // eslint-disable-next-line react/jsx-key
                     <Typography.Text>
-                      <Link to={Routes.getRunPageRoute(experimentId, runUuid)}>{runName}</Link>
+                      <Link
+                        componentId="mlflow.prompts.version_runs.run_link"
+                        to={Routes.getRunPageRoute(experimentId, runUuid)}
+                      >
+                        {runName}
+                      </Link>
                       {index < visibleCount - 1 && ','}
                     </Typography.Text>
                   );

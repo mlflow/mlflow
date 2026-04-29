@@ -26,7 +26,8 @@ def etl_data(ratings_csv, max_row_limit):
         print(f"Converting ratings CSV {ratings_csv} to Parquet {ratings_parquet_dir}")
         with pyspark.sql.SparkSession.builder.getOrCreate() as spark:
             ratings_df = (
-                spark.read.option("header", "true")
+                spark.read
+                .option("header", "true")
                 .option("inferSchema", "true")
                 .csv(ratings_csv)
                 .drop("timestamp")

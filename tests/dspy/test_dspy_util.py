@@ -59,12 +59,10 @@ def test_log_dspy_module_state_params():
     }
 
     if Version(importlib.metadata.version("dspy")).major >= 3:
-        expected_params.update(
-            {
-                "Predict.demos.0.answer.0": "Tokyo",
-                "Predict.demos.0.answer.1": "Osaka",
-            }
-        )
+        expected_params.update({
+            "Predict.demos.0.answer.0": "Tokyo",
+            "Predict.demos.0.answer.1": "Osaka",
+        })
     else:
         expected_params["Predict.demos.0.answer"] = "['Tokyo', 'Osaka']"
 

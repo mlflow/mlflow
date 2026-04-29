@@ -447,7 +447,7 @@ mlflow.models.predict(
       getArtifact,
     )
       .then((response: any) => {
-        const parsedJson = yaml.load(response);
+        const parsedJson = yaml.safeLoad(response);
         if (parsedJson.signature) {
           const inputs = Array.isArray(parsedJson.signature.inputs)
             ? parsedJson.signature.inputs

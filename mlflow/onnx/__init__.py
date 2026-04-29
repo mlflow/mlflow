@@ -409,9 +409,9 @@ class _OnnxModelWrapper:
                 data = np.asarray(data)
                 return data.reshape(-1)
 
-            return pd.DataFrame.from_dict(
-                {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
-            )
+            return pd.DataFrame.from_dict({
+                c: format_output(p) for (c, p) in zip(self.output_names, predicted)
+            })
         else:
             return dict(zip(self.output_names, predicted))
 

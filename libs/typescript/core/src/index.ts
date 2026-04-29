@@ -7,19 +7,23 @@ import {
   trace,
   withSpan,
 } from './core/api';
+import { tracingContext } from './core/context';
 import { flushTraces } from './core/provider';
 import { MlflowClient } from './clients';
+import { InMemoryTraceManager } from './core/trace_manager';
 
 export {
   getLastActiveTraceId,
   getCurrentActiveSpan,
   updateCurrentTrace,
+  tracingContext,
   flushTraces,
   init,
   startSpan,
   trace,
   withSpan,
   MlflowClient,
+  InMemoryTraceManager,
 };
 
 // Export entities
@@ -30,4 +34,5 @@ export type { TraceInfo, TokenUsage } from './core/entities/trace_info';
 export type { TraceData } from './core/entities/trace_data';
 export { SpanStatusCode } from './core/entities/span_status';
 export type { UpdateCurrentTraceOptions, SpanOptions, TraceOptions } from './core/api';
+export type { TracingContextOptions } from './core/context';
 export { registerOnSpanStartHook, registerOnSpanEndHook } from './exporters/span_processor_hooks';

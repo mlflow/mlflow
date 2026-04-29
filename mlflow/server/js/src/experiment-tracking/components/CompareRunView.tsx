@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
-import { Spacer, Switch, LegacyTabs, Tooltip, Typography } from '@databricks/design-system';
+import { Spacer, Switch, Tabs, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -25,8 +25,9 @@ import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import type { RunInfoEntity } from '../types';
 import { CompareRunArtifactView } from './CompareRunArtifactView';
-
-const { TabPane } = LegacyTabs;
+import type { ScrollParams } from 'react-virtualized';
+import type { CompareRunMetricTableRef } from '@mlflow/mlflow/src/experiment-tracking/components/CompareRunMetricTable';
+import { CompareRunMetricTable } from '@mlflow/mlflow/src/experiment-tracking/components/CompareRunMetricTable';
 
 type CompareRunViewProps = {
   experiments: any[]; // TODO: PropTypes.instanceOf(Experiment)
@@ -47,6 +48,7 @@ type CompareRunViewState = any;
 class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState> {
   compareRunViewRef: any;
   runDetailsTableRef: any;
+  compareRunMetricTableRef: React.MutableRefObject<CompareRunMetricTableRef | null>;
 
   constructor(props: CompareRunViewProps) {
     super(props);
@@ -61,6 +63,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
 
     this.runDetailsTableRef = React.createRef();
     this.compareRunViewRef = React.createRef();
+    this.compareRunMetricTableRef = React.createRef();
   }
 
   onResizeHandler(e: any) {
@@ -71,14 +74,21 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     }
   }
 
-  onCompareRunTableScrollHandler(e: any) {
-    const blocks = this.compareRunViewRef.current.querySelectorAll('.mlflow-compare-run-table');
+  updateScrollLeftForCompareTables(scrollLeft: number) {
+    const blocks = this.compareRunViewRef.current?.querySelectorAll('.mlflow-compare-run-table') || [];
     blocks.forEach((_: any, index: any) => {
       const block = blocks[index];
-      if (block !== e.target) {
-        block.scrollLeft = e.target.scrollLeft;
-      }
+      block.scrollLeft = scrollLeft;
     });
+    this.compareRunMetricTableRef.current?.setScrollLeft(scrollLeft);
+  }
+
+  onCompareRunTableScrollHandler(e: any) {
+    this.updateScrollLeftForCompareTables(e.target.scrollLeft);
+  }
+
+  onCompareRunMetricTableScrollHandler(e: ScrollParams) {
+    this.updateScrollLeftForCompareTables(e.scrollLeft);
   }
 
   componentDidMount() {
@@ -125,7 +135,11 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       const { name, basename } = experimentNameMap[experimentId];
       return (
         <td className="meta-info" key={runUuid}>
-          <Link to={Routes.getExperimentPageRoute(experimentId)} title={name}>
+          <Link
+            componentId="mlflow.experiment_tracking.compare_runs.experiment_name_link"
+            to={Routes.getExperimentPageRoute(experimentId)}
+            title={name}
+          >
             {basename}
           </Link>
         </td>
@@ -142,7 +156,14 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
   }
 
   getExperimentPageLink(experimentId: any, experimentName: any) {
-    return <Link to={Routes.getExperimentPageRoute(experimentId)}>{experimentName}</Link>;
+    return (
+      <Link
+        componentId="mlflow.experiment_tracking.compare_runs.experiment_link"
+        to={Routes.getExperimentPageRoute(experimentId)}
+      >
+        {experimentName}
+      </Link>
+    );
   }
 
   getCompareExperimentsPageLinkText(numExperiments: any) {
@@ -157,7 +178,10 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
 
   getCompareExperimentsPageLink(experimentIds: any) {
     return (
-      <Link to={Routes.getCompareExperimentsPageRoute(experimentIds)}>
+      <Link
+        componentId="mlflow.experiment_tracking.compare_runs.compare_experiments_link"
+        to={Routes.getCompareExperimentsPageRoute(experimentIds)}
+      >
         {this.getCompareExperimentsPageLinkText(experimentIds.length)}
       </Link>
     );
@@ -237,13 +261,13 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       );
     }
     return (
-      <table
+      <CompareRunTable
         className="table mlflow-compare-table mlflow-compare-run-table"
         css={{ maxHeight: '500px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
         <tbody>{dataRows}</tbody>
-      </table>
+      </CompareRunTable>
     );
   }
 
@@ -252,30 +276,13 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
   }
 
   renderMetricTable(colWidth: any, experimentIds: any) {
-    const dataRows = this.renderDataRows(
+    const preparedRows = this.prepareDataRows(
       this.props.metricLists,
-      colWidth,
       // @ts-expect-error TS(4111): Property 'onlyShowMetricDiff' comes from an index ... Remove this comment to see the full error message
       this.state.onlyShowMetricDiff,
       false,
-      (key, data) => {
-        return (
-          <Link
-            to={Routes.getMetricPageRoute(
-              this.props.runInfos.map((info) => info.runUuid).filter((uuid, idx) => data[idx] !== undefined),
-              key,
-              experimentIds,
-            )}
-            title="Plot chart"
-          >
-            {key}
-            <i className="fa fa-chart-line" css={{ paddingLeft: '6px' }} />
-          </Link>
-        );
-      },
-      Utils.formatMetric,
     );
-    if (dataRows.length === 0) {
+    if (preparedRows.length === 0) {
       return (
         <h2>
           <FormattedMessage
@@ -286,13 +293,14 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       );
     }
     return (
-      <table
-        className="table mlflow-compare-table mlflow-compare-run-table"
-        css={{ maxHeight: '300px' }}
-        onScroll={this.onCompareRunTableScrollHandler}
-      >
-        <tbody>{dataRows}</tbody>
-      </table>
+      <CompareRunMetricTable
+        ref={this.compareRunMetricTableRef}
+        colWidth={colWidth}
+        experimentIds={experimentIds}
+        runInfos={this.props.runInfos}
+        metricRows={preparedRows}
+        onScroll={(e) => this.onCompareRunMetricTableScrollHandler(e)}
+      />
     );
   }
 
@@ -319,13 +327,13 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       );
     }
     return (
-      <table
+      <CompareRunTable
         className="table mlflow-compare-table mlflow-compare-run-table"
         css={{ maxHeight: '500px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
         <tbody>{dataRows}</tbody>
-      </table>
+      </CompareRunTable>
     );
   }
 
@@ -446,57 +454,51 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             description: 'Tabs title for plots on the compare runs page',
           })}
         >
-          <LegacyTabs>
-            <TabPane
-              tab={
+          <Tabs.Root componentId="mlflow.compare-runs.visualizations-tabs" defaultValue="parallel-coordinates-plot">
+            <Tabs.List>
+              <Tabs.Trigger value="parallel-coordinates-plot">
                 <FormattedMessage
                   defaultMessage="Parallel Coordinates Plot"
                   description="Tab pane title for parallel coordinate plots on the compare runs page"
                 />
-              }
-              key="parallel-coordinates-plot"
-            >
-              <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
-            </TabPane>
-            <TabPane
-              tab={
+              </Tabs.Trigger>
+              <Tabs.Trigger value="scatter-plot">
                 <FormattedMessage
                   defaultMessage="Scatter Plot"
                   description="Tab pane title for scatterplots on the compare runs page"
                 />
-              }
-              key="scatter-plot"
-            >
-              <CompareRunScatter runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
-            </TabPane>
-            <TabPane
-              tab={
+              </Tabs.Trigger>
+              <Tabs.Trigger value="box-plot">
                 <FormattedMessage
                   defaultMessage="Box Plot"
                   description="Tab pane title for box plot on the compare runs page"
                 />
-              }
-              key="box-plot"
-            >
+              </Tabs.Trigger>
+              <Tabs.Trigger value="contour-plot">
+                <FormattedMessage
+                  defaultMessage="Contour Plot"
+                  description="Tab pane title for contour plots on the compare runs page"
+                />
+              </Tabs.Trigger>
+            </Tabs.List>
+            <Tabs.Content value="parallel-coordinates-plot">
+              <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
+            </Tabs.Content>
+            <Tabs.Content value="scatter-plot">
+              <CompareRunScatter runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
+            </Tabs.Content>
+            <Tabs.Content value="box-plot">
               <CompareRunBox
                 runUuids={runUuids}
                 runInfos={runInfos}
                 paramLists={paramLists}
                 metricLists={metricLists}
               />
-            </TabPane>
-            <TabPane
-              tab={
-                <FormattedMessage
-                  defaultMessage="Contour Plot"
-                  description="Tab pane title for contour plots on the compare runs page"
-                />
-              }
-              key="contour-plot"
-            >
+            </Tabs.Content>
+            <Tabs.Content value="contour-plot">
               <CompareRunContour runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
-            </TabPane>
-          </LegacyTabs>
+            </Tabs.Content>
+          </Tabs.Root>
         </CollapsibleSection>
         <CollapsibleSection
           title={this.props.intl.formatMessage({
@@ -504,7 +506,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             description: 'Compare table title on the compare runs page',
           })}
         >
-          <table
+          <CompareRunTable
             className="table mlflow-compare-table mlflow-compare-run-table"
             ref={this.runDetailsTableRef}
             onScroll={this.onCompareRunTableScrollHandler}
@@ -526,7 +528,12 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
                       align="end"
                       maxWidth={400}
                     >
-                      <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
+                      <Link
+                        componentId="mlflow.experiment_tracking.compare_runs.run_uuid_link"
+                        to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}
+                      >
+                        {r.runUuid}
+                      </Link>
                     </Tooltip>
                   </th>
                 ))}
@@ -571,7 +578,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
                 </tr>
               )}
             </tbody>
-          </table>
+          </CompareRunTable>
         </CollapsibleSection>
         <CollapsibleSection title={paramsLabel}>
           <Switch
@@ -622,14 +629,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     };
   }
 
-  renderDataRows(
-    list: any,
-    colWidth: any,
-    onlyShowDiff: any,
-    highlightDiff = false,
-    headerMap = (key: any, data: any) => key,
-    formatter = (value: any) => value,
-  ) {
+  prepareDataRows(list: any, onlyShowDiff: any, highlightDiff = false) {
     // @ts-expect-error TS(2554): Expected 2 arguments, but got 1.
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
@@ -643,8 +643,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     keys.forEach((k) => (data[k].hasDiff = checkHasDiff(data[k].values)));
 
-    const colWidthStyle = this.genWidthStyle(colWidth);
-
     return (
       keys
         // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
@@ -652,32 +650,53 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
         .map((k) => {
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
           const { values, hasDiff } = data[k];
-          const rowClass = highlightDiff && hasDiff ? 'diff-row' : undefined;
-          return (
-            <tr key={k} className={rowClass}>
-              <th scope="row" className="head-value mlflow-sticky-header" css={colWidthStyle}>
-                {headerMap(k, values)}
-              </th>
-              {values.map((value: any, i: any) => {
-                const cellText = value === undefined ? '' : formatter(value);
-                return (
-                  <td className="data-value" key={this.props.runInfos[i].runUuid} css={colWidthStyle}>
-                    <Tooltip
-                      componentId="mlflow.legacy_compare_run.data_row"
-                      content={cellText}
-                      side="top"
-                      align="end"
-                      maxWidth={400}
-                    >
-                      <span className="truncate-text single-line">{cellText}</span>
-                    </Tooltip>
-                  </td>
-                );
-              })}
-            </tr>
-          );
+          return {
+            key: k,
+            highlightDiff: highlightDiff && hasDiff,
+            values,
+          };
         })
     );
+  }
+
+  // eslint-disable-next-line no-unused-vars
+  renderDataRows(
+    list: any,
+    colWidth: any,
+    onlyShowDiff: any,
+    highlightDiff = false,
+    headerMap = (key: any, data: any) => key,
+    formatter = (value: any) => value,
+  ) {
+    const preparedRows = this.prepareDataRows(list, onlyShowDiff, highlightDiff);
+    const colWidthStyle = this.genWidthStyle(colWidth);
+
+    return preparedRows.map((row) => {
+      const rowClass = row.highlightDiff ? 'diff-row' : undefined;
+      return (
+        <tr key={row.key} className={rowClass}>
+          <th scope="row" className="head-value mlflow-sticky-header" css={colWidthStyle}>
+            {headerMap(row.key, row.values)}
+          </th>
+          {row.values.map((value: any, i: any) => {
+            const cellText = value === undefined ? '' : formatter(value);
+            return (
+              <td className="data-value" key={this.props.runInfos[i].runUuid} css={colWidthStyle}>
+                <Tooltip
+                  componentId="mlflow.compare_runs.data_cell"
+                  content={cellText}
+                  side="top"
+                  align="start"
+                  maxWidth={400}
+                >
+                  <span className="truncate-text single-line">{cellText}</span>
+                </Tooltip>
+              </td>
+            );
+          })}
+        </tr>
+      );
+    });
   }
 }
 
@@ -735,5 +754,28 @@ const parsePythonDictString = (value: string) => {
     return null;
   }
 };
+
+const CompareRunTable = React.forwardRef<HTMLTableElement, React.ComponentPropsWithoutRef<'table'>>(
+  function CompareRunTable({ style, ...props }, ref) {
+    const { theme } = useDesignSystemTheme();
+    return (
+      <table
+        ref={ref}
+        style={
+          {
+            '--mlflow-compare-border-color': theme.colors.border,
+            '--mlflow-compare-header-color': theme.colors.textPrimary,
+            '--mlflow-compare-header-bg': theme.colors.backgroundSecondary,
+            '--mlflow-compare-diff-bg': theme.colors.backgroundWarning,
+            '--mlflow-compare-diff-color': theme.colors.textSecondary,
+            '--mlflow-compare-hover-bg': theme.colors.backgroundSecondary,
+            ...style,
+          } as React.CSSProperties
+        }
+        {...props}
+      />
+    );
+  },
+);
 
 export default connect(mapStateToProps)(injectIntl(CompareRunView));

@@ -1,6 +1,6 @@
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.permissions import get_permission
-from mlflow.utils.workspace_utils import resolve_entity_workspace_name
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, resolve_entity_workspace_name
 
 
 class User:
@@ -354,6 +354,155 @@ class GatewayModelDefinitionPermission:
             model_definition_id=dictionary["model_definition_id"],
             user_id=dictionary["user_id"],
             permission=dictionary["permission"],
+        )
+
+
+class Role:
+    def __init__(
+        self,
+        id_,
+        name,
+        workspace,
+        description=None,
+        permissions=None,
+    ):
+        self._id = id_
+        self._name = name
+        self._workspace = workspace
+        self._description = description
+        self._permissions = permissions or []
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+
+    @property
+    def workspace(self):
+        return self._workspace
+
+    @property
+    def description(self):
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        self._description = description
+
+    @property
+    def permissions(self):
+        return self._permissions
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "workspace": self.workspace,
+            "description": self.description,
+            "permissions": [p.to_json() for p in self.permissions],
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            id_=dictionary["id"],
+            name=dictionary["name"],
+            workspace=dictionary.get("workspace", DEFAULT_WORKSPACE_NAME),
+            description=dictionary.get("description"),
+            permissions=[RolePermission.from_json(p) for p in dictionary.get("permissions", [])],
+        )
+
+
+class RolePermission:
+    def __init__(self, id_, role_id, resource_type, resource_pattern, permission):
+        self._id = id_
+        self._role_id = role_id
+        self._resource_type = resource_type
+        self._resource_pattern = resource_pattern
+        self._permission = permission
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def role_id(self):
+        return self._role_id
+
+    @property
+    def resource_type(self):
+        return self._resource_type
+
+    @property
+    def resource_pattern(self):
+        return self._resource_pattern
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @permission.setter
+    def permission(self, permission):
+        self._permission = permission
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "role_id": self.role_id,
+            "resource_type": self.resource_type,
+            "resource_pattern": self.resource_pattern,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            id_=dictionary["id"],
+            role_id=dictionary["role_id"],
+            resource_type=dictionary["resource_type"],
+            resource_pattern=dictionary["resource_pattern"],
+            permission=dictionary["permission"],
+        )
+
+
+class UserRoleAssignment:
+    def __init__(self, id_, user_id, role_id):
+        self._id = id_
+        self._user_id = user_id
+        self._role_id = role_id
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def role_id(self):
+        return self._role_id
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "role_id": self.role_id,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            id_=dictionary["id"],
+            user_id=dictionary["user_id"],
+            role_id=dictionary["role_id"],
         )
 
 

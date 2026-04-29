@@ -81,7 +81,10 @@ export const useExperimentLoggedModelDetailsMetadataV2 = ({
               relatedRunsLoading ? (
                 <GenericSkeleton css={{ width: 200, height: theme.spacing.md }} />
               ) : (
-                <Link to={Routes.getRunPageRoute(loggedModel.info?.experiment_id, loggedModel.info?.source_run_id)}>
+                <Link
+                  componentId="mlflow.logged_models.details_metadata.source_run_name_link"
+                  to={Routes.getRunPageRoute(loggedModel.info?.experiment_id, loggedModel.info?.source_run_id)}
+                >
                   {relatedSourceRun?.info?.runName}
                 </Link>
               )
@@ -99,7 +102,10 @@ export const useExperimentLoggedModelDetailsMetadataV2 = ({
               value={loggedModel.info?.source_run_id ?? ''}
               element={
                 loggedModel.info?.experiment_id ? (
-                  <Link to={Routes.getRunPageRoute(loggedModel.info?.experiment_id, loggedModel.info?.source_run_id)}>
+                  <Link
+                    componentId="mlflow.logged_models.details_metadata.source_run_id_link"
+                    to={Routes.getRunPageRoute(loggedModel.info?.experiment_id, loggedModel.info?.source_run_id)}
+                  >
                     {loggedModel.info?.source_run_id}
                   </Link>
                 ) : undefined

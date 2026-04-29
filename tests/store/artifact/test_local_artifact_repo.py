@@ -328,3 +328,20 @@ def test_symlink_within_artifact_dir_allowed(
         artifacts = local_artifact_repo.list_artifacts("link_to_subdir")
         assert len(artifacts) == 1
         assert artifacts[0].path == "link_to_subdir/file.txt"
+
+
+def test_list_artifacts_on_file_returns_empty(local_artifact_repo, local_artifact_root):
+    artifact_path = os.path.join(local_artifact_root, "file.txt")
+    with open(artifact_path, "w") as f:
+        f.write("data")
+    assert local_artifact_repo.list_artifacts("file.txt") == []
+
+
+@pytest.mark.parametrize("dst_path_provided", [True, False])
+def test_download_artifacts_nonexistent_raises_resource_does_not_exist(
+    local_artifact_repo, tmp_path, dst_path_provided
+):
+    dst = str(tmp_path) if dst_path_provided else None
+    with pytest.raises(MlflowException, match="No such artifact") as exc_info:
+        local_artifact_repo.download_artifacts("nonexistent.txt", dst_path=dst)
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"

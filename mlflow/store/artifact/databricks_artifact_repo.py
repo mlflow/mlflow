@@ -3,7 +3,9 @@ import json
 import logging
 import os
 import posixpath
+import tempfile
 import uuid
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -39,9 +41,13 @@ from mlflow.protos.databricks_artifacts_pb2 import (
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.service_pb2 import MlflowService
-from mlflow.store.artifact.artifact_repo import write_local_temp_trace_data_file
+from mlflow.store.artifact.artifact_repo import (
+    _validate_attachment_path,
+    write_local_temp_trace_data_file,
+)
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
@@ -300,6 +306,64 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             timeout=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
         )
         return cred
+
+    def download_trace_attachment(self, path: str) -> bytes:
+        _validate_attachment_path(path)
+        artifact_path = posixpath.join("attachments", path)
+        [cred], _ = self.resource.get_credentials(
+            cred_type=_CredentialType.READ,
+            artifact_path=artifact_path,
+        )
+        headers = self._extract_headers_from_credentials(cred.headers)
+        with cloud_storage_http_request("get", cred.signed_uri, headers=headers) as resp:
+            try:
+                augmented_raise_for_status(resp)
+            except requests.HTTPError as e:
+                if e.response.status_code == 404:
+                    raise MlflowException(
+                        f"Attachment '{path}' not found.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    ) from e
+                raise
+            return resp.content
+
+    def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
+        _validate_attachment_path(attachment_id)
+        artifact_path = posixpath.join("attachments", attachment_id)
+        [cred], _ = self.resource.get_credentials(
+            cred_type=_CredentialType.WRITE,
+            artifact_path=artifact_path,
+            timeout=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = str(Path(temp_dir, attachment_id))
+            Path(temp_file).write_bytes(content_bytes)
+            if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
+                self._azure_adls_gen2_upload_file(
+                    credentials=cred,
+                    local_file=temp_file,
+                    artifact_file_path=None,
+                    get_credentials=lambda _: [cred],
+                    is_sync=True,
+                )
+            elif cred.type == ArtifactCredentialType.AZURE_SAS_URI:
+                self._azure_upload_file(
+                    credentials=cred,
+                    local_file=temp_file,
+                    artifact_file_path=None,
+                    get_credentials=lambda _: [cred],
+                    is_sync=True,
+                )
+            elif cred.type in (
+                ArtifactCredentialType.AWS_PRESIGNED_URL,
+                ArtifactCredentialType.GCP_SIGNED_URL,
+            ):
+                self._signed_url_upload_file(cred, temp_file)
+            else:
+                raise MlflowException(
+                    f"Unsupported credential type for attachment upload: {cred.type}",
+                    error_code=INTERNAL_ERROR,
+                )
 
     def _get_read_credential_infos(self, remote_file_paths):
         """

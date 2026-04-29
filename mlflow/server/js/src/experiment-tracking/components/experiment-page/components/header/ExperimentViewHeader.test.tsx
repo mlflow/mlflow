@@ -14,6 +14,7 @@ import { TestRouter, setupTestRouter, testRoute } from '../../../../../common/ut
 
 const mockNavigate = jest.fn();
 
+// eslint-disable-next-line @databricks/no-restricted-jest-mock-modules
 jest.mock('@databricks/design-system', () => {
   const actual = jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system');
   const MockBreadcrumb = ({ children }: { children: React.ReactNode }) => <nav>{children}</nav>;
@@ -29,7 +30,6 @@ jest.mock('../../../../../common/utils/FeatureUtils', () => {
     ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
       '../../../../../common/utils/FeatureUtils',
     ),
-    shouldEnableExperimentPageSideTabs: jest.fn().mockReturnValue(true),
     shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(false),
   };
 });
@@ -140,6 +140,18 @@ describe('ExperimentViewHeader', () => {
       await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
 
       expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments/1/chat-sessions'));
+    });
+
+    it('navigates to /experiments from overview sub-tab pages', async () => {
+      renderComponent(defaultExperiment, '/experiments/1/overview/usage');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('experiment-view-header-back-button')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
+
+      expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments'));
     });
   });
 });

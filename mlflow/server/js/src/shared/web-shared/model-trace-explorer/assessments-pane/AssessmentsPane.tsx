@@ -1,4 +1,4 @@
-import { cloneDeep, partition, uniqBy } from 'lodash';
+import { uniqBy } from 'lodash';
 import { useMemo } from 'react';
 
 import { Button, CloseIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
@@ -6,12 +6,34 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { ASSESSMENT_PANE_MIN_WIDTH } from './AssessmentsPane.utils';
 import { isEvaluatingTracesInDetailsViewEnabled, shouldUseTracesV4API } from '../FeatureUtils';
-import type { Assessment } from '../ModelTrace.types';
+import type {
+  Assessment,
+  ExpectationAssessment,
+  FeedbackAssessment,
+  IssueReferenceAssessment,
+} from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
 import { AssessmentsPaneExpectationsSection } from './AssessmentsPaneExpectationsSection';
 import { AssessmentsPaneFeedbackSection } from './AssessmentsPaneFeedbackSection';
+import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
+import { AssessmentsPaneNotesSection } from './AssessmentsPaneNotesSection';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
+import { useSelectedIssueId } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSelectedIssueId';
+
+/**
+ * Safely calls useSelectedIssueId hook, returning undefined if not in a Router context.
+ * This prevents crashes when AssessmentsPane is rendered outside a Router (e.g., tests, OSS notebook).
+ */
+const useSafeSelectedIssueId = (): string | undefined => {
+  try {
+    const [selectedIssueId] = useSelectedIssueId();
+    return selectedIssueId;
+  } catch (error) {
+    // Hook throws when not in a Router context
+    return undefined;
+  }
+};
 
 export const AssessmentsPane = ({
   assessments,
@@ -35,6 +57,9 @@ export const AssessmentsPane = ({
   const reconstructAssessments = useTraceCachedActions((state) => state.reconstructAssessments);
   const cachedActions = useTraceCachedActions((state) => state.assessmentActions[traceId]);
 
+  // Get selected issue ID from URL (safe in non-router contexts)
+  const selectedIssueId = useSafeSelectedIssueId();
+
   // Combine the initial assessments with the cached actions (additions and deletions)
   const allAssessments = useMemo(() => {
     // Caching actions is enabled only with Traces V4 feature
@@ -47,10 +72,25 @@ export const AssessmentsPane = ({
 
   const { theme } = useDesignSystemTheme();
   const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
-  const [feedbacks, expectations] = useMemo(
-    () => partition(allAssessments, (assessment) => 'feedback' in assessment),
-    [allAssessments],
-  );
+
+  const { feedbacks, expectations, issues } = useMemo(() => {
+    const feedbacks: FeedbackAssessment[] = [];
+    const expectations: ExpectationAssessment[] = [];
+    const issues: IssueReferenceAssessment[] = [];
+
+    for (const assessment of allAssessments) {
+      if ('feedback' in assessment) {
+        feedbacks.push(assessment);
+      } else if ('issue' in assessment) {
+        issues.push(assessment);
+      } else if ('expectation' in assessment) {
+        expectations.push(assessment);
+      }
+    }
+
+    return { feedbacks, expectations, issues };
+  }, [allAssessments]);
+
   const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
 
   return (
@@ -59,8 +99,8 @@ export const AssessmentsPane = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        padding: theme.spacing.sm,
-        paddingTop: theme.spacing.xs,
+        padding: theme.spacing.md,
+        paddingTop: theme.spacing.sm,
         height: '100%',
         borderLeft: `1px solid ${theme.colors.border}`,
         overflowY: 'auto',
@@ -74,9 +114,11 @@ export const AssessmentsPane = ({
         {assessmentsTitleOverride ? (
           assessmentsTitleOverride()
         ) : (
-          <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
+          <Typography.Title level={4}>
+            <FormattedMessage defaultMessage="Assessments" description="Title for the assessments pane" />
+          </Typography.Title>
         )}
-        {setAssessmentsPaneExpanded && !disableCloseButton && (
+        {!disableCloseButton && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"
             content={
@@ -96,6 +138,7 @@ export const AssessmentsPane = ({
           </Tooltip>
         )}
       </div>
+      <hr css={{ border: 'none', borderTop: `1px solid ${theme.colors.border}`, margin: `${theme.spacing.xs}px 0` }} />
       <AssessmentsPaneFeedbackSection
         enableRunScorer={
           enableRunScorer &&
@@ -108,7 +151,20 @@ export const AssessmentsPane = ({
         sessionId={sessionId}
       />
       <Spacer size="sm" shrinks={false} />
-      <AssessmentsPaneExpectationsSection expectations={expectations} activeSpanId={activeSpanId} traceId={traceId} />
+      <AssessmentsPaneExpectationsSection
+        expectations={expectations}
+        activeSpanId={activeSpanId}
+        traceId={traceId}
+        sessionId={sessionId}
+      />
+      {issues.length > 0 && (
+        <>
+          <Spacer size="sm" shrinks={false} />
+          <AssessmentsPaneIssuesSection issues={issues} selectedIssueId={selectedIssueId} />
+        </>
+      )}
+      <Spacer size="sm" shrinks={false} />
+      <AssessmentsPaneNotesSection key={traceId} traceId={traceId} feedbacks={feedbacks} />
     </div>
   );
 };

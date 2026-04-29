@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.simulators import (
     BaseSimulatedUserAgent,
@@ -120,7 +121,7 @@ def test_conversation_simulator_basic_simulation(
     assert len(all_traces[0]) == 2  # 2 traces
     assert all(t is simulation_mocks["trace"] for t in all_traces[0])
     assert simulation_mocks["invoke"].call_count == 4  # 2 turns * 2 calls each
-    assert simulation_mocks["update_trace"].call_count == 2
+    assert len(simulation_mocks["context_calls"]) == 2  # one per turn
 
 
 def test_conversation_simulator_max_turns_stopping(
@@ -335,6 +336,73 @@ def test_conversation_simulator_validation(test_cases, expected_error):
 
 
 @pytest.mark.parametrize(
+    ("test_cases", "expected_error"),
+    [
+        (
+            [{"goal": "test", "context": {"input": "foo"}}],
+            r"indices \[0\].*reserved",
+        ),
+        (
+            [{"goal": "test", "context": {"messages": []}}],
+            r"indices \[0\].*reserved",
+        ),
+        (
+            [{"goal": "test", "context": {"mlflow_session_id": "abc"}}],
+            r"indices \[0\].*reserved",
+        ),
+        (
+            [{"goal": "ok"}, {"goal": "test", "context": {"input": "bar"}}],
+            r"indices \[1\].*reserved",
+        ),
+    ],
+    ids=[
+        "context_has_input",
+        "context_has_messages",
+        "context_has_mlflow_session_id",
+        "second_case_has_reserved_key",
+    ],
+)
+def test_conversation_simulator_rejects_reserved_context_keys(test_cases, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
+        ConversationSimulator(
+            test_cases=test_cases,
+            max_turns=2,
+        )
+
+
+@pytest.mark.parametrize(
+    ("test_cases", "expected_error"),
+    [
+        ([{"goal": "test", "context": "foo"}], r"indices \[0\].*'context' as a dict"),
+        ([{"goal": "test", "context": ["foo"]}], r"indices \[0\].*'context' as a dict"),
+        ([{"goal": "ok"}, {"goal": "test", "context": 1}], r"indices \[1\].*'context' as a dict"),
+    ],
+    ids=["context_string", "context_list", "second_case_context_int"],
+)
+def test_conversation_simulator_rejects_invalid_context_types(test_cases, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
+        ConversationSimulator(
+            test_cases=test_cases,
+            max_turns=2,
+        )
+
+
+def test_conversation_simulator_accepts_dataframe_with_missing_context_values():
+    test_cases_df = pd.DataFrame([
+        {"goal": "Debug an error", "context": {"user_id": "U001"}},
+        {"goal": "Learn about MLflow"},
+    ])
+
+    simulator = ConversationSimulator(
+        test_cases=test_cases_df,
+        max_turns=2,
+    )
+
+    assert len(simulator.test_cases) == 2
+    assert simulator.test_cases[0]["context"] == {"user_id": "U001"}
+
+
+@pytest.mark.parametrize(
     "inputs",
     [
         [{"goal": "Learn about MLflow"}],
@@ -543,7 +611,7 @@ def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn, si
     assert captured_contexts[1].is_first_turn is False
 
 
-def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_context):
+def test_conversation_simulator_sets_simulation_metadata(mock_predict_fn_with_context):
     long_goal = "A" * 500
     long_persona = "B" * 500
     context = {"user_id": "U001", "session_id": "S001"}
@@ -567,17 +635,14 @@ def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_contex
         assert len(first_test_case_traces) == 2
 
         for trace in first_test_case_traces:
-            root_span = trace.data.spans[0]
-            metadata = trace.info.request_metadata
+            metadata = trace.info.trace_metadata
 
-            assert root_span.attributes["mlflow.simulation.goal"] == long_goal
-            assert root_span.attributes["mlflow.simulation.persona"] == long_persona
-            assert root_span.attributes["mlflow.simulation.context"] == context
+            assert TraceMetadataKey.TRACE_SESSION in metadata
             assert metadata["mlflow.simulation.goal"] == long_goal[:_MAX_METADATA_LENGTH]
             assert metadata["mlflow.simulation.persona"] == long_persona[:_MAX_METADATA_LENGTH]
 
 
-def test_conversation_simulator_uses_default_persona_and_empty_context(mock_predict_fn):
+def test_conversation_simulator_uses_default_persona(mock_predict_fn):
     with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message",
@@ -592,11 +657,11 @@ def test_conversation_simulator_uses_default_persona_and_empty_context(mock_pred
         all_traces = simulator.simulate(mock_predict_fn)
 
         trace = all_traces[0][0]
-        root_span = trace.data.spans[0]
+        metadata = trace.info.trace_metadata
 
-        assert root_span.attributes["mlflow.simulation.goal"] == "Test goal"
-        assert root_span.attributes["mlflow.simulation.persona"] == DEFAULT_PERSONA
-        assert root_span.attributes["mlflow.simulation.context"] == {}
+        assert metadata["mlflow.simulation.goal"] == "Test goal"
+        assert metadata["mlflow.simulation.persona"] == DEFAULT_PERSONA
+        assert TraceMetadataKey.TRACE_SESSION in metadata
 
 
 def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn):
@@ -737,7 +802,9 @@ def test_conversation_simulator_get_dataset_name_from_evaluation_dataset():
     assert simulator._get_dataset_name() == "my_custom_dataset"
 
 
-def test_simulate_creates_run_when_no_parent_run(tmp_path, simple_test_case, simulation_mocks):
+def test_simulate_creates_run_when_no_parent_run(
+    tmp_path, simple_test_case, mock_predict_fn, simulation_mocks
+):
     simulation_mocks["invoke"].side_effect = [
         "Test message",
         '{"rationale": "Goal achieved!", "result": "yes"}',
@@ -747,7 +814,7 @@ def test_simulate_creates_run_when_no_parent_run(tmp_path, simple_test_case, sim
     mlflow.set_experiment("test-experiment")
 
     simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
-    simulator.simulate(simulation_mocks["trace"])
+    simulator.simulate(mock_predict_fn)
 
     runs = mlflow.search_runs()
     assert len(runs) == 1
@@ -755,7 +822,9 @@ def test_simulate_creates_run_when_no_parent_run(tmp_path, simple_test_case, sim
     assert re.match(r"^simulation-[0-9a-f]{8}$", run_name)
 
 
-def test_simulate_uses_parent_run_when_exists(tmp_path, simple_test_case, simulation_mocks):
+def test_simulate_uses_parent_run_when_exists(
+    tmp_path, simple_test_case, mock_predict_fn, simulation_mocks
+):
     simulation_mocks["invoke"].side_effect = [
         "Test message",
         '{"rationale": "Goal achieved!", "result": "yes"}',
@@ -768,7 +837,7 @@ def test_simulate_uses_parent_run_when_exists(tmp_path, simple_test_case, simula
         parent_run_id = parent_run.info.run_id
 
         simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
-        simulator.simulate(simulation_mocks["trace"])
+        simulator.simulate(mock_predict_fn)
 
         assert mlflow.active_run().info.run_id == parent_run_id
 
@@ -777,7 +846,7 @@ def test_simulate_uses_parent_run_when_exists(tmp_path, simple_test_case, simula
     assert runs.iloc[0]["tags.mlflow.runName"] == "parent-run"
 
 
-def test_simulate_run_name_format(tmp_path, simple_test_case, simulation_mocks):
+def test_simulate_run_name_format(tmp_path, simple_test_case, mock_predict_fn, simulation_mocks):
     simulation_mocks["invoke"].side_effect = [
         "Test message",
         '{"rationale": "Goal achieved!", "result": "yes"}',
@@ -787,7 +856,7 @@ def test_simulate_run_name_format(tmp_path, simple_test_case, simulation_mocks):
     mlflow.set_experiment("test-experiment")
 
     simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
-    simulator.simulate(simulation_mocks["trace"])
+    simulator.simulate(mock_predict_fn)
 
     runs = mlflow.search_runs()
     run_name = runs.iloc[0]["tags.mlflow.runName"]
@@ -839,7 +908,21 @@ def test_conversation_simulator_rejects_both_input_and_messages(simple_test_case
 
     simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
 
-    with pytest.raises(Exception, match="cannot have both 'messages' and 'input' parameters"):
+    with pytest.raises(MlflowException, match="cannot have both 'messages' and 'input' parameters"):
+        simulator.simulate(invalid_predict_fn)
+
+
+def test_conversation_simulator_rejects_neither_input_nor_messages(
+    simple_test_case, simulation_mocks
+):
+    simulation_mocks["invoke"].return_value = "Test message"
+
+    def invalid_predict_fn(**kwargs):
+        return None
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+
+    with pytest.raises(MlflowException, match="must accept either 'messages' or 'input'"):
         simulator.simulate(invalid_predict_fn)
 
 
@@ -926,11 +1009,11 @@ def test_conversation_simulator_with_simulation_guidelines(mock_predict_fn):
         prompt = generate_call.kwargs["messages"][0].content
         assert "Ask clarifying questions before proceeding" in prompt
 
-        # Verify simulation_guidelines are in trace metadata
         trace = all_traces[0][0]
-        metadata = trace.info.request_metadata
+        metadata = trace.info.trace_metadata
         assert "mlflow.simulation.simulation_guidelines" in metadata
         assert (
             metadata["mlflow.simulation.simulation_guidelines"]
             == "Ask clarifying questions before proceeding"
         )
+        assert TraceMetadataKey.TRACE_SESSION in metadata

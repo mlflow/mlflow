@@ -9,11 +9,13 @@ import pydantic
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
-    ChatMessage,
     FunctionMessage,
     HumanMessage,
     SystemMessage,
     ToolMessage,
+)
+from langchain_core.messages import (
+    ChatMessage as LangChainChatMessage,
 )
 from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.outputs.generation import Generation
@@ -22,6 +24,7 @@ from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCH
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import (
+    AudioContentPart,
     ChatChoice,
     ChatChoiceDelta,
     ChatChunkChoice,
@@ -30,6 +33,7 @@ from mlflow.types.chat import (
     ChatCompletionResponse,
     ChatMessage,
     ChatUsage,
+    InputAudio,
 )
 
 _logger = logging.getLogger(__name__)
@@ -49,6 +53,73 @@ _TOKEN_USAGE_KEY_MAPPING = {
     # Gemini
     "cached_content_token_count": TokenUsageKey.CACHE_READ_INPUT_TOKENS,
 }
+
+
+# Maps MIME subtypes to the formats InputAudio accepts: Literal["wav", "mp3"].
+# Identity mappings (e.g. "wav" -> "wav") are handled by the fallback in _normalize_content.
+_MIME_TO_AUDIO_FORMAT: dict[str, str] = {
+    "x-wav": "wav",
+    "mpeg": "mp3",
+}
+
+
+def _normalize_content(
+    content: str | list[dict[str, Any]],
+) -> str | list[dict[str, Any]]:
+    """
+    Normalize multi-modal content blocks from LangChain's format to MLflow's expected format.
+
+    LangChain uses:
+
+        {"type": "audio", "source_type": "base64", "data": "...", "mime_type": "audio/wav"}
+
+    while MLflow expects:
+
+        {"type": "input_audio", "input_audio": {"data": "...", "format": "wav"}}
+
+    This function converts audio blocks to MLflow's format and returns the normalized content
+    so that it can be validated by :class:`~mlflow.types.chat.ChatMessage`.
+    """
+    if isinstance(content, str):
+        return content
+
+    normalized = []
+    for block in content:
+        match block:
+            case {
+                "type": "audio",
+                "source_type": "base64",
+                "mime_type": str(mime_type),
+                "data": str(data),
+            }:
+                # Extract and normalize format from mime_type (e.g. "audio/wav" -> "wav",
+                # "audio/mpeg" -> "mp3"). Strip parameters like "; codecs=..."
+                raw_subtype = mime_type.rsplit("/", 1)[-1].split(";")[0].strip()
+                audio_format = _MIME_TO_AUDIO_FORMAT.get(raw_subtype, raw_subtype)
+
+                try:
+                    audio_part = AudioContentPart(
+                        type="input_audio",
+                        input_audio=InputAudio(
+                            data=data,
+                            format=audio_format,
+                        ),
+                    )
+                except pydantic.ValidationError as e:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Unsupported audio format {audio_format!r} derived from "
+                        f"mime_type {mime_type!r}. Supported formats: 'wav', 'mp3'."
+                    ) from e
+                normalized.append(audio_part.model_dump())
+            case {"type": "audio"}:
+                raise MlflowException.invalid_parameter_value(
+                    "Unsupported LangChain audio content. Only base64-encoded audio with a valid "
+                    "mime_type is supported for conversion to MLflow chat messages."
+                )
+            case _:
+                normalized.append(block)
+
+    return normalized
 
 
 def _extract_nested_token_details(d: dict[str, Any]) -> Iterator[tuple[str, int]]:
@@ -74,6 +145,7 @@ def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
             # For Anthropic model tool calls are returned twice so we need to filter them out
             if isinstance(content, list):
                 content = [c for c in content if c["type"] != "tool_use"]
+            content = _normalize_content(content)
             return ChatMessage(
                 role="assistant",
                 # If tool calls present, content null value should be None not empty string
@@ -83,21 +155,21 @@ def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
                 tool_calls=tool_calls,
             )
         else:
-            return ChatMessage(role="assistant", content=lc_message.content)
-    elif isinstance(lc_message, ChatMessage):
-        return ChatMessage(role=lc_message.role, content=lc_message.content)
+            return ChatMessage(role="assistant", content=_normalize_content(lc_message.content))
+    elif isinstance(lc_message, LangChainChatMessage):
+        return ChatMessage(role=lc_message.role, content=_normalize_content(lc_message.content))
     elif isinstance(lc_message, FunctionMessage):
-        return ChatMessage(role="function", content=lc_message.content)
+        return ChatMessage(role="function", content=_normalize_content(lc_message.content))
     elif isinstance(lc_message, ToolMessage):
         return ChatMessage(
             role="tool",
-            content=lc_message.content,
+            content=_normalize_content(lc_message.content),
             tool_call_id=lc_message.tool_call_id,
         )
     elif isinstance(lc_message, HumanMessage):
-        return ChatMessage(role="user", content=lc_message.content)
+        return ChatMessage(role="user", content=_normalize_content(lc_message.content))
     elif isinstance(lc_message, SystemMessage):
-        return ChatMessage(role="system", content=lc_message.content)
+        return ChatMessage(role="system", content=_normalize_content(lc_message.content))
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unexpected message type. Expected a BaseMessage subclass, but got: {type(lc_message)}"

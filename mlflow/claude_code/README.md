@@ -25,7 +25,7 @@ Set up Claude Code tracing in any project directory:
 mlflow autolog claude
 
 # Set up tracing in specific directory
-mlflow autolog claude ~/my-project
+mlflow autolog claude -d ~/my-project
 
 # Set up with custom tracking URI
 mlflow autolog claude -u file://./custom-mlruns
@@ -84,7 +84,7 @@ claude "analyze this data"
 ### Custom Project Setup
 
 ```bash
-mlflow autolog claude ~/my-ai-project -u sqlite:///mlflow.db -n "My AI Project"
+mlflow autolog claude -d ~/my-ai-project -u sqlite:///mlflow.db -n "My AI Project"
 cd ~/my-ai-project
 claude "refactor this code"
 mlflow server --backend-store-uri sqlite:///mlflow.db

@@ -39,14 +39,14 @@ jest.mock('../telemetry/TelemetryInfoAlert', () => ({
 describe('WorkspaceLandingPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [
         { name: 'ml-research', description: 'Research experiments' },
         { name: 'production-models', description: 'Production models' },
       ],
       isLoading: false,
       isError: false,
-      refetch: jest.fn(),
+      refetch: jest.fn() as any,
     });
   });
 

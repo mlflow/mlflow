@@ -30,7 +30,7 @@ from mlflow.genai.scorers.trulens import Groundedness
 scorer = Groundedness(model="openai:/gpt-5-mini")
 feedback = scorer(
     inputs="What is MLflow?",
-    outputs="MLflow is an open-source platform for managing machine learning workflows.",
+    outputs="MLflow is an open-source AI engineering platform for agents and LLMs.",
     expectations={
         "context": "MLflow is an ML platform for experiment tracking and model deployment."
     },
@@ -50,7 +50,7 @@ from mlflow.genai.scorers.trulens import Groundedness, AnswerRelevance
 eval_dataset = [
     {
         "inputs": {"query": "What is MLflow?"},
-        "outputs": "MLflow is an open-source platform for managing machine learning workflows.",
+        "outputs": "MLflow is an open-source AI engineering platform for agents and LLMs.",
         "expectations": {
             "context": "MLflow is an ML platform for experiment tracking and model deployment."
         },

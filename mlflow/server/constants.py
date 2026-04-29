@@ -41,6 +41,10 @@ HUEY_STORAGE_PATH_ENV_VAR = "_MLFLOW_HUEY_STORAGE_PATH"
 # Unique key identifying which Huey instance to use (typically the job function fullname)
 MLFLOW_HUEY_INSTANCE_KEY = "_MLFLOW_HUEY_INSTANCE_KEY"
 
+# Timestamp (milliseconds since epoch) captured in the parent process before launching the job
+# runner subprocess, used to avoid re-enqueuing jobs created after the server started.
+MLFLOW_SERVER_UP_TIME = "_MLFLOW_SERVER_UP_TIME"
+
 # Secrets management - KEK (Key Encryption Key) environment variables
 # NOTE: These are duplicated in mlflow/utils/crypto.py for skinny client compatibility.
 # The canonical definitions are in mlflow/utils/crypto.py to avoid Flask import dependency.

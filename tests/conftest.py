@@ -2,6 +2,7 @@ import cProfile
 import inspect
 import io
 import json
+import logging
 import os
 import posixpath
 import pstats
@@ -27,6 +28,7 @@ from opentelemetry import trace as trace_api
 import mlflow
 from mlflow.environment_variables import (
     _MLFLOW_TESTING,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_URI,
     MLFLOW_WORKSPACE,
@@ -53,6 +55,9 @@ if not IS_TRACING_SDK_ONLY:
         _reset_last_logged_model_id,
         clear_active_model,
     )
+
+
+_logger = logging.getLogger(__name__)
 
 
 # Pytest hooks and configuration from root conftest.py
@@ -389,17 +394,15 @@ def generate_duration_stats() -> str:
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
     for idx, (path, dur, count, min_, max_, avg_) in enumerate(rows, 1):
-        table_rows.append(
-            [
-                str(idx),
-                f"`{path}`",
-                f"{dur:.2f}s",
-                str(count),
-                f"{min_:.3f}s",
-                f"{max_:.3f}s",
-                f"{avg_:.3f}s",
-            ]
-        )
+        table_rows.append([
+            str(idx),
+            f"`{path}`",
+            f"{dur:.2f}s",
+            str(count),
+            f"{min_:.3f}s",
+            f"{max_:.3f}s",
+            f"{avg_:.3f}s",
+        ])
 
     return to_md_table(table_rows)
 
@@ -881,6 +884,16 @@ def reset_tracing():
     trace_api._TRACER_PROVIDER = None
 
 
+@pytest.fixture(autouse=True)
+def disable_async_trace_logging(monkeypatch):
+    """Disable async trace logging for all tests by default to avoid timing issues.
+
+    Tests that explicitly verify async behaviour should use the `async_logging_enabled`
+    fixture from tests/tracing/conftest.py, which overrides this setting.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, "false")
+
+
 def _is_span_active():
     span = get_current_otel_span()
     return (span is not None) and not isinstance(span, trace_api.NonRecordingSpan)
@@ -966,6 +979,10 @@ def prevent_infer_pip_requirements_fallback(request):
         yield
 
 
+def _log_rmtree_error(func, path, exc_info):
+    _logger.warning("Failed to remove %s: %s", path, exc_info[1])
+
+
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_mlruns_directory(request):
     """
@@ -979,13 +996,10 @@ def clean_up_mlruns_directory(request):
 
     mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
     if os.path.exists(mlruns_dir):
-        try:
-            shutil.rmtree(mlruns_dir)
-        except OSError:
-            if is_windows():
-                raise
-            # `shutil.rmtree` can't remove files owned by root in a docker container.
-            subprocess.check_call(["sudo", "rm", "-rf", mlruns_dir])
+        shutil.rmtree(mlruns_dir, onerror=_log_rmtree_error)
+    # In Docker, files may be owned by root. Try sudo as a fallback.
+    if not is_windows() and os.path.exists(mlruns_dir):
+        subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=False)
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
@@ -1030,16 +1044,39 @@ def enable_mlflow_testing():
         yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _mock_databricks_host_metadata():
+    """Prevent databricks-sdk from fetching host metadata during the test session.
+
+    databricks-sdk 0.101.0+ fetches /.well-known/databricks-config during
+    WorkspaceClient initialization, which causes timeouts with dummy hosts.
+    https://github.com/databricks/databricks-sdk-py/pull/1331
+    """
+    with mock.patch("databricks.sdk.config.Config._resolve_host_metadata"):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def disable_uv_auto_detect():
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+        yield
+
+
 @pytest.fixture(scope="session", autouse=not IS_TRACING_SDK_ONLY)
 def serve_wheel(request, tmp_path_factory):
     """
     Models logged during tests have a dependency on the dev version of MLflow built from
     source (e.g., mlflow==1.20.0.dev0) and cannot be served because the dev version is not
     available on PyPI. This fixture serves a wheel for the dev version from a temporary
-    PyPI repository running on localhost and appends the repository URL to the
-    `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
+    PEP 700-compliant Simple Repository running on localhost and appends the repository URL
+    to the `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
+
+    The server provides upload-time metadata so that uv's ``exclude-newer`` can correctly
+    resolve the local dev wheel.
     """
     from tests.helper_functions import get_safe_port
+    from tests.simple_repository_server import SimpleRepositoryServer
 
     if "COPILOT_AGENT_ACTION" in os.environ:
         yield  # pytest expects a generator fixture to yield
@@ -1079,26 +1116,15 @@ def serve_wheel(request, tmp_path_factory):
             repo_root,
         ],
     )
-    with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "http.server",
-            str(port),
-        ],
-        cwd=root,
-    ) as prc:
-        try:
-            url = f"http://localhost:{port}"
-            if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-                url = f"{existing_url} {url}"
-            os.environ["PIP_EXTRA_INDEX_URL"] = url
-            # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
-            # url when using `uv` as environment manager
-            os.environ["UV_INDEX"] = f"mlflow={url}"
-            yield
-        finally:
-            prc.terminate()
+    with SimpleRepositoryServer(mlflow_dir, port) as server:
+        index_url = (
+            f"{url} {server.url}" if (url := os.environ.get("PIP_EXTRA_INDEX_URL")) else server.url
+        )
+        os.environ["PIP_EXTRA_INDEX_URL"] = index_url
+        # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
+        # url when using `uv` as environment manager
+        os.environ["UV_INDEX"] = f"mlflow={server.url}"
+        yield
 
 
 @pytest.fixture
@@ -1189,6 +1215,12 @@ def db_uri(cached_db: Path) -> Iterator[str]:
             shutil.copy2(cached_db, db_path)
 
         yield f"sqlite:///{db_path}"
+
+
+@pytest.fixture(scope="module")
+def monkeypatch_module():
+    with pytest.MonkeyPatch.context() as mp:
+        yield mp
 
 
 @pytest.fixture(autouse=True)

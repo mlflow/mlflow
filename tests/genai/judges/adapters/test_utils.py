@@ -32,10 +32,13 @@ def list_prompt():
         # Databricks adapters
         (_DATABRICKS_DEFAULT_JUDGE_MODEL, "string", DatabricksManagedJudgeAdapter),
         (_DATABRICKS_DEFAULT_JUDGE_MODEL, "list", DatabricksManagedJudgeAdapter),
-        # Gateway adapter
+        # Gateway adapter (used when litellm is unavailable)
         ("openai:/gpt-4", "string", GatewayAdapter),
         ("anthropic:/claude-3-5-sonnet-20241022", "string", GatewayAdapter),
-        ("bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0", "string", GatewayAdapter),
+        ("gemini:/gemini-2.5-flash", "string", GatewayAdapter),
+        ("mistral:/mistral-large", "string", GatewayAdapter),
+        # endpoints with string prompt
+        ("endpoints:/my-endpoint", "string", GatewayAdapter),
     ],
 )
 def test_get_adapter_without_litellm(
@@ -53,18 +56,19 @@ def test_get_adapter_without_litellm(
 @pytest.mark.parametrize(
     ("model_uri", "prompt_type", "expected_adapter"),
     [
-        # Databricks adapters (take priority over litellm)
+        # Databricks managed judge (takes top priority)
         (_DATABRICKS_DEFAULT_JUDGE_MODEL, "string", DatabricksManagedJudgeAdapter),
         (_DATABRICKS_DEFAULT_JUDGE_MODEL, "list", DatabricksManagedJudgeAdapter),
-        ("databricks:/my-endpoint", "string", LiteLLMAdapter),
-        ("databricks:/my-endpoint", "list", LiteLLMAdapter),
-        ("endpoints:/my-endpoint", "string", LiteLLMAdapter),
+        # Gateway adapter (takes priority over LiteLLM for supported providers)
+        ("databricks:/my-endpoint", "string", GatewayAdapter),
+        ("databricks:/my-endpoint", "list", GatewayAdapter),
+        ("endpoints:/my-endpoint", "string", GatewayAdapter),
+        # endpoints + list: Gateway rejects, falls through to LiteLLM
         ("endpoints:/my-endpoint", "list", LiteLLMAdapter),
-        # LiteLLM adapter
-        ("openai:/gpt-4", "string", LiteLLMAdapter),
-        ("openai:/gpt-4", "list", LiteLLMAdapter),
-        ("anthropic:/claude-3-5-sonnet-20241022", "string", LiteLLMAdapter),
-        ("anthropic:/claude-3-5-sonnet-20241022", "list", LiteLLMAdapter),
+        ("openai:/gpt-4", "string", GatewayAdapter),
+        ("openai:/gpt-4", "list", GatewayAdapter),
+        ("anthropic:/claude-3-5-sonnet-20241022", "string", GatewayAdapter),
+        ("anthropic:/claude-3-5-sonnet-20241022", "list", GatewayAdapter),
     ],
 )
 def test_get_adapter_with_litellm(
@@ -80,27 +84,24 @@ def test_get_adapter_with_litellm(
 
 
 @pytest.mark.parametrize(
-    ("model_uri", "expected_error"),
+    ("model_uri", "prompt_type"),
     [
-        ("openai:/gpt-4", "No suitable adapter found for model_uri='openai:/gpt-4'"),
-        (
-            "vertex_ai:/gemini-pro",
-            "No suitable adapter found for model_uri='vertex_ai:/gemini-pro'",
-        ),
-        (
-            "databricks:/my-endpoint",
-            "No suitable adapter found for model_uri='databricks:/my-endpoint'",
-        ),
-        (
-            "endpoints:/my-endpoint",
-            "No suitable adapter found for model_uri='endpoints:/my-endpoint'",
-        ),
+        # Completely unknown providers
+        ("unknown_provider:/some-model", "string"),
+        ("unknown_provider:/some-model", "list"),
+        # endpoints with list prompt — Gateway rejects, LiteLLM not available
+        ("endpoints:/my-endpoint", "list"),
     ],
 )
-def test_get_adapter_unsupported_with_list(model_uri, expected_error, list_prompt):
+def test_get_adapter_unsupported_without_litellm(
+    model_uri, prompt_type, string_prompt, list_prompt
+):
+    prompt = string_prompt if prompt_type == "string" else list_prompt
     with mock.patch(
         "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
         return_value=False,
     ):
-        with pytest.raises(MlflowException, match=expected_error):
-            get_adapter(model_uri, list_prompt)
+        with pytest.raises(
+            MlflowException, match=f"No suitable adapter found for model_uri='{model_uri}'"
+        ):
+            get_adapter(model_uri, prompt)

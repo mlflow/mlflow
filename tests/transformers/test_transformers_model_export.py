@@ -879,30 +879,26 @@ def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi
     "inference_payload",
     [
         ({"question": "Who's house?", "context": "The house is owned by a man named Run."}),
-        (
-            [
-                {
-                    "question": "What color is it?",
-                    "context": "Some people said it was green but I know that it's definitely blue",
-                },
-                {
-                    "question": "How do the wheels go?",
-                    "context": "The wheels on the bus go round and round. Round and round.",
-                },
-            ]
-        ),
-        (
-            [
-                {
-                    "question": "What color is it?",
-                    "context": "Some people said it was green but I know that it's pink.",
-                },
-                {
-                    "context": "The people on the bus go up and down. Up and down.",
-                    "question": "How do the people go?",
-                },
-            ]
-        ),
+        ([
+            {
+                "question": "What color is it?",
+                "context": "Some people said it was green but I know that it's definitely blue",
+            },
+            {
+                "question": "How do the wheels go?",
+                "context": "The wheels on the bus go round and round. Round and round.",
+            },
+        ]),
+        ([
+            {
+                "question": "What color is it?",
+                "context": "Some people said it was green but I know that it's pink.",
+            },
+            {
+                "context": "The people on the bus go up and down. Up and down.",
+                "question": "How do the people go?",
+            },
+        ]),
     ],
 )
 def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, inference_payload):
@@ -1633,23 +1629,21 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
             name=artifact_path,
         )
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "question": [
-                    "What color is it?",
-                    "How do the people go?",
-                    "What does the 'wolf' howl at?",
-                ],
-                "context": [
-                    "Some people said it was green but I know that it's pink.",
-                    "The people on the bus go up and down. Up and down.",
-                    "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
-                    "the moon for hours.",
-                ],
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "question": [
+                "What color is it?",
+                "How do the people go?",
+                "What does the 'wolf' howl at?",
+            ],
+            "context": [
+                "Some people said it was green but I know that it's pink.",
+                "The people on the bus go up and down. Up and down.",
+                "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
+                "the moon for hours.",
+            ],
         }
-    )
+    })
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,
@@ -1660,14 +1654,12 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 
     assert values.to_dict(orient="records") == [{0: "pink"}, {0: "up and down"}, {0: "the moon"}]
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "question": "Who's house?",
-                "context": "The house is owned by a man named Run.",
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "question": "Who's house?",
+            "context": "The house is owned by a man named Run.",
         }
-    )
+    })
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -1831,16 +1823,13 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
         )
         model_uri = model_info.model_uri
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "sequences": "My dog loves running through troughs of spaghetti "
-                "with his mouth open",
-                "candidate_labels": ["happy", "sad"],
-                "hypothesis_template": "This example talks about how the dog is {}",
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "sequences": "My dog loves running through troughs of spaghetti with his mouth open",
+            "candidate_labels": ["happy", "sad"],
+            "hypothesis_template": "This example talks about how the dog is {}",
         }
-    )
+    })
 
     response = pyfunc_serve_and_score_model(
         model_uri,
@@ -1853,19 +1842,17 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
     assert len(values.to_dict()) == 3
     assert len(values.to_dict()["labels"]) == 2
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "sequences": [
-                    "My dog loves to eat spaghetti",
-                    "My dog hates going to the vet",
-                    "My 'hamster' loves to play with my 'friendly' dog",
-                ],
-                "candidate_labels": '["happy", "sad"]',
-                "hypothesis_template": "This example talks about how the dog is {}",
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "sequences": [
+                "My dog loves to eat spaghetti",
+                "My dog hates going to the vet",
+                "My 'hamster' loves to play with my 'friendly' dog",
+            ],
+            "candidate_labels": '["happy", "sad"]',
+            "hypothesis_template": "This example talks about how the dog is {}",
         }
-    )
+    })
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_payload,
@@ -1892,14 +1879,12 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
         "Inventory": ["910", "4589", "11200", "80", "3459"],
     }
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "query": "What should we order more of?",
-                "table": table,
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "query": "What should we order more of?",
+            "table": table,
         }
-    )
+    })
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -1911,18 +1896,16 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
 
     assert len(values.to_dict(orient="records")) == 1
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "query": [
-                    "What is our highest sales?",
-                    "What should we order more of?",
-                    "Which 'fruit' has the 'highest' 'sales'?",
-                ],
-                "table": table,
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "query": [
+                "What is our highest sales?",
+                "What should we order more of?",
+                "Which 'fruit' has the 'highest' 'sales'?",
+            ],
+            "table": table,
         }
-    )
+    })
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,
@@ -2586,12 +2569,10 @@ def test_whisper_model_support_timestamps(whisper_pipeline):
         _assert_prediction(json.loads(predictions[0]))
 
         # Request with inference params
-        payload = json.dumps(
-            {
-                "inputs": [encoded_audio],
-                "model_config": model_config,
-            }
-        )
+        payload = json.dumps({
+            "inputs": [encoded_audio],
+            "model_config": model_config,
+        })
         response = endpoint.invoke(payload, content_type=content_type)
         predictions = json.loads(response.content.decode("utf-8"))["predictions"]
         _assert_prediction(json.loads(predictions[0]))
@@ -2684,12 +2665,10 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     parameters = {
         "top_k": 2,
     }
-    inference_payload = json.dumps(
-        {
-            "inputs": [image_url],
-            "params": parameters,
-        }
-    )
+    inference_payload = json.dumps({
+        "inputs": [image_url],
+        "params": parameters,
+    })
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
@@ -2737,12 +2716,10 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
         "top_k": 2,
         "max_answer_len": 5,
     }
-    inference_payload = json.dumps(
-        {
-            "inputs": data,
-            "params": parameters,
-        }
-    )
+    inference_payload = json.dumps({
+        "inputs": data,
+        "params": parameters,
+    })
     output = mlflow.transformers.generate_signature_output(small_qa_pipeline, data)
     signature_with_params = infer_signature(
         data,
@@ -2750,19 +2727,15 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
         parameters,
     )
     expected_signature = ModelSignature(
-        Schema(
-            [
-                ColSpec(Array(DataType.string), name="question"),
-                ColSpec(Array(DataType.string), name="context"),
-            ]
-        ),
+        Schema([
+            ColSpec(Array(DataType.string), name="question"),
+            ColSpec(Array(DataType.string), name="context"),
+        ]),
         Schema([ColSpec(DataType.string)]),
-        ParamSchema(
-            [
-                ParamSpec("top_k", DataType.long, 2),
-                ParamSpec("max_answer_len", DataType.long, 5),
-            ]
-        ),
+        ParamSchema([
+            ParamSpec("top_k", DataType.long, 2),
+            ParamSpec("max_answer_len", DataType.long, 5),
+        ]),
     )
     assert signature_with_params == expected_signature
 
@@ -3361,16 +3334,14 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
-    inference = pyfunc_loaded.predict(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": "How to save Transformer model?",
-                }
-            ]
-        }
-    )
+    inference = pyfunc_loaded.predict({
+        "messages": [
+            {
+                "role": "user",
+                "content": "How to save Transformer model?",
+            }
+        ]
+    })
     assert isinstance(inference[0], dict)
     assert inference[0]["choices"][0]["message"]["role"] == "assistant"
 
@@ -3413,15 +3384,13 @@ def test_text_generation_task_chat_predict(text_generation_pipeline, model_path)
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
-    inference = pyfunc_loaded.predict(
-        {
-            "messages": [
-                {"role": "system", "content": "Hello, how can I help you today?"},
-                {"role": "user", "content": "How to learn Python in 3 weeks?"},
-            ],
-            "max_tokens": 10,
-        }
-    )
+    inference = pyfunc_loaded.predict({
+        "messages": [
+            {"role": "system", "content": "Hello, how can I help you today?"},
+            {"role": "user", "content": "How to learn Python in 3 weeks?"},
+        ],
+        "max_tokens": 10,
+    })
 
     assert inference[0]["choices"][0]["message"]["role"] == "assistant"
     assert (
@@ -3765,14 +3734,12 @@ def test_save_model_from_local_checkpoint_with_llm_inference_task(
 
     # Load as pyfunc
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
-    response = loaded_pyfunc.predict(
-        {
-            "messages": [
-                {"role": "system", "content": "Hello, how can I help you today?"},
-                {"role": "user", "content": "What is MLflow?"},
-            ],
-        }
-    )
+    response = loaded_pyfunc.predict({
+        "messages": [
+            {"role": "system", "content": "Hello, how can I help you today?"},
+            {"role": "user", "content": "What is MLflow?"},
+        ],
+    })
     assert response[0]["choices"][0]["message"]["role"] == "assistant"
     assert response[0]["choices"][0]["message"]["content"] is not None
 

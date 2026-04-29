@@ -78,12 +78,10 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         schema = json.dumps({"mlflow_colspec": self.schema.to_dict()}) if self.schema else None
         config = super().to_dict()
-        config.update(
-            {
-                "schema": schema,
-                "profile": json.dumps(self.profile),
-            }
-        )
+        config.update({
+            "schema": schema,
+            "profile": json.dumps(self.profile),
+        })
         return config
 
     @property

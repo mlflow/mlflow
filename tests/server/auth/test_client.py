@@ -1,11 +1,12 @@
-import os
 from contextlib import contextmanager
 
 import pytest
+import requests
 
 import mlflow
 from mlflow import MlflowException
 from mlflow.environment_variables import (
+    MLFLOW_AUTH_CONFIG_PATH,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
@@ -16,7 +17,6 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
-from mlflow.server.auth import auth_config
 from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -29,6 +29,7 @@ from tests.server.auth.auth_test_utils import (
     PERMISSION,
     User,
     create_user,
+    write_isolated_auth_config,
 )
 from tests.tracking.integration_test_utils import _init_server
 
@@ -41,11 +42,7 @@ def clear_credentials(monkeypatch):
 
 @pytest.fixture
 def client(tmp_path):
-    # clean up users & permissions created from previous tests
-    db_file = os.path.abspath(os.path.basename(auth_config.database_uri))
-    if os.path.exists(db_file):
-        os.remove(db_file)
-
+    auth_config_path = write_isolated_auth_config(tmp_path)
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
@@ -53,7 +50,10 @@ def client(tmp_path):
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
-        extra_env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
+        extra_env={
+            MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key",
+            MLFLOW_AUTH_CONFIG_PATH.name: str(auth_config_path),
+        },
         server_type="flask",
     ) as url:
         yield AuthServiceClient(url)
@@ -117,6 +117,35 @@ def test_get_user(client, monkeypatch):
         client.get_user(username)
 
 
+def test_get_current_user(client, monkeypatch):
+    # /users/current returns minimal identity for whoever the request is
+    # authenticated as. The admin UI relies on the response shape (id,
+    # username, is_admin) to gate admin-only links.
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        created = client.create_user(username, password)
+
+    url = f"{client.tracking_uri}/api/2.0/mlflow/users/current"
+
+    resp = requests.get(url, auth=(username, password))
+    assert resp.status_code == 200
+    assert resp.json()["user"] == {
+        "id": created.id,
+        "username": username,
+        "is_admin": False,
+    }
+
+    resp = requests.get(url, auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
+    assert resp.status_code == 200
+    admin_payload = resp.json()["user"]
+    assert admin_payload["username"] == ADMIN_USERNAME
+    assert admin_payload["is_admin"] is True
+
+    resp = requests.get(url)
+    assert resp.status_code == 401
+
+
 def test_update_user_password(client, monkeypatch):
     username = random_str()
     password = random_str()
@@ -142,6 +171,74 @@ def test_update_user_password(client, monkeypatch):
         client.create_user(username2, password2)
     with User(username2, password2, monkeypatch), assert_unauthorized():
         client.update_user_password(username, new_password)
+
+
+def test_self_service_password_change_requires_current_password(client, monkeypatch):
+    # Defense-in-depth: a user changing their own password must re-assert the
+    # current password. Admins changing someone else's password don't (and
+    # can't) supply it — that path is exercised in `test_update_user_password`.
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+
+    new_password = random_str()
+
+    with User(username, password, monkeypatch):
+        # Missing current_password: rejected.
+        with pytest.raises(MlflowException, match="Current password is required"):
+            client.update_user_password(username, new_password)
+
+        # Wrong current_password: rejected.
+        with pytest.raises(MlflowException, match="Current password does not match"):
+            client.update_user_password(
+                username, new_password, current_password="not-the-current-password"
+            )
+
+        # Correct current_password: accepted.
+        client.update_user_password(username, new_password, current_password=password)
+
+    # Old password no longer authenticates; new one does.
+    with User(username, password, monkeypatch), assert_unauthenticated():
+        client.get_user(username)
+    with User(username, new_password, monkeypatch):
+        client.get_user(username)
+
+
+def test_create_user_with_null_or_missing_json_body_returns_400(client, monkeypatch):
+    # Defensive: a JSON-typed POST whose body is literal ``null`` (or empty)
+    # used to crash ``_get_request_param`` with ``None | dict`` and surface as
+    # a 500. Make sure it's a clean 400 instead.
+    url = f"{client.tracking_uri}/api/2.0/mlflow/users/create"
+    headers = {"Content-Type": "application/json"}
+    auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+
+    # Literal null body.
+    resp = requests.post(url, data="null", headers=headers, auth=auth)
+    assert resp.status_code == 400
+
+    # Empty body.
+    resp = requests.post(url, data="", headers=headers, auth=auth)
+    assert resp.status_code == 400
+
+
+def test_self_service_password_change_with_null_body_returns_400(client, monkeypatch):
+    # Defensive: self-service password changes used to crash with
+    # ``request.json.get(...)`` when the body was literal ``null`` (raises
+    # AttributeError -> 500). Make sure it's the standard 400 instead.
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+
+    url = f"{client.tracking_uri}/api/2.0/mlflow/users/update-password"
+    resp = requests.patch(
+        url,
+        data="null",
+        headers={"Content-Type": "application/json"},
+        auth=(username, password),
+    )
+    assert resp.status_code == 400
 
 
 def test_update_user_admin(client, monkeypatch):

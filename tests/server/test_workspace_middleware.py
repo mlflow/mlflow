@@ -147,6 +147,17 @@ def test_server_info_skips_workspace_resolution(monkeypatch):
     assert data["workspaces_enabled"] is True
 
 
+def test_server_info_with_workspace_header_when_workspaces_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    client = flask_app.test_client()
+    resp = client.get(
+        "/api/3.0/mlflow/server-info", headers={WORKSPACE_HEADER_NAME: "some-workspace"}
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["workspaces_enabled"] is False
+
+
 def test_fastapi_wsgi_flask_workspace_propagation(monkeypatch):
     from fastapi.middleware.wsgi import WSGIMiddleware
 

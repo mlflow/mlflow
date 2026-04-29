@@ -116,18 +116,10 @@ def predict_fn_base_model(text: str) -> str:
 
 # Example inputs - each record contains an "inputs" dict with the function's input parameters
 inputs = [
-    {
-        "inputs": {
-            "text": "This movie was absolutely fantastic! I loved every minute of it."
-        }
-    },
+    {"inputs": {"text": "This movie was absolutely fantastic! I loved every minute of it."}},
     {"inputs": {"text": "The service was terrible and the food arrived cold."}},
     {"inputs": {"text": "It was okay, nothing special but not bad either."}},
-    {
-        "inputs": {
-            "text": "I'm so disappointed with this purchase. Complete waste of money."
-        }
-    },
+    {"inputs": {"text": "I'm so disappointed with this purchase. Complete waste of money."}},
     {"inputs": {"text": "Best experience ever! Highly recommend to everyone."}},
     {"inputs": {"text": "The product works as described. No complaints."}},
     {"inputs": {"text": "I can't believe how amazing this turned out to be!"}},
@@ -270,11 +262,7 @@ inputs = [
             "text": "The delivery was delayed by three days and the packaging was damaged. The product itself works fine but the experience was disappointing overall."
         }
     },
-    {
-        "inputs": {
-            "text": "It meets the basic requirements. Nothing more, nothing less."
-        }
-    },
+    {"inputs": {"text": "It meets the basic requirements. Nothing more, nothing less."}},
     # ... more varied examples
 ]
 

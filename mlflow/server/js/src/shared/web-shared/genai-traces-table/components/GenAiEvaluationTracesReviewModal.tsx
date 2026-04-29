@@ -7,9 +7,13 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   GenericSkeleton,
+  LinkIcon,
   Modal,
+  Notification,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
 import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorer';
 import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawer';
@@ -20,7 +24,7 @@ import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
 
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
-import { AssistantAwareDrawer } from '../../../../common/components/AssistantAwareDrawer';
+import { GenAITracesTableContext } from '../GenAITracesTableContext';
 import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
 import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace, useGetTraceByFullTraceId } from '../hooks/useGetTrace';
@@ -139,17 +143,17 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     const shouldEnablePolling = spansLocation === TRACKING_STORE_SPANS_LOCATION;
 
     // prettier-ignore
-    const traceQueryResult = useGetTrace(
+    const traceQueryResult = useGetTrace({
       getTrace,
-      evaluation?.currentRunValue?.traceInfo,
-      shouldEnablePolling,
-    );
+      traceInfo:evaluation?.currentRunValue?.traceInfo,
+      enablePolling: shouldEnablePolling,
+    });
     // prettier-ignore
-    const compareToTraceQueryResult = useGetTrace(
+    const compareToTraceQueryResult = useGetTrace({
       getTrace,
-      evaluation?.otherRunValue?.traceInfo,
-      shouldEnablePolling,
-    );
+      traceInfo:evaluation?.otherRunValue?.traceInfo,
+      enablePolling: shouldEnablePolling,
+    });
     // In case that the selected evaluation is not provided upstream (but the list is loaded), we lazily fetch the full trace data here
     const shouldFetchTraceBySearchParamId = useMemo(
       () => Boolean(evaluations) && !evaluation && Boolean(selectedEvaluationId),
@@ -163,15 +167,15 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
     // Prefetching the next and previous traces to optimize performance
     // prettier-ignore
-    useGetTrace(
+    useGetTrace({
       getTrace,
-      nextEvaluation?.currentRunValue?.traceInfo,
-    );
+      traceInfo: nextEvaluation?.currentRunValue?.traceInfo,
+    });
     // prettier-ignore
-    useGetTrace(
+    useGetTrace({
       getTrace,
-      previousEvaluation?.currentRunValue?.traceInfo,
-    );
+      traceInfo: previousEvaluation?.currentRunValue?.traceInfo,
+    });
 
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);
@@ -218,7 +222,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
         {/* Only show skeleton for the first fetch to avoid flickering when polling new spans */}
         {!shouldUseModelTraceExplorerDrawerUI() &&
           !currentTraceQueryResult.data &&
-          currentTraceQueryResult.isFetching && (
+          currentTraceQueryResult.isLoading && (
             <GenericSkeleton
               label="Loading trace..."
               style={{
@@ -236,16 +240,24 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           // Show ModelTraceExplorer only if there is no run to compare to and there's trace data.
           ((shouldFetchTraceBySearchParamId && traceBySearchParamQueryResult?.data) || isSingleTraceView) &&
           !isNil(currentTraceQueryResult.data) ? (
-            <div css={{ height: 'calc(100% - 34px)', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
+            <div
+              css={{
+                height: '100%',
+                marginLeft: -theme.spacing.lg,
+                marginRight: -theme.spacing.lg,
+                marginBottom: -theme.spacing.lg,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
-                showLoadingState={shouldUseModelTraceExplorerDrawerUI() && (currentTraceQueryResult.isFetching)}
               />
             </div>
           ) : (
             evaluation?.currentRunValue &&
-            (shouldUseModelTraceExplorerDrawerUI() && currentTraceQueryResult.isFetching ? (
+            (shouldUseModelTraceExplorerDrawerUI() && currentTraceQueryResult.isLoading ? (
               <div css={{ marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
                 <ModelTraceExplorerSkeleton />
               </div>
@@ -289,7 +301,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           selectNextEval={selectNextEval}
           selectPreviousEval={selectPreviousEval}
           renderModalTitle={renderModalTitle}
-          isLoading={currentTraceQueryResult.isFetching}
+          isLoading={currentTraceQueryResult.isLoading}
           experimentId={experimentId}
           traceInfo={currentTraceInfo}
         >
@@ -307,7 +319,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
         selectNextEval={selectNextEval}
         selectPreviousEval={selectPreviousEval}
         renderModalTitle={renderModalTitle}
-        isLoading={currentTraceQueryResult.isFetching}
       >
         {content}
         {renderExportTracesToDatasetsModal?.({
@@ -329,7 +340,6 @@ const ModalWrapper = ({
   renderModalTitle,
   handleClose,
   children,
-  isLoading,
 }: {
   children: React.ReactNode;
   selectPreviousEval: () => void;
@@ -338,10 +348,16 @@ const ModalWrapper = ({
   isNextAvailable: boolean;
   renderModalTitle: () => React.ReactNode;
   handleClose: () => void;
-  isLoading?: boolean;
 }) => {
   const { theme, classNamePrefix } = useDesignSystemTheme();
   const useRadixModal = false;
+  const [showCopiedNotification, setShowCopiedNotification] = useState(false);
+
+  const handleShareClick = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href);
+    setShowCopiedNotification(true);
+    setTimeout(() => setShowCopiedNotification(false), 2000);
+  }, []);
 
   return (
     <div
@@ -356,7 +372,31 @@ const ModalWrapper = ({
       <Modal
         componentId="mlflow.evaluations_review.modal"
         visible
-        title={renderModalTitle()}
+        title={
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            <Tooltip
+              componentId="mlflow.evaluations_review.modal.share-tooltip"
+              content={
+                <FormattedMessage
+                  defaultMessage="Copy link to trace"
+                  description="Tooltip for the share trace button"
+                />
+              }
+            >
+              <Button
+                componentId="mlflow.evaluations_review.modal.share-button"
+                icon={<LinkIcon />}
+                size="small"
+                type="tertiary"
+                onClick={handleShareClick}
+                css={{ flexShrink: 0 }}
+              >
+                <FormattedMessage defaultMessage="Share" description="Label for the share trace button" />
+              </Button>
+            </Tooltip>
+          </div>
+        }
         onCancel={handleClose}
         size="wide"
         verticalSizing="maxed_out"
@@ -435,6 +475,19 @@ const ModalWrapper = ({
           </div>
         </div>
       </Modal>
+      {showCopiedNotification && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.evaluations_review.modal.share-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Copied to clipboard"
+                description="Success message after copying trace link"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
     </div>
   );
 };
@@ -442,10 +495,8 @@ const ModalWrapper = ({
 // prettier-ignore
 const ModelTraceExplorerModalBody = ({
   traceData,
-  showLoadingState,
 }: {
   traceData: ModelTrace;
-  showLoadingState: boolean;
 }) => {
   return (
     <ModelTraceExplorer

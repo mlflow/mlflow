@@ -16,7 +16,8 @@ import Utils from '../../../common/utils/Utils';
 import { RunPageTabName } from '../../constants';
 import { RenameRunModal } from '../modals/RenameRunModal';
 import { RunViewArtifactTab } from './RunViewArtifactTab';
-import { RunViewHeader } from './RunViewHeader';
+import { RunViewHeader, type RunViewHeaderProps } from './RunViewHeader';
+import { RunViewIssuesTab } from './RunViewIssuesTab';
 import { RunViewOverview } from './RunViewOverview';
 import { useRunDetailsPageData } from './hooks/useRunDetailsPageData';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
@@ -40,6 +41,7 @@ import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 import { useLoggedModelsForExperimentRun } from '../experiment-page/hooks/useLoggedModelsForExperimentRun';
 import { useLoggedModelsForExperimentRunV2 } from '../experiment-page/hooks/useLoggedModelsForExperimentRunV2';
 import { useExperimentKind } from '../../utils/ExperimentKindUtils';
+import type { KeyValueEntity } from '../../../common/types';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -53,7 +55,26 @@ const RunPageLoadingState = () => (
   </PageContainer>
 );
 
-export const RunPage = () => {
+export interface RunPageProps {
+  /** Custom breadcrumbs to display in the header */
+  customBreadcrumbs?: RunViewHeaderProps['customBreadcrumbs'];
+  /** Props to pass to RunViewModeSwitch for custom tab configuration */
+  tabSwitchProps?: RunViewHeaderProps['tabSwitchProps'];
+  /** Custom callback after successful run deletion */
+  onDeleteSuccess?: (experimentId: string) => void;
+  /** Render function to replace the entire Overview tab. Receives run data as props. */
+  renderCustomOverview?: (props: {
+    runUuid: string;
+    runInfo: NonNullable<ReturnType<typeof useRunDetailsPageData>['runInfo']>;
+    tags: Record<string, KeyValueEntity>;
+    onRunDataUpdated: () => void;
+  }) => React.ReactNode;
+  /** Hide the compare selector in the traces tab */
+  hideTracesCompareSelector?: boolean;
+}
+
+export const RunPage = (props: RunPageProps) => {
+  const { customBreadcrumbs, tabSwitchProps, onDeleteSuccess, renderCustomOverview, hideTracesCompareSelector } = props;
   const { runUuid, experimentId } = useParams<{
     runUuid: string;
     experimentId: string;
@@ -144,6 +165,7 @@ export const RunPage = () => {
         experiment={experiment}
         experimentId={safeExperimentId}
         runDisplayName={Utils.getRunDisplayName(runInfo, safeRunUuid)}
+        hideCompareSelector={hideTracesCompareSelector}
       />
     );
     switch (activeTab) {
@@ -186,6 +208,21 @@ export const RunPage = () => {
         );
       case RunPageTabName.TRACES:
         return renderEvaluationTab();
+      case RunPageTabName.ISSUES:
+        return <RunViewIssuesTab runUuid={safeRunUuid} experimentId={safeExperimentId} />;
+    }
+
+    if (renderCustomOverview) {
+      return (
+        <>
+          {renderCustomOverview({
+            runUuid: safeRunUuid,
+            runInfo,
+            tags,
+            onRunDataUpdated: refetchRun,
+          })}
+        </>
+      );
     }
 
     return (
@@ -284,6 +321,8 @@ export const RunPage = () => {
           artifactRootUri={runInfo?.artifactUri ?? undefined}
           registeredModelVersionSummaries={registeredModelVersionSummaries}
           isLoading={loading || isLoadingLoggedModels}
+          customBreadcrumbs={customBreadcrumbs}
+          tabSwitchProps={tabSwitchProps}
         />
         {/* Scroll tab contents independently within own container */}
         <div css={{ flex: 1, overflow: 'auto', marginBottom: theme.spacing.sm, display: 'flex' }}>
@@ -302,7 +341,11 @@ export const RunPage = () => {
         onClose={() => setDeleteModalVisible(false)}
         isOpen={deleteModalVisible}
         onSuccess={() => {
-          navigate(Routes.getExperimentPageRoute(safeExperimentId));
+          if (onDeleteSuccess) {
+            onDeleteSuccess(safeExperimentId);
+          } else {
+            navigate(Routes.getExperimentPageRoute(safeExperimentId));
+          }
         }}
       />
     </>

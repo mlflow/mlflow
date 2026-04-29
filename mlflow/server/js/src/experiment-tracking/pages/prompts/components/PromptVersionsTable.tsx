@@ -1,6 +1,9 @@
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
+import { v4 as uuidv4 } from 'uuid';
 import {
   ChevronRightIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   Empty,
   Table,
   TableCell,
@@ -17,6 +20,7 @@ import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionsTableMode } from '../utils';
 import { PromptVersionsTableCombinedCell } from './PromptVersionsTableCombinedCell';
 import { PromptVersionsDiffSelectorButton } from './PromptVersionsDiffSelectorButton';
+import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 
 type PromptVersionsTableColumnDef = ColumnDef<RegisteredPromptVersion>;
 
@@ -44,6 +48,8 @@ export const PromptVersionsTable = ({
   aliasesByVersion: Record<string, string[]>;
 }) => {
   const intl = useIntl();
+  const logTelemetryEvent = useLogTelemetryEvent();
+  const viewId = useMemo(() => uuidv4(), []);
 
   const { theme } = useDesignSystemTheme();
   const columns = useMemo(() => {
@@ -145,6 +151,13 @@ export const PromptVersionsTable = ({
                     return;
                   }
                   onUpdateSelectedVersion(row.original.version);
+                  logTelemetryEvent({
+                    componentId: 'mlflow.prompts.versions-table.row',
+                    componentViewId: viewId,
+                    componentType: DesignSystemEventProviderComponentTypes.Button,
+                    componentSubType: null,
+                    eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+                  });
                 }}
               >
                 {row.getAllCells().map((cell) => (

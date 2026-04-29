@@ -303,6 +303,7 @@ export const ExperimentEvaluationRunsTableControls = ({
           selectedRunUuid={selectedRunUuid}
           compareToRunUuid={compareToRunUuid}
           enableImprovedComparison={enableImprovedComparison}
+          setIsComparisonMode={setIsComparisonMode}
         />
       </div>
     </div>

@@ -318,6 +318,7 @@ class BuiltInScorer(Judge):
 
     name: str
     required_columns: set[str] = set()
+    inference_params: dict[str, Any] | None = None
 
     @property
     @abstractmethod
@@ -368,8 +369,10 @@ class BuiltInScorer(Judge):
         try:
             scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
         except AttributeError:
+            # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
             raise MlflowException.invalid_parameter_value(
-                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
+                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
+                error_class="ATTRIBUTE_NOT_FOUND",
             )
 
         constructor_args = serialized.builtin_scorer_pydantic_data or {}
@@ -396,6 +399,8 @@ class RetrievalRelevance(BuiltInScorer):
     Args:
         name: The name of the scorer. Defaults to "retrieval_relevance".
         model: {{ model }}
+        inference_params: Optional dictionary of inference parameters (e.g., temperature,
+            top_p, max_tokens) to pass to the judge model for fine-grained control.
 
     Example (direct usage):
 
@@ -405,7 +410,10 @@ class RetrievalRelevance(BuiltInScorer):
         from mlflow.genai.scorers import RetrievalRelevance
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedbacks = RetrievalRelevance(name="my_retrieval_relevance")(trace=trace)
+        feedbacks = RetrievalRelevance(
+            name="my_retrieval_relevance",
+            inference_params={"temperature": 0.0},
+        )(trace=trace)
         print(feedbacks)
 
     Example (with evaluate):
@@ -497,13 +505,23 @@ class RetrievalRelevance(BuiltInScorer):
         if model == "databricks":
             from databricks.agents.evals.judges import chunk_relevance
 
+            if self.inference_params:
+                _logger.warning(
+                    "inference_params are not supported with the Databricks managed judge "
+                    "and will be ignored."
+                )
             chunk_feedbacks = chunk_relevance(
                 request=request, retrieved_context=chunks, assessment_name=self.name
             )
         else:
             for i, chunk in enumerate(chunks):
                 prompt = get_prompt(request=request, context=chunk["content"])
-                feedback = invoke_judge_model(model, prompt, assessment_name=self.name)
+                feedback = invoke_judge_model(
+                    model,
+                    prompt,
+                    assessment_name=self.name,
+                    inference_params=self.inference_params,
+                )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
                     **(sanitized_feedback.metadata or {}),
@@ -1727,8 +1745,7 @@ class Correctness(BuiltInScorer):
                 ),
                 "expectations": {
                     "expected_response": (
-                        "reduceByKey aggregates data before shuffling. "
-                        "groupByKey shuffles all data"
+                        "reduceByKey aggregates data before shuffling. groupByKey shuffles all data"
                     ),
                 },
             }
@@ -1959,6 +1976,8 @@ class Equivalence(BuiltInScorer):
     Args:
         name: The name of the scorer. Defaults to "equivalence".
         model: {{ model }}
+        inference_params: Optional dictionary of inference parameters (e.g., temperature,
+            top_p, max_tokens) to pass to the judge model for fine-grained control.
 
     Example (direct usage):
 
@@ -2131,7 +2150,9 @@ class Equivalence(BuiltInScorer):
             output=outputs_str,
             expected_output=expectations_str,
         )
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=assessment_name, inference_params=self.inference_params
+        )
 
         return _sanitize_feedback(feedback)
 
@@ -2149,6 +2170,7 @@ class SessionLevelScorer(Judge):
     """
 
     required_columns: set[str] = {"trace"}
+    inference_params: dict[str, Any] | None = None
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
     @abstractmethod
@@ -2291,6 +2313,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
             model=self.model,
             description=self.description,
             feedback_value_type=self.feedback_value_type,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2369,6 +2392,7 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2449,6 +2473,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2503,9 +2528,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
             filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
             return_type="list",
         )
-        result = mlflow.genai.evaluate(
-            data=session, scorers=[ConversationalToolCallEfficiency()]
-        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalToolCallEfficiency()])
     """
 
     name: str = CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME
@@ -2528,6 +2551,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             include_tool_calls_in_conversation=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2604,6 +2628,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2694,6 +2719,7 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2737,6 +2763,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
             model=self.model,
             description=self.description,
             feedback_value_type=self.feedback_value_type,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2807,11 +2834,12 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
     )
 
     def model_post_init(self, __context: Any) -> None:
-        """Propagate model parameter to the inner last_turn_scorer after initialization."""
-        if self.model is not None:
-            # Make a copy to avoid mutating the caller's scorer
+        if self.model is not None or self.inference_params is not None:
             self.last_turn_scorer = copy.deepcopy(self.last_turn_scorer)
-            self.last_turn_scorer.model = self.model
+            if self.model is not None:
+                self.last_turn_scorer.model = self.model
+            if self.inference_params is not None:
+                self.last_turn_scorer.inference_params = self.inference_params
 
     def _create_judge(self) -> Judge:
         """

@@ -1,5 +1,5 @@
-import { describe, jest, beforeEach, test, expect } from '@jest/globals';
-import { waitFor } from '@testing-library/react';
+/* eslint-disable @databricks/no-mock-location*/
+import { describe, jest, beforeEach, test, expect, afterEach } from '@jest/globals';
 import '@testing-library/jest-dom';
 import userEvent from '@testing-library/user-event';
 import { WorkspacesHomeView } from './WorkspacesHomeView';
@@ -11,6 +11,8 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 
 jest.mock('../../workspaces/hooks/useWorkspaces');
 jest.mock('../../workspaces/utils/WorkspaceUtils');
+
+const reloadMock = jest.fn();
 
 const mockNavigate = jest.fn();
 jest.mock('../../common/utils/RoutingUtils', () => ({
@@ -24,7 +26,16 @@ describe('WorkspacesHomeView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock last used workspace for "Last used" badge
-    (getLastUsedWorkspace as jest.Mock).mockReturnValue('ml-research');
+    jest.mocked(getLastUsedWorkspace).mockReturnValue('ml-research');
+
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload: reloadMock },
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    reloadMock.mockClear();
   });
 
   const renderComponent = () => {
@@ -44,11 +55,11 @@ describe('WorkspacesHomeView', () => {
   };
 
   test('renders loading state', () => {
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [],
       isLoading: true,
       isError: false,
-      refetch: jest.fn(),
+      refetch: jest.fn() as (options: any) => Promise<any>,
     });
 
     renderComponent();
@@ -56,11 +67,11 @@ describe('WorkspacesHomeView', () => {
   });
 
   test('renders empty state when no workspaces', () => {
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [],
       isLoading: false,
       isError: false,
-      refetch: jest.fn(),
+      refetch: jest.fn() as (options: any) => Promise<any>,
     });
 
     renderComponent();
@@ -71,11 +82,11 @@ describe('WorkspacesHomeView', () => {
   });
 
   test('calls onCreateWorkspace when create button clicked in empty state', async () => {
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [],
       isLoading: false,
       isError: false,
-      refetch: jest.fn(),
+      refetch: jest.fn() as (options: any) => Promise<any>,
     });
 
     renderComponent();
@@ -85,7 +96,7 @@ describe('WorkspacesHomeView', () => {
   });
 
   test('renders workspace list with Last used badge', () => {
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [
         { name: 'ml-research', description: 'Research experiments for new ML models' },
         { name: 'production-models', description: 'Production-ready models' },
@@ -93,7 +104,7 @@ describe('WorkspacesHomeView', () => {
       ],
       isLoading: false,
       isError: false,
-      refetch: jest.fn(),
+      refetch: jest.fn() as (options: any) => Promise<any>,
     });
 
     renderComponent();
@@ -109,18 +120,11 @@ describe('WorkspacesHomeView', () => {
   });
 
   test('navigates to workspace when row clicked', async () => {
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [{ name: 'ml-research', description: 'Research experiments' }],
       isLoading: false,
       isError: false,
-      refetch: jest.fn(),
-    });
-
-    // Mock window.location for hard reload workspace switching
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      writable: true,
-      value: { ...originalLocation, hash: '', reload: jest.fn() },
+      refetch: jest.fn() as (options: any) => Promise<any>,
     });
 
     renderComponent();
@@ -131,23 +135,14 @@ describe('WorkspacesHomeView', () => {
     // Hard reload with workspace query param
     expect(window.location.hash).toBe('#/?workspace=ml-research');
     expect(window.location.reload).toHaveBeenCalled();
-
-    Object.defineProperty(window, 'location', { writable: true, value: originalLocation });
   });
 
   test('encodes workspace name in URL', async () => {
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [{ name: 'team-a/special', description: 'Special workspace' }],
       isLoading: false,
       isError: false,
-      refetch: jest.fn(),
-    });
-
-    // Mock window.location for hard reload workspace switching
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      writable: true,
-      value: { ...originalLocation, hash: '', reload: jest.fn() },
+      refetch: jest.fn() as (options: any) => Promise<any>,
     });
 
     renderComponent();
@@ -158,16 +153,14 @@ describe('WorkspacesHomeView', () => {
     // Hard reload with encoded workspace query param
     expect(window.location.hash).toBe('#/?workspace=team-a%2Fspecial');
     expect(window.location.reload).toHaveBeenCalled();
-
-    Object.defineProperty(window, 'location', { writable: true, value: originalLocation });
   });
 
   test('shows create new workspace button when workspaces exist', () => {
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [{ name: 'ml-research', description: 'Research experiments' }],
       isLoading: false,
       isError: false,
-      refetch: jest.fn(),
+      refetch: jest.fn() as (options: any) => Promise<any>,
     });
 
     renderComponent();
@@ -175,12 +168,12 @@ describe('WorkspacesHomeView', () => {
   });
 
   test('renders error state', () => {
-    const mockRefetch = jest.fn();
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    const mockRefetch = jest.fn() as (options: any) => Promise<any>;
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [],
       isLoading: false,
       isError: true,
-      refetch: mockRefetch,
+      refetch: mockRefetch as any,
     });
 
     renderComponent();
@@ -189,12 +182,12 @@ describe('WorkspacesHomeView', () => {
   });
 
   test('calls refetch when retry button clicked', async () => {
-    const mockRefetch = jest.fn();
-    (useWorkspaces as jest.Mock).mockReturnValue({
+    const mockRefetch = jest.fn() as (options: any) => Promise<any>;
+    jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [],
       isLoading: false,
       isError: true,
-      refetch: mockRefetch,
+      refetch: mockRefetch as any,
     });
 
     renderComponent();

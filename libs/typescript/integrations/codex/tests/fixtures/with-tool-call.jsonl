@@ -1,0 +1,9 @@
+{"timestamp":"2026-04-05T10:00:00Z","type":"session_meta","payload":{"id":"test-session-002","timestamp":"2026-04-05T10:00:00Z","cwd":"/tmp/test","originator":"codex-tui","cli_version":"0.118.0","source":"cli"}}
+{"timestamp":"2026-04-05T10:00:00Z","type":"event_msg","payload":{"type":"task_started"}}
+{"timestamp":"2026-04-05T10:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"list files in current directory"}]}}
+{"timestamp":"2026-04-05T10:00:01Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"I'll list the files for you."}]}}
+{"timestamp":"2026-04-05T10:00:02Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","call_id":"call_abc123","arguments":"{\"cmd\":\"ls\"}"}}
+{"timestamp":"2026-04-05T10:00:03Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_abc123","output":"file1.txt\nfile2.txt\nfile3.txt"}}
+{"timestamp":"2026-04-05T10:00:04Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"There are 3 files: file1.txt, file2.txt, file3.txt"}]}}
+{"timestamp":"2026-04-05T10:00:05Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":200,"output_tokens":50,"total_tokens":250}}}}
+{"timestamp":"2026-04-05T10:00:05Z","type":"event_msg","payload":{"type":"task_complete"}}

@@ -248,9 +248,8 @@ def get_feature_dependencies(model_dir):
     Databricks. In OSS mlflow, the dependencies are always empty ("").
     """
     model = _load_model(model_dir)
-    model_info = model.get_model_info()
     if (
-        model_info.flavors.get("python_function", {}).get("loader_module")
+        model.flavors.get("python_function", {}).get("loader_module")
         == mlflow.models.model._DATABRICKS_FS_LOADER_MODULE
     ):
         raise MlflowException(
@@ -268,7 +267,6 @@ def get_model_version_dependencies(model_dir):
     from mlflow.models.resources import ResourceType
 
     model = _load_model(model_dir)
-    model_info = model.get_model_info()
     dependencies = []
 
     # Try to get model.auth_policy.system_auth_policy.resources. If that is not found or empty,
@@ -324,9 +322,7 @@ def get_model_version_dependencies(model_dir):
         _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
         _DB_DEPENDENCY_KEY = "databricks_dependency"
 
-        databricks_dependencies = model_info.flavors.get("langchain", {}).get(
-            _DB_DEPENDENCY_KEY, {}
-        )
+        databricks_dependencies = model.flavors.get("langchain", {}).get(_DB_DEPENDENCY_KEY, {})
 
         index_names = _fetch_langchain_dependency_from_model_info(
             databricks_dependencies, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
@@ -970,17 +966,17 @@ class UcModelRegistryStore(BaseRestStore):
         if source_workspace_id is None:
             source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
-        lineage_securable_list = self._get_lineage_input_sources(run)
         job_id = self._get_job_id(run)
-        job_run_id = self._get_job_run_id(run)
         extra_headers = None
         if notebook_id is not None or job_id is not None:
+            lineage_securable_list = self._get_lineage_input_sources(run)
             entity_list = []
             lineage_list = None
             if notebook_id is not None:
                 notebook_entity = Notebook(id=str(notebook_id))
                 entity_list.append(Entity(notebook=notebook_entity))
             if job_id is not None:
+                job_run_id = self._get_job_run_id(run)
                 job_entity = Job(id=job_id, job_run_id=job_run_id)
                 entity_list.append(Entity(job=job_entity))
             if lineage_securable_list is not None:

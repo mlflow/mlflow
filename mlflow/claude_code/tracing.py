@@ -22,6 +22,8 @@ from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_TRACKING_URI,
 )
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -48,6 +50,7 @@ MESSAGE_FIELD_TOOL_USE_RESULT = "toolUseResult"
 MESSAGE_FIELD_COMMAND_NAME = "commandName"
 MESSAGE_TYPE_QUEUE_OPERATION = "queue-operation"
 QUEUE_OPERATION_ENQUEUE = "enqueue"
+METADATA_KEY_CLAUDE_CODE_VERSION = "mlflow.claude_code_version"
 
 # Custom logging level for Claude tracing
 CLAUDE_TRACING_LEVEL = logging.WARNING - 5
@@ -116,6 +119,8 @@ def setup_mlflow() -> None:
             mlflow.set_experiment(experiment_name)
     except Exception as e:
         get_logger().warning("Failed to set experiment: %s", e)
+
+    _record_event(AutologgingEvent, {"flavor": "claude_code"})
 
 
 def is_tracing_enabled() -> bool:
@@ -378,6 +383,31 @@ def _get_input_messages(transcript: list[dict[str, Any]], current_idx: int) -> l
     return messages
 
 
+def _build_usage_dict(usage: dict[str, Any]) -> dict[str, int]:
+    """Normalize a Claude Code usage payload into the CHAT_USAGE schema.
+
+    Stores fields as the Anthropic API reports them, matching
+    ``mlflow.anthropic.autolog``: ``input_tokens`` is the non-cached input,
+    cache tokens are exposed as separate optional keys so consumers can
+    compute cache hit rate, and ``total_tokens`` follows the
+    ``mlflow.anthropic`` convention of ``input_tokens + output_tokens``
+    (cache tokens excluded).
+    """
+    input_tokens = usage.get("input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+
+    usage_dict: dict[str, int] = {
+        TokenUsageKey.INPUT_TOKENS: input_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+    }
+    if (cached := usage.get("cache_read_input_tokens")) is not None:
+        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+    if (created := usage.get("cache_creation_input_tokens")) is not None:
+        usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+    return usage_dict
+
+
 def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     """Set token usage on a span using the standardized CHAT_USAGE attribute.
 
@@ -388,18 +418,7 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     if not usage:
         return
 
-    # Include cache_creation_input_tokens (similar cost to input tokens) but not
-    # cache_read_input_tokens (much cheaper, would inflate cost estimates)
-    input_tokens = usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)
-    output_tokens = usage.get("output_tokens", 0)
-
-    usage_dict = {
-        TokenUsageKey.INPUT_TOKENS: input_tokens,
-        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
-    }
-
-    span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+    span.set_attribute(SpanAttributeKey.CHAT_USAGE, _build_usage_dict(usage))
 
 
 def _create_llm_and_tool_spans(
@@ -450,13 +469,11 @@ def _create_llm_and_tool_spans(
             _set_token_usage_attribute(llm_span, usage)
 
             # Output in Anthropic response format for Chat UI rendering
-            llm_span.set_outputs(
-                {
-                    "type": "message",
-                    "role": "assistant",
-                    "content": content,
-                }
-            )
+            llm_span.set_outputs({
+                "type": "message",
+                "role": "assistant",
+                "content": content,
+            })
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)
 
         # Create tool spans with proportional timing and actual results
@@ -492,6 +509,7 @@ def _finalize_trace(
     session_id: str | None,
     end_time_ns: int | None = None,
     usage: dict[str, Any] | None = None,
+    claude_code_version: str | None = None,
 ) -> mlflow.entities.Trace:
     try:
         # Set trace previews and metadata for UI display
@@ -507,21 +525,13 @@ def _finalize_trace(
             }
             if session_id:
                 metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+            if claude_code_version:
+                metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = claude_code_version
 
             # Set token usage directly on trace metadata so it survives
             # even if span-level aggregation doesn't pick it up
             if usage:
-                input_tokens = usage.get("input_tokens", 0) + usage.get(
-                    "cache_creation_input_tokens", 0
-                )
-                output_tokens = usage.get("output_tokens", 0)
-                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(
-                    {
-                        TokenUsageKey.INPUT_TOKENS: input_tokens,
-                        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-                        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
-                    }
-                )
+                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(_build_usage_dict(usage))
 
             in_memory_trace.info.trace_metadata = {
                 **in_memory_trace.info.trace_metadata,
@@ -638,12 +648,18 @@ def process_transcript(
         if not conv_end_ns or conv_end_ns <= conv_start_ns:
             conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
 
+        # Extract Claude Code version from transcript entries (CLI-only)
+        claude_code_version = next(
+            (ver for entry in transcript if (ver := entry.get("version"))), None
+        )
+
         return _finalize_trace(
             parent_span,
             user_prompt_text,
             final_response,
             session_id,
             conv_end_ns,
+            claude_code_version=claude_code_version,
         )
 
     except Exception as e:
@@ -763,13 +779,11 @@ def _create_sdk_child_spans(
                         SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
                     },
                 )
-                llm_span.set_outputs(
-                    {
-                        "type": "message",
-                        "role": "assistant",
-                        "content": [{"type": "text", "text": block.text} for block in text_blocks],
-                    }
-                )
+                llm_span.set_outputs({
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": block.text} for block in text_blocks],
+                })
                 llm_span.end()
                 pending_messages = []
                 continue

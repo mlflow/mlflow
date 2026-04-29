@@ -27,6 +27,7 @@ from mlflow.utils.file_utils import remove_on_error
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd, _join_commands
 from mlflow.utils.requirements_utils import _parse_requirements
+from mlflow.utils.uv_utils import has_uv_lock_artifact, run_uv_sync, setup_uv_sync_environment
 
 _logger = logging.getLogger(__name__)
 
@@ -280,31 +281,50 @@ def _create_virtualenv(
             extra_env=env_creation_extra_env,
         )
 
-        _logger.info("Installing dependencies")
-        for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
-            with tempfile.TemporaryDirectory() as tmpdir:
-                # Create a temporary requirements file in the model directory to resolve the
-                # references in it correctly. To do this, we must first symlink or copy the model
-                # directory's contents to a temporary location for compatibility with deployment
-                # tools that store models in a read-only mount
-                try:
-                    for model_item in os.listdir(local_model_path):
-                        os.symlink(
-                            src=os.path.join(local_model_path, model_item),
-                            dst=os.path.join(tmpdir, model_item),
+        # Use UV sync if model has uv.lock artifact and using UV env manager
+        if env_manager == em.UV and has_uv_lock_artifact(local_model_path):
+            _logger.info("Found uv.lock artifact, restoring environment with uv sync")
+            if not setup_uv_sync_environment(env_dir, local_model_path, python_env.python):
+                raise MlflowException(
+                    "Failed to set up uv sync environment. Ensure the model's uv.lock "
+                    "and pyproject.toml artifacts are valid."
+                )
+            if not run_uv_sync(env_dir, capture_output=capture_output):
+                raise MlflowException(
+                    "Failed to restore model environment using uv sync. Ensure that uv is "
+                    "installed and the model's uv.lock artifact is valid. To install "
+                    "dependencies with pip instead, set the env_manager parameter to "
+                    "'virtualenv' instead of 'uv'."
+                )
+            _logger.info("UV sync completed successfully")
+        else:
+            _logger.info("Installing dependencies")
+            for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    # Create a temporary requirements file in the model directory to resolve the
+                    # references in it correctly. To do this, we must first symlink or copy the
+                    # model directory's contents to a temporary location for compatibility with
+                    # deployment tools that store models in a read-only mount
+                    try:
+                        for model_item in os.listdir(local_model_path):
+                            os.symlink(
+                                src=os.path.join(local_model_path, model_item),
+                                dst=os.path.join(tmpdir, model_item),
+                            )
+                    except Exception as e:
+                        _logger.warning(
+                            "Failed to symlink model directory during dependency installation"
+                            " Copying instead. Exception: %s",
+                            e,
                         )
-                except Exception as e:
-                    _logger.warning(
-                        "Failed to symlink model directory during dependency installation"
-                        " Copying instead. Exception: %s",
-                        e,
-                    )
-                    _copy_model_to_writeable_destination(local_model_path, tmpdir)
+                        _copy_model_to_writeable_destination(local_model_path, tmpdir)
 
-                tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
-                Path(tmpdir).joinpath(tmp_req_file).write_text("\n".join(deps))
-                cmd = _join_commands(activate_cmd, f"{install_deps_cmd_prefix} -r {tmp_req_file}")
-                _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
+                    tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
+                    Path(tmpdir).joinpath(tmp_req_file).write_text("\n".join(deps))
+                    cmd = _join_commands(
+                        activate_cmd, f"{install_deps_cmd_prefix} -r {tmp_req_file}"
+                    )
+                    _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
 
         if pip_requirements_override:
             _logger.info(

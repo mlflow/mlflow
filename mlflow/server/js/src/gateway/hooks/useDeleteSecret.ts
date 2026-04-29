@@ -7,7 +7,7 @@ export const useDeleteSecret = () => {
   return useMutation({
     mutationFn: (secretId: string) => GatewayApi.deleteSecret(secretId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['gateway_secrets']);
+      queryClient.invalidateQueries({ queryKey: ['gateway_secrets'] });
     },
   });
 };

@@ -17,7 +17,7 @@ import {
   SIMULATION_PERSONA_COLUMN_ID,
   TracesTableColumnType,
   createTraceLocationForExperiment,
-  createTraceLocationForUCSchema,
+  createTraceLocationForDestinationPath,
   useSearchMlflowTraces,
   shouldEnableSessionGrouping,
 } from '@databricks/web-shared/genai-traces-table';
@@ -116,6 +116,7 @@ const ExperimentChatSessionsPageImpl = () => {
           customDefaultSelectedColumns={defaultCustomDefaultSelectedColumns}
           forceGroupBySession
           columnStorageKeyPrefix="chat-sessions"
+          pageSource="chat-sessions"
         />
       ) : (
         <GenAIChatSessionsTable

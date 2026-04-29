@@ -2,7 +2,7 @@ import { Button, PlusIcon, Spacer, Typography, useDesignSystemTheme } from '@dat
 import type { ExpectationAssessment } from '../ModelTrace.types';
 import { ExpectationItem } from './ExpectationItem';
 import { useMemo, useState } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
 import { isEmpty } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 
@@ -16,10 +16,12 @@ export const AssessmentsPaneExpectationsSection = ({
   expectations,
   activeSpanId,
   traceId,
+  sessionId,
 }: {
   expectations: ExpectationAssessment[];
   activeSpanId?: string;
   traceId: string;
+  sessionId?: string;
 }) => {
   const sortedExpectations = useMemo(
     () => expectations.toSorted((left, right) => left.assessment_name.localeCompare(right.assessment_name)),
@@ -36,7 +38,8 @@ export const AssessmentsPaneExpectationsSection = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          height: theme.spacing.lg,
+          marginTop: theme.spacing.sm,
+          marginBottom: theme.spacing.sm,
           flexShrink: 0,
         }}
       >
@@ -47,20 +50,14 @@ export const AssessmentsPaneExpectationsSection = ({
           />{' '}
           {!isEmpty(sortedExpectations) && <>({sortedExpectations?.length})</>}
         </Typography.Text>
-      </div>
-      <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
         {!isEmpty(sortedExpectations) && <AddExpectationButton onClick={() => setCreateFormVisible(true)} />}
       </div>
       {sortedExpectations.length > 0 ? (
-        <>
-          <div
-            css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}
-          >
-            {sortedExpectations.map((expectation) => (
-              <ExpectationItem expectation={expectation} key={expectation.assessment_id} />
-            ))}
-          </div>
-        </>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
+          {sortedExpectations.map((expectation) => (
+            <ExpectationItem expectation={expectation} key={expectation.assessment_id} />
+          ))}
+        </div>
       ) : (
         !createFormVisible && (
           <div
@@ -72,10 +69,17 @@ export const AssessmentsPaneExpectationsSection = ({
             }}
           >
             <Typography.Hint>
-              <FormattedMessage
-                defaultMessage="Add a custom expectation to this trace."
-                description="Hint message prompting user to add a new expectation"
-              />{' '}
+              {sessionId ? (
+                <FormattedMessage
+                  defaultMessage="Add a custom expectation to this session."
+                  description="Hint message prompting user to add a new expectation to a session"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Add a custom expectation to this trace."
+                  description="Hint message prompting user to add a new expectation to a trace"
+                />
+              )}{' '}
               <Typography.Link
                 componentId="shared.model-trace-explorer.expectation-learn-more-link"
                 openInNewTab
@@ -96,7 +100,7 @@ export const AssessmentsPaneExpectationsSection = ({
         <AssessmentCreateForm
           spanId={activeSpanId}
           traceId={traceId}
-          initialAssessmentType="expectation"
+          assessmentType="expectation"
           setExpanded={() => setCreateFormVisible(false)}
         />
       )}

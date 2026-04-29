@@ -314,7 +314,6 @@ class OnlineSessionScoringProcessor:
             _logger.warning(f"Failed to fetch full traces for session {session.session_id}")
             return
         full_traces.sort(key=lambda t: t.info.timestamp_ms)
-        trace_map = {t.info.trace_id: t for t in full_traces}
         session_items = [EvalItem.from_trace(t) for t in full_traces]
 
         result = evaluate_session_level_scorers(
@@ -323,22 +322,21 @@ class OnlineSessionScoringProcessor:
             multi_turn_scorers=task.scorers,
         )
 
-        for trace_id, feedbacks in result.items():
-            if feedbacks and (trace := trace_map.get(trace_id)):
-                try:
-                    # Add session ID metadata to identify these as online scoring assessments
-                    for feedback in feedbacks:
-                        feedback.metadata = {
-                            **(feedback.metadata or {}),
-                            AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: session.session_id,
-                        }
-                    _log_assessments(run_id=None, trace=trace, assessments=feedbacks)
+        if result.assessments and (trace := result.eval_item.trace):
+            try:
+                # Add session ID metadata to identify these as online scoring assessments
+                for feedback in result.assessments:
+                    feedback.metadata = {
+                        **(feedback.metadata or {}),
+                        AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: session.session_id,
+                    }
+                _log_assessments(run_id=None, trace=trace, assessments=result.assessments)
 
-                    # Clean up old assessments after successfully logging new ones
-                    self._clean_up_old_assessments(trace, session.session_id, feedbacks)
-                except Exception as e:
-                    _logger.warning(
-                        f"Failed to log assessments for trace {trace_id} "
-                        f"in session {session.session_id}: {e}",
-                        exc_info=_logger.isEnabledFor(logging.DEBUG),
-                    )
+                # Clean up old assessments after successfully logging new ones
+                self._clean_up_old_assessments(trace, session.session_id, result.assessments)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to log assessments for trace {trace.info.trace_id} "
+                    f"in session {session.session_id}: {e}",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )

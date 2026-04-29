@@ -103,12 +103,10 @@ def _get_obj_to_task_mapping():
     try:
         from openai.resources.beta.chat import completions as c
 
-        mapping.update(
-            {
-                c.AsyncCompletions: "chat.completions",
-                c.Completions: "chat.completions",
-            }
-        )
+        mapping.update({
+            c.AsyncCompletions: "chat.completions",
+            c.Completions: "chat.completions",
+        })
     except ImportError:
         pass
     return mapping
@@ -151,10 +149,9 @@ def _get_task_name(task):
 
 def _get_api_config() -> _OpenAIApiConfig:
     """Gets the parameters and configuration of the OpenAI API connected to."""
-    import openai
 
-    api_type = os.environ.get(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
-    api_version = os.environ.get(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
+    api_type = os.environ.get(_OpenAIEnvVar.OPENAI_API_TYPE.value)
+    api_version = os.environ.get(_OpenAIEnvVar.OPENAI_API_VERSION.value)
     api_base = os.environ.get(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.environ.get(
         _OpenAIEnvVar.OPENAI_BASE_URL.value
     )
@@ -652,12 +649,10 @@ class _ContentFormatter:
             formatted_role = format_value(role)
             formatted_content = format_value(content)
 
-            formatted_messages.append(
-                {
-                    "role": formatted_role,
-                    "content": formatted_content,
-                }
-            )
+            formatted_messages.append({
+                "role": formatted_role,
+                "content": formatted_content,
+            })
 
         return formatted_messages
 

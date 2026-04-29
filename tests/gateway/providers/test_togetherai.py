@@ -54,6 +54,13 @@ def completions_response():
     }
 
 
+def test_get_provider_name():
+    config = completions_config()
+    provider = TogetherAIProvider(EndpointConfig(**config))
+    assert provider.DISPLAY_NAME == "TogetherAI"
+    assert provider.get_provider_name() == "together_ai"
+
+
 @pytest.mark.asyncio
 async def test_completions():
     config = completions_config()
@@ -422,6 +429,7 @@ async def test_chat():
             "object": "chat.completion",
             "created": 1705090115,
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "provider": "togetherai",
             "choices": [
                 {
                     "index": 0,
@@ -525,6 +533,7 @@ async def test_chat_stream(resp):
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -543,6 +552,7 @@ async def test_chat_stream(resp):
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -561,6 +571,7 @@ async def test_chat_stream(resp):
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "object": "chat.completion.chunk",
                 "usage": {
                     "prompt_tokens": 17,

@@ -29,6 +29,7 @@ from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
     is_prompt_supported_registry,
 )
+from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -715,11 +716,9 @@ class ModelRegistryClient:
 
     def search_prompt_versions(
         self, name: str, max_results: int | None = None, page_token: str | None = None
-    ):
+    ) -> PagedList[PromptVersion]:
         """
         Search prompt versions for a given prompt name.
-
-        This method delegates directly to the store. Only supported in Unity Catalog registries.
 
         Args:
             name: Name of the prompt to search versions for.
@@ -727,12 +726,18 @@ class ModelRegistryClient:
             page_token: Token for pagination.
 
         Returns:
-            SearchPromptVersionsResponse containing the list of versions.
-
-        Raises:
-            MlflowException: If used with non-Unity Catalog registries.
+            A PagedList of PromptVersion objects.
         """
-        return self.store.search_prompt_versions(name, max_results, page_token)
+        response = self.store.search_prompt_versions(name, max_results, page_token)
+
+        # OSS stores already return PagedList[PromptVersion]
+        if isinstance(response, PagedList):
+            return response
+
+        # UC store returns SearchPromptVersionsResponse proto — normalize it
+        prompt_versions = [proto_to_mlflow_prompt(pv) for pv in response.prompt_versions]
+        next_token = response.next_page_token or None
+        return PagedList(prompt_versions, next_token)
 
     def link_prompt_version_to_model(self, name: str, version: int | str, model_id: str) -> None:
         """

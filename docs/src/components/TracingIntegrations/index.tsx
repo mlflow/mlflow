@@ -390,19 +390,54 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/togetherai',
     category: 'Model Providers',
   },
-  // Tools
-  {
-    id: 'instructor',
-    name: 'Instructor',
-    logoPath: '/images/logos/instructor-logo.svg',
-    link: '/genai/tracing/integrations/listing/instructor',
-    category: 'Tools',
-  },
+  // Coding Agents
   {
     id: 'claude_code',
     name: 'Claude Code',
     logoPath: '/images/logos/claude-code-logo.png',
     link: '/genai/tracing/integrations/listing/claude_code',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode',
+    logoPath: '/images/logos/opencode-logo.png',
+    link: '/genai/tracing/integrations/listing/opencode',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'openhands',
+    name: 'OpenHands',
+    logoPath: '/images/logos/openhands-logo.png',
+    link: '/genai/tracing/integrations/listing/openhands',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'codex',
+    name: 'Codex CLI',
+    logoPath: '/images/logos/openai-logo-only.png',
+    link: '/genai/tracing/integrations/listing/codex',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'gemini_cli',
+    name: 'Gemini CLI',
+    logoPath: '/images/logos/google-gemini-logo.svg',
+    link: '/genai/tracing/integrations/listing/gemini_cli',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'qwen_code',
+    name: 'Qwen Code',
+    logoPath: '/images/logos/qwen-logo.jpg',
+    link: '/genai/tracing/integrations/listing/qwen_code',
+    category: 'Coding Agents',
+  },
+  {
+    id: 'instructor',
+    name: 'Instructor',
+    logoPath: '/images/logos/instructor-logo.svg',
+    link: '/genai/tracing/integrations/listing/instructor',
     category: 'Tools',
   },
   {
@@ -418,6 +453,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/arize-phoenix-logo.png',
     link: '/genai/tracing/integrations/listing/arize',
     category: 'Tools',
+  },
+  {
+    id: 'goose',
+    name: 'Goose',
+    logoPath: '/images/logos/goose-logo.png',
+    link: '/genai/tracing/integrations/listing/goose',
+    category: 'No-Code',
   },
   // Gateways
   {

@@ -165,7 +165,9 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
   const breadcrumbs = !experimentId ? (
     <Breadcrumb>
       <Breadcrumb.Item>
-        <Link to={Routes.promptsPageRoute}>Prompts</Link>
+        <Link componentId="mlflow.prompts.details.breadcrumb_link" to={Routes.promptsPageRoute}>
+          Prompts
+        </Link>
       </Breadcrumb.Item>
     </Breadcrumb>
   ) : undefined;
@@ -275,7 +277,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
           />
         </div>
         {showPreviewPane && (
-          <div css={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div css={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <div css={{ borderLeft: `1px solid ${theme.colors.border}`, flex: 1, overflow: 'hidden', display: 'flex' }}>
               {mode === PromptVersionsTableMode.PREVIEW && (
                 <PromptContentPreview

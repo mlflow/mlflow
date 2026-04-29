@@ -5,11 +5,14 @@ Install binary tools for MLflow development.
 # ruff: noqa: T201
 import argparse
 import gzip
+import hashlib
 import http.client
 import json
 import platform
+import shutil
 import subprocess
 import tarfile
+import tempfile
 import time
 import urllib.request
 from dataclasses import dataclass
@@ -31,11 +34,11 @@ ExtractType = Literal["gzip", "tar", "binary"]
 class Tool:
     name: str
     version: str
-    urls: dict[PlatformKey, str]  # platform -> URL mapping
+    assets: dict[PlatformKey, tuple[str, str]]  # platform -> (url, sha256)
     version_args: list[str] | None = None  # Custom version check args (default: ["--version"])
 
-    def get_url(self, platform_key: PlatformKey) -> str | None:
-        return self.urls.get(platform_key)
+    def get_asset(self, platform_key: PlatformKey) -> tuple[str, str] | None:
+        return self.assets.get(platform_key)
 
     def get_version_args(self) -> list[str]:
         """Get version check arguments, defaulting to --version."""
@@ -60,86 +63,86 @@ TOOLS = [
     Tool(
         name="taplo",
         version="0.9.3",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-linux-x86_64.gz",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-darwin-aarch64.gz",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-linux-x86_64.gz",
+                "889efcfa067b179fda488427d3b13ce2d679537da8b9ed8138ba415db7da2a5e",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-darwin-aarch64.gz",
+                "39b84d62d6a47855b2c64148cde9c9ca5721bf422b8c9fe9c92776860badde5f",
+            ),
         },
     ),
     Tool(
         name="typos",
         version="1.39.2",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-x86_64-unknown-linux-musl.tar.gz",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-aarch64-apple-darwin.tar.gz",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-x86_64-unknown-linux-musl.tar.gz",
+                "4acfb2123a9a295d34a411ad90af23717d06914c58023ab1a12b6605f0ce3e3c",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-aarch64-apple-darwin.tar.gz",
+                "1dac53624939bf7b638df8cd168af46532f4fbad2b512c8b092cdf1487b94612",
+            ),
         },
     ),
     Tool(
         name="conftest",
         version="0.63.0",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Linux_x86_64.tar.gz",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Darwin_arm64.tar.gz",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Linux_x86_64.tar.gz",
+                "59b354bedf0d761fb562404a8af3015a48415636382f975a2037ca81c0c6202f",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Darwin_arm64.tar.gz",
+                "026378585ed42609f23996663c2feea9535bc19dc3909a99dabe776b7708b85c",
+            ),
         },
     ),
     Tool(
         name="regal",
         version="0.36.1",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Linux_x86_64",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Darwin_arm64",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Linux_x86_64",
+                "75509b89de9d2fa12ac30157cc7269e7abc61e8c4c407a29ce897b681a78f8a4",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Darwin_arm64",
+                "66d1578885bf8fb7a4bd7b435a74acf8205af7fc49d6db84b6df0cddba9d7591",
+            ),
         },
         version_args=["version"],
     ),
     Tool(
         name="buf",
         version="1.59.0",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Linux-x86_64",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Darwin-arm64",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Linux-x86_64",
+                "d7462609e3814629c642ac10f0e7e27ec7e8e21d1dd75742f4434c31619e986b",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Darwin-arm64",
+                "71f060640b9f1a3fce43db31eb8e8faf714a3bfbbcb70617946bdeba3aadf56b",
+            ),
         },
     ),
     Tool(
         name="rg",
         version="14.1.1",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-aarch64-apple-darwin.tar.gz",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz",
+                "4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-aarch64-apple-darwin.tar.gz",
+                "24ad76777745fbff131c8fbc466742b011f925bfa4fffa2ded6def23b5b937be",
+            ),
         },
     ),
 ]
@@ -165,7 +168,7 @@ def get_platform_key() -> PlatformKey | None:
 
 
 def urlopen_with_retry(
-    url: str, max_retries: int = 5, base_delay: float = 1.0
+    url: str, max_retries: int = 7, base_delay: float = 1.0
 ) -> http.client.HTTPResponse:
     """Open a URL with retry logic for transient HTTP errors (e.g., 503)."""
     for attempt in range(max_retries):
@@ -187,44 +190,34 @@ def urlopen_with_retry(
                 raise
 
 
-def extract_gzip_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
-    print(f"Downloading from {url}")
-    output_path = dest_dir / binary_name
-
-    with urlopen_with_retry(url) as response:
-        with gzip.open(response, "rb") as gz:
-            output_path.write_bytes(gz.read())
-
-    return output_path
-
-
-def extract_tar_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
+def download_and_verify(url: str, dest: Path, expected_sha256: str) -> None:
     print(f"Downloading from {url}...")
-    output_path = dest_dir / binary_name
-    with (
-        urlopen_with_retry(url) as response,
-        tarfile.open(fileobj=response, mode="r|*") as tar,
-    ):
-        # Find and extract only the binary file we need
+    sha256 = hashlib.sha256()
+    with urlopen_with_retry(url) as response, dest.open("wb") as f:
+        while chunk := response.read(1024 * 1024):
+            sha256.update(chunk)
+            f.write(chunk)
+    actual = sha256.hexdigest()
+    if actual != expected_sha256:
+        raise RuntimeError(
+            f"SHA256 mismatch for {url}\n  expected: {expected_sha256}\n  actual:   {actual}"
+        )
+
+
+def extract_gzip(download_path: Path, dest: Path) -> None:
+    with gzip.open(download_path, "rb") as gz:
+        dest.write_bytes(gz.read())
+
+
+def extract_tar(download_path: Path, dest: Path, binary_name: str) -> None:
+    with tarfile.open(download_path, mode="r:*") as tar:
         for member in tar:
             if member.isfile() and member.name.endswith(binary_name):
-                # Extract the file content and write directly to destination
                 f = tar.extractfile(member)
                 if f is not None:
-                    output_path.write_bytes(f.read())
-                    return output_path
-
+                    dest.write_bytes(f.read())
+                    return
     raise FileNotFoundError(f"Could not find {binary_name} in archive")
-
-
-def download_binary_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
-    print(f"Downloading from {url}...")
-    output_path = dest_dir / binary_name
-
-    with urlopen_with_retry(url) as response:
-        output_path.write_bytes(response.read())
-
-    return output_path
 
 
 def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
@@ -241,30 +234,35 @@ def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
     platform_key = get_platform_key()
 
     if platform_key is None:
-        supported = [f"{os}-{arch}" for os, arch in tool.urls.keys()]
+        supported = [f"{os}-{arch}" for os, arch in tool.assets.keys()]
         raise RuntimeError(
             f"Current platform is not supported. Supported platforms: {', '.join(supported)}"
         )
 
-    url = tool.get_url(platform_key)
-    if url is None:
+    asset = tool.get_asset(platform_key)
+    if asset is None:
         os, arch = platform_key
-        supported = [f"{os}-{arch}" for os, arch in tool.urls.keys()]
+        supported = [f"{os}-{arch}" for os, arch in tool.assets.keys()]
         raise RuntimeError(
             f"Platform {os}-{arch} not supported for {tool.name}. "
             f"Supported platforms: {', '.join(supported)}"
         )
+    url, expected_sha256 = asset
 
-    # Extract based on inferred type from URL
-    extract_type = tool.get_extract_type(url)
-    if extract_type == "gzip":
-        binary_path = extract_gzip_from_url(url, dest_dir, tool.name)
-    elif extract_type == "tar":
-        binary_path = extract_tar_from_url(url, dest_dir, tool.name)
-    elif extract_type == "binary":
-        binary_path = download_binary_from_url(url, dest_dir, tool.name)
-    else:
-        raise ValueError(f"Unknown extract type: {extract_type}")
+    binary_path = dest_dir / tool.name
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        download_path = Path(tmp_dir) / "download"
+        download_and_verify(url, download_path, expected_sha256)
+
+        extract_type = tool.get_extract_type(url)
+        if extract_type == "gzip":
+            extract_gzip(download_path, binary_path)
+        elif extract_type == "tar":
+            extract_tar(download_path, binary_path, tool.name)
+        elif extract_type == "binary":
+            shutil.move(download_path, binary_path)
+        else:
+            raise ValueError(f"Unknown extract type: {extract_type}")
 
     # Make executable
     binary_path.chmod(0o755)

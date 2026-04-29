@@ -64,12 +64,10 @@ class Section(NamedTuple):
     def __str__(self) -> str:
         if not self.items:
             return ""
-        return "\n\n".join(
-            [
-                self.title,
-                "\n".join(f"- {item}" for item in self.items),
-            ]
-        )
+        return "\n\n".join([
+            self.title,
+            "\n".join(f"- {item}" for item in self.items),
+        ])
 
 
 def is_shallow() -> bool:
@@ -176,9 +174,12 @@ def main(prev_version: str, release_version: str, remote: str) -> None:
         print("Unshallowing repository to ensure `git log` works correctly")
         subprocess.check_call(["git", "fetch", "--unshallow"])
         print("Modifying .git/config to fetch remote branches")
-        subprocess.check_call(
-            ["git", "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"]
-        )
+        subprocess.check_call([
+            "git",
+            "config",
+            "remote.origin.fetch",
+            "+refs/heads/*:refs/remotes/origin/*",
+        ])
     release_tag = f"v{prev_version}"
     ver = Version(release_version)
     branch = f"branch-{ver.major}.{ver.minor}"
@@ -262,13 +263,11 @@ def main(prev_version: str, release_version: str, remote: str) -> None:
     changelog_header = "# CHANGELOG"
     changelog = Path("CHANGELOG.md")
     old_changelog = changelog.read_text().replace(f"{changelog_header}\n\n", "", 1)
-    new_changelog = "\n\n".join(
-        [
-            changelog_header,
-            new_changelog,
-            old_changelog,
-        ]
-    )
+    new_changelog = "\n\n".join([
+        changelog_header,
+        new_changelog,
+        old_changelog,
+    ])
     changelog.write_text(new_changelog)
 
 

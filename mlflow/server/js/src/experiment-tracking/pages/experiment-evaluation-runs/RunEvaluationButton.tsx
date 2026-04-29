@@ -3,8 +3,13 @@ import { CodeSnippet } from '@mlflow/mlflow/src/shared/web-shared/snippet';
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-const getCodeSnippet = (experimentId: string) => `import mlflow
-from mlflow.genai import datasets, evaluate, scorers
+const getCodeSnippet = (experimentId: string, scorersDocLink?: string) => `import mlflow
+from mlflow.genai import evaluate
+from mlflow.genai.scorers import (
+    Safety,
+    RelevanceToQuery,
+    Guidelines,
+)
 
 mlflow.set_experiment(experiment_id="${experimentId}")
 
@@ -24,10 +29,15 @@ def predict(query):
   return query + " an answer"
 
 # Step 3: Run evaluation
+# Select scorers relevant to your use case.${scorersDocLink ? `\n# See all available scorers: ${scorersDocLink}` : ''}
 evaluate(
   data=eval_dataset,
   predict_fn=predict,
-  scorers=scorers.get_all_scorers()
+  scorers=[
+    Safety(),
+    RelevanceToQuery(),
+    Guidelines(name="conciseness", guidelines="Responses must be concise."),
+  ],
 )
 
 # Results will appear back in this UI`;
@@ -58,8 +68,9 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
       </Button>
       <Modal
         componentId="mlflow.eval-runs.start-run-modal"
-        // eslint-disable-next-line formatjs/enforce-description
-        title={<FormattedMessage defaultMessage="Run evaluation" />}
+        title={
+          <FormattedMessage defaultMessage="Run evaluation" description="Title for the run evaluation modal dialog" />
+        }
         visible={isOpen}
         okText="Discard"
         footer={null}

@@ -31,6 +31,9 @@ def prefetch(func):
 @prefetch
 @flaky()
 def load_small_qa_pipeline():
+    if IS_TRANSFORMERS_V5_OR_LATER:
+        _logger.info("Skipping question-answering pipeline prefetch: removed in transformers 5.x")
+        return None
     architecture = "csarron/mobilebert-uncased-squad-v2"
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture, low_cpu_mem_usage=True)
     model = transformers.MobileBertForQuestionAnswering.from_pretrained(
@@ -65,6 +68,11 @@ def load_small_vision_model():
 @prefetch
 @flaky()
 def load_small_multi_modal_pipeline():
+    if IS_TRANSFORMERS_V5_OR_LATER:
+        _logger.info(
+            "Skipping visual-question-answering pipeline prefetch: removed in transformers 5.x"
+        )
+        return None
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     return transformers.pipeline(model=architecture)
 
@@ -72,6 +80,9 @@ def load_small_multi_modal_pipeline():
 @prefetch
 @flaky()
 def load_component_multi_modal():
+    if IS_TRANSFORMERS_V5_OR_LATER:
+        _logger.info("Skipping VQA component model prefetch: removed in transformers 5.x")
+        return None
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     tokenizer = transformers.BertTokenizerFast.from_pretrained(architecture, low_cpu_mem_usage=True)
     processor = transformers.ViltProcessor.from_pretrained(architecture, low_cpu_mem_usage=True)

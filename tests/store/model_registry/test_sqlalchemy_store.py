@@ -1,3 +1,4 @@
+import concurrent.futures
 import shutil
 import time
 import uuid
@@ -20,6 +21,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_URI,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -1121,6 +1123,75 @@ def test_search_model_versions_by_tag(store):
     assert search_versions("tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
 
 
+def _assert_workspace_in_main_queries(captured_sql, table_name, context_label):
+    """Assert that every main search query (ORDER BY + LIMIT) includes workspace in WHERE."""
+    main_queries = [s for s in captured_sql if "ORDER BY" in s and table_name in s and "LIMIT" in s]
+    assert main_queries, f"No main search query found for {context_label}"
+    for sql in main_queries:
+        where_clause = sql.split("WHERE", 1)[-1] if "WHERE" in sql else ""
+        assert "workspace" in where_clause.lower(), (
+            f"{context_label} missing workspace predicate in WHERE — "
+            f"causes full table scan on (workspace, ...) PK:\n{sql}"
+        )
+
+
+def test_search_model_versions_includes_workspace_predicate(store):
+    from sqlalchemy import event
+
+    name = "test_ws_predicate_mv"
+    _rm_maker(store, name)
+    _mv_maker(store, name=name, source="A/B", tags=[ModelVersionTag("t1", "abc")])
+
+    for filter_string in [
+        f"name = '{name}'",
+        "tag.t1 = 'abc'",
+        f"name = '{name}' AND tag.t1 = 'abc'",
+    ]:
+        captured_sql: list[str] = []
+
+        def _capture(conn, cursor, statement, parameters, context, executemany):
+            captured_sql.append(statement)
+
+        event.listen(store.engine, "before_cursor_execute", _capture)
+        try:
+            store.search_model_versions(filter_string)
+        finally:
+            event.remove(store.engine, "before_cursor_execute", _capture)
+
+        _assert_workspace_in_main_queries(
+            captured_sql, "model_versions", f"search_model_versions('{filter_string}')"
+        )
+
+
+def test_search_registered_models_includes_workspace_predicate(store):
+    from sqlalchemy import event
+
+    name = "test_ws_predicate_rm"
+    _rm_maker(store, name, tags=[RegisteredModelTag("t1", "abc")])
+
+    for filter_string in [
+        f"name = '{name}'",
+        "tag.t1 = 'abc'",
+        f"name = '{name}' AND tag.t1 = 'abc'",
+    ]:
+        captured_sql: list[str] = []
+
+        def _capture(conn, cursor, statement, parameters, context, executemany):
+            captured_sql.append(statement)
+
+        event.listen(store.engine, "before_cursor_execute", _capture)
+        try:
+            store.search_registered_models(filter_string)
+        finally:
+            event.remove(store.engine, "before_cursor_execute", _capture)
+
+        _assert_workspace_in_main_queries(
+            captured_sql,
+            "registered_models",
+            f"search_registered_models('{filter_string}')",
+        )
+
+
 def _search_registered_models(store, filter_string, max_results=10, order_by=None, page_token=None):
     result = store.search_registered_models(
         filter_string=filter_string,
@@ -1310,9 +1381,10 @@ def test_parse_search_registered_models_order_by():
     # test that an exception is raised when order_by contains duplicate fields
     msg = "`order_by` contains duplicate fields:"
     with pytest.raises(MlflowException, match=msg):
-        SqlAlchemyStore._parse_search_registered_models_order_by(
-            ["last_updated_timestamp", "last_updated_timestamp"]
-        )
+        SqlAlchemyStore._parse_search_registered_models_order_by([
+            "last_updated_timestamp",
+            "last_updated_timestamp",
+        ])
 
     with pytest.raises(MlflowException, match=msg):
         SqlAlchemyStore._parse_search_registered_models_order_by(["timestamp", "timestamp"])
@@ -1947,6 +2019,70 @@ def test_search_prompts_versions(store):
     assert mvs[0].name == "prompt_2"
 
 
+def test_search_prompt_versions(store):
+    # Create a prompt with 3 versions
+    store.create_registered_model(
+        "my_prompt", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    for i in range(1, 4):
+        store.create_model_version(
+            "my_prompt",
+            str(i),
+            "dummy_source",
+            tags=[
+                ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+                ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=f"Hello {{{{name}}}} v{i}"),
+            ],
+        )
+
+    # Create a different prompt to verify filtering by name
+    store.create_registered_model(
+        "other_prompt", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_model_version(
+        "other_prompt",
+        "1",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value="Other prompt text"),
+        ],
+    )
+
+    # Search all versions of my_prompt
+    results = store.search_prompt_versions("my_prompt")
+    assert len(results) == 3
+    # Should be ordered by version descending
+    assert [pv.version for pv in results] == [3, 2, 1]
+    assert all(pv.name == "my_prompt" for pv in results)
+
+    # Pagination with max_results
+    page1 = store.search_prompt_versions("my_prompt", max_results=2)
+    assert len(page1) == 2
+    assert [pv.version for pv in page1] == [3, 2]
+    assert page1.token is not None
+
+    # Fetch next page
+    page2 = store.search_prompt_versions("my_prompt", max_results=2, page_token=page1.token)
+    assert len(page2) == 1
+    assert page2[0].version == 1
+    assert page2.token is None
+
+    # Search other_prompt returns only its versions
+    results = store.search_prompt_versions("other_prompt")
+    assert len(results) == 1
+    assert results[0].name == "other_prompt"
+
+    # Searching a non-existent prompt raises
+    with pytest.raises(MlflowException, match="not found"):
+        store.search_prompt_versions("nonexistent_prompt")
+
+    # Searching a model (not a prompt) raises
+    store.create_registered_model("a_model")
+    with pytest.raises(MlflowException, match="registered as a model, not a prompt"):
+        store.search_prompt_versions("a_model")
+
+
 def test_create_registered_model_handle_prompt_properly(store):
     prompt_tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
 
@@ -2354,3 +2490,29 @@ def test_create_model_version_with_model_id_and_no_run_id(store):
 
         mvd = store.get_model_version(name=mv.name, version=mv.version)
         assert mvd.run_id == mock_run_id
+
+
+def test_create_model_version_concurrent(store):
+    name = "test_concurrent_mv"
+    _rm_maker(store, name)
+
+    num_threads = 4
+    versions_per_thread = 5
+    results = []
+
+    def create_versions():
+        return [
+            store.create_model_version(name, "path/to/source", uuid.uuid4().hex).version
+            for _ in range(versions_per_thread)
+        ]
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=num_threads, thread_name_prefix="create_model_version"
+    ) as executor:
+        futures = [executor.submit(create_versions) for _ in range(num_threads)]
+        for f in concurrent.futures.as_completed(futures):
+            results.extend(f.result())
+
+    # All versions should be unique
+    assert len(results) == len(set(results))
+    assert len(results) == num_threads * versions_per_thread

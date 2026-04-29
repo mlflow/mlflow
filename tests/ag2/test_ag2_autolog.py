@@ -71,9 +71,11 @@ def test_enable_disable_autolog(llm_config):
 def test_tracing_agent(llm_config, mock_litellm_cost):
     mlflow.ag2.autolog()
 
-    with mock_user_input(
-        ["What is the capital of Tokyo?", "How long is it take from San Francisco?", "exit"]
-    ):
+    with mock_user_input([
+        "What is the capital of Tokyo?",
+        "How long is it take from San Francisco?",
+        "exit",
+    ]):
         assistant, user_proxy = get_simple_agent(llm_config)
         response = assistant.initiate_chat(user_proxy, message="How can I help you today?")
 
@@ -315,9 +317,11 @@ def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
     # Test if the duration calculation for LLM completion is robust to timezone changes.
     mlflow.ag2.autolog()
 
-    with mock_user_input(
-        ["What is the capital of Tokyo?", "How long is it take from San Francisco?", "exit"]
-    ):
+    with mock_user_input([
+        "What is the capital of Tokyo?",
+        "How long is it take from San Francisco?",
+        "exit",
+    ]):
         assistant, user_proxy = get_simple_agent(llm_config)
         assistant.initiate_chat(user_proxy, message="How can I help you today?")
 

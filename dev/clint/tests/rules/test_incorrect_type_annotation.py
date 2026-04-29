@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.incorrect_type_annotation import IncorrectTypeAnnotation
 
 
-def test_incorrect_type_annotation(index_path: Path) -> None:
+def test_incorrect_type_annotation(index: SymbolIndex) -> None:
     code = """
 def bad_function_callable(param: callable) -> callable:
     ...
@@ -17,7 +18,7 @@ def good_function(param: Callable[[str], str]) -> Any:
     ...
 """
     config = Config(select={IncorrectTypeAnnotation.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 4
     assert all(isinstance(v.rule, IncorrectTypeAnnotation) for v in violations)
     assert violations[0].range == Range(Position(1, 33))  # callable

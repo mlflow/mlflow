@@ -1,9 +1,8 @@
 import { useCallback } from 'react';
 
+import type { ModelTrace } from './ModelTrace.types';
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-
-import type { ModelTrace } from './ModelTrace.types';
 import { ModelTraceExplorerDetailView } from './ModelTraceExplorerDetailView';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
@@ -45,8 +44,8 @@ export const ModelTraceExplorerContent = ({
           flexShrink: 0,
         },
         display: 'flex',
+        flex: 1,
         flexDirection: 'column',
-        height: '100%',
         overflow: 'hidden',
       }}
     >

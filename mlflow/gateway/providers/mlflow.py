@@ -50,7 +50,7 @@ class EmbeddingsResponse(BaseModel):
 
 
 class MlflowModelServingProvider(BaseProvider):
-    NAME = "MLflow Model Serving"
+    DISPLAY_NAME = "MLflow Model Serving"
     CONFIG_TYPE = MlflowModelServingConfig
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:

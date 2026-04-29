@@ -115,6 +115,7 @@ def test_display_is_called_in_correct_functions(monkeypatch):
 
     # display should be called after trace creation
     foo()
+    mlflow.flush_trace_async_logging()
     mock_ipython.mock_run_cell()
     assert mock_display.call_count == 1
 
@@ -143,9 +144,9 @@ def test_display_deduplicates_traces(monkeypatch):
 
     assert mock_display.call_count == 1
     assert mock_display.call_args[0][0] == {
-        "application/databricks.mlflow.trace": json.dumps(
-            [json.loads(t._serialize_for_mimebundle()) for t in expected]
-        ),
+        "application/databricks.mlflow.trace": json.dumps([
+            json.loads(t._serialize_for_mimebundle()) for t in expected
+        ]),
         "text/plain": repr(expected),
     }
 

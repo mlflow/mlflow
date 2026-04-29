@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.genai.datasets import get_dataset
 from mlflow.genai.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers import (
@@ -227,9 +227,12 @@ def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
         provider = model_config["provider"]
         model_name = model_config["model_name"]
     except (KeyError, TypeError, AttributeError) as e:
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException(
             f"Prompt {prompt_uri} doesn't have a model configuration that sets provider and "
-            "model_name, which are required for optimization."
+            "model_name, which are required for optimization.",
+            error_code=INVALID_PARAMETER_VALUE,
+            error_class="ATTRIBUTE_NOT_FOUND",
         ) from e
 
     litellm_model = f"{provider}/{model_name}"

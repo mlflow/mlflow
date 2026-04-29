@@ -32,12 +32,10 @@ def test_truncate_simple_string(input_str, expected):
 
 
 def test_truncate_long_non_message_json():
-    input_str = json.dumps(
-        {
-            "a": "b" + "a" * 30,
-            "b": "c" + "a" * 30,
-        }
-    )
+    input_str = json.dumps({
+        "a": "b" + "a" * 30,
+        "b": "c" + "a" * 30,
+    })
     result = _get_truncated_preview(input_str, role="user")
     assert len(result) == 50
     assert result.startswith('{"a": "b')
@@ -73,18 +71,16 @@ def test_truncate_request_messages(input):
 
 
 def test_truncate_request_choices():
-    input_str = json.dumps(
-        {
-            "choices": [
-                {
-                    "index": 1,
-                    "message": {"role": "assistant", "content": "First" + "a" * 50},
-                    "finish_reason": "stop",
-                },
-            ],
-            "object": "chat.completions",
-        }
-    )
+    input_str = json.dumps({
+        "choices": [
+            {
+                "index": 1,
+                "message": {"role": "assistant", "content": "First" + "a" * 50},
+                "finish_reason": "stop",
+            },
+        ],
+        "object": "chat.completions",
+    })
     assert _get_truncated_preview(input_str, role="assistant").startswith("First")
 
 
@@ -92,9 +88,9 @@ def test_truncate_multi_content_messages():
     # If text content exists, use it
     assert (
         _get_truncated_preview(
-            json.dumps(
-                {"messages": [{"role": "user", "content": [{"type": "text", "text": "a" * 60}]}]}
-            ),
+            json.dumps({
+                "messages": [{"role": "user", "content": [{"type": "text", "text": "a" * 60}]}]
+            }),
             role="user",
         )
         == "a" * 47 + "..."
@@ -103,19 +99,17 @@ def test_truncate_multi_content_messages():
     # Ignore non text content
     assert (
         _get_truncated_preview(
-            json.dumps(
-                {
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": "a" * 60},
-                                {"type": "image", "image_url": "http://example.com/image.jpg"},
-                            ],
-                        },
-                    ]
-                }
-            ),
+            json.dumps({
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "a" * 60},
+                            {"type": "image", "image_url": "http://example.com/image.jpg"},
+                        ],
+                    },
+                ]
+            }),
             role="user",
         )
         == "a" * 47 + "..."
@@ -123,38 +117,34 @@ def test_truncate_multi_content_messages():
 
     # If non-text content exists, truncate the full json as-is
     assert _get_truncated_preview(
-        json.dumps(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "image_url": "http://example.com/image.jpg" + "a" * 50,
-                            }
-                        ],
-                    },
-                ]
-            }
-        ),
+        json.dumps({
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "image_url": "http://example.com/image.jpg" + "a" * 50,
+                        }
+                    ],
+                },
+            ]
+        }),
         role="user",
     ).startswith('{"messages":')
 
 
 def test_truncate_responses_api_output():
-    input_str = json.dumps(
-        {
-            "output": [
-                {
-                    "type": "message",
-                    "id": "test",
-                    "role": "assistant",
-                    "content": [{"type": "output_text", "text": "a" * 60}],
-                }
-            ],
-        }
-    )
+    input_str = json.dumps({
+        "output": [
+            {
+                "type": "message",
+                "id": "test",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "a" * 60}],
+            }
+        ],
+    })
 
     assert _get_truncated_preview(input_str, role="assistant") == "a" * 47 + "..."
 

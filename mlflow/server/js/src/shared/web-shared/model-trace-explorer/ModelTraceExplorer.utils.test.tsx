@@ -42,6 +42,8 @@ import {
   getTraceCost,
   convertOtelAttributesToMap,
   isSessionLevelAssessment,
+  createTraceV4SerializedLocation,
+  parseTraceV4SerializedLocation,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -671,6 +673,35 @@ describe('normalizeNewSpanData', () => {
     const normalized = normalizeNewSpanData(modifiedChatInput, 0, 0, [], {}, '');
 
     expect(normalized.chatMessages).toBeUndefined();
+  });
+
+  it('should wrap plain string output as assistant message when inputs are chat messages', () => {
+    const inputs = {
+      messages: [
+        {
+          content: 'Hello!',
+          role: 'user',
+        },
+      ],
+    };
+
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      attributes: {
+        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
+        'mlflow.spanInputs': inputs,
+        'mlflow.spanOutputs': 'Hi there, how can I help you?',
+        'mlflow.chat.messages': undefined,
+        'mlflow.chat.tools': undefined,
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect(normalized.chatMessages).toEqual([
+      prettyPrintChatMessage({ role: 'user', content: 'Hello!' }),
+      { role: 'assistant', content: 'Hi there, how can I help you?' },
+    ]);
   });
 
   it('should process assessments', () => {
@@ -1349,5 +1380,119 @@ describe('isSessionLevelAssessment', () => {
     } as any;
 
     expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+});
+
+describe('prettyPrintChatMessage - audio parts', () => {
+  it('should extract audio parts and exclude them from content string', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'Listen to this:' },
+        { type: 'input_audio', input_audio: { data: 'base64data', format: 'wav' } },
+      ],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('Listen to this:');
+    expect(result?.audioParts).toEqual([{ data: 'base64data', format: 'wav' }]);
+  });
+
+  it('should not add audioParts for messages without audio', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [{ type: 'text', text: 'Hello' }],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('Hello');
+    expect(result?.audioParts).toBeUndefined();
+  });
+
+  it('should handle multiple audio parts', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [
+        { type: 'input_audio', input_audio: { data: 'data1', format: 'wav' } },
+        { type: 'text', text: 'and' },
+        { type: 'input_audio', input_audio: { data: 'data2', format: 'mp3' } },
+      ],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('and');
+    expect(result?.audioParts).toEqual([
+      { data: 'data1', format: 'wav' },
+      { data: 'data2', format: 'mp3' },
+    ]);
+  });
+
+  it('should handle string content (no audio parts)', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: 'plain string',
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('plain string');
+    expect(result?.audioParts).toBeUndefined();
+  });
+
+  it('should handle audio-only message (no text content)', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [{ type: 'input_audio', input_audio: { data: 'audiodata', format: 'wav' } }],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('');
+    expect(result?.audioParts).toEqual([{ data: 'audiodata', format: 'wav' }]);
+  });
+});
+
+describe('createTraceV4SerializedLocation', () => {
+  it('should serialize MLFLOW_EXPERIMENT location to experiment ID', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'MLFLOW_EXPERIMENT',
+        mlflow_experiment: { experiment_id: '123' },
+      }),
+    ).toBe('123');
+  });
+
+  it('should serialize UC_SCHEMA location to catalog.schema', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'UC_SCHEMA',
+        uc_schema: { catalog_name: 'catalog', schema_name: 'schema' },
+      }),
+    ).toBe('catalog.schema');
+  });
+
+  it('should serialize UC_TABLE_PREFIX location to catalog.schema.prefix', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'UC_TABLE_PREFIX',
+        uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
+      }),
+    ).toBe('catalog.schema.prefix');
+  });
+});
+
+describe('parseTraceV4SerializedLocation', () => {
+  it('should parse 1-part string as MLFLOW_EXPERIMENT', () => {
+    expect(parseTraceV4SerializedLocation('123')).toEqual({
+      type: 'MLFLOW_EXPERIMENT',
+      mlflow_experiment: { experiment_id: '123' },
+    });
+  });
+
+  it('should parse 2-part string as UC_SCHEMA', () => {
+    expect(parseTraceV4SerializedLocation('catalog.schema')).toEqual({
+      type: 'UC_SCHEMA',
+      uc_schema: { catalog_name: 'catalog', schema_name: 'schema' },
+    });
+  });
+
+  it('should parse 3-part string as UC_TABLE_PREFIX', () => {
+    expect(parseTraceV4SerializedLocation('catalog.schema.prefix')).toEqual({
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
+    });
   });
 });
