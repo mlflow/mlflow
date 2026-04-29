@@ -34,7 +34,7 @@ uv run --package skills skills analyze-ci '<pr_url>' --debug
 Output: A concise failure summary with root cause, error messages, test names, and relevant log snippets. Each job's output also includes:
 
 - `Raw log: <path>`: full unfiltered log cached locally for grepping.
-- `Package versions: <path>` (optional): file containing the `.github/actions/show-versions` action's output, written next to the raw log. Present only for jobs that run the action (e.g. cross-version tests). Useful for comparing package versions between two runs to find which packages changed.
+- `Package versions: <path>` (optional): file containing the `.github/actions/show-versions` action's output, written next to the raw log. Present only for jobs that run the action (e.g. cross-version tests). Useful for diffing against another run.
 
 ## Examples
 
