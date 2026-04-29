@@ -1035,12 +1035,18 @@ def test_resolve_conversation_from_session_empty():
 
 def _make_session_traces(session_id: str, turns: list[tuple[str, str]]) -> list[Trace]:
     traces: list[Trace] = []
-    for user_msg, assistant_msg in turns:
+    for i, (user_msg, assistant_msg) in enumerate(turns):
         with mlflow.start_span(name="turn") as span:
             span.set_inputs({"messages": [{"role": "user", "content": user_msg}]})
             span.set_outputs(assistant_msg)
             mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
-        traces.append(mlflow.get_trace(span.trace_id))
+        trace = mlflow.get_trace(span.trace_id)
+        # Force a deterministic, monotonically increasing timestamp so the
+        # strict-less-than filter in extract_prior_turns is exercised
+        # reliably even when traces complete in the same wall-clock
+        # millisecond (which can happen in tight test loops).
+        trace.info.timestamp_ms = i + 1
+        traces.append(trace)
     return traces
 
 

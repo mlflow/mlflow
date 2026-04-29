@@ -1448,18 +1448,23 @@ MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVa
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
 
 
-#: When evaluating a trace that belongs to a multi-turn session, this controls
-#: the maximum number of prior conversation turns to surface to single-turn LLM
-#: judges. Set to ``0`` to disable multi-turn context entirely (judges see only
-#: the current turn, matching the pre-multi-turn behavior).
+#: When evaluating a trace that belongs to a multi-turn session, this caps the
+#: maximum number of prior conversation messages surfaced to single-turn LLM
+#: judges. The cap is applied to messages in the OpenAI-style conversation list
+#: (each user, assistant, or tool message counts individually — not as
+#: user/assistant turn pairs). Set to ``0`` to disable multi-turn context
+#: entirely (judges see only the current turn, matching the pre-multi-turn
+#: behavior).
 #: (default: ``10``)
 MLFLOW_JUDGE_MAX_PRIOR_TURNS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_PRIOR_TURNS", int, 10)
 
 
-#: Optional token budget for the prior-conversation context block surfaced to
-#: single-turn LLM judges. When set, prior turns are dropped from the oldest
-#: end until the rendered block fits under this budget. Unset by default,
-#: meaning the only cap is :data:`MLFLOW_JUDGE_MAX_PRIOR_TURNS`.
+#: Optional token budget that consumers may apply to the prior-conversation
+#: context block when surfacing it to single-turn LLM judges. The intended
+#: contract is "drop oldest messages first until the rendered block fits under
+#: this budget". This PR adds the env var only — the consumer that enforces
+#: it lands in a follow-up. Unset by default, meaning the only cap is
+#: :data:`MLFLOW_JUDGE_MAX_PRIOR_TURNS`.
 #: (default: unset)
 MLFLOW_JUDGE_PRIOR_TURNS_TOKEN_BUDGET = _EnvironmentVariable(
     "MLFLOW_JUDGE_PRIOR_TURNS_TOKEN_BUDGET", int, None
