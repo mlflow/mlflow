@@ -655,7 +655,7 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
     assert len(get_traces()) == 1
 
     # Set different tracking URI and initialize the tracer
-    with _use_tracking_uri(tmp_path / "dummy"):
+    with _use_tracking_uri(f"sqlite:///{tmp_path / 'dummy.db'}"):
         assert len(get_traces()) == 0
 
         # The new trace will be logged to the updated tracking URI
