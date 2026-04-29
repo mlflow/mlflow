@@ -6,7 +6,6 @@ import pytest
 import mlflow
 from mlflow.entities.assessment import (
     AssessmentError,
-    AssessmentSource,
     Expectation,
     Feedback,
     IssueReference,
@@ -14,7 +13,6 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue import IssueStatus
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.client import TracingClient
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
     set_tracing_context_from_http_request_headers,
@@ -1043,11 +1041,12 @@ def test_log_feedback_in_distributed_trace_cross_process():
     with tm.get_trace(root_trace_id) as t:
         assert t is None
 
-    with mock.patch.object(TracingClient, "store") as mock_store:
-        mock_assessment = mock.MagicMock()
-        mock_assessment.assessment_id = "a-test-assessment-id"
-        mock_store.create_assessment.return_value = mock_assessment
+    mock_store = mock.MagicMock()
+    mock_assessment = mock.MagicMock()
+    mock_assessment.assessment_id = "a-test-assessment-id"
+    mock_store.create_assessment.return_value = mock_assessment
 
+    with mock.patch("mlflow.tracing.client._get_store", return_value=mock_store):
         with set_tracing_context_from_http_request_headers(captured_headers):
 
             @mlflow.trace(name="child")
