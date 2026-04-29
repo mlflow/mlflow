@@ -12,7 +12,6 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from enum import Enum
 from functools import reduce
 from pathlib import PurePath
 from typing import Any, TypedDict, TypeVar
@@ -169,6 +168,15 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     query_metrics,
     validate_query_trace_metrics_params,
 )
+from mlflow.store.tracking.utils.trace_archival import (
+    _TRACE_ARCHIVAL_EXPERIMENT_ID_CHUNK_SIZE,
+    _ArchiveNowCleanupRequest,
+    _ArchiveNowRemainingState,
+    _ArchiveNowRequest,
+    _parse_experiment_trace_archival_retention_millis,
+    _parse_trace_archival_duration_millis,
+    _TraceArchiveCandidate,
+)
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.telemetry.events import UpdateIssueEvent
 from mlflow.telemetry.track import record_usage_event
@@ -226,7 +234,6 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
-    _parse_trace_archival_duration_config,
     _resolve_experiment_ids_and_locations,
     _validate_batch_log_data,
     _validate_batch_log_limits,
@@ -241,7 +248,6 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag,
     _validate_trace_archival_location,
-    _validate_trace_archival_retention_string,
     _validate_trace_tag,
 )
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
@@ -266,84 +272,6 @@ class DatasetFilter(TypedDict, total=False):
 
     dataset_name: str
     dataset_digest: str
-
-
-_TRACE_ARCHIVAL_DURATION_MULTIPLIER_MILLIS = {
-    "m": 60 * 1000,
-    "h": 60 * 60 * 1000,
-    "d": 24 * 60 * 60 * 1000,
-}
-# Keep grouped experiment scans well below backend parameter limits (notably MSSQL's 2100).
-_TRACE_ARCHIVAL_EXPERIMENT_ID_CHUNK_SIZE = 1000
-
-
-class _ArchiveNowRemainingState(str, Enum):
-    DONE = "done"
-    ARCHIVABLE = "archivable"
-    TRANSIENT = "transient"
-    BLOCKED_UNMARKED = "blocked_unmarked"
-    TERMINAL_FAILURES_ONLY = "terminal_failures_only"
-
-
-@dataclass(frozen=True)
-class _ArchiveNowRequest:
-    older_than_millis: int | None
-
-    @classmethod
-    def from_tag_value(cls, value: str | None) -> _ArchiveNowRequest | None:
-        if value is None:
-            return None
-
-        try:
-            older_than = _parse_trace_archival_duration_config(
-                value,
-                duration_key="older_than",
-                allow_missing_duration=True,
-            )
-            return cls(older_than_millis=_parse_trace_archival_duration_millis(older_than))
-        except MlflowException:
-            _logger.warning(
-                "Ignoring malformed trace archive-now tag value: %r",
-                value,
-            )
-            return None
-
-
-@dataclass(frozen=True)
-class _ArchiveNowCleanupRequest:
-    experiment_id: str
-    raw_value: str
-    parsed_request: _ArchiveNowRequest
-
-
-@dataclass(frozen=True)
-class _TraceArchiveCandidate:
-    trace_id: str
-    experiment_id: str
-    timestamp_ms: int
-
-
-def _parse_trace_archival_duration_millis(value: str | None) -> int | None:
-    if value is None:
-        return None
-
-    trimmed = _validate_trace_archival_retention_string(value)
-    amount = trimmed[:-1]
-    unit = trimmed[-1]
-    return int(amount) * _TRACE_ARCHIVAL_DURATION_MULTIPLIER_MILLIS[unit]
-
-
-def _parse_experiment_trace_archival_retention_millis(value: str | None) -> int | None:
-    try:
-        duration = _parse_trace_archival_duration_config(
-            value,
-            duration_key="value",
-            expected_type="duration",
-        )
-        return _parse_trace_archival_duration_millis(duration)
-    except MlflowException:
-        _logger.warning("Ignoring invalid trace archival retention tag value: %r", value)
-        return None
 
 
 class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
@@ -5555,19 +5483,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         *,
         limit: int | None,
     ) -> list[_TraceArchiveCandidate]:
-        def sort_key(candidate: _TraceArchiveCandidate) -> tuple[int, str]:
-            return candidate.timestamp_ms, candidate.trace_id
-
-        if limit is None:
-            return sorted([*existing_candidates, *new_candidates], key=sort_key)
-        if limit <= 0:
+        if limit is not None and limit <= 0:
             return []
-        if not existing_candidates:
-            return sorted(new_candidates, key=sort_key)[:limit]
-        if not new_candidates:
-            return sorted(existing_candidates, key=sort_key)[:limit]
 
-        return sorted([*existing_candidates, *new_candidates], key=sort_key)[:limit]
+        if not existing_candidates:
+            candidates = new_candidates
+        elif not new_candidates:
+            candidates = existing_candidates
+        else:
+            candidates = [*existing_candidates, *new_candidates]
+
+        sorted_candidates = sorted(
+            candidates, key=lambda candidate: (candidate.timestamp_ms, candidate.trace_id)
+        )
+        return sorted_candidates if limit is None else sorted_candidates[:limit]
 
     @staticmethod
     def _dedupe_trace_archive_candidates(
