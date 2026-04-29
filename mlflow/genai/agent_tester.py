@@ -355,7 +355,7 @@ def test_agent(
     3. **Simulate conversations** — runs each test case through the
        :class:`~mlflow.genai.simulators.ConversationSimulator`.
     4. **Detect issues** — analyses simulation traces with
-       :func:`~mlflow.genai.discovery.pipeline.discover_issues`.
+       ``discover_issues``.
 
     Args:
         predict_fn: Agent function compatible with
@@ -367,7 +367,7 @@ def test_agent(
         traces: Optional list of existing traces to help describe the
             agent.
         model: LLM used for analysis, test generation, and simulation.
-            Defaults to :func:`~mlflow.genai.simulators.utils.get_default_simulation_model`.
+            Defaults to the configured default simulation model when ``None``.
         max_turns: Maximum conversation turns per test case.
         max_issues: Maximum number of issues to report.
         num_test_cases: Number of test cases to generate. Defaults to
