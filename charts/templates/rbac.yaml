@@ -1,4 +1,4 @@
-{{- if and .Values.serviceAccount.create .Values.rbac.create }}
+{{- if .Values.rbac.create }}
 {{- $kind := ternary "ClusterRole" "Role" .Values.rbac.clusterScoped }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: {{ $kind }}
