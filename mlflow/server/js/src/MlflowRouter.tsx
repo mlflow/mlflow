@@ -25,6 +25,7 @@ import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/rout
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { getGatewayRouteDefs } from './gateway/route-defs';
 import { getAdminRouteDefs } from './admin/route-defs';
+import { DEV_USER_SWITCHER_ENABLED } from './admin/hooks';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
 import { MlflowTopBar } from './common/components/MlflowTopBar';
@@ -40,6 +41,15 @@ import {
   WORKSPACE_QUERY_PARAM,
 } from './workspaces/utils/WorkspaceUtils';
 import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
+
+// Lazy-load so the switcher (which stores plaintext passwords in
+// localStorage and manipulates auth cookies) doesn't get pulled into the
+// production bundle. ``DEV_USER_SWITCHER_ENABLED`` is also gated at build
+// time on ``process.env.NODE_ENV === 'development'``, so the import never
+// fires in production.
+const LazyDevUserSwitcher = React.lazy(() =>
+  import('./admin/DevUserSwitcher').then((m) => ({ default: m.DevUserSwitcher })),
+);
 
 type MlflowRouteDef = {
   path?: string;
@@ -104,6 +114,11 @@ const MlflowRootLayout = ({
               <React.Suspense fallback={<LegacySkeleton />}>
                 <Outlet />
               </React.Suspense>
+              {DEV_USER_SWITCHER_ENABLED && (
+                <React.Suspense fallback={null}>
+                  <LazyDevUserSwitcher />
+                </React.Suspense>
+              )}
             </main>
           </div>
         </RootAssistantLayout>

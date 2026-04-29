@@ -287,11 +287,16 @@ const AccountPage = () => {
           </div>
         )}
 
-        <div>
-          <Button componentId="account.logout_button" onClick={handleLogout}>
-            <FormattedMessage defaultMessage="Logout" description="Button to logout" />
-          </Button>
-        </div>
+        {/* Hide Logout when there's no authenticated user — auth is
+            disabled or ``/users/current`` failed. ``/logout`` is only
+            registered by the basic-auth app, so the click would 404. */}
+        {username && (
+          <div>
+            <Button componentId="account.logout_button" onClick={handleLogout}>
+              <FormattedMessage defaultMessage="Logout" description="Button to logout" />
+            </Button>
+          </div>
+        )}
       </div>
     </ScrollablePageWrapper>
   );

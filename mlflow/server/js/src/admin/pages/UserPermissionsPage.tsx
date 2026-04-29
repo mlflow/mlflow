@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Breadcrumb,
@@ -44,7 +44,18 @@ const RESOURCE_TYPE_LABEL: Record<(typeof USER_PERMISSION_RESOURCE_TYPES)[number
 
 const UserPermissionsPage = () => {
   const { theme } = useDesignSystemTheme();
-  const { username = '' } = useParams<{ username: string }>();
+  const { username: rawUsername = '' } = useParams<{ username: string }>();
+  // ``getUserPermissionsRoute`` URL-encodes the username so values with
+  // ``/``, ``?``, ``%``, or whitespace round-trip safely through routing.
+  // Decode here for display and API calls — the backend expects the raw
+  // form. Fall back to the raw param if decoding fails (malformed %-escape).
+  const username = useMemo(() => {
+    try {
+      return decodeURIComponent(rawUsername);
+    } catch {
+      return rawUsername;
+    }
+  }, [rawUsername]);
 
   const grantPermission = useGrantUserPermission();
   const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
