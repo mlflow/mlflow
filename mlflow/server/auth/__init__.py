@@ -584,8 +584,9 @@ def _user_can_create_in_workspace(resource_type: str) -> bool:
     True if the current request can create new ``resource_type`` resources in the
     request's workspace. Always allows when workspaces are disabled (preserves
     the long-standing single-tenant behavior of "create is open"). Otherwise
-    accepts either a workspace-wide USE-or-higher grant or a type-scoped
-    ``(<resource_type>, *, USE)`` role grant.
+    accepts either a workspace-wide grant whose level has ``can_use`` (USE,
+    EDIT, or MANAGE) or a type-scoped ``(<resource_type>, *, X)`` role grant
+    where ``X.can_use`` is True.
     """
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
@@ -2575,9 +2576,10 @@ _DEFAULT_WORKSPACE_ROLES = (
         "user",
         USE.name,
         (
-            "Read every resource in the workspace and create new experiments and "
-            "registered models; the creator-as-owner mechanism grants MANAGE on "
-            "what you create, with no access to other users' resources."
+            "Read every resource in the workspace and create new experiments "
+            "and registered models; the creator-as-owner mechanism grants "
+            "MANAGE on what you create, with no write or delete access to "
+            "resources owned by other users."
         ),
     ),
 )

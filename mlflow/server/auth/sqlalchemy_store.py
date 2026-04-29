@@ -52,6 +52,8 @@ from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_password, _validate_username
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
+_USABLE_PERMISSION_NAMES = tuple(name for name, perm in ALL_PERMISSIONS.items() if perm.can_use)
+
 
 class SqlAlchemyStore:
     @classmethod
@@ -1247,7 +1249,6 @@ class SqlAlchemyStore:
         The DB query short-circuits as soon as a single matching row is found —
         we don't materialize all role permissions just to compute ``any()``.
         """
-        usable_levels = [name for name, perm in ALL_PERMISSIONS.items() if perm.can_use]
         with self.ManagedSessionMaker() as session:
             return (
                 session
@@ -1259,7 +1260,7 @@ class SqlAlchemyStore:
                     SqlRole.workspace == workspace,
                     SqlRolePermission.resource_pattern == "*",
                     SqlRolePermission.resource_type == resource_type,
-                    SqlRolePermission.permission.in_(usable_levels),
+                    SqlRolePermission.permission.in_(_USABLE_PERMISSION_NAMES),
                 )
                 .first()
                 is not None
