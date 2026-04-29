@@ -985,20 +985,21 @@ def test_log_multiple_assessment_types(trace_id):
 
 def test_log_feedback_in_distributed_trace_same_process():
     captured_headers = {}
+    tm = InMemoryTraceManager.get_instance()
 
     @mlflow.trace(name="root")
     def root():
         nonlocal captured_headers
         captured_headers = get_tracing_context_headers_for_http_request()
+        trace_id = mlflow.get_active_trace_id()
+        with tm.get_trace(trace_id) as t:
+            assert t is not None
+            assert not t.is_remote_trace
 
     root()
 
     root_trace_id = mlflow.get_last_active_trace_id()
     assert root_trace_id is not None
-    tm = InMemoryTraceManager.get_instance()
-    with tm.get_trace(root_trace_id) as t:
-        assert t is not None
-        assert not t.is_remote_trace
 
     with set_tracing_context_from_http_request_headers(captured_headers):
 
@@ -1061,4 +1062,31 @@ def test_log_feedback_in_distributed_trace_cross_process():
             result = child()
 
         mock_store.create_assessment.assert_called_once()
+        called_assessment = mock_store.create_assessment.call_args[0][0]
+        assert called_assessment.name == "child_was_called"
+        assert called_assessment.feedback.value == "yes"
         assert result.assessment_id == "a-test-assessment-id"
+
+
+def test_log_assessment_active_trace_not_in_memory():
+    null_cm = mock.MagicMock()
+    null_cm.__enter__.return_value = None
+    null_cm.__exit__.return_value = False
+
+    mock_store = mock.MagicMock()
+
+    with mlflow.start_span(name="root"):
+        with (
+            mock.patch.object(
+                InMemoryTraceManager.get_instance(), "get_trace", return_value=null_cm
+            ),
+            mock.patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        ):
+            result = mlflow.log_feedback(
+                trace_id=mlflow.get_active_trace_id(),
+                name="test_feedback",
+                value=1.0,
+            )
+            mock_store.create_assessment.assert_not_called()
+            assert result is not None
+            assert result.assessment_id is None
