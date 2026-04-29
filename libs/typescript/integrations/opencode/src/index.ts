@@ -39,6 +39,7 @@ const MESSAGE_ROLE_USER = 'user';
 const MESSAGE_ROLE_ASSISTANT = 'assistant';
 const PART_TYPE_TEXT = 'text';
 const PART_TYPE_TOOL = 'tool';
+const PART_TYPE_REASONING = 'reasoning';
 
 // SDK initialization state
 let initialized = false;
@@ -190,6 +191,18 @@ function extractAssistantResponse(messages: Message[]): string {
 }
 
 /**
+ * Extract reasoning text from assistant message parts.
+ */
+function extractReasoningText(parts: MessagePart[]): string | undefined {
+  const reasoningText = parts
+    .filter((p) => p.type === PART_TYPE_REASONING && p.text?.trim())
+    .map((p) => p.text?.trim() || '')
+    .join('\n\n');
+
+  return reasoningText || undefined;
+}
+
+/**
  * Find the index of the last user message
  */
 function findLastUserMessageIndex(messages: Message[]): number | null {
@@ -305,9 +318,10 @@ function createLlmAndToolSpans(
     // Check for text and tool content
     const textParts = parts.filter((p) => p.type === PART_TYPE_TEXT);
     const toolParts = parts.filter((p) => p.type === PART_TYPE_TOOL);
+    const reasoningText = extractReasoningText(parts);
 
     // Create LLM span for text responses
-    if (textParts.length > 0) {
+    if (textParts.length > 0 || reasoningText) {
       const conversationMessages = reconstructConversationMessages(messages, i);
       const textContent = textParts.map((p) => p.text || '').join('\n');
 
@@ -333,7 +347,15 @@ function createLlmAndToolSpans(
       }
 
       llmSpan.setOutputs({
-        choices: [{ message: { role: 'assistant', content: textContent } }],
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: textContent,
+              ...(reasoningText && { reasoning: reasoningText }),
+            },
+          },
+        ],
       });
       llmSpan.end({ endTimeNs: completedNs });
     }

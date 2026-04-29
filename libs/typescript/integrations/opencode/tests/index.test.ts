@@ -16,13 +16,6 @@ type EventParams = any;
 
 // Mock the @mlflow/core module
 jest.mock('@mlflow/core', () => {
-  const mockSpan = {
-    traceId: 'mock-trace-id',
-    setAttribute: jest.fn(),
-    setOutputs: jest.fn(),
-    end: jest.fn(),
-  };
-
   const mockTraceInfo = {
     requestPreview: '',
     responsePreview: '',
@@ -35,7 +28,12 @@ jest.mock('@mlflow/core', () => {
 
   return {
     init: jest.fn(),
-    startSpan: jest.fn(() => mockSpan),
+    startSpan: jest.fn(() => ({
+      traceId: 'mock-trace-id',
+      setAttribute: jest.fn(),
+      setOutputs: jest.fn(),
+      end: jest.fn(),
+    })),
     flushTraces: jest.fn().mockResolvedValue(undefined),
     SpanType: {
       LLM: 'LLM',
@@ -110,6 +108,7 @@ describe('MLflowTracingPlugin', () => {
         cache?: { read?: number; write?: number };
       };
       time?: { created?: number; completed?: number };
+      reasoningText?: string;
     },
   ) => ({
     info: {
@@ -119,7 +118,34 @@ describe('MLflowTracingPlugin', () => {
       tokens: options?.tokens || { input: 100, output: 50 },
       time: options?.time || { created: Date.now(), completed: Date.now() + 1000 },
     },
-    parts: [{ type: 'text', text }],
+    parts: [
+      ...(options?.reasoningText ? [{ type: 'reasoning', text: options.reasoningText }] : []),
+      { type: 'text', text },
+    ],
+  });
+
+  const createAssistantReasoningOnlyMessage = (
+    reasoningText: string,
+    options?: {
+      modelID?: string;
+      providerID?: string;
+      tokens?: {
+        input?: number;
+        output?: number;
+        reasoning?: number;
+        cache?: { read?: number; write?: number };
+      };
+      time?: { created?: number; completed?: number };
+    },
+  ) => ({
+    info: {
+      role: 'assistant',
+      modelID: options?.modelID || 'claude-3-opus',
+      providerID: options?.providerID || 'anthropic',
+      tokens: options?.tokens || { input: 100, output: 50, reasoning: 25 },
+      time: options?.time || { created: Date.now(), completed: Date.now() + 1000 },
+    },
+    parts: [{ type: 'reasoning', text: reasoningText }],
   });
 
   // Helper to create an assistant message with tool call
@@ -396,6 +422,65 @@ describe('MLflowTracingPlugin', () => {
           }),
         }),
       );
+    });
+
+    it('should attach reasoning content to LLM outputs when present', async () => {
+      const messages = [
+        createUserMessage('Solve this carefully'),
+        createAssistantTextMessage('The answer is 4.', {
+          reasoningText: 'I considered the arithmetic step by step.',
+        }),
+      ];
+
+      const mockClient = createMockClient({}, messages);
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+
+      await hooks.event!(createSessionIdleEvent('reasoning-session'));
+
+      const llmSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[1].value;
+      expect(llmSpan.setOutputs).toHaveBeenCalledWith({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'The answer is 4.',
+              reasoning: 'I considered the arithmetic step by step.',
+            },
+          },
+        ],
+      });
+    });
+
+    it('should create an LLM span for reasoning-only assistant messages', async () => {
+      const messages = [
+        createUserMessage('Think about this'),
+        createAssistantReasoningOnlyMessage('Let me work through the possibilities.'),
+      ];
+
+      const mockClient = createMockClient({}, messages);
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+
+      await hooks.event!(createSessionIdleEvent('reasoning-only-session'));
+
+      expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'llm_call',
+          spanType: 'LLM',
+        }),
+      );
+
+      const llmSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[1].value;
+      expect(llmSpan.setOutputs).toHaveBeenCalledWith({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: '',
+              reasoning: 'Let me work through the possibilities.',
+            },
+          },
+        ],
+      });
     });
   });
 
