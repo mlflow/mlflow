@@ -4663,6 +4663,10 @@
     "defaultMessage": "Do retrieved documents contain all necessary information?",
     "description": "Hint for RetrievalSufficiency template"
   },
+  "RekJb/": {
+    "defaultMessage": "Account",
+    "description": "Sidebar account menu item"
+  },
   "RgVN+O": {
     "defaultMessage": "View all",
     "description": "Home page news section view more link"
@@ -6555,6 +6559,10 @@
     "defaultMessage": "Trace ID",
     "description": "Column label for trace ID"
   },
+  "cvatOm": {
+    "defaultMessage": "Account",
+    "description": "Account page title"
+  },
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
@@ -6870,6 +6878,10 @@
   "en7FHE": {
     "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking through MLflow Tracing, budget controls, and more.",
     "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
+  },
+  "eosMdD": {
+    "defaultMessage": "Logout",
+    "description": "Sidebar logout menu item"
   },
   "erqoIC": {
     "defaultMessage": "Run Name:",
@@ -8126,6 +8138,10 @@
   "mKV9T/": {
     "defaultMessage": "of",
     "description": "Connector between dict and value type"
+  },
+  "mLeTrI": {
+    "defaultMessage": "Change password",
+    "description": "Button to open the change password modal"
   },
   "mLr9U7": {
     "defaultMessage": "Learn more.",

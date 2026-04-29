@@ -56,7 +56,11 @@ export const RootAssistantLayout = ({ children }: { children: ReactNode }) => {
           display: 'flex',
           flexGrow: 1,
           minHeight: 0,
-          backgroundColor: theme.colors.backgroundSecondary,
+          // Chrome background lives on the outer ``MlflowRootLayout``
+          // wrapper so it paints continuously behind the sidebar/main
+          // row. Stay transparent here so the gradient shows through;
+          // the assistant panel itself sets its own
+          // ``backgroundPrimary``, so it's unaffected.
         }}
       >
         <div css={{ flex: 1, minWidth: 0, display: 'flex' }}>{children}</div>
