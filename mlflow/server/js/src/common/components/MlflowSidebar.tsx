@@ -25,7 +25,7 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import AdminRoutes from '../../admin/routes';
-import { useIsAuthAvailable } from '../../admin/hooks';
+import { useIsAuthAvailable, useCurrentUserQuery } from '../../admin/hooks';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -259,6 +259,24 @@ export function MlflowSidebar({
   const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
   // Only show workspace-specific menu items when: workspaces are disabled OR a workspace is selected
   const showWorkspaceMenuItems = !workspacesEnabled || workspaceFromUrl !== null;
+  // Use the underlying query directly (rather than ``useIsAuthAvailable``)
+  // so we can apply a STRICT check for the workspace-selection-page Settings
+  // link: hide while ``/users/current`` is in flight, and only show after we
+  // confirm the user is authenticated. The wrapper hook deliberately treats
+  // loading as "available" to avoid flicker on auth-enabled deployments,
+  // but for the workspace-selection-page Settings link the inverse flicker
+  // (briefly visible then hidden in auth-disabled mode) is more disruptive.
+  //
+  // Gate the query on ``!showWorkspaceMenuItems`` — the strict check is only
+  // consulted on the workspace-selection page, so suppressing the fetch
+  // elsewhere keeps auth-disabled deployments from accumulating 404s on
+  // every page load.
+  const shouldCheckAuthAvailabilityStrict = !showWorkspaceMenuItems;
+  const { data: currentUserData, isError: currentUserIsError } = useCurrentUserQuery({
+    enabled: shouldCheckAuthAvailabilityStrict,
+  });
+  const isAuthAvailableStrict =
+    shouldCheckAuthAvailabilityStrict && !currentUserIsError && Boolean(currentUserData?.user);
 
   // Select appropriate docs URL based on workflow type
   const docsUrl = enableWorkflowBasedNavigation
@@ -442,9 +460,15 @@ export function MlflowSidebar({
               workspace-scoped paths. Route the click to `/admin` instead —
               it's in `ALWAYS_GLOBAL_ROUTES`, opens the same Settings
               sub-sidebar, and is the most useful target for an admin who
-              hasn't picked a workspace yet. Non-admins will be redirected
-              by the backend; that's no worse than the prior behavior. */}
-          {!showNestedSettingsItems && (
+              hasn't picked a workspace yet.
+
+              In auth-disabled deployments, /admin's `/users/current`
+              request fails and the page renders the broken state. Skip
+              the Settings link entirely in that case (no workspace
+              context AND no auth) — the only candidate destination would
+              be broken, and there's nothing useful inside Settings to
+              show until the user picks a workspace. */}
+          {!showNestedSettingsItems && (showWorkspaceMenuItems || isAuthAvailableStrict) && (
             <MlflowSidebarLink
               css={{ paddingBlock: theme.spacing.sm }}
               to={
