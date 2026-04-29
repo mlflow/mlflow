@@ -1,9 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  Avatar,
   BeakerIcon,
   Button,
   CloudModelIcon,
+  DropdownMenu,
   GearIcon,
   HomeIcon,
   ModelsIcon,
@@ -19,12 +21,15 @@ import {
   Tooltip,
   NewWindowIcon,
 } from '@databricks/design-system';
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { Location } from '../utils/RoutingUtils';
-import { Link, matchPath, useLocation, useParams, useSearchParams } from '../utils/RoutingUtils';
+import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
-import { useIsAuthAvailable } from '../../admin/hooks';
+import AdminRoutes from '../../admin/routes';
+import { useCurrentUserQuery, useIsAuthAvailable } from '../../admin/hooks';
+import { performLogout } from '../../admin/auth-utils';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -105,12 +110,15 @@ export function MlflowSidebar({
     setShowSidebar(!showSidebar);
   }, [setShowSidebar, showSidebar]);
 
-  // When the top-bar is rendered (auth-enabled deployments) it owns the
-  // brand row (logo, version, sidebar collapse button) AND the workspace
-  // selector — so the sidebar should skip those to avoid duplication. On
-  // auth-disabled deployments the top-bar isn't rendered, and the
-  // sidebar keeps its original layout.
-  const topBarRendered = useIsAuthAvailable();
+  // The sidebar always owns the chrome — its own header (logo + version
+  // + collapse) at the top, and the avatar/account widget at the bottom
+  // when auth is configured (see the bottom of the JSX). Same layout for
+  // auth-on and auth-off deployments to keep the UI consistent.
+  const isAuthAvailable = useIsAuthAvailable();
+  const { data: currentUserData } = useCurrentUserQuery();
+  const username = currentUserData?.user?.username ?? '';
+  const queryClient = useQueryClient();
+  const navigate = useNavigate({ bypassWorkspacePrefix: true });
 
   // Persist the last selected experiment ID so the nested experiment view
   // stays visible when navigating away from experiment pages
@@ -133,6 +141,13 @@ export function MlflowSidebar({
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
+
+  // After a click-outside dismiss of the account dropdown, Radix restores
+  // focus to the trigger and the browser keeps it ``:focus-visible`` —
+  // leaving a stale outline on the avatar button. Track whether the
+  // close was pointer-driven and skip the auto-focus return in that
+  // case; Escape/keyboard close still restores focus to the trigger.
+  const accountDropdownClosedByPointerRef = useRef(false);
 
   const handleAssistantToggle = useCallback(() => {
     if (isPanelOpen) {
@@ -273,33 +288,31 @@ export function MlflowSidebar({
         gap: theme.spacing.md,
       }}
     >
-      {!topBarRendered && (
-        <div css={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          {showSidebar && (
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <Link componentId="mlflow.sidebar.logo_home_link" to={ExperimentTrackingRoutes.rootRoute}>
-                <MlflowLogo
-                  css={{
-                    display: 'block',
-                    height: theme.spacing.lg,
-                    color: theme.colors.textPrimary,
-                  }}
-                />
-              </Link>
-              <Typography.Text size="sm" css={{ paddingLeft: theme.spacing.sm }} color="secondary">
-                {Version}
-              </Typography.Text>
-            </div>
-          )}
-          <Button
-            componentId="mlflow_header.toggle_sidebar_button"
-            onClick={toggleSidebar}
-            aria-label="Toggle sidebar"
-            icon={showSidebar ? <SidebarCollapseIcon /> : <SidebarExpandIcon />}
-          />
-        </div>
-      )}
-      {workspacesEnabled && showSidebar && !topBarRendered && <WorkspaceSelector />}
+      <div css={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        {showSidebar && (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+            <Link componentId="mlflow.sidebar.logo_home_link" to={ExperimentTrackingRoutes.rootRoute}>
+              <MlflowLogo
+                css={{
+                  display: 'block',
+                  height: theme.spacing.lg,
+                  color: theme.colors.textPrimary,
+                }}
+              />
+            </Link>
+            <Typography.Text size="sm" css={{ paddingLeft: theme.spacing.sm }} color="secondary">
+              {Version}
+            </Typography.Text>
+          </div>
+        )}
+        <Button
+          componentId="mlflow_header.toggle_sidebar_button"
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
+          icon={showSidebar ? <SidebarCollapseIcon /> : <SidebarExpandIcon />}
+        />
+      </div>
+      {workspacesEnabled && showSidebar && <WorkspaceSelector />}
       {workspacesEnabled && !showWorkspaceMenuItems && (
         <MlflowSidebarLink
           key="mlflow.sidebar.workspace_home_link"
@@ -430,6 +443,100 @@ export function MlflowSidebar({
             >
               <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
             </MlflowSidebarLink>
+          )}
+          {isAuthAvailable && username && (
+            <div
+              css={{
+                marginTop: theme.spacing.sm,
+                paddingTop: theme.spacing.sm,
+                borderTop: `1px solid ${theme.colors.border}`,
+              }}
+            >
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`Account menu for ${username}`}
+                    css={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: theme.spacing.sm,
+                      width: '100%',
+                      background: 'transparent',
+                      border: 'none',
+                      paddingInline: showSidebar ? theme.spacing.sm : theme.spacing.xs,
+                      paddingBlock: theme.spacing.sm,
+                      cursor: 'pointer',
+                      borderRadius: theme.borders.borderRadiusSm,
+                      color: theme.colors.textPrimary,
+                      justifyContent: showSidebar ? 'flex-start' : 'center',
+                      ':hover': {
+                        backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                      },
+                      ':focus-visible': {
+                        outline: `2px solid ${theme.colors.actionDefaultBorderFocus}`,
+                        outlineOffset: 2,
+                      },
+                      // Suppress the UA dotted underline + help cursor that
+                      // ``Avatar`` inherits from its inner ``<abbr title>``.
+                      '& abbr[title]': {
+                        textDecoration: 'none',
+                        cursor: 'inherit',
+                      },
+                    }}
+                  >
+                    <Avatar type="user" size="sm" label={username} />
+                    {showSidebar && (
+                      <Typography.Text
+                        css={{
+                          flex: 1,
+                          textAlign: 'left',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {username}
+                      </Typography.Text>
+                    )}
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content
+                  align="start"
+                  side="top"
+                  minWidth={180}
+                  onPointerDownOutside={() => {
+                    accountDropdownClosedByPointerRef.current = true;
+                  }}
+                  onCloseAutoFocus={(event) => {
+                    if (accountDropdownClosedByPointerRef.current) {
+                      event.preventDefault();
+                      accountDropdownClosedByPointerRef.current = false;
+                    }
+                  }}
+                >
+                  <DropdownMenu.Item
+                    componentId="mlflow.sidebar.account"
+                    onPointerDown={() => {
+                      accountDropdownClosedByPointerRef.current = true;
+                    }}
+                    onClick={() => navigate(AdminRoutes.accountPageRoute)}
+                  >
+                    <FormattedMessage defaultMessage="Account" description="Sidebar account menu item" />
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.Item
+                    componentId="mlflow.sidebar.logout"
+                    onPointerDown={() => {
+                      accountDropdownClosedByPointerRef.current = true;
+                    }}
+                    onClick={() => performLogout(queryClient)}
+                  >
+                    <FormattedMessage defaultMessage="Logout" description="Sidebar logout menu item" />
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            </div>
           )}
         </div>
       </nav>
