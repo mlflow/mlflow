@@ -60,7 +60,7 @@ export const WorkspaceSelector = () => {
       // call this on the URL change; doing it here is belt-and-suspenders.
       setActiveWorkspace(nextWorkspace);
 
-      // Client-side navigation keeps the chrome (top-bar selector + avatar)
+      // Client-side navigation keeps the chrome (sidebar selector + avatar)
       // mounted instead of blanking via ``window.location.reload()``.
       const currentSection = getNavigationSection(location.pathname);
       const targetPath = currentSection || '/';

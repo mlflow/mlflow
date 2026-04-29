@@ -91,8 +91,6 @@ const AccountPage = () => {
     }
   };
 
-  const handleLogout = () => performLogout(queryClient);
-
   const rolesEmptyState =
     roles.length === 0 ? <Empty title="No roles" description="You have not been assigned to any roles." /> : null;
 
@@ -285,12 +283,6 @@ const AccountPage = () => {
             )}
           </div>
         )}
-
-        <div>
-          <Button componentId="account.logout_button" onClick={handleLogout}>
-            <FormattedMessage defaultMessage="Logout" description="Button to logout" />
-          </Button>
-        </div>
       </div>
     </ScrollablePageWrapper>
   );

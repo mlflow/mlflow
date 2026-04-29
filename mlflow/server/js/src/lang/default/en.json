@@ -1159,10 +1159,6 @@
     "defaultMessage": "Schema {sectionName}",
     "description": "Field name text for schema table in the model comparison page"
   },
-  "5SO8s8": {
-    "defaultMessage": "Account",
-    "description": "Top bar account menu item"
-  },
   "5Sk9A1": {
     "defaultMessage": "Input cost",
     "description": "Label for input cost"
@@ -4667,6 +4663,10 @@
     "defaultMessage": "Do retrieved documents contain all necessary information?",
     "description": "Hint for RetrievalSufficiency template"
   },
+  "RekJb/": {
+    "defaultMessage": "Account",
+    "description": "Sidebar account menu item"
+  },
   "RgVN+O": {
     "defaultMessage": "View all",
     "description": "Home page news section view more link"
@@ -5410,10 +5410,6 @@
   "W99FRU": {
     "defaultMessage": "Model Name",
     "description": "Label for model name input in model config form"
-  },
-  "WCF7s2": {
-    "defaultMessage": "Logout",
-    "description": "Top bar logout menu item"
   },
   "WDmiPW": {
     "defaultMessage": "You need another endpoint to use guardrails.",
@@ -6882,6 +6878,10 @@
   "en7FHE": {
     "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking through MLflow Tracing, budget controls, and more.",
     "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
+  },
+  "eosMdD": {
+    "defaultMessage": "Logout",
+    "description": "Sidebar logout menu item"
   },
   "erqoIC": {
     "defaultMessage": "Run Name:",
@@ -8638,10 +8638,6 @@
   "p2po2x": {
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
-  },
-  "p5k/PQ": {
-    "defaultMessage": "Logout",
-    "description": "Button to logout"
   },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
