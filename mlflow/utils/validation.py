@@ -1,3 +1,5 @@
+import warnings
+import math
 """
 Utilities for validating user inputs such as metric names and parameter names.
 """
@@ -228,6 +230,21 @@ def _validate_metric(key, value, timestamp, step, path=""):
                 f"Please specify value as a valid double (64-bit floating point)",
             ),
             INVALID_PARAMETER_VALUE,
+        )
+
+    # Warn if value is NaN or infinite, as these may not be stored accurately.
+    # Infinity values are replaced with max/min float by SQL-based stores,
+    # and NaN may cause unexpected behavior in the UI and downstream analysis.
+    # We check with math.isnan/isinf directly as they work on both Python floats
+    # and numpy floating types (e.g. np.float32, np.float64).
+    if _is_numeric(value) and (math.isnan(value) or math.isinf(value)):
+        warnings.warn(
+            f"MLflow metric '{key}' has value '{value}' which may not be stored accurately. "
+            "Infinity values are replaced with max/min float values by SQL-based stores. "
+            "NaN values may cause unexpected behavior in the UI and downstream analysis. "
+            "Consider using a finite numeric value instead.",
+            UserWarning,
+            stacklevel=4,
         )
 
     if not isinstance(timestamp, numbers.Number) or timestamp < 0:
