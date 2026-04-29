@@ -8,16 +8,6 @@ from typing import TYPE_CHECKING, Any, Callable
 import pydantic
 
 import mlflow
-from mlflow.genai.discovery.extraction import extract_execution_paths_for_session
-from mlflow.genai.discovery.utils import group_traces_by_session
-from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
-from mlflow.genai.utils.trace_utils import (
-    extract_available_tools_from_trace,
-    extract_outputs_from_trace,
-    parse_outputs_to_str,
-    resolve_conversation_from_session,
-)
-from mlflow.types.llm import ChatMessage
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -165,6 +155,8 @@ def _get_agent_response_text(predict_fn: Callable[..., Any]) -> str | None:
         return result
 
     # Try to extract text the same way the simulator does
+    from mlflow.genai.utils.trace_utils import parse_outputs_to_str
+
     text = parse_outputs_to_str(result)
     if text and text.strip():
         return text
@@ -172,6 +164,8 @@ def _get_agent_response_text(predict_fn: Callable[..., Any]) -> str | None:
     # Last resort: check the latest trace
     try:
         if trace_id := mlflow.get_last_active_trace_id():
+            from mlflow.genai.utils.trace_utils import extract_outputs_from_trace
+
             trace = mlflow.get_trace(trace_id)
             if outputs := extract_outputs_from_trace(trace):
                 return parse_outputs_to_str(outputs)
@@ -185,6 +179,8 @@ def _describe_agent_from_response(
     response_text: str,
     model: str,
 ) -> _AgentDescription:
+    from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
+    from mlflow.types.llm import ChatMessage
 
     messages = [
         ChatMessage(role="system", content=_DESCRIBE_AGENT_SYSTEM_PROMPT),
@@ -204,6 +200,15 @@ def _describe_agent_from_traces(
     traces: list[Trace],
     model: str,
 ) -> _AgentDescription:
+    from mlflow.genai.discovery.extraction import extract_execution_paths_for_session
+    from mlflow.genai.discovery.utils import group_traces_by_session
+    from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
+    from mlflow.genai.utils.trace_utils import (
+        extract_available_tools_from_trace,
+        resolve_conversation_from_session,
+    )
+    from mlflow.types.llm import ChatMessage
+
     sessions = group_traces_by_session(traces)
     context_parts: list[str] = []
 
@@ -251,6 +256,9 @@ def _generate_test_cases(
     num_test_cases: int | None = None,
     guidance: str | None = None,
 ) -> list[dict[str, Any]]:
+    from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
+    from mlflow.types.llm import ChatMessage
+
     guidance = guidance or _DEFAULT_TESTING_GUIDANCE
     count = num_test_cases or _DEFAULT_NUM_TEST_CASES
 

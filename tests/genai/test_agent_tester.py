@@ -59,7 +59,7 @@ def _llm_dispatcher(agent_desc, test_case_list):
 
 @pytest.fixture
 def mock_llm():
-    with mock.patch("mlflow.genai.agent_tester.get_chat_completions_with_structured_output") as m:
+    with mock.patch("mlflow.genai.judges.utils.get_chat_completions_with_structured_output") as m:
         yield m
 
 
@@ -73,6 +73,20 @@ def test_agent_description_str():
     assert "A weather assistant" in result
     assert "forecast" in result
     assert "no historical data" in result
+
+
+def test_agent_description_str_structure():
+    desc = _AgentDescription(
+        description="A coding assistant",
+        capabilities=["write code", "debug"],
+        limitations=["no internet access"],
+    )
+    result = str(desc)
+    assert result.startswith("Agent description:")
+    assert "Capabilities:" in result
+    assert "Limitations:" in result
+    assert "- write code" in result
+    assert "- no internet access" in result
 
 
 def test_agent_description_validation_requires_fields():
@@ -178,9 +192,9 @@ def test_describe_agent_from_traces_with_no_sessions(mock_llm):
     mock_llm.return_value = expected
 
     with (
-        mock.patch("mlflow.genai.agent_tester.group_traces_by_session", return_value={}),
+        mock.patch("mlflow.genai.discovery.utils.group_traces_by_session", return_value={}),
         mock.patch(
-            "mlflow.genai.agent_tester.extract_available_tools_from_trace",
+            "mlflow.genai.utils.trace_utils.extract_available_tools_from_trace",
             return_value=None,
         ),
     ):
@@ -197,19 +211,19 @@ def test_describe_agent_from_traces_includes_conversation(mock_llm):
 
     with (
         mock.patch(
-            "mlflow.genai.agent_tester.group_traces_by_session",
+            "mlflow.genai.discovery.utils.group_traces_by_session",
             return_value={"sess-1": [trace]},
         ),
         mock.patch(
-            "mlflow.genai.agent_tester.resolve_conversation_from_session",
+            "mlflow.genai.utils.trace_utils.resolve_conversation_from_session",
             return_value=[{"role": "user", "content": "Write a function"}],
         ),
         mock.patch(
-            "mlflow.genai.agent_tester.extract_execution_paths_for_session",
+            "mlflow.genai.discovery.extraction.extract_execution_paths_for_session",
             return_value="(no routing)",
         ),
         mock.patch(
-            "mlflow.genai.agent_tester.extract_available_tools_from_trace",
+            "mlflow.genai.utils.trace_utils.extract_available_tools_from_trace",
             return_value=None,
         ),
     ):
@@ -227,9 +241,9 @@ def test_describe_agent_from_traces_includes_tools(mock_llm):
     mock_llm.return_value = expected
 
     with (
-        mock.patch("mlflow.genai.agent_tester.group_traces_by_session", return_value={}),
+        mock.patch("mlflow.genai.discovery.utils.group_traces_by_session", return_value={}),
         mock.patch(
-            "mlflow.genai.agent_tester.extract_available_tools_from_trace",
+            "mlflow.genai.utils.trace_utils.extract_available_tools_from_trace",
             return_value=[tool],
         ),
     ):
@@ -314,9 +328,9 @@ def test_resolve_agent_description_falls_back_to_traces(mock_llm):
         raise RuntimeError("cannot self-describe")
 
     with (
-        mock.patch("mlflow.genai.agent_tester.group_traces_by_session", return_value={}),
+        mock.patch("mlflow.genai.discovery.utils.group_traces_by_session", return_value={}),
         mock.patch(
-            "mlflow.genai.agent_tester.extract_available_tools_from_trace",
+            "mlflow.genai.utils.trace_utils.extract_available_tools_from_trace",
             return_value=None,
         ),
     ):
@@ -335,9 +349,9 @@ def test_resolve_agent_description_loads_traces_from_experiment(mock_llm):
 
     with (
         mock.patch("mlflow.search_traces", return_value=loaded_traces) as mock_search,
-        mock.patch("mlflow.genai.agent_tester.group_traces_by_session", return_value={}),
+        mock.patch("mlflow.genai.discovery.utils.group_traces_by_session", return_value={}),
         mock.patch(
-            "mlflow.genai.agent_tester.extract_available_tools_from_trace",
+            "mlflow.genai.utils.trace_utils.extract_available_tools_from_trace",
             return_value=None,
         ),
     ):
@@ -424,6 +438,30 @@ def test_test_agent_returns_correct_result(mock_llm):
     assert result.agent_description == str(agent_desc)
     assert result.simulation_traces == mock_sim_traces
     assert result.issues_result is mock_issues
+
+
+def test_test_agent_flattens_traces_for_issue_detection(mock_llm):
+    agent_desc = _make_agent_desc()
+    mock_llm.side_effect = _llm_dispatcher(agent_desc, _make_test_case_list(2))
+    mock_issues = mock.MagicMock()
+    t1 = mock.MagicMock()
+    t2 = mock.MagicMock()
+    t3 = mock.MagicMock()
+
+    def predict(messages):
+        return "I am a helpful assistant."
+
+    with (
+        mock.patch("mlflow.genai.simulators.ConversationSimulator") as mock_sim_cls,
+        mock.patch(
+            "mlflow.genai.discovery.pipeline.discover_issues", return_value=mock_issues
+        ) as mock_discover,
+    ):
+        mock_sim_cls.return_value.simulate.return_value = [[t1, t2], [t3]]
+        run_test_agent(predict, model=_MODEL)
+
+    flat_traces = mock_discover.call_args.kwargs["traces"]
+    assert flat_traces == [t1, t2, t3]
 
 
 def test_test_agent_passes_max_turns_and_max_issues(mock_llm):
