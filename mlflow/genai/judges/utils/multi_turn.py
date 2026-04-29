@@ -24,7 +24,10 @@ _CHARS_PER_TOKEN = 4
 
 
 def _estimate_tokens(text: str) -> int:
-    return max(1, len(text) // _CHARS_PER_TOKEN)
+    # Ceiling division: 5-7 chars round up to 2 tokens, not 1. Conservative
+    # estimate ensures the budget is honored rather than slightly overshot
+    # by short messages.
+    return max(1, (len(text) + _CHARS_PER_TOKEN - 1) // _CHARS_PER_TOKEN)
 
 
 def truncate_prior_conversation(

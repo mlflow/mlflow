@@ -1241,6 +1241,51 @@ def test_evaluate_threads_session_to_single_turn_scorers_when_session_id_present
         assert len(session_traces) == 3
 
 
+def test_evaluate_threads_session_to_single_turn_scorers_with_predict_fn(server_config):
+    """
+    For evaluation flows that go through ``predict_fn``, ``EvalItem.trace`` is
+    populated by ``_run_predict`` *after* the ScoreSubmitter is constructed.
+    The session lookup must be built lazily so single-turn scorers still
+    receive their session context — building eagerly at construction time
+    would leave the map empty for these flows.
+    """
+    received_sessions: dict[str, list[Trace]] = {}
+
+    class SessionAwareScorer(mlflow.genai.Scorer):
+        def __init__(self):
+            super().__init__(name="session_aware_predict")
+
+        def __call__(self, *, trace, session=None, **kwargs):
+            received_sessions[trace.info.trace_id] = list(session) if session else []
+            return 1
+
+    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to: {question}"
+
+    mlflow.set_experiment("multi_turn_session_predict_fn_test")
+    with mlflow.start_run():
+        # Drive evaluation through predict_fn so traces are produced inside
+        # the harness rather than supplied up front.
+        data = [
+            {"inputs": {"question": "P1", "session_id": "predict_session_a"}},
+            {"inputs": {"question": "P2", "session_id": "predict_session_a"}},
+            {"inputs": {"question": "P3", "session_id": "predict_session_b"}},
+        ]
+        mlflow.genai.evaluate(data=data, predict_fn=model, scorers=[SessionAwareScorer()])
+
+    # Every item must receive a non-empty session. If the lookup were built
+    # eagerly at construction (before predict_fn populates traces) every
+    # session would be [], regressing this test. Exact sizes depend on
+    # predict parallelism — session_a items see 1 or 2 depending on whether
+    # both predicts have completed yet — so we only assert the bounds:
+    # each item sees ≥ 1 trace, and never more than its session membership.
+    assert len(received_sessions) == 3
+    for session in received_sessions.values():
+        assert 1 <= len(session) <= 2
+
+
 def test_evaluate_with_evaluation_dataset_and_session_level_scorers():
     # Define a session-level scorer
     class ConversationLengthScorer(mlflow.genai.Scorer):

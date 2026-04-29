@@ -414,16 +414,11 @@ class _ScoreSubmitter:
         self._single_turn_scorers = single_turn_scorers
         self._multi_turn_scorers = multi_turn_scorers
         self._session_groups = session_groups
-        # Build a trace_id → session traces lookup once so single-turn
-        # scorers can be supplied with their session context. Items without
-        # a trace, or whose trace doesn't belong to a session group, are
-        # absent from the map and fall back to ``session=None``.
-        self._trace_to_session: dict[str, list[Trace]] = {}
-        for items in session_groups.values():
-            session_traces = [item.trace for item in items if item.trace is not None]
-            for item in items:
-                if item.trace is not None:
-                    self._trace_to_session[item.trace.info.trace_id] = session_traces
+        # The trace_id → session traces lookup is rebuilt on every
+        # ``submit()`` rather than cached, because predict_fn flows
+        # populate ``EvalItem.trace`` incrementally — caching the first
+        # build would freeze a partial map. Rebuilding is O(n) per submit,
+        # acceptable for typical eval sizes.
         self._run_id = run_id
         self._max_retries = max_retries
         self._limiter = _make_rate_limiter(
@@ -451,12 +446,32 @@ class _ScoreSubmitter:
     def shutdown(self) -> None:
         self._pool.shutdown(wait=False, cancel_futures=True)
 
+    def _build_trace_to_session(self) -> dict[str, list[Trace]]:
+        """
+        Build the trace_id → session traces lookup from the current state of
+        ``self._eval_items``. Called per ``submit()`` because predict_fn
+        flows populate ``EvalItem.trace`` incrementally — a cached map would
+        miss traces produced after the first call.
+        """
+        # ``_session_groups`` was computed before predict_fn ran, so for
+        # predict_fn flows it would be empty here. Recompute from the
+        # latest ``_eval_items`` instead.
+        from mlflow.genai.evaluation.session_utils import group_traces_by_session
+
+        mapping: dict[str, list[Trace]] = {}
+        for items in group_traces_by_session(self._eval_items).values():
+            session_traces = [item.trace for item in items if item.trace is not None]
+            for item in items:
+                if item.trace is not None:
+                    mapping[item.trace.info.trace_id] = session_traces
+        return mapping
+
     def submit(self, idx: int) -> Future:
         """Submit a score task for eval item *idx* and return the future."""
         _logger.debug(f"Predict completed for item {idx}, submitting score")
         eval_item = self._eval_items[idx]
         session_traces = (
-            self._trace_to_session.get(eval_item.trace.info.trace_id)
+            self._build_trace_to_session().get(eval_item.trace.info.trace_id)
             if eval_item.trace is not None
             else None
         )

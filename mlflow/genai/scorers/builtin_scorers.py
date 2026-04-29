@@ -1568,9 +1568,9 @@ class RelevanceToQuery(BuiltInScorer):
                 this is what lets the judge correctly score continuations like ``"yes"`` that
                 only make sense with earlier context. Capped by
                 :data:`mlflow.environment_variables.MLFLOW_JUDGE_MAX_PRIOR_TURNS` and optionally
-                by :data:`MLFLOW_JUDGE_PRIOR_TURNS_TOKEN_BUDGET`. The eval harness populates
-                this automatically for traces tagged with a session id; ignored when ``trace``
-                is not supplied.
+                by :data:`mlflow.environment_variables.MLFLOW_JUDGE_PRIOR_TURNS_TOKEN_BUDGET`.
+                The eval harness populates this automatically for traces tagged with a session
+                id; ignored when ``trace`` is not supplied.
 
         Returns:
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
