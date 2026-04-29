@@ -4582,10 +4582,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     if value := span_attributes.get(key):
                         dimension_attributes[key] = _try_parse_json_string(value)
 
-                links_data = None
-                if links := span.links:
-                    links_data = [link.to_dict() for link in links]
-
                 # experiment_id filled in after we resolve trace infos
                 all_span_rows.append({
                     "trace_id": span.trace_id,
@@ -4599,7 +4595,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     "end_time_unix_nano": span.end_time_ns,
                     "content": content_json,
                     "dimension_attributes": dimension_attributes or None,
-                    "links": links_data,
                 })
 
                 if span_cost:

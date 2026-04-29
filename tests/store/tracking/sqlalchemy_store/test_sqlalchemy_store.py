@@ -8281,13 +8281,6 @@ def test_log_spans_persists_links(store: SqlAlchemyStore):
 
     store.log_spans(experiment_id, [span])
 
-    # Verify the links column is populated in the DB
-    with store.ManagedSessionMaker() as session:
-        span_row = session.query(SqlSpan).filter_by(trace_id=trace_id).one()
-        assert len(span_row.links) == 2
-        assert span_row.links[0]["trace_id"] == "tr-abc123"
-        assert span_row.links[1]["trace_id"] == "tr-def456"
-
     # Verify links survive the full round-trip via get_trace
     trace = store.get_trace(trace_id)
     retrieved_span = trace.data.spans[0]

@@ -2013,12 +2013,6 @@ class SqlSpan(Base):
     efficient querying or metrics aggregation.
     """
 
-    links = Column(JSON, nullable=True)
-    """
-    Span links JSON: `JSON`. Optional field for storing span links
-    (connections to spans in other traces). Immutable after span is logged.
-    """
-
     trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
