@@ -430,11 +430,7 @@ def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH"):
-        # ``request.json`` can be ``None`` when the body is literal ``null`` (or an
-        # empty body under ``application/json``) — falling through to ``None | dict``
-        # would raise a TypeError that ``catch_mlflow_exception`` doesn't intercept,
-        # surfacing as a 500. Coerce to an empty dict so callers get the standard
-        # "missing parameter" 400 instead.
+        # Coerce null/empty JSON bodies to {} so callers get a 400, not a 500.
         args = request.get_json(silent=True) or {}
     elif request.method == "DELETE":
         args = (request.get_json(silent=True) or {}) if request.is_json else request.args
@@ -3207,12 +3203,8 @@ def get_current_user():
 def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
-    # Self-service password changes must re-assert the current password as a
-    # defense-in-depth check: the Basic Auth header on the request already
-    # proves identity, but a walk-up attacker on a logged-in browser session
-    # would otherwise be able to silently rotate the password and lock out
-    # the legitimate user. Admins changing *someone else's* password bypass
-    # this (they don't and can't supply the target's current password).
+    # Self-service flows re-assert current_password so a hijacked browser
+    # session can't silently rotate it. Admin paths skip this check.
     sender = authenticate_request()
     sender_username = getattr(sender, "username", None)
     if sender_username == username:
