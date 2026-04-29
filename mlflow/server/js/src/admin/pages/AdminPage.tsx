@@ -1,0 +1,694 @@
+import { useMemo, useState } from 'react';
+import {
+  Alert,
+  Button,
+  Empty,
+  Input,
+  Modal,
+  PlusIcon,
+  SimpleSelect,
+  SimpleSelectOption,
+  Spinner,
+  Switch,
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+  Tabs,
+  Tag,
+  TrashIcon,
+  Typography,
+  UserIcon,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
+import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
+import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
+import { useWorkspaces } from '../../workspaces/hooks/useWorkspaces';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
+import AdminRoutes from '../routes';
+import {
+  useUsersQuery,
+  useCreateUser,
+  useDeleteUser,
+  useUpdateAdmin,
+  useRolesQuery,
+  useCreateRole,
+  useDeleteRole,
+  useUserRolesQuery,
+} from '../hooks';
+import type { CreateRoleRequest } from '../types';
+import { isWorkspaceAdminRole } from '../types';
+
+// Renders one line per role assigned to a user, formatted as
+// `<workspace> → <role_name>`. Mirrors the `<scope> → <value>` shape used
+// elsewhere in the admin UI (e.g. the Account page's permission lines like
+// `experiment:* → READ`). Each row issues its own request — React Query
+// caches per-username so subsequent re-renders don't re-fetch.
+const UserRolesCell = ({ username }: { username: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const { data, isLoading, error } = useUserRolesQuery(username);
+  if (isLoading) {
+    return <Spinner size="small" />;
+  }
+  if (error) {
+    // Distinguish "no roles assigned" from "we couldn't load roles" — failing
+    // silently to "—" hides 403/500s from admins reviewing user state.
+    return (
+      <Typography.Text color="error" size="sm">
+        Failed to load
+      </Typography.Text>
+    );
+  }
+  const roles = data?.roles ?? [];
+  if (roles.length === 0) {
+    return <Typography.Text color="secondary">—</Typography.Text>;
+  }
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs / 2 }}>
+      {roles.map((role) => (
+        <Typography.Text key={role.id} size="sm">
+          <code>{role.workspace}</code> → {role.name}
+        </Typography.Text>
+      ))}
+    </div>
+  );
+};
+
+const UsersTab = () => {
+  const { theme } = useDesignSystemTheme();
+  const { data: usersData, isLoading, error: queryError } = useUsersQuery();
+  const createUser = useCreateUser();
+  const deleteUser = useDeleteUser();
+  const updateAdmin = useUpdateAdmin();
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const users = useMemo(() => usersData?.users ?? [], [usersData]);
+
+  const handleCreateUser = async () => {
+    setError(null);
+    const trimmedUsername = newUsername.trim();
+    if (!trimmedUsername || !newPassword) {
+      setError('Username and password are required');
+      return;
+    }
+    try {
+      await createUser.mutateAsync({ username: trimmedUsername, password: newPassword });
+      setShowCreateModal(false);
+      setNewUsername('');
+      setNewPassword('');
+    } catch (e: any) {
+      setError(e.message || 'Failed to create user');
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setError(null);
+    try {
+      await deleteUser.mutateAsync(deleteTarget);
+      setDeleteTarget(null);
+    } catch (e: any) {
+      setError(e.message || 'Failed to delete user');
+    }
+  };
+
+  const handleToggleAdmin = async (username: string, currentIsAdmin: boolean) => {
+    setError(null);
+    try {
+      await updateAdmin.mutateAsync({ username, is_admin: !currentIsAdmin });
+    } catch (e: any) {
+      setError(e.message || 'Failed to update admin status');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: theme.spacing.sm,
+          padding: theme.spacing.lg,
+          minHeight: 200,
+        }}
+      >
+        <Spinner size="small" />
+      </div>
+    );
+  }
+
+  if (queryError) {
+    return (
+      <Alert
+        componentId="admin.users.query_error"
+        type="error"
+        message="Failed to load users"
+        description={(queryError as Error)?.message || 'An error occurred while fetching users.'}
+      />
+    );
+  }
+
+  const emptyState =
+    users.length === 0 ? (
+      <Empty
+        title={<FormattedMessage defaultMessage="No users" description="Empty state title for users table" />}
+        description={
+          <FormattedMessage
+            defaultMessage="Create a user to get started."
+            description="Empty state description for users table"
+          />
+        }
+      />
+    ) : null;
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {error && (
+        <Alert componentId="admin.users.error" type="error" message={error} closable onClose={() => setError(null)} />
+      )}
+      <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          componentId="admin.users.create_button"
+          type="primary"
+          icon={<PlusIcon />}
+          onClick={() => setShowCreateModal(true)}
+        >
+          <FormattedMessage defaultMessage="Create User" description="Button to create a new user" />
+        </Button>
+      </div>
+      <Table
+        scrollable
+        noMinHeight
+        empty={emptyState}
+        css={{
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.general.borderRadiusBase,
+          overflow: 'hidden',
+        }}
+      >
+        <TableRow isHeader>
+          <TableHeader componentId="admin.users.username_header" css={{ flex: 2 }}>
+            <FormattedMessage defaultMessage="Username" description="Users table username header" />
+          </TableHeader>
+          <TableHeader componentId="admin.users.roles_header" css={{ flex: 2 }}>
+            <FormattedMessage
+              defaultMessage="Roles"
+              description="Users table roles header — roles render as multiple <workspace> → <role_name> lines per user"
+            />
+          </TableHeader>
+          <TableHeader componentId="admin.users.admin_header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Admin" description="Users table admin header" />
+          </TableHeader>
+          <TableHeader componentId="admin.users.actions_header" css={{ flex: 0, minWidth: 80, maxWidth: 80 }}>
+            <FormattedMessage defaultMessage="Actions" description="Users table actions header" />
+          </TableHeader>
+        </TableRow>
+        {users.map((user) => (
+          <TableRow key={user.username}>
+            <TableCell css={{ flex: 2 }}>{user.username}</TableCell>
+            <TableCell css={{ flex: 2 }}>
+              <UserRolesCell username={user.username} />
+            </TableCell>
+            <TableCell css={{ flex: 1 }}>
+              <Switch
+                componentId="admin.users.toggle_admin"
+                checked={user.is_admin}
+                onChange={() => handleToggleAdmin(user.username, user.is_admin)}
+                label=""
+                aria-label={`Toggle admin for ${user.username}`}
+              />
+            </TableCell>
+            <TableCell css={{ flex: 0, minWidth: 80, maxWidth: 80 }}>
+              <Button
+                componentId="admin.users.delete_button"
+                type="tertiary"
+                size="small"
+                icon={<TrashIcon />}
+                aria-label={`Delete user ${user.username}`}
+                onClick={() => setDeleteTarget(user.username)}
+                danger
+              />
+            </TableCell>
+          </TableRow>
+        ))}
+      </Table>
+      <Modal
+        componentId="admin.users.create_modal"
+        title="Create User"
+        visible={showCreateModal}
+        onCancel={() => {
+          setShowCreateModal(false);
+          setNewUsername('');
+          setNewPassword('');
+          setError(null);
+        }}
+        onOk={handleCreateUser}
+        okText="Create"
+        confirmLoading={createUser.isLoading}
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {error && (
+            <Alert
+              componentId="admin.users.create_modal.error"
+              type="error"
+              message={error}
+              closable
+              onClose={() => setError(null)}
+            />
+          )}
+          <div>
+            <Typography.Text bold>Username</Typography.Text>
+            <Input
+              componentId="admin.users.create_username"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              placeholder="Enter username"
+            />
+          </div>
+          <div>
+            <Typography.Text bold>Password</Typography.Text>
+            <Input
+              componentId="admin.users.create_password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter password"
+            />
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        componentId="admin.users.delete_modal"
+        title="Delete User"
+        visible={Boolean(deleteTarget)}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setError(null);
+        }}
+        onOk={handleDeleteUser}
+        okText="Delete"
+        okButtonProps={{ danger: true }}
+        confirmLoading={deleteUser.isLoading}
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {error && (
+            <Alert
+              componentId="admin.users.delete_modal.error"
+              type="error"
+              message={error}
+              closable
+              onClose={() => setError(null)}
+            />
+          )}
+          <Typography.Text>
+            Are you sure you want to delete user <strong>{deleteTarget}</strong>? This action cannot be undone.
+          </Typography.Text>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+const RolesTab = () => {
+  const { theme } = useDesignSystemTheme();
+  const { data: rolesData, isLoading, error: queryError } = useRolesQuery();
+  const createRole = useCreateRole();
+  const deleteRole = useDeleteRole();
+  const { workspacesEnabled } = useWorkspacesEnabled();
+  const { workspaces } = useWorkspaces(workspacesEnabled);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleDescription, setNewRoleDescription] = useState('');
+  const [newRoleWorkspace, setNewRoleWorkspace] = useState('default');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
+  // Always include "default" — useWorkspaces() returns whatever the workspace
+  // store lists, which may exclude the reserved default workspace (and is
+  // empty entirely when workspaces are disabled, see useWorkspaces(false)).
+  const workspaceOptions = useMemo(() => {
+    const names = new Set<string>(['default']);
+    for (const w of workspaces) names.add(w.name);
+    // Sort so the dropdown order is deterministic; `Set` iteration order
+    // depends on insertion, so without this the dropdown would shift if
+    // ``useWorkspaces()`` returns a different order across renders.
+    // Pin "default" to the top — it's always present and is the
+    // reserved/most-common pick.
+    return [
+      'default',
+      ...Array.from(names)
+        .filter((n) => n !== 'default')
+        .sort(),
+    ];
+  }, [workspaces]);
+
+  const handleCreateRole = async () => {
+    setError(null);
+    // Trim + require role name client-side. The backend's ``name.strip()``
+    // check would otherwise let leading/trailing whitespace persist into the
+    // DB and propagate to every UI surface that displays the role.
+    const trimmedName = newRoleName.trim();
+    if (!trimmedName) {
+      setError('Role name cannot be empty');
+      return;
+    }
+    try {
+      const request: CreateRoleRequest = {
+        name: trimmedName,
+        workspace: newRoleWorkspace,
+        description: newRoleDescription || undefined,
+      };
+      await createRole.mutateAsync(request);
+      setShowCreateModal(false);
+      setNewRoleName('');
+      setNewRoleDescription('');
+      setNewRoleWorkspace('default');
+    } catch (e: any) {
+      setError(e.message || 'Failed to create role');
+    }
+  };
+
+  const handleDeleteRole = async () => {
+    if (!deleteTarget) return;
+    setError(null);
+    try {
+      await deleteRole.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (e: any) {
+      setError(e.message || 'Failed to delete role');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: theme.spacing.sm,
+          padding: theme.spacing.lg,
+          minHeight: 200,
+        }}
+      >
+        <Spinner size="small" />
+      </div>
+    );
+  }
+
+  if (queryError) {
+    return (
+      <Alert
+        componentId="admin.roles.query_error"
+        type="error"
+        message="Failed to load roles"
+        description={(queryError as Error)?.message || 'An error occurred while fetching roles.'}
+      />
+    );
+  }
+
+  const emptyState =
+    roles.length === 0 ? (
+      <Empty
+        title={<FormattedMessage defaultMessage="No roles" description="Empty state title for roles table" />}
+        description={
+          <FormattedMessage
+            defaultMessage="Create a role to assign permissions to users."
+            description="Empty state description for roles table"
+          />
+        }
+      />
+    ) : null;
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {error && (
+        <Alert componentId="admin.roles.error" type="error" message={error} closable onClose={() => setError(null)} />
+      )}
+      <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          componentId="admin.roles.create_button"
+          type="primary"
+          icon={<PlusIcon />}
+          onClick={() => setShowCreateModal(true)}
+        >
+          <FormattedMessage defaultMessage="Create Role" description="Button to create a new role" />
+        </Button>
+      </div>
+      <Table
+        scrollable
+        noMinHeight
+        empty={emptyState}
+        css={{
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.general.borderRadiusBase,
+          overflow: 'hidden',
+        }}
+      >
+        <TableRow isHeader>
+          <TableHeader componentId="admin.roles.name_header" css={{ flex: 2 }}>
+            <FormattedMessage defaultMessage="Name" description="Roles table name header" />
+          </TableHeader>
+          <TableHeader componentId="admin.roles.workspace_header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Workspace" description="Roles table workspace header" />
+          </TableHeader>
+          <TableHeader componentId="admin.roles.description_header" css={{ flex: 2 }}>
+            <FormattedMessage defaultMessage="Description" description="Roles table description header" />
+          </TableHeader>
+          <TableHeader componentId="admin.roles.admin_role_header" css={{ flex: 1 }}>
+            <FormattedMessage
+              defaultMessage="Workspace Manager"
+              description="Roles table column flagging roles that grant workspace-level MANAGE"
+            />
+          </TableHeader>
+          <TableHeader componentId="admin.roles.actions_header" css={{ flex: 0, minWidth: 80, maxWidth: 80 }}>
+            <FormattedMessage defaultMessage="Actions" description="Roles table actions header" />
+          </TableHeader>
+        </TableRow>
+        {roles.map((role) => (
+          <TableRow key={role.id}>
+            <TableCell css={{ flex: 2 }}>
+              <Link componentId="admin.roles.name_link" to={AdminRoutes.getRoleDetailRoute(role.id)}>
+                {role.name}
+              </Link>
+            </TableCell>
+            <TableCell css={{ flex: 1 }}>{role.workspace}</TableCell>
+            <TableCell css={{ flex: 2 }}>{role.description || '-'}</TableCell>
+            <TableCell css={{ flex: 1 }}>
+              {isWorkspaceAdminRole(role) ? (
+                <Tag componentId="admin.roles.admin_tag" color="indigo">
+                  Manager
+                </Tag>
+              ) : null}
+            </TableCell>
+            <TableCell css={{ flex: 0, minWidth: 80, maxWidth: 80 }}>
+              <Button
+                componentId="admin.roles.delete_button"
+                type="tertiary"
+                size="small"
+                icon={<TrashIcon />}
+                aria-label={`Delete role ${role.name}`}
+                onClick={() => setDeleteTarget({ id: role.id, name: role.name })}
+                danger
+              />
+            </TableCell>
+          </TableRow>
+        ))}
+      </Table>
+      <Modal
+        componentId="admin.roles.create_modal"
+        title="Create Role"
+        visible={showCreateModal}
+        onCancel={() => {
+          setShowCreateModal(false);
+          setNewRoleName('');
+          setNewRoleDescription('');
+          setNewRoleWorkspace('default');
+          setError(null);
+        }}
+        onOk={handleCreateRole}
+        okText="Create"
+        confirmLoading={createRole.isLoading}
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {error && (
+            <Alert
+              componentId="admin.roles.create_modal_error"
+              type="error"
+              message={error}
+              closable
+              onClose={() => setError(null)}
+            />
+          )}
+          <div>
+            <Typography.Text bold>Name</Typography.Text>
+            <Input
+              componentId="admin.roles.create_name"
+              value={newRoleName}
+              onChange={(e) => setNewRoleName(e.target.value)}
+              placeholder="Enter role name"
+            />
+          </div>
+          <div>
+            <Typography.Text bold>Workspace</Typography.Text>
+            <SimpleSelect
+              id="admin-roles-create-workspace"
+              componentId="admin.roles.create_workspace"
+              value={newRoleWorkspace}
+              onChange={({ target }) => setNewRoleWorkspace(target.value)}
+            >
+              {workspaceOptions.map((name) => (
+                <SimpleSelectOption key={name} value={name}>
+                  {name}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
+          </div>
+          <div>
+            <Typography.Text bold>Description</Typography.Text>
+            <Input
+              componentId="admin.roles.create_description"
+              value={newRoleDescription}
+              onChange={(e) => setNewRoleDescription(e.target.value)}
+              placeholder="Enter description (optional)"
+            />
+          </div>
+          <Typography.Paragraph css={{ color: theme.colors.textSecondary, marginTop: theme.spacing.sm }}>
+            To make this a workspace admin role, add a permission with resource type <strong>workspace</strong>,
+            resource pattern <strong>*</strong>, and permission <strong>MANAGE</strong> after creation.
+          </Typography.Paragraph>
+        </div>
+      </Modal>
+      <Modal
+        componentId="admin.roles.delete_modal"
+        title="Delete Role"
+        visible={Boolean(deleteTarget)}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setError(null);
+        }}
+        onOk={handleDeleteRole}
+        okText="Delete"
+        okButtonProps={{ danger: true }}
+        confirmLoading={deleteRole.isLoading}
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {error && (
+            <Alert
+              componentId="admin.roles.delete_modal_error"
+              type="error"
+              message={error}
+              closable
+              onClose={() => setError(null)}
+            />
+          )}
+          <Typography.Text>
+            Are you sure you want to delete role <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+          </Typography.Text>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+const AdminPage = () => {
+  const { theme } = useDesignSystemTheme();
+  // Reflect the active tab in the URL (?tab=users|roles) so deep links — e.g.
+  // the RoleDetailPage breadcrumb back to /admin?tab=roles — land on the
+  // expected tab and a refresh preserves it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const activeTab = tabFromUrl === 'roles' ? 'roles' : 'users';
+
+  return (
+    <ScrollablePageWrapper>
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <div css={{ padding: theme.spacing.md, paddingBottom: 0 }}>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.xs,
+              marginBottom: theme.spacing.md,
+            }}
+          >
+            <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+              <div
+                css={{
+                  borderRadius: theme.borders.borderRadiusSm,
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  padding: theme.spacing.sm,
+                  display: 'flex',
+                }}
+              >
+                <UserIcon />
+              </div>
+              <Typography.Title withoutMargins level={2}>
+                <FormattedMessage defaultMessage="Platform Admin" description="Admin page title" />
+              </Typography.Title>
+            </div>
+          </div>
+        </div>
+        <Tabs.Root
+          componentId="admin.tabs"
+          valueHasNoPii
+          value={activeTab}
+          onValueChange={(value) => {
+            const next = new URLSearchParams(searchParams);
+            if (value === 'users') {
+              next.delete('tab');
+            } else {
+              next.set('tab', value);
+            }
+            setSearchParams(next, { replace: true });
+          }}
+          css={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        >
+          <div css={{ paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }}>
+            <Tabs.List>
+              <Tabs.Trigger value="users">
+                <FormattedMessage defaultMessage="Users" description="Admin users tab" />
+              </Tabs.Trigger>
+              <Tabs.Trigger value="roles">
+                <FormattedMessage defaultMessage="Roles" description="Admin roles tab" />
+              </Tabs.Trigger>
+            </Tabs.List>
+          </div>
+          <Tabs.Content
+            value="users"
+            css={{
+              flex: 1,
+              overflow: 'auto',
+              padding: theme.spacing.md,
+              paddingTop: theme.spacing.md,
+            }}
+          >
+            <UsersTab />
+          </Tabs.Content>
+          <Tabs.Content
+            value="roles"
+            css={{
+              flex: 1,
+              overflow: 'auto',
+              padding: theme.spacing.md,
+              paddingTop: theme.spacing.md,
+            }}
+          >
+            <RolesTab />
+          </Tabs.Content>
+        </Tabs.Root>
+      </div>
+    </ScrollablePageWrapper>
+  );
+};
+
+export default AdminPage;
