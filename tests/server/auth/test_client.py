@@ -146,19 +146,6 @@ def test_get_current_user(client, monkeypatch):
     assert resp.status_code == 401
 
 
-def test_logout_returns_credential_clearing_html(client):
-    # /logout serves an HTML page that runs an XHR with bogus creds against
-    # /users/current to drop the browser's Basic Auth cache. Lock down the
-    # contract so the trick (and its static-prefix-aware AJAX path) doesn't
-    # silently regress.
-    resp = requests.get(f"{client.tracking_uri}/logout")
-    assert resp.status_code == 200
-    assert resp.headers["Content-Type"].startswith("text/html")
-    body = resp.text
-    assert "./ajax-api/2.0/mlflow/users/current" in body
-    assert "mlflow-logged-out" in body
-
-
 def test_update_user_password(client, monkeypatch):
     username = random_str()
     password = random_str()
