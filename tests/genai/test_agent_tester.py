@@ -279,6 +279,12 @@ def test_generate_test_cases_uses_provided_count_and_guidance(mock_llm):
     assert "Focus on edge cases" in mock_llm.call_args.kwargs["messages"][0].content
 
 
+def test_generate_test_cases_raises_on_invalid_count(mock_llm):
+    agent_desc = _make_agent_desc()
+    with pytest.raises(ValueError, match="num_test_cases must be >= 1"):
+        _generate_test_cases(agent_desc, model=_MODEL, num_test_cases=0)
+
+
 def test_generate_test_cases_returns_dicts(mock_llm):
     agent_desc = _make_agent_desc()
     mock_llm.return_value = _make_test_case_list(1)
@@ -359,6 +365,27 @@ def test_resolve_agent_description_loads_traces_from_experiment(mock_llm):
 
     assert result == agent_desc
     mock_search.assert_called_once_with(locations=["exp-456"], max_results=50, return_type="list")
+
+
+def test_resolve_agent_description_falls_back_when_llm_raises(mock_llm):
+    traces = [mock.MagicMock()]
+    agent_desc = _make_agent_desc(capabilities=["assist"])
+    # First call (self-description) raises, second call (traces) succeeds
+    mock_llm.side_effect = [RuntimeError("LLM error"), agent_desc]
+
+    def predict(messages):
+        return "I am a helpful assistant."
+
+    with (
+        mock.patch("mlflow.genai.discovery.utils.group_traces_by_session", return_value={}),
+        mock.patch(
+            "mlflow.genai.utils.trace_utils.extract_available_tools_from_trace",
+            return_value=None,
+        ),
+    ):
+        result = _resolve_agent_description(predict, None, traces, _MODEL)
+
+    assert result == agent_desc
 
 
 def test_resolve_agent_description_returns_default_when_all_fail():

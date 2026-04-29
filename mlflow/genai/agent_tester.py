@@ -139,14 +139,10 @@ def _get_agent_response_text(predict_fn: Callable[..., Any]) -> str | None:
         }
     ]
 
-    sig = inspect.signature(predict_fn)
-    params = list(sig.parameters.keys())
-
     try:
-        if params and params[0] == "messages":
-            result = predict_fn(messages=prompt)
-        else:
-            result = predict_fn(input=prompt)
+        sig = inspect.signature(predict_fn)
+        params = list(sig.parameters.keys())
+        result = predict_fn(messages=prompt) if "messages" in params else predict_fn(input=prompt)
     except Exception:
         _logger.debug("predict_fn raised when asked to self-describe", exc_info=True)
         return None
@@ -259,8 +255,10 @@ def _generate_test_cases(
     from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
     from mlflow.types.llm import ChatMessage
 
+    if num_test_cases is not None and num_test_cases < 1:
+        raise ValueError(f"num_test_cases must be >= 1, got {num_test_cases}")
     guidance = guidance or _DEFAULT_TESTING_GUIDANCE
-    count = num_test_cases or _DEFAULT_NUM_TEST_CASES
+    count = _DEFAULT_NUM_TEST_CASES if num_test_cases is None else num_test_cases
 
     system_prompt = _GENERATE_TEST_CASES_SYSTEM_PROMPT.format(
         guidance=guidance,
@@ -288,12 +286,18 @@ def _resolve_agent_description(
     agent_desc: _AgentDescription | None = None
 
     if response_text := _get_agent_response_text(predict_fn):
-        agent_desc = _describe_agent_from_response(response_text, model)
+        try:
+            agent_desc = _describe_agent_from_response(response_text, model)
+        except Exception:
+            _logger.warning("Failed to describe agent from self-description", exc_info=True)
 
     if (not agent_desc or not agent_desc.capabilities) and (
         existing_traces := (traces or _load_traces(experiment_id))
     ):
-        agent_desc = _describe_agent_from_traces(existing_traces, model)
+        try:
+            agent_desc = _describe_agent_from_traces(existing_traces, model)
+        except Exception:
+            _logger.warning("Failed to describe agent from traces", exc_info=True)
 
     return agent_desc or _AgentDescription(
         description="A conversational AI agent",
