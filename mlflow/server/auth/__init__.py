@@ -257,7 +257,6 @@ from mlflow.server.auth.routes import (
     LIST_USER_WORKSPACE_PERMISSIONS,
     LIST_USERS,
     LIST_WORKSPACE_PERMISSIONS,
-    LOGOUT,
     REMOVE_ROLE_PERMISSION,
     SEARCH_DATASETS,
     SIGNUP,
@@ -402,14 +401,6 @@ _UNPROTECTED_PATH_PREFIXES = ("/static", "/favicon.ico", "/health")
 
 
 def is_unprotected_route(path: str) -> bool:
-    # /logout is intentionally unauthenticated. The handler returns 200 with an
-    # HTML page that performs an XHR with bogus credentials against
-    # /ajax-api/2.0/mlflow/users/current; that XHR receives 401 with
-    # WWW-Authenticate, which causes the browser to drop its cached Basic Auth
-    # credentials. Running /logout through the auth middleware would block the
-    # page from loading at all when the user lacks valid creds.
-    if path == LOGOUT:
-        return True
     # When ``_MLFLOW_STATIC_PREFIX`` is set, the health/static routes are
     # actually served from e.g. ``/mlflow/health``, not ``/health``. Match
     # both the unprefixed and the prefixed forms so health checks don't end
@@ -3071,49 +3062,6 @@ def alert(href: str):
     )
 
 
-def logout():
-    # HTTP Basic Auth has no server-side session. The reliable way to
-    # invalidate the browser's credential cache is the "XHR with bogus
-    # creds" trick: an XHR with explicit wrong user/password overrides
-    # the cached creds for the realm. Subsequent auto-auth attempts then
-    # fail and the browser prompts fresh. We use async XHR (sync XHR on
-    # the main thread is deprecated and blocked by some browser policies),
-    # so the post-clear UI update is gated on ``onloadend``.
-    body = (
-        "<!DOCTYPE html>"
-        "<html><head><title>Logged out</title></head>"
-        "<body style='font-family: sans-serif; padding: 2rem;'>"
-        "<h2>Signing you out…</h2>"
-        "<p id='msg'>Clearing credentials — please wait.</p>"
-        "<p style='margin-top: 2rem;'>"
-        "<a id='home' href='./' style='display: none;'>Return to MLflow</a>"
-        "</p>"
-        "<script>"
-        "  function done() {"
-        "    document.getElementById('msg').textContent ="
-        "      'You have been signed out. Redirecting to MLflow…';"
-        "    document.getElementById('home').style.display = 'inline';"
-        # Redirect after a short pause so the user sees confirmation
-        # that logout actually happened before the browser re-prompts.
-        # The manual link stays visible as a fallback in case JS is
-        # blocked by an extension or the redirect is slow.
-        "    setTimeout(function() { window.location.href = './'; }, 2000);"
-        "  }"
-        "  try {"
-        "    var xhr = new XMLHttpRequest();"
-        "    xhr.open('GET', './ajax-api/2.0/mlflow/users/current', true,"
-        "             'mlflow-logged-out', 'mlflow-logged-out');"
-        "    xhr.onloadend = done;"
-        "    xhr.send();"
-        "  } catch (e) { done(); }"
-        "</script>"
-        "</body></html>"
-    )
-    res = make_response(body, 200)
-    res.headers["Content-Type"] = "text/html; charset=utf-8"
-    return res
-
-
 def signup():
     return render_template_string(
         r"""
@@ -4055,11 +4003,6 @@ def create_app(app: Flask = app):
         rule=SIGNUP,
         view_func=signup,
         methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=LOGOUT,
-        view_func=logout,
-        methods=["GET", "POST"],
     )
     app.add_url_rule(
         rule=CREATE_USER_UI,

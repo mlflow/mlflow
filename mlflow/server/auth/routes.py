@@ -2,7 +2,6 @@ from mlflow.server.handlers import _add_static_prefix, _get_ajax_path, _get_rest
 
 HOME = "/"
 SIGNUP = "/signup"
-LOGOUT = _add_static_prefix("/logout")
 CREATE_USER = _get_rest_path("/mlflow/users/create")
 AJAX_CREATE_USER = _get_ajax_path("/mlflow/users/create")
 CREATE_USER_UI = _get_rest_path("/mlflow/users/create-ui")

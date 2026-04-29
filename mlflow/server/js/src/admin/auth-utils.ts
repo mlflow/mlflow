@@ -1,20 +1,24 @@
 /**
- * Clear the browser's Basic-Auth credential cache and React Query cache,
- * then navigate to the backend's /logout page (which forces the browser
- * to drop its Authorization header for subsequent requests).
+ * Drop the browser's HTTP Basic Auth credential cache, expire app cookies,
+ * clear the React Query cache, then redirect to the app root.
  *
- * Cookies set under a static prefix (e.g. ``/mlflow/``) carry that path,
- * so a single ``path=/`` deletion misses them. Clear at root, the current
- * app's base path (which usually ends in ``/``), AND the same base path
- * with a trailing slash stripped — cookies are often scoped to
- * ``Path=/mlflow`` rather than ``Path=/mlflow/``, and the browser's
- * path-match for deletion is exact, not a prefix.
+ * Basic Auth has no server-side session, so the only way to "log out" is to
+ * make the browser forget the credentials it has cached for the realm. The
+ * canonical trick is an XHR with deliberately wrong user/password — the
+ * ``user``/``password`` arguments to ``xhr.open()`` *replace* the cached
+ * credentials for the realm, and the resulting 401 confirms they're bogus.
  *
- * Resolving 'logout' relative to ``window.location.href`` preserves any
- * static prefix (the backend registers /logout via ``_add_static_prefix``)
- * so deployments served under a sub-path continue to work.
+ * Why XHR and not ``fetch()``: a manually-set ``Authorization`` header on
+ * ``fetch()`` is treated by browsers as a one-off override that does not
+ * update the credential cache. Only the ``xhr.open(url, async, user, pass)``
+ * signature actually overwrites the realm cache.
+ *
+ * Cookie expiry: cookies set under a static prefix (e.g. ``/mlflow/``) carry
+ * that path, so a single ``path=/`` deletion misses them. Clear at root, the
+ * current app's base path, AND the same base path with a trailing slash
+ * stripped — the browser's path-match for deletion is exact, not a prefix.
  */
-export const performLogout = (queryClient?: { clear: () => void }) => {
+export function performLogout(queryClient?: { clear: () => void }): void {
   const candidatePaths = new Set<string>(['/']);
   const basePath = new URL('.', window.location.href).pathname;
   if (basePath) {
@@ -33,5 +37,24 @@ export const performLogout = (queryClient?: { clear: () => void }) => {
 
   queryClient?.clear();
 
-  window.location.href = new URL('logout', window.location.href).toString();
-};
+  // Per-load nonce so the bogus creds can't accidentally collide with a real
+  // user's credentials (in which case the XHR could succeed and the browser
+  // would keep the cached creds, defeating logout).
+  const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const bogus = `mlflow-logged-out-${nonce}`;
+  const usersCurrentUrl = new URL('ajax-api/2.0/mlflow/users/current', window.location.href).toString();
+  const homeUrl = new URL('.', window.location.href).toString();
+
+  const goHome = () => window.location.assign(homeUrl);
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', usersCurrentUrl, true, bogus, bogus);
+    // Wait for the cache write to complete before navigating; otherwise the
+    // home-page request could still be sent with the (still-cached) real
+    // creds and silently auto-auth.
+    xhr.onloadend = goHome;
+    xhr.send();
+  } catch {
+    goHome();
+  }
+}

@@ -24,9 +24,11 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
 import { useWorkspaces } from '../../workspaces/hooks/useWorkspaces';
 import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
+import { performLogout } from '../auth-utils';
 import AdminRoutes from '../routes';
 import {
   useUsersQuery,
@@ -80,6 +82,7 @@ const UserRolesCell = ({ username }: { username: string }) => {
 
 const UsersTab = () => {
   const { theme } = useDesignSystemTheme();
+  const queryClient = useQueryClient();
   const { data: usersData, isLoading, error: queryError } = useUsersQuery();
   const { data: currentUserData } = useCurrentUserQuery();
   const currentUsername = currentUserData?.user?.username ?? '';
@@ -93,9 +96,7 @@ const UsersTab = () => {
   // side effect of logging you out — surface that explicitly in the
   // confirmation, and follow it through after the deletion succeeds so
   // the browser doesn't sit on a now-broken auth state.
-  const logoutAfterSelfDelete = () => {
-    window.location.href = new URL('logout', window.location.href).toString();
-  };
+  const logoutAfterSelfDelete = () => performLogout(queryClient);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUsername, setNewUsername] = useState('');

@@ -33,6 +33,10 @@ from tests.server.auth.auth_test_utils import (
 )
 from tests.tracking.integration_test_utils import _init_server
 
+# A small timeout keeps a hung server from blocking the test suite indefinitely
+# without being so short it false-fires on a slow CI runner.
+_REQUEST_TIMEOUT_SECONDS = 30
+
 
 @pytest.fixture(autouse=True)
 def clear_credentials(monkeypatch):
@@ -128,7 +132,7 @@ def test_get_current_user(client, monkeypatch):
 
     url = f"{client.tracking_uri}/api/2.0/mlflow/users/current"
 
-    resp = requests.get(url, auth=(username, password))
+    resp = requests.get(url, auth=(username, password), timeout=_REQUEST_TIMEOUT_SECONDS)
     assert resp.status_code == 200
     assert resp.json()["user"] == {
         "id": created.id,
@@ -136,27 +140,16 @@ def test_get_current_user(client, monkeypatch):
         "is_admin": False,
     }
 
-    resp = requests.get(url, auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
+    resp = requests.get(
+        url, auth=(ADMIN_USERNAME, ADMIN_PASSWORD), timeout=_REQUEST_TIMEOUT_SECONDS
+    )
     assert resp.status_code == 200
     admin_payload = resp.json()["user"]
     assert admin_payload["username"] == ADMIN_USERNAME
     assert admin_payload["is_admin"] is True
 
-    resp = requests.get(url)
+    resp = requests.get(url, timeout=_REQUEST_TIMEOUT_SECONDS)
     assert resp.status_code == 401
-
-
-def test_logout_returns_credential_clearing_html(client):
-    # /logout serves an HTML page that runs an XHR with bogus creds against
-    # /users/current to drop the browser's Basic Auth cache. Lock down the
-    # contract so the trick (and its static-prefix-aware AJAX path) doesn't
-    # silently regress.
-    resp = requests.get(f"{client.tracking_uri}/logout")
-    assert resp.status_code == 200
-    assert resp.headers["Content-Type"].startswith("text/html")
-    body = resp.text
-    assert "./ajax-api/2.0/mlflow/users/current" in body
-    assert "mlflow-logged-out" in body
 
 
 def test_update_user_password(client, monkeypatch):
@@ -227,11 +220,13 @@ def test_create_user_with_null_or_missing_json_body_returns_400(client, monkeypa
     auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
 
     # Literal null body.
-    resp = requests.post(url, data="null", headers=headers, auth=auth)
+    resp = requests.post(
+        url, data="null", headers=headers, auth=auth, timeout=_REQUEST_TIMEOUT_SECONDS
+    )
     assert resp.status_code == 400
 
     # Empty body.
-    resp = requests.post(url, data="", headers=headers, auth=auth)
+    resp = requests.post(url, data="", headers=headers, auth=auth, timeout=_REQUEST_TIMEOUT_SECONDS)
     assert resp.status_code == 400
 
 
@@ -250,6 +245,7 @@ def test_self_service_password_change_with_null_body_returns_400(client, monkeyp
         data="null",
         headers={"Content-Type": "application/json"},
         auth=(username, password),
+        timeout=_REQUEST_TIMEOUT_SECONDS,
     )
     assert resp.status_code == 400
 
