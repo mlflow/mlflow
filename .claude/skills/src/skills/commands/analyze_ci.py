@@ -9,6 +9,7 @@ import json
 import re
 import sys
 import tempfile
+import time
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,7 @@ from skills.github import GitHubClient, Job, JobStep, get_github_token
 MAX_LOG_TOKENS = 100_000
 CHARS_PER_TOKEN = 2
 LOG_CACHE_DIR = Path(tempfile.gettempdir()) / "analyze-ci"
+LOG_CACHE_TTL_SECONDS = 3 * 86400
 
 
 @dataclass
@@ -48,6 +50,23 @@ TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?")
 def to_seconds(ts: str) -> str:
     """Truncate timestamp to seconds precision for comparison."""
     return ts[:19]  # "2026-01-05T07:17:56.1234567Z" -> "2026-01-05T07:17:56"
+
+
+def prune_old_cached_logs() -> None:
+    """Delete cached raw logs older than LOG_CACHE_TTL_SECONDS and empty run dirs."""
+    if not LOG_CACHE_DIR.exists():
+        return
+    cutoff = time.time() - LOG_CACHE_TTL_SECONDS
+    removed = 0
+    for log_file in LOG_CACHE_DIR.rglob("*.log"):
+        if log_file.stat().st_mtime < cutoff:
+            log_file.unlink()
+            removed += 1
+    for run_dir in LOG_CACHE_DIR.iterdir():
+        if run_dir.is_dir() and not any(run_dir.iterdir()):
+            run_dir.rmdir()
+    if removed:
+        log(f"Pruned {removed} cached log(s) older than {LOG_CACHE_TTL_SECONDS // 86400} days")
 
 
 async def download_raw_log(client: GitHubClient, job: Job) -> Path:
@@ -311,6 +330,7 @@ async def analyze_jobs(jobs: list[JobLogs], debug: bool = False) -> str:
 
 
 async def cmd_analyze_async(urls: list[str], debug: bool = False) -> None:
+    prune_old_cached_logs()
     github_token = get_github_token()
     async with GitHubClient(github_token) as client:
         # Resolve URLs to job targets
