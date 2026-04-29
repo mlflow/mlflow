@@ -86,7 +86,7 @@ spec:
             - --uvicorn-opts=--ssl-keyfile=/etc/tls/private/tls.key --ssl-certfile=/etc/tls/private/tls.crt --proxy-headers
             {{- end }}
             {{- if .Values.metrics.enabled }}
-            - --expose-prometheus={{ .Values.metrics.path }}
+            - --expose-prometheus=/tmp/metrics
             {{- end }}
           ports:
             - name: {{ $portName }}
