@@ -791,6 +791,10 @@
     "defaultMessage": "Text",
     "description": "Label for the text render mode of the prompt"
   },
+  "2ifJXM": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Bulk-delete button on the users table"
+  },
   "2igs1f": {
     "defaultMessage": "Compare",
     "description": "Compare evaluation runs action"
@@ -4834,6 +4838,10 @@
   "SNvZyR": {
     "defaultMessage": "Time",
     "description": "Label for the time axis on the runs compare chart"
+  },
+  "SOHtlg": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Bulk-delete button on the roles table"
   },
   "SQUVnW": {
     "defaultMessage": "Dataset",

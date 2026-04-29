@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   Alert,
   Button,
+  Checkbox,
   Empty,
   Input,
   Modal,
@@ -36,6 +37,7 @@ import {
   useCreateRole,
   useDeleteRole,
   useUserRolesQuery,
+  useWithSettingsReturnTo,
 } from '../hooks';
 import type { CreateRoleRequest } from '../types';
 import { isWorkspaceAdminRole } from '../types';
@@ -81,14 +83,60 @@ const UsersTab = () => {
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const updateAdmin = useUpdateAdmin();
+  const withReturnTo = useWithSettingsReturnTo();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [selectedUsernames, setSelectedUsernames] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
 
   const users = useMemo(() => usersData?.users ?? [], [usersData]);
+  // Drop selections that no longer exist after a refetch / single-row delete
+  // — leaving stale entries would inflate the bulk-delete count and make us
+  // attempt to delete users that are already gone (yielding 404s).
+  const visibleSelectedUsernames = useMemo(() => {
+    const usernames = new Set(users.map((u) => u.username));
+    return new Set(Array.from(selectedUsernames).filter((u) => usernames.has(u)));
+  }, [selectedUsernames, users]);
+  const allSelected = users.length > 0 && users.every((u) => visibleSelectedUsernames.has(u.username));
+
+  const toggleUserSelection = (username: string) => {
+    setSelectedUsernames((prev) => {
+      const next = new Set(prev);
+      if (next.has(username)) {
+        next.delete(username);
+      } else {
+        next.add(username);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    // Use ``allSelected`` (not raw ``prev.size``) — ``selectedUsernames`` may
+    // hold stale entries that we deliberately keep but filter out via
+    // ``visibleSelectedUsernames``. After a refetch/single-row delete,
+    // ``allSelected`` can be true while ``prev.size !== users.length``, so
+    // comparing to raw size would fail to clear the selection on click.
+    setSelectedUsernames(allSelected ? new Set() : new Set(users.map((u) => u.username)));
+  };
+
+  const handleBulkDelete = async () => {
+    setError(null);
+    // Use the reconciled set so we don't try to delete users who already
+    // disappeared after a refetch / single-row delete.
+    const targets = Array.from(visibleSelectedUsernames);
+    const results = await Promise.allSettled(targets.map((u) => deleteUser.mutateAsync(u)));
+    const failures = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+    if (failures.length > 0) {
+      setError(`Failed to delete ${failures.length}/${targets.length} users: ${failures[0].reason?.message ?? ''}`);
+    }
+    setSelectedUsernames(new Set());
+    setBulkDeleteOpen(false);
+  };
 
   const handleCreateUser = async () => {
     setError(null);
@@ -173,7 +221,18 @@ const UsersTab = () => {
       {error && (
         <Alert componentId="admin.users.error" type="error" message={error} closable onClose={() => setError(null)} />
       )}
-      <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          {visibleSelectedUsernames.size > 0 && (
+            <Button componentId="admin.users.bulk_delete_button" danger onClick={() => setBulkDeleteOpen(true)}>
+              <FormattedMessage
+                defaultMessage="Delete ({count})"
+                description="Bulk-delete button on the users table"
+                values={{ count: visibleSelectedUsernames.size }}
+              />
+            </Button>
+          )}
+        </div>
         <Button
           componentId="admin.users.create_button"
           type="primary"
@@ -194,6 +253,14 @@ const UsersTab = () => {
         }}
       >
         <TableRow isHeader>
+          <TableHeader componentId="admin.users.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+            <Checkbox
+              componentId="admin.users.select_all"
+              isChecked={allSelected}
+              onChange={toggleSelectAll}
+              aria-label="Select all users"
+            />
+          </TableHeader>
           <TableHeader componentId="admin.users.username_header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Username" description="Users table username header" />
           </TableHeader>
@@ -212,7 +279,22 @@ const UsersTab = () => {
         </TableRow>
         {users.map((user) => (
           <TableRow key={user.username}>
-            <TableCell css={{ flex: 2 }}>{user.username}</TableCell>
+            <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+              <Checkbox
+                componentId="admin.users.select_row"
+                isChecked={visibleSelectedUsernames.has(user.username)}
+                onChange={() => toggleUserSelection(user.username)}
+                aria-label={`Select user ${user.username}`}
+              />
+            </TableCell>
+            <TableCell css={{ flex: 2 }}>
+              <Link
+                componentId="admin.users.username_link"
+                to={withReturnTo(AdminRoutes.getUserPermissionsRoute(user.username))}
+              >
+                {user.username}
+              </Link>
+            </TableCell>
             <TableCell css={{ flex: 2 }}>
               <UserRolesCell username={user.username} />
             </TableCell>
@@ -312,6 +394,21 @@ const UsersTab = () => {
           </Typography.Text>
         </div>
       </Modal>
+      <Modal
+        componentId="admin.users.bulk_delete_modal"
+        title="Delete users"
+        visible={bulkDeleteOpen}
+        onCancel={() => setBulkDeleteOpen(false)}
+        onOk={handleBulkDelete}
+        okText="Delete"
+        okButtonProps={{ danger: true }}
+        confirmLoading={deleteUser.isLoading}
+      >
+        <Typography.Text>
+          Delete {visibleSelectedUsernames.size} user{visibleSelectedUsernames.size === 1 ? '' : 's'}? This action
+          cannot be undone.
+        </Typography.Text>
+      </Modal>
     </div>
   );
 };
@@ -323,15 +420,59 @@ const RolesTab = () => {
   const deleteRole = useDeleteRole();
   const { workspacesEnabled } = useWorkspacesEnabled();
   const { workspaces } = useWorkspaces(workspacesEnabled);
+  const withReturnTo = useWithSettingsReturnTo();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDescription, setNewRoleDescription] = useState('');
   const [newRoleWorkspace, setNewRoleWorkspace] = useState('default');
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<number>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
 
   const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
+  // Drop selections that no longer exist after a refetch / single-row delete
+  // — leaving stale entries would inflate the bulk-delete count and make us
+  // attempt to delete roles that are already gone.
+  const visibleSelectedRoleIds = useMemo(() => {
+    const ids = new Set(roles.map((r) => r.id));
+    return new Set(Array.from(selectedRoleIds).filter((id) => ids.has(id)));
+  }, [selectedRoleIds, roles]);
+  const allSelected = roles.length > 0 && roles.every((r) => visibleSelectedRoleIds.has(r.id));
+
+  const toggleRoleSelection = (roleId: number) => {
+    setSelectedRoleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roleId)) {
+        next.delete(roleId);
+      } else {
+        next.add(roleId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    // See UsersTab for why this uses ``allSelected`` instead of raw
+    // ``prev.size`` — stale IDs in ``selectedRoleIds`` would otherwise
+    // prevent the header checkbox from clearing the selection.
+    setSelectedRoleIds(allSelected ? new Set() : new Set(roles.map((r) => r.id)));
+  };
+
+  const handleBulkDelete = async () => {
+    setError(null);
+    // Use the reconciled set so we don't try to delete roles that already
+    // disappeared after a refetch / single-row delete.
+    const targets = Array.from(visibleSelectedRoleIds);
+    const results = await Promise.allSettled(targets.map((id) => deleteRole.mutateAsync(id)));
+    const failures = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+    if (failures.length > 0) {
+      setError(`Failed to delete ${failures.length}/${targets.length} roles: ${failures[0].reason?.message ?? ''}`);
+    }
+    setSelectedRoleIds(new Set());
+    setBulkDeleteOpen(false);
+  };
   // Always include "default" — useWorkspaces() returns whatever the workspace
   // store lists, which may exclude the reserved default workspace (and is
   // empty entirely when workspaces are disabled, see useWorkspaces(false)).
@@ -434,7 +575,18 @@ const RolesTab = () => {
       {error && (
         <Alert componentId="admin.roles.error" type="error" message={error} closable onClose={() => setError(null)} />
       )}
-      <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          {visibleSelectedRoleIds.size > 0 && (
+            <Button componentId="admin.roles.bulk_delete_button" danger onClick={() => setBulkDeleteOpen(true)}>
+              <FormattedMessage
+                defaultMessage="Delete ({count})"
+                description="Bulk-delete button on the roles table"
+                values={{ count: visibleSelectedRoleIds.size }}
+              />
+            </Button>
+          )}
+        </div>
         <Button
           componentId="admin.roles.create_button"
           type="primary"
@@ -455,6 +607,14 @@ const RolesTab = () => {
         }}
       >
         <TableRow isHeader>
+          <TableHeader componentId="admin.roles.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+            <Checkbox
+              componentId="admin.roles.select_all"
+              isChecked={allSelected}
+              onChange={toggleSelectAll}
+              aria-label="Select all roles"
+            />
+          </TableHeader>
           <TableHeader componentId="admin.roles.name_header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Name" description="Roles table name header" />
           </TableHeader>
@@ -476,8 +636,16 @@ const RolesTab = () => {
         </TableRow>
         {roles.map((role) => (
           <TableRow key={role.id}>
+            <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+              <Checkbox
+                componentId="admin.roles.select_row"
+                isChecked={visibleSelectedRoleIds.has(role.id)}
+                onChange={() => toggleRoleSelection(role.id)}
+                aria-label={`Select role ${role.name}`}
+              />
+            </TableCell>
             <TableCell css={{ flex: 2 }}>
-              <Link componentId="admin.roles.name_link" to={AdminRoutes.getRoleDetailRoute(role.id)}>
+              <Link componentId="admin.roles.name_link" to={withReturnTo(AdminRoutes.getRoleDetailRoute(role.id))}>
                 {role.name}
               </Link>
             </TableCell>
@@ -595,6 +763,21 @@ const RolesTab = () => {
             Are you sure you want to delete role <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
           </Typography.Text>
         </div>
+      </Modal>
+      <Modal
+        componentId="admin.roles.bulk_delete_modal"
+        title="Delete roles"
+        visible={bulkDeleteOpen}
+        onCancel={() => setBulkDeleteOpen(false)}
+        onOk={handleBulkDelete}
+        okText="Delete"
+        okButtonProps={{ danger: true }}
+        confirmLoading={deleteRole.isLoading}
+      >
+        <Typography.Text>
+          Delete {visibleSelectedRoleIds.size} role{visibleSelectedRoleIds.size === 1 ? '' : 's'}? This action cannot be
+          undone.
+        </Typography.Text>
       </Modal>
     </div>
   );
