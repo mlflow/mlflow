@@ -180,10 +180,8 @@ from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_
 from mlflow.server.auth.entities import User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
-    EDIT,
     MANAGE,
     NO_PERMISSIONS,
-    READ,
     USE,
     Permission,
     get_permission,
@@ -581,44 +579,35 @@ def _workspace_permission(
         return NO_PERMISSIONS
 
 
-def _user_can_create_in_workspace(
-    username: str | None, workspace_name: str, resource_type: str
-) -> bool:
+def _user_can_create_in_workspace(resource_type: str) -> bool:
     """
-    True if the user is authorized to create new resources of ``resource_type`` in the
-    given workspace.
-
-    Creation is gated on **USE-level** access to the workspace's resources of this
-    type:
-
-    - any workspace-level USE-or-higher returned by ``_workspace_permission`` —
-      covers an explicit ``SqlWorkspacePermission`` row, a workspace-wide role
-      grant ``(workspace, *, X)``, and the implicit default-workspace access
-      enabled by ``auth_config.grant_default_workspace_access`` /
-      ``default_permission``
-    - a type-scoped role grant ``(<resource_type>, *, X)`` with ``X.can_use``
-
-    USE is the minimum "I'm an active member of this workspace" signal — strictly
-    stronger than READ (which is purely "can see"), strictly weaker than EDIT
-    (which would let the user modify resources owned by others). Pairs with
-    creator-as-owner: ``AFTER_REQUEST_PATH_HANDLERS`` insert
-    ``(creator, new_resource_id, MANAGE)`` after a successful CREATE, so the
-    creator gains full authority on what they created without needing pre-
-    existing write access to the workspace.
+    True if the current request can create new ``resource_type`` resources in the
+    request's workspace. Always allows when workspaces are disabled (preserves
+    the long-standing single-tenant behavior of "create is open"). Otherwise
+    accepts either a workspace-wide USE-or-higher grant or a type-scoped
+    ``(<resource_type>, *, USE)`` role grant.
     """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return True
+
+    workspace_name = workspace_context.get_request_workspace()
+    if workspace_name is None:
+        return False
+
+    username = authenticate_request().username
     if username is None:
         return False
+
     workspace_perm = _workspace_permission(username, workspace_name)
     if workspace_perm is not None and workspace_perm.can_use:
         return True
+
     try:
         user = store.get_user(username)
     except MlflowException as e:
         _logger.warning(
-            "Failed to load user '%s' while checking create permission: %s. "
-            "Denying access for security.",
-            username,
-            e,
+            f"Failed to load user '{username}' while checking create permission: "
+            f"{e}. Denying access for security."
         )
         return False
     return store.user_has_type_scoped_use_grant(user.id, resource_type, workspace_name)
@@ -1213,35 +1202,11 @@ def validate_can_manage_registered_model():
 
 
 def validate_can_create_experiment() -> bool:
-    # Historically, experiment creation has always been allowed when workspaces are
-    # disabled. We keep returning True here to preserve that behavior even if
-    # auth_config.default_permission is READ/NO_PERMISSIONS.
-    if not MLFLOW_ENABLE_WORKSPACES.get():
-        return True
-
-    workspace_name = workspace_context.get_request_workspace()
-    if workspace_name is None:
-        return False
-
-    return _user_can_create_in_workspace(
-        authenticate_request().username, workspace_name, "experiment"
-    )
+    return _user_can_create_in_workspace("experiment")
 
 
 def validate_can_create_registered_model() -> bool:
-    # Historically, registered model creation has always been allowed when workspaces are
-    # disabled. We keep returning True here to preserve that behavior even if
-    # auth_config.default_permission is READ/NO_PERMISSIONS.
-    if not MLFLOW_ENABLE_WORKSPACES.get():
-        return True
-
-    workspace_name = workspace_context.get_request_workspace()
-    if workspace_name is None:
-        return False
-
-    return _user_can_create_in_workspace(
-        authenticate_request().username, workspace_name, "registered_model"
-    )
+    return _user_can_create_in_workspace("registered_model")
 
 
 def validate_can_view_workspace() -> bool:
@@ -2592,27 +2557,22 @@ def filter_list_workspaces(resp: Response) -> None:
 # ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is on. ``CreateWorkspace`` is gated to
 # ``sender_is_admin``, so the creator is always a super-admin whose ``is_admin``
 # flag already bypasses RBAC checks — we therefore don't assign the creator to
-# any of these roles. The four roles exist as ready-made scaffolding for the
-# admin to hand out to other users.
+# any of these roles. The two roles are convenience scaffolding the admin can
+# hand out; finer-grained or per-resource-type roles can be created on demand.
 #
-# All four roles use ``(resource_type='workspace', resource_pattern='*')`` — the
-# workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``. The permission
-# level differentiates them along the standard ladder:
+# Both roles use ``(resource_type='workspace', resource_pattern='*')`` — the
+# workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``:
 #
-# - ``viewer`` (READ): purely "can see" — no resource creation, no writes.
-# - ``contributor`` (USE): can see + create new experiments and registered models;
-#   creator-as-owner grants the creator MANAGE on the rows they create, so a
-#   contributor manages their own resources without ever gaining access to
-#   resources owned by other users.
-# - ``editor`` (EDIT): contributor + can update every existing resource in the
-#   workspace (including resources owned by others).
-# - ``workspace-admin`` (MANAGE): editor + can delete and additionally
-#   manage roles / user assignments within the workspace.
+# - ``user`` (USE): can read every resource in the workspace and create new
+#   experiments / registered models; creator-as-owner grants the creator
+#   MANAGE on what they create, so a user manages their own resources without
+#   gaining access to resources owned by others.
+# - ``workspace-admin`` (MANAGE): full authority — can update / delete every
+#   resource and manage roles / user assignments within the workspace.
 _DEFAULT_WORKSPACE_ROLES = (
     ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
-    ("editor", EDIT.name, "EDIT access to every resource in the workspace."),
     (
-        "contributor",
+        "user",
         USE.name,
         (
             "Read every resource in the workspace and create new experiments and "
@@ -2620,7 +2580,6 @@ _DEFAULT_WORKSPACE_ROLES = (
             "what you create, with no access to other users' resources."
         ),
     ),
-    ("viewer", READ.name, "READ access to every resource in the workspace."),
 )
 
 

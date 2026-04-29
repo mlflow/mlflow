@@ -10,7 +10,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server import auth as auth_module
-from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ, USE
+from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.routes import (
     CREATE_PROMPTLAB_RUN,
     GET_ARTIFACT,
@@ -97,16 +97,14 @@ def test_seed_default_workspace_roles_happy_path(monkeypatch):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
     names = [r["name"] for r in created_roles]
-    assert names == ["workspace-admin", "editor", "contributor", "viewer"]
+    assert names == ["workspace-admin", "user"]
     assert all(r["workspace"] == workspace_name for r in created_roles)
 
-    # All four roles use resource_type='workspace' (the only supported workspace-wide
+    # Both roles use resource_type='workspace' (the only supported workspace-wide
     # resource_type in VALID_RESOURCE_TYPES). The permission level differentiates them.
     assert [(p["resource_type"], p["permission"]) for p in added_perms] == [
         ("workspace", MANAGE.name),
-        ("workspace", EDIT.name),
         ("workspace", USE.name),
-        ("workspace", READ.name),
     ]
     assert all(p["resource_pattern"] == "*" for p in added_perms)
 
@@ -166,8 +164,8 @@ def test_seed_default_workspace_roles_admin_creation_fails_still_seeds_others(mo
     with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
-    # editor, contributor, and viewer still got created (best-effort seeding).
-    assert mock_add_role_permission.call_count == 3
+    # The remaining ``user`` role still got created (best-effort seeding).
+    assert mock_add_role_permission.call_count == 1
 
 
 def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monkeypatch):
@@ -178,7 +176,7 @@ def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monke
 
     def fake_create_role(name, workspace, description=None):
         return SimpleNamespace(
-            id={"workspace-admin": 1, "editor": 2, "contributor": 3, "viewer": 4}[name],
+            id={"workspace-admin": 1, "user": 2}[name],
             name=name,
             workspace=workspace,
         )
