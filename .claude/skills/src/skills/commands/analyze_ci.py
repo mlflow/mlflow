@@ -31,6 +31,7 @@ class JobLogs:
     failed_step: str | None
     logs: str
     raw_log_path: Path
+    conclusion: str | None
 
 
 @dataclass
@@ -213,11 +214,19 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
 
 async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
     log(f"Fetching logs for '{job.workflow_name} / {job.name}'")
+    raw_log_path = await download_raw_log(client, job)
 
     failed_step = next((s for s in job.steps if s.conclusion == "failure"), None)
     if not failed_step:
-        raise ValueError(f"No failed step found for job {job.id}")
-    raw_log_path = await download_raw_log(client, job)
+        return JobLogs(
+            workflow_name=job.workflow_name,
+            job_name=job.name,
+            job_url=job.html_url,
+            failed_step=None,
+            logs="",
+            raw_log_path=raw_log_path,
+            conclusion=job.conclusion,
+        )
     cleaned_logs = compact_logs(iter_step_lines(raw_log_path, failed_step))
     truncated_logs = truncate_logs(cleaned_logs)
 
@@ -228,6 +237,7 @@ async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
         failed_step=failed_step.name,
         logs=truncated_logs,
         raw_log_path=raw_log_path,
+        conclusion=job.conclusion,
     )
 
 
@@ -265,6 +275,15 @@ def format_single_job_for_analysis(job: JobLogs) -> str:
 
 
 async def analyze_single_job(job: JobLogs) -> AnalysisResult:
+    if job.failed_step is None:
+        text = (
+            f"## {job.workflow_name} / {job.job_name}\n"
+            f"URL: {job.job_url}\n"
+            f"Conclusion: {job.conclusion}\n\n"
+            f"Job has no failure to analyze. Raw log cached at {job.raw_log_path}"
+        )
+        return AnalysisResult(text=text, total_cost_usd=None, usage=None)
+
     formatted_logs = format_single_job_for_analysis(job)
     prompt = f"Analyze this CI failure:\n\n{formatted_logs}"
 

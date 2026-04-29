@@ -24,7 +24,8 @@ uv run --package skills skills analyze-ci '<pr_url>'
 # Analyze all failed jobs in a workflow run
 uv run --package skills skills analyze-ci '<run_url>'
 
-# Analyze specific job URLs directly
+# Analyze specific job URLs directly.
+# Analysis runs only for failed jobs. Raw logs are always cached.
 uv run --package skills skills analyze-ci '<job_url>' ['<job_url>' ...]
 
 # Show debug info (tokens and costs)
