@@ -582,10 +582,8 @@ def _workspace_permission(
 def _user_can_create_in_workspace() -> bool:
     """
     True if the current request can create new resources in the request's
-    workspace. Always allows when workspaces are disabled (preserves the
-    long-standing single-tenant behavior of "create is open"). Otherwise
-    requires a workspace-wide grant whose level has ``can_use`` (USE, EDIT,
-    or MANAGE).
+    workspace. Always allows when workspaces are disabled. Otherwise requires
+    a workspace-wide grant whose level has ``can_use``.
     """
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True

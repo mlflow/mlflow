@@ -700,10 +700,6 @@ def test_workspace_permission_max_merges_legacy_and_role(workspace_permission_se
 def test_use_workspace_permission_allows_create_but_blocks_others_writes(
     workspace_permission_setup,
 ):
-    """A direct ``(workspace, *, USE)`` row should allow create_experiment and
-    create_registered_model (creator-as-owner then grants MANAGE on the new row),
-    while still blocking update/delete on existing resources owned by others.
-    """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -766,11 +762,6 @@ def test_no_permissions_blocks_create(workspace_permission_setup):
 
 
 def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monkeypatch):
-    """Role grant ``(workspace, *, USE)`` with no direct workspace permission row
-    should still allow create. Latent-bug fix: previously the create validator
-    only consulted direct ``SqlWorkspacePermission`` rows, silently denying users
-    whose access came through a role.
-    """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
@@ -791,11 +782,6 @@ def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monk
 def test_role_grant_resource_type_use_does_not_allow_create(
     workspace_permission_setup, monkeypatch
 ):
-    """Type-scoped role grant ``(experiment, *, USE)`` alone does NOT unlock
-    create. Workspace-level USE-or-higher is the canonical create gate;
-    type-scoped grants are a fine-grained read/update overlay, not a
-    workspace-membership signal.
-    """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
@@ -812,9 +798,6 @@ def test_role_grant_resource_type_use_does_not_allow_create(
 
 
 def test_role_grant_workspace_read_does_not_allow_create(workspace_permission_setup, monkeypatch):
-    """A workspace-wide READ-only role grant must NOT unlock create — READ is
-    strictly "can see"; the contributor pattern uses USE.
-    """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
