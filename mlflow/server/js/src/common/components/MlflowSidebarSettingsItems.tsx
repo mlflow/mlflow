@@ -10,6 +10,8 @@ import {
   SETTINGS_SECTION_LLM_CONNECTIONS,
   SETTINGS_SECTION_WEBHOOKS,
 } from '../../settings/settingsSectionConstants';
+import AdminRoutes from '../../admin/routes';
+import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../admin/hooks';
 
 const matchSettingsSection =
   (section: string) =>
@@ -18,19 +20,35 @@ const matchSettingsSection =
       matchPath({ path: ExperimentTrackingRoutes.getSettingsSectionRoute(section), end: true }, location.pathname),
     );
 
+const isAdminActive = (location: Location) => Boolean(matchPath('/admin/*', location.pathname));
+
 const isSettingsExitLinkActive = () => false;
 
-export const MlflowSidebarSettingsItems = ({ collapsed }: { collapsed: boolean }) => {
+export const MlflowSidebarSettingsItems = ({
+  collapsed,
+  hasWorkspaceContext,
+}: {
+  collapsed: boolean;
+  // The workspace-scoped sub-sidebar entries (General / LLM Connections /
+  // Webhooks) only render when there's a workspace context — otherwise
+  // their target paths bounce back to the workspace selector via
+  // `WorkspaceRouterSync`. Admin is always-global and stays visible
+  // regardless. Account isn't here at all — it lives in the top-bar
+  // user-menu widget.
+  hasWorkspaceContext: boolean;
+}) => {
   const { theme } = useDesignSystemTheme();
   const [searchParams] = useSearchParams();
+  const isAdmin = useCurrentUserIsAdmin();
+  const isAuthAvailable = useIsAuthAvailable();
 
   const returnToParam = searchParams.get(SETTINGS_RETURN_TO_PARAM) ?? undefined;
   const exitTo = returnToParam ?? ExperimentTrackingRoutes.rootRoute;
 
-  const sectionTo = (section: string) => {
-    const path = ExperimentTrackingRoutes.getSettingsSectionRoute(section);
-    return returnToParam ? `${path}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(returnToParam)}` : path;
-  };
+  const withReturnTo = (path: string) =>
+    returnToParam ? `${path}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(returnToParam)}` : path;
+
+  const sectionTo = (section: string) => withReturnTo(ExperimentTrackingRoutes.getSettingsSectionRoute(section));
 
   return (
     <>
@@ -59,33 +77,49 @@ export const MlflowSidebarSettingsItems = ({ collapsed }: { collapsed: boolean }
           />
         </span>
       </MlflowSidebarLink>
-      <MlflowSidebarLink
-        css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
-        to={sectionTo(SETTINGS_SECTION_GENERAL)}
-        componentId="mlflow.sidebar.settings_general_link"
-        isActive={matchSettingsSection(SETTINGS_SECTION_GENERAL)}
-        collapsed={collapsed}
-      >
-        <FormattedMessage defaultMessage="General" description="Sidebar link: Settings > General" />
-      </MlflowSidebarLink>
-      <MlflowSidebarLink
-        css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
-        to={sectionTo(SETTINGS_SECTION_LLM_CONNECTIONS)}
-        componentId="mlflow.sidebar.settings_llm_connections_link"
-        isActive={matchSettingsSection(SETTINGS_SECTION_LLM_CONNECTIONS)}
-        collapsed={collapsed}
-      >
-        <FormattedMessage defaultMessage="LLM Connections" description="Sidebar link: Settings > LLM Connections" />
-      </MlflowSidebarLink>
-      <MlflowSidebarLink
-        css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
-        to={sectionTo(SETTINGS_SECTION_WEBHOOKS)}
-        componentId="mlflow.sidebar.settings_webhooks_link"
-        isActive={matchSettingsSection(SETTINGS_SECTION_WEBHOOKS)}
-        collapsed={collapsed}
-      >
-        <FormattedMessage defaultMessage="Webhooks" description="Sidebar link: Settings > Webhooks" />
-      </MlflowSidebarLink>
+      {hasWorkspaceContext && (
+        <>
+          <MlflowSidebarLink
+            css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
+            to={sectionTo(SETTINGS_SECTION_GENERAL)}
+            componentId="mlflow.sidebar.settings_general_link"
+            isActive={matchSettingsSection(SETTINGS_SECTION_GENERAL)}
+            collapsed={collapsed}
+          >
+            <FormattedMessage defaultMessage="General" description="Sidebar link: Settings > General" />
+          </MlflowSidebarLink>
+          <MlflowSidebarLink
+            css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
+            to={sectionTo(SETTINGS_SECTION_LLM_CONNECTIONS)}
+            componentId="mlflow.sidebar.settings_llm_connections_link"
+            isActive={matchSettingsSection(SETTINGS_SECTION_LLM_CONNECTIONS)}
+            collapsed={collapsed}
+          >
+            <FormattedMessage defaultMessage="LLM Connections" description="Sidebar link: Settings > LLM Connections" />
+          </MlflowSidebarLink>
+          <MlflowSidebarLink
+            css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
+            to={sectionTo(SETTINGS_SECTION_WEBHOOKS)}
+            componentId="mlflow.sidebar.settings_webhooks_link"
+            isActive={matchSettingsSection(SETTINGS_SECTION_WEBHOOKS)}
+            collapsed={collapsed}
+          >
+            <FormattedMessage defaultMessage="Webhooks" description="Sidebar link: Settings > Webhooks" />
+          </MlflowSidebarLink>
+        </>
+      )}
+      {isAuthAvailable && isAdmin && (
+        <MlflowSidebarLink
+          disableWorkspacePrefix
+          css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
+          to={withReturnTo(AdminRoutes.adminPageRoute)}
+          componentId="mlflow.sidebar.admin_tab_link"
+          isActive={isAdminActive}
+          collapsed={collapsed}
+        >
+          <FormattedMessage defaultMessage="Admin" description="Sidebar link: Settings > Admin" />
+        </MlflowSidebarLink>
+      )}
     </>
   );
 };
