@@ -550,7 +550,7 @@ def _workspace_permission(
         # path needs to do the same to stay consistent.
         direct = store.get_workspace_permission(workspace_name, username)
         # MANAGE is the ceiling — a role grant can't raise it, so skip the
-        # extra DB round-trip in the common workspace-admin case. Mirrors
+        # extra DB round-trip in the common workspace admin case. Mirrors
         # the optimization in ``_get_permission_from_store_or_default``.
         if direct is not None and direct.name == MANAGE.name:
             return direct
@@ -2567,10 +2567,10 @@ def filter_list_workspaces(resp: Response) -> None:
 #   experiments / registered models; creator-as-owner grants the creator
 #   MANAGE on what they create, so a user manages their own resources without
 #   gaining access to resources owned by others.
-# - ``workspace-admin`` (MANAGE): full authority — can update / delete every
+# - ``workspace-manager`` (MANAGE): full authority — can update / delete every
 #   resource and manage roles / user assignments within the workspace.
 _DEFAULT_WORKSPACE_ROLES = (
-    ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
+    ("workspace-manager", MANAGE.name, "Full MANAGE authority over the workspace."),
     (
         "user",
         USE.name,

@@ -215,16 +215,16 @@ def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
         roles = client.list_roles(workspace_name)
 
     role_names = sorted(r.name for r in roles)
-    assert role_names == ["user", "workspace-admin"]
+    assert role_names == ["user", "workspace-manager"]
 
     # Each role got its expected permission row. Look up by name and inspect.
     by_name = {r.name: r for r in roles}
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        admin_perms = client.list_role_permissions(by_name["workspace-admin"].id)
+        admin_perms = client.list_role_permissions(by_name["workspace-manager"].id)
         user_perms = client.list_role_permissions(by_name["user"].id)
 
     # Both roles use resource_type='workspace' (the workspace-wide grant form).
-    # MANAGE additionally grants workspace-admin capability; USE is the
+    # MANAGE additionally grants workspace admin capability; USE is the
     # workspace-membership level — read every resource and create new ones.
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in admin_perms] == [
         ("workspace", "*", "MANAGE")
