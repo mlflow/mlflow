@@ -321,7 +321,7 @@ export const RunsChartsSectionAccordion = ({
     const map: Record<string, RunsChartsCardConfig[]> = {};
     for (const config of chartsToRender || []) {
       if (config.deleted) continue;
-      const sectionId = (config as RunsChartsBarCardConfig).metricSectionId;
+      const sectionId = config.metricSectionId;
       if (sectionId) {
         if (!map[sectionId]) map[sectionId] = [];
         map[sectionId].push(config);
