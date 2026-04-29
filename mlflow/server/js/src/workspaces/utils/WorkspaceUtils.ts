@@ -101,7 +101,7 @@ const isAbsoluteUrl = (value: string) => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
  * Routes that never have workspace context. Root '/' is contextual.
  * Kept as an extension point for any future workspace-agnostic routes.
  */
-const ALWAYS_GLOBAL_ROUTES: string[] = [];
+const ALWAYS_GLOBAL_ROUTES: string[] = ['/account'];
 
 /** Check if pathname is always global (workspace-agnostic). */
 export const isGlobalRoute = (pathname: string): boolean => {

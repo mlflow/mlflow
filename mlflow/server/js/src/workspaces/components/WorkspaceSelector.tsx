@@ -11,9 +11,11 @@ import {
 } from '@databricks/design-system';
 import { uniqBy } from 'lodash';
 
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
 import {
   extractWorkspaceFromSearchParams,
+  setActiveWorkspace,
   setLastUsedWorkspace,
   validateWorkspaceName,
   WORKSPACE_QUERY_PARAM,
@@ -29,6 +31,7 @@ export const WorkspaceSelector = () => {
   const [searchParams] = useSearchParams();
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate({ bypassWorkspacePrefix: true });
+  const queryClient = useQueryClient();
   // Extract workspace from query param
   const currentWorkspace = extractWorkspaceFromSearchParams(searchParams);
 
@@ -51,14 +54,25 @@ export const WorkspaceSelector = () => {
 
       // Persist to localStorage for UI hints
       setLastUsedWorkspace(nextWorkspace);
+      // Flip the in-memory singleton that ``FetchUtils`` reads to populate
+      // ``X-MLFLOW-WORKSPACE`` so requests that fire on the next render
+      // already carry the new header. ``WorkspaceRouterSync`` will also
+      // call this on the URL change; doing it here is belt-and-suspenders.
+      setActiveWorkspace(nextWorkspace);
 
-      // Hard reload to cleanly switch workspace context (clears all caches)
+      // Client-side navigation keeps the chrome (top-bar selector + avatar)
+      // mounted instead of blanking via ``window.location.reload()``.
       const currentSection = getNavigationSection(location.pathname);
       const targetPath = currentSection || '/';
-      window.location.hash = `#${targetPath}?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(nextWorkspace)}`;
-      window.location.reload();
+      navigate(`${targetPath}?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(nextWorkspace)}`);
+
+      // Workspace is a header-level context (not a queryKey discriminator
+      // anywhere in this app), so every cached query is now stale relative
+      // to the new ``X-MLFLOW-WORKSPACE``. Blanket-invalidate so consumers
+      // refetch with the new context.
+      queryClient.invalidateQueries();
     },
-    [currentWorkspace, location.pathname],
+    [currentWorkspace, location.pathname, navigate, queryClient],
   );
 
   // Refresh workspaces when combobox is opened to catch label selector changes

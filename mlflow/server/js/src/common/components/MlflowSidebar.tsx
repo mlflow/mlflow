@@ -24,6 +24,7 @@ import { Link, matchPath, useLocation, useParams, useSearchParams } from '../uti
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
+import { useIsAuthAvailable } from '../../admin/hooks';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -103,6 +104,13 @@ export function MlflowSidebar({
   const toggleSidebar = useCallback(() => {
     setShowSidebar(!showSidebar);
   }, [setShowSidebar, showSidebar]);
+
+  // When the top-bar is rendered (auth-enabled deployments) it owns the
+  // brand row (logo, version, sidebar collapse button) AND the workspace
+  // selector — so the sidebar should skip those to avoid duplication. On
+  // auth-disabled deployments the top-bar isn't rendered, and the
+  // sidebar keeps its original layout.
+  const topBarRendered = useIsAuthAvailable();
 
   // Persist the last selected experiment ID so the nested experiment view
   // stays visible when navigating away from experiment pages
@@ -265,33 +273,33 @@ export function MlflowSidebar({
         gap: theme.spacing.md,
       }}
     >
-      <div css={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        {showSidebar && (
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-            <Link componentId="mlflow.sidebar.logo_home_link" to={ExperimentTrackingRoutes.rootRoute}>
-              <MlflowLogo
-                css={{
-                  display: 'block',
-                  height: theme.spacing.lg,
-                  color: theme.colors.textPrimary,
-                  marginLeft: -(theme.spacing.sm + theme.spacing.xs),
-                  marginRight: -theme.spacing.lg,
-                }}
-              />
-            </Link>
-            <Typography.Text size="sm" css={{ paddingLeft: theme.spacing.sm }} color="secondary">
-              {Version}
-            </Typography.Text>
-          </div>
-        )}
-        <Button
-          componentId="mlflow_header.toggle_sidebar_button"
-          onClick={toggleSidebar}
-          aria-label="Toggle sidebar"
-          icon={showSidebar ? <SidebarCollapseIcon /> : <SidebarExpandIcon />}
-        />
-      </div>
-      {workspacesEnabled && showSidebar && <WorkspaceSelector />}
+      {!topBarRendered && (
+        <div css={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          {showSidebar && (
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <Link componentId="mlflow.sidebar.logo_home_link" to={ExperimentTrackingRoutes.rootRoute}>
+                <MlflowLogo
+                  css={{
+                    display: 'block',
+                    height: theme.spacing.lg,
+                    color: theme.colors.textPrimary,
+                  }}
+                />
+              </Link>
+              <Typography.Text size="sm" css={{ paddingLeft: theme.spacing.sm }} color="secondary">
+                {Version}
+              </Typography.Text>
+            </div>
+          )}
+          <Button
+            componentId="mlflow_header.toggle_sidebar_button"
+            onClick={toggleSidebar}
+            aria-label="Toggle sidebar"
+            icon={showSidebar ? <SidebarCollapseIcon /> : <SidebarExpandIcon />}
+          />
+        </div>
+      )}
+      {workspacesEnabled && showSidebar && !topBarRendered && <WorkspaceSelector />}
       {workspacesEnabled && !showWorkspaceMenuItems && (
         <MlflowSidebarLink
           key="mlflow.sidebar.workspace_home_link"

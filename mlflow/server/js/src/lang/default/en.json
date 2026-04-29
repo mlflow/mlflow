@@ -1159,6 +1159,10 @@
     "defaultMessage": "Schema {sectionName}",
     "description": "Field name text for schema table in the model comparison page"
   },
+  "5SO8s8": {
+    "defaultMessage": "Account",
+    "description": "Top bar account menu item"
+  },
   "5Sk9A1": {
     "defaultMessage": "Input cost",
     "description": "Label for input cost"
@@ -5407,6 +5411,10 @@
     "defaultMessage": "Model Name",
     "description": "Label for model name input in model config form"
   },
+  "WCF7s2": {
+    "defaultMessage": "Logout",
+    "description": "Top bar logout menu item"
+  },
   "WDmiPW": {
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Tooltip shown when no alternate endpoint exists for guardrail model selection"
@@ -6554,6 +6562,10 @@
   "cv/bGM": {
     "defaultMessage": "Trace ID",
     "description": "Column label for trace ID"
+  },
+  "cvatOm": {
+    "defaultMessage": "Account",
+    "description": "Account page title"
   },
   "cy9EfG": {
     "defaultMessage": "Attributes",
@@ -8127,6 +8139,10 @@
     "defaultMessage": "of",
     "description": "Connector between dict and value type"
   },
+  "mLeTrI": {
+    "defaultMessage": "Change password",
+    "description": "Button to open the change password modal"
+  },
   "mLr9U7": {
     "defaultMessage": "Learn more.",
     "description": "Link text for learning more about feedback"
@@ -8622,6 +8638,10 @@
   "p2po2x": {
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
+  },
+  "p5k/PQ": {
+    "defaultMessage": "Logout",
+    "description": "Button to logout"
   },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
