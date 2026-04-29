@@ -97,7 +97,7 @@ def test_seed_default_workspace_roles_happy_path(monkeypatch):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
     names = [r["name"] for r in created_roles]
-    assert names == ["workspace-manager", "user"]
+    assert names == ["admin", "user"]
     assert all(r["workspace"] == workspace_name for r in created_roles)
 
     # Both roles use resource_type='workspace' (the only supported workspace-wide
@@ -150,7 +150,7 @@ def test_seed_default_workspace_roles_admin_creation_fails_still_seeds_others(mo
     workspace_name = f"team-{random_str(10)}"
 
     def fake_create_role(name, workspace, description=None):
-        if name == "workspace-manager":
+        if name == "admin":
             raise MlflowException("simulated admin role failure")
         return SimpleNamespace(id=10, name=name, workspace=workspace)
 
@@ -176,13 +176,13 @@ def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monke
 
     def fake_create_role(name, workspace, description=None):
         return SimpleNamespace(
-            id={"workspace-manager": 1, "user": 2}[name],
+            id={"admin": 1, "user": 2}[name],
             name=name,
             workspace=workspace,
         )
 
     def fake_add_role_permission(role_id, resource_type, resource_pattern, permission):
-        if role_id == 1:  # workspace-manager
+        if role_id == 1:  # admin
             raise MlflowException("simulated add_role_permission failure")
         return SimpleNamespace(id=role_id)
 
@@ -197,7 +197,7 @@ def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monke
     with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
-    # Orphan workspace-manager role (id=1) was rolled back.
+    # Orphan admin role (id=1) was rolled back.
     mock_delete_role.assert_called_once_with(1)
 
 

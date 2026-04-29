@@ -2568,10 +2568,10 @@ def filter_list_workspaces(resp: Response) -> None:
 #   experiments / registered models; creator-as-owner grants the creator
 #   MANAGE on what they create, so a user manages their own resources without
 #   gaining access to resources owned by others.
-# - ``workspace-manager`` (MANAGE): full authority — can update / delete every
+# - ``admin`` (MANAGE): full authority — can update / delete every
 #   resource and manage roles / user assignments within the workspace.
 _DEFAULT_WORKSPACE_ROLES = (
-    ("workspace-manager", MANAGE.name, "Full MANAGE authority over the workspace."),
+    ("admin", MANAGE.name, "Full MANAGE authority over the workspace."),
     (
         "user",
         USE.name,
