@@ -38,7 +38,6 @@ from mlflow.server.auth.entities import (
     WorkspacePermission,
 )
 from mlflow.server.auth.permissions import (
-    ALL_PERMISSIONS,
     MANAGE,
     Permission,
     _validate_permission,
@@ -51,8 +50,6 @@ from mlflow.utils import workspace_context
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_password, _validate_username
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
-
-_USABLE_PERMISSION_NAMES = tuple(name for name, perm in ALL_PERMISSIONS.items() if perm.can_use)
 
 
 class SqlAlchemyStore:
@@ -1232,39 +1229,6 @@ class SqlAlchemyStore:
             if best_permission_name is None:
                 return None
             return get_permission(best_permission_name)
-
-    def user_has_type_scoped_use_grant(
-        self, user_id: int, resource_type: str, workspace: str
-    ) -> bool:
-        """
-        True if the user holds a type-scoped wildcard role grant
-        ``(<resource_type>, *, X)`` in ``workspace`` whose level has ``can_use``.
-
-        Workspace-wide grants ``(workspace, *, X)`` are handled separately via
-        ``get_role_workspace_permission`` (consumed by ``_workspace_permission``);
-        this helper covers the remaining type-scoped case so callers that need
-        "is the user a USE-level member with respect to this resource type" can
-        union the two without overlap.
-
-        The DB query short-circuits as soon as a single matching row is found —
-        we don't materialize all role permissions just to compute ``any()``.
-        """
-        with self.ManagedSessionMaker() as session:
-            return (
-                session
-                .query(SqlRolePermission.id)
-                .join(SqlRole, SqlRolePermission.role_id == SqlRole.id)
-                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
-                .filter(
-                    SqlUserRoleAssignment.user_id == user_id,
-                    SqlRole.workspace == workspace,
-                    SqlRolePermission.resource_pattern == "*",
-                    SqlRolePermission.resource_type == resource_type,
-                    SqlRolePermission.permission.in_(_USABLE_PERMISSION_NAMES),
-                )
-                .first()
-                is not None
-            )
 
     @staticmethod
     def _workspace_admin_workspaces(session, user_id: int) -> set[str]:

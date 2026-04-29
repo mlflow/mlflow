@@ -788,10 +788,13 @@ def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monk
         assert auth_module.validate_can_create_registered_model()
 
 
-def test_role_grant_resource_type_use_is_type_scoped(workspace_permission_setup, monkeypatch):
-    """Role grant ``(experiment, *, USE)`` should allow create_experiment but not
-    create_registered_model — a type-scoped grant only authorizes creation of
-    that type.
+def test_role_grant_resource_type_use_does_not_allow_create(
+    workspace_permission_setup, monkeypatch
+):
+    """Type-scoped role grant ``(experiment, *, USE)`` alone does NOT unlock
+    create. Workspace-level USE-or-higher is the canonical create gate;
+    type-scoped grants are a fine-grained read/update overlay, not a
+    workspace-membership signal.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -804,7 +807,7 @@ def test_role_grant_resource_type_use_is_type_scoped(workspace_permission_setup,
     store.assign_role_to_user(user_id, role.id)
 
     with workspace_context.WorkspaceContext("team-a"):
-        assert auth_module.validate_can_create_experiment()
+        assert not auth_module.validate_can_create_experiment()
         assert not auth_module.validate_can_create_registered_model()
 
 

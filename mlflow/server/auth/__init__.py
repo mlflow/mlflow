@@ -579,14 +579,13 @@ def _workspace_permission(
         return NO_PERMISSIONS
 
 
-def _user_can_create_in_workspace(resource_type: str) -> bool:
+def _user_can_create_in_workspace() -> bool:
     """
-    True if the current request can create new ``resource_type`` resources in the
-    request's workspace. Always allows when workspaces are disabled (preserves
-    the long-standing single-tenant behavior of "create is open"). Otherwise
-    accepts either a workspace-wide grant whose level has ``can_use`` (USE,
-    EDIT, or MANAGE) or a type-scoped ``(<resource_type>, *, X)`` role grant
-    where ``X.can_use`` is True.
+    True if the current request can create new resources in the request's
+    workspace. Always allows when workspaces are disabled (preserves the
+    long-standing single-tenant behavior of "create is open"). Otherwise
+    requires a workspace-wide grant whose level has ``can_use`` (USE, EDIT,
+    or MANAGE).
     """
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
@@ -595,23 +594,8 @@ def _user_can_create_in_workspace(resource_type: str) -> bool:
     if workspace_name is None:
         return False
 
-    username = authenticate_request().username
-    if username is None:
-        return False
-
-    workspace_perm = _workspace_permission(username, workspace_name)
-    if workspace_perm is not None and workspace_perm.can_use:
-        return True
-
-    try:
-        user = store.get_user(username)
-    except MlflowException as e:
-        _logger.warning(
-            f"Failed to load user '{username}' while checking create permission: "
-            f"{e}. Denying access for security."
-        )
-        return False
-    return store.user_has_type_scoped_use_grant(user.id, resource_type, workspace_name)
+    workspace_perm = _workspace_permission(authenticate_request().username, workspace_name)
+    return workspace_perm is not None and workspace_perm.can_use
 
 
 def _get_resource_workspace(
@@ -1203,11 +1187,11 @@ def validate_can_manage_registered_model():
 
 
 def validate_can_create_experiment() -> bool:
-    return _user_can_create_in_workspace("experiment")
+    return _user_can_create_in_workspace()
 
 
 def validate_can_create_registered_model() -> bool:
-    return _user_can_create_in_workspace("registered_model")
+    return _user_can_create_in_workspace()
 
 
 def validate_can_view_workspace() -> bool:
