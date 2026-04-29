@@ -21,6 +21,12 @@ import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/mode
 const CHARTS_PER_PAGE = 50;
 const rowHeightSuggestions = [300, 330, 360, 400, 500];
 
+const showMoreWrapperStyles = (theme: { spacing: { md: number } }) => ({
+  display: 'flex',
+  justifyContent: 'center',
+  padding: theme.spacing.md,
+});
+
 const getColumnSuggestions = (containerWidth: number, gapSize = 8) =>
   [1, 2, 3, 4, 5].map((n) => ({
     cols: n,
@@ -126,14 +132,13 @@ export const RunsChartsDraggableCardsGridSection = memo(
     const [positionInSection, setPositionInSection] = useState<number | null>(null);
     const [resizePreview, setResizePreview] = useState<null | Partial<DOMRect>>(null);
 
-    lastElementCount.current = cardsConfig.length;
     const position = !draggedCardUuid ? null : positionInSection;
 
     // Helper function that calculates the x, y coordinates of a card based on its position in the grid
     const findCoords = useCallback(
       (position) => {
         const gap = theme.spacing.sm;
-        const rowCount = Math.ceil(cardsConfig.length / columns);
+        const rowCount = Math.ceil(lastElementCount.current / columns);
 
         const row = Math.floor(position / columns);
         const col = position % columns;
@@ -156,7 +161,7 @@ export const RunsChartsDraggableCardsGridSection = memo(
           y: row * cardHeight + passedRowGaps * gap,
         };
       },
-      [columns, cardHeight, theme, cardsConfig.length],
+      [columns, cardHeight, theme],
     );
 
     const allFilteredCards = useMemo(() => {
@@ -170,13 +175,16 @@ export const RunsChartsDraggableCardsGridSection = memo(
     }, [cardsConfig, chartRunData, hideEmptyCharts]);
 
     const [visibleCount, setVisibleCount] = useState(CHARTS_PER_PAGE);
-    // Reset pagination when the card list changes (e.g., switching experiments)
+    // Reset pagination when the filtered card list changes (e.g., switching experiments
+    // or filters). Keying off the array reference catches changes that preserve length,
+    // such as switching to a same-sized set of different metrics.
     useEffect(() => {
       setVisibleCount(CHARTS_PER_PAGE);
-    }, [allFilteredCards.length]);
+    }, [allFilteredCards]);
     const cardsToRender = useMemo(() => {
       return allFilteredCards.slice(0, visibleCount);
     }, [allFilteredCards, visibleCount]);
+    lastElementCount.current = cardsToRender.length;
     const hasMoreCards = allFilteredCards.length > visibleCount;
     const remainingCards = allFilteredCards.length - visibleCount;
 
@@ -371,7 +379,12 @@ export const RunsChartsDraggableCardsGridSection = memo(
               />
             </div>
           )}
-          {cardsToRender.map((cardConfig, index, array) => {
+          {cardsToRender.map((cardConfig, index) => {
+            // Reorder math is computed against the full filtered list (not the paginated slice)
+            // so "move down/to bottom" works across pages, not just within the visible page.
+            const fullIndex = allFilteredCards.indexOf(cardConfig);
+            const previousCard = fullIndex > 0 ? allFilteredCards[fullIndex - 1] : undefined;
+            const nextCard = fullIndex >= 0 ? allFilteredCards[fullIndex + 1] : undefined;
             return (
               <RunsChartsDraggableCard
                 key={cardConfig.uuid}
@@ -385,15 +398,15 @@ export const RunsChartsDraggableCardsGridSection = memo(
                 onReorderWith={onSwapCards}
                 index={index}
                 height={cardHeight}
-                canMoveDown={Boolean(array[index + 1])}
-                canMoveUp={Boolean(array[index - 1])}
-                canMoveToTop={index > 0}
-                canMoveToBottom={index < array.length - 1}
-                previousChartUuid={array[index - 1]?.uuid}
-                nextChartUuid={array[index + 1]?.uuid}
+                canMoveDown={Boolean(nextCard)}
+                canMoveUp={Boolean(previousCard)}
+                canMoveToTop={fullIndex > 0}
+                canMoveToBottom={fullIndex >= 0 && fullIndex < allFilteredCards.length - 1}
+                previousChartUuid={previousCard?.uuid}
+                nextChartUuid={nextCard?.uuid}
                 hideEmptyCharts={hideEmptyCharts}
-                firstChartUuid={array[0]?.uuid}
-                lastChartUuid={array[array.length - 1]?.uuid}
+                firstChartUuid={allFilteredCards[0]?.uuid}
+                lastChartUuid={allFilteredCards[allFilteredCards.length - 1]?.uuid}
                 {...cardProps}
               />
             );
@@ -402,12 +415,19 @@ export const RunsChartsDraggableCardsGridSection = memo(
           {resizePreview && <RunsChartsDraggablePreview {...resizePreview} />}
         </div>
         {hasMoreCards && (
-          <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.md }}>
+          <div css={showMoreWrapperStyles(theme)}>
             <Button
               componentId="mlflow_show_more_charts"
               onClick={() => setVisibleCount((prev) => prev + CHARTS_PER_PAGE)}
             >
-              Show {Math.min(remainingCards, CHARTS_PER_PAGE)} more charts ({remainingCards} remaining)
+              <FormattedMessage
+                defaultMessage="Show {count} more {count, plural, one {chart} other {charts}} ({remaining} remaining)"
+                description="Runs compare page > Charts tab > Show more charts button label"
+                values={{
+                  count: Math.min(remainingCards, CHARTS_PER_PAGE),
+                  remaining: remainingCards,
+                }}
+              />
             </Button>
           </div>
         )}

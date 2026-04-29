@@ -4405,6 +4405,10 @@
     "defaultMessage": "Group traces from the same chat session together",
     "description": "Empty state title for the chat sessions table"
   },
+  "QuKu0y": {
+    "defaultMessage": "Show {count} more {count, plural, one {section} other {sections}} ({remaining} remaining)",
+    "description": "Experiment page > compare runs > chart section accordion > show more sections button"
+  },
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab text for parallel coordinates plot on the model comparison page"
@@ -6278,6 +6282,10 @@
   "cSSMIs": {
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
+  },
+  "cSc3Ue": {
+    "defaultMessage": "Show {count} more {count, plural, one {chart} other {charts}} ({remaining} remaining)",
+    "description": "Runs compare page > Charts tab > Show more charts button label"
   },
   "cXhWaG": {
     "defaultMessage": "Select Model",

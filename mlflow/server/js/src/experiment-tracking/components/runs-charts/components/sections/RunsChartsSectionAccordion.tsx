@@ -14,7 +14,7 @@ import { RunsChartType } from '../../runs-charts.types';
 import MetricChartsAccordion, { METRIC_CHART_SECTION_HEADER_SIZE } from '../../../MetricChartsAccordion';
 import { RunsChartsSectionHeader } from './RunsChartsSectionHeader';
 import { RunsChartsSection } from './RunsChartsSection';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getUUID } from '@mlflow/mlflow/src/common/utils/ActionUtils';
 import { Button, PlusIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
@@ -317,6 +317,12 @@ export const RunsChartsSectionAccordion = ({
 
   const SECTIONS_PER_PAGE = 20;
   const [visibleSectionCount, setVisibleSectionCount] = useState(SECTIONS_PER_PAGE);
+  // Reset section pagination when the section list changes (e.g., switching experiments
+  // or applying a different search filter) so the user doesn't carry over a large visible
+  // count into a context where it negates the performance benefit.
+  useEffect(() => {
+    setVisibleSectionCount(SECTIONS_PER_PAGE);
+  }, [sectionsToRender]);
   const totalSections = (sectionsToRender || []).length;
   const paginatedSections = useMemo(
     () => (sectionsToRender || []).slice(0, visibleSectionCount),
@@ -429,8 +435,14 @@ export const RunsChartsSectionAccordion = ({
             componentId="mlflow_show_more_sections"
             onClick={() => setVisibleSectionCount((prev) => prev + SECTIONS_PER_PAGE)}
           >
-            Show {Math.min(totalSections - visibleSectionCount, SECTIONS_PER_PAGE)} more sections (
-            {totalSections - visibleSectionCount} remaining)
+            <FormattedMessage
+              defaultMessage="Show {count} more {count, plural, one {section} other {sections}} ({remaining} remaining)"
+              description="Experiment page > compare runs > chart section accordion > show more sections button"
+              values={{
+                count: Math.min(totalSections - visibleSectionCount, SECTIONS_PER_PAGE),
+                remaining: totalSections - visibleSectionCount,
+              }}
+            />
           </Button>
         </div>
       )}

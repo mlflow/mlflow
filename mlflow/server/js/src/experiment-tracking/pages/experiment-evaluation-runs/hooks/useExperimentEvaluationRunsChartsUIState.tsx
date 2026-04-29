@@ -43,10 +43,10 @@ const getExperimentEvalRunsPageChartSetup = (allMetricKeys: string[]) => {
 
   // Auto-collapse sections when there are many charts to prevent browser crashes
   // (8000+ metrics would otherwise render 8000 BAR charts on mount)
-  const collapseByDefault = compareRunCharts.length > 100;
+  const isCollapsed = compareRunCharts.length > 100;
 
   const compareRunSections: ChartSectionConfig[] = firstNameSegments.map((segmentName) => ({
-    display: !collapseByDefault,
+    display: !isCollapsed,
     name: segmentName,
     uuid: `autogen-${segmentName}`,
     isReordered: false,
@@ -54,7 +54,7 @@ const getExperimentEvalRunsPageChartSetup = (allMetricKeys: string[]) => {
 
   if (isEmpty(compareRunSections)) {
     compareRunSections.push({
-      display: !collapseByDefault,
+      display: !isCollapsed,
       name: 'Metrics',
       uuid: 'default',
       isReordered: false,
