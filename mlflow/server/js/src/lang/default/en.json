@@ -4491,10 +4491,6 @@
     "defaultMessage": "Total",
     "description": "Label for total token usage"
   },
-  "QK9qFL": {
-    "defaultMessage": "Hide assessments",
-    "description": "Label for the button to hide the assessments pane"
-  },
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
