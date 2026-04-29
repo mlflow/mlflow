@@ -57,16 +57,12 @@ def prune_old_cached_logs() -> None:
     if not LOG_CACHE_DIR.exists():
         return
     cutoff = time.time() - LOG_CACHE_TTL_SECONDS
-    removed = 0
     for log_file in LOG_CACHE_DIR.rglob("*.log"):
         if log_file.stat().st_mtime < cutoff:
             log_file.unlink()
-            removed += 1
     for run_dir in LOG_CACHE_DIR.iterdir():
         if run_dir.is_dir() and not any(run_dir.iterdir()):
             run_dir.rmdir()
-    if removed:
-        log(f"Pruned {removed} cached log(s) older than {LOG_CACHE_TTL_SECONDS // 86400} days")
 
 
 async def download_raw_log(client: GitHubClient, job: Job) -> Path:
