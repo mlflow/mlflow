@@ -97,6 +97,7 @@ metrics:
 
 serviceMonitor:
   enabled: false
+  insecureSkipVerify: false
 
 podSecurityContext:
   runAsNonRoot: true

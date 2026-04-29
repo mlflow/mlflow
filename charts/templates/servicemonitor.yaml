@@ -15,6 +15,6 @@ spec:
       {{- if .Values.tls.enabled }}
       scheme: https
       tlsConfig:
-        insecureSkipVerify: true
+        insecureSkipVerify: {{ .Values.serviceMonitor.insecureSkipVerify }}
       {{- end }}
 {{- end }}
