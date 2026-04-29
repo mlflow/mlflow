@@ -425,12 +425,15 @@ class Span:
             end_time=otel_proto_span.end_time_unix_nano,
             # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
-                # Include the MLflow trace request ID only if it's not already present in attributes
-                SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
                 **{
                     attr.key: dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
                     for attr in otel_proto_span.attributes
                 },
+                # Server-computed trace ID placed last so it always takes precedence over any
+                # client-sent mlflow.traceRequestId — prevents double-encoding when the MLflow
+                # SDK (via OtelSpanProcessor.on_start) has already JSON-encoded the value into
+                # the OTel span before OTLP export.
+                SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[

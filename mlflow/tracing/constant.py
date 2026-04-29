@@ -134,6 +134,9 @@ class SpanAttributeKey:
     # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
     USER_ID = "user.id"
     SESSION_ID = "session.id"
+    # User-defined trace tags serialized as a JSON dict onto the root span so they survive
+    # OTLP export and can be restored to SqlTraceTag rows on the server side.
+    TRACE_TAGS = "mlflow.traceTags"
 
 
 class AssessmentMetadataKey:

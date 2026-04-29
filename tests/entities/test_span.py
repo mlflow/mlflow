@@ -530,6 +530,38 @@ def test_span_from_otel_proto_with_location():
     assert request_id == expected_trace_id
 
 
+def test_span_from_otel_proto_with_pre_encoded_request_id():
+    """
+    Regression test: when the MLflow SDK (OtelSpanProcessor.on_start) runs before OTLP export,
+    it JSON-encodes mlflow.traceRequestId into the live OTel span via LiveSpan.__init__.
+    The OTLP proto then carries the already-encoded value (e.g. '"tr-abc"' with inner quotes).
+    from_otel_proto() must not double-encode it — the server-computed ID must always win.
+    """
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "langchain_span"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+    otel_proto.status.code = OTelProtoStatus.STATUS_CODE_OK
+
+    # Simulate what OtelSpanProcessor.on_start + LiveSpan.__init__ produce:
+    # _SpanAttributesRegistry.set() calls dump_span_attribute_value("tr-abc") = '"tr-abc"'
+    # so the OTel span attribute stored in memory is the JSON-encoded string '"tr-abc"'.
+    expected_trace_id = "tr-12345678901234567890123456789012"
+    already_encoded_id = json.dumps(expected_trace_id)  # '"tr-12345678901234567890123456789012"'
+
+    attr = otel_proto.attributes.add()
+    attr.key = "mlflow.traceRequestId"
+    _set_otel_proto_anyvalue(attr.value, already_encoded_id)
+
+    mlflow_span = Span.from_otel_proto(otel_proto)
+
+    # Server-computed ID must win — must start with 'tr-', not with '"'
+    assert mlflow_span.trace_id == expected_trace_id
+    assert mlflow_span.trace_id.startswith("tr-")
+
+
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
     # Start with OTel span -> MLflow span
     mlflow_span = Span(sample_otel_span_for_conversion)

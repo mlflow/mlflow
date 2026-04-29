@@ -3,15 +3,16 @@ import logging
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
-from mlflow.entities.span import create_mlflow_span
+from mlflow.entities.span import create_mlflow_span, dump_span_attribute_value
 from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_OTEL_GENAI_SEMCONV,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
 )
 
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+
 _logger = logging.getLogger(__name__)
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
@@ -66,7 +67,17 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
             self.record_metrics_for_span(span)
 
         if self._should_register_traces and not span.parent:
-            self._trace_manager.pop_trace(span.context.trace_id)
+            manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
+            # Pack user-defined tags onto the root span so they survive OTLP export
+            # and can be restored to trace tag rows on the server side.
+            if (
+                manager_trace is not None
+                and manager_trace.trace.info.tags
+                and span._attributes is not None
+            ):
+                span._attributes[SpanAttributeKey.TRACE_TAGS] = dump_span_attribute_value(
+                    manager_trace.trace.info.tags
+                )
 
         if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get():
             span = self._translate_span(span)
