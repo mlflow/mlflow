@@ -155,6 +155,7 @@ def test_get_or_init_huey_instance_uses_sqlite_backend_by_default(monkeypatch, t
         assert mock_sqlite_huey.call_count == 1
         sqlite_kwargs = mock_sqlite_huey.call_args.kwargs
         assert sqlite_kwargs["filename"] == str(tmp_path / "test.instance.mlflow-huey-store")
+        assert sqlite_kwargs["name"] == "test.instance"
         assert sqlite_kwargs["results"] is False
 
 
@@ -175,4 +176,30 @@ def test_get_or_init_huey_instance_uses_redis_backend_when_configured(monkeypatc
         assert mock_redis_huey.call_count == 1
         redis_kwargs = mock_redis_huey.call_args.kwargs
         assert redis_kwargs["url"] == "redis://localhost:6379/0"
+        assert redis_kwargs["name"] == "test.instance"
         assert redis_kwargs["results"] is False
+
+
+def test_get_or_init_huey_instance_uses_distinct_redis_names_per_instance_key(monkeypatch):
+    from mlflow.server.jobs import utils as job_utils
+
+    job_utils._huey_instance_map.clear()
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_HUEY_STORAGE_URL", "redis://localhost:6379/0")
+    monkeypatch.delenv(HUEY_STORAGE_PATH_ENV_VAR, raising=False)
+
+    with mock.patch("huey.RedisHuey") as mock_redis_huey, mock.patch("huey.SqliteHuey"):
+        huey_a = mock.Mock()
+        huey_a.task.return_value = lambda fn: fn
+        huey_b = mock.Mock()
+        huey_b.task.return_value = lambda fn: fn
+        mock_redis_huey.side_effect = [huey_a, huey_b]
+
+        job_utils._get_or_init_huey_instance("jobs.name")
+        job_utils._get_or_init_huey_instance("periodic_tasks")
+
+        assert mock_redis_huey.call_count == 2
+        first_name = mock_redis_huey.call_args_list[0].kwargs["name"]
+        second_name = mock_redis_huey.call_args_list[1].kwargs["name"]
+        assert first_name == "jobs.name"
+        assert second_name == "periodic_tasks"
+        assert first_name != second_name

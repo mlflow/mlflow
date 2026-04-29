@@ -473,15 +473,14 @@ def _get_or_init_huey_instance(instance_key: str):
                 return decoded
 
     def _get_huey_storage_config(key: str) -> tuple[str, dict[str, str]]:
-        storage_url = MLFLOW_SERVER_JOB_HUEY_STORAGE_URL.get()
-        if storage_url:
-            return "redis", {"url": storage_url}
+        if storage_url := MLFLOW_SERVER_JOB_HUEY_STORAGE_URL.get():
+            return "redis", {"url": storage_url, "name": key}
 
         huey_store_file = os.path.join(
             os.environ[HUEY_STORAGE_PATH_ENV_VAR],
             f"{key}.mlflow-huey-store",
         )
-        return "sqlite", {"filename": huey_store_file}
+        return "sqlite", {"filename": huey_store_file, "name": key}
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
