@@ -2707,6 +2707,10 @@
     "defaultMessage": "Using regular expression quick filter. The following query will be used: {filterSample}",
     "description": "Experiment page > control bar > search filter > a label displayed when user has entered a simple query that will be automatically transformed into RLIKE SQL query before being sent to the API"
   },
+  "ETbUBU": {
+    "defaultMessage": "Rough cost: under $0.5 for ~100 traces, actual cost varies by selected model. <link>See benchmark</link>.",
+    "description": "Approximate USD cost ranges for issue detection as a hint, with link to benchmark docs"
+  },
   "EWf8NH": {
     "defaultMessage": "Learn more",
     "description": "Documentation link text"
@@ -3710,6 +3714,10 @@
   "LajLDb": {
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
+  },
+  "LgnR+r": {
+    "defaultMessage": "Configure the model to power issue detection.",
+    "description": "Description for model selection in issue detection modal"
   },
   "LhxSrc": {
     "defaultMessage": "Incorrect",
@@ -6546,10 +6554,6 @@
   "cv/bGM": {
     "defaultMessage": "Trace ID",
     "description": "Column label for trace ID"
-  },
-  "cwuyMm": {
-    "defaultMessage": "Configure the model to power issue detection",
-    "description": "Description for the model selection step in issue detection modal"
   },
   "cy9EfG": {
     "defaultMessage": "Attributes",
