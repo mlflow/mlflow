@@ -439,6 +439,158 @@ describe('RunsChartsDraggableCardsGrid', () => {
     });
   });
 
+  describe('pagination', () => {
+    const renderPaginatedSection = (cards: RunsChartsBarCardConfig[]) => {
+      const TestComponent = () => {
+        const [uiState, setUIState] = useState<ExperimentRunsChartsUIConfiguration>({
+          ...createExperimentPageUIState(),
+          compareRunCharts: cards,
+        });
+
+        return (
+          <RunsChartsUIConfigurationContextProvider updateChartsUIState={setUIState}>
+            <RunsChartsDraggableCardsGridContextProvider visibleChartCards={cards}>
+              <RunsChartsDraggableCardsGridSection
+                cardsConfig={uiState.compareRunCharts ?? []}
+                chartRunData={[]}
+                sectionId="abc"
+                setFullScreenChart={noop}
+                groupBy={null}
+                onRemoveChart={noop}
+                onStartEditChart={noop}
+                sectionConfig={{
+                  display: true,
+                  isReordered: false,
+                  name: 'section_1',
+                  uuid: 'section_1',
+                  cardHeight: 360,
+                  columns: 3,
+                }}
+              />
+            </RunsChartsDraggableCardsGridContextProvider>
+          </RunsChartsUIConfigurationContextProvider>
+        );
+      };
+
+      renderTestComponent(<TestComponent />);
+    };
+
+    const makeCards = (count: number, prefix = 'metric'): RunsChartsBarCardConfig[] =>
+      Array.from({ length: count }, (_, i) => ({
+        type: RunsChartType.BAR,
+        metricKey: `${prefix}_${i}`,
+        uuid: `${prefix}_card_${i}`,
+      })) as RunsChartsBarCardConfig[];
+
+    test('initial render caps at 50 cards and shows "Show more" button when there are more', async () => {
+      renderPaginatedSection(makeCards(60));
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(50);
+      });
+
+      // The "Show more charts" button should appear with the remaining count
+      expect(screen.getByRole('button', { name: /Show 10 more charts \(10 remaining\)/ })).toBeInTheDocument();
+    });
+
+    test('does not show "Show more" button when total cards fit in a single page', async () => {
+      renderPaginatedSection(makeCards(20));
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(20);
+      });
+
+      expect(screen.queryByRole('button', { name: /Show \d+ more charts/ })).not.toBeInTheDocument();
+    });
+
+    test('clicking "Show more" loads the next batch', async () => {
+      renderPaginatedSection(makeCards(120));
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(50);
+      });
+
+      // First batch shows 70 remaining, with the next click loading min(70, 50) = 50 more
+      await userEvent.click(screen.getByRole('button', { name: /Show 50 more charts \(70 remaining\)/ }));
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(100);
+      });
+
+      // After loading 50 more, 20 remain
+      await userEvent.click(screen.getByRole('button', { name: /Show 20 more charts \(20 remaining\)/ }));
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(120);
+      });
+
+      expect(screen.queryByRole('button', { name: /Show \d+ more charts/ })).not.toBeInTheDocument();
+    });
+
+    test('pagination resets when the card list changes (different cards, same length)', async () => {
+      const cardsA = makeCards(60, 'a');
+      const cardsB = makeCards(60, 'b');
+
+      const TestComponent = () => {
+        const [activeCards, setActiveCards] = useState(cardsA);
+        const [uiState, setUIState] = useState<ExperimentRunsChartsUIConfiguration>({
+          ...createExperimentPageUIState(),
+          compareRunCharts: activeCards,
+        });
+
+        return (
+          <>
+            <RunsChartsUIConfigurationContextProvider updateChartsUIState={setUIState}>
+              <RunsChartsDraggableCardsGridContextProvider visibleChartCards={activeCards}>
+                <RunsChartsDraggableCardsGridSection
+                  cardsConfig={activeCards}
+                  chartRunData={[]}
+                  sectionId="abc"
+                  setFullScreenChart={noop}
+                  groupBy={null}
+                  onRemoveChart={noop}
+                  onStartEditChart={noop}
+                  sectionConfig={{
+                    display: true,
+                    isReordered: false,
+                    name: 'section_1',
+                    uuid: 'section_1',
+                    cardHeight: 360,
+                    columns: 3,
+                  }}
+                />
+              </RunsChartsDraggableCardsGridContextProvider>
+            </RunsChartsUIConfigurationContextProvider>
+            <button type="button" onClick={() => setActiveCards(cardsB)}>
+              Switch
+            </button>
+          </>
+        );
+      };
+
+      renderTestComponent(<TestComponent />);
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(50);
+      });
+
+      // Expand pagination — load all 60 cards
+      await userEvent.click(screen.getByRole('button', { name: /Show 10 more charts/ }));
+      await waitFor(() => {
+        expect(screen.getAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(60);
+      });
+
+      // Switch to a different list (same length, different reference + UUIDs)
+      await userEvent.click(screen.getByRole('button', { name: 'Switch' }));
+
+      // Pagination must reset back to the initial page size of 50
+      await waitFor(() => {
+        expect(screen.getAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(50);
+        expect(screen.getByRole('button', { name: /Show 10 more charts \(10 remaining\)/ })).toBeInTheDocument();
+      });
+    });
+  });
+
   test('properly hide cards with no data', async () => {
     const cards = [
       { type: RunsChartType.BAR, metricKey: 'metric_1', uuid: 'card_1' } as RunsChartsBarCardConfig,
