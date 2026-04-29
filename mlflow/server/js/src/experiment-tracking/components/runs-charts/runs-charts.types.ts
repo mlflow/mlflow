@@ -307,11 +307,14 @@ export abstract class RunsChartsCardConfig {
       ...[MLFLOW_MODEL_METRIC_NAME, MLFLOW_SYSTEM_METRIC_NAME].filter((name) => enabledSectionNames.includes(name)),
     ];
 
+    // Auto-collapse sections when there are many charts to prevent browser performance issues
+    const collapseByDefault = resultChartSet.length > 100;
+
     // Create section configs
     const resultSectionSet: ChartSectionConfig[] = sortedSectionNames.map((sectionName) => ({
       uuid: sectionName2Uuid[sectionName],
       name: sectionName,
-      display: true,
+      display: !collapseByDefault,
       isReordered: false,
       deleted: false,
       isGenerated: true,
@@ -553,6 +556,10 @@ export abstract class RunsChartsCardConfig {
       }
     });
 
+    // Auto-collapse newly-discovered sections when chart count is high to avoid
+    // rendering thousands of charts if new metrics stream in incrementally
+    const collapseNewSections = resultChartSet.length > 100;
+
     Object.keys(sectionName2Uuid).forEach((sectionName) => {
       // Check if it is a new section
       const doesSectionNameExist = resultSectionSet.findIndex((section) => section.name === sectionName) >= 0;
@@ -560,7 +567,7 @@ export abstract class RunsChartsCardConfig {
         resultSectionSet.push({
           uuid: sectionName2Uuid[sectionName],
           name: sectionName,
-          display: true,
+          display: !collapseNewSections,
           isReordered: false,
         });
       }
