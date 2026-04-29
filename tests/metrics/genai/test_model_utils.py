@@ -790,7 +790,7 @@ def test_score_model_does_not_retry_on_other_400_errors(monkeypatch):
             )
 
 
-def test_score_model_with_timeout(monkeypatch):
+def test_send_request_uses_timeout_from_env_var(monkeypatch):
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_LLM_TIMEOUT", "2")
 
     with mock.patch("requests.post") as mock_post:
