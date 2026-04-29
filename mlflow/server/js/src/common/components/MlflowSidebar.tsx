@@ -28,7 +28,7 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import AdminRoutes from '../../admin/routes';
-import { useCurrentUserQuery, useIsAuthAvailable } from '../../admin/hooks';
+import { useCurrentUserIsAdmin, useCurrentUserQuery, useIsAuthAvailable } from '../../admin/hooks';
 import { performLogout } from '../../admin/auth-utils';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
@@ -138,6 +138,8 @@ export function MlflowSidebar({
   const activeExperimentId = isInsideExperiment(location) ? experimentId : lastSelectedExperimentIdRef.current;
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
+
+  const isAdmin = useCurrentUserIsAdmin();
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -524,6 +526,20 @@ export function MlflowSidebar({
                   >
                     <FormattedMessage defaultMessage="Account" description="Sidebar account menu item" />
                   </DropdownMenu.Item>
+                  {isAdmin && (
+                    <DropdownMenu.Item
+                      componentId="mlflow.sidebar.manage"
+                      onPointerDown={() => {
+                        accountDropdownClosedByPointerRef.current = true;
+                      }}
+                      onClick={() => navigate(AdminRoutes.adminPageRoute)}
+                    >
+                      <FormattedMessage
+                        defaultMessage="Manage"
+                        description="Sidebar account dropdown item linking to admin pages"
+                      />
+                    </DropdownMenu.Item>
+                  )}
                   <DropdownMenu.Separator />
                   <DropdownMenu.Item
                     componentId="mlflow.sidebar.logout"
