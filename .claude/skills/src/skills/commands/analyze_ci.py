@@ -57,11 +57,15 @@ async def download_raw_log(client: GitHubClient, job: Job) -> Path:
         log(f"Using cached raw log at {log_path}")
         return log_path
     log_path.parent.mkdir(parents=True, exist_ok=True)
+    # Write to a temp file and rename on success so an interrupted download
+    # doesn't leave a partial file that future runs would silently reuse.
+    tmp_path = log_path.with_suffix(".log.tmp")
     async with await client.get_raw(f"{job.url}/logs") as response:
         response.raise_for_status()
-        with log_path.open("wb") as f:
+        with tmp_path.open("wb") as f:
             async for chunk in response.content.iter_chunked(64 * 1024):
                 f.write(chunk)
+    tmp_path.rename(log_path)
     log(f"Saved raw log to {log_path}")
     return log_path
 
@@ -84,7 +88,8 @@ def iter_step_lines(log_path: Path, failed_step: JobStep) -> Iterator[str]:
                 if ts_secs > end_secs:
                     return  # Past end time, stop reading
                 in_range = ts_secs >= start_secs
-                line = line.split(" ", 1)[1]  # strip timestamp
+                # Use partition so a bare-timestamp line (no trailing content) yields ""
+                _, _, line = line.partition(" ")
             if in_range:
                 yield line
 
