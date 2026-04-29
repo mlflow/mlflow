@@ -28,7 +28,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{/*
 Build mlflow server args from .Values.server.
-  value_options: map of key/value pairs rendered as --key=value (empty values skipped).
+  value_options: map of key/value pairs rendered as --key=value
+    (empty value is not allowed, underscores in `key` converted to hyphens).
   flag_options:  list of flag names rendered as --flag (underscores converted to hyphens).
 */}}
 {{- define "mlflow.serverArgs" -}}
