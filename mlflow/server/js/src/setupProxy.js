@@ -16,6 +16,16 @@ module.exports = function (app) {
       changeOrigin: true,
     }),
   );
+  // /logout is an HTML page served by the MLflow backend that clears the
+  // browser's Basic Auth credential cache. Without this entry, hitting
+  // /logout from the CRA dev server falls through to index.html and the
+  // logout flow silently no-ops.
+  app.use(
+    createProxyMiddleware('/logout', {
+      target: proxyTarget,
+      changeOrigin: true,
+    }),
+  );
   app.use(
     createProxyMiddleware('/graphql', {
       target: proxyTarget,

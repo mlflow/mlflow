@@ -193,8 +193,12 @@ from mlflow.server.auth.routes import (
     AJAX_ADD_ROLE_PERMISSION,
     AJAX_ASSIGN_ROLE,
     AJAX_CREATE_ROLE,
+    AJAX_CREATE_USER,
     AJAX_DELETE_ROLE,
+    AJAX_DELETE_USER,
+    AJAX_GET_CURRENT_USER,
     AJAX_GET_ROLE,
+    AJAX_GET_USER,
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
     AJAX_LIST_ROLES,
@@ -204,6 +208,8 @@ from mlflow.server.auth.routes import (
     AJAX_UNASSIGN_ROLE,
     AJAX_UPDATE_ROLE,
     AJAX_UPDATE_ROLE_PERMISSION,
+    AJAX_UPDATE_USER_ADMIN,
+    AJAX_UPDATE_USER_PASSWORD,
     ASSIGN_ROLE,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
@@ -229,6 +235,7 @@ from mlflow.server.auth.routes import (
     GATEWAY_SUPPORTED_MODELS,
     GATEWAY_SUPPORTED_PROVIDERS,
     GET_ARTIFACT,
+    GET_CURRENT_USER,
     GET_EXPERIMENT_PERMISSION,
     GET_GATEWAY_ENDPOINT_PERMISSION,
     GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -250,6 +257,7 @@ from mlflow.server.auth.routes import (
     LIST_USER_WORKSPACE_PERMISSIONS,
     LIST_USERS,
     LIST_WORKSPACE_PERMISSIONS,
+    LOGOUT,
     REMOVE_ROLE_PERMISSION,
     SEARCH_DATASETS,
     SIGNUP,
@@ -269,6 +277,7 @@ from mlflow.server.auth.routes import (
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
+    _add_static_prefix,
     _disable_if_workspaces_disabled,
     _get_ajax_path,
     _get_model_registry_store,
@@ -389,8 +398,24 @@ def _invalidate_user_auth_cache(username: str) -> None:
             _USER_AUTH_CACHE.pop(key, None)
 
 
+_UNPROTECTED_PATH_PREFIXES = ("/static", "/favicon.ico", "/health")
+
+
 def is_unprotected_route(path: str) -> bool:
-    return path.startswith(("/static", "/favicon.ico", "/health"))
+    # /logout is intentionally unauthenticated. The handler returns 200 with an
+    # HTML page that performs an XHR with bogus credentials against
+    # /ajax-api/2.0/mlflow/users/current; that XHR receives 401 with
+    # WWW-Authenticate, which causes the browser to drop its cached Basic Auth
+    # credentials. Running /logout through the auth middleware would block the
+    # page from loading at all when the user lacks valid creds.
+    if path == LOGOUT:
+        return True
+    # When ``_MLFLOW_STATIC_PREFIX`` is set, the health/static routes are
+    # actually served from e.g. ``/mlflow/health``, not ``/health``. Match
+    # both the unprefixed and the prefixed forms so health checks don't end
+    # up requiring auth on prefixed deployments.
+    prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
+    return path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed)
 
 
 def make_basic_auth_response() -> Response:
@@ -414,9 +439,14 @@ def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH"):
-        args = request.json
+        # ``request.json`` can be ``None`` when the body is literal ``null`` (or an
+        # empty body under ``application/json``) — falling through to ``None | dict``
+        # would raise a TypeError that ``catch_mlflow_exception`` doesn't intercept,
+        # surfacing as a 500. Coerce to an empty dict so callers get the standard
+        # "missing parameter" 400 instead.
+        args = request.get_json(silent=True) or {}
     elif request.method == "DELETE":
-        args = request.json if request.is_json else request.args
+        args = (request.get_json(silent=True) or {}) if request.is_json else request.args
     else:
         raise MlflowException(
             f"Unsupported HTTP method '{request.method}'",
@@ -1979,12 +2009,21 @@ BEFORE_REQUEST_VALIDATORS = {
 BEFORE_REQUEST_VALIDATORS.update({
     (SIGNUP, "GET"): validate_can_create_user,
     (GET_USER, "GET"): validate_can_read_user,
+    (AJAX_GET_USER, "GET"): validate_can_read_user,
+    # /current returns only the authenticated user's own identity — any
+    # authenticated user may read it.
+    (GET_CURRENT_USER, "GET"): lambda: True,
+    (AJAX_GET_CURRENT_USER, "GET"): lambda: True,
     (LIST_USERS, "GET"): validate_can_list_users,
     (AJAX_LIST_USERS, "GET"): validate_can_list_users,
     (CREATE_USER, "POST"): validate_can_create_user,
+    (AJAX_CREATE_USER, "POST"): validate_can_create_user,
     (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
+    (AJAX_UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
     (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
+    (AJAX_UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
     (DELETE_USER, "DELETE"): validate_can_delete_user,
+    (AJAX_DELETE_USER, "DELETE"): validate_can_delete_user,
     (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
     (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
     (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
@@ -3032,6 +3071,49 @@ def alert(href: str):
     )
 
 
+def logout():
+    # HTTP Basic Auth has no server-side session. The reliable way to
+    # invalidate the browser's credential cache is the "XHR with bogus
+    # creds" trick: an XHR with explicit wrong user/password overrides
+    # the cached creds for the realm. Subsequent auto-auth attempts then
+    # fail and the browser prompts fresh. We use async XHR (sync XHR on
+    # the main thread is deprecated and blocked by some browser policies),
+    # so the post-clear UI update is gated on ``onloadend``.
+    body = (
+        "<!DOCTYPE html>"
+        "<html><head><title>Logged out</title></head>"
+        "<body style='font-family: sans-serif; padding: 2rem;'>"
+        "<h2>Signing you out…</h2>"
+        "<p id='msg'>Clearing credentials — please wait.</p>"
+        "<p style='margin-top: 2rem;'>"
+        "<a id='home' href='./' style='display: none;'>Return to MLflow</a>"
+        "</p>"
+        "<script>"
+        "  function done() {"
+        "    document.getElementById('msg').textContent ="
+        "      'You have been signed out. Redirecting to MLflow…';"
+        "    document.getElementById('home').style.display = 'inline';"
+        # Redirect after a short pause so the user sees confirmation
+        # that logout actually happened before the browser re-prompts.
+        # The manual link stays visible as a fallback in case JS is
+        # blocked by an extension or the redirect is slow.
+        "    setTimeout(function() { window.location.href = './'; }, 2000);"
+        "  }"
+        "  try {"
+        "    var xhr = new XMLHttpRequest();"
+        "    xhr.open('GET', './ajax-api/2.0/mlflow/users/current', true,"
+        "             'mlflow-logged-out', 'mlflow-logged-out');"
+        "    xhr.onloadend = done;"
+        "    xhr.send();"
+        "  } catch (e) { done(); }"
+        "</script>"
+        "</body></html>"
+    )
+    res = make_response(body, 200)
+    res.headers["Content-Type"] = "text/html; charset=utf-8"
+    return res
+
+
 def signup():
     return render_template_string(
         r"""
@@ -3134,20 +3216,17 @@ def create_user_ui(csrf):
 
 @catch_mlflow_exception
 def create_user():
-    content_type = request.headers.get("Content-Type")
-    if content_type == "application/json":
-        username = _get_request_param("username")
-        password = _get_request_param("password")
+    if not request.is_json:
+        return make_response("Invalid content type. Must be application/json", 400)
 
-        if not username or not password:
-            message = "Username and password cannot be empty."
-            return make_response(message, 400)
+    username = _get_request_param("username")
+    password = _get_request_param("password")
 
-        user = store.create_user(username, password)
-        return jsonify({"user": user.to_json()})
-    else:
-        message = "Invalid content type. Must be application/json"
-        return make_response(message, 400)
+    if not username or not password:
+        return make_response("Username and password cannot be empty.", 400)
+
+    user = store.create_user(username, password)
+    return jsonify({"user": user.to_json()})
 
 
 @catch_mlflow_exception
@@ -3160,13 +3239,47 @@ def get_user():
 @catch_mlflow_exception
 def list_users():
     users = store.list_users()
-    return jsonify({"users": [{"id": u.id, "username": u.username} for u in users]})
+    return jsonify({
+        "users": [{"id": u.id, "username": u.username, "is_admin": u.is_admin} for u in users]
+    })
+
+
+@catch_mlflow_exception
+def get_current_user():
+    # HTTP Basic Auth doesn't set any identifying cookie, so the frontend has
+    # no way to know *which* user the browser authenticated as. This endpoint
+    # returns minimal identity info (no password hash, no permission arrays)
+    # for the currently authenticated user.
+    username = authenticate_request().username
+    user = store.get_user(username)
+    return jsonify({"user": {"id": user.id, "username": user.username, "is_admin": user.is_admin}})
 
 
 @catch_mlflow_exception
 def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
+    # Self-service password changes must re-assert the current password as a
+    # defense-in-depth check: the Basic Auth header on the request already
+    # proves identity, but a walk-up attacker on a logged-in browser session
+    # would otherwise be able to silently rotate the password and lock out
+    # the legitimate user. Admins changing *someone else's* password bypass
+    # this (they don't and can't supply the target's current password).
+    sender = authenticate_request()
+    sender_username = getattr(sender, "username", None)
+    if sender_username == username:
+        body = request.get_json(silent=True) or {}
+        current_password = body.get("current_password")
+        if not current_password:
+            raise MlflowException(
+                "Current password is required when changing your own password.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if not store.authenticate_user(username, current_password):
+            raise MlflowException(
+                "Current password does not match.",
+                INVALID_PARAMETER_VALUE,
+            )
     store.update_user(username, password=password)
     _invalidate_user_auth_cache(username)
     return make_response({})
@@ -3944,41 +4057,57 @@ def create_app(app: Flask = app):
         methods=["GET"],
     )
     app.add_url_rule(
+        rule=LOGOUT,
+        view_func=logout,
+        methods=["GET", "POST"],
+    )
+    app.add_url_rule(
         rule=CREATE_USER_UI,
         view_func=lambda: create_user_ui(csrf),
         methods=["POST"],
     )
-    app.add_url_rule(
-        rule=CREATE_USER,
-        view_func=create_user,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_USER,
-        view_func=get_user,
-        methods=["GET"],
-    )
+    for rule in [CREATE_USER, AJAX_CREATE_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=create_user,
+            methods=["POST"],
+        )
+    for rule in [GET_USER, AJAX_GET_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=get_user,
+            methods=["GET"],
+        )
     for rule in [LIST_USERS, AJAX_LIST_USERS]:
         app.add_url_rule(
             rule=rule,
             view_func=list_users,
             methods=["GET"],
         )
-    app.add_url_rule(
-        rule=UPDATE_USER_PASSWORD,
-        view_func=update_user_password,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_USER_ADMIN,
-        view_func=update_user_admin,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_USER,
-        view_func=delete_user,
-        methods=["DELETE"],
-    )
+    for rule in [GET_CURRENT_USER, AJAX_GET_CURRENT_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=get_current_user,
+            methods=["GET"],
+        )
+    for rule in [UPDATE_USER_PASSWORD, AJAX_UPDATE_USER_PASSWORD]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=update_user_password,
+            methods=["PATCH"],
+        )
+    for rule in [UPDATE_USER_ADMIN, AJAX_UPDATE_USER_ADMIN]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=update_user_admin,
+            methods=["PATCH"],
+        )
+    for rule in [DELETE_USER, AJAX_DELETE_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=delete_user,
+            methods=["DELETE"],
+        )
     app.add_url_rule(
         rule=CREATE_EXPERIMENT_PERMISSION,
         view_func=create_experiment_permission,
