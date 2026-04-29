@@ -32,6 +32,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_expectations_from_trace,
     extract_inputs_from_trace,
     extract_outputs_from_trace,
+    extract_prior_turns,
     extract_request_from_trace,
     extract_response_from_trace,
     extract_retrieval_context_from_trace,
@@ -1030,6 +1031,85 @@ def test_resolve_conversation_from_session_with_tool_calls():
 
 def test_resolve_conversation_from_session_empty():
     assert resolve_conversation_from_session([]) == []
+
+
+def _make_session_traces(session_id: str, turns: list[tuple[str, str]]) -> list[Trace]:
+    traces: list[Trace] = []
+    for user_msg, assistant_msg in turns:
+        with mlflow.start_span(name="turn") as span:
+            span.set_inputs({"messages": [{"role": "user", "content": user_msg}]})
+            span.set_outputs(assistant_msg)
+            mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+    return traces
+
+
+def test_extract_prior_turns_returns_only_strictly_earlier_traces():
+    traces = _make_session_traces(
+        "session_extract_prior",
+        [("hello", "hi"), ("how are you?", "good"), ("tell me a joke", "knock knock")],
+    )
+
+    # Looking at the third turn, prior = first two turns, in order.
+    prior = extract_prior_turns(traces, traces[2])
+    assert prior == [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+        {"role": "user", "content": "how are you?"},
+        {"role": "assistant", "content": "good"},
+    ]
+
+
+def test_extract_prior_turns_excludes_current_trace_even_if_in_session_list():
+    traces = _make_session_traces("session_self_exclude", [("u1", "a1"), ("u2", "a2")])
+
+    # Pass the full session including the current trace; helper must filter it out.
+    prior = extract_prior_turns(traces, traces[1])
+    assert prior == [
+        {"role": "user", "content": "u1"},
+        {"role": "assistant", "content": "a1"},
+    ]
+
+
+def test_extract_prior_turns_returns_empty_for_first_turn():
+    traces = _make_session_traces("session_first_turn", [("u1", "a1"), ("u2", "a2")])
+
+    assert extract_prior_turns(traces, traces[0]) == []
+
+
+def test_extract_prior_turns_returns_empty_when_session_is_empty():
+    # Synthesize a single trace not part of any session list.
+    traces = _make_session_traces("session_alone", [("u1", "a1")])
+
+    assert extract_prior_turns([], traces[0]) == []
+
+
+def test_extract_prior_turns_forwards_include_tool_calls():
+    session_id = "session_with_tools"
+    traces: list[Trace] = []
+
+    with mlflow.start_span(name="turn_0") as root_span:
+        root_span.set_inputs({"messages": [{"role": "user", "content": "Get AAPL price"}]})
+        with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"symbol": "AAPL"})
+            tool_span.set_outputs({"price": 150})
+        root_span.set_outputs("AAPL is $150.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(root_span.trace_id))
+
+    with mlflow.start_span(name="turn_1") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "Thanks"}]})
+        span.set_outputs("You're welcome.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    # Without tool calls, prior context is just user/assistant messages.
+    prior = extract_prior_turns(traces, traces[1])
+    assert [m["role"] for m in prior] == ["user", "assistant"]
+
+    # With tool calls, the TOOL span message appears between user and assistant.
+    prior_with_tools = extract_prior_turns(traces, traces[1], include_tool_calls=True)
+    assert [m["role"] for m in prior_with_tools] == ["user", "tool", "assistant"]
 
 
 @pytest.mark.parametrize("include_timing", [True, False])

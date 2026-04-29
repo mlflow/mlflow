@@ -1448,6 +1448,24 @@ MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVa
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
 
 
+#: When evaluating a trace that belongs to a multi-turn session, this controls
+#: the maximum number of prior conversation turns to surface to single-turn LLM
+#: judges. Set to ``0`` to disable multi-turn context entirely (judges see only
+#: the current turn, matching the pre-multi-turn behavior).
+#: (default: ``10``)
+MLFLOW_JUDGE_MAX_PRIOR_TURNS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_PRIOR_TURNS", int, 10)
+
+
+#: Optional token budget for the prior-conversation context block surfaced to
+#: single-turn LLM judges. When set, prior turns are dropped from the oldest
+#: end until the rendered block fits under this budget. Unset by default,
+#: meaning the only cap is :data:`MLFLOW_JUDGE_MAX_PRIOR_TURNS`.
+#: (default: unset)
+MLFLOW_JUDGE_PRIOR_TURNS_TOKEN_BUDGET = _EnvironmentVariable(
+    "MLFLOW_JUDGE_PRIOR_TURNS_TOKEN_BUDGET", int, None
+)
+
+
 #: Enable automatic run resumption for Serverless GPU Compute (SGC) jobs on Databricks.
 #: When enabled, MLflow will check for the SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID job
 #: parameter and automatically resume MLflow runs associated with that Databricks job run ID.

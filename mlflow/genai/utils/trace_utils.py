@@ -413,6 +413,43 @@ def resolve_conversation_from_session(
     return conversation
 
 
+def extract_prior_turns(
+    session: list[Trace],
+    current_trace: Trace,
+    *,
+    include_tool_calls: bool = False,
+) -> list[dict[str, str]]:
+    """
+    Extract conversation history from session traces that occurred strictly
+    before ``current_trace``. Used by single-turn LLM judges to obtain the
+    prior context for a turn embedded in a multi-turn session.
+
+    A trace is considered "prior" if its ``timestamp_ms`` is strictly less
+    than the current trace's ``timestamp_ms`` and it is not the current trace
+    itself. Same-millisecond ties are excluded to avoid races between the
+    current turn's own spans and other concurrent traces.
+
+    Args:
+        session: List of traces from the same session. The current trace may
+            or may not be a member of this list — it is filtered out either way.
+        current_trace: The trace whose prior context we want.
+        include_tool_calls: Forwarded to ``resolve_conversation_from_session``.
+
+    Returns:
+        Conversation messages from prior turns in chronological order, in the
+        format ``[{"role": "user"|"assistant"|"tool", "content": str}]``.
+        Empty list if there are no prior turns.
+    """
+    current_id = current_trace.info.trace_id
+    current_ts = current_trace.info.timestamp_ms
+    prior = [
+        trace
+        for trace in session
+        if trace.info.trace_id != current_id and trace.info.timestamp_ms < current_ts
+    ]
+    return resolve_conversation_from_session(prior, include_tool_calls=include_tool_calls)
+
+
 def resolve_expectations_from_trace(
     expectations: dict[str, Any] | None,
     trace: Trace,
