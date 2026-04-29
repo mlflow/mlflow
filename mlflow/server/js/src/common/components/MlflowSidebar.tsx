@@ -24,7 +24,8 @@ import { Link, matchPath, useLocation, useParams, useSearchParams } from '../uti
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
-import { useIsAuthAvailable } from '../../admin/hooks';
+import AdminRoutes from '../../admin/routes';
+import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../admin/hooks';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -59,6 +60,7 @@ const isSettingsActive = (location: Location) =>
     matchPath({ path: '/settings', end: true }, location.pathname) ||
     matchPath('/settings/:section', location.pathname),
   );
+const isAdminActive = (location: Location) => Boolean(matchPath('/admin/*', location.pathname));
 
 type MlFlowSidebarMenuDropdownComponentId =
   | 'mlflow_sidebar.create_experiment_button'
@@ -130,6 +132,9 @@ export function MlflowSidebar({
   const activeExperimentId = isInsideExperiment(location) ? experimentId : lastSelectedExperimentIdRef.current;
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
+
+  const isAuthAvailable = useIsAuthAvailable();
+  const isAdmin = useCurrentUserIsAdmin();
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -419,6 +424,19 @@ export function MlflowSidebar({
               <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
             </span>
           </MlflowSidebarLink>
+          {isAuthAvailable && isAdmin && (
+            <MlflowSidebarLink
+              disableWorkspacePrefix
+              css={{ paddingBlock: theme.spacing.sm }}
+              to={AdminRoutes.adminPageRoute}
+              componentId="mlflow.sidebar.admin_tab_link"
+              isActive={isAdminActive}
+              icon={<GearIcon />}
+              collapsed={!showSidebar}
+            >
+              <FormattedMessage defaultMessage="Admin" description="Sidebar link for admin page" />
+            </MlflowSidebarLink>
+          )}
           {showWorkspaceMenuItems && !showNestedSettingsItems && (
             <MlflowSidebarLink
               css={{ paddingBlock: theme.spacing.sm }}
