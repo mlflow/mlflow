@@ -1,5 +1,5 @@
 {{- define "mlflow.fullname" -}}
-{{- printf "%s-%s" .Release.Name .Chart.Name | trunc 63 | trimSuffix "-" }}
+{{- .Values.fullnameOverride | default (printf "%s-%s" .Release.Name .Chart.Name) | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{- define "mlflow.labels" -}}

@@ -4,6 +4,8 @@ image:
   tag: ""
   pullPolicy: IfNotPresent
 
+fullnameOverride: ""
+
 replicaCount: 1
 
 # Deployment update strategy. When not set, defaults to Recreate if the storage
