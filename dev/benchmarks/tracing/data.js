@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777387305280,
+  "lastUpdate": 1777427526490,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -107,6 +107,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.808702199998606,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "veronica.lyu@databricks.com",
+            "name": "veronicalyu320",
+            "username": "veronicalyu320"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac684f690937f038a4ebb8d2b7b6b56c141dd5f8",
+          "message": "Support multiple assessments per trace in MemAlign optimizer (#22846)\n\nSigned-off-by: Veronica Lyu <veronica.lyu@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-04-29T01:48:09Z",
+          "tree_id": "a9c663b0b8e26df195b8de1133890da630653137",
+          "url": "https://github.com/mlflow/mlflow/commit/ac684f690937f038a4ebb8d2b7b6b56c141dd5f8"
+        },
+        "date": 1777427524918,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.40394645000134,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.971678555554302,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.390323863635896,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.265712118645972,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 20.89155449999917,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 8.415546800000584,
             "unit": "ms"
           }
         ]
