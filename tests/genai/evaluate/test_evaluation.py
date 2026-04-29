@@ -1200,6 +1200,47 @@ def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
             assert a.value in (2.0, 3.0)
 
 
+def test_evaluate_threads_session_to_single_turn_scorers_when_session_id_present(server_config):
+    """
+    Single-turn scorers that declare a ``session`` kwarg should receive the
+    list of traces from the same multi-turn session, so they can derive prior
+    conversation context. Scorers that don't declare ``session`` are
+    unaffected by ``Scorer.run()``'s signature filtering.
+    """
+    received_sessions: dict[str, list[Trace]] = {}
+
+    class SessionAwareScorer(mlflow.genai.Scorer):
+        def __init__(self):
+            super().__init__(name="session_aware")
+
+        def __call__(self, *, trace, session=None, **kwargs):
+            received_sessions[trace.info.trace_id] = list(session) if session else []
+            return 1
+
+    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to: {question}"
+
+    mlflow.set_experiment("multi_turn_session_thread_test")
+    with mlflow.start_run() as run:
+        # Two sessions, three turns each.
+        for q in ["A1", "A2", "A3"]:
+            model(q, session_id="thread_session_a")
+        for q in ["B1", "B2", "B3"]:
+            model(q, session_id="thread_session_b")
+
+        traces = mlflow.search_traces(
+            locations=[run.info.experiment_id], filter_string=f'run_id = "{run.info.run_id}"'
+        )
+        mlflow.genai.evaluate(data=traces, scorers=[SessionAwareScorer()])
+
+    # Every trace should have received its full session group (3 traces each).
+    assert len(received_sessions) == 6
+    for session_traces in received_sessions.values():
+        assert len(session_traces) == 3
+
+
 def test_evaluate_with_evaluation_dataset_and_session_level_scorers():
     # Define a session-level scorer
     class ConversationLengthScorer(mlflow.genai.Scorer):

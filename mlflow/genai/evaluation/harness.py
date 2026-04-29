@@ -414,6 +414,16 @@ class _ScoreSubmitter:
         self._single_turn_scorers = single_turn_scorers
         self._multi_turn_scorers = multi_turn_scorers
         self._session_groups = session_groups
+        # Build a trace_id → session traces lookup once so single-turn
+        # scorers can be supplied with their session context. Items without
+        # a trace, or whose trace doesn't belong to a session group, are
+        # absent from the map and fall back to ``session=None``.
+        self._trace_to_session: dict[str, list[Trace]] = {}
+        for items in session_groups.values():
+            session_traces = [item.trace for item in items if item.trace is not None]
+            for item in items:
+                if item.trace is not None:
+                    self._trace_to_session[item.trace.info.trace_id] = session_traces
         self._run_id = run_id
         self._max_retries = max_retries
         self._limiter = _make_rate_limiter(
@@ -444,13 +454,20 @@ class _ScoreSubmitter:
     def submit(self, idx: int) -> Future:
         """Submit a score task for eval item *idx* and return the future."""
         _logger.debug(f"Predict completed for item {idx}, submitting score")
+        eval_item = self._eval_items[idx]
+        session_traces = (
+            self._trace_to_session.get(eval_item.trace.info.trace_id)
+            if eval_item.trace is not None
+            else None
+        )
         future = self._pool.submit(
             self._timed_score,
-            self._eval_items[idx],
+            eval_item,
             self._single_turn_scorers,
             self._run_id,
             self._limiter,
             self._max_retries,
+            session_traces,
         )
         self._score_futures_to_eval_id[future] = idx
         return future
@@ -640,8 +657,19 @@ def run(
     experiment_id = mlflow.get_run(run_id).info.experiment_id
 
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
-    session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
-    total_tasks = (len(eval_items) if single_turn_scorers else 0) + len(session_groups)
+    # Compute session_groups whenever any scorers are present: multi-turn
+    # scorers need them as before, and single-turn scorers may use them to
+    # surface prior conversation context to LLM judges (Scorer.run() filters
+    # the kwarg by signature, so scorers that don't opt in are unaffected).
+    session_groups = (
+        group_traces_by_session(eval_items) if (single_turn_scorers or multi_turn_scorers) else {}
+    )
+    # ``total_tasks`` only counts multi-turn session groups, not the
+    # single-turn-with-session lookups, since the latter are not separate
+    # progress-bar units.
+    total_tasks = (len(eval_items) if single_turn_scorers else 0) + (
+        len(session_groups) if multi_turn_scorers else 0
+    )
 
     progress_bar = (
         tqdm(
@@ -720,7 +748,11 @@ def run(
     mlflow.log_metrics(aggregated_metrics)
 
     try:
-        emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)
+        # The session-group count reported here measures multi-turn scorer
+        # invocations, so it should be 0 when no multi-turn scorers ran even
+        # if session_groups was populated for single-turn context lookup.
+        emitted_session_count = len(session_groups) if multi_turn_scorers else 0
+        emit_metric_usage_event(scorers, len(eval_items), emitted_session_count, aggregated_metrics)
     except Exception as e:
         _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
 
@@ -801,6 +833,7 @@ def _run_score(
     run_id: str | None,
     scorer_rate_limiter: RateLimiter,
     max_retries: int = 0,
+    session: list[Trace] | None = None,
 ) -> EvalResult:
     if run_id:
         ctx = context.get_context()
@@ -812,6 +845,7 @@ def _run_score(
             scorers=scorers,
             rate_limiter=scorer_rate_limiter,
             max_retries=max_retries,
+            session=session,
         )
     eval_result.assessments.extend(_get_new_expectations(eval_item))
 
@@ -836,12 +870,19 @@ def _run_score(
     return eval_result
 
 
-def _invoke_scorer(scorer_func: Callable[..., Any], eval_item: EvalItem):
+def _invoke_scorer(
+    scorer_func: Callable[..., Any],
+    eval_item: EvalItem,
+    session: list[Trace] | None = None,
+):
+    # ``Scorer.run()`` filters by signature, so passing ``session`` here is
+    # safe for scorers that don't declare it — they simply won't receive it.
     return scorer_func(
         inputs=eval_item.inputs,
         outputs=eval_item.outputs,
         expectations=eval_item.expectations,
         trace=eval_item.trace,
+        session=session,
     )
 
 
@@ -851,6 +892,7 @@ def _compute_eval_scores(
     scorers: list[Scorer],
     rate_limiter: RateLimiter = NoOpRateLimiter(),
     max_retries: int = 0,
+    session: list[Trace] | None = None,
 ) -> EvalResult:
     if not scorers:
         return EvalResult(eval_item=eval_item, assessments=[], scorer_stats={})
@@ -867,7 +909,9 @@ def _compute_eval_scores(
                 )
 
             value = call_with_retry(
-                lambda: _invoke_scorer(scorer_func, eval_item), rate_limiter, max_retries
+                lambda: _invoke_scorer(scorer_func, eval_item, session=session),
+                rate_limiter,
+                max_retries,
             )
             feedbacks = standardize_scorer_value(scorer.name, value)
 

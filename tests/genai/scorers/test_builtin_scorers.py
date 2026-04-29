@@ -9,6 +9,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
@@ -458,6 +459,7 @@ def test_relevance_to_query():
         context="answer",
         name="relevance_to_query",
         model=None,
+        prior_conversation=None,
     )
 
     # 2. Test with custom model parameter
@@ -473,6 +475,7 @@ def test_relevance_to_query():
         context="answer",
         name="custom_relevance",
         model="openai:/gpt-4.1-mini",
+        prior_conversation=None,
     )
 
 
@@ -846,6 +849,96 @@ def test_relevance_to_query_with_trace():
         assert result.name == "relevance_to_query"
         assert result.value == CategoricalRating.YES
         mock_is_context_relevant.assert_called_once()
+
+
+def _make_chat_session_traces(session_id: str, turns: list[tuple[str, str]]) -> list[Trace]:
+    """
+    Build session traces using the OpenAI-style ``messages`` input shape so
+    ``parse_inputs_to_str`` returns clean user content rather than a stringified
+    dict.
+    """
+    traces = []
+    for user_msg, assistant_msg in turns:
+        with mlflow.start_span(name="turn") as span:
+            span.set_inputs({"messages": [{"role": "user", "content": user_msg}]})
+            span.set_outputs(assistant_msg)
+            mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+    return traces
+
+
+def test_relevance_to_query_passes_prior_conversation_to_judge_when_session_supplied():
+    """
+    When evaluating turn N of a multi-turn session, ``RelevanceToQuery``
+    should derive the prior conversation from the supplied ``session`` and
+    forward it to ``is_context_relevant``.
+    """
+    session_traces = _make_chat_session_traces(
+        "test_relevance_session",
+        [
+            ("Tell me about upcoming NFL games", "Want more detail?"),
+            ("Yes", "Here are the schedules..."),
+        ],
+    )
+
+    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+        mock_is_context_relevant.return_value = Feedback(
+            name="relevance_to_query", value="yes", rationale="continuation of prior turn"
+        )
+
+        scorer = RelevanceToQuery()
+        result = scorer(trace=session_traces[1], session=session_traces)
+
+    assert result.value == CategoricalRating.YES
+    mock_is_context_relevant.assert_called_once()
+    kwargs = mock_is_context_relevant.call_args.kwargs
+    prior = kwargs["prior_conversation"]
+    assert prior == [
+        {"role": "user", "content": "Tell me about upcoming NFL games"},
+        {"role": "assistant", "content": "Want more detail?"},
+    ]
+
+
+def test_relevance_to_query_omits_prior_conversation_for_first_turn_in_session():
+    """
+    When the current trace is the first turn in its session, there is no
+    prior conversation — ``prior_conversation`` should be ``None``, not an
+    empty list, so ``is_context_relevant`` renders the legacy single-turn
+    prompt unchanged.
+    """
+    session_traces = _make_chat_session_traces(
+        "test_relevance_first_turn",
+        [("Hello", "Hi there"), ("How are you?", "Good")],
+    )
+
+    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+        mock_is_context_relevant.return_value = Feedback(
+            name="relevance_to_query", value="yes", rationale="ok"
+        )
+
+        scorer = RelevanceToQuery()
+        scorer(trace=session_traces[0], session=session_traces)
+
+    kwargs = mock_is_context_relevant.call_args.kwargs
+    assert kwargs["prior_conversation"] is None
+
+
+def test_relevance_to_query_does_not_pass_prior_conversation_when_session_is_none():
+    """
+    Calling the scorer without a session must produce the same call shape
+    as before multi-turn support was added: ``prior_conversation=None``.
+    """
+    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+        mock_is_context_relevant.return_value = Feedback(
+            name="relevance_to_query", value="yes", rationale="ok"
+        )
+
+        trace = create_simple_trace()
+        scorer = RelevanceToQuery()
+        scorer(trace=trace)
+
+    kwargs = mock_is_context_relevant.call_args.kwargs
+    assert kwargs["prior_conversation"] is None
 
 
 @databricks_only

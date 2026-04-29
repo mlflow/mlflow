@@ -1,3 +1,4 @@
+from mlflow.genai.judges.utils.multi_turn import render_prior_conversation_block
 from mlflow.genai.prompts.utils import format_prompt
 
 # NB: User-facing name for the is_context_relevant assessment.
@@ -28,9 +29,18 @@ RELEVANCE_TO_QUERY_PROMPT = (
 )
 
 
-def get_prompt(request: str, context: str) -> str:
-    return format_prompt(
-        RELEVANCE_TO_QUERY_PROMPT,
-        input=request,
-        output=context,
-    )
+def get_prompt(
+    request: str,
+    context: str,
+    prior_conversation: list[dict[str, str]] | None = None,
+) -> str:
+    """
+    Render the relevance-to-query judge prompt.
+
+    When ``prior_conversation`` is empty or None this returns the same string
+    as before multi-turn support was added — that's by design so single-turn
+    evaluations are byte-for-byte unchanged. When non-empty, a conversation
+    history block is prepended ahead of the question/answer.
+    """
+    rendered = format_prompt(RELEVANCE_TO_QUERY_PROMPT, input=request, output=context)
+    return render_prior_conversation_block(prior_conversation or []) + rendered

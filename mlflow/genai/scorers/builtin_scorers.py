@@ -80,6 +80,7 @@ from mlflow.genai.judges.utils import (
     get_default_model,
     invoke_judge_model,
 )
+from mlflow.genai.judges.utils.multi_turn import truncate_prior_conversation
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
     Scorer,
@@ -93,6 +94,7 @@ from mlflow.genai.scorers.scorer_utils import (
 )
 from mlflow.genai.utils.trace_utils import (
     extract_available_tools_from_trace,
+    extract_prior_turns,
     extract_request_from_trace,
     extract_response_from_trace,
     extract_retrieval_context_from_trace,
@@ -1544,6 +1546,7 @@ class RelevanceToQuery(BuiltInScorer):
         inputs: dict[str, Any] | None = None,
         outputs: Any | None = None,
         trace: Trace | None = None,
+        session: list[Trace] | None = None,
     ) -> Feedback:
         """
         Evaluate relevance to the user's query.
@@ -1560,6 +1563,14 @@ class RelevanceToQuery(BuiltInScorer):
                 Optional when trace is provided.
             trace: MLflow trace object containing the execution to evaluate. When provided,
                 inputs and outputs will be automatically extracted from the trace.
+            session: Optional list of traces from the same multi-turn session. When supplied
+                alongside ``trace``, the judge sees prior turns when assessing relevance —
+                this is what lets the judge correctly score continuations like ``"yes"`` that
+                only make sense with earlier context. Capped by
+                :data:`mlflow.environment_variables.MLFLOW_JUDGE_MAX_PRIOR_TURNS` and optionally
+                by :data:`MLFLOW_JUDGE_PRIOR_TURNS_TOKEN_BUDGET`. The eval harness populates
+                this automatically for traces tagged with a session id; ignored when ``trace``
+                is not supplied.
 
         Returns:
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
@@ -1568,10 +1579,19 @@ class RelevanceToQuery(BuiltInScorer):
         fields = resolve_scorer_fields(trace, self, inputs, outputs, model=self.model)
         _validate_required_fields(fields, self, "RelevanceToQuery scorer")
 
-        # Use the existing scorer implementation with extracted/provided fields
+        prior_conversation: list[dict[str, str]] | None = None
+        if trace is not None and session:
+            full_prior = extract_prior_turns(session, trace)
+            truncated = truncate_prior_conversation(full_prior)
+            prior_conversation = truncated or None
+
         request = parse_inputs_to_str(fields.inputs)
         feedback = judges.is_context_relevant(
-            request=request, context=fields.outputs, name=self.name, model=self.model
+            request=request,
+            context=fields.outputs,
+            name=self.name,
+            model=self.model,
+            prior_conversation=prior_conversation,
         )
         return _sanitize_scorer_feedback(feedback)
 

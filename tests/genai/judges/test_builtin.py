@@ -274,6 +274,62 @@ def test_is_context_relevant_oss():
     assert "Paris is the capital of France." in prompt
 
 
+@pytest.mark.parametrize("prior", [None, []])
+def test_is_context_relevant_prompt_unchanged_when_prior_conversation_is_absent(prior):
+    """
+    Regression test: the rendered prompt must be byte-for-byte identical to
+    the legacy single-turn prompt when no prior conversation is supplied.
+    Single-turn evaluation behavior MUST NOT change as a side effect of
+    adding multi-turn support.
+    """
+    from mlflow.genai.judges.prompts.relevance_to_query import (
+        RELEVANCE_TO_QUERY_PROMPT,
+        get_prompt,
+    )
+    from mlflow.genai.prompts.utils import format_prompt
+
+    expected = format_prompt(
+        RELEVANCE_TO_QUERY_PROMPT,
+        input="What is the capital of France?",
+        output="Paris.",
+    )
+    actual = get_prompt(
+        "What is the capital of France?",
+        "Paris.",
+        prior_conversation=prior,
+    )
+    assert actual == expected
+
+
+def test_is_context_relevant_oss_with_prior_conversation():
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. 'Yes' continues the prior NFL question.",
+    })
+
+    prior = [
+        {"role": "user", "content": "Tell me about upcoming NFL games"},
+        {"role": "assistant", "content": "Here's some info. Would you like more details?"},
+    ]
+
+    with _mock_score(mock_content) as mock_score:
+        feedback = judges.is_context_relevant(
+            request="Yes",
+            context="Here are the detailed NFL game schedules for this weekend.",
+            prior_conversation=prior,
+        )
+
+    assert feedback.value == CategoricalRating.YES
+
+    mock_score.assert_called_once()
+    prompt = mock_score.call_args.kwargs["payload"]
+    # The prior conversation block should appear ahead of the question/answer.
+    assert "<prior_conversation>" in prompt
+    assert "[user]: Tell me about upcoming NFL games" in prompt
+    assert "[assistant]: Here's some info. Would you like more details?" in prompt
+    assert prompt.index("</prior_conversation>") < prompt.index("<question>")
+
+
 def test_is_correct_oss():
     mock_content = json.dumps({
         "result": "yes",

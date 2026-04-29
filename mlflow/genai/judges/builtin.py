@@ -65,7 +65,12 @@ def requires_databricks_agents(func):
 
 @format_docstring(_MODEL_API_DOC)
 def is_context_relevant(
-    *, request: str, context: Any, name: str | None = None, model: str | None = None
+    *,
+    request: str,
+    context: Any,
+    name: str | None = None,
+    model: str | None = None,
+    prior_conversation: list[dict[str, str]] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given context is relevant to the input request.
@@ -76,6 +81,13 @@ def is_context_relevant(
             Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        prior_conversation: Optional list of OpenAI-style messages
+            (``[{"role": ..., "content": ...}]``) representing prior turns of
+            a multi-turn conversation. When provided, the judge sees the
+            history when deciding relevance — useful when the request is a
+            short continuation (e.g. ``"yes"``) that only makes sense in
+            context. The Databricks judge model does not currently accept
+            this parameter and ignores it.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -114,13 +126,15 @@ def is_context_relevant(
     if model == "databricks":
         from databricks.agents.evals.judges import relevance_to_query
 
+        # The Databricks judge does not currently accept prior conversation
+        # context; multi-turn support there will be plumbed in a follow-up.
         feedback = relevance_to_query(
             request=request,
             response=str(context),
             assessment_name=assessment_name,
         )
     else:
-        prompt = get_prompt(request, str(context))
+        prompt = get_prompt(request, str(context), prior_conversation=prior_conversation)
         feedback = invoke_judge_model(
             model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
         )
