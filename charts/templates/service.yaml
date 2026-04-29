@@ -10,10 +10,11 @@ metadata:
   {{- end }}
 spec:
   type: {{ .Values.service.type }}
+  {{- $portName := ternary "https" "http" .Values.tls.enabled }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: http
+      targetPort: {{ $portName }}
       protocol: TCP
-      name: http
+      name: {{ $portName }}
   selector:
     {{- include "mlflow.selectorLabels" . | nindent 4 }}
