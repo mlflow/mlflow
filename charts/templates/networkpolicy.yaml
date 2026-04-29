@@ -21,10 +21,17 @@ spec:
         - namespaceSelector: {}
   egress:
     - ports:
+        # DNS resolution (port 53 is the Service port; 5353 is the CoreDNS
+        # target port used by OpenShift — OVN-Kubernetes evaluates egress rules
+        # after DNAT, so both ports must be allowed)
         - protocol: UDP
           port: 53
         - protocol: TCP
           port: 53
+        - protocol: UDP
+          port: 5353
+        - protocol: TCP
+          port: 5353
     - ports:
         - protocol: TCP
           port: 443
