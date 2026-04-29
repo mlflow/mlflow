@@ -142,7 +142,19 @@ def _get_agent_response_text(predict_fn: Callable[..., Any]) -> str | None:
     try:
         sig = inspect.signature(predict_fn)
         params = list(sig.parameters.keys())
-        result = predict_fn(messages=prompt) if "messages" in params else predict_fn(input=prompt)
+    except Exception:
+        _logger.debug("Failed to get signature of predict_fn", exc_info=True)
+        return None
+
+    if "messages" in params:
+        kwarg = "messages"
+    elif "input" in params:
+        kwarg = "input"
+    else:
+        raise ValueError(f"predict_fn must accept either 'messages' or 'input', got {params}")
+
+    try:
+        result = predict_fn(**{kwarg: prompt})
     except Exception:
         _logger.debug("predict_fn raised when asked to self-describe", exc_info=True)
         return None

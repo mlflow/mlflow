@@ -155,6 +155,14 @@ def test_get_agent_response_text_dispatches_input_kwarg():
     assert "input" in received
 
 
+def test_get_agent_response_text_raises_for_unknown_signature():
+    def agent(query):
+        return "response"
+
+    with pytest.raises(ValueError, match="'messages' or 'input'"):
+        _get_agent_response_text(agent)
+
+
 def test_get_agent_response_text_returns_none_on_exception():
     def predict(messages):
         raise RuntimeError("boom")
