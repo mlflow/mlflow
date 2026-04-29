@@ -215,26 +215,22 @@ def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
         roles = client.list_roles(workspace_name)
 
     role_names = sorted(r.name for r in roles)
-    assert role_names == ["editor", "viewer", "workspace-admin"]
+    assert role_names == ["admin", "user"]
 
     # Each role got its expected permission row. Look up by name and inspect.
     by_name = {r.name: r for r in roles}
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        admin_perms = client.list_role_permissions(by_name["workspace-admin"].id)
-        editor_perms = client.list_role_permissions(by_name["editor"].id)
-        viewer_perms = client.list_role_permissions(by_name["viewer"].id)
+        admin_perms = client.list_role_permissions(by_name["admin"].id)
+        user_perms = client.list_role_permissions(by_name["user"].id)
 
-    # All three roles use resource_type='workspace' (the workspace-wide grant form).
-    # MANAGE additionally grants workspace-admin capability; EDIT/READ are pure
-    # workspace-wide resource access.
+    # Both roles use resource_type='workspace' (the workspace-wide grant form).
+    # MANAGE additionally grants workspace admin capability; USE is the
+    # workspace-membership level — read every resource and create new ones.
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in admin_perms] == [
         ("workspace", "*", "MANAGE")
     ]
-    assert [(p.resource_type, p.resource_pattern, p.permission) for p in editor_perms] == [
-        ("workspace", "*", "EDIT")
-    ]
-    assert [(p.resource_type, p.resource_pattern, p.permission) for p in viewer_perms] == [
-        ("workspace", "*", "READ")
+    assert [(p.resource_type, p.resource_pattern, p.permission) for p in user_perms] == [
+        ("workspace", "*", "USE")
     ]
 
 
