@@ -24,8 +24,10 @@ import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tra
 import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/route-defs';
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { getGatewayRouteDefs } from './gateway/route-defs';
+import { getAdminRouteDefs } from './admin/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
+import { MlflowTopBar } from './common/components/MlflowTopBar';
 import { AssistantProvider, AssistantRouteContextProvider } from './assistant';
 import { RootAssistantLayout } from './common/components/RootAssistantLayout';
 import {
@@ -61,19 +63,31 @@ const MlflowRootLayout = ({
   const { workflowType } = useWorkflowType();
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        // Single chrome paint surface for the whole viewport. Both the
+        // top-bar and the sidebar/main row are transparent above this so
+        // the gradient is continuous across the seam between them — each
+        // layer painting its own gradient would compute the pattern
+        // against its own bounding box and the bands wouldn't match.
+        background:
+          workflowType === WorkflowType.GENAI
+            ? `linear-gradient(163deg, rgba(66, 153, 224, 0.06) 20%, rgba(202, 66, 224, 0.06) 35%, rgba(255, 95, 70, 0.06) 50%, transparent 80%), ${theme.colors.backgroundSecondary}`
+            : theme.colors.backgroundSecondary,
+      }}
+    >
       <ErrorModal />
       <AppErrorBoundary>
+        <MlflowTopBar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
         <RootAssistantLayout>
           <div
             css={{
               display: 'flex',
               flexDirection: 'row',
               width: '100%',
-              background:
-                workflowType === WorkflowType.GENAI
-                  ? `linear-gradient(163deg, rgba(66, 153, 224, 0.06) 20%, rgba(202, 66, 224, 0.06) 35%, rgba(255, 95, 70, 0.06) 50%, transparent 80%), ${theme.colors.backgroundSecondary}`
-                  : theme.colors.backgroundSecondary,
             }}
           >
             <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
@@ -206,6 +220,7 @@ export const MlflowRouter = () => {
       ...getExperimentTrackingRouteDefs(),
       ...getModelRegistryRouteDefs(),
       ...getGatewayRouteDefs(),
+      ...getAdminRouteDefs(),
       ...getCommonRouteDefs(),
     ],
     [],
