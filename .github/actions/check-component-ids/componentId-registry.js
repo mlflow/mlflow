@@ -1907,7 +1907,6 @@ module.exports = {
   "shared.model-trace-explorer.assessment-value-number-input": "",
   "shared.model-trace-explorer.assessment-value-string-input": "",
   "shared.model-trace-explorer.assessments-pane-toggle": "",
-  "shared.model-trace-explorer.assessments-pane-toggle-tooltip": "",
   "shared.model-trace-explorer.attachment-audio-play": "",
   "shared.model-trace-explorer.attachment-download": "",
   "shared.model-trace-explorer.attachment-image-preview": "",
