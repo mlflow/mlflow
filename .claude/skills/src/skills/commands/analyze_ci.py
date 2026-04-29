@@ -57,7 +57,8 @@ def prune_old_cached_logs() -> None:
     if not LOG_CACHE_DIR.exists():
         return
     cutoff = time.time() - LOG_CACHE_TTL_SECONDS
-    for log_file in LOG_CACHE_DIR.rglob("*.log"):
+    # Glob also catches partial `*.log.tmp` files left by interrupted downloads
+    for log_file in LOG_CACHE_DIR.rglob("*.log*"):
         if log_file.stat().st_mtime < cutoff:
             log_file.unlink()
     for run_dir in LOG_CACHE_DIR.iterdir():
