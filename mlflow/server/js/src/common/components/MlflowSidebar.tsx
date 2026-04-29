@@ -434,6 +434,12 @@ export function MlflowSidebar({
               <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
             </span>
           </MlflowSidebarLink>
+          {/* Settings is workspace-scoped (``/settings/general`` etc.), so
+              hide it on the workspace-selection page where there's no
+              workspace context — the link would just bounce back to ``/``
+              via ``WorkspaceRouterSync``. Admin surfaces live in the
+              account dropdown ("Manage"), so no need to keep Settings
+              visible just to reach them. */}
           {showWorkspaceMenuItems && !showNestedSettingsItems && (
             <MlflowSidebarLink
               css={{ paddingBlock: theme.spacing.sm }}

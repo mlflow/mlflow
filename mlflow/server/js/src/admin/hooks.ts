@@ -37,13 +37,19 @@ export const DEV_USER_SWITCHER_ENABLED: boolean =
  * Fetches the currently authenticated user's identity (id, username, is_admin)
  * from the backend. Works with HTTP Basic Auth since the backend reads
  * request.authorization.username; no identifying cookie needed.
+ *
+ * Pass `{ enabled: false }` to suppress the request entirely — useful for
+ * call sites that only need the result conditionally (e.g. a strict
+ * auth-availability check that's only consulted on certain routes), so
+ * auth-disabled deployments don't accumulate noisy 404s on every page.
  */
-export const useCurrentUserQuery = () => {
+export const useCurrentUserQuery = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['admin_current_user'],
     queryFn: AdminApi.getCurrentUser,
     retry: false,
     refetchOnWindowFocus: false,
+    enabled: options?.enabled ?? true,
   });
 };
 
