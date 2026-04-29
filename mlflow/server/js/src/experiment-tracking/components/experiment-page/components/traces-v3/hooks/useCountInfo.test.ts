@@ -161,7 +161,7 @@ describe('useCountInfo', () => {
     });
   });
 
-  it('includes additional filters alongside run filters in grouped session metrics queries', () => {
+  it('includes metrics-compatible additional filters alongside run filters in grouped session metrics queries', () => {
     mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isLoading: false });
 
     const traceInfos = [
@@ -178,13 +178,45 @@ describe('useCountInfo', () => {
         traceInfos,
         metadataTraceInfos: traceInfos,
         isGroupedBySession: true,
-        additionalFilters: [{ column: 'prompt', operator: FilterOperator.EQUALS, value: 'test-prompt/1' }],
+        additionalFilters: [{ column: 'user', operator: FilterOperator.EQUALS, value: 'user-123' }],
       }),
     );
 
     expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
       expect.objectContaining({
-        filters: ['trace.metadata.`mlflow.sourceRun` = "run-123"', "prompt = 'test-prompt/1'"],
+        filters: [
+          'trace.metadata.`mlflow.sourceRun` = "run-123"',
+          'trace.metadata.`mlflow.trace.user` = "user-123"',
+        ],
+      }),
+    );
+  });
+
+  it('falls back to metadata counts when additional filters are unsupported by trace metrics queries', () => {
+    mockShouldUseInfinitePaginatedTraces.mockReturnValue(true);
+    mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isLoading: false });
+
+    const traceInfos = [createTestTraceInfoV3('tr-1', 'req-1', 'request-1')];
+
+    const { result } = renderHook(() =>
+      useCountInfo({
+        ...defaultParams,
+        traceInfos,
+        metadataTotalCount: 6,
+        additionalFilters: [{ column: 'prompt', operator: FilterOperator.EQUALS, value: 'test-prompt/1' }],
+      }),
+    );
+
+    expect(result.current).toEqual({
+      currentCount: 1,
+      logCountLoading: false,
+      totalCount: 6,
+      maxAllowedCount: Infinity,
+    });
+    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabled: false,
+        filters: undefined,
       }),
     );
   });
