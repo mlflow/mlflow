@@ -504,18 +504,40 @@ export const useRunsColumnDefinitions = ({
         groupId: COLUMN_TYPES.PARAMS,
         children: paramKeys.map((paramKey) => {
           const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey);
+          const fieldName = createParamFieldName(paramKey);
+
+          // Detect whether every non-empty value in this column is a valid number.
+          // We use Number() rather than parseFloat() so that "123abc" is rejected.
+          const rawValues = (rowsData ?? []).map((row) => row[fieldName]);
+          // '-' is the default placeholder for runs that don't have this param — exclude it
+          const nonEmpty = rawValues.filter((v): v is string => typeof v === 'string' && v !== '' && v !== '-');
+          const isNumericColumn =
+            nonEmpty.length > 0 && nonEmpty.every((v) => !isNaN(Number(v.trim())));
+
+          const numericFormatSpec = isNumericColumn
+            ? computeColumnFormatSpec(nonEmpty.map((v) => Number(v.trim())))
+            : null;
+
           return {
             colId: canonicalSortKey,
             headerName: paramKey,
             headerTooltip: getQualifiedEntityName(COLUMN_TYPES.PARAMS, paramKey),
-            field: createParamFieldName(paramKey),
-            tooltipField: createParamFieldName(paramKey),
+            field: fieldName,
+            tooltipField: fieldName,
             initialHide: true,
             initialWidth: 100,
             sortable: true,
             headerComponentParams: {
               canonicalSortKey,
+              headerAnnotation: numericFormatSpec?.headerAnnotation,
             },
+            ...(numericFormatSpec && {
+              valueFormatter: ({ value }) => {
+                if (value == null || value === '' || value === '-') return value ?? '';
+                const n = Number(String(value).trim());
+                return isNaN(n) ? String(value) : numericFormatSpec.format(n);
+              },
+            }),
             cellClassRules: {
               'is-previewable-cell': () => true,
               'is-ordered-by': cellClassIsOrderedBy,
