@@ -140,7 +140,7 @@ jobs:
 
       - name: Triage issue
         id: triage
-        if: contains(github.event.issue.labels.*.name, 'bug') && steps.injection.outputs.suspicious != 'true'
+        if: contains(github.event.issue.labels.*.name, 'bug') && steps.injection.outputs.suspicious == 'false'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
