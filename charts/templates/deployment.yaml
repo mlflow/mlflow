@@ -7,7 +7,9 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
-    {{- if .Values.storage.enabled }}
+    {{- if .Values.deploymentStrategy }}
+    {{- toYaml .Values.deploymentStrategy | nindent 4 }}
+    {{- else if or (and .Values.storage.enabled (eq .Values.storage.accessMode "ReadWriteOnce")) (hasPrefix "sqlite://" .Values.mlflow.backendStoreUri) }}
     type: Recreate
     {{- else }}
     type: RollingUpdate

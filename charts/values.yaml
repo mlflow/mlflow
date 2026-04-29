@@ -6,6 +6,13 @@ image:
 
 replicaCount: 1
 
+# Deployment update strategy. When not set, defaults to Recreate if the storage
+# PVC access mode is ReadWriteOnce or a SQLite backend store URI is configured;
+# otherwise defaults to RollingUpdate.
+# deploymentStrategy:
+#   type: Recreate
+deploymentStrategy: {}
+
 # MLflow server CLI options.
 # Run `mlflow server --help` for the full list.
 server:
