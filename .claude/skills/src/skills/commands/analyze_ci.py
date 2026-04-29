@@ -124,6 +124,7 @@ def extract_package_versions(log_path: Path) -> Path | None:
 
     captured: list[str] = []
     capturing = False
+    terminated = False
     with log_path.open("r", encoding="utf-8", errors="replace") as f:
         for line in f:
             line = line.rstrip("\r\n")
@@ -133,10 +134,11 @@ def extract_package_versions(log_path: Path) -> Path | None:
                     capturing = True
                 continue
             if content == PACKAGE_VERSIONS_END_MARKER:
+                terminated = True
                 break
-            captured.append(line)
+            captured.append(content)
 
-    if not captured:
+    if not terminated or not captured:
         return None
     with out_path.open("w", encoding="utf-8") as f:
         f.write("\n".join(captured) + "\n")
