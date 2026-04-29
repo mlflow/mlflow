@@ -25,7 +25,7 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import AdminRoutes from '../../admin/routes';
-import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../admin/hooks';
+import { useIsAuthAvailable } from '../../admin/hooks';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -55,12 +55,16 @@ const isExperimentsActive = (location: Location) =>
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
 const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
 const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', location.pathname));
+// /admin is also rendered inside the Settings sub-sidebar so the Settings
+// nav becomes the single home for "manage" surfaces. /account lives in the
+// top-bar user-menu widget instead and intentionally does not light up the
+// Settings nav.
 const isSettingsActive = (location: Location) =>
   Boolean(
     matchPath({ path: '/settings', end: true }, location.pathname) ||
-    matchPath('/settings/:section', location.pathname),
+    matchPath('/settings/:section', location.pathname) ||
+    matchPath('/admin/*', location.pathname),
   );
-const isAdminActive = (location: Location) => Boolean(matchPath('/admin/*', location.pathname));
 
 type MlFlowSidebarMenuDropdownComponentId =
   | 'mlflow_sidebar.create_experiment_button'
@@ -132,9 +136,6 @@ export function MlflowSidebar({
   const activeExperimentId = isInsideExperiment(location) ? experimentId : lastSelectedExperimentIdRef.current;
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
-
-  const isAuthAvailable = useIsAuthAvailable();
-  const isAdmin = useCurrentUserIsAdmin();
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -337,26 +338,31 @@ export function MlflowSidebar({
             margin: 0,
           }}
         >
-          {showWorkspaceMenuItems &&
-            (showNestedSettingsItems ? (
-              <MlflowSidebarSettingsItems collapsed={!showSidebar} />
-            ) : (
-              menuItems.map(
-                ({ icon, linkProps, componentId, nestedItems }) =>
-                  nestedItems ?? (
-                    <MlflowSidebarLink
-                      key={componentId}
-                      to={linkProps.to}
-                      componentId={componentId}
-                      isActive={linkProps.isActive}
-                      icon={icon}
-                      collapsed={!showSidebar}
-                    >
-                      {linkProps.children}
-                    </MlflowSidebarLink>
-                  ),
-              )
-            ))}
+          {showNestedSettingsItems ? (
+            // Settings sub-sidebar renders regardless of workspace context —
+            // its always-global entries (Admin / Account) are reachable from
+            // anywhere, and the component itself gates its workspace-scoped
+            // entries (General / LLM Connections / Webhooks) on
+            // `hasWorkspaceContext`.
+            <MlflowSidebarSettingsItems collapsed={!showSidebar} hasWorkspaceContext={showWorkspaceMenuItems} />
+          ) : (
+            showWorkspaceMenuItems &&
+            menuItems.map(
+              ({ icon, linkProps, componentId, nestedItems }) =>
+                nestedItems ?? (
+                  <MlflowSidebarLink
+                    key={componentId}
+                    to={linkProps.to}
+                    componentId={componentId}
+                    isActive={linkProps.isActive}
+                    icon={icon}
+                    collapsed={!showSidebar}
+                  >
+                    {linkProps.children}
+                  </MlflowSidebarLink>
+                ),
+            )
+          )}
         </ul>
         <div>
           {isLocalServer && (
@@ -424,23 +430,28 @@ export function MlflowSidebar({
               <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
             </span>
           </MlflowSidebarLink>
-          {isAuthAvailable && isAdmin && (
+          {/* Admin lives inside the Settings sub-sidebar — see
+              `MlflowSidebarSettingsItems`. The single Settings entry below
+              opens that sub-sidebar; the sub-nav gates Admin on
+              `isAdmin && isAuthAvailable`. Account has its own top-bar
+              user-menu widget and is intentionally not in the sidebar.
+
+              On the workspace-selection page (`!showWorkspaceMenuItems`),
+              `/settings/:section` would bounce back to `/` because
+              `WorkspaceRouterSync` requires a workspace context for
+              workspace-scoped paths. Route the click to `/admin` instead —
+              it's in `ALWAYS_GLOBAL_ROUTES`, opens the same Settings
+              sub-sidebar, and is the most useful target for an admin who
+              hasn't picked a workspace yet. Non-admins will be redirected
+              by the backend; that's no worse than the prior behavior. */}
+          {!showNestedSettingsItems && (
             <MlflowSidebarLink
-              disableWorkspacePrefix
               css={{ paddingBlock: theme.spacing.sm }}
-              to={AdminRoutes.adminPageRoute}
-              componentId="mlflow.sidebar.admin_tab_link"
-              isActive={isAdminActive}
-              icon={<GearIcon />}
-              collapsed={!showSidebar}
-            >
-              <FormattedMessage defaultMessage="Admin" description="Sidebar link for admin page" />
-            </MlflowSidebarLink>
-          )}
-          {showWorkspaceMenuItems && !showNestedSettingsItems && (
-            <MlflowSidebarLink
-              css={{ paddingBlock: theme.spacing.sm }}
-              to={`${ExperimentTrackingRoutes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(location.pathname + location.search)}`}
+              to={
+                showWorkspaceMenuItems
+                  ? `${ExperimentTrackingRoutes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(location.pathname + location.search)}`
+                  : AdminRoutes.adminPageRoute
+              }
               componentId="mlflow.sidebar.settings_tab_link"
               isActive={isSettingsActive}
               icon={<GearIcon />}

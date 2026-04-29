@@ -203,6 +203,10 @@
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
   },
+  "/GoAHa": {
+    "defaultMessage": "Admin",
+    "description": "Sidebar link: Settings > Admin"
+  },
   "/HeTx7": {
     "defaultMessage": "Create",
     "description": "Create webhook confirm button"
@@ -1726,10 +1730,6 @@
   "8flziy": {
     "defaultMessage": "Time (Wall)",
     "description": "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
-  },
-  "8hEm5i": {
-    "defaultMessage": "Admin",
-    "description": "Sidebar link for admin page"
   },
   "8hpS0b": {
     "defaultMessage": "Pin group",
