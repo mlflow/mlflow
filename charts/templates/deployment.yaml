@@ -37,39 +37,9 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.migrate.enabled .Values.extraInitContainers }}
+      {{- if .Values.extraInitContainers }}
       initContainers:
-        {{- if .Values.migrate.enabled }}
-        - name: db-migrate
-          image: {{ include "mlflow.image" . }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-            - sh
-            - -c
-            - mlflow db upgrade {{ if .Values.server.value_options.backend_store_uri }}{{ .Values.server.value_options.backend_store_uri | quote }}{{ else }}"$MLFLOW_BACKEND_STORE_URI"{{ end }}
-          {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.env }}
-          env:
-            {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom }}
-            - name: MLFLOW_BACKEND_STORE_URI
-              {{- if .Values.mlflow.backendStoreUriFrom }}
-              valueFrom:
-                {{- toYaml .Values.mlflow.backendStoreUriFrom | nindent 16 }}
-              {{- else }}
-              value: {{ .Values.mlflow.backendStoreUri | quote }}
-              {{- end }}
-            {{- end }}
-            {{- with .Values.env }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
-          {{- end }}
-          {{- with .Values.envFrom }}
-          envFrom:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-        {{- end }}
-        {{- with .Values.extraInitContainers }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- toYaml .Values.extraInitContainers | nindent 8 }}
       {{- end }}
       containers:
         - name: mlflow

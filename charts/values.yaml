@@ -38,10 +38,6 @@ server:
   staticPrefix: ""
 
 
-# Run `mlflow db upgrade` in an init container before the server starts.
-# Disable only if the database schema is managed externally.
-migrate:
-  enabled: false
 
 service:
   type: ClusterIP
