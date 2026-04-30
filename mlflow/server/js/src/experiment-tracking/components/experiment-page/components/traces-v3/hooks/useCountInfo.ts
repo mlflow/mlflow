@@ -196,8 +196,11 @@ export function useCountInfo({
     };
   }, [additionalFilters, runUuid]);
 
+  // Grouped session totals still depend on backend support for the `session_count`
+  // metric, so keep the frontend split on the safe metadata fallback path until
+  // that metric is available.
   const shouldQueryTraceMetrics =
-    (usingInfinitePagination || isGroupedBySession) && !disabled && !hasUnsupportedFilters;
+    usingInfinitePagination && !isGroupedBySession && !disabled && !hasUnsupportedFilters;
 
   const startTimeMs = timeRange?.startTime ? Number(timeRange.startTime) : undefined;
   const endTimeMs = timeRange?.endTime ? Number(timeRange.endTime) : undefined;
@@ -212,7 +215,9 @@ export function useCountInfo({
     enabled: shouldQueryTraceMetrics,
     filters,
   });
-  const metricsTotal = traceCountMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT];
+  const metricsTotal = shouldQueryTraceMetrics
+    ? traceCountMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT]
+    : undefined;
   const currentCount = isGroupedBySession
     ? getUniqueSessionCount(traceInfos)
     : traceInfos?.length ?? traceInfosCount ?? 0;
@@ -220,10 +225,11 @@ export function useCountInfo({
 
   return useMemo(() => {
     if (usingInfinitePagination || isGroupedBySession) {
+      const fallbackTotal = Math.max(filteredTotalCount ?? 0, currentCount ?? 0);
       return {
         currentCount,
         logCountLoading: traceInfosLoading || traceCountLoading,
-        totalCount: metricsTotal ?? filteredTotalCount ?? currentCount ?? 0,
+        totalCount: metricsTotal ?? fallbackTotal,
         maxAllowedCount: Infinity,
       };
     }

@@ -72,13 +72,13 @@ describe('useCountInfo', () => {
     expect(result.current).toEqual({
       currentCount: 2,
       logCountLoading: false,
-      totalCount: 3,
+      totalCount: 2,
       maxAllowedCount: Infinity,
     });
     expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         metricName: TraceMetricKey.SESSION_COUNT,
-        enabled: true,
+        enabled: false,
       }),
     );
   });
@@ -219,5 +219,31 @@ describe('useCountInfo', () => {
         filters: undefined,
       }),
     );
+  });
+
+  it('never reports a fallback total below the number of loaded rows', () => {
+    mockShouldUseInfinitePaginatedTraces.mockReturnValue(true);
+    mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isLoading: false });
+
+    const traceInfos = [
+      createTestTraceInfoV3('tr-1', 'req-1', 'request-1'),
+      createTestTraceInfoV3('tr-2', 'req-2', 'request-2'),
+    ];
+
+    const { result } = renderHook(() =>
+      useCountInfo({
+        ...defaultParams,
+        traceInfos,
+        metadataTotalCount: 1,
+        additionalFilters: [{ column: 'prompt', operator: FilterOperator.EQUALS, value: 'test-prompt/1' }],
+      }),
+    );
+
+    expect(result.current).toEqual({
+      currentCount: 2,
+      logCountLoading: false,
+      totalCount: 2,
+      maxAllowedCount: Infinity,
+    });
   });
 });
