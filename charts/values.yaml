@@ -1,11 +1,17 @@
+# MLflow container image.
 image:
   repository: ghcr.io/mlflow/mlflow
   # Defaults to chart appVersion when empty
   tag: ""
   pullPolicy: IfNotPresent
 
+# Override the full name of all resources created by this chart (overrides
+# the default "<release>-<chart>" pattern). Useful when the release name
+# would produce an undesirable resource name.
 fullnameOverride: ""
 
+# Number of MLflow server replicas. Use 1 when storage.enabled is true and
+# the PVC access mode is ReadWriteOnce, as only one pod can mount the volume.
 replicaCount: 1
 
 # Deployment update strategy. When not set, defaults to Recreate if the storage
@@ -65,13 +71,18 @@ garbageCollection:
       cpu: 500m
       memory: 512Mi
 
+# Kubernetes Service exposing the MLflow server.
 service:
+  # Service type: ClusterIP, NodePort, or LoadBalancer.
   type: ClusterIP
   port: 5000
   annotations: {}
 
+# Ingress for external access to the MLflow server.
 ingress:
   enabled: false
+  # IngressClass to use (e.g. "nginx", "traefik"). Leave empty to use the
+  # cluster default.
   className: ""
   annotations: {}
   hosts:
@@ -82,11 +93,30 @@ ingress:
   tls: []
 
 mlflow:
+  # URI of the database or file store used to record runs and metadata.
+  # Examples: "sqlite:////mlflow/mlflow.db", "postgresql://user:pass@host/db"
   backendStoreUri: ""
+  # Alternative to backendStoreUri: read the URI from a Secret or ConfigMap.
+  # Example (Secret):
+  #   backendStoreUriFrom:
+  #     secretKeyRef:
+  #       name: mlflow-db-secret
+  #       key: uri
   backendStoreUriFrom: {}
+  # URI of the model registry store. Defaults to backendStoreUri when not set.
   registryStoreUri: ""
+  # Alternative to registryStoreUri: read the URI from a Secret or ConfigMap.
+  # Example (Secret):
+  #   registryStoreUriFrom:
+  #     secretKeyRef:
+  #       name: mlflow-registry-secret
+  #       key: uri
   registryStoreUriFrom: {}
+  # Root location for storing artifacts (runs). Used when MLflow manages artifact serving.
+  # Examples: "s3://my-bucket/mlflow", "/mlflow/artifacts"
   defaultArtifactRoot: ""
+  # Directory where MLflow proxies artifact uploads and downloads.
+  # Required when using --serve-artifacts.
   artifactsDestination: ""
 
 # Extra environment variables injected into both init and main containers.
@@ -99,36 +129,54 @@ mlflow:
 #         key: password
 env: []
 
-# Extra envFrom sources (ConfigMaps, Secrets).
+# Extra envFrom sources (ConfigMaps, Secrets) injected into all containers.
 envFrom: []
 
+# Extra volumes added to the pod.
 extraVolumes: []
+# Extra volume mounts added to the mlflow container.
 extraVolumeMounts: []
+# Extra init containers added to the pod.
 extraInitContainers: []
+# Extra sidecar containers added to the pod.
 extraContainers: []
 
+# TLS configuration for the MLflow server. When enabled, the server is served
+# over HTTPS using the certificate stored in the referenced Secret.
 tls:
   enabled: false
+  # Name of the TLS Secret containing tls.crt and tls.key.
   secretName: mlflow-tls
 
+# NetworkPolicy restricting ingress and egress traffic for the MLflow pod.
+# Egress rules allow DNS, HTTPS, Kubernetes API, common databases, and S3.
 networkPolicy:
   enabled: false
+  # Additional egress rules appended to the default set.
   additionalEgressRules: []
 
+# Prometheus metrics configuration. When enabled, the MLflow server exposes
+# metrics at the specified HTTP path.
 metrics:
   enabled: false
   path: /metrics
 
+# Prometheus ServiceMonitor for metrics scraping (requires the Prometheus
+# Operator CRD to be installed in the cluster).
 serviceMonitor:
   enabled: false
+  # Set to true to skip TLS certificate verification when scraping metrics.
+  # Only applies when tls.enabled is true.
   insecureSkipVerify: false
 
+# Pod-level security context applied to all containers in the pod.
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000
   seccompProfile:
     type: RuntimeDefault
 
+# Container-level security context applied to the mlflow container.
 securityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
@@ -136,11 +184,15 @@ securityContext:
     drop:
       - ALL
 
+# ServiceAccount used by the MLflow server pod.
 serviceAccount:
+  # Set to true to create the ServiceAccount. Set to false to use an existing one.
   create: true
+  # Name of the ServiceAccount. Defaults to the full chart name when empty.
   name: ""
   annotations: {}
 
+# RBAC resources (Role/ClusterRole and binding) for the MLflow ServiceAccount.
 rbac:
   create: false
   # Set to true to create a ClusterRole/ClusterRoleBinding instead of a
@@ -149,13 +201,20 @@ rbac:
   clusterScoped: false
   extraRules: []
 
+# Persistent storage for MLflow artifacts and the SQLite database.
+# Required when using a file-based or SQLite backend store.
 storage:
   enabled: false
   size: 10Gi
+  # Access mode for the PersistentVolumeClaim. Use ReadWriteOnce for single-node
+  # deployments and ReadWriteMany for multi-replica setups.
   accessMode: ReadWriteOnce
+  # StorageClass to use. Defaults to the cluster default when empty.
   storageClassName: ""
+  # Path where the PVC is mounted inside the container.
   mountPath: /mlflow
 
+# CPU and memory resource requests and limits for the mlflow container.
 resources:
   {}
   # limits:
@@ -165,9 +224,14 @@ resources:
   #   cpu: 250m
   #   memory: 256Mi
 
+# Annotations added to the MLflow pod.
 podAnnotations: {}
+# Labels added to the MLflow pod.
 podLabels: {}
 
+# Node selector for pod scheduling.
 nodeSelector: {}
+# Tolerations for pod scheduling.
 tolerations: []
+# Affinity rules for pod scheduling.
 affinity: {}
