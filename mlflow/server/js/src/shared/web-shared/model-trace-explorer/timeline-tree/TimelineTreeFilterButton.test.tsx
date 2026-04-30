@@ -9,6 +9,7 @@ import { IntlProvider } from '@databricks/i18n';
 import { TEST_SPAN_FILTER_STATE } from './TimelineTree.test-utils';
 import { TimelineTreeFilterButton } from './TimelineTreeFilterButton';
 import type { SpanFilterState } from '../ModelTrace.types';
+import { SpanLogLevel } from '../ModelTrace.types';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
@@ -24,6 +25,7 @@ const TestWrapper = () => {
         <span>{'Show parents ' + String(spanFilterState.showParents)}</span>
         <span>{'Show exceptions ' + String(spanFilterState.showExceptions)}</span>
         <span>{'Show chain spans ' + String(spanFilterState.spanTypeDisplayState['CHAIN'])}</span>
+        <span>{'Min log level ' + String(spanFilterState.minLogLevel)}</span>
       </DesignSystemProvider>
     </IntlProvider>
   );
@@ -56,5 +58,13 @@ describe('TimelineTreeFilterButton', () => {
     const showChainCheckbox = screen.getByRole('checkbox', { name: 'Chain' });
     await userEvent.click(showChainCheckbox);
     expect(screen.getByText('Show chain spans false')).toBeInTheDocument();
+
+    // The log-level Select starts at DEBUG (the default "show everything" threshold)
+    // and should update state when a higher level is picked.
+    expect(screen.getByText(`Min log level ${SpanLogLevel.DEBUG}`)).toBeInTheDocument();
+    const logLevelSelect = screen.getByRole('combobox', { name: /Minimum log level/i });
+    await userEvent.click(logLevelSelect);
+    await userEvent.click(await screen.findByRole('option', { name: 'Warning' }));
+    expect(screen.getByText(`Min log level ${SpanLogLevel.WARNING}`)).toBeInTheDocument();
   });
 });

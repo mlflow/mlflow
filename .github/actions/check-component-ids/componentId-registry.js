@@ -2099,6 +2099,7 @@ module.exports = {
   "shared.model-trace-explorer.span-cost-hovercard.input-cost.tag": "",
   "shared.model-trace-explorer.span-cost-hovercard.output-cost.tag": "",
   "shared.model-trace-explorer.span-cost-hovercard.total-cost.tag": "",
+  "shared.model-trace-explorer.span-log-level-filter": "",
   "shared.model-trace-explorer.span-model-badge": "",
   "shared.model-trace-explorer.span-name-tag": "",
   "shared.model-trace-explorer.span-name-tooltip": "",

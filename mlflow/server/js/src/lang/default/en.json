@@ -127,6 +127,10 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
+  "+jkuNH": {
+    "defaultMessage": "Info",
+    "description": "Option in the span log-level filter that hides DEBUG-level spans."
+  },
   "+khKtf": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
@@ -6827,6 +6831,10 @@
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
   },
+  "dkLDC6": {
+    "defaultMessage": "Error",
+    "description": "Option in the span log-level filter that hides everything below ERROR."
+  },
   "dl0TeT": {
     "defaultMessage": "Save",
     "description": "Experiment tracking > experiment page > runs > save tags button"
@@ -8007,6 +8015,10 @@
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
   },
+  "kNOPIj": {
+    "defaultMessage": "Critical",
+    "description": "Option in the span log-level filter that shows only CRITICAL spans."
+  },
   "kNTkr+": {
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
@@ -8394,6 +8406,10 @@
   "meoYKZ": {
     "defaultMessage": "Artifact Location",
     "description": "Label for create experiment modal to enter a artifact location"
+  },
+  "mgWd3Q": {
+    "defaultMessage": "Minimum log level",
+    "description": "Section label for the minimum span log level filter in the trace explorer."
   },
   "mi7FdJ": {
     "defaultMessage": "Summary",
@@ -9063,6 +9079,10 @@
     "defaultMessage": "Hide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run"
   },
+  "qTr/Mj": {
+    "defaultMessage": "Debug",
+    "description": "Option in the span log-level filter that shows all spans (DEBUG and above)."
+  },
   "qVQYZH": {
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
@@ -9190,6 +9210,10 @@
   "rAJDzz": {
     "defaultMessage": "Transition existing {currentStage} model version to {archivedStage}",
     "description": "Description text for checkbox for archiving existing model versions\n                  in the toStage for model version stage transition request"
+  },
+  "rAhq4z": {
+    "defaultMessage": "Warning",
+    "description": "Option in the span log-level filter that hides DEBUG and INFO spans."
   },
   "rBIGDf": {
     "defaultMessage": "Sufficient",

@@ -1,15 +1,19 @@
 import {
+  ApplyDesignSystemContextOverrides,
   Button,
   Checkbox,
   FilterIcon,
   InfoTooltip,
   Popover,
+  SimpleSelect,
+  SimpleSelectOption,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { SpanFilterState } from '../ModelTrace.types';
+import { SpanLogLevel } from '../ModelTrace.types';
 import { getDisplayNameForSpanType, getIconTypeForSpan } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerIcon } from '../ModelTraceExplorerIcon';
 
@@ -72,6 +76,59 @@ export const TimelineTreeFilterButton = ({
               </Checkbox>
             );
           })}
+          <Typography.Text color="secondary">
+            <FormattedMessage
+              defaultMessage="Minimum log level"
+              description="Section label for the minimum span log level filter in the trace explorer."
+            />
+          </Typography.Text>
+          {/* Bump the design-system z-index so the Select's dropdown portal lands
+              above the parent filter Popover instead of being clipped behind it. */}
+          <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
+            <SimpleSelect
+              id="shared.model-trace-explorer.span-log-level-filter"
+              componentId="shared.model-trace-explorer.span-log-level-filter"
+              label="Minimum log level"
+              value={String(spanFilterState.minLogLevel)}
+              onChange={(e) =>
+                setSpanFilterState({
+                  ...spanFilterState,
+                  minLogLevel: Number(e.target.value) as SpanLogLevel,
+                })
+              }
+            >
+              <SimpleSelectOption value={String(SpanLogLevel.DEBUG)}>
+                <FormattedMessage
+                  defaultMessage="Debug"
+                  description="Option in the span log-level filter that shows all spans (DEBUG and above)."
+                />
+              </SimpleSelectOption>
+              <SimpleSelectOption value={String(SpanLogLevel.INFO)}>
+                <FormattedMessage
+                  defaultMessage="Info"
+                  description="Option in the span log-level filter that hides DEBUG-level spans."
+                />
+              </SimpleSelectOption>
+              <SimpleSelectOption value={String(SpanLogLevel.WARNING)}>
+                <FormattedMessage
+                  defaultMessage="Warning"
+                  description="Option in the span log-level filter that hides DEBUG and INFO spans."
+                />
+              </SimpleSelectOption>
+              <SimpleSelectOption value={String(SpanLogLevel.ERROR)}>
+                <FormattedMessage
+                  defaultMessage="Error"
+                  description="Option in the span log-level filter that hides everything below ERROR."
+                />
+              </SimpleSelectOption>
+              <SimpleSelectOption value={String(SpanLogLevel.CRITICAL)}>
+                <FormattedMessage
+                  defaultMessage="Critical"
+                  description="Option in the span log-level filter that shows only CRITICAL spans."
+                />
+              </SimpleSelectOption>
+            </SimpleSelect>
+          </ApplyDesignSystemContextOverrides>
           <Typography.Text color="secondary">
             <FormattedMessage
               defaultMessage="Settings"

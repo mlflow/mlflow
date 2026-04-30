@@ -6,7 +6,7 @@ import type {
   ModelTraceSpanNode,
   RawModelTraceChatMessage,
 } from './ModelTrace.types';
-import { ModelSpanType, type ModelTraceSpanV3 } from './ModelTrace.types';
+import { ModelSpanType, SpanLogLevel, type ModelTraceSpanV3 } from './ModelTrace.types';
 import {
   MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
@@ -23,8 +23,10 @@ import {
   MOCK_V3_TRACE,
 } from './ModelTraceExplorer.test-utils';
 import {
+  getSpanLogLevel,
   parseModelTraceToTree,
   parseModelTraceToTreeWithMultipleRoots,
+  parseSpanLogLevel,
   searchTree,
   searchTreeBySpanId,
   getMatchesFromSpan,
@@ -1494,5 +1496,162 @@ describe('parseTraceV4SerializedLocation', () => {
       type: 'UC_TABLE_PREFIX',
       uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
     });
+  });
+});
+
+describe('parseSpanLogLevel', () => {
+  it.each([
+    // wire shape: JSON-stringified int from the artifact endpoint
+    ['"30" string', '30', SpanLogLevel.WARNING],
+    ['"10" string', '10', SpanLogLevel.DEBUG],
+    // wire shape: int_value extracted by convertOtelAttributesToMap
+    ['number 30', 30, SpanLogLevel.WARNING],
+    ['number 50', 50, SpanLogLevel.CRITICAL],
+  ])('parses %s into the right SpanLogLevel', (_label, raw, expected) => {
+    expect(parseSpanLogLevel(raw)).toBe(expected);
+  });
+
+  it.each([
+    ['undefined', undefined],
+    ['null', null],
+    // tryDeserializeAttribute returns the original string when it fails to parse JSON
+    ['non-numeric string', 'NOPE'],
+    ['malformed JSON', '{'],
+  ])('returns undefined for %s', (_label, raw) => {
+    expect(parseSpanLogLevel(raw)).toBeUndefined();
+  });
+});
+
+describe('getSpanLogLevel', () => {
+  const makeSpan = (logLevel: SpanLogLevel | undefined): ModelTraceSpanNode =>
+    ({
+      key: 's',
+      type: ModelSpanType.LLM,
+      start: 0,
+      end: 1,
+      attributes: {},
+      assessments: [],
+      traceId: '',
+      logLevel,
+    }) as ModelTraceSpanNode;
+
+  it('returns the level set on the node', () => {
+    expect(getSpanLogLevel(makeSpan(SpanLogLevel.WARNING))).toBe(SpanLogLevel.WARNING);
+    expect(getSpanLogLevel(makeSpan(SpanLogLevel.DEBUG))).toBe(SpanLogLevel.DEBUG);
+  });
+
+  it('treats unset as DEBUG so old/unclassified spans stay visible by default', () => {
+    expect(getSpanLogLevel(makeSpan(undefined))).toBe(SpanLogLevel.DEBUG);
+  });
+});
+
+describe('searchTree log-level filter', () => {
+  // Build a small tree with mixed log levels so the threshold predicate can be
+  // exercised independently of the search and span-type filters.
+  const makeNode = (
+    key: string,
+    level: SpanLogLevel | undefined,
+    children: ModelTraceSpanNode[] = [],
+  ): ModelTraceSpanNode =>
+    ({
+      key,
+      title: key,
+      type: ModelSpanType.LLM,
+      start: 0,
+      end: 1,
+      inputs: {},
+      outputs: {},
+      attributes: {},
+      assessments: [],
+      events: [],
+      traceId: '',
+      children,
+      logLevel: level,
+    }) as ModelTraceSpanNode;
+
+  const buildTree = () =>
+    makeNode('root', SpanLogLevel.WARNING, [
+      makeNode('child-info', SpanLogLevel.INFO),
+      makeNode('child-debug', SpanLogLevel.DEBUG),
+      makeNode('child-error', SpanLogLevel.ERROR),
+    ]);
+
+  it('keeps every span when threshold is DEBUG (default behavior)', () => {
+    const filterState = { ...TEST_SPAN_FILTER_STATE, minLogLevel: SpanLogLevel.DEBUG };
+    const { filteredTreeNodes } = searchTree(buildTree(), '', filterState);
+
+    expect(filteredTreeNodes).toHaveLength(1);
+    expect(filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['child-info', 'child-debug', 'child-error']);
+  });
+
+  it('hides spans below the threshold but keeps parents of matched children when showParents is on', () => {
+    const filterState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.WARNING,
+      showParents: true,
+    };
+    const { filteredTreeNodes } = searchTree(buildTree(), '', filterState);
+
+    expect(filteredTreeNodes).toHaveLength(1);
+    // Only the ERROR child survives; root is preserved by showParents.
+    expect(filteredTreeNodes[0].key).toBe('root');
+    expect(filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['child-error']);
+  });
+
+  it('drops a sub-threshold parent (cutting it out of the tree) when showParents is off', () => {
+    // Re-shape the tree so the only above-threshold span is a grandchild,
+    // forcing the filter to surface it without an above-threshold parent.
+    const tree = makeNode('root', SpanLogLevel.DEBUG, [
+      makeNode('mid', SpanLogLevel.DEBUG, [makeNode('leaf', SpanLogLevel.ERROR)]),
+    ]);
+    const filterState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.WARNING,
+      showParents: false,
+    };
+    const { filteredTreeNodes } = searchTree(tree, '', filterState);
+
+    // root and mid are below threshold and get cut out; leaf bubbles up.
+    expect(filteredTreeNodes.map((n) => n.key)).toEqual(['leaf']);
+  });
+
+  it('always shows spans with exceptions even when below the level threshold', () => {
+    const tree: ModelTraceSpanNode = makeNode('root', SpanLogLevel.WARNING, [
+      {
+        ...makeNode('child-with-exception', SpanLogLevel.DEBUG),
+        events: [{ name: 'exception', attributes: {} }],
+      } as ModelTraceSpanNode,
+    ]);
+    const filterState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.ERROR,
+      showExceptions: true,
+      showParents: true,
+    };
+    const { filteredTreeNodes } = searchTree(tree, '', filterState);
+
+    expect(filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['child-with-exception']);
+  });
+
+  it('treats spans with no level attribute as DEBUG so they stay visible at the default threshold', () => {
+    const tree = makeNode('root', SpanLogLevel.WARNING, [
+      makeNode('unset-child', undefined), // no mlflow.spanLogLevel attribute
+    ]);
+    // DEBUG threshold (default): unset child stays (DEBUG >= DEBUG).
+    const debugState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.DEBUG,
+      showParents: true,
+    };
+    expect(searchTree(tree, '', debugState).filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['unset-child']);
+
+    // INFO threshold drops the unset child (DEBUG < INFO); root has no surviving children
+    // but is preserved on its own merit (WARNING >= INFO).
+    const infoState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.INFO,
+      showParents: true,
+    };
+    expect(searchTree(tree, '', infoState).filteredTreeNodes[0].children?.map((c) => c.key)).toEqual([]);
   });
 });
