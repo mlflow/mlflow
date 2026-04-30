@@ -171,12 +171,14 @@ def _get_agent_response_text(predict_fn: Callable[..., Any]) -> str | None:
 
     # Last resort: check the latest trace
     try:
-        if trace_id := mlflow.get_last_active_trace_id():
+        if trace_id := mlflow.get_last_active_trace_id(thread_local=True):
             from mlflow.genai.utils.trace_utils import extract_outputs_from_trace
 
             trace = mlflow.get_trace(trace_id)
             if outputs := extract_outputs_from_trace(trace):
-                return parse_outputs_to_str(outputs)
+                text = parse_outputs_to_str(outputs)
+                if text and text.strip():
+                    return text
     except Exception:
         _logger.debug("Failed to extract text from last active trace", exc_info=True)
 

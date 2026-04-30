@@ -375,6 +375,28 @@ def test_resolve_agent_description_loads_traces_from_experiment(mock_llm):
     mock_search.assert_called_once_with(locations=["exp-456"], max_results=50, return_type="list")
 
 
+def test_resolve_agent_description_ignores_experiment_id_when_traces_provided(mock_llm):
+    traces = [mock.MagicMock()]
+    agent_desc = _make_agent_desc(capabilities=["assist"])
+    mock_llm.return_value = agent_desc
+
+    def predict(messages):
+        raise RuntimeError("cannot self-describe")
+
+    with (
+        mock.patch("mlflow.search_traces") as mock_search,
+        mock.patch("mlflow.genai.discovery.utils.group_traces_by_session", return_value={}),
+        mock.patch(
+            "mlflow.genai.utils.trace_utils.extract_available_tools_from_trace",
+            return_value=None,
+        ),
+    ):
+        result = _resolve_agent_description(predict, "exp-456", traces, _MODEL)
+
+    assert result == agent_desc
+    mock_search.assert_not_called()
+
+
 def test_resolve_agent_description_falls_back_when_llm_raises(mock_llm):
     traces = [mock.MagicMock()]
     agent_desc = _make_agent_desc(capabilities=["assist"])
