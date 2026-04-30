@@ -18,6 +18,14 @@ import AnthropicLogoDark from '../../../common/static/logos/anthropic-dark.png';
 import GeminiLogo from '../../../common/static/logos/gemini.png';
 import DatabricksLogo from '../../../common/static/logos/databricks.svg';
 
+interface CodingAgentDoc {
+  name: string;
+  provider: string;
+  logo: string;
+  logoDark?: string;
+  docPath: string;
+}
+
 interface ModelOption {
   model: string;
   endpointName: string;
@@ -38,6 +46,96 @@ interface ProviderCardProps {
   compact?: boolean;
 }
 
+const CodingAgentsCard = ({ compact }: { compact?: boolean }) => {
+  const { theme } = useDesignSystemTheme();
+
+  const logoSize = compact ? 16 : 20;
+  const headerPadding = compact
+    ? `${theme.spacing.xs}px ${theme.spacing.sm}px`
+    : `${theme.spacing.sm}px ${theme.spacing.md}px`;
+  const headerGap = compact ? theme.spacing.xs : theme.spacing.sm;
+  const headerFontSize = compact ? theme.typography.fontSizeSm : undefined;
+  const rowPadding = compact ? `3px ${theme.spacing.sm}px` : `${theme.spacing.xs}px ${theme.spacing.md}px`;
+  const chevronSize = compact ? 12 : 14;
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        overflow: 'hidden',
+        ...(compact ? { flex: 1, minWidth: 0 } : {}),
+      }}
+    >
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: headerGap,
+          padding: headerPadding,
+          borderBottom: `1px solid ${theme.colors.border}`,
+        }}
+      >
+        <Typography.Text bold css={headerFontSize ? { fontSize: headerFontSize } : undefined}>
+          <FormattedMessage
+            defaultMessage="Coding Agents"
+            description="Gateway > Quick start > Coding Agents card header"
+          />
+        </Typography.Text>
+      </div>
+      <div css={{ display: 'flex', flexDirection: 'column' }}>
+        {CODING_AGENTS.map((agent) => (
+          <a
+            key={agent.name}
+            href={agent.docPath}
+            target="_blank"
+            rel="noopener noreferrer"
+            css={{
+              textDecoration: 'none',
+              color: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: compact ? theme.spacing.xs : undefined,
+              padding: rowPadding,
+              cursor: 'pointer',
+              transition: 'background-color 0.15s',
+              '&:hover': {
+                backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+              },
+            }}
+          >
+            <div css={{ display: 'flex', alignItems: 'center', gap: compact ? 4 : 8 }}>
+              <img
+                src={theme.isDarkMode && agent.logoDark ? agent.logoDark : agent.logo}
+                alt={agent.name}
+                css={{
+                  width: compact ? 12 : logoSize,
+                  height: compact ? 12 : logoSize,
+                  objectFit: 'contain',
+                  flexShrink: 0,
+                }}
+              />
+              <Typography.Text
+                color="secondary"
+                css={{
+                  fontSize: theme.typography.fontSizeSm,
+                  ...(compact ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } : {}),
+                }}
+              >
+                {agent.name}
+              </Typography.Text>
+            </div>
+            <ChevronRightIcon css={{ color: theme.colors.textSecondary, fontSize: chevronSize, flexShrink: 0 }} />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const ProviderCard = ({ template, componentId, compact }: ProviderCardProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -53,12 +151,12 @@ const ProviderCard = ({ template, componentId, compact }: ProviderCardProps) => 
   return (
     <div
       css={{
-        ...(compact ? { flex: 1, minWidth: 0 } : {}),
         display: 'flex',
         flexDirection: 'column',
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
         overflow: 'hidden',
+        ...(compact ? { flex: 1, minWidth: 0 } : {}),
       }}
     >
       <div
@@ -193,6 +291,29 @@ const COMPACT_PROVIDER_CONFIGS: { template: ProviderTemplate; componentId: strin
   { template: PROVIDER_TEMPLATES[3], componentId: 'mlflow.gateway.quick_start.compact.databricks' },
 ];
 
+const CODING_AGENTS: CodingAgentDoc[] = [
+  {
+    name: 'Claude Code',
+    provider: 'anthropic',
+    logo: AnthropicLogo,
+    logoDark: AnthropicLogoDark,
+    docPath: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/claude-code',
+  },
+  {
+    name: 'OpenAI Codex',
+    provider: 'openai',
+    logo: OpenAiLogo,
+    logoDark: OpenAiLogoDark,
+    docPath: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/codex',
+  },
+  {
+    name: 'Gemini CLI',
+    provider: 'gemini',
+    logo: GeminiLogo,
+    docPath: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/gemini-cli',
+  },
+];
+
 export const QuickStartTemplates = () => {
   const { theme } = useDesignSystemTheme();
 
@@ -201,7 +322,6 @@ export const QuickStartTemplates = () => {
       css={{
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
         padding: theme.spacing.lg,
         gap: theme.spacing.lg,
       }}
@@ -231,15 +351,15 @@ export const QuickStartTemplates = () => {
       <div
         css={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: theme.spacing.md,
-          maxWidth: 520,
+          gridTemplateColumns: 'repeat(5, 1fr)',
+          gap: theme.spacing.sm,
           width: '100%',
         }}
       >
         {PROVIDER_TEMPLATES.map((template) => (
           <ProviderCard key={template.provider} template={template} componentId={template.componentId} />
         ))}
+        <CodingAgentsCard />
       </div>
 
       <Link
@@ -296,6 +416,7 @@ export const QuickStartTemplatesCompact = () => {
         {COMPACT_PROVIDER_CONFIGS.map(({ componentId, template }) => (
           <ProviderCard key={template.provider} template={template} componentId={componentId} compact />
         ))}
+        <CodingAgentsCard compact />
       </div>
     </div>
   );
