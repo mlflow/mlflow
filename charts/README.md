@@ -143,8 +143,8 @@ Periodically remove soft-deleted runs, experiments, and their artifacts:
 ```yaml
 garbageCollection:
   enabled: true
-  schedule: "0 2 * * 0"  # weekly at 2 AM on Sunday
-  olderThan: "30d"        # only remove resources soft-deleted for 30+ days
+  schedule: "0 2 * * 0" # weekly at 2 AM on Sunday
+  olderThan: "30d" # only remove resources soft-deleted for 30+ days
 ```
 
 ### Resource limits
