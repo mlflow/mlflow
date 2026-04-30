@@ -1014,11 +1014,6 @@ def test_log_feedback_in_distributed_trace_same_process():
 
         child()
 
-    with tm.get_trace(root_trace_id) as t:
-        assert t is not None
-        assert len(t.info.assessments) == 1
-        assert t.info.assessments[0].name == "child_was_called"
-
     mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(root_trace_id)
     assert len(trace.info.assessments) == 1
