@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777529774221,
+  "lastUpdate": 1777539704406,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -485,6 +485,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.729021600004216,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "varun.bhandary@databricks.com",
+            "name": "Varun Bhandary",
+            "username": "vb-dbrks"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "39a00d1b6c67de25c47c37498db2d4898c3643bb",
+          "message": "Fix Databricks unified auth support when MLFLOW_ENABLE_DB_SDK=true (#20599)\n\nSigned-off-by: Varun Bhandary <varun.bhandary@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-04-30T08:57:46Z",
+          "tree_id": "ffe9ed9e9c90eae7d86e36ae42a71b588f15f254",
+          "url": "https://github.com/mlflow/mlflow/commit/39a00d1b6c67de25c47c37498db2d4898c3643bb"
+        },
+        "date": 1777539703146,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 48.46527345000169,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 19.267387771429462,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 18.5969815079358,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 17.978854517242496,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 19.414924049179778,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.03619499999877,
             "unit": "ms"
           }
         ]
