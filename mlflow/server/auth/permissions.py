@@ -105,6 +105,20 @@ VALID_RESOURCE_TYPES = frozenset({
 })
 
 
+# Permissions grantable at workspace scope (``resource_type='*'``). USE confers
+# workspace access + resource creation + receipt of ``default_permission`` for new
+# resources; MANAGE additionally grants role/user management within the workspace.
+# READ/EDIT are intentionally excluded: we do not support a "see workspace but cannot
+# create" tier, and EDIT collapses into USE for workspace-wide grants.
+WORKSPACE_GRANTABLE_PERMISSIONS = frozenset({USE.name, MANAGE.name})
+
+# Permissions grantable on a concrete resource (experiment, registered_model, scorer,
+# gateway_*). NO_PERMISSIONS is intentionally excluded: an absent grant combined with
+# the configured ``default_permission`` already expresses "no access"; an explicit
+# NO_PERMISSIONS grant on a resource is no longer supported.
+RESOURCE_GRANTABLE_PERMISSIONS = frozenset({READ.name, USE.name, EDIT.name, MANAGE.name})
+
+
 def _validate_permission(permission: str):
     if permission not in ALL_PERMISSIONS:
         raise MlflowException(
@@ -118,6 +132,44 @@ def _validate_resource_type(resource_type: str):
         raise MlflowException(
             f"Invalid resource type '{resource_type}'. "
             f"Valid resource types are: {tuple(sorted(VALID_RESOURCE_TYPES))}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_permission_for_resource_type(permission: str, resource_type: str) -> None:
+    """Validate that ``permission`` is a legal grant on a row of ``resource_type``.
+
+    - ``resource_type='workspace'`` accepts only ``MANAGE`` — the workspace-admin grant.
+    - ``resource_type='*'`` accepts ``USE`` or ``MANAGE`` — a workspace-wide grant
+      conferring access+create or full admin.
+    - Concrete resource types accept any of ``READ`` / ``USE`` / ``EDIT`` / ``MANAGE``.
+      ``NO_PERMISSIONS`` is rejected: an absent grant combined with the configured
+      ``default_permission`` already expresses "no access".
+    """
+    _validate_permission(permission)
+    _validate_resource_type(resource_type)
+    if resource_type == "workspace":
+        if permission != MANAGE.name:
+            raise MlflowException(
+                f"Invalid permission '{permission}' for resource_type='workspace'. "
+                f"Workspace-admin grants accept only '{MANAGE.name}'.",
+                INVALID_PARAMETER_VALUE,
+            )
+        return
+    if resource_type == "*":
+        if permission not in WORKSPACE_GRANTABLE_PERMISSIONS:
+            raise MlflowException(
+                f"Invalid permission '{permission}' for resource_type='*'. "
+                f"Workspace-wide grants accept only: "
+                f"{tuple(sorted(WORKSPACE_GRANTABLE_PERMISSIONS))}.",
+                INVALID_PARAMETER_VALUE,
+            )
+        return
+    if permission not in RESOURCE_GRANTABLE_PERMISSIONS:
+        raise MlflowException(
+            f"Invalid permission '{permission}' for resource_type='{resource_type}'. "
+            f"Resource-level grants accept only: "
+            f"{tuple(sorted(RESOURCE_GRANTABLE_PERMISSIONS))}.",
             INVALID_PARAMETER_VALUE,
         )
 

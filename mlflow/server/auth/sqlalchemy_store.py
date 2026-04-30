@@ -36,7 +36,7 @@ from mlflow.server.auth.entities import (
 from mlflow.server.auth.permissions import (
     MANAGE,
     Permission,
-    _validate_permission,
+    _validate_permission_for_resource_type,
     _validate_resource_type,
     get_permission,
     max_permission,
@@ -264,7 +264,7 @@ class SqlAlchemyStore:
     def create_experiment_permission(
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
-        _validate_permission(permission)
+        _validate_permission_for_resource_type(permission, "experiment")
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
@@ -360,7 +360,7 @@ class SqlAlchemyStore:
     def update_experiment_permission(
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
-        _validate_permission(permission)
+        _validate_permission_for_resource_type(permission, "experiment")
         with self.ManagedSessionMaker() as session:
             user, rp = self._get_experiment_permission_row(session, experiment_id, username)
             rp.permission = permission
@@ -387,7 +387,7 @@ class SqlAlchemyStore:
     def create_registered_model_permission(
         self, name: str, username: str, permission: str
     ) -> RegisteredModelPermission:
-        _validate_permission(permission)
+        _validate_permission_for_resource_type(permission, "registered_model")
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
@@ -495,7 +495,7 @@ class SqlAlchemyStore:
     def update_registered_model_permission(
         self, name: str, username: str, permission: str
     ) -> RegisteredModelPermission:
-        _validate_permission(permission)
+        _validate_permission_for_resource_type(permission, "registered_model")
         with self.ManagedSessionMaker() as session:
             user, workspace_name, rp = self._get_registered_model_permission_row(
                 session, name, username
@@ -601,7 +601,7 @@ class SqlAlchemyStore:
     def set_workspace_permission(
         self, workspace_name: str, username: str, permission: str
     ) -> WorkspacePermission:
-        _validate_permission(permission)
+        _validate_permission_for_resource_type(permission, "*")
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
@@ -768,7 +768,8 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             permissions = (
-                session.query(SqlRolePermission.permission)
+                session
+                .query(SqlRolePermission.permission)
                 .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(
@@ -799,7 +800,7 @@ class SqlAlchemyStore:
     def create_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str
     ) -> ScorerPermission:
-        _validate_permission(permission)
+        _validate_permission_for_resource_type(permission, "scorer")
         pattern = self._scorer_pattern(experiment_id, scorer_name)
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
@@ -919,7 +920,7 @@ class SqlAlchemyStore:
     def update_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str
     ) -> ScorerPermission:
-        _validate_permission(permission)
+        _validate_permission_for_resource_type(permission, "scorer")
         with self.ManagedSessionMaker() as session:
             user, rp = self._get_scorer_permission_row(
                 session, experiment_id, scorer_name, username
@@ -967,7 +968,7 @@ class SqlAlchemyStore:
         entity_factory,
         duplicate_message: str,
     ):
-        _validate_permission(permission)
+        _validate_permission_for_resource_type(permission, resource_type)
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
@@ -1041,7 +1042,7 @@ class SqlAlchemyStore:
         entity_factory,
         not_found_message: str,
     ):
-        _validate_permission(permission)
+        _validate_permission_for_resource_type(permission, resource_type)
         with self.ManagedSessionMaker() as session:
             user, rp = self._get_per_resource_permission_row(
                 session,
@@ -1492,8 +1493,7 @@ class SqlAlchemyStore:
         resource_pattern: str,
         permission: str,
     ) -> RolePermission:
-        _validate_permission(permission)
-        _validate_resource_type(resource_type)
+        _validate_permission_for_resource_type(permission, resource_type)
         # Workspace-scope and type-wildcard grants only support the "*" pattern. Any
         # other pattern would be silently ignored by the resolver, so reject it up front.
         if resource_type in ("workspace", "*") and resource_pattern != "*":
@@ -1558,9 +1558,9 @@ class SqlAlchemyStore:
             return [p.to_mlflow_entity() for p in perms]
 
     def update_role_permission(self, role_permission_id: int, permission: str) -> RolePermission:
-        _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
             rp = self._get_role_permission(session, role_permission_id)
+            _validate_permission_for_resource_type(permission, rp.resource_type)
             rp.permission = permission
             return rp.to_mlflow_entity()
 

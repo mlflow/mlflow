@@ -4,15 +4,29 @@ Revision ID: e5f6a7b8c9d0
 Revises: c3d4e5f6a7b8
 Create Date: 2026-04-24 00:00:00.000000
 
-Collapses the pre-RBAC per-resource permission tables
+Backfills the pre-RBAC per-resource permission tables
 (``experiment_permissions``, ``registered_model_permissions``, ``scorer_permissions``,
 ``gateway_secret_permissions``, ``gateway_endpoint_permissions``,
 ``gateway_model_definition_permissions``, ``workspace_permissions``) into
 ``role_permissions`` rows hung off a synthetic ``__user_<id>__`` role per
-``(user, workspace)`` pair, then drops the legacy tables.
+``(user, workspace)`` pair. The legacy tables are intentionally **not** dropped —
+they remain in place as a paused snapshot so operators can roll back manually
+without restoring from backup; a future migration will retire them once the
+simplified RBAC model has bedded in.
 
-After this migration, ``role_permissions`` is the sole source of truth for user
-permissions; the auth server reads and writes only that table.
+After this migration, ``role_permissions`` is the sole source of truth that the
+auth server reads and writes; the legacy tables are no longer consulted.
+
+The simplified permission model is enforced during backfill:
+
+- Resource-level rows (``experiment``, ``registered_model``, ``scorer``,
+  ``gateway_*``) with ``permission='NO_PERMISSIONS'`` are skipped — an absent
+  grant combined with the configured ``default_permission`` already expresses
+  "no access", so an explicit deny row is no longer supported.
+- Workspace-level rows are normalised to the two-tier USE/MANAGE model:
+  ``NO_PERMISSIONS`` rows are skipped, and ``READ`` / ``EDIT`` rows are rewritten
+  to ``USE`` (preserves access; the read-only and edit-but-not-delete tiers no
+  longer exist at workspace scope).
 
 Workspace scoping for legacy tables without a ``workspace`` column
 (``experiment_permissions``, ``scorer_permissions``, ``gateway_*``): those
@@ -24,12 +38,23 @@ grants were workspace-agnostic at the table level, so they land in the
 import re
 from urllib.parse import quote
 
-import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import bindparam, text
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+# Resource-level rows carrying this permission are dropped during backfill.
+# See module docstring for rationale.
+_DROPPED_PERMISSION = "NO_PERMISSIONS"
+
+# Mapping applied to workspace-level rows during backfill to enforce the simplified
+# USE/MANAGE-only workspace tier. Rows whose value is not in this map (i.e. USE,
+# MANAGE) are migrated unchanged; rows whose value is _DROPPED_PERMISSION are skipped.
+_LEGACY_WORKSPACE_PERMISSION_REWRITE = {
+    "READ": "USE",
+    "EDIT": "USE",
+}
 
 # revision identifiers, used by Alembic.
 revision = "e5f6a7b8c9d0"
@@ -135,12 +160,39 @@ def _insert_role_permission_if_missing(
 
 
 def _backfill_table(conn, select_sql: str, row_to_mirror) -> None:
+    """Copy rows from a legacy table into ``role_permissions``.
+
+    ``row_to_mirror`` may return ``None`` to skip a row (used to drop rows that
+    no longer fit the simplified permission model — see module docstring).
+    """
     for row in conn.execute(text(select_sql)):
-        user_id, workspace, resource_type, resource_pattern, permission = row_to_mirror(row)
+        mirrored = row_to_mirror(row)
+        if mirrored is None:
+            continue
+        user_id, workspace, resource_type, resource_pattern, permission = mirrored
         role_id = _get_or_create_synthetic_role(conn, user_id, workspace)
         _insert_role_permission_if_missing(
             conn, role_id, resource_type, resource_pattern, permission
         )
+
+
+def _resource_row(row, workspace, resource_type, resource_pattern):
+    """Mirror a concrete-resource legacy row, dropping ``NO_PERMISSIONS`` denies."""
+    if row.permission == _DROPPED_PERMISSION:
+        return None
+    return (row.user_id, workspace, resource_type, resource_pattern, row.permission)
+
+
+def _workspace_row(row):
+    """Mirror a ``workspace_permissions`` row into a ``resource_type='*'`` grant.
+
+    ``NO_PERMISSIONS`` rows are skipped; ``READ`` and ``EDIT`` are rewritten to ``USE``
+    to fit the simplified USE/MANAGE-only workspace tier.
+    """
+    if row.permission == _DROPPED_PERMISSION:
+        return None
+    permission = _LEGACY_WORKSPACE_PERMISSION_REWRITE.get(row.permission, row.permission)
+    return (row.user_id, row.workspace, "*", "*", permission)
 
 
 def upgrade() -> None:
@@ -151,19 +203,19 @@ def upgrade() -> None:
     _backfill_table(
         conn,
         "SELECT user_id, workspace, permission FROM workspace_permissions",
-        lambda r: (r.user_id, r.workspace, "*", "*", r.permission),
+        _workspace_row,
     )
     # experiment_permissions → (experiment, <experiment_id>, permission) in default ws
     _backfill_table(
         conn,
         "SELECT user_id, experiment_id, permission FROM experiment_permissions",
-        lambda r: (r.user_id, default, "experiment", r.experiment_id, r.permission),
+        lambda r: _resource_row(r, default, "experiment", r.experiment_id),
     )
     # registered_model_permissions → (registered_model, <name>, permission) in row's ws
     _backfill_table(
         conn,
         "SELECT user_id, workspace, name, permission FROM registered_model_permissions",
-        lambda r: (r.user_id, r.workspace, "registered_model", r.name, r.permission),
+        lambda r: _resource_row(r, r.workspace, "registered_model", r.name),
     )
     # scorer_permissions → (scorer, <exp_id>/<quote(scorer_name)>, permission) in default ws.
     # Scorer names may contain ``/`` (see ``validate_scorer_name`` which only rejects
@@ -173,25 +225,24 @@ def upgrade() -> None:
     _backfill_table(
         conn,
         "SELECT user_id, experiment_id, scorer_name, permission FROM scorer_permissions",
-        lambda r: (
-            r.user_id,
+        lambda r: _resource_row(
+            r,
             default,
             "scorer",
             f"{r.experiment_id}/{quote(r.scorer_name, safe='')}",
-            r.permission,
         ),
     )
     # gateway_secret_permissions → (gateway_secret, <secret_id>, permission)
     _backfill_table(
         conn,
         "SELECT user_id, secret_id, permission FROM gateway_secret_permissions",
-        lambda r: (r.user_id, default, "gateway_secret", r.secret_id, r.permission),
+        lambda r: _resource_row(r, default, "gateway_secret", r.secret_id),
     )
     # gateway_endpoint_permissions → (gateway_endpoint, <endpoint_id>, permission)
     _backfill_table(
         conn,
         "SELECT user_id, endpoint_id, permission FROM gateway_endpoint_permissions",
-        lambda r: (r.user_id, default, "gateway_endpoint", r.endpoint_id, r.permission),
+        lambda r: _resource_row(r, default, "gateway_endpoint", r.endpoint_id),
     )
     # gateway_model_definition_permissions → (gateway_model_definition, <id>, permission)
     _backfill_table(
@@ -200,103 +251,26 @@ def upgrade() -> None:
             "SELECT user_id, model_definition_id, permission "
             "FROM gateway_model_definition_permissions"
         ),
-        lambda r: (
-            r.user_id,
-            default,
-            "gateway_model_definition",
-            r.model_definition_id,
-            r.permission,
-        ),
+        lambda r: _resource_row(r, default, "gateway_model_definition", r.model_definition_id),
     )
 
-    # Drop the legacy per-resource permission tables now that all data has been
-    # copied into ``role_permissions`` under synthetic ``__user_<id>__`` roles and the
-    # store/handler code no longer reads them.
-    op.drop_table("experiment_permissions")
-    op.drop_table("registered_model_permissions")
-    op.drop_table("scorer_permissions")
-    op.drop_table("gateway_secret_permissions")
-    op.drop_table("gateway_endpoint_permissions")
-    op.drop_table("gateway_model_definition_permissions")
-    op.drop_table("workspace_permissions")
+    # Legacy per-resource permission tables are intentionally retained — see module
+    # docstring. A future migration will drop them once the simplified RBAC model
+    # has bedded in.
 
 
 def downgrade() -> None:
-    # Re-create the legacy table schemas so an operator could restore pre-migration
-    # data from backup, then remove the synthetic ``__user_<id>__`` roles this
-    # migration created. Data is NOT re-populated from role_permissions — operators
-    # must restore from a DB backup taken before the upgrade.
-    from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME as _DEFAULT_WS
-
-    op.create_table(
-        "experiment_permissions",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("experiment_id", sa.String(length=255), nullable=False),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("permission", sa.String(length=255)),
-        sa.UniqueConstraint("experiment_id", "user_id", name="unique_experiment_user"),
-    )
-    op.create_table(
-        "registered_model_permissions",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column(
-            "workspace",
-            sa.String(length=63),
-            nullable=False,
-            server_default=sa.text(f"'{_DEFAULT_WS}'"),
-        ),
-        sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("permission", sa.String(length=255)),
-        sa.UniqueConstraint("workspace", "name", "user_id", name="unique_workspace_name_user"),
-    )
-    op.create_table(
-        "scorer_permissions",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("experiment_id", sa.String(length=255), nullable=False),
-        sa.Column("scorer_name", sa.String(length=256), nullable=False),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("permission", sa.String(length=255)),
-        sa.UniqueConstraint("experiment_id", "scorer_name", "user_id", name="unique_scorer_user"),
-    )
-    op.create_table(
-        "gateway_secret_permissions",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("secret_id", sa.String(length=255), nullable=False),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("permission", sa.String(length=255)),
-        sa.UniqueConstraint("secret_id", "user_id", name="unique_secret_user"),
-    )
-    op.create_table(
-        "gateway_endpoint_permissions",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("endpoint_id", sa.String(length=255), nullable=False),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("permission", sa.String(length=255)),
-        sa.UniqueConstraint("endpoint_id", "user_id", name="unique_endpoint_user"),
-    )
-    op.create_table(
-        "gateway_model_definition_permissions",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("model_definition_id", sa.String(length=255), nullable=False),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("permission", sa.String(length=255)),
-        sa.UniqueConstraint("model_definition_id", "user_id", name="unique_model_def_user"),
-    )
-    op.create_table(
-        "workspace_permissions",
-        sa.Column("workspace", sa.String(length=63), nullable=False),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("permission", sa.String(length=32), nullable=False),
-        sa.PrimaryKeyConstraint("workspace", "user_id", name="workspace_permissions_pk"),
-        sa.Index("idx_workspace_permissions_user_id", "user_id"),
-        sa.Index("idx_workspace_permissions_workspace", "workspace"),
-    )
-
-    # Remove all synthetic per-user roles this migration could have created. Filter
-    # by the exact ``^__user_\d+__$`` pattern so we don't accidentally nuke admin-
-    # created roles that merely start/end with underscores (e.g. ``__user_admin__``).
-    # Portable via regex in Python (LIKE with ESCAPE varies across dialects).
+    # The legacy per-resource permission tables were never dropped by ``upgrade()``,
+    # so downgrade only needs to remove the synthetic per-user roles + their
+    # role_permissions and user_role_assignments rows. The legacy tables are still
+    # populated with the original pre-migration data, so operators can resume
+    # using them by reverting the auth server code; no separate restore step is
+    # required.
+    #
+    # Filter by the exact ``^__user_\d+__$`` pattern so we don't accidentally nuke
+    # admin-created roles that merely start/end with underscores
+    # (e.g. ``__user_admin__``). Portable via regex in Python (LIKE with ESCAPE
+    # varies across dialects).
     conn = op.get_bind()
     role_ids = [
         row_id

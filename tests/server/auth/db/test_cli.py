@@ -17,12 +17,22 @@ def test_upgrade(tmp_path: Path) -> None:
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = cursor.fetchall()
 
+    # The legacy per-resource permission tables are created by earlier migrations
+    # and intentionally retained by ``e5f6a7b8c9d0`` so operators can still roll
+    # back without restoring from backup. A future migration will drop them.
     assert sorted(tables) == sorted([
         ("alembic_version_auth",),
         ("users",),
         ("roles",),
         ("role_permissions",),
         ("user_role_assignments",),
+        ("experiment_permissions",),
+        ("registered_model_permissions",),
+        ("scorer_permissions",),
+        ("gateway_secret_permissions",),
+        ("gateway_endpoint_permissions",),
+        ("gateway_model_definition_permissions",),
+        ("workspace_permissions",),
     ])
 
 
@@ -52,15 +62,16 @@ def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
     assert "user_role_assignments" in tables
     assert "experiments" in tables
     assert "runs" in tables
-    # Legacy per-resource permission tables are dropped by the
-    # ``e5f6a7b8c9d0`` migration after backfill.
-    assert "experiment_permissions" not in tables
-    assert "registered_model_permissions" not in tables
-    assert "scorer_permissions" not in tables
-    assert "gateway_secret_permissions" not in tables
-    assert "gateway_endpoint_permissions" not in tables
-    assert "gateway_model_definition_permissions" not in tables
-    assert "workspace_permissions" not in tables
+    # Legacy per-resource permission tables are intentionally retained by the
+    # ``e5f6a7b8c9d0`` migration so operators can still roll back without
+    # restoring from backup.
+    assert "experiment_permissions" in tables
+    assert "registered_model_permissions" in tables
+    assert "scorer_permissions" in tables
+    assert "gateway_secret_permissions" in tables
+    assert "gateway_endpoint_permissions" in tables
+    assert "gateway_model_definition_permissions" in tables
+    assert "workspace_permissions" in tables
 
 
 def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
@@ -124,10 +135,97 @@ def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
     assert "roles" in tables
     assert "role_permissions" in tables
     assert "user_role_assignments" in tables
-    # Legacy tables are dropped by ``e5f6a7b8c9d0`` after backfill.
-    assert "experiment_permissions" not in tables
-    assert "scorer_permissions" not in tables
-    assert "registered_model_permissions" not in tables
-    assert "workspace_permissions" not in tables
+    # Legacy tables are intentionally retained by ``e5f6a7b8c9d0`` so operators
+    # can still roll back without restoring from backup. A future migration
+    # will drop them once the simplified RBAC model has bedded in.
+    assert "experiment_permissions" in tables
+    assert "scorer_permissions" in tables
+    assert "registered_model_permissions" in tables
+    assert "workspace_permissions" in tables
     assert version[0] == "e5f6a7b8c9d0"
     assert user == ("testuser", 1)
+
+
+def test_upgrade_filters_legacy_rows_per_simplified_model(tmp_path: Path) -> None:
+    """Migration drops resource-scope ``NO_PERMISSIONS`` rows and rewrites
+    workspace-scope ``READ`` / ``EDIT`` rows to ``USE``. Other values pass through.
+
+    Walks the migration chain in two steps: first up to the revision **before**
+    the backfill so the legacy tables exist with the expected schema, seeds
+    legacy data, then runs the backfill migration. This avoids pre-creating
+    legacy tables by hand (which would collide with earlier migrations that
+    create them).
+    """
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    # Walk to the revision that immediately precedes the backfill migration.
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "c3d4e5f6a7b8"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.executemany(
+            "INSERT INTO users (id, username, password_hash, is_admin) VALUES (?, ?, ?, ?)",
+            [
+                (1, "alice", "h", False),
+                (2, "bob", "h", False),
+                (3, "carol", "h", False),
+                (4, "dan", "h", False),
+            ],
+        )
+        # Resource-scope rows: NO_PERMISSIONS dropped, READ / MANAGE preserved.
+        cursor.executemany(
+            "INSERT INTO experiment_permissions (experiment_id, user_id, permission)"
+            " VALUES (?, ?, ?)",
+            [
+                ("exp-1", 1, "READ"),
+                ("exp-2", 2, "NO_PERMISSIONS"),
+                ("exp-3", 3, "MANAGE"),
+            ],
+        )
+        # Workspace-scope rows: NO_PERMISSIONS dropped, READ / EDIT rewritten
+        # to USE, USE / MANAGE preserved.
+        cursor.executemany(
+            "INSERT INTO workspace_permissions (workspace, user_id, permission) VALUES (?, ?, ?)",
+            [
+                ("ws-default", 1, "READ"),
+                ("ws-default", 2, "EDIT"),
+                ("ws-default", 3, "NO_PERMISSIONS"),
+                ("ws-default", 4, "MANAGE"),
+            ],
+        )
+        conn.commit()
+
+    # Run the backfill migration.
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT u.username, rp.resource_type, rp.resource_pattern, rp.permission "
+            "FROM role_permissions rp "
+            "JOIN roles r ON r.id = rp.role_id "
+            "JOIN user_role_assignments ura ON ura.role_id = r.id "
+            "JOIN users u ON u.id = ura.user_id "
+            "ORDER BY u.username, rp.resource_type, rp.resource_pattern"
+        )
+        rows = cursor.fetchall()
+
+    # alice: experiment READ preserved, workspace READ rewritten to USE
+    # bob:   experiment NO_PERMISSIONS skipped, workspace EDIT rewritten to USE
+    # carol: experiment MANAGE preserved, workspace NO_PERMISSIONS skipped
+    # dan:   workspace MANAGE preserved
+    assert rows == [
+        ("alice", "*", "*", "USE"),
+        ("alice", "experiment", "exp-1", "READ"),
+        ("bob", "*", "*", "USE"),
+        ("carol", "experiment", "exp-3", "MANAGE"),
+        ("dan", "*", "*", "MANAGE"),
+    ]

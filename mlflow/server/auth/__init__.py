@@ -185,6 +185,7 @@ from mlflow.server.auth.permissions import (
     USE,
     Permission,
     get_permission,
+    max_permission,
 )
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
@@ -488,16 +489,19 @@ def _get_role_permission_or_default(
     """
     Resolve a user's permission on a resource by consulting role_permissions via the
     provided ``role_permission_func`` (see ``_role_permission_for``). Falls back to
-    ``auth_config.default_permission`` only when the user has no matching grant at all
-    — an explicit ``NO_PERMISSIONS`` grant is a deny and is returned as-is.
+    ``auth_config.default_permission`` only when the user has no matching grant at all.
 
     In the unified RBAC model (post-``e5f6a7b8c9d0`` migration), ``role_permissions`` is
     the sole source of truth: per-user grants live under synthetic ``__user_<id>__``
     roles, workspace-wide grants live under either admin-assigned roles or the
     ``resource_type='*'`` form the migration emits for legacy ``workspace_permissions``
     rows. ``get_role_permission_for_resource`` walks all of those and returns the max,
-    or ``None`` when nothing matches (distinct from ``NO_PERMISSIONS``, which is an
-    explicit deny).
+    or ``None`` when nothing matches.
+
+    ``NO_PERMISSIONS`` is no longer accepted as a new grant value (validators reject it
+    on resource-scoped writes; the migration drops legacy ``NO_PERMISSIONS`` rows).
+    Any pre-existing ``NO_PERMISSIONS`` row in ``role_permissions`` from the early RBAC
+    API still resolves correctly: it is returned as-is and acts as an explicit deny.
     """
     perm = role_permission_func()
     if perm is not None:
@@ -572,7 +576,9 @@ def _user_can_create_in_workspace() -> bool:
     """
     True if the current request can create new resources in the request's
     workspace. Always allows when workspaces are disabled. Otherwise requires
-    a workspace-wide grant whose level has ``can_use``.
+    a workspace-wide grant whose level has ``can_use`` (i.e. USE or MANAGE under
+    the simplified two-tier workspace model). Resource-specific grants don't
+    confer create rights — only workspace-wide grants do.
     """
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
@@ -582,7 +588,17 @@ def _user_can_create_in_workspace() -> bool:
         return False
 
     workspace_perm = _workspace_permission(authenticate_request().username, workspace_name)
-    return workspace_perm is not None and workspace_perm.can_use
+    if workspace_perm is not None and workspace_perm.can_use:
+        return True
+
+    # Also honour role grants written as ``(resource_type='*', resource_pattern='*')``
+    # — the form the migration emits for legacy ``workspace_permissions`` rows and
+    # the form the seeded ``user`` role uses. ``_workspace_permission`` only sees
+    # the legacy table + ``resource_type='workspace'`` role grants, so these
+    # workspace-wide grants need a separate lookup.
+    user = store.get_user(authenticate_request().username)
+    role_perm = store.get_role_permission_for_resource(user.id, "*", "*", workspace_name)
+    return role_perm is not None and role_perm.can_use
 
 
 def _get_resource_workspace(
@@ -2514,22 +2530,29 @@ def filter_list_workspaces(resp: Response) -> None:
 # ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is on. ``CreateWorkspace`` is gated to
 # ``sender_is_admin``, so the creator is always a super-admin whose ``is_admin``
 # flag already bypasses RBAC checks — we therefore don't assign the creator to
-# any of these roles. The two roles are convenience scaffolding the admin can
-# hand out; finer-grained or per-resource-type roles can be created on demand.
+# any of these roles. The two roles exist as ready-made scaffolding for the
+# admin to hand out to other users.
 #
-# Both roles use ``(resource_type='workspace', resource_pattern='*')`` — the
-# workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``:
-#
-# - ``user`` (USE): can read every resource in the workspace and create new
-#   experiments / registered models; creator-as-owner grants the creator
-#   MANAGE on what they create, so a user manages their own resources without
-#   gaining access to resources owned by others.
-# - ``admin`` (MANAGE): full authority — can update / delete every
-#   resource and manage roles / user assignments within the workspace.
+# Workspace permissions in the simplified model collapse to two tiers:
+# - ``admin`` (MANAGE on ``resource_type='workspace'``): full authority,
+#   including role/user management within the workspace.
+# - ``user`` (USE on ``resource_type='*'``): read every resource in the workspace
+#   plus the ability to create new experiments / registered models. The
+#   creator-as-owner mechanism then grants the creator MANAGE on what they
+#   create — so users manage their own resources without gaining write or
+#   delete on resources owned by others.
+_WORKSPACE_ADMIN_GRANT = ("workspace", "*")
+_WORKSPACE_USER_GRANT = ("*", "*")
 _DEFAULT_WORKSPACE_ROLES = (
-    ("admin", MANAGE.name, "Full MANAGE authority over the workspace."),
+    (
+        "admin",
+        _WORKSPACE_ADMIN_GRANT,
+        MANAGE.name,
+        "Full MANAGE authority over the workspace.",
+    ),
     (
         "user",
+        _WORKSPACE_USER_GRANT,
         USE.name,
         (
             "Read every resource in the workspace and create new experiments "
@@ -2559,7 +2582,10 @@ def _seed_default_workspace_roles(resp: Response) -> None:
     parse_dict(resp.json, response_message)
     workspace_name = response_message.workspace.name
 
-    for role_name, permission, description in _DEFAULT_WORKSPACE_ROLES:
+    for role_name, (
+        resource_type,
+        resource_pattern,
+    ), permission, description in _DEFAULT_WORKSPACE_ROLES:
         try:
             role = store.create_role(
                 name=role_name, workspace=workspace_name, description=description
@@ -2573,7 +2599,7 @@ def _seed_default_workspace_roles(resp: Response) -> None:
             )
             continue
         try:
-            store.add_role_permission(role.id, "workspace", "*", permission)
+            store.add_role_permission(role.id, resource_type, resource_pattern, permission)
         except MlflowException as e:
             _logger.error(
                 "Failed to add permission to default role '%s' for workspace '%s': %s. "

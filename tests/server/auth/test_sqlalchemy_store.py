@@ -16,7 +16,7 @@ from mlflow.server.auth.entities import (
     ScorerPermission,
     User,
 )
-from mlflow.server.auth.permissions import ALL_PERMISSIONS, EDIT, MANAGE, READ
+from mlflow.server.auth.permissions import EDIT, MANAGE, READ, RESOURCE_GRANTABLE_PERMISSIONS, USE
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -200,7 +200,7 @@ def test_delete_user_with_dependent_rows(store):
     _gsp_maker(store, random_str(), username, READ.name)
     _gep_maker(store, random_str(), username, READ.name)
     _gmdp_maker(store, random_str(), username, READ.name)
-    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, username, READ.name)
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, username, USE.name)
     role = store.create_role(name=random_str(), workspace=DEFAULT_WORKSPACE_NAME)
     store.assign_role_to_user(user_id=user.id, role_id=role.id)
 
@@ -244,7 +244,7 @@ def test_create_experiment_permission(store):
     assert ep2.permission == permission1
 
     # all permissions are ok
-    for perm in ALL_PERMISSIONS:
+    for perm in RESOURCE_GRANTABLE_PERMISSIONS:
         experiment_id3 = random_str()
         ep3 = _ep_maker(store, experiment_id3, username1, perm)
         assert ep3.experiment_id == experiment_id3
@@ -385,7 +385,7 @@ def test_create_registered_model_permission(store):
     assert rmp2.workspace == DEFAULT_WORKSPACE_NAME
 
     # all permissions are ok
-    for perm in ALL_PERMISSIONS:
+    for perm in RESOURCE_GRANTABLE_PERMISSIONS:
         name3 = random_str()
         rmp3 = _rmp_maker(store, name3, username1, perm)
         assert rmp3.name == name3
@@ -563,7 +563,7 @@ def test_create_scorer_permission(store):
     assert sp2.user_id == user_id1
     assert sp2.permission == permission1
 
-    for perm in ALL_PERMISSIONS:
+    for perm in RESOURCE_GRANTABLE_PERMISSIONS:
         experiment_id3 = random_str()
         scorer_name3 = random_str()
         sp3 = _sp_maker(store, experiment_id3, scorer_name3, username1, perm)
@@ -723,7 +723,7 @@ def test_create_gateway_secret_permission(store):
     assert gsp2.permission == permission1
 
     # all permissions are ok
-    for perm in ALL_PERMISSIONS:
+    for perm in RESOURCE_GRANTABLE_PERMISSIONS:
         secret_id = random_str()
         gsp = _gsp_maker(store, secret_id, username1, perm)
         assert gsp.permission == perm
@@ -845,7 +845,7 @@ def test_create_gateway_endpoint_permission(store):
     assert gep2.permission == permission1
 
     # all permissions are ok
-    for perm in ALL_PERMISSIONS:
+    for perm in RESOURCE_GRANTABLE_PERMISSIONS:
         endpoint_id = random_str()
         gep = _gep_maker(store, endpoint_id, username1, perm)
         assert gep.permission == perm
@@ -970,7 +970,7 @@ def test_create_gateway_model_definition_permission(store):
     assert gmdp2.permission == permission1
 
     # all permissions are ok
-    for perm in ALL_PERMISSIONS:
+    for perm in RESOURCE_GRANTABLE_PERMISSIONS:
         model_definition_id = random_str()
         gmdp = _gmdp_maker(store, model_definition_id, username1, perm)
         assert gmdp.permission == perm

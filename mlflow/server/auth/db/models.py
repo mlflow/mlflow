@@ -25,6 +25,19 @@ class SqlUser(Base):
     username = Column(String(255), unique=True)
     password_hash = Column(String(255))
     is_admin = Column(Boolean, default=False)
+    # Cascade through user_role_assignments so ``session.delete(user)`` cleans
+    # up its assignments. Legacy permission tables (experiment_permissions,
+    # registered_model_permissions, ...) are retained on disk for rollback
+    # by the ``e5f6a7b8c9d0`` migration, but the auth server no longer reads
+    # or writes them post-migration; their FK constraints stay enforced at
+    # the schema level. delete_user() handles the legacy-row cleanup
+    # explicitly when needed.
+    user_role_assignments = relationship(
+        "SqlUserRoleAssignment",
+        backref="user",
+        foreign_keys="SqlUserRoleAssignment.user_id",
+        cascade="all, delete-orphan",
+    )
 
     def to_mlflow_entity(self):
         return User(
