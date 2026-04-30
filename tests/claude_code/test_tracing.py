@@ -1162,3 +1162,61 @@ def test_process_transcript_plan_mode_execution_phase(tmp_path):
     # Planning-phase tools must NOT appear in the execution trace
     assert "tool_AskUserQuestion" not in tool_names
     assert "tool_ExitPlanMode" not in tool_names
+
+
+def test_process_planning_phase_transcript_token_usage(tmp_path):
+    transcript = _make_plan_mode_transcript()
+    transcript[1]["message"]["usage"] = {"input_tokens": 100, "output_tokens": 20}
+    transcript[3]["message"]["usage"] = {"input_tokens": 80, "output_tokens": 15}
+
+    transcript_path = tmp_path / "plan_token_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(e) for e in transcript) + "\n")
+
+    trace = process_planning_phase_transcript(str(transcript_path), "plan-token-session")
+    assert trace is not None
+
+    spans = list(trace.search_spans())
+    root_span = next(s for s in spans if s.parent_id is None)
+    assert root_span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 180,
+        "output_tokens": 35,
+        "total_tokens": 215,
+    }
+
+    assert trace.info.token_usage == {"input_tokens": 180, "output_tokens": 35, "total_tokens": 215}
+
+
+def test_process_transcript_no_token_double_count_with_llm_span(tmp_path):
+    transcript = _make_plan_mode_transcript()
+    transcript[5]["message"]["usage"] = {"input_tokens": 50, "output_tokens": 10}
+    transcript[7]["message"]["usage"] = {"input_tokens": 60, "output_tokens": 12}
+
+    transcript_path = tmp_path / "exec_token_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(e) for e in transcript) + "\n")
+
+    trace = process_transcript(str(transcript_path), "exec-token-session")
+    assert trace is not None
+
+    spans = list(trace.search_spans())
+    llm_span = next(s for s in spans if s.span_type == SpanType.LLM)
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 60,
+        "output_tokens": 12,
+        "total_tokens": 72,
+    }
+
+    root_span = next(s for s in spans if s.parent_id is None)
+    assert root_span.get_attribute(SpanAttributeKey.CHAT_USAGE) is None
+
+    assert trace.info.token_usage == {"input_tokens": 60, "output_tokens": 12, "total_tokens": 72}
+
+
+def test_llm_span_has_model_attribute(mock_transcript_file_with_usage):
+    trace = process_transcript(mock_transcript_file_with_usage, "test-model-attr")
+    assert trace is not None
+
+    spans = list(trace.search_spans())
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 1
+
+    assert llm_spans[0].get_attribute(SpanAttributeKey.MODEL) == "claude-sonnet-4-20250514"

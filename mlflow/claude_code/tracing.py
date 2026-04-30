@@ -424,8 +424,16 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
 
 def _create_llm_and_tool_spans(
     parent_span, transcript: list[dict[str, Any]], start_idx: int
-) -> None:
-    """Create LLM and tool spans for assistant responses with proper timing."""
+) -> dict[str, int]:
+    """Create LLM and tool spans for assistant responses with proper timing.
+
+    Returns:
+        Accumulated raw token usage across all assistant responses.
+    """
+    total_usage: dict[str, int] = {}
+    has_llm_spans = False
+    last_model: str | None = None
+
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_ASSISTANT:
@@ -442,13 +450,25 @@ def _create_llm_and_tool_spans(
         msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
         content = msg.get(MESSAGE_FIELD_CONTENT, [])
         usage = msg.get("usage", {})
+        model = msg.get("model") or "unknown"
+
+        # Accumulate raw token counts from every assistant response so callers
+        # can surface total usage even when there are no LLM spans (e.g. plan mode).
+        for key in (
+            TokenUsageKey.INPUT_TOKENS,
+            TokenUsageKey.OUTPUT_TOKENS,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS,
+            TokenUsageKey.CACHE_CREATION_INPUT_TOKENS,
+        ):
+            if (val := usage.get(key)) is not None:
+                total_usage[key] = total_usage.get(key, 0) + val
 
         # First check if we have meaningful content to create a span for
         text_content, tool_uses = _extract_content_and_tools(content)
 
         # Only create LLM span if there's text content (no tools)
-        llm_span = None
         if text_content and text_content.strip() and not tool_uses:
+            has_llm_spans = True
             messages = _get_input_messages(transcript, i)
 
             llm_span = mlflow.start_span_no_context(
@@ -457,11 +477,11 @@ def _create_llm_and_tool_spans(
                 span_type=SpanType.LLM,
                 start_time_ns=timestamp_ns,
                 inputs={
-                    "model": msg.get("model", "unknown"),
+                    "model": model,
                     "messages": messages,
                 },
                 attributes={
-                    "model": msg.get("model", "unknown"),
+                    SpanAttributeKey.MODEL: model,
                     SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
                 },
             )
@@ -479,6 +499,7 @@ def _create_llm_and_tool_spans(
 
         # Create tool spans with proportional timing and actual results
         if tool_uses:
+            last_model = model
             tool_results = _find_tool_results(transcript, i)
             tool_duration_ns = duration_ns // len(tool_uses)
 
@@ -501,6 +522,13 @@ def _create_llm_and_tool_spans(
 
                 tool_span.set_outputs({"result": tool_result})
                 tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
+
+    if not has_llm_spans and total_usage:
+        _set_token_usage_attribute(parent_span, total_usage)
+        if last_model:
+            parent_span.set_attribute(SpanAttributeKey.MODEL, last_model)
+
+    return total_usage
 
 
 def _finalize_trace(
@@ -718,7 +746,7 @@ def process_transcript(
         )
 
         # Create spans for all assistant responses and tool uses
-        _create_llm_and_tool_spans(parent_span, transcript, exec_start_idx)
+        usage = _create_llm_and_tool_spans(parent_span, transcript, exec_start_idx)
 
         # Update trace with preview content and end timing
         final_response = find_final_assistant_response(transcript, exec_start_idx)
@@ -740,6 +768,7 @@ def process_transcript(
             final_response,
             session_id,
             conv_end_ns,
+            usage=usage or None,
             claude_code_version=claude_code_version,
         )
 
@@ -807,7 +836,7 @@ def process_planning_phase_transcript(
             span_type=SpanType.AGENT,
         )
 
-        _create_llm_and_tool_spans(parent_span, planning_transcript, last_user_idx + 1)
+        usage = _create_llm_and_tool_spans(parent_span, planning_transcript, last_user_idx + 1)
 
         # Use the approved plan text as the response preview
         final_response = plan_text or find_final_assistant_response(
@@ -829,6 +858,7 @@ def process_planning_phase_transcript(
             final_response,
             session_id,
             conv_end_ns,
+            usage=usage or None,
             claude_code_version=claude_code_version,
         )
 
