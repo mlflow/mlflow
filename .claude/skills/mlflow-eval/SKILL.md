@@ -19,7 +19,7 @@ Use this skill when the user:
 
 Skip this skill when the user is working on MLflow internals (the existing `pr-review`, `resolve`, `copilot` skills cover that).
 
-## The four phases
+## The flow
 
 ### 1. Trace the app
 
@@ -75,7 +75,7 @@ formality_judge = make_judge(
     instructions=(
         "Score whether the response in {{ outputs }} maintains a formal, "
         "professional tone given the request in {{ inputs }}. "
-        "Return 'pass' or 'fail' with a one-line rationale."
+        "Return true if it does, false otherwise, with a short rationale."
     ),
     feedback_value_type=bool,
     model="openai:/gpt-4o-mini",
@@ -97,7 +97,7 @@ aligned = formality_judge.align(traces=feedback_traces)
 
 Use `aligned` in place of `formality_judge` in your evaluation.
 
-By default this uses the SIMBA optimizer; pass `optimizer=` to swap (DSPy, GEPA, MemAlign are available under `mlflow.genai.judges.optimizers`).
+By default this uses `SIMBAAlignmentOptimizer`; pass `optimizer=` to swap. The available alignment optimizers exported from `mlflow.genai.judges.optimizers` are `SIMBAAlignmentOptimizer`, `GEPAAlignmentOptimizer`, and `MemAlignOptimizer`.
 
 ### 5. Run evaluation
 
@@ -119,16 +119,26 @@ Results land in the active experiment under Evaluations and are diff-able across
 Once you have a trustworthy objective signal, refine the prompt automatically:
 
 ```python
+import mlflow
 from mlflow.genai.optimize import optimize_prompts
+from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
+from mlflow.genai.scorers import Correctness
 
-optimize_prompts(
-    prompt_template="research-agent",
-    eval_dataset=eval_dataset,
-    objective_scorer=Correctness(),
+prompt = mlflow.genai.register_prompt(
+    name="research-agent",
+    template="Answer the question: {{ question }}",
+)
+
+result = optimize_prompts(
+    predict_fn=run_agent,
+    train_data=train_dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
+    scorers=[Correctness()],
 )
 ```
 
-`optimize_prompts` rewrites prompt text only. To rewrite tools or rewire agent logic, drive the loop from Claude Code with this skill instead.
+The `predict_fn` must call `PromptVersion.format` on a prompt referenced in `prompt_uris` for the optimizer to know which prompt text to rewrite. `optimize_prompts` rewrites prompt text only — to rewrite tools or rewire agent logic, drive the loop from Claude Code with this skill instead.
 
 ## Decision tree
 
@@ -144,7 +154,7 @@ optimize_prompts(
 - Plan for at least ~30 feedback samples before alignment produces a meaningful refined judge.
 - `make_judge` instructions must contain at least one template variable, otherwise the call fails validation.
 - `make_judge(model=...)` accepts URIs like `"openai:/gpt-4o-mini"` or `"databricks:/..."`. `base_url` and `extra_headers` are not supported for Databricks-backed models.
-- Session-level scorers require multiple `@mlflow.trace` spans within one run; a single decorated function call is treated as a turn-level trace.
+- Session-level scorers group traces that share a `session_id` (set on the trace's metadata, or as a `session_id` column on the evaluation dataset). A single trace — however many spans it contains — is still a turn-level trace, not a session.
 - `optimize_prompts` only edits prompt text. For tool / agent-logic rewrites, use Claude Code with this skill loaded.
 
 ## See also
