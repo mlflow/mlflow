@@ -31,6 +31,7 @@ from mlflow.tracing.constant import (
     SpanMetricDimensionKey,
     SpanMetricKey,
     SpanMetricSearchKey,
+    TraceMetadataKey,
     TraceMetricDimensionKey,
     TraceMetricKey,
     TraceMetricSearchKey,
@@ -58,6 +59,10 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
     TraceMetricKey.TRACE_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
         dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.TRACE_STATUS},
+    ),
+    TraceMetricKey.SESSION_COUNT: TraceMetricsConfig(
+        aggregation_types={AggregationType.COUNT},
+        dimensions=set(),
     ),
     TraceMetricKey.LATENCY: TraceMetricsConfig(
         aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
@@ -326,6 +331,8 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
             match metric_name:
                 case TraceMetricKey.TRACE_COUNT:
                     return SqlTraceInfo.request_id
+                case TraceMetricKey.SESSION_COUNT:
+                    return sqlalchemy.distinct(SqlTraceMetadata.value)
                 case TraceMetricKey.LATENCY:
                     return SqlTraceInfo.execution_time_ms
                 case metric_name if metric_name in TraceMetricKey.token_usage_keys():
@@ -487,6 +494,14 @@ def _apply_metric_specific_joins(
                     and_(
                         SqlTraceInfo.request_id == SqlTraceMetrics.request_id,
                         SqlTraceMetrics.key == metric_name,
+                    ),
+                )
+            elif metric_name == TraceMetricKey.SESSION_COUNT:
+                query = query.join(
+                    SqlTraceMetadata,
+                    and_(
+                        SqlTraceInfo.request_id == SqlTraceMetadata.request_id,
+                        SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
                     ),
                 )
         case MetricViewType.SPANS:
