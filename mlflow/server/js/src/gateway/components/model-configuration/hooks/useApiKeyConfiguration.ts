@@ -1,7 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useSecretsQuery } from '../../../hooks/useSecretsQuery';
 import { useProviderConfigQuery } from '../../../hooks/useProviderConfigQuery';
-import type { ApiKeyConfiguration, NewSecretData } from '../types';
 import type { SecretInfo, AuthMode } from '../../../types';
 
 interface UseApiKeyConfigurationOptions {
@@ -9,6 +8,7 @@ interface UseApiKeyConfigurationOptions {
 }
 
 interface UseApiKeyConfigurationResult {
+  allSecrets: SecretInfo[];
   existingSecrets: SecretInfo[];
   isLoadingSecrets: boolean;
   authModes: AuthMode[];
@@ -47,6 +47,7 @@ export function useApiKeyConfiguration({ provider }: UseApiKeyConfigurationOptio
   );
 
   return {
+    allSecrets: allSecrets ?? [],
     existingSecrets,
     isLoadingSecrets,
     authModes,

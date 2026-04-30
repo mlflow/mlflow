@@ -162,9 +162,11 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
     // Track whether caller provided an initial apiKeyConfig to prevent auto-switching it
     const hasInitialApiKeyConfig = useRef(initialValues?.apiKeyConfig != null);
 
-    const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
-      provider,
-    });
+    const { allSecrets, existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration(
+      {
+        provider,
+      },
+    );
 
     // Build endpoint options for the dropdown
     const endpointOptions = useMemo(() => {
@@ -216,13 +218,13 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       [refetchEndpoints],
     );
 
-    // Update API key mode to 'existing' and auto-select first secret when secrets become available.
-    // Skip when readOnly or when initialValues.apiKeyConfig was provided to preserve round-trip fidelity.
+    // Auto-select the first existing secret when secrets load asynchronously (e.g. on initial mount
+    // or when the provider changes before the cache is populated). Skip when readOnly or when
+    // initialValues.apiKeyConfig was provided to preserve round-trip fidelity.
     useEffect(() => {
       if (readOnly || hasInitialApiKeyConfig.current) return;
       if (provider && existingSecrets.length > 0) {
         setApiKeyConfig((prev) => {
-          // Only update if currently in 'new' mode with no fields filled
           if (prev.mode === 'new' && Object.keys(prev.newSecret.secretFields).length === 0) {
             return { ...prev, mode: 'existing', existingSecretId: existingSecrets[0].secret_id };
           }
@@ -231,19 +233,30 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
     }, [readOnly, provider, existingSecrets]);
 
-    const handleProviderChange = useCallback((newProvider: string) => {
-      setProvider(newProvider);
-      const defaultModel = DEFAULT_MODEL_BY_PROVIDER[newProvider];
-      setModel(defaultModel ?? '');
-      setApiKeyConfig({
-        ...DEFAULT_API_KEY_CONFIG,
-        newSecret: {
-          ...DEFAULT_API_KEY_CONFIG.newSecret,
-          name: generateRandomName(newProvider),
-        },
-      });
-      setIsAdvancedSettingsExpanded(false);
-    }, []);
+    const handleProviderChange = useCallback(
+      (newProvider: string) => {
+        setProvider(newProvider);
+        const defaultModel = DEFAULT_MODEL_BY_PROVIDER[newProvider];
+        setModel(defaultModel ?? '');
+        // Set the correct mode synchronously from the cached secrets to avoid a race condition
+        // where a child effect overwrites the auto-selected 'existing' mode using a stale snapshot.
+        const newProviderSecrets = allSecrets.filter((s) => s.provider === newProvider);
+        const baseConfig = {
+          ...DEFAULT_API_KEY_CONFIG,
+          newSecret: {
+            ...DEFAULT_API_KEY_CONFIG.newSecret,
+            name: generateRandomName(newProvider),
+          },
+        };
+        setApiKeyConfig(
+          newProviderSecrets.length > 0
+            ? { ...baseConfig, mode: 'existing', existingSecretId: newProviderSecrets[0].secret_id }
+            : baseConfig,
+        );
+        setIsAdvancedSettingsExpanded(false);
+      },
+      [allSecrets],
+    );
 
     const reset = useCallback(() => {
       setMode(hasEndpoints ? 'endpoint' : 'direct');
