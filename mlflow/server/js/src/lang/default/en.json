@@ -151,6 +151,10 @@
     "defaultMessage": "Expand graph",
     "description": "Tooltip for the button that expands the graph view"
   },
+  "//TrDV": {
+    "defaultMessage": "Output",
+    "description": "Section header for the completion output panel on the playground page"
+  },
   "/2InJv": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
@@ -366,6 +370,10 @@
   "07nYAU": {
     "defaultMessage": "Compared IDs:",
     "description": "Label for the compared IDs section in the model trace explorer"
+  },
+  "084ch+": {
+    "defaultMessage": "Load",
+    "description": "Confirm button label for loading a registered prompt into the playground"
   },
   "08WP3h": {
     "defaultMessage": "Staging",
@@ -791,6 +799,10 @@
     "defaultMessage": "Compare",
     "description": "Compare evaluation runs action"
   },
+  "2ikLTU": {
+    "defaultMessage": "Type a message",
+    "description": "Placeholder for a message textarea on the playground page"
+  },
   "2kNo2y": {
     "defaultMessage": "Tool Error Rates",
     "description": "Title for the tool error rates section"
@@ -806,6 +818,10 @@
   "2oFAO4": {
     "defaultMessage": "Share",
     "description": "Text for share button on experiment view page header"
+  },
+  "2oNujF": {
+    "defaultMessage": "Prompt",
+    "description": "Section header for the single-message prompt input on the playground page"
   },
   "2pSaCv": {
     "defaultMessage": "Create new API key",
@@ -859,6 +875,10 @@
     "defaultMessage": "Rename",
     "description": "Text for rename button on the experiment view page header"
   },
+  "3MZ6H+": {
+    "defaultMessage": "Submit",
+    "description": "Label for the submit button on the playground page that runs the chat completion request"
+  },
   "3N1zOb": {
     "defaultMessage": "Disabled",
     "description": "Webhook disabled label"
@@ -866,6 +886,10 @@
   "3PBIB8": {
     "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
     "description": "Settings content section subtitle for general preferences including demo data"
+  },
+  "3Q8nGH": {
+    "defaultMessage": "Playground",
+    "description": "Title of the LLM playground page"
   },
   "3Rb4sG": {
     "defaultMessage": "Delete",
@@ -1126,6 +1150,10 @@
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
+  },
+  "5Fq+ay": {
+    "defaultMessage": "Prompt",
+    "description": "Label for the prompt selector in the playground load-prompt modal"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -2791,6 +2819,10 @@
     "defaultMessage": "Overview",
     "description": "Label for the overview tab on the logged model details page"
   },
+  "FBlbEZ": {
+    "defaultMessage": "Remove message",
+    "description": "Aria label for the button that removes a message from the playground messages panel"
+  },
   "FC9mcS": {
     "defaultMessage": "Parallel coordinates",
     "description": "Experiment tracking > runs charts > add chart menu > parallel coordinates"
@@ -3199,6 +3231,10 @@
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
   },
+  "IADRYy": {
+    "defaultMessage": "Message content",
+    "description": "Hidden label for the message content textarea on the playground page"
+  },
   "IAyAgH": {
     "defaultMessage": "Move up",
     "description": "Experiment page > compare runs tab > chart header > move up option"
@@ -3502,6 +3538,10 @@
   "KGMbzq": {
     "defaultMessage": "Commit message:",
     "description": "A label for the commit message in the prompt details page"
+  },
+  "KGvWGW": {
+    "defaultMessage": "Endpoint",
+    "description": "Label for the AI gateway endpoint picker on the playground page"
   },
   "KIlp8v": {
     "defaultMessage": "No models selected",
@@ -4763,6 +4803,10 @@
     "defaultMessage": "Stage",
     "description": "Guardrail stage label"
   },
+  "SApqSU": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button label for the load-prompt modal on the playground page"
+  },
   "SAxj6I": {
     "defaultMessage": "Create budget policy",
     "description": "Gateway > Budgets page > Create budget policy button"
@@ -5046,6 +5090,10 @@
   "U3btBc": {
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
+  },
+  "U41a9m": {
+    "defaultMessage": "Messages",
+    "description": "Section header for the multi-message chat input on the playground page"
   },
   "U4ox5k": {
     "defaultMessage": "Experiments",
@@ -5454,6 +5502,10 @@
   "WP50re": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the prompt creation modal in the prompt management UI"
+  },
+  "WPM8Ok": {
+    "defaultMessage": "Submit a message to see the response here.",
+    "description": "Empty state for the playground completion output panel"
   },
   "WQwCH6": {
     "defaultMessage": "Aliased versions",
@@ -6307,6 +6359,10 @@
     "defaultMessage": "Is the output semantically equivalent to the expected output?",
     "description": "Hint for Equivalence template"
   },
+  "bd6cTd": {
+    "defaultMessage": "Add a message to send to the endpoint, or load a prompt from the registry.",
+    "description": "Empty-state hint for the playground messages panel"
+  },
   "bdVsGZ": {
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
@@ -6823,6 +6879,10 @@
     "defaultMessage": "Remove model",
     "description": "Tooltip for remove traffic split model button"
   },
+  "eYGERq": {
+    "defaultMessage": "Variables in the prompt (e.g. {example}) will be loaded as-is. Edit the prompt before submitting to fill them in.",
+    "description": "Helper text on the playground load-prompt modal explaining variable handling"
+  },
   "eYZ/ZL": {
     "defaultMessage": "Endpoints",
     "description": "Breadcrumb link to endpoints list"
@@ -7090,6 +7150,10 @@
   "gCCsKd": {
     "defaultMessage": "View starter code",
     "description": "Title for starter code card on endpoint overview"
+  },
+  "gF1WQp": {
+    "defaultMessage": "Add message",
+    "description": "Label for the button that appends a new chat message on the playground page"
   },
   "gFYM0j": {
     "defaultMessage": "Cancel",
@@ -7431,6 +7495,10 @@
     "defaultMessage": "Fit to view",
     "description": "Tooltip for the button that fits the graph to the viewport"
   },
+  "i6OY+u": {
+    "defaultMessage": "Prompt",
+    "description": "Hidden label for the prompt textarea on the playground page"
+  },
   "i7UTwK": {
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -7502,6 +7570,10 @@
   "iT8ODo": {
     "defaultMessage": "Minimum",
     "description": "Experiment page > group by runs control > minimum aggregate function"
+  },
+  "iULNV4": {
+    "defaultMessage": "Type your prompt",
+    "description": "Placeholder for the single-message prompt textarea on the playground page"
   },
   "iVeCOa": {
     "defaultMessage": "My webhook",
@@ -7634,6 +7706,10 @@
   "jIrCsp": {
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
+  },
+  "jLM00a": {
+    "defaultMessage": "Load prompt from registry",
+    "description": "Label for the button that opens the registered prompt picker on the playground page"
   },
   "jMUqD1": {
     "defaultMessage": "Safety",
@@ -8095,6 +8171,10 @@
     "defaultMessage": "Metrics ({length})",
     "description": "Run page > Overview > Metrics table > Section title"
   },
+  "m89k9z": {
+    "defaultMessage": "Select a prompt",
+    "description": "Placeholder for the prompt selector in the playground load-prompt modal"
+  },
   "m8ztHR": {
     "defaultMessage": "Edited {timeSince} by {source}.",
     "description": "Evaluation review > assessments > tooltip > edited by human"
@@ -8379,6 +8459,10 @@
     "defaultMessage": "Show all parent spans",
     "description": "Checkbox label for a setting that enables showing all parent spans in the trace explorer regardless of filter conditions."
   },
+  "nZow1J": {
+    "defaultMessage": "Tokens — prompt: {prompt}, completion: {completion}, total: {total}",
+    "description": "Token usage footer on the playground completion output panel"
+  },
   "naivho": {
     "defaultMessage": "of",
     "description": "Connector between list and element type"
@@ -8514,6 +8598,10 @@
   "oShuJS": {
     "defaultMessage": "Logged from",
     "description": "Label for the source (where it was logged from) of a logged model on the logged model details page. It can be e.g. a notebook or a file."
+  },
+  "oTRwYM": {
+    "defaultMessage": "Playground",
+    "description": "Sidebar link for the LLM playground page"
   },
   "oU/SPm": {
     "defaultMessage": "Add",
@@ -9903,6 +9991,10 @@
     "defaultMessage": "Runs",
     "description": "Label for the training runs tab in the MLflow experiment navbar"
   },
+  "x673Z5": {
+    "defaultMessage": "Version",
+    "description": "Label for the version selector in the playground load-prompt modal"
+  },
   "x6rkyu": {
     "defaultMessage": "Response",
     "description": "Evaluation review > Response section > title"
@@ -10043,6 +10135,10 @@
     "defaultMessage": "Logs",
     "description": "Tab label for trace logs"
   },
+  "xwYFYk": {
+    "defaultMessage": "Load prompt from registry",
+    "description": "Title for the modal that loads a registered prompt into the playground"
+  },
   "xyEaut": {
     "defaultMessage": "Add tags",
     "description": "Title for unified trace tag assignment modal"
@@ -10114,6 +10210,10 @@
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",
     "description": "Hint for RelevanceToQuery template"
+  },
+  "yQjgCi": {
+    "defaultMessage": "Select a version",
+    "description": "Placeholder for the version selector in the playground load-prompt modal"
   },
   "yQkV88": {
     "defaultMessage": "No endpoints are using this key",
@@ -10246,6 +10346,10 @@
   "zEXwQL": {
     "defaultMessage": "Error",
     "description": "Label for an assessment with an error"
+  },
+  "zJUIKx": {
+    "defaultMessage": "Select a gateway endpoint",
+    "description": "Placeholder for the AI gateway endpoint picker on the playground page"
   },
   "zLTdCZ": {
     "defaultMessage": "Reviewed",

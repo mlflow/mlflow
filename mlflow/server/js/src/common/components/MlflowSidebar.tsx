@@ -7,6 +7,7 @@ import {
   GearIcon,
   HomeIcon,
   ModelsIcon,
+  PlayIcon,
   Tag,
   TextBoxIcon,
   Typography,
@@ -52,6 +53,8 @@ const isExperimentsActive = (location: Location) =>
   );
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
 const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
+const isPlaygroundActive = (location: Location) =>
+  Boolean(matchPath({ path: '/playground', end: true }, location.pathname));
 const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', location.pathname));
 const isSettingsActive = (location: Location) =>
   Boolean(
@@ -225,6 +228,30 @@ export function MlflowSidebar({
                 shouldEnableWorkflowBasedNavigation() && isGatewayActive(location) ? (
                   <MlflowSidebarGatewayItems collapsed={!showSidebar} />
                 ) : undefined,
+            },
+          ]
+        : []),
+      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType) && !showNestedExperimentItems
+        ? [
+            {
+              key: 'playground',
+              icon: <PlayIcon />,
+              linkProps: {
+                to: ExperimentTrackingRoutes.playgroundPageRoute,
+                isActive: isPlaygroundActive,
+                children: (
+                  <>
+                    <FormattedMessage
+                      defaultMessage="Playground"
+                      description="Sidebar link for the LLM playground page"
+                    />
+                    <Tag componentId="mlflow.sidebar.playground_new_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
+                      <FormattedMessage defaultMessage="New" description="Sidebar > Playground > New feature tag" />
+                    </Tag>
+                  </>
+                ),
+              },
+              componentId: 'mlflow.sidebar.playground_tab_link',
             },
           ]
         : []),
