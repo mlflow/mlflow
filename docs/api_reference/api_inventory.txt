@@ -1287,6 +1287,7 @@ mlflow.genai.set_prompt_model_config
 mlflow.genai.set_prompt_tag
 mlflow.genai.set_prompt_version_tag
 mlflow.genai.simulators.simulator.ConversationSimulator
+mlflow.genai.test_agent
 mlflow.genai.to_predict_fn
 mlflow.get_active_model_id
 mlflow.get_active_trace_id
