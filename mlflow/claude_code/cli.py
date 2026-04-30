@@ -5,7 +5,12 @@ from pathlib import Path
 import click
 
 from mlflow.claude_code.config import get_tracing_status, setup_environment_config
-from mlflow.claude_code.hooks import disable_tracing_hooks, setup_hooks_config, stop_hook_handler
+from mlflow.claude_code.hooks import (
+    disable_tracing_hooks,
+    exit_plan_mode_hook_handler,
+    setup_hooks_config,
+    stop_hook_handler,
+)
 
 
 @click.group("autolog")
@@ -176,3 +181,9 @@ def _show_setup_status(
 def stop_hook() -> None:
     """Hook handler invoked when a Claude Code conversation ends."""
     stop_hook_handler()
+
+
+@claude.command("exit-plan-mode-hook", hidden=True)
+def exit_plan_mode_hook() -> None:
+    """Hook handler invoked after ExitPlanMode tool use - traces the planning phase."""
+    exit_plan_mode_hook_handler()

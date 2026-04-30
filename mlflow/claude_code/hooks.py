@@ -24,6 +24,7 @@ from mlflow.claude_code.tracing import (
     get_hook_response,
     get_logger,
     is_tracing_enabled,
+    process_planning_phase_transcript,
     process_transcript,
     read_hook_input,
     setup_mlflow,
@@ -34,13 +35,16 @@ from mlflow.claude_code.tracing import (
 # ============================================================================
 
 
-def upsert_hook(config: dict[str, Any], hook_type: str, subcommand: str) -> None:
+def upsert_hook(
+    config: dict[str, Any], hook_type: str, subcommand: str, matcher: str | None = None
+) -> None:
     """Insert or update a single MLflow hook in the configuration.
 
     Args:
         config: The hooks configuration dictionary to modify
         hook_type: The hook type (e.g., 'PostToolUse', 'Stop')
         subcommand: The CLI subcommand name (e.g., 'stop-hook')
+        matcher: Optional tool name matcher for PostToolUse hooks
     """
     if hook_type not in config[HOOK_FIELD_HOOKS]:
         config[HOOK_FIELD_HOOKS][hook_type] = []
@@ -50,20 +54,29 @@ def upsert_hook(config: dict[str, Any], hook_type: str, subcommand: str) -> None
 
     mlflow_hook = {"type": "command", HOOK_FIELD_COMMAND: hook_command}
 
-    # Check if MLflow hook already exists and update it
+    # Check if MLflow hook already exists and update it.
+    # When a matcher is specified, only match groups with the same matcher value so
+    # that Stop and PostToolUse hooks don't collide even though they share the same
+    # MLFLOW_HOOK_IDENTIFIER prefix.
     hook_exists = False
     for hook_group in config[HOOK_FIELD_HOOKS][hook_type]:
-        if HOOK_FIELD_HOOKS in hook_group:
-            for hook in hook_group[HOOK_FIELD_HOOKS]:
-                cmd = hook.get(HOOK_FIELD_COMMAND, "")
-                if MLFLOW_HOOK_IDENTIFIER in cmd or MLFLOW_LEGACY_HOOK_IDENTIFIER in cmd:
-                    hook.update(mlflow_hook)
-                    hook_exists = True
-                    break
+        if HOOK_FIELD_HOOKS not in hook_group:
+            continue
+        if hook_group.get("matcher") != matcher:
+            continue
+        for hook in hook_group[HOOK_FIELD_HOOKS]:
+            cmd = hook.get(HOOK_FIELD_COMMAND, "")
+            if MLFLOW_HOOK_IDENTIFIER in cmd or MLFLOW_LEGACY_HOOK_IDENTIFIER in cmd:
+                hook.update(mlflow_hook)
+                hook_exists = True
+                break
 
     # Add new hook if it doesn't exist
     if not hook_exists:
-        config[HOOK_FIELD_HOOKS][hook_type].append({HOOK_FIELD_HOOKS: [mlflow_hook]})
+        new_group: dict[str, Any] = {HOOK_FIELD_HOOKS: [mlflow_hook]}
+        if matcher is not None:
+            new_group["matcher"] = matcher
+        config[HOOK_FIELD_HOOKS][hook_type].append(new_group)
 
 
 def setup_hooks_config(settings_path: Path) -> None:
@@ -81,6 +94,7 @@ def setup_hooks_config(settings_path: Path) -> None:
         config[HOOK_FIELD_HOOKS] = {}
 
     upsert_hook(config, "Stop", "stop-hook")
+    upsert_hook(config, "PostToolUse", "exit-plan-mode-hook", matcher="ExitPlanMode")
 
     save_claude_config(settings_path, config)
 
@@ -106,9 +120,12 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
     hooks_removed = False
     env_removed = False
 
-    # Remove MLflow hooks
-    if "Stop" in config.get(HOOK_FIELD_HOOKS, {}):
-        hook_groups = config[HOOK_FIELD_HOOKS]["Stop"]
+    # Remove MLflow hooks from all relevant hook types
+    for hook_type in ("Stop", "PostToolUse"):
+        if hook_type not in config.get(HOOK_FIELD_HOOKS, {}):
+            continue
+
+        hook_groups = config[HOOK_FIELD_HOOKS][hook_type]
         filtered_groups = []
 
         for group in hook_groups:
@@ -121,16 +138,19 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
                 ]
 
                 if filtered_hooks:
-                    filtered_groups.append({HOOK_FIELD_HOOKS: filtered_hooks})
+                    new_group: dict[str, Any] = {HOOK_FIELD_HOOKS: filtered_hooks}
+                    if "matcher" in group:
+                        new_group["matcher"] = group["matcher"]
+                    filtered_groups.append(new_group)
                 else:
                     hooks_removed = True
             else:
                 filtered_groups.append(group)
 
         if filtered_groups:
-            config[HOOK_FIELD_HOOKS]["Stop"] = filtered_groups
+            config[HOOK_FIELD_HOOKS][hook_type] = filtered_groups
         else:
-            del config[HOOK_FIELD_HOOKS]["Stop"]
+            del config[HOOK_FIELD_HOOKS][hook_type]
             hooks_removed = True
 
     # Remove config variables
@@ -212,6 +232,60 @@ def stop_hook_handler() -> None:
 
     except Exception as e:
         get_logger().error("Error in Stop hook: %s", e, exc_info=True)
+        response = get_hook_response(error=str(e))
+        print(json.dumps(response))  # noqa: T201
+        sys.exit(1)
+
+
+def _process_exit_plan_mode_hook(
+    session_id: str | None, transcript_path: str | None
+) -> dict[str, Any]:
+    """Common logic for processing the PostToolUse ExitPlanMode hook.
+
+    Args:
+        session_id: Session identifier
+        transcript_path: Path to transcript file
+
+    Returns:
+        Hook response dictionary
+    """
+    get_logger().log(
+        CLAUDE_TRACING_LEVEL,
+        "ExitPlanMode hook: session=%s, transcript=%s",
+        session_id,
+        transcript_path,
+    )
+
+    trace = process_planning_phase_transcript(transcript_path, session_id)
+
+    if trace is not None:
+        return get_hook_response()
+    return get_hook_response(
+        error=(
+            "Failed to process planning phase transcript, please check"
+            " .claude/mlflow/claude_tracing.log for more details"
+        ),
+    )
+
+
+def exit_plan_mode_hook_handler() -> None:
+    """CLI hook handler for ExitPlanMode - processes planning phase and creates trace."""
+    if not is_tracing_enabled():
+        response = get_hook_response()
+        print(json.dumps(response))  # noqa: T201
+        return
+
+    try:
+        hook_data = read_hook_input()
+        session_id = hook_data.get("session_id")
+        transcript_path = hook_data.get("transcript_path")
+
+        setup_mlflow()
+        response = _process_exit_plan_mode_hook(session_id, transcript_path)
+        print(json.dumps(response))  # noqa: T201
+
+    except Exception as e:
+        get_logger().error("Error in ExitPlanMode hook: %s", e, exc_info=True)
         response = get_hook_response(error=str(e))
         print(json.dumps(response))  # noqa: T201
         sys.exit(1)

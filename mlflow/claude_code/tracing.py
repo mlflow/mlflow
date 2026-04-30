@@ -51,6 +51,7 @@ MESSAGE_FIELD_COMMAND_NAME = "commandName"
 MESSAGE_TYPE_QUEUE_OPERATION = "queue-operation"
 QUEUE_OPERATION_ENQUEUE = "enqueue"
 METADATA_KEY_CLAUDE_CODE_VERSION = "mlflow.claude_code_version"
+TOOL_EXIT_PLAN_MODE = "ExitPlanMode"
 
 # Custom logging level for Claude tracing
 CLAUDE_TRACING_LEVEL = logging.WARNING - 5
@@ -589,6 +590,61 @@ def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: i
 
 
 # ============================================================================
+# PLAN MODE HELPERS
+# ============================================================================
+
+
+def find_exit_plan_mode_index(
+    transcript: list[dict[str, Any]],
+) -> tuple[int, str] | None:
+    """Locate the ExitPlanMode approval result in the transcript.
+
+    Args:
+        transcript: List of conversation entries from Claude Code transcript
+
+    Returns:
+        Tuple of (boundary_idx, plan_text) where boundary_idx is the index of
+        the tool_result user entry if present, or the ExitPlanMode assistant
+        entry if the tool_result hasn't been written yet.
+        Returns None if ExitPlanMode is not present.
+    """
+    for i, entry in enumerate(transcript):
+        if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_ASSISTANT:
+            continue
+        content = entry.get(MESSAGE_FIELD_MESSAGE, {}).get(MESSAGE_FIELD_CONTENT, [])
+        if not isinstance(content, list):
+            continue
+        epm_part = next(
+            (
+                p
+                for p in content
+                if isinstance(p, dict)
+                and p.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TOOL_USE
+                and p.get("name") == TOOL_EXIT_PLAN_MODE
+            ),
+            None,
+        )
+        if epm_part is None:
+            continue
+        plan_text = epm_part.get("input", {}).get("plan", "")
+        tool_use_id = epm_part.get("id", "")
+        for j in range(i + 1, len(transcript)):
+            result_content = (
+                transcript[j].get(MESSAGE_FIELD_MESSAGE, {}).get(MESSAGE_FIELD_CONTENT, [])
+            )
+            if isinstance(result_content, list) and any(
+                isinstance(p, dict)
+                and p.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TOOL_RESULT
+                and p.get("tool_use_id") == tool_use_id
+                for p in result_content
+            ):
+                return j, plan_text
+        # tool_result not yet written — fall back to the assistant entry.
+        return i, plan_text
+    return None
+
+
+# ============================================================================
 # MAIN TRANSCRIPT PROCESSING
 # ============================================================================
 
@@ -611,42 +667,64 @@ def process_transcript(
             get_logger().warning("Empty transcript, skipping")
             return None
 
-        last_user_idx = find_last_user_message_index(transcript)
-        if last_user_idx is None:
-            get_logger().warning("No user message found in transcript")
-            return None
+        # When the session used Plan mode, the Stop hook should only cover the
+        # execution phase (planning already got its own trace via the
+        # PostToolUse ExitPlanMode hook).  Detect the boundary and slice accordingly.
+        exec_start_idx = 0
+        prompt_override: str | None = None
+        exit_plan_mode_info = find_exit_plan_mode_index(transcript)
+        if exit_plan_mode_info is not None:
+            result_idx, plan_text = exit_plan_mode_info
+            exec_start_idx = result_idx + 1
+            prompt_override = plan_text
 
-        last_user_entry = transcript[last_user_idx]
-        last_user_prompt = last_user_entry.get(MESSAGE_FIELD_MESSAGE, {}).get(
-            MESSAGE_FIELD_CONTENT, ""
-        )
+        if prompt_override is not None:
+            # Execution-phase trace: use the approved plan text as the prompt
+            user_prompt_text = prompt_override
+            conv_start_ns = next(
+                (
+                    parse_timestamp_to_ns(e.get(MESSAGE_FIELD_TIMESTAMP))
+                    for e in transcript[exec_start_idx:]
+                    if e.get(MESSAGE_FIELD_TIMESTAMP)
+                ),
+                None,
+            )
+        else:
+            last_user_idx = find_last_user_message_index(transcript)
+            if last_user_idx is None:
+                get_logger().warning("No user message found in transcript")
+                return None
+            last_user_entry = transcript[last_user_idx]
+            last_user_prompt = last_user_entry.get(MESSAGE_FIELD_MESSAGE, {}).get(
+                MESSAGE_FIELD_CONTENT, ""
+            )
+            user_prompt_text = extract_text_content(last_user_prompt)
+            exec_start_idx = last_user_idx + 1
+            conv_start_ns = parse_timestamp_to_ns(last_user_entry.get(MESSAGE_FIELD_TIMESTAMP))
 
         if not session_id:
             session_id = f"claude-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         get_logger().log(CLAUDE_TRACING_LEVEL, "Creating MLflow trace for session: %s", session_id)
 
-        conv_start_ns = parse_timestamp_to_ns(last_user_entry.get(MESSAGE_FIELD_TIMESTAMP))
-
         parent_span = mlflow.start_span_no_context(
             name="claude_code_conversation",
-            inputs={"prompt": extract_text_content(last_user_prompt)},
+            inputs={"prompt": user_prompt_text},
             start_time_ns=conv_start_ns,
             span_type=SpanType.AGENT,
         )
 
         # Create spans for all assistant responses and tool uses
-        _create_llm_and_tool_spans(parent_span, transcript, last_user_idx + 1)
+        _create_llm_and_tool_spans(parent_span, transcript, exec_start_idx)
 
         # Update trace with preview content and end timing
-        final_response = find_final_assistant_response(transcript, last_user_idx + 1)
-        user_prompt_text = extract_text_content(last_user_prompt)
+        final_response = find_final_assistant_response(transcript, exec_start_idx)
 
         # Calculate end time based on last entry or use default duration
-        last_entry = transcript[-1] if transcript else last_user_entry
+        last_entry = transcript[-1] if transcript else transcript[exec_start_idx]
         conv_end_ns = parse_timestamp_to_ns(last_entry.get(MESSAGE_FIELD_TIMESTAMP))
-        if not conv_end_ns or conv_end_ns <= conv_start_ns:
-            conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
+        if not conv_end_ns or (conv_start_ns and conv_end_ns <= conv_start_ns):
+            conv_end_ns = (conv_start_ns or 0) + int(10 * NANOSECONDS_PER_S)
 
         # Extract Claude Code version from transcript entries (CLI-only)
         claude_code_version = next(
@@ -664,6 +742,95 @@ def process_transcript(
 
     except Exception as e:
         get_logger().error("Error processing transcript: %s", e, exc_info=True)
+        return None
+
+
+def process_planning_phase_transcript(
+    transcript_path: str, session_id: str | None = None
+) -> mlflow.entities.Trace | None:
+    """Process the planning phase of a Plan mode session and create an MLflow trace.
+
+    Called by the PostToolUse ExitPlanMode hook.  Covers all conversation entries
+    from the original user prompt up to and including the ExitPlanMode approval,
+    and uses the approved plan text as the trace output.
+
+    Args:
+        transcript_path: Path to the Claude Code transcript.jsonl file
+        session_id: Optional session identifier
+
+    Returns:
+        MLflow trace object if successful, None if processing fails
+    """
+    try:
+        transcript = read_transcript(transcript_path)
+        if not transcript:
+            get_logger().warning("Empty transcript, skipping planning phase")
+            return None
+
+        exit_plan_mode_info = find_exit_plan_mode_index(transcript)
+        if exit_plan_mode_info is None:
+            get_logger().warning("No ExitPlanMode found, skipping planning phase trace")
+            return None
+
+        result_idx, plan_text = exit_plan_mode_info
+        planning_transcript = transcript[: result_idx + 1]
+
+        last_user_idx = find_last_user_message_index(planning_transcript)
+        if last_user_idx is None:
+            get_logger().warning("No user message found in planning phase")
+            return None
+
+        last_user_entry = planning_transcript[last_user_idx]
+        last_user_prompt = last_user_entry.get(MESSAGE_FIELD_MESSAGE, {}).get(
+            MESSAGE_FIELD_CONTENT, ""
+        )
+        user_prompt_text = extract_text_content(last_user_prompt)
+
+        if not session_id:
+            session_id = f"claude-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        get_logger().log(
+            CLAUDE_TRACING_LEVEL,
+            "Creating planning phase trace for session: %s",
+            session_id,
+        )
+
+        conv_start_ns = parse_timestamp_to_ns(last_user_entry.get(MESSAGE_FIELD_TIMESTAMP))
+
+        parent_span = mlflow.start_span_no_context(
+            name="claude_code_conversation",
+            inputs={"prompt": user_prompt_text},
+            start_time_ns=conv_start_ns,
+            span_type=SpanType.AGENT,
+        )
+
+        _create_llm_and_tool_spans(parent_span, planning_transcript, last_user_idx + 1)
+
+        # Use the approved plan text as the response preview
+        final_response = plan_text or find_final_assistant_response(
+            planning_transcript, last_user_idx + 1
+        )
+
+        last_entry = planning_transcript[-1]
+        conv_end_ns = parse_timestamp_to_ns(last_entry.get(MESSAGE_FIELD_TIMESTAMP))
+        if not conv_end_ns or conv_end_ns <= conv_start_ns:
+            conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
+
+        claude_code_version = next(
+            (ver for entry in planning_transcript if (ver := entry.get("version"))), None
+        )
+
+        return _finalize_trace(
+            parent_span,
+            user_prompt_text,
+            final_response,
+            session_id,
+            conv_end_ns,
+            claude_code_version=claude_code_version,
+        )
+
+    except Exception as e:
+        get_logger().error("Error processing planning phase transcript: %s", e, exc_info=True)
         return None
 
 

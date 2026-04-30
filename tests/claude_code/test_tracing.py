@@ -18,9 +18,11 @@ import mlflow.claude_code.tracing as tracing_module
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     METADATA_KEY_CLAUDE_CODE_VERSION,
+    find_exit_plan_mode_index,
     find_last_user_message_index,
     get_hook_response,
     parse_timestamp_to_ns,
+    process_planning_phase_transcript,
     process_sdk_messages,
     process_transcript,
     setup_logging,
@@ -903,3 +905,227 @@ def test_process_transcript_includes_steer_messages(tmp_path):
     steer_messages = [m for m in input_messages if m.get("content") == "also tell me about Java"]
     assert len(steer_messages) == 1
     assert steer_messages[0]["role"] == "user"
+
+
+def _make_plan_mode_transcript():
+    """Build a realistic Plan mode JSONL transcript.
+
+    Structure (text and tool_use are always separate entries, as Claude Code emits):
+      [0] user  — original prompt
+      [1] assistant — tool_use AskUserQuestion  (planning tool)
+      [2] user  — tool_result for AskUserQuestion
+      [3] assistant — tool_use ExitPlanMode  (signals end of planning)
+      [4] user  — tool_result for ExitPlanMode (user approval)
+      [5] assistant — tool_use Write  (execution)
+      [6] user  — tool_result for Write
+      [7] assistant — text  (final response)
+    """
+    return [
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": "write a fun python script",
+            },
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        # Planning: AskUserQuestion tool call
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "ask_1",
+                        "name": "AskUserQuestion",
+                        "input": {"question": "What kind of fun script?"},
+                    }
+                ],
+                "model": "claude-sonnet-4-20250514",
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "ask_1",
+                        "content": "Something with ASCII art.",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-15T10:00:02.000Z",
+        },
+        # Planning ends: ExitPlanMode
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "epm_1",
+                        "name": "ExitPlanMode",
+                        "input": {"plan": "I will write fun.py with ASCII art."},
+                    }
+                ],
+                "model": "claude-sonnet-4-20250514",
+            },
+            "timestamp": "2025-01-15T10:00:03.000Z",
+        },
+        # User approves the plan
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "epm_1",
+                        "content": "Plan approved.",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-15T10:00:04.000Z",
+        },
+        # Execution: Write tool
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "write_1",
+                        "name": "Write",
+                        "input": {"file_path": "fun.py", "content": "print('( ^_^)/')"},
+                    }
+                ],
+                "model": "claude-sonnet-4-20250514",
+            },
+            "timestamp": "2025-01-15T10:00:05.000Z",
+        },
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "write_1",
+                        "content": "File written successfully.",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-15T10:00:06.000Z",
+        },
+        # Final text response
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Done! fun.py is ready."}],
+                "model": "claude-sonnet-4-20250514",
+            },
+            "timestamp": "2025-01-15T10:00:07.000Z",
+        },
+    ]
+
+
+def test_find_exit_plan_mode_index():
+    transcript = _make_plan_mode_transcript()
+    result = find_exit_plan_mode_index(transcript)
+
+    assert result is not None
+    result_idx, plan_text = result
+    assert transcript[result_idx]["type"] == "user"
+    assert plan_text == "I will write fun.py with ASCII art."
+
+
+def test_find_exit_plan_mode_index_no_tool_result_yet():
+    # Simulate what the transcript looks like when the PostToolUse hook fires
+    # before the tool_result entry is flushed to disk.
+    transcript = _make_plan_mode_transcript()[:4]  # stops right at the ExitPlanMode assistant entry
+
+    result = find_exit_plan_mode_index(transcript)
+    assert result is not None
+    boundary_idx, plan_text = result
+    # Should fall back to the assistant entry (index 3)
+    assert transcript[boundary_idx]["type"] == "assistant"
+    assert plan_text == "I will write fun.py with ASCII art."
+
+
+def test_find_exit_plan_mode_index_not_present():
+    transcript = [
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "hello"},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hi there!"}],
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+    ]
+    assert find_exit_plan_mode_index(transcript) is None
+
+
+@pytest.mark.parametrize("include_tool_result", [True, False])
+def test_process_planning_phase_transcript(tmp_path, include_tool_result):
+    # include_tool_result=False simulates the hook firing before the tool_result is flushed.
+    transcript = _make_plan_mode_transcript()
+    if not include_tool_result:
+        # Strip the tool_result entry (index 4) and everything after
+        transcript = transcript[:4]
+    transcript_path = tmp_path / "plan_mode_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(e) for e in transcript) + "\n")
+
+    trace = process_planning_phase_transcript(str(transcript_path), "plan-session")
+    assert trace is not None
+
+    root = next(s for s in trace.search_spans() if s.parent_id is None)
+    # Input should be the original user prompt
+    assert root.inputs["prompt"] == "write a fun python script"
+    # Output should contain the plan text
+    assert "I will write fun.py with ASCII art." in root.outputs.get("response", "")
+
+    # Only planning-phase tool spans should appear (AskUserQuestion, ExitPlanMode)
+    tool_spans = [s for s in trace.search_spans() if s.span_type == SpanType.TOOL]
+    tool_names = {s.name for s in tool_spans}
+    assert "tool_AskUserQuestion" in tool_names
+    assert "tool_ExitPlanMode" in tool_names
+    # Execution-phase tools must NOT be in the planning trace
+    assert "tool_Write" not in tool_names
+
+
+def test_process_transcript_plan_mode_execution_phase(tmp_path):
+    # The Stop hook should only trace the execution phase when Plan mode was used.
+    transcript = _make_plan_mode_transcript()
+    transcript_path = tmp_path / "plan_mode_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(e) for e in transcript) + "\n")
+
+    trace = process_transcript(str(transcript_path), "plan-session")
+    assert trace is not None
+
+    root = next(s for s in trace.search_spans() if s.parent_id is None)
+    # Root input should be the approved plan text, not the original user prompt
+    assert root.inputs["prompt"] == "I will write fun.py with ASCII art."
+
+    # The final text response should be the execution-phase response
+    assert "Done! fun.py is ready." in root.outputs.get("response", "")
+
+    # Only execution-phase spans should appear
+    tool_spans = [s for s in trace.search_spans() if s.span_type == SpanType.TOOL]
+    tool_names = {s.name for s in tool_spans}
+    assert "tool_Write" in tool_names
+    # Planning-phase tools must NOT appear in the execution trace
+    assert "tool_AskUserQuestion" not in tool_names
+    assert "tool_ExitPlanMode" not in tool_names

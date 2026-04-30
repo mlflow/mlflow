@@ -111,3 +111,33 @@ def test_stop_hook_subcommand_is_routable(runner):
         result = runner.invoke(commands, ["claude", "stop-hook"])
         assert result.exit_code == 0
         mock_handler.assert_called_once()
+
+
+def test_upsert_hook_with_matcher():
+    config = {HOOK_FIELD_HOOKS: {}}
+    upsert_hook(config, "PostToolUse", "exit-plan-mode-hook", matcher="ExitPlanMode")
+
+    groups = config[HOOK_FIELD_HOOKS]["PostToolUse"]
+    assert len(groups) == 1
+    group = groups[0]
+    assert group.get("matcher") == "ExitPlanMode"
+    hook_command = group[HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
+    assert "mlflow autolog claude exit-plan-mode-hook" in hook_command
+
+
+def test_upsert_hook_stop_and_post_tool_use_are_independent():
+    config = {HOOK_FIELD_HOOKS: {}}
+    upsert_hook(config, "Stop", "stop-hook")
+    upsert_hook(config, "PostToolUse", "exit-plan-mode-hook", matcher="ExitPlanMode")
+
+    stop_cmd = config[HOOK_FIELD_HOOKS]["Stop"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
+    post_cmd = config[HOOK_FIELD_HOOKS]["PostToolUse"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
+    assert "stop-hook" in stop_cmd
+    assert "exit-plan-mode-hook" in post_cmd
+
+
+def test_exit_plan_mode_hook_subcommand_is_routable(runner):
+    with mock.patch("mlflow.claude_code.cli.exit_plan_mode_hook_handler") as mock_handler:
+        result = runner.invoke(commands, ["claude", "exit-plan-mode-hook"])
+        assert result.exit_code == 0
+        mock_handler.assert_called_once()
