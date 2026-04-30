@@ -17,6 +17,7 @@ from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_log_level import SpanLogLevel
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -172,6 +173,22 @@ class Span:
     def span_type(self) -> str:
         """The type of the span."""
         return self.get_attribute(SpanAttributeKey.SPAN_TYPE)
+
+    @property
+    def log_level(self) -> SpanLogLevel | None:
+        """
+        The severity level of the span, or ``None`` if it was not classified.
+
+        Set on a :py:class:`LiveSpan <mlflow.entities.LiveSpan>` via
+        :py:meth:`set_log_level <mlflow.entities.LiveSpan.set_log_level>`,
+        the ``log_level`` argument of :py:func:`mlflow.start_span`,
+        :py:func:`mlflow.start_span_no_context`, or :py:func:`mlflow.trace`,
+        or by an autologging integration on the user's behalf.
+        """
+        raw = self.get_attribute(SpanAttributeKey.LOG_LEVEL)
+        if raw is None:
+            return None
+        return SpanLogLevel(raw)
 
     @property
     def model_name(self) -> str | None:
@@ -556,6 +573,18 @@ class LiveSpan(Span):
     def set_span_type(self, span_type: str):
         """Set the type of the span."""
         self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
+
+    def set_log_level(self, level: SpanLogLevel | int | str):
+        """
+        Set the severity level of the span.
+
+        Args:
+            level: A :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>`,
+                its int value (e.g. ``20``), or its name (e.g. ``"INFO"``).
+                ``"WARN"`` is accepted as an alias for ``"WARNING"``.
+        """
+        normalized = SpanLogLevel.from_value(level)
+        self.set_attribute(SpanAttributeKey.LOG_LEVEL, int(normalized))
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
@@ -1098,6 +1127,9 @@ class NoOpSpan(Span):
         pass
 
     def set_attribute(self, key: str, value: Any):
+        pass
+
+    def set_log_level(self, level: SpanLogLevel | int | str):
         pass
 
     def set_status(self, status: SpanStatus):

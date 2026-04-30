@@ -99,6 +99,10 @@ class SpanAttributeKey:
     INPUTS = "mlflow.spanInputs"
     OUTPUTS = "mlflow.spanOutputs"
     SPAN_TYPE = "mlflow.spanType"
+    # Severity level of the span. Stored as an int matching Python's logging module
+    # (DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50). Absent means the span
+    # was not classified.
+    LOG_LEVEL = "mlflow.spanLogLevel"
     FUNCTION_NAME = "mlflow.spanFunctionName"
     START_TIME_NS = "mlflow.spanStartTimeNs"
     CHAT_TOOLS = "mlflow.chat.tools"
