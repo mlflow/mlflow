@@ -127,7 +127,7 @@ Example output for a weather assistant:
 def _get_agent_response_text(predict_fn: Callable[..., Any]) -> str | None:
     """
     Call *predict_fn* with a self-description prompt and return the
-    assistant's response as a plain string, or ``None`` on failure.
+    assistant's response as a plain string.
     """
 
     prompt = [
@@ -139,19 +139,8 @@ def _get_agent_response_text(predict_fn: Callable[..., Any]) -> str | None:
         }
     ]
 
-    try:
-        sig = inspect.signature(predict_fn)
-        params = list(sig.parameters.keys())
-    except Exception:
-        _logger.debug("Failed to get signature of predict_fn", exc_info=True)
-        return None
-
-    if "messages" in params:
-        kwarg = "messages"
-    elif "input" in params:
-        kwarg = "input"
-    else:
-        raise ValueError(f"predict_fn must accept either 'messages' or 'input', got {params}")
+    params = inspect.signature(predict_fn).parameters
+    kwarg = "messages" if "messages" in params else "input"
 
     try:
         result = predict_fn(**{kwarg: prompt})
@@ -235,8 +224,9 @@ def _describe_agent_from_traces(
     # Extract tools from the first trace that has them
     tools_desc = ""
     for trace in traces[:10]:
-        if tools := extract_available_tools_from_trace(trace, model=model):
-            tool_names = [t.function.name for t in tools if t.function]
+        if (tools := extract_available_tools_from_trace(trace, model=model)) and (
+            tool_names := [t.function.name for t in tools if t.function]
+        ):
             tools_desc = f"Available tools: {', '.join(tool_names)}"
             break
 
@@ -411,7 +401,10 @@ def test_agent(
     """
     from mlflow.genai.discovery.pipeline import discover_issues
     from mlflow.genai.simulators import ConversationSimulator
+    from mlflow.genai.simulators.simulator import _validate_simulator_predict_fn_signature
     from mlflow.genai.simulators.utils import get_default_simulation_model
+
+    _validate_simulator_predict_fn_signature(predict_fn)
 
     if not model:
         model = get_default_simulation_model()

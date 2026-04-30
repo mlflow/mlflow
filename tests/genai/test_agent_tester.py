@@ -63,6 +63,12 @@ def mock_llm():
         yield m
 
 
+@pytest.fixture
+def mock_no_active_trace():
+    with mock.patch("mlflow.get_last_active_trace_id", return_value=None):
+        yield
+
+
 def test_agent_description_str():
     desc = _AgentDescription(
         description="A weather assistant",
@@ -155,15 +161,7 @@ def test_get_agent_response_text_dispatches_input_kwarg():
     assert "input" in received
 
 
-def test_get_agent_response_text_raises_for_unknown_signature():
-    def agent(query):
-        return "response"
-
-    with pytest.raises(ValueError, match="'messages' or 'input'"):
-        _get_agent_response_text(agent)
-
-
-def test_get_agent_response_text_returns_none_on_exception():
+def test_get_agent_response_text_returns_none_on_exception(mock_no_active_trace):
     def predict(messages):
         raise RuntimeError("boom")
 
@@ -171,13 +169,34 @@ def test_get_agent_response_text_returns_none_on_exception():
     assert result is None
 
 
-def test_get_agent_response_text_returns_none_when_no_output():
+def test_get_agent_response_text_falls_back_to_trace():
     def predict(messages):
         return None
 
-    with mock.patch("mlflow.get_last_active_trace_id", return_value=None):
+    mock_trace = mock.MagicMock()
+    with (
+        mock.patch("mlflow.get_last_active_trace_id", return_value="trace-123"),
+        mock.patch("mlflow.get_trace", return_value=mock_trace) as mock_get_trace,
+        mock.patch(
+            "mlflow.genai.utils.trace_utils.extract_outputs_from_trace",
+            return_value={"content": "trace text"},
+        ),
+        mock.patch(
+            "mlflow.genai.utils.trace_utils.parse_outputs_to_str",
+            side_effect=[None, "trace text"],
+        ),
+    ):
         result = _get_agent_response_text(predict)
 
+    mock_get_trace.assert_called_once_with("trace-123")
+    assert result == "trace text"
+
+
+def test_get_agent_response_text_returns_none_when_no_output(mock_no_active_trace):
+    def predict(messages):
+        return None
+
+    result = _get_agent_response_text(predict)
     assert result is None
 
 
