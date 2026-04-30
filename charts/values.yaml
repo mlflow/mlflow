@@ -37,6 +37,34 @@ server:
   # Aligns the --static-prefix server arg and liveness/readiness probe paths.
   staticPrefix: ""
 
+# Garbage collection via a CronJob that runs `mlflow gc`.
+# Permanently removes soft-deleted runs, experiments, and logged models
+# along with their artifacts. Resources must be soft-deleted first
+# (e.g. via the UI or API) before garbage collection will remove them.
+garbageCollection:
+  # Set to true to create the CronJob. Default: false (no garbage collection).
+  enabled: false
+  # Cron schedule expression (e.g. "0 2 * * 0" for weekly at 2 AM on Sunday).
+  # Required when enabled.
+  schedule: "0 2 * * 0"
+  # ServiceAccount used by the CronJob. The chart creates this SA along with
+  # a ClusterRole/ClusterRoleBinding granting the MLflow pseudo-resource
+  # permissions that `mlflow gc` needs.
+  serviceAccount:
+    name: mlflow-gc-sa
+  # Optional. Restrict deletion to resources that have been soft-deleted for
+  # at least this duration (e.g. "30d", "7d12h"). If not specified, all
+  # soft-deleted resources are permanently removed regardless of age.
+  # olderThan: "30d"
+  # Resources for the garbage collection Job container.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 service:
   type: ClusterIP
   port: 5000
