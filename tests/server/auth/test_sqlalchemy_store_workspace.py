@@ -51,6 +51,72 @@ def test_get_workspace_permission_precedence(store):
     assert perm == READ
 
 
+def test_get_role_workspace_permission_returns_none_when_no_role(store):
+    # No role assignment at all → None (callers fall back to legacy /
+    # default lookups).
+    username = random_str()
+    store.create_user(username, random_str())
+
+    assert store.get_role_workspace_permission("ws1", username) is None
+
+
+def test_get_role_workspace_permission_returns_workspace_wide_grant(store):
+    # Role with (resource_type='workspace', resource_pattern='*', MANAGE)
+    # in ws1 surfaces as a MANAGE grant for that workspace.
+    username = random_str()
+    user = store.create_user(username, random_str())
+
+    role = store.create_role(name="ws-admin", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", MANAGE.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_workspace_permission("ws1", username) == MANAGE
+
+
+def test_get_role_workspace_permission_ignores_resource_specific_grants(store):
+    # A role with only resource-specific grants (e.g. experiment:* READ) must
+    # NOT register as a workspace-wide grant — that would over-promote a
+    # tab-scoped role into a workspace-level capability.
+    username = random_str()
+    user = store.create_user(username, random_str())
+
+    role = store.create_role(name="exp-reader", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "*", READ.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_workspace_permission("ws1", username) is None
+
+
+def test_get_role_workspace_permission_takes_max_across_roles(store):
+    # Two roles in the same workspace with different workspace-wide
+    # permissions → the helper returns the higher of the two.
+    username = random_str()
+    user = store.create_user(username, random_str())
+
+    read_role = store.create_role(name="ws-reader", workspace="ws1")
+    store.add_role_permission(read_role.id, "workspace", "*", READ.name)
+    store.assign_role_to_user(user.id, read_role.id)
+
+    edit_role = store.create_role(name="ws-editor", workspace="ws1")
+    store.add_role_permission(edit_role.id, "workspace", "*", EDIT.name)
+    store.assign_role_to_user(user.id, edit_role.id)
+
+    assert store.get_role_workspace_permission("ws1", username) == EDIT
+
+
+def test_get_role_workspace_permission_scopes_to_requested_workspace(store):
+    # A workspace-wide role grant in ws1 must not leak into ws2's permission
+    # check — roles are bound to a single workspace.
+    username = random_str()
+    user = store.create_user(username, random_str())
+
+    role_ws1 = store.create_role(name="ws-admin", workspace="ws1")
+    store.add_role_permission(role_ws1.id, "workspace", "*", MANAGE.name)
+    store.assign_role_to_user(user.id, role_ws1.id)
+
+    assert store.get_role_workspace_permission("ws2", username) is None
+
+
 def test_list_workspace_permissions(store):
     workspace = "team-gamma"
     other_workspace = "team-delta"

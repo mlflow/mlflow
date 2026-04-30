@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 import requests
 from pydantic import BaseModel
 
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_LLM_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
@@ -520,7 +521,7 @@ def _send_request(
             url=endpoint,
             headers=headers,
             json=payload,
-            timeout=60,
+            timeout=MLFLOW_GENAI_EVAL_LLM_TIMEOUT.get(),
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:

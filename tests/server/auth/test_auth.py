@@ -123,6 +123,26 @@ def test_proxy_artifact_path_detection():
     assert auth_module._is_proxy_artifact_path("/ajax-api/2.0/mlflow-artifacts/artifacts/foo")
 
 
+def test_is_unprotected_route_handles_static_prefix(monkeypatch):
+    # When ``_MLFLOW_STATIC_PREFIX`` is set, the health/static/favicon routes
+    # are served from e.g. ``/mlflow/health``. Health checks must not require
+    # auth on prefixed deployments.
+    monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
+    assert auth_module.is_unprotected_route("/health")
+    assert auth_module.is_unprotected_route("/favicon.ico")
+    assert auth_module.is_unprotected_route("/static/foo.js")
+    assert not auth_module.is_unprotected_route("/api/2.0/mlflow/users/list")
+
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+    assert auth_module.is_unprotected_route("/mlflow/health")
+    assert auth_module.is_unprotected_route("/mlflow/favicon.ico")
+    assert auth_module.is_unprotected_route("/mlflow/static/foo.js")
+    # Unprefixed forms still pass through (local dev / non-prefixed deployments).
+    assert auth_module.is_unprotected_route("/health")
+    # Protected routes stay protected even with the prefix.
+    assert not auth_module.is_unprotected_route("/mlflow/api/2.0/mlflow/users/list")
+
+
 def test_proxy_artifact_mpu_path_detection():
     # MPU create/complete/abort paths should be recognized as proxy artifact paths
     for action in ("create", "complete", "abort"):
