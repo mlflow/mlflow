@@ -115,6 +115,14 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: When true, newly created workspaces are seeded with two default RBAC roles
+#: (``admin``, ``user``) that super-admins can assign to other
+#: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already
+#: bypasses RBAC, so the creator is not assigned to any role. Set to ``False`` to skip
+#: seeding entirely — no roles are created and no grants are issued.
+#: (default: ``True``)
+MLFLOW_RBAC_SEED_DEFAULT_ROLES = _BooleanEnvironmentVariable("MLFLOW_RBAC_SEED_DEFAULT_ROLES", True)
+
 #: Specifies the active workspace for client operations.
 #: (default: ``None``)
 MLFLOW_WORKSPACE = _EnvironmentVariable("MLFLOW_WORKSPACE", str, None)
@@ -726,6 +734,14 @@ MLFLOW_TRACE_EXTRACT_ATTACHMENTS = _BooleanEnvironmentVariable(
     "MLFLOW_TRACE_EXTRACT_ATTACHMENTS", True
 )
 
+#: Maximum size in bytes for a single trace attachment. When set, attachments
+#: exceeding this limit are discarded and replaced with an error message.
+#: Only applies to trace attachments, not artifact uploads.
+#: (default: unset — no limit)
+MLFLOW_TRACE_MAX_ATTACHMENT_SIZE = _EnvironmentVariable(
+    "MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", int, None
+)
+
 #: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.
 #: This cache improves performance by avoiding repeated network calls for the same prompt version.
 #: (default: ``128``)
@@ -833,6 +849,11 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
 #: function is passed as predict_fn, it will be wrapped with asyncio.run() with this timeout.
 #: (default: ``300``)
 MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
+
+#: Timeout in seconds for LLM calls during mlflow.genai.evaluate. When an LLM is used as a scorer.
+#: This controls how long to wait for an LLM response before timing out.
+#: (default: ``60``)
+MLFLOW_GENAI_EVAL_LLM_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_LLM_TIMEOUT", int, 60)
 
 #: Number of sessions (or individual traces when no session metadata exists) to sample
 #: for the triage phase of ``mlflow.genai.discover_issues()``. (default: ``100``)
@@ -1154,6 +1175,21 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 #: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
+
+#: When ``True``, MLflow verifies that the SQL warehouse referenced by
+#: ``MLFLOW_TRACING_SQL_WAREHOUSE_ID`` is running before making V4/V5 MLflow tracing API calls that
+#: require it, and starts it and waits for it to reach the ``RUNNING`` state if not.
+#: (default: ``True``)
+MLFLOW_SQL_WAREHOUSE_AUTO_START = _BooleanEnvironmentVariable(
+    "MLFLOW_SQL_WAREHOUSE_AUTO_START", True
+)
+
+#: Maximum number of seconds MLflow waits for the SQL warehouse to reach the ``RUNNING`` state
+#: when auto-starting it. Applies only when ``MLFLOW_SQL_WAREHOUSE_AUTO_START`` is enabled.
+#: (default: ``1200``)
+MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS", int, 1200
+)
 
 #: Specifies whether to export spans incrementally as they complete, in addition to
 #: exporting the full trace. When enabled, spans are written to the tracking store
@@ -1483,3 +1519,20 @@ MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", Tru
 #: file size is a concern.
 #: (default: ``True``)
 MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
+
+
+#: Specifies whether to allow using the deprecated filesystem backend for tracking
+#: and model registry. Set to ``True`` to opt out of the error raised when
+#: instantiating the file-based stores.
+#: (default: ``False``)
+MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE", False)
+
+
+#: Specifies whether to skip the pip requirements compatibility check when saving or logging
+#: a model. When set to ``True``, MLflow will not run ``pip install --dry-run`` to validate
+#: that the provided pip requirements are mutually compatible. This is useful in air-gapped
+#: environments where pip cannot reach external package indexes.
+#: (default: ``False``)
+MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK = _BooleanEnvironmentVariable(
+    "MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK", False
+)

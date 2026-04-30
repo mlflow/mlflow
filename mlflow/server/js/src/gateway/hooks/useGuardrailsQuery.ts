@@ -12,7 +12,7 @@ export const useGuardrailsQuery = (endpointId?: string) => {
     {
       queryFn: () => GatewayApi.listEndpointGuardrailConfigs(endpointId as string),
       retry: false,
-      enabled: !!endpointId,
+      enabled: Boolean(endpointId),
     },
   );
 

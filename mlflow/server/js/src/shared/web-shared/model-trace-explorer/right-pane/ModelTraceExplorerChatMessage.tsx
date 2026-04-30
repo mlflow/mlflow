@@ -2,17 +2,17 @@ import { isNil } from 'lodash';
 import { useState } from 'react';
 
 import {
-  Button,
   ChevronDownIcon,
   ChevronRightIcon,
-  ChevronUpIcon,
   LightbulbIcon,
+  Modal,
   Spinner,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
 import {
   attachmentAwareUrlTransform,
   isAttachmentUri,
@@ -32,15 +32,54 @@ import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInput
 import { MARKDOWN_RENDER_SIZE_LIMIT } from '../constants';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
+function ClickToExpandImage({ src, alt }: { src: string; alt?: string }) {
+  const { theme } = useDesignSystemTheme();
+  const [previewVisible, setPreviewVisible] = useState(false);
+  return (
+    <>
+      <img
+        src={src}
+        alt={alt}
+        css={{
+          maxWidth: '100%',
+          maxHeight: 200,
+          cursor: 'pointer',
+          '&:hover': { boxShadow: `0 0 4px ${theme.colors.border}` },
+        }}
+        onClick={() => setPreviewVisible(true)}
+      />
+      <Modal
+        componentId="shared.model-trace-explorer.image-preview"
+        title=""
+        visible={previewVisible}
+        onCancel={() => setPreviewVisible(false)}
+        onOk={() => setPreviewVisible(false)}
+      >
+        <img src={src} alt={alt} css={{ maxWidth: '100%', maxHeight: '70vh', display: 'block' }} />
+      </Modal>
+    </>
+  );
+}
+
 function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
-  const { url, loading, error } = useAttachmentUrl(src ?? null);
+  const { url, contentLength, contentType, loading, error, triggerDownload } = useAttachmentUrl(src ?? null);
   if (loading) {
     return <Spinner size="small" />;
+  }
+  if ((url || triggerDownload) && contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return (
+      <DownloadLink
+        url={url}
+        contentType={contentType}
+        contentLength={contentLength}
+        onFetchDownload={triggerDownload}
+      />
+    );
   }
   if (error || !url) {
     return <span>{`[${alt ?? 'Failed to load image'}]`}</span>;
   }
-  return <img src={url} alt={alt} css={{ maxWidth: '100%' }} />;
+  return <ClickToExpandImage src={url} alt={alt} />;
 }
 
 const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }) => {
@@ -54,10 +93,14 @@ const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }
           attachmentId={parsed.attachmentId}
           traceId={parsed.traceId}
           contentType={parsed.contentType}
+          size={parsed.size}
         />
       );
     }
     return <AttachmentImage src={src} alt={alt} />;
+  }
+  if (src) {
+    return <ClickToExpandImage src={src} alt={alt} />;
   }
   return <img src={src} alt={alt} css={{ maxWidth: '100%' }} />;
 };
@@ -211,9 +254,19 @@ function getAudioMimeType(format: string): string {
 }
 
 function AttachmentAudioPlayer({ uri }: { uri: string }) {
-  const { url, loading, error } = useAttachmentUrl(uri);
+  const { url, contentLength, contentType, loading, error, triggerDownload } = useAttachmentUrl(uri);
   if (loading) {
     return <Spinner size="small" />;
+  }
+  if ((url || triggerDownload) && contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return (
+      <DownloadLink
+        url={url}
+        contentType={contentType}
+        contentLength={contentLength}
+        onFetchDownload={triggerDownload}
+      />
+    );
   }
   if (error || !url) {
     return (
@@ -288,8 +341,6 @@ export function ModelTraceExplorerChatMessage({
         display: 'flex',
         flexDirection: 'column',
         width: '100%',
-        borderRadius: theme.borders.borderRadiusSm,
-        border: `1px solid ${theme.colors.border}`,
         backgroundColor: theme.colors.backgroundPrimary,
         overflow: 'hidden',
       }}
@@ -320,20 +371,17 @@ export function ModelTraceExplorerChatMessage({
         )}
       </div>
       {isExpandable && (
-        <Button
+        <Typography.Link
           componentId={
             expanded
               ? 'shared.model-trace-explorer.chat-message-see-less'
               : 'shared.model-trace-explorer.chat-message-see-more'
           }
-          icon={expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
-          type="tertiary"
           onClick={() => setExpanded(!expanded)}
           css={{
+            padding: theme.spacing.sm,
             display: 'flex',
-            width: '100%',
-            padding: theme.spacing.md,
-            borderRadius: '0px !important',
+            alignItems: 'center',
           }}
         >
           {expanded ? (
@@ -347,7 +395,7 @@ export function ModelTraceExplorerChatMessage({
               description="A button label in a message renderer that expands truncated content when clicked."
             />
           )}
-        </Button>
+        </Typography.Link>
       )}
     </div>
   );

@@ -2968,6 +2968,70 @@ Request Structure
 
 
 
+.. _mlflowMlflowServicecreatePresignedUploadUrl:
+
+Create Presigned Upload URL
+===========================
+
+
++-----------------------------------------------+-------------+
+|                   Endpoint                    | HTTP Method |
++===============================================+=============+
+| ``2.0/mlflow/artifacts/presigned-upload-url`` | ``POST``    |
++-----------------------------------------------+-------------+
+
+Generate a presigned URL for uploading an artifact directly to cloud storage.
+The server uses its own credentials to sign the URL, enabling clients to upload
+artifacts without needing direct cloud storage write permissions.
+
+Consumed by external artifact repository plugins
+(e.g. https://github.com/aws/sagemaker-mlflow).
+
+
+
+
+.. _mlflowCreatePresignedUploadUrl:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                          Description                                           |
++============+============+================================================================================================+
+| run_id     | ``STRING`` | Run ID that owns the artifact. Must be provided.                                               |
++------------+------------+------------------------------------------------------------------------------------------------+
+| path       | ``STRING`` | Relative path within the run's artifact directory (e.g. "models/model.pkl"). Must be provided. |
++------------+------------+------------------------------------------------------------------------------------------------+
+| expiration | ``INT64``  | URL expiration time in seconds (default: 900).                                                 |
++------------+------------+------------------------------------------------------------------------------------------------+
+
+.. _mlflowCreatePresignedUploadUrlResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------+-----------------------------------------------------------------------+--------------------------------------------------------------+
+|  Field Name   |                                 Type                                  |                         Description                          |
++===============+=======================================================================+==============================================================+
+| presigned_url | ``STRING``                                                            | Presigned URL for direct artifact upload.                    |
++---------------+-----------------------------------------------------------------------+--------------------------------------------------------------+
+| headers       | An array of :ref:`mlflowcreatepresigneduploadurlresponseheadersentry` | Required headers for the upload request (e.g. Content-Type). |
++---------------+-----------------------------------------------------------------------+--------------------------------------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicecreateBudgetPolicy:
 
 Create Budget Policy
@@ -6861,6 +6925,24 @@ Retrieve workspace metadata.
 +================+============+=========================================================+
 | workspace_name | ``STRING`` | Name of the workspace to fetch. This field is required. |
 +----------------+------------+---------------------------------------------------------+
+
+.. _mlflowCreatePresignedUploadUrlResponseHeadersEntry:
+
+HeadersEntry
+------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
 
 .. _mlflowartifactsMultipartUploadCredentialHeadersEntry:
 

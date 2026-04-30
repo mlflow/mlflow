@@ -5,6 +5,7 @@ from mlflow.gateway.config import _validate_config
 from mlflow.gateway.runner import run_app
 from mlflow.telemetry.events import GatewayStartEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.os import is_windows
 
 
@@ -43,6 +44,10 @@ def commands():
     "--workers",
     default=2,
     help="The number of workers.",
+)
+@deprecated(
+    impact="Please use the new UI-based AI Gateway instead:"
+    " https://mlflow.org/docs/latest/genai/governance/ai-gateway/"
 )
 def start(config_path: str, host: str, port: str, workers: int):
     if is_windows():

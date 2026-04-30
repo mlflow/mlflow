@@ -14,6 +14,8 @@ const config: Config = {
 
   // Docusaurus sets the canonical URL to the preferred one, so the pages are consolidated and double search results are prevented.
   trailingSlash: true,
+  // Versioned builds (e.g. /docs/2.x.x/) are noindexed so only /docs/latest/ appears in search results.
+  noIndex: process.env.DOCS_NO_INDEX === 'true',
 
   // Set the production url of your site here
   url: 'https://mlflow.org',
@@ -31,13 +33,12 @@ const config: Config = {
 
   // change to throw when migration is done
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'throw',
   onBrokenAnchors: 'throw',
   onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
 
   future: {
     v4: true, // opt-in for Docusaurus v4 planned changes
-    experimental_faster: true, // turns Docusaurus Faster on globally
+    faster: true, // turns Docusaurus Faster on globally
   },
 
   // Even if you don't use internationalization, you can use this field to set
@@ -62,6 +63,9 @@ const config: Config = {
   themes: ['@docusaurus/theme-mermaid', '@signalwire/docusaurus-theme-llms-txt'],
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'throw',
+    },
   },
 
   presets: [
@@ -819,7 +823,7 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/governance/ai-gateway/legacy/setup',
+            to: '/genai/governance/ai-gateway',
             from: [
               '/llms/deployments/guides/step1-create-deployments',
               '/llms/gateway/guides/step1-create-gateway',
@@ -831,12 +835,22 @@ const config: Config = {
             from: ['/genai/governance/ai-gateway/setup'],
           },
           {
-            to: '/genai/governance/ai-gateway/legacy/usage',
+            to: '/genai/governance/ai-gateway',
             from: [
               '/llms/deployments/guides/step2-query-deployments',
               '/llms/gateway/guides/step2-query-gateway',
               '/genai/governance/ai-gateway/guides/step2-query-deployments',
               '/genai/governance/ai-gateway/usage',
+            ],
+          },
+          {
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/genai/governance/ai-gateway/legacy',
+              '/genai/governance/ai-gateway/legacy/index',
+              '/genai/governance/ai-gateway/legacy/setup',
+              '/genai/governance/ai-gateway/legacy/configuration',
+              '/genai/governance/ai-gateway/legacy/usage',
             ],
           },
           {

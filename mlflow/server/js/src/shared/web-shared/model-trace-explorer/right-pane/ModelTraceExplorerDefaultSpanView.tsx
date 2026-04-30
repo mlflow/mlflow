@@ -5,8 +5,8 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
-import { createListFromObject } from '../ModelTraceExplorer.utils';
-import { containsAttachmentUri } from '../attachment-utils';
+import { CodeSnippetRenderMode } from '../ModelTrace.types';
+import { createListFromObject, buildAggregatedJsonFromKeyValueList } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
@@ -16,15 +16,19 @@ export function ModelTraceExplorerDefaultSpanView({
   className,
   searchFilter,
   activeMatch,
+  renderMode = 'default',
 }: {
   activeSpan: ModelTraceSpanNode | undefined;
   className?: string;
   searchFilter: string;
   activeMatch: SearchMatch | null;
+  renderMode?: 'default' | 'json' | 'table';
 }) {
   const { theme } = useDesignSystemTheme();
   const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
   const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
+  const aggregatedInputJson = useMemo(() => buildAggregatedJsonFromKeyValueList(inputList), [inputList]);
+  const aggregatedOutputJson = useMemo(() => buildAggregatedJsonFromKeyValueList(outputList), [outputList]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -59,25 +63,40 @@ export function ModelTraceExplorerDefaultSpanView({
             </div>
           }
         >
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            {/* Attachment fields use FieldRenderer (which handles inline rendering of images,
-                audio, PDF). Non-attachment fields use CodeSnippet to preserve search highlighting
-                and jump-to-match behavior (FieldRenderer doesn't support these props). */}
-            {inputList.map(({ key, value }, index) =>
-              containsAttachmentUri(value) ? (
-                <ModelTraceExplorerFieldRenderer key={key || index} title={key} data={value} renderMode="default" />
-              ) : (
+          {renderMode === 'table' ? (
+            <ModelTraceExplorerCodeSnippet
+              title=""
+              data={aggregatedInputJson}
+              initialRenderMode={CodeSnippetRenderMode.TABLE}
+              hideRenderModeDropdown
+            />
+          ) : renderMode === 'default' ? (
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              {inputList.map(({ key, value }, index) => (
+                <ModelTraceExplorerFieldRenderer
+                  key={key || index}
+                  title={key}
+                  data={value}
+                  renderMode={renderMode}
+                  assessments={activeSpan?.assessments}
+                />
+              ))}
+            </div>
+          ) : (
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              {inputList.map(({ key, value }, index) => (
                 <ModelTraceExplorerCodeSnippet
                   key={key || index}
                   title={key}
                   data={value}
+                  initialRenderMode={renderMode === 'json' ? CodeSnippetRenderMode.JSON : undefined}
                   searchFilter={searchFilter}
                   activeMatch={activeMatch}
                   containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'inputs' && activeMatch.key === key}
                 />
-              ),
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </ModelTraceExplorerCollapsibleSection>
       )}
       {containsOutputs && (
@@ -93,24 +112,42 @@ export function ModelTraceExplorerDefaultSpanView({
             </div>
           }
         >
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            {outputList.map(({ key, value }) =>
-              containsAttachmentUri(value) ? (
-                <ModelTraceExplorerFieldRenderer key={key} title={key} data={value} renderMode="default" />
-              ) : (
+          {renderMode === 'table' ? (
+            <ModelTraceExplorerCodeSnippet
+              title=""
+              data={aggregatedOutputJson}
+              initialRenderMode={CodeSnippetRenderMode.TABLE}
+              hideRenderModeDropdown
+            />
+          ) : renderMode === 'default' ? (
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              {outputList.map(({ key, value }, index) => (
+                <ModelTraceExplorerFieldRenderer
+                  key={key || index}
+                  title={key}
+                  data={value}
+                  renderMode={renderMode}
+                  assessments={activeSpan?.assessments}
+                />
+              ))}
+            </div>
+          ) : (
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              {outputList.map(({ key, value }) => (
                 <ModelTraceExplorerCodeSnippet
                   key={key}
                   title={key}
                   data={value}
+                  initialRenderMode={renderMode === 'json' ? CodeSnippetRenderMode.JSON : undefined}
                   searchFilter={searchFilter}
                   activeMatch={activeMatch}
                   containsActiveMatch={
                     isActiveMatchSpan && activeMatch.section === 'outputs' && activeMatch.key === key
                   }
                 />
-              ),
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </ModelTraceExplorerCollapsibleSection>
       )}
     </div>

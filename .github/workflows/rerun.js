@@ -53,7 +53,7 @@ async function rerun({ github, context }) {
         conclusion === "failure" &&
         name.toLowerCase() !== "rerun" && // Prevent recursive rerun
         (name.toLowerCase() === "protect" || // Always rerun protect job
-          computeExecutionTimeInSeconds(started_at, completed_at) <= 60) // Rerun jobs that took less than 60 seconds (e.g. Maintainer approval check)
+          computeExecutionTimeInSeconds(started_at, completed_at) <= 60) // Rerun jobs that took less than 60 seconds (e.g. approval check)
     )
     .map(
       ({

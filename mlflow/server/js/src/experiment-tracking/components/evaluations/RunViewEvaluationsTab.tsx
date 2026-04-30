@@ -37,14 +37,14 @@ import {
   TRACE_ID_COLUMN_ID,
   shouldUseTracesV4API,
   createTraceLocationForExperiment,
-  createTraceLocationForUCSchema,
+  createTraceLocationForDestinationPath,
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
   SESSION_COLUMN_ID,
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
-import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
@@ -54,10 +54,7 @@ import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { checkColumnContents } from '../experiment-page/components/traces-v3/utils/columnUtils';
-import type {
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
-} from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import {
   isV3ModelTraceInfo,
   ModelTraceExplorerContextProvider,
@@ -69,10 +66,10 @@ import type { ExperimentEntity } from '../../types';
 import { useGetDeleteTracesAction } from '../experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
 import { useIntl } from 'react-intl';
 import { ExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
-import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import { useCountInfo } from '../experiment-page/components/traces-v3/hooks/useCountInfo';
 import { useAssessmentCountMetrics } from '../experiment-page/components/traces-v3/hooks/useAssessmentCountMetrics';
+import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 
 const ContextProviders = ({
   children,
@@ -345,7 +342,12 @@ const RunViewEvaluationsTabInner = ({
         DrawerComponent={AssistantAwareDrawer}
       >
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-          <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+          <GenAITracesTableProvider
+            experimentId={experimentId}
+            getTrace={getTrace}
+            isGroupedBySession={isGroupedBySession}
+            DrawerComponent={AssistantAwareDrawer}
+          >
             <div
               css={{
                 overflowY: 'hidden',
@@ -500,7 +502,7 @@ const LoadingSkeleton = () => {
 
 const useGetCompareToData = (params: {
   experimentId: string;
-  traceLocations: ModelTraceLocationUcSchema[] | ModelTraceLocationMlflowExperiment[];
+  traceLocations: ModelTraceSearchLocation[];
   compareToRunUuid: string | undefined;
   isQueryDisabled?: boolean;
 }): {

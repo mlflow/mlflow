@@ -125,7 +125,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
   );
 
   const availableProviders = secrets
-    ? Array.from(new Set(secrets.map((s) => s.provider).filter((p): p is string => !!p)))
+    ? Array.from(new Set(secrets.map((s) => s.provider).filter((p): p is string => Boolean(p))))
     : [];
 
   const filteredSecrets = useMemo(() => {

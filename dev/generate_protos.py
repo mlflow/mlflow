@@ -114,7 +114,10 @@ uc_proto_files = to_paths(
     "unity_catalog_prompt_messages.proto",
     "unity_catalog_prompt_service.proto",
 )
-tracing_proto_files = to_paths("databricks_tracing.proto")
+tracing_proto_files = to_paths(
+    "databricks_exception_with_details.proto",
+    "databricks_tracing.proto",
+)
 facet_proto_files = to_paths("facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
 test_proto_files = to_paths("test_message.proto")
@@ -174,6 +177,11 @@ python_gencode_replacements = [
     (
         "import prompt_optimization_pb2 as prompt__optimization__pb2",
         "from . import prompt_optimization_pb2 as prompt__optimization__pb2",
+    ),
+    (
+        "import databricks_exception_with_details_pb2 as databricks__exception__with__details__pb2",
+        "from . import databricks_exception_with_details_pb2 as databricks_exception_"
+        "with_details_pb2",
     ),
 ]
 

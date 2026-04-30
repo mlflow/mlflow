@@ -491,7 +491,7 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
             })}
             value={customModelName}
             onChange={(e) => handleCustomModelChange(e.target.value)}
-            disabled={!!selectedModelId}
+            disabled={Boolean(selectedModelId)}
           />
           <Typography.Text color="secondary" size="sm">
             <FormattedMessage

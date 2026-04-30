@@ -673,6 +673,7 @@ export const RunsChartsConfigureLineChart = ({
             <Tooltip
               componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_703"
               delayDuration={0}
+              disableHoverableContent={false}
               content={
                 <FormattedMessage
                   defaultMessage="Only display data points between the p5 and p95 of the data. This can help with chart readability in cases where outliers significantly affect the Y-axis range"

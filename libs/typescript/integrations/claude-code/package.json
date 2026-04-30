@@ -1,0 +1,61 @@
+{
+  "name": "@mlflow/claude-code",
+  "version": "0.2.0",
+  "description": "Claude Code integration package for MLflow Tracing",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mlflow/mlflow.git"
+  },
+  "homepage": "https://mlflow.org/",
+  "author": {
+    "name": "MLflow",
+    "url": "https://mlflow.org/"
+  },
+  "bugs": {
+    "url": "https://github.com/mlflow/mlflow/issues"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "mlflow",
+    "tracing",
+    "observability",
+    "claude-code",
+    "claude",
+    "anthropic",
+    "llm",
+    "agent",
+    "javascript",
+    "typescript"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && npm run build:bundle",
+    "build:bundle": "node esbuild.config.mjs",
+    "test": "jest --config jest.config.cjs",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@mlflow/core": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.3",
+    "esbuild": "^0.25.0",
+    "jest": "^29.6.2",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist/",
+    "bundle/",
+    "hooks/",
+    ".claude-plugin/"
+  ]
+}

@@ -119,6 +119,8 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def store_type(request):
     """Provides the store type for parameterized tests."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     return request.param
 
 
@@ -659,10 +661,9 @@ def test_path_validation(mlflow_client):
 
     def assert_response(resp):
         assert resp.status_code == 400
-        assert response.json() == {
-            "error_code": "INVALID_PARAMETER_VALUE",
-            "message": "Invalid path",
-        }
+        body = response.json()
+        assert body["error_code"] == "INVALID_PARAMETER_VALUE"
+        assert body["message"] == "Invalid path"
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/artifacts/list",

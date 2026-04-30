@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.do_not_disable import DoNotDisable
 
 
-def test_do_not_disable(index_path: Path) -> None:
+def test_do_not_disable(index: SymbolIndex) -> None:
     code = """
 # Bad B006
 # noqa: B006
@@ -17,14 +18,14 @@ def test_do_not_disable(index_path: Path) -> None:
 # noqa: B004
 """
     config = Config(select={DoNotDisable.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 2
     assert all(isinstance(v.rule, DoNotDisable) for v in violations)
     assert violations[0].range == Range(Position(2, 0))
     assert violations[1].range == Range(Position(5, 0))
 
 
-def test_do_not_disable_comma_separated(index_path: Path) -> None:
+def test_do_not_disable_comma_separated(index: SymbolIndex) -> None:
     code = """
 # Bad: B006 and F821 both should be caught
 # noqa: B006, F821
@@ -36,7 +37,7 @@ def test_do_not_disable_comma_separated(index_path: Path) -> None:
 # noqa: B004, B005
 """
     config = Config(select={DoNotDisable.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 2
     assert all(isinstance(v.rule, DoNotDisable) for v in violations)
     # Both violations should have both rules B006 and F821

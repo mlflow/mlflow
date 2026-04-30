@@ -3,7 +3,7 @@ import { FormattedMessage } from 'react-intl';
 import { featureDefinitions } from './feature-definitions';
 import { LaunchDemoCard } from './LaunchDemoCard';
 import { FeatureCard } from './FeatureCard';
-import { useLocalStorage } from '../../../shared/web-shared/hooks';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
 
 const COLLAPSED_KEY = 'mlflow.home.getting-started.collapsed';
 const COLLAPSED_KEY_VERSION = 1;

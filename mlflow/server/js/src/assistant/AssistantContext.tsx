@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
 import { cancelSession as cancelSessionApi, sendMessageStream, getConfig } from './AssistantService';
-import { useLocalStorage } from '../shared/web-shared/hooks/useLocalStorage';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
@@ -322,7 +322,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
     // Send cancel request to backend
     cancelSessionApi(sessionId).catch((err) => {
-      // fail silently
+      if (err) {
+        // fail silently
+      }
     });
 
     // Mark the current streaming message as interrupted

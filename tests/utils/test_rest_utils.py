@@ -946,6 +946,38 @@ def test_http_request_with_databricks_traffic_id(monkeypatch: pytest.MonkeyPatch
         assert "x-databricks-traffic-id" not in headers
 
 
+def test_http_request_with_workspace_id():
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # With workspace_id set, header should be included
+    creds = MlflowHostCreds("http://my-host", workspace_id="6051921418418893")
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(creds, "/my/endpoint", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert headers["x-databricks-org-id"] == "6051921418418893"
+
+    # Without workspace_id, header should not be present
+    creds = MlflowHostCreds("http://my-host")
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(creds, "/my/endpoint", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert "x-databricks-org-id" not in headers
+
+
+def test_mlflow_host_creds_workspace_id_equality():
+    creds1 = MlflowHostCreds("http://my-host", workspace_id="123")
+    creds2 = MlflowHostCreds("http://my-host", workspace_id="123")
+    creds3 = MlflowHostCreds("http://my-host", workspace_id="456")
+    creds4 = MlflowHostCreds("http://my-host")
+
+    assert creds1 == creds2
+    assert creds1 != creds3
+    assert creds1 != creds4
+    assert hash(creds1) == hash(creds2)
+    assert hash(creds1) != hash(creds3)
+
+
 @pytest.mark.parametrize(
     ("timeout", "retry_timeout_seconds", "should_warn"),
     [

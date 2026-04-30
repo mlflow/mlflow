@@ -5,6 +5,7 @@ import { renderWithIntl } from '../common/utils/TestUtils.react18';
 import SettingsPage from './SettingsPage';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { DarkThemeProvider } from '../common/contexts/DarkThemeContext';
+import { MemoryRouter, Route, Routes } from '../common/utils/RoutingUtils';
 
 import { fetchEndpointRaw } from '../common/utils/FetchUtils';
 
@@ -22,24 +23,51 @@ jest.mock('./webhooksApi', () => ({
     testWebhook: jest.fn(() => Promise.resolve({ result: { success: true } })),
   },
 }));
+
+jest.mock('../gateway/pages/ApiKeysPage', () => ({
+  __esModule: true,
+  ApiKeysPageInner: () => <div data-testid="api-keys-settings-embed" />,
+  default: () => null,
+}));
 const mockFetchEndpointRaw = jest.mocked(fetchEndpointRaw);
 
 describe('SettingsPage', () => {
-  const renderComponent = () =>
+  const renderComponent = (initialEntry = '/settings/general') =>
     renderWithIntl(
-      <DesignSystemProvider>
-        <DarkThemeProvider setIsDarkTheme={() => {}}>
-          <SettingsPage />
-        </DarkThemeProvider>
-      </DesignSystemProvider>,
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route
+            path="/settings/:section"
+            element={
+              <DesignSystemProvider>
+                <DarkThemeProvider setIsDarkTheme={() => {}}>
+                  <SettingsPage />
+                </DarkThemeProvider>
+              </DesignSystemProvider>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
     );
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
+  it('shows demo data controls under General section', async () => {
+    renderComponent('/settings/general');
+
+    expect(await screen.findByText('Clear all demo data')).toBeInTheDocument();
+  });
+
+  it('opens LLM Connections from the URL path and embeds API keys', async () => {
+    renderComponent('/settings/llm-connections');
+
+    expect(await screen.findByTestId('api-keys-settings-embed')).toBeInTheDocument();
+  });
+
   it('calls fetchEndpointRaw with the demo delete endpoint when clearing demo data', async () => {
-    renderComponent();
+    renderComponent('/settings/general');
 
     // Open the confirmation modal
     await userEvent.click(screen.getByText('Clear all demo data'));

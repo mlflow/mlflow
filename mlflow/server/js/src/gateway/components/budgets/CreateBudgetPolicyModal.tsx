@@ -76,16 +76,22 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
 
     const { unit, value } = DURATION_MAP[formData.duration];
 
-    await createBudgetPolicy({
-      budget_unit: 'USD',
-      budget_amount: parseFloat(formData.budgetAmount),
-      duration: { unit, value },
-      target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
-      budget_action: formData.budgetAction,
-    }).then(() => {
-      handleClose();
-      onSuccess?.();
-    });
+    try {
+      await createBudgetPolicy({
+        budget_unit: 'USD',
+        budget_amount: parseFloat(formData.budgetAmount),
+        duration: { unit, value },
+        target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
+        budget_action: formData.budgetAction,
+      });
+    } catch {
+      // `mutationError` is populated by `useCreateBudgetPolicy` and rendered
+      // inline via `errorMessage`. Swallow here so the rejection doesn't bubble
+      // to the dev-server overlay / global `unhandledrejection` handler.
+      return;
+    }
+    handleClose();
+    onSuccess?.();
   }, [isFormValid, formData, createBudgetPolicy, handleClose, onSuccess]);
 
   const errorMessage = useMemo((): string | null => {

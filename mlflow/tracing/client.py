@@ -36,7 +36,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
+from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent, TraceAttachmentsEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import (
@@ -653,7 +653,9 @@ class TracingClient:
             )
             return assessment
 
-        # If the trace is the active trace, add the assessment to it in-memory
+        # If the trace is the active trace, add the assessment to it in-memory.
+        # Exception: remote (distributed) traces use a dummy in-memory entry that is discarded
+        # when the context exits, so assessments must be persisted directly to the backend.
         if trace_id == mlflow.get_active_trace_id():
             with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
                 if trace is None:
@@ -661,6 +663,9 @@ class TracingClient:
                         f"Trace {trace_id} is active but not found in the in-memory buffer. "
                         "Something is wrong with trace handling. Skipping assessment logging."
                     )
+                    return assessment
+                if trace.is_remote_trace:
+                    return self.store.create_assessment(assessment)
                 trace.info.assessments.append(assessment)
             return assessment
         return self.store.create_assessment(assessment)
@@ -724,6 +729,7 @@ class TracingClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
+    @record_usage_event(TraceAttachmentsEvent)
     def _upload_attachments(
         self,
         trace_info: TraceInfo,

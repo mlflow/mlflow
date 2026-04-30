@@ -412,7 +412,7 @@ class AmazonBedrockProvider(BaseProvider):
                     chat.ToolCall(
                         id=tool_use.get("toolUseId", ""),
                         type="function",
-                        function=chat.ToolCallFunction(
+                        function=chat.Function(
                             name=tool_use.get("name", ""),
                             arguments=json.dumps(tool_use.get("input", {})),
                         ),

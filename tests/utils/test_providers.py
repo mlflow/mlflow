@@ -238,6 +238,18 @@ def test_get_provider_config_sagemaker_has_default_chain():
     assert "default_chain" in modes
 
 
+def test_get_provider_config_vertex_ai_has_default_chain():
+    config = get_provider_config_response("vertex_ai")
+    modes = {m["mode"] for m in config["auth_modes"]}
+    assert "default_chain" in modes
+
+    default_chain = next(m for m in config["auth_modes"] if m["mode"] == "default_chain")
+    assert default_chain["display_name"] == "Application Default Credentials"
+    assert default_chain["secret_fields"] == []
+    project_field = next(f for f in default_chain["config_fields"] if f["name"] == "vertex_project")
+    assert project_field["required"] is True
+
+
 _MOCK_PROVIDER_DATA = {
     "test_provider": {
         "test-model": {
@@ -423,6 +435,37 @@ def test_flatten_catalog_entry():
     assert info["supports_vision"] is True
     assert info["supports_reasoning"] is False
     assert info["deprecation_date"] == "2026-01-01"
+
+
+def test_flatten_catalog_entry_with_last_updated_at():
+    entry = {
+        "mode": "chat",
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+        "last_updated_at": "2025-01-15",
+    }
+    info = _flatten_catalog_entry(entry)
+    assert info["last_updated_at"] == "2025-01-15"
+
+
+def test_flatten_catalog_entry_without_last_updated_at():
+    entry = {
+        "mode": "chat",
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert "last_updated_at" not in info
 
 
 def test_load_bundled_provider_returns_data():
