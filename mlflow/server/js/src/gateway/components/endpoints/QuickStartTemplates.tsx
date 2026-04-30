@@ -24,7 +24,6 @@ interface CodingAgentDoc {
   logo: string;
   logoDark?: string;
   docPath: string;
-  componentId: string;
 }
 
 interface ModelOption {
@@ -299,7 +298,6 @@ const CODING_AGENTS: CodingAgentDoc[] = [
     logo: AnthropicLogo,
     logoDark: AnthropicLogoDark,
     docPath: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/claude-code',
-    componentId: 'mlflow.gateway.quick_start.coding_agent.claude_code',
   },
   {
     name: 'OpenAI Codex',
@@ -307,14 +305,12 @@ const CODING_AGENTS: CodingAgentDoc[] = [
     logo: OpenAiLogo,
     logoDark: OpenAiLogoDark,
     docPath: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/codex',
-    componentId: 'mlflow.gateway.quick_start.coding_agent.codex',
   },
   {
     name: 'Gemini CLI',
     provider: 'gemini',
     logo: GeminiLogo,
     docPath: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/gemini-cli',
-    componentId: 'mlflow.gateway.quick_start.coding_agent.gemini_cli',
   },
 ];
 
