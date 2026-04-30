@@ -213,8 +213,6 @@ def _configure_mlflow_loggers(root_module_name):
         },
     })
 
-    _install_sensitive_query_param_filter()
-
 
 def _install_sensitive_query_param_filter() -> None:
     """
