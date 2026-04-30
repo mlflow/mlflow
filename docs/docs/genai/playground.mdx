@@ -1,0 +1,57 @@
+---
+title: Playground
+description: Interactively test AI Gateway endpoints and registered prompts from the MLflow UI without writing code.
+---
+
+# Playground
+
+The Playground is an in-browser UI for sending chat completion requests to your AI Gateway endpoints. Use it to spot-check an endpoint after configuration, iterate on a prompt before saving it to the registry, or replay a registered prompt against any endpoint without writing code.
+
+## Opening the Playground
+
+Click **Playground** in the sidebar. The page is available in any MLflow workspace where the AI Gateway is enabled.
+
+## Picking an endpoint
+
+The **Endpoint** dropdown lists every gateway endpoint visible in your workspace. The endpoint determines the provider, model, secret, and any guardrails or budget policies applied to the request — the Playground simply sends the conversation to whatever the endpoint resolves to.
+
+If the dropdown is empty, you have not created any endpoints yet. See [Create and Manage Endpoints](governance/ai-gateway/endpoints/create-and-manage.mdx).
+
+## Composing messages
+
+The right side of the page is a list of chat messages. Each message has:
+
+- **Role** — `system`, `user`, or `assistant`. The role tells the model who is "speaking":
+  - `system` — instructions or persona for the model (e.g. "You are a concise summarizer").
+  - `user` — what the human is asking. The typical input.
+  - `assistant` — a previous model reply. Useful for priming the model with example responses (few-shot prompting) or replaying a partial conversation.
+- **Content** — the message text. Supports multi-line input.
+
+Click **Add message** to append another turn. Use the X button on a card to remove it. **Submit** stays disabled until at least one message has non-empty content and an endpoint is selected.
+
+The Playground sends every message in the list as a single request — it does **not** automatically append the model's reply for follow-up turns. To continue a conversation, manually add the assistant's response and a new user message.
+
+## Loading a prompt from the registry
+
+Click **Load prompt from registry** to open a picker that lists all prompts in the [Prompt Registry](prompt-registry/index.mdx). Pick a prompt and a version, then click **Load** to populate the message list.
+
+- **Chat-typed prompts** load with their original message structure (system / user / assistant turns intact).
+- **Text-typed prompts** load as a single `user` message containing the prompt text.
+
+`{{ variable }}` placeholders are loaded literally — edit the messages inline to fill them before clicking Submit.
+
+## Reviewing the response
+
+After Submit, the **Output** panel renders the model's reply as Markdown (so code blocks, lists, and formatting come through). When the gateway returns token usage information, a footer shows prompt, completion, and total token counts.
+
+If the request fails — for example, the endpoint's secret is missing, a budget limit is exceeded, or a guardrail blocks the request — the error message is shown inline.
+
+## Limitations
+
+The current Playground is intentionally minimal. The following are not supported in the UI today:
+
+- **Streaming** responses — the full reply is rendered once the gateway finishes generating.
+- **Multi-turn loops** — the assistant reply is not appended automatically after Submit.
+- **Sampling parameters** — temperature, top_p, max_tokens, and similar knobs use the endpoint's defaults. To override them, query the endpoint directly with the [chat completions API](governance/ai-gateway/endpoints/query-endpoints.mdx).
+- **Tool / function calling** and **structured output**.
+- **Saving** — Playground sessions are not persisted. To capture a run, register the message list as a new prompt version in the [Prompt Registry](prompt-registry/index.mdx).

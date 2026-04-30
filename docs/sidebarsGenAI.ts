@@ -985,6 +985,12 @@ const sidebarsGenAI: SidebarsConfig = {
       },
     },
     {
+      type: 'doc',
+      id: 'playground',
+      label: 'Playground',
+      className: 'sidebar-top-level-category',
+    },
+    {
       type: 'category',
       label: 'AI Gateway',
       className: 'sidebar-top-level-category',
