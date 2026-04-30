@@ -42,6 +42,7 @@ describe('GenAIModelSelection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseApiKeyConfiguration.mockReturnValue({
+      allSecrets: [],
       existingSecrets: [],
       authModes: [],
       defaultAuthMode: '',
@@ -132,11 +133,13 @@ describe('GenAIModelSelection', () => {
 
   test('auto-selects first existing API key when secrets are available', async () => {
     mockEndpointQueryResult([]);
+    const secrets = [
+      { secret_id: 'secret-1', secret_name: 'My Key', provider: 'openai', masked_values: {} },
+      { secret_id: 'secret-2', secret_name: 'Other Key', provider: 'openai', masked_values: {} },
+    ];
     mockUseApiKeyConfiguration.mockReturnValue({
-      existingSecrets: [
-        { secret_id: 'secret-1', secret_name: 'My Key', provider: 'openai', masked_values: {} },
-        { secret_id: 'secret-2', secret_name: 'Other Key', provider: 'openai', masked_values: {} },
-      ],
+      allSecrets: secrets,
+      existingSecrets: secrets,
       authModes: [],
       defaultAuthMode: '',
       isLoadingProviderConfig: false,
@@ -195,8 +198,10 @@ describe('GenAIModelSelection', () => {
 
   test('does not auto-switch apiKeyConfig when readOnly is true', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false } as any);
+    const secrets = [{ secret_id: 'existing-secret', secret_name: 'My Key', provider: 'openai', masked_values: {} }];
     mockUseApiKeyConfiguration.mockReturnValue({
-      existingSecrets: [{ secret_id: 'existing-secret', secret_name: 'My Key', provider: 'openai', masked_values: {} }],
+      allSecrets: secrets,
+      existingSecrets: secrets,
       authModes: [],
       defaultAuthMode: '',
       isLoadingProviderConfig: false,
@@ -215,8 +220,10 @@ describe('GenAIModelSelection', () => {
 
   test('does not auto-switch apiKeyConfig when initialValues.apiKeyConfig is provided', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false } as any);
+    const secrets = [{ secret_id: 'existing-secret', secret_name: 'My Key', provider: 'openai', masked_values: {} }];
     mockUseApiKeyConfiguration.mockReturnValue({
-      existingSecrets: [{ secret_id: 'existing-secret', secret_name: 'My Key', provider: 'openai', masked_values: {} }],
+      allSecrets: secrets,
+      existingSecrets: secrets,
       authModes: [],
       defaultAuthMode: '',
       isLoadingProviderConfig: false,
