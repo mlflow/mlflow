@@ -46,6 +46,7 @@ import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { customMetricBehaviorDefs } from './customMetricBehaviorUtils';
 import { computeColumnFormatSpec } from './metricColumnFormat';
+import { useSmartNumberFormattingEnabled } from './useSmartNumberFormatting';
 
 const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) => {
   return context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
@@ -255,6 +256,7 @@ export const useRunsColumnDefinitions = ({
   rowsData,
 }: UseRunsColumnDefinitionsParams) => {
   const { theme } = useDesignSystemTheme();
+  const smartFormatting = useSmartNumberFormattingEnabled();
 
   const cumulativeColumns = useCumulativeColumnKeys({
     metricKeyList,
@@ -468,7 +470,7 @@ export const useRunsColumnDefinitions = ({
           // Compute a column-aware format spec from all current row values.
           // Falls back gracefully when rowsData is empty (e.g. before data loads).
           const columnValues = (rowsData ?? []).map((row) => row[fieldName] as number | undefined | null);
-          const formatSpec = computeColumnFormatSpec(columnValues);
+          const formatSpec = smartFormatting ? computeColumnFormatSpec(columnValues) : null;
 
           return {
             headerName: displayName,
@@ -483,9 +485,9 @@ export const useRunsColumnDefinitions = ({
             sortable: true,
             headerComponentParams: {
               canonicalSortKey,
-              headerAnnotation: formatSpec.headerAnnotation,
+              headerAnnotation: formatSpec?.headerAnnotation,
             },
-            valueFormatter: customMetricColumnDef?.valueFormatter ?? (({ value }) => formatSpec.format(value)),
+            valueFormatter: customMetricColumnDef?.valueFormatter ?? (formatSpec ? ({ value }) => formatSpec.format(value) : undefined),
             cellRendererSelector: ({ data: { groupParentInfo } }) =>
               groupParentInfo ? { component: 'AggregateMetricValueCell' } : undefined,
             cellClassRules: {
@@ -514,7 +516,7 @@ export const useRunsColumnDefinitions = ({
           const isNumericColumn =
             nonEmpty.length > 0 && nonEmpty.every((v) => !isNaN(Number(v.trim())));
 
-          const numericFormatSpec = isNumericColumn
+          const numericFormatSpec = smartFormatting && isNumericColumn
             ? computeColumnFormatSpec(nonEmpty.map((v) => Number(v.trim())))
             : null;
 
@@ -579,6 +581,7 @@ export const useRunsColumnDefinitions = ({
     expandRows,
     usingCompactViewport,
     rowsData,
+    smartFormatting,
   ]);
 
   const canonicalSortKeys = useMemo(

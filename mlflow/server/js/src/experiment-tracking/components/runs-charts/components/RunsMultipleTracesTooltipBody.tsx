@@ -1,6 +1,7 @@
 import { isUndefined } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import { computeColumnFormatSpec } from '../../experiment-page/utils/metricColumnFormat';
+import { useSmartNumberFormattingEnabled } from '../../experiment-page/utils/useSmartNumberFormatting';
 
 import type { RunsCompareMultipleTracesTooltipData } from './RunsMetricsLinePlot';
 import React from 'react';
@@ -42,6 +43,7 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
 
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const smartFormatting = useSmartNumberFormattingEnabled();
 
   const hoveredTraceUuid = `${runUuid}.${metricEntity?.key}`;
   const displayedXValueLabel =
@@ -54,7 +56,9 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
     // so that formatting is consistent even at steps where every visible value happens to be 0.
     // Fall back to computing from just the visible step's values when no global spec is available.
     const allValues = tooltipLegendItems.map((item) => item.value).filter((v): v is number => typeof v === 'number');
-    const formatSpec = hoverData.formatSpec ?? computeColumnFormatSpec(allValues);
+    const formatSpec = smartFormatting
+      ? (hoverData.formatSpec ?? computeColumnFormatSpec(allValues))
+      : null;
 
     return (
       <div>
@@ -80,7 +84,7 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
             alignItems: 'center',
           }}
         >
-          {formatSpec.headerAnnotation && (
+          {formatSpec?.headerAnnotation && (
             <>
               <span />
               <span />
@@ -116,7 +120,7 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
                       color: hoveredTraceUuid === uuid ? 'unset' : theme.colors.textPlaceholder,
                     }}
                   >
-                    {formatSpec.format(value)}
+                    {formatSpec ? formatSpec.format(value) : Utils.formatMetric(value)}
                   </span>
                 )}
               </div>
