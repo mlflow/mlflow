@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Create Kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70e3a1e4 # v1.12.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
 
       - name: Get MLflow version
         id: version
