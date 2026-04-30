@@ -1,0 +1,156 @@
+---
+name: mlflow-eval
+description: Add MLflow tracing and evaluation to a GenAI agent or LLM app. Use when the user is building, debugging, or evaluating an LLM-powered application and wants observability, scoring, or judge-based evaluation.
+allowed-tools: Read, Edit, Write, Bash, Grep, Glob
+---
+
+# MLflow GenAI Evaluation
+
+Use MLflow to instrument LLM apps and agents with tracing, then score them with built-in or custom judges. Use this skill when the user is wiring observability or evaluation into a GenAI app.
+
+## When to use
+
+Use this skill when the user:
+
+- Asks "how do I add tracing / eval / judges to my agent"
+- Wants to measure agent quality on a dataset
+- Has a working agent and wants to optimize prompts against an objective metric
+- Asks about subjective criteria (formality, conciseness, helpfulness) and how to make a judge agree with humans
+
+Skip this skill when the user is working on MLflow internals (the existing `pr-review`, `resolve`, `copilot` skills cover that).
+
+## The four phases
+
+### 1. Trace the app
+
+Wrap the entry point so every LLM call, tool call, and step is recorded.
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("my-agent")
+
+
+@mlflow.trace
+def run_agent(user_input: str) -> str:
+    ...
+```
+
+For LangChain, OpenAI, Anthropic, LiteLLM, and similar SDKs, prefer autolog instead of hand-tracing each call:
+
+```python
+mlflow.openai.autolog()
+mlflow.anthropic.autolog()
+mlflow.langchain.autolog()
+```
+
+Each run produces a structured trace with the full span tree (tool calls, retrieval, LLM I/O), visible in the MLflow UI.
+
+### 2. Score with built-in scorers
+
+For common criteria, MLflow ships built-in `mlflow.genai.scorers`. Use a built-in when the criterion matches; otherwise build a custom judge in step 3.
+
+| Scorer | Measures | Level |
+| --- | --- | --- |
+| `Correctness` | Output matches expected | turn |
+| `Safety` | No toxic / unsafe content | turn |
+| `RelevanceToQuery` | Output addresses the query | turn |
+| `Guidelines` | Output follows free-text guidelines | turn |
+| `RetrievalGroundedness` | Output is grounded in retrieved context | turn |
+| `RetrievalRelevance` | Retrieved context is relevant | turn |
+| `RetrievalSufficiency` | Retrieved context is enough to answer | turn |
+
+Session-level multi-turn scorers (`ConversationalCoherence`, `AgentPlanQuality`) are tracked in [#22626](https://github.com/mlflow/mlflow/pull/22626); use them once that PR lands.
+
+### 3. Build a custom judge with `make_judge`
+
+For domain-specific or subjective criteria, write a prompt-based judge:
+
+```python
+from mlflow.genai import make_judge
+
+formality_judge = make_judge(
+    name="formality",
+    instructions=(
+        "Score whether the response in {{ outputs }} maintains a formal, "
+        "professional tone given the request in {{ inputs }}. "
+        "Return 'pass' or 'fail' with a one-line rationale."
+    ),
+    feedback_value_type=bool,
+    model="openai:/gpt-4o-mini",
+)
+```
+
+Allowed template variables: `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`, `{{ conversation }}`, `{{ trace }}`. `{{ conversation }}` cannot be combined with `{{ inputs }}`, `{{ outputs }}`, or `{{ trace }}`.
+
+`feedback_value_type` controls the judge's output type: `bool` for pass/fail, `int` for ordinal scales (1-5), `float` for continuous scores, `Literal["a","b","c"]` for enum, or `str` for free text.
+
+### 4. Align the judge to human preferences (turn-level only)
+
+Subjective criteria (formality, conciseness, helpfulness) often disagree with the LLM's prior. Align the judge against feedback collected on real traces:
+
+```python
+# After collecting human feedback on a set of traces:
+aligned = formality_judge.align(traces=feedback_traces)
+```
+
+Use `aligned` in place of `formality_judge` in your evaluation.
+
+By default this uses the SIMBA optimizer; pass `optimizer=` to swap (DSPy, GEPA, MemAlign are available under `mlflow.genai.judges.optimizers`).
+
+### 5. Run evaluation
+
+```python
+import mlflow.genai
+from mlflow.genai.scorers import Correctness, Safety
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=run_agent,
+    scorers=[Correctness(), Safety(), aligned],
+)
+```
+
+Results land in the active experiment under Evaluations and are diff-able across agent versions.
+
+### 6. Optimize the agent's prompt
+
+Once you have a trustworthy objective signal, refine the prompt automatically:
+
+```python
+from mlflow.genai.optimize import optimize_prompts
+
+optimize_prompts(
+    prompt_template="research-agent",
+    eval_dataset=eval_dataset,
+    objective_scorer=Correctness(),
+)
+```
+
+`optimize_prompts` rewrites prompt text only. To rewrite tools or rewire agent logic, drive the loop from Claude Code with this skill instead.
+
+## Decision tree
+
+- New LLM app, no observability yet → step 1 (trace).
+- Have traces, need a quality signal → step 2 (built-in) or step 3 (`make_judge`).
+- Subjective criterion the LLM judges wrong → step 4 (align), turn-level only.
+- Have an objective signal, want a better agent → step 6 (optimize).
+
+## Gotchas
+
+- Call `mlflow.set_tracking_uri()` before any `@mlflow.trace`-decorated function runs, otherwise spans go to the default local store.
+- `judge.align(...)` raises `NotImplementedError` on session-level scorers — alignment is currently turn-level only.
+- Plan for at least ~30 feedback samples before alignment produces a meaningful refined judge.
+- `make_judge` instructions must contain at least one template variable, otherwise the call fails validation.
+- `make_judge(model=...)` accepts URIs like `"openai:/gpt-4o-mini"` or `"databricks:/..."`. `base_url` and `extra_headers` are not supported for Databricks-backed models.
+- Session-level scorers require multiple `@mlflow.trace` spans within one run; a single decorated function call is treated as a turn-level trace.
+- `optimize_prompts` only edits prompt text. For tool / agent-logic rewrites, use Claude Code with this skill loaded.
+
+## See also
+
+- [Custom judges](https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge/)
+- [Detect issues automatically](https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues)
+- [Align judges with feedback](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/align-judges)
+- [Logging assessments / feedback](https://mlflow.org/docs/latest/genai/assessments/feedback/)
+- [coSTAR pattern](https://github.com/alkispoly-db/costar) — end-to-end Scenario→Trace→Assess→Refine loops with MLflow + Claude Code
