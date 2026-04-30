@@ -75,7 +75,9 @@ def build_docker(
         install_mlflow: If specified and there is a conda or virtualenv environment to be activated
             mlflow will be installed into the environment after it has been activated.
             The version of installed mlflow will be the same as the one used to invoke this command.
-        enable_mlserver: If specified, the image will be built with the Seldon MLserver as backend.
+        enable_mlserver: **Deprecated.** Will be removed in MLflow 3.13. If specified, the image
+            will be built with the Seldon MLServer as backend. The MLServer project is no longer
+            actively maintained; use the default FastAPI scoring server instead.
         base_image: Base image for the Docker image. If not specified, the default image is either
             UBUNTU_BASE_IMAGE = "ubuntu:22.04" or PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
             Note: If custom image is used, there are no guarantees that the image will work. You
