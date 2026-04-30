@@ -115,6 +115,51 @@ def test_query_trace_metrics_session_count_no_dimensions(store: SqlAlchemyStore)
     }
 
 
+def test_query_trace_metrics_session_count_with_trace_metadata_filter_on_other_key(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("test_session_count_with_trace_metadata_filter_on_other_key")
+
+    traces_data = [
+        ("trace1", "session-a", "run-1"),
+        ("trace2", "session-a", "run-1"),
+        ("trace3", "session-b", "run-1"),
+        ("trace4", "session-c", "run-2"),
+        ("trace5", None, "run-1"),
+    ]
+
+    for trace_id, session_id, source_run_id in traces_data:
+        trace_metadata = {TraceMetadataKey.SOURCE_RUN: source_run_id}
+        if session_id is not None:
+            trace_metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            trace_metadata=trace_metadata,
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.SESSION_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = 'run-1'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.SESSION_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+
 def test_query_trace_metrics_count_by_status(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_count_by_status")
 

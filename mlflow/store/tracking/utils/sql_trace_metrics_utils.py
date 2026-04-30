@@ -2,8 +2,8 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-import sqlalchemy
-from sqlalchemy import Column, and_, case, exists, func, literal_column
+from sqlalchemy import Column, Float, and_, case, distinct, exists, func, literal_column
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm.query import Query
 
 from mlflow.entities.trace_metrics import (
@@ -150,6 +150,7 @@ VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
+_SESSION_TRACE_METADATA = aliased(SqlTraceMetadata)
 
 
 def get_percentile_aggregation(
@@ -311,7 +312,7 @@ def _get_assessment_numeric_value_column(json_column: Column) -> Column:
         (json_column == "null", None),
         (func.substring(json_column, 1, 1).in_(['"', "[", "{"]), None),
         # For numbers, cast to float
-        else_=func.cast(json_column, sqlalchemy.Float),
+        else_=func.cast(json_column, Float),
     )
 
 
@@ -332,7 +333,7 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
                 case TraceMetricKey.TRACE_COUNT:
                     return SqlTraceInfo.request_id
                 case TraceMetricKey.SESSION_COUNT:
-                    return sqlalchemy.distinct(SqlTraceMetadata.value)
+                    return distinct(_SESSION_TRACE_METADATA.value)
                 case TraceMetricKey.LATENCY:
                     return SqlTraceInfo.execution_time_ms
                 case metric_name if metric_name in TraceMetricKey.token_usage_keys():
@@ -497,11 +498,12 @@ def _apply_metric_specific_joins(
                     ),
                 )
             elif metric_name == TraceMetricKey.SESSION_COUNT:
+                # Join with SqlTraceMetadata to access session IDs for unique session counting.
                 query = query.join(
-                    SqlTraceMetadata,
+                    _SESSION_TRACE_METADATA,
                     and_(
-                        SqlTraceInfo.request_id == SqlTraceMetadata.request_id,
-                        SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
+                        SqlTraceInfo.request_id == _SESSION_TRACE_METADATA.request_id,
+                        _SESSION_TRACE_METADATA.key == TraceMetadataKey.TRACE_SESSION,
                     ),
                 )
         case MetricViewType.SPANS:
