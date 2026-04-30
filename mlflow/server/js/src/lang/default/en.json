@@ -3019,6 +3019,10 @@
     "defaultMessage": "Show diff only",
     "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
   },
+  "H+tV5c": {
+    "defaultMessage": "Coding Agents",
+    "description": "Gateway > Quick start > Coding Agents card header"
+  },
   "H/o0P2": {
     "defaultMessage": "Zoom out",
     "description": "Tooltip for the button that zooms out of the graph"
