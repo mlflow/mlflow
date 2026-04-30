@@ -155,6 +155,41 @@ describe('GenAIModelSelection', () => {
     });
   });
 
+  test('auto-selects first existing API key for new provider when switching providers', async () => {
+    mockEndpointQueryResult([]);
+    const allSecretsMultiProvider = [
+      { secret_id: 'openai-secret-1', secret_name: 'OpenAI Key', provider: 'openai', masked_values: {} },
+      { secret_id: 'anthropic-secret-1', secret_name: 'Anthropic Key 1', provider: 'anthropic', masked_values: {} },
+      { secret_id: 'anthropic-secret-2', secret_name: 'Anthropic Key 2', provider: 'anthropic', masked_values: {} },
+    ];
+    mockUseApiKeyConfiguration.mockReturnValue({
+      allSecrets: allSecretsMultiProvider,
+      existingSecrets: allSecretsMultiProvider.filter((s) => s.provider === 'openai'),
+      authModes: [],
+      defaultAuthMode: '',
+      isLoadingProviderConfig: false,
+    });
+
+    const ref = React.createRef<any>();
+    const { getByText } = renderWithDesignSystem(
+      <GenAIModelSelection {...defaultProps} ref={ref} showConfigureDirectly />,
+    );
+
+    await waitFor(() => {
+      expect(ref.current?.getValues().mode).toBe('direct');
+    });
+
+    // Open provider dropdown and switch to Anthropic
+    fireEvent.click(getByText('OpenAI'));
+    fireEvent.click(getByText('Anthropic'));
+
+    await waitFor(() => {
+      const config = ref.current?.getValues().apiKeyConfig;
+      expect(config.mode).toBe('existing');
+      expect(config.existingSecretId).toBe('anthropic-secret-1');
+    });
+  });
+
   test('hides endpoint dropdown when no endpoints exist', () => {
     mockEndpointQueryResult([]);
 

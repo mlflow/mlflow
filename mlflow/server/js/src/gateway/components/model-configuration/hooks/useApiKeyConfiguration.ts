@@ -47,7 +47,7 @@ export function useApiKeyConfiguration({ provider }: UseApiKeyConfigurationOptio
   );
 
   return {
-    allSecrets: allSecrets ?? [],
+    allSecrets,
     existingSecrets,
     isLoadingSecrets,
     authModes,
