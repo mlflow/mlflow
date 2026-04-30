@@ -40,6 +40,7 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_tools
+from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 
 _logger = logging.getLogger(__name__)
 
@@ -199,6 +200,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 span_type=span_type,
                 inputs=input_args,
                 attributes=attributes,
+                log_level=default_log_level_for_span_type(span_type),
             )
 
             token = set_span_in_context(span)

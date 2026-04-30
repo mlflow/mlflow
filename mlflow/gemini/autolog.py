@@ -17,6 +17,7 @@ from mlflow.tracing.utils import (
     set_span_chat_tools,
     set_span_model_attribute,
 )
+from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 try:
@@ -94,11 +95,13 @@ class TracingSession:
         if not config.log_traces:
             return self
 
+        span_type = _get_span_type(self.original.__name__)
         self.span = mlflow.start_span_no_context(
             name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
-            span_type=_get_span_type(self.original.__name__),
+            span_type=span_type,
             inputs=self.inputs,
             attributes={SpanAttributeKey.MESSAGE_FORMAT: "gemini"},
+            log_level=default_log_level_for_span_type(span_type),
         )
         if has_generativeai and isinstance(self.instance, generativeai.GenerativeModel):
             _log_generativeai_tool_definition(self.instance, self.span)

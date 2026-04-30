@@ -16,6 +16,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import capture_function_input_args
+from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.utils.autologging_utils import autologging_is_disabled
 from mlflow.utils.autologging_utils.safety import safe_patch
 
@@ -137,6 +138,7 @@ class MlflowAg2Logger(BaseLogger):
                     span_type=span_type,
                     inputs=capture_function_input_args(original, args, kwargs),
                     attributes={SpanAttributeKey.MESSAGE_FORMAT: "ag2"},
+                    log_level=default_log_level_for_span_type(span_type),
                 )
                 self._chat_state.session_span = span
                 try:
@@ -216,6 +218,7 @@ class MlflowAg2Logger(BaseLogger):
             inputs=inputs,
             attributes=attributes,
             start_time_ns=start_time_ns,
+            log_level=default_log_level_for_span_type(span_type),
         )
 
     @_catch_exception

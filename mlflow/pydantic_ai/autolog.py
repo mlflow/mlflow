@@ -10,6 +10,7 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import with_active_span
+from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -311,7 +312,11 @@ def patched_sync_stream_call(original, self, *args, **kwargs):
     # Use start_span_no_context (not `with start_span()`) because the span must remain
     # open after this function returns. The span ends later when the user finishes
     # iterating through the stream (handled by _StreamedRunResultSyncWrapper._finalize).
-    span = mlflow.start_span_no_context(name=fullname, span_type=span_type)
+    span = mlflow.start_span_no_context(
+        name=fullname,
+        span_type=span_type,
+        log_level=default_log_level_for_span_type(span_type),
+    )
 
     span.set_inputs(_construct_full_inputs(original, self, *args, **kwargs))
     _set_span_attributes(span, self)

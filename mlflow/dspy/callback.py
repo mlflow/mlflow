@@ -23,6 +23,7 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import maybe_set_prediction_context
+from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.autologging_utils import (
@@ -363,6 +364,7 @@ class MlflowCallback(BaseCallback):
                 parent_span=mlflow.get_current_active_span(),
                 inputs=inputs,
                 attributes=attributes,
+                log_level=default_log_level_for_span_type(span_type),
             )
 
         token = set_span_in_context(span)
