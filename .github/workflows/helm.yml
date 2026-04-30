@@ -71,3 +71,7 @@ jobs:
         run: |
           kubectl port-forward svc/mlflow 5000:5000 &
           curl --retry 10 --retry-connrefused --retry-delay 3 --fail http://localhost:5000/health
+
+      - name: Print container logs
+        if: always()
+        run: kubectl logs -l app.kubernetes.io/name=mlflow --tail=-1
