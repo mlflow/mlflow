@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777457343126,
+  "lastUpdate": 1777521550912,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -323,6 +323,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.615782800005832,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "82044803+serena-ruan@users.noreply.github.com",
+            "name": "Serena Ruan",
+            "username": "serena-ruan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfae9893e15b67d18353f8df787b60e2c077840c",
+          "message": "Fix assessment logging silently dropped in distributed tracing (#22963)\n\nSigned-off-by: Serena Ruan <serena.rxy@gmail.com>\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-04-30T03:55:34Z",
+          "tree_id": "4269a258ce0e739bd1179f175df22ae81dea75aa",
+          "url": "https://github.com/mlflow/mlflow/commit/bfae9893e15b67d18353f8df787b60e2c077840c"
+        },
+        "date": 1777521550161,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.35347240000158,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 19.342937485713005,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 17.94279071666741,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 20.50876266666585,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 19.67087555932128,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.4780921999984,
             "unit": "ms"
           }
         ]
