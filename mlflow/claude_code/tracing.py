@@ -676,7 +676,7 @@ def process_transcript(
         if exit_plan_mode_info is not None:
             result_idx, plan_text = exit_plan_mode_info
             exec_start_idx = result_idx + 1
-            prompt_override = plan_text
+            prompt_override = plan_text or None
 
         if prompt_override is not None:
             # Execution-phase trace: use the approved plan text as the prompt
@@ -723,8 +723,8 @@ def process_transcript(
         # Calculate end time based on last entry or use default duration
         last_entry = transcript[-1] if transcript else transcript[exec_start_idx]
         conv_end_ns = parse_timestamp_to_ns(last_entry.get(MESSAGE_FIELD_TIMESTAMP))
-        if not conv_end_ns or (conv_start_ns and conv_end_ns <= conv_start_ns):
-            conv_end_ns = (conv_start_ns or 0) + int(10 * NANOSECONDS_PER_S)
+        if conv_start_ns and (not conv_end_ns or conv_end_ns <= conv_start_ns):
+            conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
 
         # Extract Claude Code version from transcript entries (CLI-only)
         claude_code_version = next(
@@ -813,7 +813,7 @@ def process_planning_phase_transcript(
 
         last_entry = planning_transcript[-1]
         conv_end_ns = parse_timestamp_to_ns(last_entry.get(MESSAGE_FIELD_TIMESTAMP))
-        if not conv_end_ns or conv_end_ns <= conv_start_ns:
+        if conv_start_ns and (not conv_end_ns or conv_end_ns <= conv_start_ns):
             conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
 
         claude_code_version = next(

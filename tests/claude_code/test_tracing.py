@@ -1106,6 +1106,34 @@ def test_process_planning_phase_transcript(tmp_path, include_tool_result):
     assert "tool_Write" not in tool_names
 
 
+def test_process_planning_phase_transcript_missing_timestamp(tmp_path):
+    transcript = _make_plan_mode_transcript()[:4]
+    transcript[0].pop("timestamp", None)
+    transcript_path = tmp_path / "no_ts_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(e) for e in transcript) + "\n")
+
+    trace = process_planning_phase_transcript(str(transcript_path), "no-ts-session")
+    assert trace is not None
+    root = next(s for s in trace.search_spans() if s.parent_id is None)
+    assert root.inputs["prompt"] == "write a fun python script"
+
+
+def test_process_transcript_plan_mode_empty_plan_text(tmp_path):
+    transcript = _make_plan_mode_transcript()
+    for entry in transcript:
+        if entry.get("type") == "assistant":
+            for part in entry.get("message", {}).get("content", []):
+                if isinstance(part, dict) and part.get("name") == "ExitPlanMode":
+                    part["input"]["plan"] = ""
+    transcript_path = tmp_path / "empty_plan_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(e) for e in transcript) + "\n")
+
+    trace = process_transcript(str(transcript_path), "empty-plan-session")
+    assert trace is not None
+    root = next(s for s in trace.search_spans() if s.parent_id is None)
+    assert root.inputs["prompt"] == "write a fun python script"
+
+
 def test_process_transcript_plan_mode_execution_phase(tmp_path):
     # The Stop hook should only trace the execution phase when Plan mode was used.
     transcript = _make_plan_mode_transcript()

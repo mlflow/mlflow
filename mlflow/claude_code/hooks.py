@@ -137,13 +137,13 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
                     and MLFLOW_LEGACY_HOOK_IDENTIFIER not in hook.get(HOOK_FIELD_COMMAND, "")
                 ]
 
+                if len(filtered_hooks) < len(group[HOOK_FIELD_HOOKS]):
+                    hooks_removed = True
                 if filtered_hooks:
                     new_group: dict[str, Any] = {HOOK_FIELD_HOOKS: filtered_hooks}
                     if "matcher" in group:
                         new_group["matcher"] = group["matcher"]
                     filtered_groups.append(new_group)
-                else:
-                    hooks_removed = True
             else:
                 filtered_groups.append(group)
 

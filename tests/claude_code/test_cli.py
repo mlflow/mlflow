@@ -7,7 +7,7 @@ from click.testing import CliRunner
 
 from mlflow.claude_code.cli import commands
 from mlflow.claude_code.config import HOOK_FIELD_COMMAND, HOOK_FIELD_HOOKS
-from mlflow.claude_code.hooks import upsert_hook
+from mlflow.claude_code.hooks import disable_tracing_hooks, upsert_hook
 
 
 @pytest.fixture
@@ -141,3 +141,32 @@ def test_exit_plan_mode_hook_subcommand_is_routable(runner):
         result = runner.invoke(commands, ["claude", "exit-plan-mode-hook"])
         assert result.exit_code == 0
         mock_handler.assert_called_once()
+
+
+def test_disable_tracing_hooks_partial_removal(tmp_path):
+    # A group that mixes MLflow and non-MLflow hooks should still report hooks_removed=True.
+    settings_path = tmp_path / "settings.json"
+    mlflow_cmd = "uv run mlflow autolog claude stop-hook"
+    other_cmd = "echo other-hook"
+    settings_path.write_text(
+        json.dumps({
+            "hooks": {
+                "Stop": [
+                    {
+                        "hooks": [
+                            {"type": "command", "command": mlflow_cmd},
+                            {"type": "command", "command": other_cmd},
+                        ]
+                    }
+                ]
+            }
+        })
+    )
+
+    removed = disable_tracing_hooks(settings_path)
+
+    assert removed
+    config = json.loads(settings_path.read_text())
+    remaining = config["hooks"]["Stop"][0]["hooks"]
+    assert len(remaining) == 1
+    assert remaining[0]["command"] == other_cmd
