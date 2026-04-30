@@ -138,6 +138,23 @@ const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
 
+Tag spans with a severity level so users (or you) can filter by **Minimum log level** in the trace UI:
+
+```typescript
+import { SpanLogLevel } from '@mlflow/core';
+
+const tracedAnswer = mlflow.trace(
+  (query: string) => llm.generate(query),
+  { name: 'answer', spanType: mlflow.SpanType.CHAT_MODEL, logLevel: SpanLogLevel.INFO },
+);
+
+// String form ("WARN" is accepted as an alias for "WARNING") and int form work too:
+mlflow.startSpan({ name: 'plumbing', logLevel: 'DEBUG' });
+mlflow.startSpan({ name: 'critical-step', logLevel: 50 });
+```
+
+When you use one of the autolog integrations (`@mlflow/openai`, `@mlflow/anthropic`, `@mlflow/gemini`, etc.), MLflow stamps a sensible default level on every span based on its type — you don't need to annotate manually.
+
 View traces in MLflow UI:
 
 ![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/891fed9a746477f808dd2b82d3abb2382293c564/docs/static/images/llms/tracing/quickstart/openai-tool-calling-trace-detail.png?raw=true)

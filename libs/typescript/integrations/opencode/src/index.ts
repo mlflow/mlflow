@@ -22,6 +22,7 @@ import {
   SpanAttributeKey,
   TraceMetadataKey,
   InMemoryTraceManager,
+  defaultLogLevelForSpanType,
 } from '@mlflow/core';
 
 // Track the last processed message count per session to avoid duplicate traces.
@@ -324,6 +325,7 @@ function createLlmAndToolSpans(
           model: modelId,
           provider: providerId,
         },
+        logLevel: defaultLogLevelForSpanType(SpanType.LLM),
       });
 
       // Set token usage
@@ -360,6 +362,7 @@ function createLlmAndToolSpans(
           tool_id: callId,
           status: state.status || 'unknown',
         },
+        logLevel: defaultLogLevelForSpanType(SpanType.TOOL),
       });
 
       // Set output based on status
@@ -426,6 +429,7 @@ async function processSession(sessionId: string, messages: Message[]): Promise<v
     inputs: { prompt: userPrompt },
     startTimeNs: createdNs,
     spanType: SpanType.AGENT,
+    logLevel: defaultLogLevelForSpanType(SpanType.AGENT),
   });
 
   // Create child spans for LLM calls and tools

@@ -4,7 +4,14 @@
 
 import { CompletionUsage } from 'openai/resources/index';
 import { ResponseUsage } from 'openai/resources/responses/responses';
-import { withSpan, LiveSpan, SpanAttributeKey, SpanType, TokenUsage } from '@mlflow/core';
+import {
+  withSpan,
+  LiveSpan,
+  SpanAttributeKey,
+  SpanType,
+  TokenUsage,
+  defaultLogLevelForSpanType,
+} from '@mlflow/core';
 
 // NB: 'Completions' represents chat.completions
 const SUPPORTED_MODULES = ['Completions', 'Responses', 'Embeddings'];
@@ -118,7 +125,7 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },
-      { name, spanType },
+      { name, spanType, logLevel: defaultLogLevelForSpanType(spanType) },
     );
   };
 }

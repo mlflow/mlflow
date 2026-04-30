@@ -9,6 +9,7 @@ import {
   SpanAttributeKey,
   TraceMetadataKey,
   TokenUsageKey,
+  defaultLogLevelForSpanType,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -322,6 +323,7 @@ function createAgentWrapperSpan(
     startTimeNs: startNs,
     inputs: { prompt, description },
     attributes: { subagent_type: subagentType },
+    logLevel: defaultLogLevelForSpanType(SpanType.AGENT),
   });
 }
 
@@ -447,6 +449,7 @@ function createLlmAndToolSpans(
           'mlflow.llm.model': model,
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
         },
+        logLevel: defaultLogLevelForSpanType(SpanType.LLM),
       });
 
       setTokenUsageAttribute(llmSpan, usage);
@@ -482,6 +485,7 @@ function createLlmAndToolSpans(
             tool_name: toolName,
             tool_id: toolUseId,
           },
+          logLevel: defaultLogLevelForSpanType(SpanType.TOOL),
         });
 
         // If this is a Task tool, try to read sub-agent transcript
@@ -556,6 +560,7 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
       inputs: { prompt: userPromptText },
       startTimeNs: convStartNs ?? undefined,
       spanType: SpanType.AGENT,
+      logLevel: defaultLogLevelForSpanType(SpanType.AGENT),
     });
 
     // Create spans for all assistant responses and tool uses

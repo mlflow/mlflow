@@ -11,6 +11,7 @@ import {
   TokenUsage,
   LiveSpan,
   withSpan,
+  defaultLogLevelForSpanType,
 } from '@mlflow/core';
 
 const SUPPORTED_MODULES = ['Messages'];
@@ -107,7 +108,7 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },
-      { name, spanType },
+      { name, spanType, logLevel: defaultLogLevelForSpanType(spanType) },
     );
   };
 }
@@ -186,7 +187,7 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
               // eslint-disable-next-line @typescript-eslint/no-unsafe-return
               return message;
             },
-            { name, spanType },
+            { name, spanType, logLevel: defaultLogLevelForSpanType(spanType) },
           );
         };
       }
@@ -226,7 +227,12 @@ async function* wrapAsyncIterator(
 ): AsyncGenerator<any> {
   // Use startSpan for manual lifecycle management since withSpan doesn't support async generators
   const parentSpan = getCurrentActiveSpan();
-  const span = startSpan({ name, spanType, parent: parentSpan ?? undefined });
+  const span = startSpan({
+    name,
+    spanType,
+    parent: parentSpan ?? undefined,
+    logLevel: defaultLogLevelForSpanType(spanType),
+  });
   span.setInputs(inputs);
 
   let iterationError: Error | undefined;

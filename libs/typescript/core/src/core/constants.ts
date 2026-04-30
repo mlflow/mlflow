@@ -20,6 +20,52 @@ export enum SpanType {
 }
 
 /**
+ * Severity level for an MLflow trace span.
+ *
+ * Numeric values match Python's logging module (DEBUG=10 ... CRITICAL=50) so a
+ * value sourced from a standard logger can be passed directly. The value is
+ * persisted to the span's `mlflow.spanLogLevel` attribute as an int.
+ */
+export enum SpanLogLevel {
+  DEBUG = 10,
+  INFO = 20,
+  WARNING = 30,
+  ERROR = 40,
+  CRITICAL = 50,
+}
+
+/**
+ * Normalize an enum, int, or string into a SpanLogLevel. "WARN" is accepted
+ * as an alias for "WARNING" (matching Python's logging module).
+ */
+export function toSpanLogLevel(value: SpanLogLevel | number | string): SpanLogLevel {
+  if (typeof value === 'number') {
+    if (Object.values(SpanLogLevel).includes(value as SpanLogLevel)) {
+      return value as SpanLogLevel;
+    }
+    throw new Error(
+      `Invalid SpanLogLevel value ${value}. Expected one of ${Object.values(SpanLogLevel)
+        .filter((v) => typeof v === 'number')
+        .join(', ')}.`,
+    );
+  }
+  if (typeof value === 'string') {
+    const upper = value.trim().toUpperCase();
+    const normalized = upper === 'WARN' ? 'WARNING' : upper;
+    const matched = (SpanLogLevel as Record<string, SpanLogLevel | string>)[normalized];
+    if (typeof matched === 'number') {
+      return matched;
+    }
+    throw new Error(
+      `Invalid SpanLogLevel name ${JSON.stringify(value)}. Expected one of ${Object.keys(SpanLogLevel)
+        .filter((k) => isNaN(Number(k)))
+        .join(', ')} (or 'WARN').`,
+    );
+  }
+  throw new Error(`SpanLogLevel must be a SpanLogLevel, number, or string; got ${typeof value}.`);
+}
+
+/**
  * Constants for MLflow span attribute keys
  */
 export const SpanAttributeKey = {
@@ -28,6 +74,10 @@ export const SpanAttributeKey = {
   INPUTS: 'mlflow.spanInputs',
   OUTPUTS: 'mlflow.spanOutputs',
   SPAN_TYPE: 'mlflow.spanType',
+  // Severity level of the span. Stored as an int matching Python's logging
+  // module (DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50). Absent
+  // means the span was not classified.
+  LOG_LEVEL: 'mlflow.spanLogLevel',
   // This attribute is used to store token usage information from LLM responses.
   // Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
   TOKEN_USAGE: 'mlflow.chat.tokenUsage',

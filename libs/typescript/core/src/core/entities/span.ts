@@ -5,7 +5,7 @@ import {
   SpanStatusCode as OTelSpanStatusCode,
 } from '@opentelemetry/api';
 import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-base';
-import { SpanAttributeKey, SpanType, NO_OP_SPAN_TRACE_ID } from '../constants';
+import { SpanAttributeKey, SpanLogLevel, SpanType, toSpanLogLevel, NO_OP_SPAN_TRACE_ID } from '../constants';
 import { SpanEvent } from './span_event';
 import { SpanStatus, SpanStatusCode } from './span_status';
 import {
@@ -39,6 +39,10 @@ export interface ISpan {
   get spanId(): string;
   get name(): string;
   get spanType(): SpanType;
+  /**
+   * The severity level of the span, or null if it was not classified.
+   */
+  get logLevel(): SpanLogLevel | null;
   get startTime(): HrTime;
   get endTime(): HrTime | null;
   get parentId(): string | null;
@@ -102,6 +106,14 @@ export class Span implements ISpan {
 
   get spanType(): SpanType {
     return this.getAttribute(SpanAttributeKey.SPAN_TYPE) as SpanType;
+  }
+
+  get logLevel(): SpanLogLevel | null {
+    const raw = this.getAttribute(SpanAttributeKey.LOG_LEVEL) as number | undefined | null;
+    if (raw == null) {
+      return null;
+    }
+    return raw as SpanLogLevel;
   }
 
   /**
@@ -279,6 +291,16 @@ export class LiveSpan extends Span {
   }
 
   /**
+   * Set the severity level of the span. Accepts a SpanLogLevel enum value, its
+   * int value (e.g. 20), or its name (e.g. "INFO"). "WARN" is accepted as an
+   * alias for "WARNING".
+   */
+  setLogLevel(level: SpanLogLevel | number | string): void {
+    const normalized = toSpanLogLevel(level);
+    this.setAttribute(SpanAttributeKey.LOG_LEVEL, normalized as number);
+  }
+
+  /**
    * Set inputs for the span
    * @param inputs Input data for the span
    */
@@ -432,6 +454,9 @@ export class NoOpSpan implements ISpan {
   get spanType(): SpanType {
     return SpanType.UNKNOWN;
   }
+  get logLevel(): SpanLogLevel | null {
+    return null;
+  }
   get startTime(): HrTime {
     return [0, 0];
   }
@@ -457,6 +482,7 @@ export class NoOpSpan implements ISpan {
 
   // Implement all methods to do nothing
   setSpanType(_spanType: SpanType): void {}
+  setLogLevel(_level: SpanLogLevel | number | string): void {}
   setInputs(_inputs: any): void {}
   setOutputs(_outputs: any): void {}
   setAttribute(_key: string, _value: any): void {}
