@@ -37,8 +37,6 @@ server:
   # Aligns the --static-prefix server arg and liveness/readiness probe paths.
   staticPrefix: ""
 
-
-
 service:
   type: ClusterIP
   port: 5000
@@ -130,7 +128,8 @@ storage:
   storageClassName: ""
   mountPath: /mlflow
 
-resources: {}
+resources:
+  {}
   # limits:
   #   cpu: 500m
   #   memory: 512Mi

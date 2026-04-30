@@ -15,4 +15,3 @@ Access the UI:
   kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "mlflow.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
   # Then open: http://127.0.0.1:{{ .Values.service.port }}
 {{- end }}
-
