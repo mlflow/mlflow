@@ -82,7 +82,10 @@ def upsert_hook(
 def setup_hooks_config(settings_path: Path) -> None:
     """Set up Claude Code hooks for MLflow tracing.
 
-    Creates or updates Stop hook that calls MLflow tracing handler.
+    Creates or updates two hooks:
+    - Stop hook: traces the execution phase at conversation end.
+    - PostToolUse ExitPlanMode hook: traces the planning phase when Plan mode is used.
+
     Updates existing MLflow hooks if found, otherwise adds new ones.
 
     Args:

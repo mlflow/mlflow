@@ -783,8 +783,11 @@ def process_planning_phase_transcript(
     """Process the planning phase of a Plan mode session and create an MLflow trace.
 
     Called by the PostToolUse ExitPlanMode hook.  Covers all conversation entries
-    from the original user prompt up to and including the ExitPlanMode approval,
-    and uses the approved plan text as the trace output.
+    from the last real user message (the plan-mode trigger prompt) up to and
+    including the ExitPlanMode boundary — either the tool_result approval entry
+    if it has been flushed to disk, or the ExitPlanMode assistant entry itself
+    if the hook fires before the result is written.  Uses the approved plan text
+    as the trace output.
 
     Args:
         transcript_path: Path to the Claude Code transcript.jsonl file
