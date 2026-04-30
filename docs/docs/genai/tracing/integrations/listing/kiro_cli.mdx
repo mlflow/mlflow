@@ -1,0 +1,162 @@
+---
+title: Tracing Kiro CLI
+description: Trace Kiro CLI conversations with MLflow for full observability into AI-assisted software development workflows.
+sidebar_position: 10
+sidebar_label: Kiro CLI
+keywords: [kiro cli, tracing, mlflow, ai agent]
+---
+
+# Tracing Kiro CLI
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [Kiro CLI](https://kiro.dev/docs/cli/), Amazon's AI coding agent. After setup, MLflow will automatically capture traces of your Kiro CLI conversations including:
+
+- User prompts and assistant responses
+- Tool usage (file operations, code execution, etc.)
+- Conversation timing and duration
+- Tool execution results
+- Token usage (input, output, and total tokens)
+- Metering usage (credits consumed per turn)
+- Session metadata including working directory, agent name, and model info
+
+## Setup
+
+Use the MLflow CLI to automatically capture your interactive Kiro CLI conversations.
+
+### Requirements
+
+- MLflow >= 3.4 (`pip install 'mlflow>=3.4'`)
+- [Kiro CLI](https://kiro.dev/docs/cli/) installed and configured
+
+### Basic Setup
+
+```bash
+# Set up tracing in current directory
+mlflow autolog kiro-cli
+
+# Set up tracing in specific directory
+mlflow autolog kiro-cli -d ~/my-project
+
+# Check tracing status
+mlflow autolog kiro-cli --status
+
+# Disable tracing
+mlflow autolog kiro-cli --disable
+```
+
+### Configuration Examples
+
+```bash
+# Set up with custom tracking URI
+mlflow autolog kiro-cli -u file://./custom-mlruns
+mlflow autolog kiro-cli -u sqlite:///mlflow.db
+
+# Set up with Databricks backend and a specific experiment ID
+mlflow autolog kiro-cli -u databricks -e 123456789
+
+# Set up with specific experiment name
+mlflow autolog kiro-cli -n "My AI Project"
+```
+
+### How It Works
+
+1. **Setup Phase**: The `mlflow autolog kiro-cli` command configures Kiro CLI hooks in `.kiro/agents/kiro_default.json` and stores MLflow environment variables in `.kiro/settings.json`
+2. **Automatic Tracing**: When you use the `kiro` command in the configured directory, your conversations are automatically traced
+3. **View Results**: Use the MLflow UI to explore your traces
+
+### Basic Example
+
+```bash
+# Set up tracing in your project
+mlflow autolog kiro-cli -d ~/my-project
+
+# Navigate to project directory
+cd ~/my-project
+
+# Use Kiro CLI normally - tracing happens automatically
+kiro chat "help me refactor this Python function to be more efficient"
+
+# View traces in MLflow UI
+mlflow server
+```
+
+## Trace Shape
+
+Each Kiro CLI turn produces one MLflow trace with the following span hierarchy:
+
+```
+kiro_cli_conversation  (AGENT root span)
+  └── turn  (CHAIN child span)
+        ├── llm             (LLM — one per text response)
+        ├── tool_<name>     (TOOL — one per tool call)
+        └── ...
+```
+
+- The **root AGENT span** (`kiro_cli_conversation`) captures the user prompt as input and the final assistant response as output.
+- The **CHAIN span** (`turn`) carries token usage (`input_tokens`, `output_tokens`, `total_tokens`), metering credits, context usage percentage, and end reason.
+- **LLM grandchild spans** capture each text-bearing assistant message.
+- **TOOL grandchild spans** capture each tool invocation with its input and matched result.
+
+### Trace Metadata
+
+Each trace includes:
+
+| Metadata Key | Description |
+|---|---|
+| `mlflow.trace.user` | OS username (`$USER`) |
+| `mlflow.trace.session` | Kiro CLI session ID |
+| `mlflow.trace.working_directory` | Project directory |
+| `mlflow.kiro_cli.agent_name` | Agent name (e.g., `kiro_default`) |
+| `mlflow.kiro_cli.model_id` | Model used (e.g., `claude-sonnet-4`) |
+| `mlflow.kiro_cli.context_window_tokens` | Context window size |
+
+## Troubleshooting
+
+### Check Status
+
+```bash
+mlflow autolog kiro-cli --status
+```
+
+This shows:
+
+- Whether tracing is enabled
+- Current tracking URI
+- Configured experiment
+- Any configuration issues
+
+### Common Issues
+
+**Tracing not working:**
+
+- Ensure you're in the configured directory
+- Check that `.kiro/settings.json` exists and contains `MLFLOW_KIRO_CLI_TRACING_ENABLED: "true"` under `env`
+- Review logs in `.kiro/mlflow/kiro_tracing.log`
+
+**Missing traces:**
+
+- Verify the tracking URI is accessible
+- Check that the Kiro CLI session completed (the `stop` hook fires at turn end)
+- Review logs in `.kiro/mlflow/kiro_tracing.log`
+
+**Hook command not found:**
+
+- Ensure `mlflow` is on your PATH when Kiro CLI launches
+- If using `uv`, the setup command automatically prefixes hooks with `uv run mlflow` when the `UV` environment variable is set
+
+### Disable Tracing
+
+To stop automatic tracing:
+
+```bash
+mlflow autolog kiro-cli --disable
+```
+
+This removes the MLflow hooks from `.kiro/agents/kiro_default.json` and the MLflow environment variables from `.kiro/settings.json`, but preserves any user-added hooks and settings.
+
+## Known Limitations
+
+1. **Project-scoped only.** v1 configures tracing per project directory. User-global installation under `~/.kiro/` is not supported.
+2. **One trace per turn.** The `stop` hook fires after every completed turn, producing one trace per user prompt. This matches the one-trace-per-prompt semantics of `mlflow autolog claude`.
+3. **Token counts may be zero.** Kiro CLI does not always populate token counts, especially for tool-only turns. When both input and output token counts are zero, the `CHAT_USAGE` attribute is omitted from the turn span. Metering credits are attached whenever available.
+4. **Reconstructed timestamps.** Only user prompt records carry wall-clock timestamps. Per-message span durations within a turn are proportionally allocated and are best-effort approximations for visualization.
+5. **Only the `kiro_default` agent is supported.** Custom agents defined in other `.kiro/agents/*.json` files are not wired by this integration.

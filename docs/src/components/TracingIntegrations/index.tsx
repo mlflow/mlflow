@@ -427,6 +427,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Coding Agents',
   },
   {
+    id: 'kiro_cli',
+    name: 'Kiro CLI',
+    logoPath: '/images/logos/kiro-cli-logo.svg',
+    link: '/genai/tracing/integrations/listing/kiro_cli',
+    category: 'Coding Agents',
+  },
+  {
     id: 'qwen_code',
     name: 'Qwen Code',
     logoPath: '/images/logos/qwen-logo.jpg',

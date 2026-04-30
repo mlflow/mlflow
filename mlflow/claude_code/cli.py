@@ -4,13 +4,9 @@ from pathlib import Path
 
 import click
 
+from mlflow.autolog import autolog as commands
 from mlflow.claude_code.config import get_tracing_status, setup_environment_config
 from mlflow.claude_code.hooks import disable_tracing_hooks, setup_hooks_config, stop_hook_handler
-
-
-@click.group("autolog")
-def commands():
-    """Commands for autologging with MLflow."""
 
 
 @commands.group("claude", invoke_without_command=True)
