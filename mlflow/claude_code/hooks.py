@@ -56,8 +56,8 @@ def upsert_hook(
 
     # Check if MLflow hook already exists and update it.
     # When a matcher is specified, only match groups with the same matcher value so
-    # that Stop and PostToolUse hooks don't collide even though they share the same
-    # MLFLOW_HOOK_IDENTIFIER prefix.
+    # that hooks registered under different matchers within the same hook type
+    # (e.g. ExitPlanMode vs other PostToolUse matchers) don't overwrite each other.
     hook_exists = False
     for hook_group in config[HOOK_FIELD_HOOKS][hook_type]:
         if HOOK_FIELD_HOOKS not in hook_group:
@@ -140,9 +140,7 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
                 if len(filtered_hooks) < len(group[HOOK_FIELD_HOOKS]):
                     hooks_removed = True
                 if filtered_hooks:
-                    new_group: dict[str, Any] = {HOOK_FIELD_HOOKS: filtered_hooks}
-                    if "matcher" in group:
-                        new_group["matcher"] = group["matcher"]
+                    new_group = {**group, HOOK_FIELD_HOOKS: filtered_hooks}
                     filtered_groups.append(new_group)
             else:
                 filtered_groups.append(group)

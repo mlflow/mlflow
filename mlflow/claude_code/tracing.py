@@ -671,16 +671,15 @@ def process_transcript(
         # execution phase (planning already got its own trace via the
         # PostToolUse ExitPlanMode hook).  Detect the boundary and slice accordingly.
         exec_start_idx = 0
-        prompt_override: str | None = None
         exit_plan_mode_info = find_exit_plan_mode_index(transcript)
         if exit_plan_mode_info is not None:
             result_idx, plan_text = exit_plan_mode_info
+            # Always slice from after ExitPlanMode to avoid duplicating planning spans.
             exec_start_idx = result_idx + 1
-            prompt_override = plan_text or None
 
-        if prompt_override is not None:
+        if exit_plan_mode_info is not None and plan_text:
             # Execution-phase trace: use the approved plan text as the prompt
-            user_prompt_text = prompt_override
+            user_prompt_text = plan_text
             conv_start_ns = next(
                 (
                     parse_timestamp_to_ns(e.get(MESSAGE_FIELD_TIMESTAMP))
@@ -690,6 +689,9 @@ def process_transcript(
                 None,
             )
         else:
+            # No plan mode, or plan mode with empty plan text: fall back to the
+            # last real user message for the prompt, but keep exec_start_idx
+            # pointing past ExitPlanMode when plan mode was detected.
             last_user_idx = find_last_user_message_index(transcript)
             if last_user_idx is None:
                 get_logger().warning("No user message found in transcript")
@@ -699,7 +701,8 @@ def process_transcript(
                 MESSAGE_FIELD_CONTENT, ""
             )
             user_prompt_text = extract_text_content(last_user_prompt)
-            exec_start_idx = last_user_idx + 1
+            if exit_plan_mode_info is None:
+                exec_start_idx = last_user_idx + 1
             conv_start_ns = parse_timestamp_to_ns(last_user_entry.get(MESSAGE_FIELD_TIMESTAMP))
 
         if not session_id:

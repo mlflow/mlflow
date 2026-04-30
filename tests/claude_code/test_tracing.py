@@ -1132,6 +1132,11 @@ def test_process_transcript_plan_mode_empty_plan_text(tmp_path):
     assert trace is not None
     root = next(s for s in trace.search_spans() if s.parent_id is None)
     assert root.inputs["prompt"] == "write a fun python script"
+    tool_spans = [s for s in trace.search_spans() if s.span_type == SpanType.TOOL]
+    tool_names = {s.name for s in tool_spans}
+    assert "tool_Write" in tool_names
+    assert "tool_AskUserQuestion" not in tool_names
+    assert "tool_ExitPlanMode" not in tool_names
 
 
 def test_process_transcript_plan_mode_execution_phase(tmp_path):
