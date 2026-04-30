@@ -664,3 +664,320 @@ def test_embedder_batch_size(sample_judge, sample_traces, embedding_model, expec
 
         _, kwargs = mocks["embedder_class"].call_args
         assert kwargs["batch_size"] == expected_batch_size
+
+
+# =============================================================================
+# Re-alignment / deduplication tests
+# =============================================================================
+
+
+def _make_human_assessment(assessment_id: str | None, value: str, rationale: str) -> Assessment:
+    return Assessment(
+        name="test_judge",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
+        feedback=Feedback(value=value),
+        rationale=rationale,
+        assessment_id=assessment_id,
+    )
+
+
+def _make_trace_with_assessments(name: str, assessments: list[Assessment]):
+    with mlflow.start_span(name=name) as span:
+        span.set_inputs({"inputs": f"input_{name}"})
+        span.set_outputs({"outputs": f"output_{name}"})
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace.info.assessments = assessments
+    return trace
+
+
+def test_realign_on_same_traces_does_not_duplicate_memory(sample_judge, sample_traces):
+    # Scenario A: re-aligning on the exact same traces should leave memory unchanged.
+    with mock_apis(guidelines=["Guideline A"]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+
+        v1_episodic_count = len(judge_v1._episodic_memory)
+        v1_trace_ids = sorted(judge_v1._episodic_trace_ids)
+        v1_semantic_count = len(judge_v1._semantic_memory)
+
+        judge_v2 = optimizer.align(judge_v1, sample_traces[:3])
+
+        assert len(judge_v2._episodic_memory) == v1_episodic_count
+        assert sorted(judge_v2._episodic_trace_ids) == v1_trace_ids
+        assert len(judge_v2._semantic_memory) == v1_semantic_count
+
+
+def test_realign_with_overlapping_traces_only_adds_new(sample_judge, sample_traces):
+    # Scenario B: re-aligning with overlapping + new traces should only add the new ones.
+    with mock_apis(guidelines=["Guideline A"]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        assert len(judge_v1._episodic_memory) == 3
+
+        # 3 overlapping traces + 1 new
+        judge_v2 = optimizer.align(judge_v1, sample_traces[:4])
+
+        assert len(judge_v2._episodic_memory) == 4
+        expected_ids = {t.info.trace_id for t in sample_traces[:4]}
+        assert set(judge_v2._episodic_trace_ids) == expected_ids
+
+
+def test_realign_replaces_changed_trace_content(sample_judge, sample_traces):
+    """Scenario C: re-aligning when the trace's assessment content has changed
+    (same trace_id) should replace the stale example with the updated one.
+    """
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+
+        # Mutate trace 0: flip feedback value and rationale (assessment.rationale, the
+        # top-level field that trace_to_dspy_example reads)
+        sample_traces[0].info.assessments = [
+            _make_human_assessment(assessment_id=None, value="no", rationale="Updated reason")
+        ]
+
+        judge_v2 = optimizer.align(judge_v1, sample_traces[:3])
+
+        assert len(judge_v2._episodic_memory) == 3
+
+        examples_for_t0 = [
+            ex
+            for ex in judge_v2._episodic_memory
+            if getattr(ex, "_trace_id", None) == sample_traces[0].info.trace_id
+        ]
+        assert len(examples_for_t0) == 1
+        assert examples_for_t0[0].result == "no"
+        assert examples_for_t0[0].rationale == "Updated reason"
+
+
+def test_realign_updates_majority_resolution(sample_judge):
+    """Scenario D: when assessment edits flip majority membership, examples that were
+    in the prior majority but are no longer should be forgotten, and examples that have
+    newly joined the majority should be remembered.
+    """
+    trace = _make_trace_with_assessments(
+        "majority_trace",
+        [
+            _make_human_assessment("a", "yes", "ra"),
+            _make_human_assessment("b", "yes", "rb"),
+            _make_human_assessment("c", "yes", "rc"),
+            _make_human_assessment("d", "no", "rd"),
+            _make_human_assessment("e", "no", "re"),
+        ],
+    )
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, [trace])
+
+        # Majority "yes" wins => a, b, c kept
+        assert len(judge_v1._episodic_memory) == 3
+        assert sorted(ex.rationale for ex in judge_v1._episodic_memory) == [
+            "ra",
+            "rb",
+            "rc",
+        ]
+        for ex in judge_v1._episodic_memory:
+            assert ex.result == "yes"
+
+        # Edit: c flips to "no", d flips to "yes". Majority is still "yes" (a, b, d).
+        trace.info.assessments = [
+            _make_human_assessment("a", "yes", "ra"),
+            _make_human_assessment("b", "yes", "rb"),
+            _make_human_assessment("c", "no", "rc-updated"),
+            _make_human_assessment("d", "yes", "rd-updated"),
+            _make_human_assessment("e", "no", "re"),
+        ]
+
+        judge_v2 = optimizer.align(judge_v1, [trace])
+
+        # c forgotten, d remembered
+        assert len(judge_v2._episodic_memory) == 3
+        for ex in judge_v2._episodic_memory:
+            assert ex.result == "yes"
+        assert sorted(ex.rationale for ex in judge_v2._episodic_memory) == [
+            "ra",
+            "rb",
+            "rd-updated",
+        ]
+
+
+def test_realign_after_assessment_removal(sample_judge):
+    """Scenario E: when an assessment is removed from a trace and the trace is
+    re-aligned, the corresponding example should be forgotten.
+    """
+    trace = _make_trace_with_assessments(
+        "removal_trace",
+        [
+            _make_human_assessment("a", "yes", "ra"),
+            _make_human_assessment("b", "yes", "rb"),
+            _make_human_assessment("c", "yes", "rc"),
+        ],
+    )
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, [trace])
+        assert len(judge_v1._episodic_memory) == 3
+
+        # Drop assessment "c"
+        trace.info.assessments = [
+            _make_human_assessment("a", "yes", "ra"),
+            _make_human_assessment("b", "yes", "rb"),
+        ]
+
+        judge_v2 = optimizer.align(judge_v1, [trace])
+
+        assert len(judge_v2._episodic_memory) == 2
+        assert sorted(ex.rationale for ex in judge_v2._episodic_memory) == ["ra", "rb"]
+
+
+def test_realign_after_deserialization(sample_judge, sample_traces):
+    """Re-align must dedupe correctly after lazy reconstruction from serialized state.
+    The deserialized judge has no in-memory examples, only trace IDs — the dedup
+    logic has to consult those (or trigger reconstruction first).
+    """
+    with mock_apis(guidelines=["Guideline A"]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+
+        dumped = judge_v1.model_dump()
+        serialized = SerializedScorer(**dumped)
+        deserialized = MemoryAugmentedJudge._from_serialized(serialized)
+
+        # Sanity: deserialized state is lazy
+        assert deserialized._episodic_memory == []
+        assert set(deserialized._episodic_trace_ids) == {t.info.trace_id for t in sample_traces[:3]}
+
+        # Re-align with 3 overlapping + 1 new trace; mock get_trace for reconstruction
+        trace_map = {t.info.trace_id: t for t in sample_traces[:4]}
+        with patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
+            side_effect=lambda tid, **kwargs: trace_map.get(tid),
+        ):
+            judge_v2 = optimizer.align(deserialized, sample_traces[:4])
+
+        assert len(judge_v2._episodic_memory) == 4
+        assert set(judge_v2._episodic_trace_ids) == {t.info.trace_id for t in sample_traces[:4]}
+
+
+def test_realign_mixed_unchanged_changed_and_new(sample_judge, sample_traces):
+    """Mixed re-align: t0 unchanged, t1 content-changed, t3 new, t2 absent.
+    t2 must be preserved (re-align does not retract traces missing from the call).
+    """
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+
+        # Flip t1's feedback
+        sample_traces[1].info.assessments = [
+            _make_human_assessment(assessment_id=None, value="no", rationale="t1 updated")
+        ]
+
+        judge_v2 = optimizer.align(judge_v1, [sample_traces[0], sample_traces[1], sample_traces[3]])
+
+        # Final memory: t0 (unchanged), t1 (updated), t2 (preserved), t3 (new)
+        assert len(judge_v2._episodic_memory) == 4
+        assert set(judge_v2._episodic_trace_ids) == {
+            sample_traces[i].info.trace_id for i in [0, 1, 2, 3]
+        }
+
+        examples_for_t1 = [
+            ex
+            for ex in judge_v2._episodic_memory
+            if getattr(ex, "_trace_id", None) == sample_traces[1].info.trace_id
+        ]
+        assert len(examples_for_t1) == 1
+        assert examples_for_t1[0].result == "no"
+        assert examples_for_t1[0].rationale == "t1 updated"
+
+
+def test_realign_majority_flips_to_other_side(sample_judge):
+    """When edits flip the majority label entirely, the previously-remembered side
+    is forgotten and the previously-discarded side becomes the new memory.
+    """
+    trace = _make_trace_with_assessments(
+        "majority_flip_trace",
+        [
+            _make_human_assessment("a", "yes", "ra"),
+            _make_human_assessment("b", "yes", "rb"),
+            _make_human_assessment("c", "yes", "rc"),
+            _make_human_assessment("d", "no", "rd"),
+            _make_human_assessment("e", "no", "re"),
+        ],
+    )
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, [trace])
+        # Initial majority "yes": a, b, c
+        assert len(judge_v1._episodic_memory) == 3
+        for ex in judge_v1._episodic_memory:
+            assert ex.result == "yes"
+
+        # Flip a, b to "no". New majority is "no" (a, b, d, e); c is now alone in "yes".
+        trace.info.assessments = [
+            _make_human_assessment("a", "no", "ra"),
+            _make_human_assessment("b", "no", "rb"),
+            _make_human_assessment("c", "yes", "rc"),
+            _make_human_assessment("d", "no", "rd"),
+            _make_human_assessment("e", "no", "re"),
+        ]
+
+        judge_v2 = optimizer.align(judge_v1, [trace])
+
+        # Memory should now contain a, b, d, e — all "no". c is forgotten.
+        assert len(judge_v2._episodic_memory) == 4
+        for ex in judge_v2._episodic_memory:
+            assert ex.result == "no"
+        assert sorted(ex.rationale for ex in judge_v2._episodic_memory) == [
+            "ra",
+            "rb",
+            "rd",
+            "re",
+        ]
+
+
+def test_realign_after_unalign_roundtrip(sample_judge, sample_traces):
+    """align → unalign(all) → align should restore the episodic state. Catches
+    state-leak bugs where dedup bookkeeping survives unalign.
+    """
+    with mock_apis(guidelines=["Guideline A"]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        v1_trace_ids = set(judge_v1._episodic_trace_ids)
+        v1_episodic_count = len(judge_v1._episodic_memory)
+
+        unaligned = judge_v1.unalign(traces=sample_traces[:3])
+        assert unaligned._episodic_memory == []
+        assert unaligned._episodic_trace_ids == []
+
+        judge_v3 = optimizer.align(unaligned, sample_traces[:3])
+
+        assert set(judge_v3._episodic_trace_ids) == v1_trace_ids
+        assert len(judge_v3._episodic_memory) == v1_episodic_count
+
+
+def test_align_dedupes_traces_within_a_single_call(sample_judge, sample_traces):
+    # Passing the same trace twice in a single align() call should dedupe.
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge = optimizer.align(sample_judge, [sample_traces[0], sample_traces[0]])
+
+        assert len(judge._episodic_memory) == 1
+        assert judge._episodic_trace_ids == [sample_traces[0].info.trace_id]
+
+
+def test_realign_with_all_empty_assessments_raises(sample_judge, sample_traces):
+    """Retracting feedback should be done via unalign(); re-aligning with traces that
+    have no valid assessments is treated as user error and raises.
+    """
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+
+        for trace in sample_traces[:3]:
+            trace.info.assessments = []
+
+        with pytest.raises(MlflowException, match="No valid feedback records found"):
+            optimizer.align(judge_v1, sample_traces[:3])
