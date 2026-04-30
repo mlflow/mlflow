@@ -75,6 +75,15 @@ describe('QuickStartTemplates', () => {
     expect(cardLinks.length).toBe(17);
   });
 
+  it('renders coding agents section with links to documentation', () => {
+    renderComponent();
+
+    expect(screen.getByText('Coding Agents')).toBeInTheDocument();
+    expect(screen.getByText('Claude Code')).toBeInTheDocument();
+    expect(screen.getByText('OpenAI Codex')).toBeInTheDocument();
+    expect(screen.getByText('Gemini CLI')).toBeInTheDocument();
+  });
+
   it('renders the browse all providers link', () => {
     renderComponent();
 
@@ -111,5 +120,14 @@ describe('QuickStartTemplatesCompact', () => {
     const cardLinks = links.filter((link) => link.getAttribute('href') === '/gateway/endpoints/create');
     // 4 providers × 4 models + 1 browse all link = 17
     expect(cardLinks.length).toBe(17);
+  });
+
+  it('renders coding agents section with links to documentation', () => {
+    renderCompactComponent();
+
+    expect(screen.getByText('Coding Agents')).toBeInTheDocument();
+    expect(screen.getByText('Claude Code')).toBeInTheDocument();
+    expect(screen.getByText('OpenAI Codex')).toBeInTheDocument();
+    expect(screen.getByText('Gemini CLI')).toBeInTheDocument();
   });
 });
