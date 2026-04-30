@@ -26,10 +26,16 @@ function flattenSpans(root: ModelTraceSpanNode): ModelTraceSpanNode[] {
 }
 
 /**
- * Gets the aggregation key for a span using its type and name.
+ * Span types that represent agent/node boundaries in agent frameworks.
+ * Spans under different parents of these types should NOT be consolidated.
+ */
+const NODE_BOUNDARY_TYPES = new Set(['AGENT', 'CHAIN']);
+
+/**
+ * Gets the base aggregation key for a span using its type and name.
  * Including type prevents unrelated operations with the same name from merging.
  */
-function getAggregationKey(span: ModelTraceSpanNode): string {
+function getBaseAggregationKey(span: ModelTraceSpanNode): string {
   return `${span.type ?? 'UNKNOWN'}::${span.title ?? 'Unknown'}`;
 }
 
@@ -339,6 +345,37 @@ function buildWorkflowGraph(
   rootNode: ModelTraceSpanNode,
   config: GraphLayoutConfig,
 ): { nodes: WorkflowNode[]; edges: WorkflowEdge[]; rootNodeId: string } | null {
+  // Walk the tree to compute parent-scoped aggregation keys.
+  // This ensures spans with the same name under different agent nodes
+  // are NOT consolidated into a single graph node.
+  const spanKeyMap = new Map<ModelTraceSpanNode, string>();
+
+  function assignKeys(node: ModelTraceSpanNode, scopeKey: string | null): void {
+    // If there's a scoping ancestor (AGENT/CHAIN), prefix this span's key
+    // so that identically named spans under different agents stay separate.
+    const key = scopeKey !== null ? `${scopeKey}/${getBaseAggregationKey(node)}` : getBaseAggregationKey(node);
+
+    spanKeyMap.set(node, key);
+
+    if (node.children) {
+      // If this node is an agent boundary, it becomes the new scope for children.
+      // Otherwise, pass through the current scope unchanged.
+      const childScope = NODE_BOUNDARY_TYPES.has(node.type ?? '') ? key : scopeKey;
+      for (const child of node.children) {
+        assignKeys(child, childScope);
+      }
+    }
+  }
+
+  const rootKey = getBaseAggregationKey(rootNode);
+  spanKeyMap.set(rootNode, rootKey);
+  if (rootNode.children) {
+    const rootScope = NODE_BOUNDARY_TYPES.has(rootNode.type ?? '') ? rootKey : null;
+    for (const child of rootNode.children) {
+      assignKeys(child, rootScope);
+    }
+  }
+
   // Flatten all spans
   const spans = flattenSpans(rootNode);
 
@@ -349,10 +386,10 @@ function buildWorkflowGraph(
   // Sort by start time to get execution order
   spans.sort((a, b) => a.start - b.start);
 
-  // Group spans by name (aggregation key)
+  // Group spans by their scoped aggregation key
   const nodeGroups = new Map<string, ModelTraceSpanNode[]>();
   for (const span of spans) {
-    const key = getAggregationKey(span);
+    const key = spanKeyMap.get(span) ?? getBaseAggregationKey(span);
     if (!nodeGroups.has(key)) {
       nodeGroups.set(key, []);
     }
@@ -383,7 +420,7 @@ function buildWorkflowGraph(
   const edgeMap = new Map<string, WorkflowEdge>();
 
   function buildEdgesFromHierarchy(node: ModelTraceSpanNode, parentKey: string | null): void {
-    const currentKey = getAggregationKey(node);
+    const currentKey = spanKeyMap.get(node) ?? getBaseAggregationKey(node);
 
     if (parentKey !== null && currentKey !== parentKey) {
       const edgeId = `${parentKey}->${currentKey}`;
@@ -433,7 +470,7 @@ function buildWorkflowGraph(
   return {
     nodes: workflowNodes,
     edges: Array.from(edgeMap.values()),
-    rootNodeId: getAggregationKey(rootNode),
+    rootNodeId: rootKey,
   };
 }
 
