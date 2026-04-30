@@ -3,6 +3,22 @@ import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/uti
 
 import { PageId, RoutePaths } from './routes';
 
+const getPlaygroundPageRouteDefs = () => [
+  {
+    path: RoutePaths.playgroundPage,
+    element: createLazyRouteElement(() => import('./pages/playground/PlaygroundPage')),
+    pageId: PageId.playgroundPage,
+    handle: {
+      getPageTitle: () => 'Playground',
+      getAssistantPrompts: () => [
+        'How do I test a prompt against an AI gateway endpoint?',
+        'How do I configure model parameters like temperature?',
+        'How do I load a prompt from the registry into the playground?',
+      ],
+    } satisfies RouteHandle,
+  },
+];
+
 const getPromptPagesRouteDefs = () => {
   return [
     {
@@ -369,4 +385,5 @@ export const getRouteDefs = () => [
     } satisfies RouteHandle,
   },
   ...getPromptPagesRouteDefs(),
+  ...getPlaygroundPageRouteDefs(),
 ];
