@@ -29,7 +29,7 @@ spec:
               service:
                 name: {{ include "mlflow.fullname" $ }}
                 port:
-                  name: http
+                  name: {{ ternary "https" "http" $.Values.tls.enabled }}
           {{- end }}
     {{- end }}
 {{- end }}
