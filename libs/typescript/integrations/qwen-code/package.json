@@ -30,6 +30,9 @@
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "mlflow-qwen-code": "./bundle/cli.js"
+  },
   "scripts": {
     "build": "tsc && npm run build:bundle",
     "build:bundle": "node esbuild.config.mjs",

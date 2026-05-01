@@ -1,0 +1,70 @@
+{
+  "name": "@mlflow/mlflow-openclaw",
+  "version": "0.2.0-rc.0",
+  "description": "OpenClaw integration package for MLflow Tracing",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mlflow/mlflow.git"
+  },
+  "homepage": "https://mlflow.org/",
+  "author": {
+    "name": "MLflow",
+    "url": "https://mlflow.org/"
+  },
+  "bugs": {
+    "url": "https://github.com/mlflow/mlflow/issues"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "mlflow",
+    "tracing",
+    "observability",
+    "openclaw",
+    "llm",
+    "ai-agent",
+    "javascript",
+    "typescript"
+  ],
+  "type": "module",
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.1.0",
+    "@mlflow/core": "^0.2.0"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.9"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.3",
+    "jest": "^29.6.2",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "files": [
+    "index.ts",
+    "src/service.ts",
+    "src/configure.ts",
+    "src/openclaw-plugin-sdk.d.ts",
+    "openclaw.plugin.json",
+    "README.md"
+  ]
+}

@@ -1624,6 +1624,44 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "gpt-5.4-mini-2026-03-17": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.75,
+        "output_per_million_tokens": 4.5,
+        "cache_read_per_million_tokens": 0.075,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 2.25,
+            "cache_read_per_million_tokens": 0.0375
+          },
+          "flex": {
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 2.25,
+            "cache_read_per_million_tokens": 0.0375
+          },
+          "priority": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 9.0,
+            "cache_read_per_million_tokens": 0.15
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-27"
+    },
     "gpt-5.4-nano": {
       "mode": "chat",
       "context_window": {
@@ -1657,7 +1695,7 @@
       },
       "last_updated_at": "2026-04-24"
     },
-    "gpt-5.5": {
+    "gpt-5.4-nano-2026-03-17": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
@@ -1665,9 +1703,21 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 5.0,
-        "output_per_million_tokens": 30.0,
-        "cache_read_per_million_tokens": 0.5
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 1.25,
+        "cache_read_per_million_tokens": 0.02,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.1,
+            "output_per_million_tokens": 0.625,
+            "cache_read_per_million_tokens": 0.01
+          },
+          "flex": {
+            "input_per_million_tokens": 0.1,
+            "output_per_million_tokens": 0.625,
+            "cache_read_per_million_tokens": 0.01
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1676,7 +1726,97 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
+    },
+    "gpt-5.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1050000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 15.0
+          },
+          "flex": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 15.0,
+            "cache_read_per_million_tokens": 0.25
+          },
+          "priority": {
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 60.0,
+            "cache_read_per_million_tokens": 1.0
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_read_per_million_tokens": 1.0,
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 45.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-27"
+    },
+    "gpt-5.5-2026-04-23": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1050000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 15.0
+          },
+          "flex": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 15.0,
+            "cache_read_per_million_tokens": 0.25
+          },
+          "priority": {
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 60.0,
+            "cache_read_per_million_tokens": 1.0
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_read_per_million_tokens": 1.0,
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 45.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-27"
     },
     "gpt-audio": {
       "mode": "chat",

@@ -178,7 +178,7 @@ dev = [
   "skills",
 ]
 lint = [
-  "ruff==0.15.5",
+  "ruff==0.15.10",
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "types-toml",
@@ -197,6 +197,7 @@ lint = [
 pytest = [
   "pytest==9.0.2",
   "pytest-asyncio",
+  "pytest-benchmark",
   "pytest-repeat",
   "pytest-cov",
   "pytest-timeout",
@@ -240,7 +241,7 @@ docs = [
 [tool.uv]
 exclude-newer = "P14D"
 exclude-newer-package = { torch = false, torchvision = false }
-required-version = ">=0.10.12"
+required-version = ">=0.11.7"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
@@ -281,7 +282,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.15.5"
+required-version = "0.15.10"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extension = { mdx = "markdown" }

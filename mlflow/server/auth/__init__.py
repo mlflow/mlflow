@@ -47,6 +47,7 @@ from mlflow.environment_variables import (
     _MLFLOW_SGI_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
 from mlflow.protos.databricks_pb2 import (
@@ -181,6 +182,7 @@ from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
     MANAGE,
     NO_PERMISSIONS,
+    USE,
     Permission,
     get_permission,
     max_permission,
@@ -190,8 +192,12 @@ from mlflow.server.auth.routes import (
     AJAX_ADD_ROLE_PERMISSION,
     AJAX_ASSIGN_ROLE,
     AJAX_CREATE_ROLE,
+    AJAX_CREATE_USER,
     AJAX_DELETE_ROLE,
+    AJAX_DELETE_USER,
+    AJAX_GET_CURRENT_USER,
     AJAX_GET_ROLE,
+    AJAX_GET_USER,
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
     AJAX_LIST_ROLES,
@@ -201,6 +207,8 @@ from mlflow.server.auth.routes import (
     AJAX_UNASSIGN_ROLE,
     AJAX_UPDATE_ROLE,
     AJAX_UPDATE_ROLE_PERMISSION,
+    AJAX_UPDATE_USER_ADMIN,
+    AJAX_UPDATE_USER_PASSWORD,
     ASSIGN_ROLE,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
@@ -226,6 +234,7 @@ from mlflow.server.auth.routes import (
     GATEWAY_SUPPORTED_MODELS,
     GATEWAY_SUPPORTED_PROVIDERS,
     GET_ARTIFACT,
+    GET_CURRENT_USER,
     GET_EXPERIMENT_PERMISSION,
     GET_GATEWAY_ENDPOINT_PERMISSION,
     GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -266,6 +275,7 @@ from mlflow.server.auth.routes import (
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
+    _add_static_prefix,
     _disable_if_workspaces_disabled,
     _get_ajax_path,
     _get_model_registry_store,
@@ -386,8 +396,16 @@ def _invalidate_user_auth_cache(username: str) -> None:
             _USER_AUTH_CACHE.pop(key, None)
 
 
+_UNPROTECTED_PATH_PREFIXES = ("/static", "/favicon.ico", "/health")
+
+
 def is_unprotected_route(path: str) -> bool:
-    return path.startswith(("/static", "/favicon.ico", "/health"))
+    # When ``_MLFLOW_STATIC_PREFIX`` is set, the health/static routes are
+    # actually served from e.g. ``/mlflow/health``, not ``/health``. Match
+    # both the unprefixed and the prefixed forms so health checks don't end
+    # up requiring auth on prefixed deployments.
+    prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
+    return path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed)
 
 
 def make_basic_auth_response() -> Response:
@@ -411,9 +429,16 @@ def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH"):
-        args = request.json
+        # Coerce null/empty/non-dict JSON bodies to {} so callers get a 400, not
+        # a 500 from the dict-merge below.
+        body = request.get_json(silent=True)
+        args = body if isinstance(body, dict) else {}
     elif request.method == "DELETE":
-        args = request.json if request.is_json else request.args
+        if request.is_json:
+            body = request.get_json(silent=True)
+            args = body if isinstance(body, dict) else {}
+        else:
+            args = request.args
     else:
         raise MlflowException(
             f"Unsupported HTTP method '{request.method}'",
@@ -538,9 +563,27 @@ def _workspace_permission(
         return NO_PERMISSIONS
 
     try:
-        permission = store.get_workspace_permission(workspace_name, username)
-        if permission is not None:
-            return permission
+        # The effective workspace-level permission is the max of:
+        #   (a) direct ``workspace_permissions`` row for this user/workspace
+        #   (b) role-based grants where (resource_type='workspace',
+        #       resource_pattern='*') applied to this workspace
+        # Both sources are first-class — direct grants are not deprecated by
+        # roles. Resource-level checks already union role grants via
+        # ``_get_permission_from_store_or_default``, so the workspace-level
+        # path needs to do the same to stay consistent.
+        direct = store.get_workspace_permission(workspace_name, username)
+        # MANAGE is the ceiling — a role grant can't raise it, so skip the
+        # extra DB round-trip in the common workspace admin case. Mirrors
+        # the optimization in ``_get_permission_from_store_or_default``.
+        if direct is not None and direct.name == MANAGE.name:
+            return direct
+        role = store.get_role_workspace_permission(workspace_name, username)
+        if direct is not None and role is not None:
+            return get_permission(max_permission(direct.name, role.name))
+        if direct is not None:
+            return direct
+        if role is not None:
+            return role
 
         if auth_config.grant_default_workspace_access and auth_config.default_permission:
             default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
@@ -557,6 +600,23 @@ def _workspace_permission(
             e,
         )
         return NO_PERMISSIONS
+
+
+def _user_can_create_in_workspace() -> bool:
+    """
+    True if the current request can create new resources in the request's
+    workspace. Always allows when workspaces are disabled. Otherwise requires
+    a workspace-wide grant whose level has ``can_use``.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return True
+
+    workspace_name = workspace_context.get_request_workspace()
+    if workspace_name is None:
+        return False
+
+    workspace_perm = _workspace_permission(authenticate_request().username, workspace_name)
+    return workspace_perm is not None and workspace_perm.can_use
 
 
 def _get_resource_workspace(
@@ -1148,33 +1208,11 @@ def validate_can_manage_registered_model():
 
 
 def validate_can_create_experiment() -> bool:
-    # Historically, experiment creation has always been allowed when workspaces are
-    # disabled. We keep returning True here to preserve that behavior even if
-    # auth_config.default_permission is READ/NO_PERMISSIONS.
-    if not MLFLOW_ENABLE_WORKSPACES.get():
-        return True
-
-    workspace_name = workspace_context.get_request_workspace()
-    if workspace_name is None:
-        return False
-
-    perm = _workspace_permission(authenticate_request().username, workspace_name)
-    return perm is not None and perm.can_manage
+    return _user_can_create_in_workspace()
 
 
 def validate_can_create_registered_model() -> bool:
-    # Historically, registered model creation has always been allowed when workspaces are
-    # disabled. We keep returning True here to preserve that behavior even if
-    # auth_config.default_permission is READ/NO_PERMISSIONS.
-    if not MLFLOW_ENABLE_WORKSPACES.get():
-        return True
-
-    workspace_name = workspace_context.get_request_workspace()
-    if workspace_name is None:
-        return False
-
-    perm = _workspace_permission(authenticate_request().username, workspace_name)
-    return perm is not None and perm.can_manage
+    return _user_can_create_in_workspace()
 
 
 def validate_can_view_workspace() -> bool:
@@ -1958,12 +1996,21 @@ BEFORE_REQUEST_VALIDATORS = {
 BEFORE_REQUEST_VALIDATORS.update({
     (SIGNUP, "GET"): validate_can_create_user,
     (GET_USER, "GET"): validate_can_read_user,
+    (AJAX_GET_USER, "GET"): validate_can_read_user,
+    # /current returns only the authenticated user's own identity — any
+    # authenticated user may read it.
+    (GET_CURRENT_USER, "GET"): lambda: True,
+    (AJAX_GET_CURRENT_USER, "GET"): lambda: True,
     (LIST_USERS, "GET"): validate_can_list_users,
     (AJAX_LIST_USERS, "GET"): validate_can_list_users,
     (CREATE_USER, "POST"): validate_can_create_user,
+    (AJAX_CREATE_USER, "POST"): validate_can_create_user,
     (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
+    (AJAX_UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
     (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
+    (AJAX_UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
     (DELETE_USER, "DELETE"): validate_can_delete_user,
+    (AJAX_DELETE_USER, "DELETE"): validate_can_delete_user,
     (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
     (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
     (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
@@ -2521,6 +2568,92 @@ def filter_list_workspaces(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
+# Default roles seeded into every new workspace when
+# ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is on. ``CreateWorkspace`` is gated to
+# ``sender_is_admin``, so the creator is always a super-admin whose ``is_admin``
+# flag already bypasses RBAC checks — we therefore don't assign the creator to
+# any of these roles. The two roles are convenience scaffolding the admin can
+# hand out; finer-grained or per-resource-type roles can be created on demand.
+#
+# Both roles use ``(resource_type='workspace', resource_pattern='*')`` — the
+# workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``:
+#
+# - ``user`` (USE): can read every resource in the workspace and create new
+#   experiments / registered models; creator-as-owner grants the creator
+#   MANAGE on what they create, so a user manages their own resources without
+#   gaining access to resources owned by others.
+# - ``admin`` (MANAGE): full authority — can update / delete every
+#   resource and manage roles / user assignments within the workspace.
+_DEFAULT_WORKSPACE_ROLES = (
+    ("admin", MANAGE.name, "Full MANAGE authority over the workspace."),
+    (
+        "user",
+        USE.name,
+        (
+            "Read every resource in the workspace and create new experiments "
+            "and registered models; the creator-as-owner mechanism grants "
+            "MANAGE on what you create, with no write or delete access to "
+            "resources owned by other users."
+        ),
+    ),
+)
+
+
+def _seed_default_workspace_roles(resp: Response) -> None:
+    """After a successful ``CreateWorkspace``, seed default RBAC roles into the new
+    workspace. Partial failures are logged rather than raised — the workspace
+    creation has already succeeded at this point.
+
+    No creator-assignment logic: the ``before_request`` handler gates
+    ``CreateWorkspace`` to super-admins (via ``sender_is_admin``), and super-admins
+    already bypass RBAC checks via their ``is_admin`` flag. The seeded roles are
+    therefore a convenience for the admin to hand out to other users, not
+    something the creator needs assigned to themselves.
+    """
+    if not MLFLOW_RBAC_SEED_DEFAULT_ROLES.get():
+        return
+
+    response_message = CreateWorkspace.Response()
+    parse_dict(resp.json, response_message)
+    workspace_name = response_message.workspace.name
+
+    for role_name, permission, description in _DEFAULT_WORKSPACE_ROLES:
+        try:
+            role = store.create_role(
+                name=role_name, workspace=workspace_name, description=description
+            )
+        except MlflowException as e:
+            _logger.error(
+                "Failed to create default role '%s' for workspace '%s': %s",
+                role_name,
+                workspace_name,
+                e,
+            )
+            continue
+        try:
+            store.add_role_permission(role.id, "workspace", "*", permission)
+        except MlflowException as e:
+            _logger.error(
+                "Failed to add permission to default role '%s' for workspace '%s': %s. "
+                "Rolling back the orphan role.",
+                role_name,
+                workspace_name,
+                e,
+            )
+            # Remove the orphan role so the workspace doesn't end up with a named
+            # role that grants nothing. Best-effort: log on failure.
+            try:
+                store.delete_role(role.id)
+            except MlflowException as delete_err:
+                _logger.error(
+                    "Failed to roll back orphan role '%s' (id=%s) for workspace '%s': %s",
+                    role_name,
+                    role.id,
+                    workspace_name,
+                    delete_err,
+                )
+
+
 def _cleanup_workspace_permissions(resp: Response) -> None:
     # This handler runs only on successful DELETE responses. Cleanup failures are logged
     # instead of raised because the workspace deletion has already succeeded at this point.
@@ -2845,6 +2978,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateGatewayModelDefinition: set_can_manage_gateway_model_definition_permission,
     DeleteGatewayModelDefinition: delete_gateway_model_definition_permissions_cascade,
     ListWorkspaces: filter_list_workspaces,
+    CreateWorkspace: _seed_default_workspace_roles,
     DeleteWorkspace: _cleanup_workspace_permissions,
 }
 
@@ -3038,20 +3172,17 @@ def create_user_ui(csrf):
 
 @catch_mlflow_exception
 def create_user():
-    content_type = request.headers.get("Content-Type")
-    if content_type == "application/json":
-        username = _get_request_param("username")
-        password = _get_request_param("password")
+    if not request.is_json:
+        return make_response("Invalid content type. Must be application/json", 400)
 
-        if not username or not password:
-            message = "Username and password cannot be empty."
-            return make_response(message, 400)
+    username = _get_request_param("username")
+    password = _get_request_param("password")
 
-        user = store.create_user(username, password)
-        return jsonify({"user": user.to_json()})
-    else:
-        message = "Invalid content type. Must be application/json"
-        return make_response(message, 400)
+    if not username or not password:
+        return make_response("Username and password cannot be empty.", 400)
+
+    user = store.create_user(username, password)
+    return jsonify({"user": user.to_json()})
 
 
 @catch_mlflow_exception
@@ -3064,13 +3195,43 @@ def get_user():
 @catch_mlflow_exception
 def list_users():
     users = store.list_users()
-    return jsonify({"users": [{"id": u.id, "username": u.username} for u in users]})
+    return jsonify({
+        "users": [{"id": u.id, "username": u.username, "is_admin": u.is_admin} for u in users]
+    })
+
+
+@catch_mlflow_exception
+def get_current_user():
+    # HTTP Basic Auth doesn't set any identifying cookie, so the frontend has
+    # no way to know *which* user the browser authenticated as. This endpoint
+    # returns minimal identity info (no password hash, no permission arrays)
+    # for the currently authenticated user.
+    username = authenticate_request().username
+    user = store.get_user(username)
+    return jsonify({"user": {"id": user.id, "username": user.username, "is_admin": user.is_admin}})
 
 
 @catch_mlflow_exception
 def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
+    # Self-service flows re-assert current_password so a hijacked browser
+    # session can't silently rotate it. Admin paths skip this check.
+    sender = authenticate_request()
+    sender_username = getattr(sender, "username", None)
+    if sender_username == username:
+        body = request.get_json(silent=True) or {}
+        current_password = body.get("current_password")
+        if not current_password:
+            raise MlflowException(
+                "Current password is required when changing your own password.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if not store.authenticate_user(username, current_password):
+            raise MlflowException(
+                "Current password does not match.",
+                INVALID_PARAMETER_VALUE,
+            )
     store.update_user(username, password=password)
     _invalidate_user_auth_cache(username)
     return make_response({})
@@ -3585,9 +3746,7 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
     # TODO: we need to query endpoint ID by name from the database.
     # Revisit the mutability of the endpoint name if it causes latency issues.
     try:
-        from mlflow.tracking._tracking_service.utils import _get_store
-
-        tracking_store = _get_store()
+        tracking_store = _get_tracking_store()
         endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
         endpoint_id = endpoint.endpoint_id
 
@@ -3595,6 +3754,16 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
             lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission,
             workspace_level_permission_func=lambda: _workspace_permission_for_gateway_endpoint(
                 username, endpoint_id
+            ),
+            role_permission_func=_role_permission_for(
+                username=username,
+                resource_type="gateway_endpoint",
+                resource_key=endpoint_id,
+                workspace_lookup_id=endpoint_id,
+                workspace_fetcher=lambda eid: _get_tracking_store().get_gateway_endpoint(
+                    endpoint_id=eid
+                ),
+                workspace_label="gateway endpoint",
             ),
         )
         return permission.can_use
@@ -3844,37 +4013,48 @@ def create_app(app: Flask = app):
         view_func=lambda: create_user_ui(csrf),
         methods=["POST"],
     )
-    app.add_url_rule(
-        rule=CREATE_USER,
-        view_func=create_user,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_USER,
-        view_func=get_user,
-        methods=["GET"],
-    )
+    for rule in [CREATE_USER, AJAX_CREATE_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=create_user,
+            methods=["POST"],
+        )
+    for rule in [GET_USER, AJAX_GET_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=get_user,
+            methods=["GET"],
+        )
     for rule in [LIST_USERS, AJAX_LIST_USERS]:
         app.add_url_rule(
             rule=rule,
             view_func=list_users,
             methods=["GET"],
         )
-    app.add_url_rule(
-        rule=UPDATE_USER_PASSWORD,
-        view_func=update_user_password,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_USER_ADMIN,
-        view_func=update_user_admin,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_USER,
-        view_func=delete_user,
-        methods=["DELETE"],
-    )
+    for rule in [GET_CURRENT_USER, AJAX_GET_CURRENT_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=get_current_user,
+            methods=["GET"],
+        )
+    for rule in [UPDATE_USER_PASSWORD, AJAX_UPDATE_USER_PASSWORD]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=update_user_password,
+            methods=["PATCH"],
+        )
+    for rule in [UPDATE_USER_ADMIN, AJAX_UPDATE_USER_ADMIN]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=update_user_admin,
+            methods=["PATCH"],
+        )
+    for rule in [DELETE_USER, AJAX_DELETE_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=delete_user,
+            methods=["DELETE"],
+        )
     app.add_url_rule(
         rule=CREATE_EXPERIMENT_PERMISSION,
         view_func=create_experiment_permission,

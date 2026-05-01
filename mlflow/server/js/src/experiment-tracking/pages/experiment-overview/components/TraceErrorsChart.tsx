@@ -103,6 +103,7 @@ export const TraceErrorsChart: React.FC<TraceErrorsChartProps> = ({ enableTraceN
                   />
                 }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Bar
                 yAxisId="left"

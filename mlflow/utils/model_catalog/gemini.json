@@ -42,6 +42,13 @@
           "audio": {
             "input_per_million_tokens": 0.7
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -52,7 +59,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-06-01",
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-2.0-flash-001": {
       "mode": "chat",
@@ -69,6 +76,13 @@
           "audio": {
             "input_per_million_tokens": 0.7
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -79,7 +93,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-06-01",
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-2.0-flash-lite": {
       "mode": "chat",
@@ -95,6 +109,13 @@
           "audio": {
             "input_per_million_tokens": 0.075
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -105,7 +126,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-06-01",
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-2.0-flash-lite-001": {
       "mode": "chat",
@@ -121,6 +142,13 @@
           "audio": {
             "input_per_million_tokens": 0.075
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -131,7 +159,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-06-01",
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-2.5-computer-use-preview-10-2025": {
       "mode": "chat",
@@ -175,6 +203,13 @@
           "audio": {
             "input_per_million_tokens": 1.0
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -184,7 +219,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-2.5-flash-lite": {
       "mode": "chat",
@@ -201,6 +236,13 @@
           "audio": {
             "input_per_million_tokens": 0.3
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -210,7 +252,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-2.5-flash-lite-preview-06-17": {
       "mode": "chat",
@@ -254,6 +296,13 @@
           "audio": {
             "input_per_million_tokens": 0.3
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -263,7 +312,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-2.5-flash-native-audio-latest": {
       "mode": "chat",
@@ -355,6 +404,13 @@
           "audio": {
             "input_per_million_tokens": 1.0
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -364,7 +420,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-2.5-pro": {
       "mode": "chat",
@@ -390,7 +446,14 @@
             "input_per_million_tokens": 2.5,
             "output_per_million_tokens": 15.0
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -399,7 +462,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-2.5-pro-preview-tts": {
       "mode": "chat",
@@ -424,6 +487,13 @@
           "audio": {
             "input_per_million_tokens": 0.7
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -433,7 +503,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-3-flash-preview": {
       "mode": "chat",
@@ -457,6 +527,13 @@
           "audio": {
             "input_per_million_tokens": 1.0
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
         }
       },
       "capabilities": {
@@ -466,7 +543,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-3-pro-preview": {
       "mode": "chat",
@@ -525,6 +602,13 @@
             "cache_read_per_million_tokens": 0.05,
             "input_per_million_tokens": 0.5
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
         }
       },
       "capabilities": {
@@ -534,7 +618,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-3.1-flash-live-preview": {
       "mode": "chat",
@@ -594,7 +678,14 @@
             "input_per_million_tokens": 4.0,
             "output_per_million_tokens": 18.0
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -603,7 +694,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-3.1-pro-preview-customtools": {
       "mode": "chat",
@@ -634,7 +725,14 @@
             "input_per_million_tokens": 4.0,
             "output_per_million_tokens": 18.0
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -643,7 +741,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-embedding-001": {
       "mode": "embedding",
@@ -663,6 +761,25 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "gemini-embedding-2": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-27"
     },
     "gemini-embedding-2-preview": {
       "mode": "embedding",
@@ -752,6 +869,13 @@
           "audio": {
             "input_per_million_tokens": 1.0
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -761,7 +885,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-flash-lite-latest": {
       "mode": "chat",
@@ -778,6 +902,13 @@
           "audio": {
             "input_per_million_tokens": 0.3
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -787,7 +918,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-gemma-2-27b-it": {
       "mode": "chat",
@@ -845,7 +976,14 @@
             "input_per_million_tokens": 2.5,
             "output_per_million_tokens": 15.0
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -854,7 +992,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemini-robotics-er-1.5-preview": {
       "mode": "chat",
@@ -871,6 +1009,13 @@
           "audio": {
             "input_per_million_tokens": 1.0
           }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
         }
       },
       "capabilities": {
@@ -880,7 +1025,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "gemma-3-27b-it": {
       "mode": "chat",
