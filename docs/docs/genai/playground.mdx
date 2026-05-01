@@ -17,6 +17,16 @@ The **Endpoint** dropdown lists every gateway endpoint visible in your workspace
 
 If the dropdown is empty, you have not created any endpoints yet. See [Create and Manage Endpoints](governance/ai-gateway/endpoints/create-and-manage.mdx).
 
+## Setting parameters
+
+Below the endpoint picker is a **Parameters** panel with three sampling controls:
+
+- **Temperature** — randomness of the sampling distribution. Lower values (0–0.3) produce focused, deterministic output; higher values (0.8–1.5) produce more varied output.
+- **Max tokens** — upper bound on the number of tokens the model may generate in its reply.
+- **Top P** — nucleus sampling cutoff. The model considers only the smallest set of tokens whose cumulative probability exceeds this value.
+
+Leave any field blank to fall back to the provider's default. The Playground only forwards parameters that you explicitly set, so unset fields never override endpoint or provider defaults.
+
 ## Composing messages
 
 The right side of the page is a list of chat messages. Each message has:
@@ -29,7 +39,11 @@ The right side of the page is a list of chat messages. Each message has:
 
 Click **Add message** to append another turn. Use the X button on a card to remove it. **Submit** stays disabled until at least one message has non-empty content and an endpoint is selected.
 
-The Playground sends every message in the list as a single request — it does **not** automatically append the model's reply for follow-up turns. To continue a conversation, manually add the assistant's response and a new user message.
+## Multi-turn conversations
+
+After you press Submit, the model's reply is appended to the message list as an `assistant` card (rendered as Markdown) and an empty `user` card is added below it for the next turn. Type your follow-up and press Submit again — the entire conversation is included in each request, so the model sees the full history.
+
+You can also edit any prior `system` or `user` card to tweak the conversation in place; the next Submit replays the modified history. Use **Clear conversation** to start over.
 
 ## Loading a prompt from the registry
 
@@ -42,16 +56,14 @@ Click **Load prompt from registry** to open a picker that lists all prompts in t
 
 ## Reviewing the response
 
-After Submit, the **Output** panel renders the model's reply as Markdown (so code blocks, lists, and formatting come through). When the gateway returns token usage information, a footer shows prompt, completion, and total token counts.
+The assistant reply is rendered inline in the conversation as Markdown, so code blocks, lists, and formatting come through. While a request is in flight, a small "Generating response…" status is shown beneath the conversation.
 
-If the request fails — for example, the endpoint's secret is missing, a budget limit is exceeded, or a guardrail blocks the request — the error message is shown inline.
+If the request fails — for example, the endpoint's secret is missing, a budget limit is exceeded, or a guardrail blocks the request — the error message is shown inline above the action buttons.
 
 ## Limitations
 
-The current Playground is intentionally minimal. The following are not supported in the UI today:
+The current Playground does not yet support:
 
 - **Streaming** responses — the full reply is rendered once the gateway finishes generating.
-- **Multi-turn loops** — the assistant reply is not appended automatically after Submit.
-- **Sampling parameters** — temperature, top_p, max_tokens, and similar knobs use the endpoint's defaults. To override them, query the endpoint directly with the [chat completions API](governance/ai-gateway/endpoints/query-endpoints.mdx).
 - **Tool / function calling** and **structured output**.
 - **Saving** — Playground sessions are not persisted. To capture a run, register the message list as a new prompt version in the [Prompt Registry](prompt-registry/index.mdx).
