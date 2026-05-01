@@ -164,9 +164,16 @@ metrics:
 # Operator CRD to be installed in the cluster).
 serviceMonitor:
   enabled: false
-  # Set to true to skip TLS certificate verification when scraping metrics.
-  # Only applies when tls.enabled is true.
-  insecureSkipVerify: false
+  # TLS configuration passed through to the ServiceMonitor endpoint.
+  # Only applies when tls.enabled is true. Supports any field from the
+  # Prometheus Operator TLSConfig spec, e.g.:
+  #   tlsConfig:
+  #     insecureSkipVerify: true
+  #     ca:
+  #       secret:
+  #         name: my-ca-secret
+  #         key: ca.crt
+  tlsConfig: {}
 
 # Pod-level security context applied to all containers in the pod.
 podSecurityContext:
