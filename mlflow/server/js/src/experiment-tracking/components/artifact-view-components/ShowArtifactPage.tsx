@@ -41,6 +41,7 @@ import type { KeyValueEntity } from '../../../common/types';
 import { LazyShowArtifactMarkdownView } from './LazyShowArtifactMarkdownView';
 
 const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
+const MAX_PREVIEW_TEXT_ARTIFACT_SIZE_MB = 10;
 
 type ShowArtifactPageProps = {
   runUuid: string;
@@ -114,6 +115,9 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
             />
           );
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          if ((this.props.size || 0) > MAX_PREVIEW_TEXT_ARTIFACT_SIZE_MB * ONE_MB) {
+            return getFileTooLargeView(MAX_PREVIEW_TEXT_ARTIFACT_SIZE_MB);
+          }
           return <ShowArtifactTextView {...commonArtifactProps} size={this.props.size} />;
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactMapView {...commonArtifactProps} />;
@@ -159,7 +163,7 @@ const getSelectFileView = () => {
   );
 };
 
-const getFileTooLargeView = () => {
+const getFileTooLargeView = (maxSizeMB: number = MAX_PREVIEW_ARTIFACT_SIZE_MB) => {
   return (
     <div css={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       <Empty
@@ -177,9 +181,9 @@ const getFileTooLargeView = () => {
         }
         description={
           <FormattedMessage
-            // eslint-disable-next-line formatjs/enforce-default-message
-            defaultMessage={`Maximum file size for preview: ${MAX_PREVIEW_ARTIFACT_SIZE_MB}MiB`}
+            defaultMessage="Maximum file size for preview: {maxSizeMB}MiB"
             description="Text to notify users of the maximum file size for which artifact previews are displayed"
+            values={{ maxSizeMB }}
           />
         }
       />

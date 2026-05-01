@@ -9,6 +9,7 @@ import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactTextView, { prettifyArtifactText } from './ShowArtifactTextView';
+import { SyntaxHighlighterErrorBoundary } from './ShowArtifactTextView';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { mountWithIntl } from '../../../common/utils/TestUtils.enzyme';
 
@@ -146,5 +147,48 @@ describe('ShowArtifactTextView', () => {
   test('should leave invalid json untouched', () => {
     const outputText = prettifyArtifactText('json', '{"hello');
     expect(outputText).toBe('{"hello');
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should render large files as plain pre instead of SyntaxHighlighter', (done) => {
+    const largeText = 'x'.repeat(1024 * 1024 + 1);
+    const getArtifact = jest.fn(() => Promise.resolve(largeText));
+    const props = { path: 'big.json', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.mlflow-ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find(SyntaxHighlighter).length).toBe(0);
+      expect(wrapper.find('pre').length).toBe(1);
+      done();
+    });
+  });
+});
+
+describe('SyntaxHighlighterErrorBoundary', () => {
+  test('should render children when no error occurs', () => {
+    const wrapper = mount(
+      <SyntaxHighlighterErrorBoundary fallback={<div id="fallback" />}>
+        <div id="child">content</div>
+      </SyntaxHighlighterErrorBoundary>,
+    );
+    expect(wrapper.find('#child').length).toBe(1);
+    expect(wrapper.find('#fallback').length).toBe(0);
+  });
+
+  test('should render fallback when child throws during render', () => {
+    const ThrowingComponent = () => {
+      throw new Error('render crash');
+    };
+    // Suppress expected error boundary console output
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const wrapper = mount(
+      <SyntaxHighlighterErrorBoundary fallback={<pre id="fallback">fallback text</pre>}>
+        <ThrowingComponent />
+      </SyntaxHighlighterErrorBoundary>,
+    );
+    expect(wrapper.find('#fallback').length).toBe(1);
+    expect(wrapper.find('#fallback').text()).toBe('fallback text');
+    spy.mockRestore();
   });
 });
