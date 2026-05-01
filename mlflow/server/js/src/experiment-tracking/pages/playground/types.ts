@@ -8,6 +8,15 @@ export interface ChatMessage {
 export interface ChatCompletionRequest {
   model: string;
   messages: ChatMessage[];
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
+}
+
+export interface PlaygroundParams {
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
 }
 
 export interface ChatCompletionUsage {

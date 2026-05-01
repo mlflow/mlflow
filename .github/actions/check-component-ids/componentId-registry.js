@@ -1646,8 +1646,14 @@ module.exports = {
   "mlflow.overview.usage.traces.view_traces_link": "",
 
   // -- mlflow.playground --
+  "mlflow.playground.clear": "",
+  "mlflow.playground.error": "",
   "mlflow.playground.load_from_registry": "",
-  "mlflow.playground.output.error": "",
+  "mlflow.playground.params.help": "",
+  "mlflow.playground.params.max_tokens": "",
+  "mlflow.playground.params.temperature": "",
+  "mlflow.playground.params.top_p": "",
+  "mlflow.playground.prompt_input.assistant_badge": "",
   "mlflow.playground.prompt_input.content": "",
   "mlflow.playground.prompt_input.remove": "",
   "mlflow.playground.prompt_input.role": "",

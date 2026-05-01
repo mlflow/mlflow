@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { render, renderHook, screen, waitFor } from '@testing-library/react';
+import { render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
@@ -10,6 +10,20 @@ import { GatewayApi } from '../../../gateway/api';
 import { PlaygroundApi } from './api';
 import PlaygroundPage from './PlaygroundPage';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
+
+jest.mock('./components/EndpointPicker', () => ({
+  EndpointPicker: ({ value, onChange }: { value?: string; onChange: (v: string) => void }) => (
+    <div>
+      <label htmlFor="endpoint-picker-test-input">Endpoint</label>
+      <input
+        id="endpoint-picker-test-input"
+        data-testid="endpoint-picker-test-input"
+        value={value ?? ''}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  ),
+}));
 
 const renderPlayground = () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -24,6 +38,12 @@ const renderPlayground = () => {
       </IntlProvider>
     ),
   });
+};
+
+const pickEndpoint = async (name: string) => {
+  const input = await screen.findByTestId('endpoint-picker-test-input');
+  await userEvent.clear(input);
+  await userEvent.type(input, name);
 };
 
 describe('PlaygroundPage', () => {
@@ -42,15 +62,15 @@ describe('PlaygroundPage', () => {
     });
   });
 
-  it('renders the page header and the empty completion output by default', async () => {
+  it('renders the page header and a disabled Submit button by default', async () => {
     renderPlayground();
 
     await waitFor(() => {
       expect(screen.getByText('Playground')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Submit a message to see the response here.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /clear conversation/i })).toBeInTheDocument();
   });
 
   it('enables submit only when the message and endpoint are both present', async () => {
@@ -65,9 +85,72 @@ describe('PlaygroundPage', () => {
 
     const textarea = screen.getByPlaceholderText('Type a message');
     await userEvent.type(textarea, 'Hello there');
-
-    // Endpoint is still empty, so submit stays disabled.
     expect(submit).toBeDisabled();
+
+    await pickEndpoint('my-endpoint');
+    expect(submit).toBeEnabled();
+  });
+
+  it('appends the assistant response and a fresh user card after a successful submit', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'Hello back!' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    await pickEndpoint('my-endpoint');
+    const textarea = screen.getByPlaceholderText('Type a message');
+    await userEvent.type(textarea, 'Hello there');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      const assistantCard = screen.getByTestId('mlflow.playground.prompt_input.message.assistant');
+      expect(within(assistantCard).getByText('Hello back!')).toBeInTheDocument();
+    });
+
+    const userCards = screen.getAllByTestId('mlflow.playground.prompt_input.message.user');
+    expect(userCards).toHaveLength(2);
+    expect(within(userCards[1]).getByPlaceholderText('Type a message')).toHaveValue('');
+  });
+
+  it('clears the conversation when the Clear button is pressed', async () => {
+    renderPlayground();
+
+    const textarea = screen.getByPlaceholderText('Type a message');
+    await userEvent.type(textarea, 'Some draft');
+
+    await userEvent.click(screen.getByRole('button', { name: /clear conversation/i }));
+
+    const userCards = screen.getAllByTestId('mlflow.playground.prompt_input.message.user');
+    expect(userCards).toHaveLength(1);
+    expect(within(userCards[0]).getByPlaceholderText('Type a message')).toHaveValue('');
+  });
+
+  it('forwards typed parameters to the chat completion request', async () => {
+    const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    await pickEndpoint('my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
+
+    const temperatureInput = screen.getByLabelText('Temperature');
+    await userEvent.type(temperatureInput, '1.5');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'my-endpoint',
+          temperature: 1.5,
+          messages: [{ role: 'user', content: 'Hello there' }],
+        }),
+      );
+    });
   });
 
   it('exposes a hook that posts to the chat completions API', async () => {

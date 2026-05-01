@@ -123,6 +123,10 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
+  "+j0g4V": {
+    "defaultMessage": "Leave a field blank to use the provider's default.",
+    "description": "Help text in the playground parameters panel popover"
+  },
   "+khKtf": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
@@ -151,9 +155,9 @@
     "defaultMessage": "Expand graph",
     "description": "Tooltip for the button that expands the graph view"
   },
-  "//TrDV": {
-    "defaultMessage": "Output",
-    "description": "Section header for the completion output panel on the playground page"
+  "+yzGfp": {
+    "defaultMessage": "e.g. 0.7",
+    "description": "Placeholder for the temperature input on the playground parameters panel"
   },
   "/2InJv": {
     "defaultMessage": "Grounded",
@@ -298,6 +302,10 @@
   "/hP8AG": {
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
+  },
+  "/jSBSV": {
+    "defaultMessage": "Temperature",
+    "description": "Label for the temperature input on the playground parameters panel"
   },
   "/jhw7T": {
     "defaultMessage": "Clear filter",
@@ -486,6 +494,10 @@
   "0uYJoi": {
     "defaultMessage": "Alerts",
     "description": "Tab label for budget alerts"
+  },
+  "0vwlO5": {
+    "defaultMessage": "Each message has a role that tells the model who is speaking:",
+    "description": "Intro line for the playground role-selector help popover"
   },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
@@ -818,10 +830,6 @@
   "2oFAO4": {
     "defaultMessage": "Share",
     "description": "Text for share button on experiment view page header"
-  },
-  "2oNujF": {
-    "defaultMessage": "Prompt",
-    "description": "Section header for the single-message prompt input on the playground page"
   },
   "2pSaCv": {
     "defaultMessage": "Create new API key",
@@ -2779,6 +2787,10 @@
     "defaultMessage": "Capture and debug LLM interactions and agent workflows.",
     "description": "Feature card summary for tracing"
   },
+  "Ev4S86": {
+    "defaultMessage": "e.g. 512",
+    "description": "Placeholder for the max-tokens input on the playground parameters panel"
+  },
   "EwAZgg": {
     "defaultMessage": "Edit tags",
     "description": "Run page > Overview > Tags cell > 'Edit' button label"
@@ -2918,6 +2930,10 @@
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
+  },
+  "FsHe25": {
+    "defaultMessage": "Clear conversation",
+    "description": "Label for the button that resets the playground conversation"
   },
   "Ft2NsS": {
     "defaultMessage": "High",
@@ -3267,6 +3283,10 @@
     "defaultMessage": "Prompt tag deleted",
     "description": "Webhook event label"
   },
+  "IJBkro": {
+    "defaultMessage": "Parameters",
+    "description": "Section header for the model sampling parameters panel on the playground page"
+  },
   "IJLNaN": {
     "defaultMessage": "Name of the trace, derived from the root span's name",
     "description": "Tooltip description for the Trace Name column in the traces table"
@@ -3386,6 +3406,10 @@
   "JChRnq": {
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
+  },
+  "JD0saW": {
+    "defaultMessage": "New",
+    "description": "Sidebar > Playground > New feature tag"
   },
   "JDpv0G": {
     "defaultMessage": "Operator",
@@ -3510,6 +3534,10 @@
   "K2IAP7": {
     "defaultMessage": "Success",
     "description": "Column header for success rate"
+  },
+  "K38TFe": {
+    "defaultMessage": "Max tokens",
+    "description": "Label for the max-tokens input on the playground parameters panel"
   },
   "K5rmCE": {
     "defaultMessage": "S3",
@@ -3798,6 +3826,10 @@
   "Lw+dTL": {
     "defaultMessage": "Please configure at least one model in traffic split",
     "description": "Tooltip shown when save button is disabled due to incomplete form"
+  },
+  "Lwk6Dz": {
+    "defaultMessage": "— what the human is asking. This is the typical input.",
+    "description": "Description of the user role in the playground role-selector help popover"
   },
   "LxUEVH": {
     "defaultMessage": "No resources connected to this endpoint",
@@ -4483,6 +4515,10 @@
     "defaultMessage": "Not an issue",
     "description": "Issue severity tag label for not an issue"
   },
+  "Q2cgUx": {
+    "defaultMessage": "About sampling parameters",
+    "description": "Aria label for the info popover next to the playground parameters header"
+  },
   "Q5CR/y": {
     "defaultMessage": "Create a new key if a different name is needed.",
     "description": "Tooltip suggestion to create new key for different name"
@@ -4691,6 +4727,10 @@
     "defaultMessage": "Columns",
     "description": "Columns label for the chat sessions table column selector"
   },
+  "RXI71h": {
+    "defaultMessage": "Top P",
+    "description": "Label for the top-p input on the playground parameters panel"
+  },
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
     "description": "Evaluation review > evaluations list > select all columns in group"
@@ -4814,6 +4854,10 @@
   "SCYMXw": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
+  },
+  "SG4oPe": {
+    "defaultMessage": "— instructions or persona for the model (e.g. {example}).",
+    "description": "Description of the system role in the playground role-selector help popover"
   },
   "SHoy6d": {
     "defaultMessage": "Open full trace viewer",
@@ -5090,10 +5134,6 @@
   "U3btBc": {
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
-  },
-  "U41a9m": {
-    "defaultMessage": "Messages",
-    "description": "Section header for the multi-message chat input on the playground page"
   },
   "U4ox5k": {
     "defaultMessage": "Experiments",
@@ -5503,10 +5543,6 @@
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the prompt creation modal in the prompt management UI"
   },
-  "WPM8Ok": {
-    "defaultMessage": "Submit a message to see the response here.",
-    "description": "Empty state for the playground completion output panel"
-  },
   "WQwCH6": {
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
@@ -5722,6 +5758,14 @@
   "XuzIWs": {
     "defaultMessage": "Some traces are hidden by your time range filter: \"{filterLabel}\"",
     "description": "Message shown when traces are hidden by time filter"
+  },
+  "Xv4NpC": {
+    "defaultMessage": "Messages",
+    "description": "Section header for the chat input on the playground page"
+  },
+  "XvTJ4T": {
+    "defaultMessage": "Generating response…",
+    "description": "Inline status shown while a chat completion request is in flight on the playground page"
   },
   "XvzXs3": {
     "defaultMessage": "The parallel coordinates chart shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown. Only runs with all relevant metrics and/or parameters will be displayed.",
@@ -7495,10 +7539,6 @@
     "defaultMessage": "Fit to view",
     "description": "Tooltip for the button that fits the graph to the viewport"
   },
-  "i6OY+u": {
-    "defaultMessage": "Prompt",
-    "description": "Hidden label for the prompt textarea on the playground page"
-  },
   "i7UTwK": {
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -7570,10 +7610,6 @@
   "iT8ODo": {
     "defaultMessage": "Minimum",
     "description": "Experiment page > group by runs control > minimum aggregate function"
-  },
-  "iULNV4": {
-    "defaultMessage": "Type your prompt",
-    "description": "Placeholder for the single-message prompt textarea on the playground page"
   },
   "iVeCOa": {
     "defaultMessage": "My webhook",
@@ -8459,10 +8495,6 @@
     "defaultMessage": "Show all parent spans",
     "description": "Checkbox label for a setting that enables showing all parent spans in the trace explorer regardless of filter conditions."
   },
-  "nZow1J": {
-    "defaultMessage": "Tokens — prompt: {prompt}, completion: {completion}, total: {total}",
-    "description": "Token usage footer on the playground completion output panel"
-  },
   "naivho": {
     "defaultMessage": "of",
     "description": "Connector between list and element type"
@@ -8642,6 +8674,10 @@
   "odkg7W": {
     "defaultMessage": "Compact view",
     "description": "Run page > artifact view > logged table view > compact view toggle button"
+  },
+  "ofL8Me": {
+    "defaultMessage": "e.g. 1.0",
+    "description": "Placeholder for the top-p input on the playground parameters panel"
   },
   "ofr72S": {
     "defaultMessage": "Version",
@@ -9935,6 +9971,10 @@
     "defaultMessage": "Load more",
     "description": "Run page > Overview > Child runs load more"
   },
+  "wuhLAU": {
+    "defaultMessage": "— what the model has previously said. Useful for priming with example responses.",
+    "description": "Description of the assistant role in the playground role-selector help popover"
+  },
   "wuqL/Y": {
     "defaultMessage": "Group by session",
     "description": "Label for the group by session button in the traces table toolbar"
@@ -10234,6 +10274,10 @@
   "ydoHrJ": {
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
+  },
+  "ye3pSE": {
+    "defaultMessage": "About message roles",
+    "description": "Aria label for the info popover that explains chat roles on the playground page"
   },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",

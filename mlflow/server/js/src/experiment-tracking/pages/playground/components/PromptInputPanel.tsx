@@ -8,9 +8,11 @@ import {
   Popover,
   SegmentedControlButton,
   SegmentedControlGroup,
+  Tag,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ChangeEvent } from 'react';
 import type { ChatMessage, ChatRole } from '../types';
@@ -116,22 +118,30 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
             display: 'flex',
             flexDirection: 'column',
             gap: theme.spacing.xs,
+            backgroundColor: message.role === 'assistant' ? theme.colors.backgroundSecondary : undefined,
           }}
+          data-testid={`mlflow.playground.prompt_input.message.${message.role}`}
         >
           <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <SegmentedControlGroup
-              componentId="mlflow.playground.prompt_input.role"
-              name={`${COMPONENT_ID}.role.${index}`}
-              size="small"
-              value={message.role}
-              onChange={(event) => updateMessage(index, { role: event.target.value as ChatRole })}
-            >
-              {ROLE_OPTIONS.map((role) => (
-                <SegmentedControlButton key={role} value={role}>
-                  {role}
-                </SegmentedControlButton>
-              ))}
-            </SegmentedControlGroup>
+            {message.role === 'assistant' ? (
+              <Tag componentId="mlflow.playground.prompt_input.assistant_badge" color="turquoise">
+                assistant
+              </Tag>
+            ) : (
+              <SegmentedControlGroup
+                componentId="mlflow.playground.prompt_input.role"
+                name={`${COMPONENT_ID}.role.${index}`}
+                size="small"
+                value={message.role}
+                onChange={(event) => updateMessage(index, { role: event.target.value as ChatRole })}
+              >
+                {ROLE_OPTIONS.map((role) => (
+                  <SegmentedControlButton key={role} value={role}>
+                    {role}
+                  </SegmentedControlButton>
+                ))}
+              </SegmentedControlGroup>
+            )}
             <Button
               componentId="mlflow.playground.prompt_input.remove"
               size="small"
@@ -143,25 +153,33 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
               onClick={() => removeMessage(index)}
             />
           </div>
-          <FormUI.Label htmlFor={`${COMPONENT_ID}.content.${index}`} css={{ display: 'none' }}>
-            <FormattedMessage
-              defaultMessage="Message content"
-              description="Hidden label for the message content textarea on the playground page"
-            />
-          </FormUI.Label>
-          <TextArea
-            componentId="mlflow.playground.prompt_input.content"
-            id={`${COMPONENT_ID}.content.${index}`}
-            value={message.content}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-              updateMessage(index, { content: event.target.value })
-            }
-            autoSize={{ minRows: 3, maxRows: 12 }}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Type a message',
-              description: 'Placeholder for a message textarea on the playground page',
-            })}
-          />
+          {message.role === 'assistant' ? (
+            <div css={{ paddingTop: theme.spacing.xs }}>
+              <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+            </div>
+          ) : (
+            <>
+              <FormUI.Label htmlFor={`${COMPONENT_ID}.content.${index}`} css={{ display: 'none' }}>
+                <FormattedMessage
+                  defaultMessage="Message content"
+                  description="Hidden label for the message content textarea on the playground page"
+                />
+              </FormUI.Label>
+              <TextArea
+                componentId="mlflow.playground.prompt_input.content"
+                id={`${COMPONENT_ID}.content.${index}`}
+                value={message.content}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+                  updateMessage(index, { content: event.target.value })
+                }
+                autoSize={{ minRows: 3, maxRows: 12 }}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Type a message',
+                  description: 'Placeholder for a message textarea on the playground page',
+                })}
+              />
+            </>
+          )}
         </div>
       ))}
 

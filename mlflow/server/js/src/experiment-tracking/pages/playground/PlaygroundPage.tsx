@@ -1,24 +1,35 @@
-import { Button, PlayIcon, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Alert,
+  Button,
+  Header,
+  PlayIcon,
+  Spacer,
+  Spinner,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
-import { PageHeader } from '../../../shared/building_blocks/PageHeader';
-import { CompletionOutputPanel } from './components/CompletionOutputPanel';
 import { EndpointPicker } from './components/EndpointPicker';
+import { ParametersPanel } from './components/ParametersPanel';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
-import type { ChatMessage } from './types';
+import type { ChatMessage, PlaygroundParams } from './types';
+
+const EMPTY_USER_MESSAGE: ChatMessage = { role: 'user', content: '' };
 
 const PlaygroundPage = () => {
   const { theme } = useDesignSystemTheme();
   const [endpointName, setEndpointName] = useState<string>('');
-  const [messages, setMessages] = useState<ChatMessage[]>([{ role: 'user', content: '' }]);
+  const [messages, setMessages] = useState<ChatMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
+  const [params, setParams] = useState<PlaygroundParams>({});
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
 
-  const { mutate, data, error, isLoading } = useChatCompletionMutation();
+  const { mutate, error, isLoading, reset } = useChatCompletionMutation();
 
   const canSubmit =
     Boolean(endpointName) && messages.length > 0 && messages.some((m) => m.content.trim().length > 0) && !isLoading;
@@ -27,18 +38,47 @@ const PlaygroundPage = () => {
     if (!canSubmit) {
       return;
     }
-    mutate({
+    const request = {
       model: endpointName,
       messages,
+      ...(params.temperature !== undefined && { temperature: params.temperature }),
+      ...(params.max_tokens !== undefined && { max_tokens: params.max_tokens }),
+      ...(params.top_p !== undefined && { top_p: params.top_p }),
+    };
+    mutate(request, {
+      onSuccess: (response) => {
+        const assistantContent = response.choices?.[0]?.message?.content ?? '';
+        setMessages((prev) => [...prev, { role: 'assistant', content: assistantContent }, { ...EMPTY_USER_MESSAGE }]);
+      },
     });
+  };
+
+  const handleClear = () => {
+    setMessages([{ ...EMPTY_USER_MESSAGE }]);
+    reset();
   };
 
   return (
     <ScrollablePageWrapper css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-      <PageHeader
-        title={<FormattedMessage defaultMessage="Playground" description="Title of the LLM playground page" />}
-        preview
+      <Spacer shrinks={false} />
+      <Header
+        title={
+          <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <span
+              css={{
+                display: 'flex',
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+              }}
+            >
+              <PlayIcon />
+            </span>
+            <FormattedMessage defaultMessage="Playground" description="Title of the LLM playground page" />
+          </span>
+        }
       />
+      <Spacer shrinks={false} />
       <div
         css={{
           display: 'grid',
@@ -50,6 +90,7 @@ const PlaygroundPage = () => {
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           <EndpointPicker value={endpointName} onChange={setEndpointName} />
+          <ParametersPanel value={params} onChange={setParams} />
           <Button componentId="mlflow.playground.load_from_registry" onClick={() => setShowRegistryPicker(true)}>
             <FormattedMessage
               defaultMessage="Load prompt from registry"
@@ -60,7 +101,36 @@ const PlaygroundPage = () => {
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, minHeight: 0 }}>
           <PromptInputPanel messages={messages} onChange={setMessages} />
-          <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+
+          {isLoading && (
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              <Spinner size="small" />
+              <Typography.Hint>
+                <FormattedMessage
+                  defaultMessage="Generating response…"
+                  description="Inline status shown while a chat completion request is in flight on the playground page"
+                />
+              </Typography.Hint>
+            </div>
+          )}
+
+          {error && (
+            <Alert componentId="mlflow.playground.error" type="error" message={error.message} closable={false} />
+          )}
+
+          <div
+            css={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: theme.spacing.sm,
+            }}
+          >
+            <Button componentId="mlflow.playground.clear" onClick={handleClear} disabled={isLoading}>
+              <FormattedMessage
+                defaultMessage="Clear conversation"
+                description="Label for the button that resets the playground conversation"
+              />
+            </Button>
             <Button
               componentId="mlflow.playground.submit"
               type="primary"
@@ -75,8 +145,6 @@ const PlaygroundPage = () => {
               />
             </Button>
           </div>
-          <Spacer size="sm" />
-          <CompletionOutputPanel response={data} error={error ?? undefined} isLoading={isLoading} />
         </div>
       </div>
 
@@ -84,7 +152,7 @@ const PlaygroundPage = () => {
         visible={showRegistryPicker}
         onCancel={() => setShowRegistryPicker(false)}
         onLoad={(loadedMessages) => {
-          setMessages(loadedMessages.length > 0 ? loadedMessages : [{ role: 'user', content: '' }]);
+          setMessages(loadedMessages.length > 0 ? loadedMessages : [{ ...EMPTY_USER_MESSAGE }]);
           setShowRegistryPicker(false);
         }}
       />
