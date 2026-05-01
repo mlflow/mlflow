@@ -126,6 +126,20 @@ def test_claude_setup_with_mlflow_cmd_option(runner, monkeypatch):
         assert hook_command == "pixi run -e tracing mlflow autolog claude stop-hook"
 
 
+def test_mlflow_cmd_empty_string_raises_error(runner):
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude", "--mlflow-cmd", ""])
+        assert result.exit_code != 0
+        assert "must not be empty or whitespace-only" in result.output
+
+
+def test_mlflow_cmd_whitespace_only_raises_error(runner):
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude", "--mlflow-cmd", "   "])
+        assert result.exit_code != 0
+        assert "must not be empty or whitespace-only" in result.output
+
+
 def test_mlflow_cmd_option_overrides_env_vars(runner, monkeypatch):
     monkeypatch.setenv("UV", "/path/to/uv")
     monkeypatch.setenv("PIXI_EXE", "/usr/local/bin/pixi")

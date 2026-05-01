@@ -77,6 +77,11 @@ def claude(
     if ctx.invoked_subcommand is not None:
         return
 
+    if mlflow_cmd is not None and not mlflow_cmd.strip():
+        raise click.BadParameter(
+            "must not be empty or whitespace-only", param_hint="'--mlflow-cmd'"
+        )
+
     target_dir = Path(directory).resolve()
     claude_dir = target_dir / ".claude"
     settings_file = claude_dir / "settings.json"
