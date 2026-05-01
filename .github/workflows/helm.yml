@@ -36,10 +36,10 @@ jobs:
         uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
 
       - name: Lint
-        run: helm lint charts/
+        run: helm lint charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
 
       - name: Render templates
-        run: helm template mlflow charts/
+        run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
 
   e2e:
     runs-on: ubuntu-latest
