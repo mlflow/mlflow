@@ -2516,8 +2516,6 @@ def test_regex_match_case_insensitive():
 
 
 def test_regex_match_invalid_pattern_raises_at_construction():
-    import pydantic
-
     with pytest.raises(pydantic.ValidationError, match="invalid regex pattern"):
         RegexMatch(pattern=r"[unclosed")
 
@@ -2570,8 +2568,6 @@ def test_pii_detection_filters_to_specific_types():
 
 
 def test_pii_detection_unsupported_type_raises_at_construction():
-    import pydantic
-
     with pytest.raises(pydantic.ValidationError, match="unsupported PII type"):
         PIIDetection(pii_types=["nonsense"])
 
@@ -2612,15 +2608,11 @@ def test_response_length_words():
 
 
 def test_response_length_requires_at_least_one_bound():
-    import pydantic
-
     with pytest.raises(pydantic.ValidationError, match="at least one of"):
         ResponseLength()
 
 
 def test_response_length_rejects_inverted_bounds():
-    import pydantic
-
     with pytest.raises(pydantic.ValidationError, match="must be <="):
         ResponseLength(min_length=100, max_length=10)
 
