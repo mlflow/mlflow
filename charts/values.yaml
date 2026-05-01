@@ -189,7 +189,7 @@ podSecurityContext:
 # Container-level security context applied to the mlflow container.
 securityContext:
   allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
+  readOnlyRootFilesystem: false
   capabilities:
     drop:
       - ALL
