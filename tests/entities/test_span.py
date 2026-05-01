@@ -461,6 +461,14 @@ def test_span_from_otel_proto_conversion():
     event_attr.key = "event_data"
     _set_otel_proto_anyvalue(event_attr.value, "event_value")
 
+    # Add link
+    proto_link = otel_proto.links.add()
+    proto_link.trace_id = bytes.fromhex("aabbccddeeff00112233445566778899")
+    proto_link.span_id = bytes.fromhex("1122334455667788")
+    link_attr = proto_link.attributes.add()
+    link_attr.key = "rel"
+    _set_otel_proto_anyvalue(link_attr.value, "causal")
+
     # Convert to MLflow span
     mlflow_span = Span.from_otel_proto(otel_proto)
 
@@ -488,6 +496,12 @@ def test_span_from_otel_proto_conversion():
     assert mlflow_span.events[0].timestamp == 1500000000
     assert mlflow_span.events[0].attributes["event_data"] == "event_value"
 
+    # Verify links use v3 format when no location_id
+    assert len(mlflow_span.links) == 1
+    assert mlflow_span.links[0].trace_id == "tr-aabbccddeeff00112233445566778899"
+    assert mlflow_span.links[0].span_id == "1122334455667788"
+    assert mlflow_span.links[0].attributes == {"rel": "causal"}
+
 
 def test_span_from_otel_proto_with_location():
     # Create OTel proto span
@@ -507,6 +521,11 @@ def test_span_from_otel_proto_with_location():
     attr1 = otel_proto.attributes.add()
     attr1.key = "mlflow.spanType"
     _set_otel_proto_anyvalue(attr1.value, "LLM")
+
+    # Add link
+    proto_link = otel_proto.links.add()
+    proto_link.trace_id = bytes.fromhex("aabbccddeeff00112233445566778899")
+    proto_link.span_id = bytes.fromhex("1122334455667788")
 
     # Convert to MLflow span with location
     location = "catalog.schema"
@@ -528,6 +547,12 @@ def test_span_from_otel_proto_with_location():
     # Verify the REQUEST_ID attribute also uses v4 format
     request_id = mlflow_span.get_attribute("mlflow.traceRequestId")
     assert request_id == expected_trace_id
+
+    # Verify link trace_id also uses v4 format with location
+    assert len(mlflow_span.links) == 1
+    expected_link_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/aabbccddeeff00112233445566778899"
+    assert mlflow_span.links[0].trace_id == expected_link_trace_id
+    assert mlflow_span.links[0].span_id == "1122334455667788"
 
 
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):

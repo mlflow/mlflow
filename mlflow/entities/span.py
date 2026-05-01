@@ -456,8 +456,12 @@ class Span:
             link_trace_id = _otel_proto_bytes_to_id(proto_link.trace_id)
             link_span_id = _otel_proto_bytes_to_id(proto_link.span_id)
 
-            # Convert to MLflow trace ID format
-            mlflow_link_trace_id = generate_mlflow_trace_id_from_otel_trace_id(link_trace_id)
+            # Convert to MLflow trace ID format, preserving location for v4 environments
+            mlflow_link_trace_id = (
+                generate_trace_id_v4_from_otel_trace_id(link_trace_id, location_id)
+                if location_id
+                else generate_mlflow_trace_id_from_otel_trace_id(link_trace_id)
+            )
             mlflow_link_span_id = encode_span_id(link_span_id)
 
             # Extract link attributes
@@ -957,7 +961,8 @@ class LiveSpan(Span):
         except (ValueError, OverflowError, MlflowException) as e:
             raise MlflowException(
                 f"Invalid link: trace_id={link.trace_id!r}, span_id={link.span_id!r}. "
-                "trace_id must be a valid MLflow trace ID and span_id must be a hex string.",
+                "trace_id must be a valid MLflow trace ID or hex string, and "
+                "span_id must be a hex string.",
                 INVALID_PARAMETER_VALUE,
             ) from e
 
