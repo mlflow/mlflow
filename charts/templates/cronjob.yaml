@@ -55,6 +55,9 @@ spec:
                 {{- if .Values.garbageCollection.olderThan }}
                 - --older-than={{ .Values.garbageCollection.olderThan }}
                 {{- end }}
+                {{- if .Values.garbageCollection.allWorkspaces }}
+                - --all-workspaces
+                {{- end }}
               {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.env }}
               env:
                 {{- if .Values.mlflow.backendStoreUriFrom }}

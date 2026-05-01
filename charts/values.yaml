@@ -62,6 +62,9 @@ garbageCollection:
   # at least this duration (e.g. "30d", "7d12h"). If not specified, all
   # soft-deleted resources are permanently removed regardless of age.
   # olderThan: "30d"
+  # Set to true to pass --all-workspaces to `mlflow gc`, which collects
+  # garbage across all workspaces instead of only the default one.
+  allWorkspaces: false
   # Resources for the garbage collection Job container.
   resources:
     requests:
