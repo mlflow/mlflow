@@ -200,6 +200,9 @@ serviceAccount:
   # Name of the ServiceAccount. Defaults to the full chart name when empty.
   name: ""
   annotations: {}
+  # Set to false to disable automounting of the service account token into the
+  # pod. Recommended when MLflow does not need direct Kubernetes API access.
+  automountServiceAccountToken: false
 
 # RBAC resources (Role/ClusterRole and binding) for the MLflow ServiceAccount.
 # Namespace-scoped RBAC. A Role and RoleBinding are created when extraRules is non-empty.
