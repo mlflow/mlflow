@@ -673,7 +673,8 @@ class FileStore(AbstractStore):
             created in the backend.
 
         """
-        from mlflow.tracking.client import MlflowClient
+        if isinstance(model_id, str) and model_id.strip() == "":
+            model_id = None
 
         def next_version(registered_model_name):
             path = self._get_registered_model_path(registered_model_name)

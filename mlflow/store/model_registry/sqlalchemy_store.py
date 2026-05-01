@@ -968,9 +968,11 @@ class SqlAlchemyStore(AbstractStore):
         local_model_path=None,
         model_id: str | None = None,
     ):
+
         """
         Create a new model version from given source and run ID.
-
+        
+    
         Args:
             name: Registered model name.
             source: URI indicating the location of the model artifacts.
@@ -988,6 +990,9 @@ class SqlAlchemyStore(AbstractStore):
             created in the backend.
 
         """
+        if isinstance(model_id, str) and model_id.strip() == "":
+            model_id = None
+
 
         _validate_model_name(name)
         for tag in tags or []:
