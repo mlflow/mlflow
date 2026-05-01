@@ -5,6 +5,12 @@ image:
   tag: ""
   pullPolicy: IfNotPresent
 
+# List of image pull secrets for pulling from private or mirrored registries.
+# Example:
+#   imagePullSecrets:
+#     - name: my-registry-secret
+imagePullSecrets: []
+
 # Override the full name of all resources created by this chart (overrides
 # the default "<release>-<chart>" pattern). Useful when the release name
 # would produce an undesirable resource name.
