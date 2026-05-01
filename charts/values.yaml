@@ -66,6 +66,22 @@ garbageCollection:
   # Set to true to pass --all-workspaces to `mlflow gc`, which collects
   # garbage across all workspaces instead of only the default one.
   allWorkspaces: false
+  # Extra volumes added to the GC pod. Useful for mounting a custom CA bundle
+  # when the MLflow tracking server uses a TLS certificate from an untrusted CA.
+  # Example:
+  #   extraVolumes:
+  #     - name: ca-bundle
+  #       configMap:
+  #         name: my-ca-bundle
+  extraVolumes: []
+  # Extra volume mounts added to the GC container.
+  # Example:
+  #   extraVolumeMounts:
+  #     - name: ca-bundle
+  #       mountPath: /etc/ssl/certs/ca-bundle.crt
+  #       subPath: ca-bundle.crt
+  #       readOnly: true
+  extraVolumeMounts: []
   # Resources for the garbage collection Job container.
   resources:
     requests:

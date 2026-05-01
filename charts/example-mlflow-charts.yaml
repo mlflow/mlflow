@@ -40,7 +40,8 @@ mlflow:
   # artifactsDestination: "s3://my-bucket/mlflow"
 
 storage:
-  enabled: true
+  enabled: false
+  storageClassName: "gp2"
 
 # S3 credentials (or other artifact store credentials):
 #   kubectl create secret generic s3-credentials \

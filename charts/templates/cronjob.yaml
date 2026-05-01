@@ -47,6 +47,9 @@ spec:
               persistentVolumeClaim:
                 claimName: {{ include "mlflow.fullname" . }}
             {{- end }}
+            {{- with .Values.garbageCollection.extraVolumes }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           containers:
             - name: mlflow-gc
               image: {{ include "mlflow.image" . }}
@@ -88,6 +91,9 @@ spec:
                 {{- if .Values.storage.enabled }}
                 - name: mlflow-storage
                   mountPath: {{ .Values.storage.mountPath }}
+                {{- end }}
+                {{- with .Values.garbageCollection.extraVolumeMounts }}
+                {{- toYaml . | nindent 16 }}
                 {{- end }}
               {{- with .Values.securityContext }}
               securityContext:
