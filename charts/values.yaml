@@ -162,7 +162,6 @@ networkPolicy:
 # metrics at the specified HTTP path.
 metrics:
   enabled: false
-  path: /metrics
 
 # Prometheus ServiceMonitor for metrics scraping (requires the Prometheus
 # Operator CRD to be installed in the cluster).
