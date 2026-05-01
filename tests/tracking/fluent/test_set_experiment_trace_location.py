@@ -377,9 +377,6 @@ def test_sync_fresh_session_without_location_is_noop(_clean_tracing_state):
     assert not prov.once._done
 
 
-# --- UC upsell message tests ---
-
-
 def test_show_uc_upsell_message_outputs_expected_content():
     from mlflow.tracking.fluent import _show_uc_upsell_message
 
