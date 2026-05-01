@@ -110,7 +110,15 @@ tls:
 
 ### Ingress
 
+MLflow's host-validation middleware only allows `localhost` and private-IP hosts by default.
+When exposing MLflow through an Ingress with a public hostname, set `allowed_hosts` to match
+that hostname, otherwise requests will be rejected with HTTP 403.
+
 ```yaml
+server:
+  value_options:
+    allowed_hosts: "mlflow.example.com"
+
 ingress:
   enabled: true
   className: nginx
