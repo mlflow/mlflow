@@ -98,7 +98,7 @@ ingress:
 mlflow:
   # URI of the database or file store used to record runs and metadata.
   # Examples: "sqlite:////mlflow/mlflow.db", "postgresql://user:pass@host/db"
-  backendStoreUri: "sqlite:////tmp/mlflow.db"
+  backendStoreUri: ""
   # Alternative to backendStoreUri: read the URI from a Secret or ConfigMap.
   # Example (Secret):
   #   backendStoreUriFrom:

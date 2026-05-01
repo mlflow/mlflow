@@ -1,3 +1,6 @@
+{{- if and (not .Values.mlflow.backendStoreUri) (not .Values.mlflow.backendStoreUriFrom) }}
+{{- fail "mlflow.backendStoreUri or mlflow.backendStoreUriFrom is required" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
