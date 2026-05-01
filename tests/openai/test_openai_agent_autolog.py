@@ -1,4 +1,6 @@
+import asyncio
 import copy
+import gc
 import json
 from unittest import mock
 
@@ -529,6 +531,46 @@ async def test_autolog_agent_run_streamed_exception():
     assert spans[0].name == "AgentRunner.run_streamed"
     assert spans[0].status.status_code == "ERROR"
     assert any(event.name == "exception" for event in spans[0].events)
+
+
+@pytest.mark.asyncio
+async def test_autolog_agent_run_streamed_discarded_result_finalizes_span():
+    # Exercises the weakref.finalize fallback when the user never iterates
+    # `stream_events()`.
+    mlflow.openai.autolog()
+
+    set_dummy_client([])
+    agent = Agent(name="assistant", instructions="You are helpful.")
+
+    final_response = _make_streamed_response("Discarded.")
+    stream_events = [
+        ResponseCompletedEvent(
+            type="response.completed",
+            response=final_response,
+            sequence_number=0,
+        ),
+    ]
+
+    # Run inside a nested helper so `result` does not stay alive in the test
+    # frame's local variables, then yield to the event loop several times so
+    # the cancelled background task gets a chance to finish and release its
+    # internal references to `result` before triggering GC.
+    def _start_and_discard():
+        with _patch_stream_response(stream_events):
+            result = Runner.run_streamed(agent, "Hello")
+            result.run_loop_task.cancel()
+
+    _start_and_discard()
+    for _ in range(5):
+        await asyncio.sleep(0)
+    gc.collect()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert spans[0].name == "AgentRunner.run_streamed"
+    assert spans[0].end_time_ns is not None
+    assert spans[0].status.status_code == "OK"
 
 
 def test_autolog_disable_openai_agent_tracer():

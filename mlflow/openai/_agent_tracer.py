@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import weakref
 from typing import Any
 
 import agents.tracing as oai
@@ -327,10 +328,13 @@ def _patched_agent_run_streamed(original, self, *args, **kwargs):
 
     ``run_streamed`` is sync and returns a ``RunResultStreaming`` immediately
     while spawning the actual run as an ``asyncio`` background task. The span
-    must therefore outlive the patched call and be closed only after the user
-    consumes ``stream_events()``. We attach the span to the OTel context
-    before calling ``original`` so the background task inherits it as parent,
-    and we wrap ``stream_events()`` to detach + end the span on completion.
+    must therefore outlive the patched call. Cleanup happens via one of two
+    paths:
+
+    1. Iteration: the wrapped ``stream_events()`` ends the span and detaches
+       the GC finalizer when iteration completes (or raises).
+    2. Discard: a ``weakref.finalize`` callback closes the span if ``result``
+       is garbage-collected before iteration starts.
     """
     inputs, attributes = _build_agent_run_span_args(original, self, args, kwargs)
 
@@ -351,33 +355,58 @@ def _patched_agent_run_streamed(original, self, *args, **kwargs):
         _finalize_streamed_span(span, token, error=e)
         raise
 
-    original_stream_events = result.stream_events
-    finalized = False
+    finalizer = weakref.finalize(result, _finalize_streamed_span, span, token)
+    # Capture `stream_events` as the *unbound* function and reference `result`
+    # weakly: a bound method (`result.stream_events`) would have its closure cell
+    # strong-reference `result`, forming a cycle that prevents the GC finalizer
+    # from ever firing.
+    original_stream_events_func = type(result).stream_events
+    result_ref = weakref.ref(result)
 
     async def wrapped_stream_events(*args, **kwargs):
-        nonlocal finalized
+        # Reachable only via `result.stream_events`, so `result` is alive here;
+        # pinning it locally keeps it that way for the duration of iteration.
+        live_result = result_ref()
+        if not finalizer.alive:
+            # Re-iteration after finalize: pass through without touching span.
+            async for event in original_stream_events_func(live_result, *args, **kwargs):
+                yield event
+            return
         error: Exception | None = None
         try:
-            async for event in original_stream_events(*args, **kwargs):
+            async for event in original_stream_events_func(live_result, *args, **kwargs):
                 yield event
         except Exception as e:
             error = e
             raise
         finally:
-            # Guard against unexpected re-iteration: detaching the same OTel
-            # token twice is undefined behavior, so only finalize once.
-            if not finalized:
-                finalized = True
-                outputs = None if error else getattr(result, "final_output", None)
+            # `detach()` returns the original args tuple if we still owned the
+            # finalizer, or None if the GC callback already fired; finalize only
+            # when this iteration is the one that owns cleanup.
+            if finalizer.detach() is not None:
+                outputs = None if error else live_result.final_output
                 _finalize_streamed_span(span, token, error=error, outputs=outputs)
 
     result.stream_events = wrapped_stream_events
     return result
 
 
-def _finalize_streamed_span(span, token, *, error=None, outputs=None):
+def _safe_detach_span_context(token):
+    """Best-effort detach: tolerates being called from a different OTel context
+    (e.g., from a ``weakref.finalize`` callback) so callers can still end the
+    span afterwards. Same pattern as ``mlflow/langchain/langchain_tracer.py``.
+    """
+    if token is None:
+        return
     try:
         detach_span_from_context(token)
+    except ValueError:
+        _logger.debug("Failed to detach span context", exc_info=True)
+
+
+def _finalize_streamed_span(span, token, *, error=None, outputs=None):
+    _safe_detach_span_context(token)
+    try:
         if error is not None:
             span.record_exception(error)
             span.end()
@@ -386,4 +415,4 @@ def _finalize_streamed_span(span, token, *, error=None, outputs=None):
             span.set_outputs(outputs)
         span.end(status=SpanStatusCode.OK)
     except Exception:
-        _logger.debug("Failed to finalize streamed agent run span", exc_info=True)
+        _logger.warning("Failed to finalize streamed agent run span", exc_info=True)
