@@ -34,19 +34,46 @@ from mlflow.claude_code.tracing import (
 # ============================================================================
 
 
-def upsert_hook(config: dict[str, Any], hook_type: str, subcommand: str) -> None:
+def _detect_mlflow_cmd() -> str:
+    """Detect the appropriate mlflow command for the current environment.
+
+    Checks for known environment managers (uv, pixi) and returns the
+    appropriate command prefix. Falls back to plain 'mlflow'.
+
+    Returns:
+        The command string to invoke mlflow (e.g., 'uv run mlflow')
+    """
+    if "UV" in os.environ:
+        return "uv run mlflow"
+
+    pixi_exe = os.environ.get("PIXI_EXE")
+    pixi_env = os.environ.get("PIXI_ENVIRONMENT")
+    if pixi_exe and pixi_env:
+        return f"{pixi_exe} run -e {pixi_env} mlflow"
+
+    return "mlflow"
+
+
+def upsert_hook(
+    config: dict[str, Any],
+    hook_type: str,
+    subcommand: str,
+    mlflow_cmd: str | None = None,
+) -> None:
     """Insert or update a single MLflow hook in the configuration.
 
     Args:
         config: The hooks configuration dictionary to modify
         hook_type: The hook type (e.g., 'PostToolUse', 'Stop')
         subcommand: The CLI subcommand name (e.g., 'stop-hook')
+        mlflow_cmd: Optional custom command to invoke mlflow. If not provided,
+            the appropriate command is auto-detected from the environment.
     """
     if hook_type not in config[HOOK_FIELD_HOOKS]:
         config[HOOK_FIELD_HOOKS][hook_type] = []
 
-    mlflow_cmd = "uv run mlflow" if "UV" in os.environ else "mlflow"
-    hook_command = f"{mlflow_cmd} autolog claude {subcommand}"
+    resolved_cmd = mlflow_cmd if mlflow_cmd is not None else _detect_mlflow_cmd()
+    hook_command = f"{resolved_cmd} autolog claude {subcommand}"
 
     mlflow_hook = {"type": "command", HOOK_FIELD_COMMAND: hook_command}
 
@@ -66,7 +93,7 @@ def upsert_hook(config: dict[str, Any], hook_type: str, subcommand: str) -> None
         config[HOOK_FIELD_HOOKS][hook_type].append({HOOK_FIELD_HOOKS: [mlflow_hook]})
 
 
-def setup_hooks_config(settings_path: Path) -> None:
+def setup_hooks_config(settings_path: Path, mlflow_cmd: str | None = None) -> None:
     """Set up Claude Code hooks for MLflow tracing.
 
     Creates or updates Stop hook that calls MLflow tracing handler.
@@ -74,13 +101,15 @@ def setup_hooks_config(settings_path: Path) -> None:
 
     Args:
         settings_path: Path to Claude settings.json file
+        mlflow_cmd: Optional custom command to invoke mlflow. If not provided,
+            the appropriate command is auto-detected from the environment.
     """
     config = load_claude_config(settings_path)
 
     if HOOK_FIELD_HOOKS not in config:
         config[HOOK_FIELD_HOOKS] = {}
 
-    upsert_hook(config, "Stop", "stop-hook")
+    upsert_hook(config, "Stop", "stop-hook", mlflow_cmd=mlflow_cmd)
 
     save_claude_config(settings_path, config)
 
