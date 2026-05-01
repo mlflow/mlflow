@@ -192,12 +192,13 @@ serviceAccount:
   annotations: {}
 
 # RBAC resources (Role/ClusterRole and binding) for the MLflow ServiceAccount.
-rbac:
-  create: false
-  # Set to true to create a ClusterRole/ClusterRoleBinding instead of a
-  # namespace-scoped Role/RoleBinding. Required when extraRules reference
-  # cluster-scoped resources (e.g. namespaces).
-  clusterScoped: false
+# Namespace-scoped RBAC. A Role and RoleBinding are created when extraRules is non-empty.
+namespace_rbac:
+  extraRules: []
+
+# Cluster-scoped RBAC. A ClusterRole and ClusterRoleBinding are created when extraRules is non-empty.
+# Use this when rules reference cluster-scoped resources (e.g. namespaces, nodes).
+cluster_rbac:
   extraRules: []
 
 # Persistent storage for MLflow artifacts and the SQLite database.

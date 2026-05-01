@@ -10,7 +10,7 @@ A production-ready Helm chart for deploying [MLflow](https://mlflow.org) on Kube
 - **Ingress** for external access
 - **Prometheus metrics** and optional ServiceMonitor for the Prometheus Operator
 - **NetworkPolicy** restricting ingress and egress to required ports
-- **RBAC** with optional ClusterRole for integrations that require cluster-scoped permissions
+- **RBAC** with independent namespace-scoped (`namespace_rbac`) and cluster-scoped (`cluster_rbac`) rules
 - **Garbage collection** via an optional CronJob that runs `mlflow gc`
 
 ## Prerequisites
