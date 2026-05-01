@@ -60,7 +60,6 @@ env:
 
 service:
   type: ClusterIP
-  port: 5000
 
 # Expose via Ingress:
 # ingress:
@@ -81,10 +80,10 @@ metrics:
 #   enabled: true
 
 # Garbage collection (removes permanently soft-deleted resources):
-# garbageCollection:
-#   enabled: true
-#   schedule: "0 2 * * 0"
-#   olderThan: "30d"
+garbageCollection:
+  enabled: true
+  schedule: "0 2 * * 0"
+  olderThan: "30d"
 
 resources:
   requests:
