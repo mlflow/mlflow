@@ -3174,7 +3174,7 @@ class Summarization(BuiltInScorer):
 
 
 # Regex patterns for PII detection. These prioritize recall (catching PII) over
-# precision (not flagging innocuous look-alikes). For serious privacy workflows,
+# precision (not flagging false positives). For serious privacy workflows,
 # pair this with a dedicated library like Guardrails AI or Presidio.
 _PII_PATTERNS: dict[str, str] = {
     "email": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
@@ -3330,7 +3330,7 @@ class PIIDetection(BuiltInScorer):
     - ``"ip_address"``: IPv4 addresses
 
     This scorer trades precision for recall: it will occasionally flag
-    innocuous look-alikes (e.g., phone-shaped numbers in documentation). Use it
+    false positives (for example, phone-shaped numbers in documentation). Use it
     as a first-line guardrail and follow up with a dedicated library like
     Presidio or Guardrails AI for production privacy workflows.
 
