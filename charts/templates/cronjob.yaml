@@ -1,4 +1,7 @@
 {{- if .Values.garbageCollection.enabled }}
+{{- if and (not .Values.mlflow.backendStoreUri) (not .Values.mlflow.backendStoreUriFrom) }}
+{{- fail "garbageCollection.enabled requires either mlflow.backendStoreUri or mlflow.backendStoreUriFrom to be set" }}
+{{- end }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -49,21 +52,27 @@ spec:
               image: {{ include "mlflow.image" . }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               command:
-                - mlflow
-                - gc
-                - --backend-store-uri={{ if .Values.mlflow.backendStoreUriFrom }}$(MLFLOW_BACKEND_STORE_URI){{ else }}{{ .Values.mlflow.backendStoreUri }}{{ end }}
-                {{- if .Values.garbageCollection.olderThan }}
-                - --older-than={{ .Values.garbageCollection.olderThan }}
-                {{- end }}
-                {{- if .Values.garbageCollection.allWorkspaces }}
-                - --all-workspaces
-                {{- end }}
+                - /bin/sh
+                - -c
+                - |
+                  mlflow gc \
+                    --backend-store-uri="$MLFLOW_BACKEND_STORE_URI" \
+                    {{- if .Values.garbageCollection.olderThan }}
+                    --older-than={{ .Values.garbageCollection.olderThan | quote }} \
+                    {{- end }}
+                    {{- if .Values.garbageCollection.allWorkspaces }}
+                    --all-workspaces \
+                    {{- end }}
+                    ;
               {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.env }}
               env:
                 {{- if .Values.mlflow.backendStoreUriFrom }}
                 - name: MLFLOW_BACKEND_STORE_URI
                   valueFrom:
                     {{- toYaml .Values.mlflow.backendStoreUriFrom | nindent 20 }}
+                {{- else if .Values.mlflow.backendStoreUri }}
+                - name: MLFLOW_BACKEND_STORE_URI
+                  value: {{ .Values.mlflow.backendStoreUri | quote }}
                 {{- end }}
                 {{- with .Values.env }}
                 {{- toYaml . | nindent 16 }}
