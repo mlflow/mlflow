@@ -14,7 +14,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "mlflow.image" -}}
-{{- $tag := .Values.image.tag | default .Chart.AppVersion }}
+{{- $tag := .Values.image.tag | default (printf "v%s-full" .Chart.AppVersion) }}
 {{- printf "%s:%s" .Values.image.repository $tag }}
 {{- end }}
 
