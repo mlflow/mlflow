@@ -67,6 +67,7 @@ def test_json_deserialization():
                         },
                     }
                 ],
+                "links": [],
             },
             {
                 "name": "with_ok_event",
@@ -90,6 +91,7 @@ def test_json_deserialization():
                         "attributes": {"foo": "bar"},
                     }
                 ],
+                "links": [],
             },
             {
                 "name": "always_fail_name",
@@ -120,6 +122,7 @@ def test_json_deserialization():
                         },
                     }
                 ],
+                "links": [],
             },
         ],
     }
