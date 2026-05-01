@@ -46,6 +46,9 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+    strategy:
+      matrix:
+        tls: [false, true]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -71,7 +74,16 @@ jobs:
       - name: Load image into Kind
         run: kind load docker-image mlflow:ci --name chart-testing
 
+      - name: Generate TLS certificate
+        if: matrix.tls == true
+        run: |
+          openssl req -x509 -newkey rsa:2048 -keyout tls.key -out tls.crt -days 1 -nodes \
+            -subj "/CN=localhost"
+          kubectl create secret tls mlflow-tls --cert=tls.crt --key=tls.key
+
       - name: Deploy chart
+        env:
+          TLS_FLAGS: ${{ matrix.tls == true && '--set tls.enabled=true --set tls.secretName=mlflow-tls' || '' }}
         run: |
           helm install mlflow charts/ \
             --set image.repository=mlflow \
@@ -80,13 +92,17 @@ jobs:
             --set fullnameOverride=mlflow \
             --set mlflow.backendStoreUri=sqlite:////tmp/mlflow.db \
             --set mlflow.artifactsDestination=/tmp/mlartifacts \
+            $TLS_FLAGS \
             --wait \
             --timeout 5m
 
       - name: Verify MLflow is reachable
+        env:
+          SCHEME: ${{ matrix.tls == true && 'https' || 'http' }}
+          CURL_FLAGS: ${{ matrix.tls == true && '--insecure' || '' }}
         run: |
           kubectl port-forward svc/mlflow 5000:5000 &
-          curl --retry 10 --retry-connrefused --retry-delay 3 --fail http://localhost:5000/health
+          curl --retry 10 --retry-connrefused --retry-delay 3 --fail $CURL_FLAGS ${SCHEME}://localhost:5000/health
 
       - name: Print container logs
         if: always()
