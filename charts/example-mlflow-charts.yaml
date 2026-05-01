@@ -40,7 +40,7 @@ mlflow:
   # artifactsDestination: "s3://my-bucket/mlflow"
 
 storage:
-  enabled: false
+  enabled: true
   storageClassName: "gp2"
 
 # S3 credentials (or other artifact store credentials):
