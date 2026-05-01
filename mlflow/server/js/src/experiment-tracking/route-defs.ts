@@ -3,6 +3,19 @@ import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/uti
 
 import { PageId, RoutePaths } from './routes';
 
+const getPlaygroundPageRouteDefs = () => {
+  return [
+    {
+      path: RoutePaths.playgroundPage,
+      element: createLazyRouteElement(() => import('./pages/playground/PlaygroundPage')),
+      pageId: PageId.playgroundPage,
+      handle: {
+        getPageTitle: () => 'Playground',
+      } satisfies RouteHandle,
+    },
+  ];
+};
+
 const getPromptPagesRouteDefs = () => {
   return [
     {
@@ -369,4 +382,5 @@ export const getRouteDefs = () => [
     } satisfies RouteHandle,
   },
   ...getPromptPagesRouteDefs(),
+  ...getPlaygroundPageRouteDefs(),
 ];

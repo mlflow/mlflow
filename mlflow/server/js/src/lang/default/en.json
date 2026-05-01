@@ -887,6 +887,10 @@
     "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
     "description": "Settings content section subtitle for general preferences including demo data"
   },
+  "3Q8nGH": {
+    "defaultMessage": "Playground",
+    "description": "Title of the LLM playground page"
+  },
   "3Rb4sG": {
     "defaultMessage": "Delete",
     "description": "String for the delete button to delete a particular experiment run"
@@ -3443,6 +3447,10 @@
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
   },
+  "JD0saW": {
+    "defaultMessage": "New",
+    "description": "Sidebar > Playground > New feature tag"
+  },
   "JDpv0G": {
     "defaultMessage": "Operator",
     "description": "Tag filter input for operator field in the tags filter popover for experiments page search by tags"
@@ -4739,6 +4747,10 @@
     "defaultMessage": "View your traces",
     "description": "Step 3 title for traces onboarding"
   },
+  "R4Cwx7": {
+    "defaultMessage": "The Playground is being assembled. Soon you'll be able to test AI Gateway endpoints and registered prompts here.",
+    "description": "Placeholder description shown on the Playground page before its features are wired up"
+  },
   "R7s1xC": {
     "defaultMessage": "Provider is required",
     "description": "Error message when provider is not selected"
@@ -5718,6 +5730,10 @@
   "X3Uuiw": {
     "defaultMessage": "Off",
     "description": "Usage tracking disabled state"
+  },
+  "X3nbpN": {
+    "defaultMessage": "Playground",
+    "description": "Sidebar link for playground tab"
   },
   "X6P8tX": {
     "defaultMessage": "No models found",

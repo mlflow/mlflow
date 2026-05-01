@@ -1943,6 +1943,8 @@ module.exports = {
   "mlflow.sidebar.logout": "",
   "mlflow.sidebar.manage": "",
   "mlflow.sidebar.models_tab_link": "",
+  "mlflow.sidebar.playground_new_tag": "",
+  "mlflow.sidebar.playground_tab_link": "",
   "mlflow.sidebar.prompts_tab_link": "",
   "mlflow.sidebar.settings_back_link": "",
   "mlflow.sidebar.settings_general_link": "",
