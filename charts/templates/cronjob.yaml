@@ -18,7 +18,7 @@ spec:
           labels:
             {{- include "mlflow.selectorLabels" . | nindent 12 }}
         spec:
-          serviceAccountName: {{ .Values.garbageCollection.serviceAccount.name }}
+          serviceAccountName: {{ include "mlflow.serviceAccountName" . }}
           restartPolicy: Never
           {{- with .Values.podSecurityContext }}
           securityContext:

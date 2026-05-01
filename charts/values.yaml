@@ -59,11 +59,6 @@ garbageCollection:
   # Cron schedule expression (e.g. "0 2 * * 0" for weekly at 2 AM on Sunday).
   # Required when enabled.
   schedule: "0 2 * * 0"
-  # ServiceAccount used by the CronJob. The chart creates this SA along with
-  # a ClusterRole/ClusterRoleBinding granting the MLflow pseudo-resource
-  # permissions that `mlflow gc` needs.
-  serviceAccount:
-    name: mlflow-gc-sa
   # Optional. Restrict deletion to resources that have been soft-deleted for
   # at least this duration (e.g. "30d", "7d12h"). If not specified, all
   # soft-deleted resources are permanently removed regardless of age.
