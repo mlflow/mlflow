@@ -75,7 +75,6 @@ garbageCollection:
 service:
   # Service type: ClusterIP, NodePort, or LoadBalancer.
   type: ClusterIP
-  port: 5000
   annotations: {}
 
 # Ingress for external access to the MLflow server.

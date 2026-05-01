@@ -15,7 +15,7 @@ spec:
   ingress:
     - ports:
         - protocol: TCP
-          port: {{ .Values.service.port }}
+          port: {{ .Values.server.value_options.port }}
       from:
         - podSelector: {}
         - namespaceSelector: {}

@@ -12,7 +12,7 @@ spec:
   type: {{ .Values.service.type }}
   {{- $portName := ternary "https" "http" .Values.tls.enabled }}
   ports:
-    - port: {{ .Values.service.port }}
+    - port: {{ .Values.server.value_options.port }}
       targetPort: {{ $portName }}
       protocol: TCP
       name: {{ $portName }}
