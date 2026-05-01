@@ -33,6 +33,29 @@ helm install mlflow ./charts \
   -f my-values.yaml
 ```
 
+## Quick Start: Shared Dev Instance
+
+The simplest way to get a shared MLflow instance running on a cluster — no external database or object store required. MLflow stores metadata in SQLite and artifacts on a PersistentVolumeClaim:
+
+```bash
+helm install mlflow ./charts \
+  --namespace mlflow \
+  --create-namespace \
+  --set storage.enabled=true \
+  --set mlflow.backendStoreUri="sqlite:////mlflow/mlflow.db" \
+  --set mlflow.defaultArtifactRoot="/mlflow/artifacts"
+```
+
+Access the UI via port-forward:
+
+```bash
+kubectl port-forward -n mlflow svc/mlflow 5000:5000
+```
+
+Then open http://localhost:5000 in your browser.
+
+> **Note:** SQLite and local file storage are not suitable for production or high-concurrency use. For production deployments see the [Backend store](#backend-store-metadata-database) and [Artifact store](#artifact-store) sections below.
+
 ## Configuration
 
 See [`values.yaml`](./values.yaml) for the full list of configurable parameters.
