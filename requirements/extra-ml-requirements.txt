@@ -9,7 +9,8 @@ tensorboard
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision>=0.12.0
-lightning>=1.8.1
+# Tactical pin (see requirements/torch.txt) - revert to ``lightning>=1.8.1`` once PyPI is healthy.
+lightning==2.6.1
 # Required by mlflow.xgboost
 xgboost>=0.82
 # Required by mlflow.lightgbm

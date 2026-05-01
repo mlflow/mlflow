@@ -2,4 +2,9 @@
 # once https://download.pytorch.org/whl/cpu is accessible again.
 torch>=1.11.0
 torchvision>=0.12.0,!=0.24.0
-lightning>=1.8.1
+# Tactical pin: PyPI's `lightning` index has been intermittently returning
+# empty results since ~2026-04-30 13:39 UTC, breaking `uv pip install` with
+# "no versions of lightning". 2.6.1 is the version master's last successful
+# CI run resolved. Relax this back to `lightning>=1.8.1` once the upstream
+# index is healthy.
+lightning==2.6.1
