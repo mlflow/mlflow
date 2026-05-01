@@ -613,7 +613,7 @@ def test_resolver_returns_granted_permission_for_each_resource_type(
 @pytest.mark.parametrize("resource_type", _CONCRETE_RESOURCE_TYPES)
 def test_resolver_workspace_grant_promotes_to_every_resource_type(store, user, resource_type):
     """``(workspace, *, MANAGE)`` should grant MANAGE on every known resource
-    type in the role's workspace. This is the workspace-admin short-circuit —
+    type in the role's workspace. This is the workspace admin short-circuit —
     if it regresses, workspace admins silently lose authority over specific
     resource types.
     """
@@ -744,10 +744,10 @@ def test_resolver_union_mixes_workspace_and_resource_grants(store, user):
     assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == EDIT
 
 
-# ---- Legacy workspace_permissions as workspace-admin source ----
+# ---- Legacy workspace_permissions as workspace admin source ----
 #
 # Pre-RBAC operators relied on `workspace_permissions` MANAGE to convey workspace-wide
-# admin authority. The workspace-admin helpers must still recognize that grant,
+# admin authority. The workspace admin helpers must still recognize that grant,
 # otherwise operators mid-migration (or just not yet using roles) silently lose admin
 # status behind RBAC-aware validators.
 

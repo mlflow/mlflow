@@ -93,6 +93,7 @@ export const TraceTokenUsageChart: React.FC = () => {
                   />
                 }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Area
                 type="monotone"

@@ -1,0 +1,70 @@
+---
+title: Coding Agents
+description: Use Claude Code, OpenAI Codex, and Gemini CLI with the MLflow AI Gateway using your own subscription credentials.
+---
+
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { BarChart3, DollarSign, Shield } from "lucide-react";
+
+# Coding Agents & AI Gateway
+
+The MLflow AI Gateway supports popular AI coding agents such as **Claude Code**, **OpenAI Codex**, and **Gemini CLI** out of the box.
+
+AI coding agents make dozens or hundreds of LLM calls per session, often running autonomously for extended periods. Without visibility or controls in place, it's easy to lose track of what they're doing, how much they're spending, and whether they're operating within your organization's policies. Routing coding agents through the gateway gives your team three key capabilities:
+
+<TilesGrid>
+  <TileCard
+    icon={BarChart3}
+    title="Observability"
+    description="Every request is automatically captured as an MLflow trace, giving you full visibility into inputs, outputs, token counts, and latency, without any code changes."
+    href="/genai/governance/ai-gateway/usage-tracking"
+    linkText="Learn about Usage Tracking →"
+  />
+  <TileCard
+    icon={DollarSign}
+    title="Budget Control"
+    description="Set spending limits globally or per workspace to prevent runaway costs. Configure alerts and hard limits to keep coding agent sessions within budget."
+    href="/genai/governance/ai-gateway/budget-alerts-limits"
+    linkText="Learn about Budget Alerts & Limits →"
+  />
+  <TileCard
+    icon={Shield}
+    title="Guardrails"
+    description="Enforce content policies on all coding agent requests. Block sensitive topics, redact PII, and ensure responses meet your organization's standards."
+    href="/genai/governance/ai-gateway/guardrails"
+    linkText="Learn about Guardrails →"
+  />
+</TilesGrid>
+
+---
+
+## Get Started
+
+<TilesGrid>
+  <TileCard
+    image="/images/logos/claude-code-logo.png"
+    imageWidth={48}
+    imageHeight={48}
+    title="Claude Code"
+    description="Route Claude Code through the gateway using your Anthropic subscription"
+    href="./claude-code"
+    linkText="Set up Claude Code →"
+  />
+  <TileCard
+    image="/images/logos/openai-logo-only.png"
+    imageWidth={48}
+    imageHeight={48}
+    title="OpenAI Codex"
+    description="Route Codex through the gateway using your OpenAI subscription"
+    href="./codex"
+    linkText="Set up Codex →"
+  />
+  <TileCard
+    image="/images/logos/google-gemini-logo.svg"
+    title="Gemini CLI"
+    description="Route Gemini CLI through the gateway using your Google subscription"
+    href="./gemini-cli"
+    linkText="Set up Gemini CLI →"
+  />
+</TilesGrid>
