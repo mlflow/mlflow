@@ -6,10 +6,16 @@ on:
     paths:
       - charts/**
       - docker/Dockerfile
+      - mlflow/server/**
+      - mlflow/tracking/**
+      - mlflow/cli/**
   pull_request:
     paths:
       - charts/**
       - docker/Dockerfile
+      - mlflow/server/**
+      - mlflow/tracking/**
+      - mlflow/cli/**
 
 defaults:
   run:
