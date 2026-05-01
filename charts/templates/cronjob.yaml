@@ -64,8 +64,9 @@ spec:
                     --all-workspaces \
                     {{- end }}
                     ;
-              {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.env }}
               env:
+                - name: MLFLOW_TRACKING_URI
+                  value: {{ printf "%s://%s.%s.svc.cluster.local:%v" (ternary "https" "http" .Values.tls.enabled) (include "mlflow.fullname" .) .Release.Namespace .Values.server.value_options.port | quote }}
                 {{- if .Values.mlflow.backendStoreUriFrom }}
                 - name: MLFLOW_BACKEND_STORE_URI
                   valueFrom:
@@ -77,7 +78,6 @@ spec:
                 {{- with .Values.env }}
                 {{- toYaml . | nindent 16 }}
                 {{- end }}
-              {{- end }}
               {{- with .Values.envFrom }}
               envFrom:
                 {{- toYaml . | nindent 16 }}
