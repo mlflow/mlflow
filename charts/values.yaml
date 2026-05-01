@@ -98,7 +98,7 @@ ingress:
 mlflow:
   # URI of the database or file store used to record runs and metadata.
   # Examples: "sqlite:////mlflow/mlflow.db", "postgresql://user:pass@host/db"
-  backendStoreUri: ""
+  backendStoreUri: "sqlite:////tmp/mlflow.db"
   # Alternative to backendStoreUri: read the URI from a Secret or ConfigMap.
   # Example (Secret):
   #   backendStoreUriFrom:
@@ -188,7 +188,7 @@ podSecurityContext:
 # Container-level security context applied to the mlflow container.
 securityContext:
   allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
