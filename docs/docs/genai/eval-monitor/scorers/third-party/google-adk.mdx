@@ -79,10 +79,10 @@ results = mlflow.genai.evaluate(
 
 Google ADK scorers provide deterministic evaluation without requiring an LLM judge:
 
-| Scorer | What does it evaluate? | ADK Docs |
-| ------ | ---------------------- | -------- |
-| <APILink fn="mlflow.genai.scorers.google_adk.ToolTrajectory">ToolTrajectory</APILink> | Does the agent call the correct tools in the expected order? | [Link](https://google.github.io/adk-docs/evaluate/) |
-| <APILink fn="mlflow.genai.scorers.google_adk.ResponseMatch">ResponseMatch</APILink> | How similar is the agent's response to a reference answer (ROUGE-1)? | [Link](https://google.github.io/adk-docs/evaluate/) |
+| Scorer                                                                                | What does it evaluate?                                               | ADK Docs                                            |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.google_adk.ToolTrajectory">ToolTrajectory</APILink> | Does the agent call the correct tools in the expected order?         | [Link](https://google.github.io/adk-docs/evaluate/) |
+| <APILink fn="mlflow.genai.scorers.google_adk.ResponseMatch">ResponseMatch</APILink>   | How similar is the agent's response to a reference answer (ROUGE-1)? | [Link](https://google.github.io/adk-docs/evaluate/) |
 
 ## Creating Scorers by Name
 
@@ -152,8 +152,8 @@ Refer to the [Google ADK documentation](https://google.github.io/adk-docs/evalua
   />
   <TileCard
     icon={Shield}
-    title="Google ADK Tracing"
-    description="Trace Google ADK agent executions with MLflow"
-    href="/genai/tracing/integrations/google-adk"
+    title="Predefined Scorers"
+    description="Explore MLflow's built-in evaluation scorers"
+    href="/genai/eval-monitor/scorers/llm-judge/predefined"
   />
 </TilesGrid>
