@@ -381,11 +381,11 @@ def _process_last_chunk(
             output = None
         elif is_responses_api:
             output = _reconstruct_response_from_stream(output)
-        elif output[0].object in ["text_completion", "chat.completion.chunk"]:
+        elif completion_chunks := _filter_completion_stream_chunks(output):
             # Reconstruct a completion object from streaming chunks
-            output = _reconstruct_completion_from_stream(output)
+            output = _reconstruct_completion_from_stream(completion_chunks)
             # Set usage information on span if available
-            if usage := getattr(chunk, "usage", None):
+            if usage := _get_completion_stream_usage(completion_chunks):
                 usage_dict = {
                     TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                     TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
@@ -405,6 +405,21 @@ def _process_last_chunk(
         )
 
 
+def _filter_completion_stream_chunks(chunks: list[Any]) -> list[Any]:
+    return [
+        chunk
+        for chunk in chunks
+        if getattr(chunk, "object", None) in {"text_completion", "chat.completion.chunk"}
+    ]
+
+
+def _get_completion_stream_usage(chunks: list[Any]) -> Any:
+    for chunk in reversed(chunks):
+        if usage := getattr(chunk, "usage", None):
+            return usage
+    return None
+
+
 def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     """
     Reconstruct a completion object from streaming chunks.
@@ -412,6 +427,10 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     This preserves the structure and metadata that would be present in a non-streaming
     completion response, including ID, model, timestamps, usage, etc.
     """
+    chunks = _filter_completion_stream_chunks(chunks)
+    if not chunks:
+        return None
+
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
         def _extract_content(chunk: Any) -> str:
