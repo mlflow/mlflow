@@ -98,6 +98,22 @@ def test_claude_setup_with_pixi_env_vars(runner, monkeypatch):
         assert hook_command == "/usr/local/bin/pixi run -e tracing mlflow autolog claude stop-hook"
 
 
+def test_claude_setup_with_pixi_exe_path_containing_spaces(runner, monkeypatch):
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.setenv("PIXI_EXE", "/path with spaces/pixi")
+    monkeypatch.setenv("PIXI_ENVIRONMENT", "my env")
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude"])
+        assert result.exit_code == 0
+
+        hook_command = _get_hook_command_from_settings()
+        assert (
+            hook_command
+            == "'/path with spaces/pixi' run -e 'my env' mlflow autolog claude stop-hook"
+        )
+
+
 def test_claude_setup_with_mlflow_cmd_option(runner, monkeypatch):
     monkeypatch.delenv("UV", raising=False)
     monkeypatch.delenv("PIXI_EXE", raising=False)

@@ -2,6 +2,7 @@
 
 import json
 import os
+import shlex
 import sys
 from pathlib import Path
 from typing import Any
@@ -49,7 +50,7 @@ def _detect_mlflow_cmd() -> str:
     pixi_exe = os.environ.get("PIXI_EXE")
     pixi_env = os.environ.get("PIXI_ENVIRONMENT")
     if pixi_exe and pixi_env:
-        return f"{pixi_exe} run -e {pixi_env} mlflow"
+        return f"{shlex.quote(pixi_exe)} run -e {shlex.quote(pixi_env)} mlflow"
 
     return "mlflow"
 
