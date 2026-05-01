@@ -375,3 +375,57 @@ def test_sync_fresh_session_without_location_is_noop(_clean_tracing_state):
 
     assert destination_registry.get() is None
     assert not prov.once._done
+
+
+# --- UC upsell message tests ---
+
+
+def test_show_uc_upsell_message_outputs_expected_content():
+    from mlflow.tracking.fluent import _show_uc_upsell_message
+
+    with mock.patch("mlflow.utils.logging_utils.eprint") as mock_eprint:
+        _show_uc_upsell_message()
+        mock_eprint.assert_called_once_with(
+            "\033[1;33mMigrate your traces to Unity Catalog for unlimited storage, "
+            "fine-grained access controls, and queryability from notebooks, SQL, and "
+            "dashboards. \033[36mLearn more: https://docs.databricks.com/TODO\033[0m"
+        )
+
+
+def test_uc_upsell_shown_for_existing_non_uc_experiment_on_databricks():
+    exp = _experiment()
+    with (
+        mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            return_value=None,
+        ),
+        mock.patch("mlflow.tracking.fluent._sync_trace_destination_and_provider"),
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
+        mock.patch("mlflow.utils.logging_utils.eprint") as mock_eprint,
+    ):
+        mock_client_cls.return_value.get_experiment_by_name.return_value = exp
+        mlflow.set_experiment("test-experiment")
+        mock_eprint.assert_called_once()
+        assert "Unity Catalog" in mock_eprint.call_args[0][0]
+
+
+def test_uc_upsell_not_shown_when_experiment_has_uc_tag():
+    exp = _experiment(
+        tags={MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: "catalog.schema.prefix"}
+    )
+    with (
+        mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            return_value=None,
+        ),
+        mock.patch("mlflow.tracking.fluent._sync_trace_destination_and_provider"),
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
+        mock.patch("mlflow.utils.logging_utils.eprint") as mock_eprint,
+    ):
+        mock_client_cls.return_value.get_experiment_by_name.return_value = exp
+        mlflow.set_experiment("test-experiment")
+        mock_eprint.assert_not_called()

@@ -37,6 +37,7 @@ from mlflow.entities.trace_location import UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
+    _MLFLOW_ENABLE_UC_TRACE_UPSELL,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
@@ -241,6 +242,15 @@ def set_experiment(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    if (
+        _MLFLOW_ENABLE_UC_TRACE_UPSELL.get()
+        and not is_newly_created
+        and trace_location is None
+        and is_databricks_uri(_resolve_tracking_uri())
+        and MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH not in experiment.tags
+    ):
+        _show_uc_upsell_message()
+
     if trace_location is not None and trace_location.table_prefix is None:
         trace_location = UnityCatalog(
             catalog_name=trace_location.catalog_name,
@@ -287,6 +297,20 @@ def _sync_trace_destination_and_provider(
         provider.reset()
 
     _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
+
+
+def _show_uc_upsell_message():
+    from mlflow.utils.logging_utils import eprint
+
+    yellow_bold = "\033[1;33m"
+    cyan = "\033[36m"
+    reset = "\033[0m"
+    doc_url = "https://docs.databricks.com/TODO"
+    eprint(
+        f"{yellow_bold}Migrate your traces to Unity Catalog for unlimited storage, "
+        f"fine-grained access controls, and queryability from notebooks, SQL, and "
+        f"dashboards. {cyan}Learn more: {doc_url}{reset}"
+    )
 
 
 def _resolve_experiment_to_trace_location(
