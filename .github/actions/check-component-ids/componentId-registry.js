@@ -1074,6 +1074,7 @@ module.exports = {
   // -- mlflow.experiment_page --
   "mlflow.experiment_page.grouped_runs.open_runs_in_new_tab": "",
   "mlflow.experiment_page.mode.artifact": "",
+  "mlflow.experiment_page.mode.images": "",
   "mlflow.experiment_page.runs.add_new_tag": "",
   "mlflow.experiment_page.runs.add_tags": "",
   "mlflow.experiment_page.scorers.advanced_settings_toggle": "",
@@ -1476,6 +1477,9 @@ module.exports = {
   "mlflow.home.workspaces_table.header.artifact_root": "",
   "mlflow.home.workspaces_table.header.description": "",
   "mlflow.home.workspaces_table.header.name": "",
+
+  // -- mlflow.images_compare --
+  "mlflow.images_compare.image_key_selector": "",
 
   // -- mlflow.issue-detection --
   "mlflow.issue-detection.category-tag": "",

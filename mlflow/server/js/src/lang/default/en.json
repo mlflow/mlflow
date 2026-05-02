@@ -331,6 +331,10 @@
     "defaultMessage": "Show exceptions",
     "description": "Checkbox label for a setting that enables showing spans with exceptions in the trace explorer regardless of filter conditions."
   },
+  "/vsrM9": {
+    "defaultMessage": "Image keys",
+    "description": "Experiment page > images compare view > image key selector label"
+  },
   "/w5HDz": {
     "defaultMessage": "Create webhook",
     "description": "Create webhook modal title"
@@ -1059,6 +1063,10 @@
     "defaultMessage": "After your script runs, open the MLflow UI to review the recorded traces.",
     "description": "Introductory text for viewing traces in the MLflow UI"
   },
+  "4ZP4Dq": {
+    "defaultMessage": "Image comparison not available when grouping is enabled",
+    "description": "Experiment page > images compare view > disabled due to run grouping > title"
+  },
   "4a2Kqx": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
@@ -1674,6 +1682,10 @@
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
+  },
+  "8IIVFp": {
+    "defaultMessage": "Displaying images from the top {maxRuns} runs",
+    "description": "Experiment page > images compare view > run limit warning"
   },
   "8Uwpjw": {
     "defaultMessage": "Create run",
@@ -2582,6 +2594,10 @@
   "Dhr3pC": {
     "defaultMessage": "No traces found",
     "description": "No traces found message"
+  },
+  "Dk1yaJ": {
+    "defaultMessage": "Disable run grouping in order to access the image comparison view",
+    "description": "Experiment page > images compare view > disabled due to run grouping > description"
   },
   "Dk2itm": {
     "defaultMessage": "Pre-built LLM-as-a-judge | Trace level",
@@ -5375,6 +5391,10 @@
     "defaultMessage": "forecasting",
     "description": "A short label for experiments focused on time series forecasting"
   },
+  "VwzzRz": {
+    "defaultMessage": "No logged images found. Use mlflow.log_image() to log images to your runs.",
+    "description": "Experiment page > images compare view > no images empty state"
+  },
   "W+aLXo": {
     "defaultMessage": "Manage webhooks to receive HTTP notifications when events occur in MLflow.",
     "description": "Webhooks settings section description"
@@ -5523,6 +5543,10 @@
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering"
   },
+  "WpX3X2": {
+    "defaultMessage": "Image comparison",
+    "description": "Experiment page > view mode switch > images comparison tooltip"
+  },
   "Ws58cc": {
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
@@ -5670,6 +5694,10 @@
   "XuzIWs": {
     "defaultMessage": "Some traces are hidden by your time range filter: \"{filterLabel}\"",
     "description": "Message shown when traces are hidden by time filter"
+  },
+  "Xvi6g/": {
+    "defaultMessage": "Unavailable when runs are grouped",
+    "description": "Experiment page > view mode switch > images mode disabled tooltip"
   },
   "XvzXs3": {
     "defaultMessage": "The parallel coordinates chart shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown. Only runs with all relevant metrics and/or parameters will be displayed.",
@@ -9506,6 +9534,10 @@
   "ubeHow": {
     "defaultMessage": "Input",
     "description": "Column header for the input in the runs table on the logged model details page"
+  },
+  "uclIDD": {
+    "defaultMessage": "No runs have images for the selected keys",
+    "description": "Experiment page > images compare view > no runs for key empty state"
   },
   "ue/dsm": {
     "defaultMessage": "Pending",
