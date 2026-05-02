@@ -10,6 +10,7 @@ import mlflow.deployments.cli as deployments_cli
 import mlflow.experiments
 import mlflow.models.cli as models_cli
 import mlflow.runs
+import mlflow.store.artifact.cli as artifacts_cli
 from mlflow.ai_commands.ai_command_utils import get_command_body, list_commands
 from mlflow.cli.scorers import commands as scorers_cli
 from mlflow.cli.traces import commands as traces_cli
@@ -24,8 +25,8 @@ from mlflow.mcp.decorator import get_mcp_tool_name
 MLFLOW_MCP_TOOLS = os.environ.get("MLFLOW_MCP_TOOLS", "genai")
 
 # Tool category mappings
-_GENAI_TOOLS = {"traces", "scorers", "experiments", "runs"}
-_ML_TOOLS = {"models", "deployments", "experiments", "runs"}
+_GENAI_TOOLS = {"traces", "scorers", "experiments", "runs", "artifacts"}
+_ML_TOOLS = {"models", "deployments", "experiments", "runs", "artifacts"}
 _ALL_TOOLS = _GENAI_TOOLS | _ML_TOOLS
 
 if TYPE_CHECKING:
@@ -228,6 +229,10 @@ def create_mcp() -> "FastMCP":
     # Run management tools (genai)
     if _is_tool_enabled("runs"):
         tools.extend(_collect_tools(mlflow.runs.commands.commands))
+
+    # Artifact management tools (genai & ml)
+    if _is_tool_enabled("artifacts"):
+        tools.extend(_collect_tools(artifacts_cli.commands.commands))
 
     # Model serving tools (ml)
     if _is_tool_enabled("models"):

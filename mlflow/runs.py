@@ -250,3 +250,230 @@ def link_traces(run_id: str, trace_ids: tuple[str, ...]) -> None:
         raise click.ClickException(f"Failed to link traces: {e.message}")
     except Exception as e:
         raise click.ClickException(f"Unexpected error linking traces: {e!s}")
+
+
+@commands.command("get-metric-history")
+@mlflow_mcp(tool_name="get_metric_history")
+@click.option(
+    "--run-id",
+    type=click.STRING,
+    required=True,
+    help="ID of the run to get metric history from.",
+)
+@click.option(
+    "--metric-key",
+    type=click.STRING,
+    required=True,
+    help="Name of the metric to retrieve history for.",
+)
+@click.option(
+    "--max-results",
+    type=click.INT,
+    help="Maximum number of metric history entries to return. If not specified, returns all entries.",
+)
+def get_metric_history(run_id: str, metric_key: str, max_results: int | None) -> None:
+    """
+    Get the full time series history of a metric for a run.
+
+    Returns a JSON array of metric history entries, each containing:
+    - step: The step number at which the metric was logged
+    - value: The metric value
+    - timestamp: Unix timestamp (milliseconds) when the metric was logged
+    """
+    try:
+        client = MlflowClient()
+        metric_history = client.get_metric_history(run_id, metric_key)
+
+        # Convert to list of dicts for JSON output
+        history_data = [
+            {
+                "step": metric.step,
+                "value": metric.value,
+                "timestamp": metric.timestamp,
+            }
+            for metric in metric_history
+        ]
+
+        # Apply max_results limit if specified
+        if max_results is not None and max_results > 0:
+            history_data = history_data[:max_results]
+
+        click.echo(json.dumps(history_data, indent=2))
+
+    except MlflowException as e:
+        raise click.ClickException(f"Failed to get metric history: {e.message}")
+    except Exception as e:
+        raise click.ClickException(f"Unexpected error getting metric history: {e!s}")
+
+
+@commands.command("search")
+@mlflow_mcp(tool_name="search_runs")
+@click.option(
+    "--experiment-ids",
+    type=click.STRING,
+    required=True,
+    help="Comma-separated list of experiment IDs to search within.",
+)
+@click.option(
+    "--filter",
+    "filter_string",
+    type=click.STRING,
+    default="",
+    help="Filter query string using MLflow's search syntax. "
+    "Examples: 'metrics.accuracy > 0.9', 'params.lr = \"1e-5\"', "
+    "'attributes.status = \"FINISHED\"'.",
+)
+@click.option(
+    "--order-by",
+    type=click.STRING,
+    multiple=True,
+    help="Order results by specified columns. Can be specified multiple times. "
+    "Format: 'column_name [ASC|DESC]'. Examples: 'metrics.accuracy DESC', 'start_time ASC'.",
+)
+@click.option(
+    "--max-results",
+    type=click.INT,
+    default=100,
+    help="Maximum number of runs to return. Default is 100.",
+)
+@click.option(
+    "--view-type",
+    type=click.Choice(["ACTIVE_ONLY", "DELETED_ONLY", "ALL"], case_sensitive=False),
+    default="ACTIVE_ONLY",
+    help="Type of runs to return. Options: ACTIVE_ONLY (default), DELETED_ONLY, or ALL.",
+)
+def search_runs(
+    experiment_ids: str,
+    filter_string: str,
+    order_by: tuple[str, ...],
+    max_results: int,
+    view_type: str,
+) -> None:
+    """
+    Search for runs matching specified criteria across experiments.
+
+    Returns a JSON array of runs with their parameters, metrics, and metadata.
+    Supports filtering, ordering, and pagination.
+    """
+    try:
+        client = MlflowClient()
+
+        # Parse experiment IDs
+        exp_ids = [exp_id.strip() for exp_id in experiment_ids.split(",") if exp_id.strip()]
+        if not exp_ids:
+            raise click.UsageError("At least one experiment ID must be provided.")
+
+        # Convert order_by tuple to list
+        order_by_list = list(order_by) if order_by else None
+
+        # Search runs
+        runs = client.search_runs(
+            experiment_ids=exp_ids,
+            filter_string=filter_string,
+            order_by=order_by_list,
+            max_results=max_results,
+            run_view_type=view_type.upper(),
+        )
+
+        # Convert runs to JSON-serializable format
+        runs_data = []
+        for run in runs:
+            run_dict = {
+                "run_id": run.info.run_id,
+                "experiment_id": run.info.experiment_id,
+                "status": run.info.status,
+                "start_time": run.info.start_time,
+                "end_time": run.info.end_time,
+                "run_name": run.info.run_name,
+                "metrics": {key: value for key, value in run.data.metrics.items()},
+                "params": {key: value for key, value in run.data.params.items()},
+                "tags": {key: value for key, value in run.data.tags.items()},
+            }
+            runs_data.append(run_dict)
+
+        click.echo(json.dumps(runs_data, indent=2))
+
+    except MlflowException as e:
+        raise click.ClickException(f"Failed to search runs: {e.message}")
+    except Exception as e:
+        raise click.ClickException(f"Unexpected error searching runs: {e!s}")
+
+
+@commands.command("compare")
+@mlflow_mcp(tool_name="compare_runs")
+@click.option(
+    "--run-ids",
+    type=click.STRING,
+    required=True,
+    help="Comma-separated list of run IDs to compare.",
+)
+@click.option(
+    "--metric-keys",
+    type=click.STRING,
+    help="Comma-separated list of metric keys to include. If not specified, includes all metrics.",
+)
+@click.option(
+    "--param-keys",
+    type=click.STRING,
+    help="Comma-separated list of parameter keys to include. If not specified, includes all parameters.",
+)
+def compare_runs(
+    run_ids: str,
+    metric_keys: str | None,
+    param_keys: str | None,
+) -> None:
+    """
+    Compare multiple runs side-by-side.
+
+    Returns a JSON object with run IDs as keys, each containing the run's
+    metrics and parameters for easy comparison.
+    """
+    try:
+        client = MlflowClient()
+
+        # Parse run IDs
+        run_id_list = [rid.strip() for rid in run_ids.split(",") if rid.strip()]
+        if not run_id_list:
+            raise click.UsageError("At least one run ID must be provided.")
+
+        # Parse metric and param keys if provided
+        metric_key_set = (
+            {key.strip() for key in metric_keys.split(",") if key.strip()}
+            if metric_keys
+            else None
+        )
+        param_key_set = (
+            {key.strip() for key in param_keys.split(",") if key.strip()} if param_keys else None
+        )
+
+        # Fetch runs and build comparison
+        comparison = {}
+        for run_id in run_id_list:
+            run = client.get_run(run_id)
+
+            # Filter metrics
+            if metric_key_set is not None:
+                metrics = {k: v for k, v in run.data.metrics.items() if k in metric_key_set}
+            else:
+                metrics = dict(run.data.metrics)
+
+            # Filter params
+            if param_key_set is not None:
+                params = {k: v for k, v in run.data.params.items() if k in param_key_set}
+            else:
+                params = dict(run.data.params)
+
+            comparison[run_id] = {
+                "run_name": run.info.run_name,
+                "status": run.info.status,
+                "metrics": metrics,
+                "params": params,
+            }
+
+        click.echo(json.dumps(comparison, indent=2))
+
+    except MlflowException as e:
+        raise click.ClickException(f"Failed to compare runs: {e.message}")
+    except Exception as e:
+        raise click.ClickException(f"Unexpected error comparing runs: {e!s}")
+

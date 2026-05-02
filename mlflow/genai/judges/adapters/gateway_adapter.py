@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 import pydantic
 
 from mlflow.utils.providers import _lookup_model_info
+from mlflow.utils.workspace_context import get_request_workspace
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
@@ -297,6 +299,13 @@ def _invoke_via_gateway(
     Raises:
         MlflowException: If the provider is not supported or invocation fails.
     """
+    # Forward workspace context for gateway provider
+    if provider == "gateway":
+        workspace_headers = {}
+        if ws := get_request_workspace():
+            workspace_headers[WORKSPACE_HEADER_NAME] = ws
+        extra_headers = {**workspace_headers, **(extra_headers or {})}
+
     if isinstance(prompt, str):
         return score_model_on_payload(
             model_uri=model_uri,
@@ -523,6 +532,9 @@ class GatewayAdapter(BaseJudgeAdapter):
         # Tag gateway requests so the server can attribute traffic to the judge
         if provider == "gateway":
             headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
+            # Forward workspace context when invoking gateway endpoints
+            if ws := get_request_workspace():
+                headers[WORKSPACE_HEADER_NAME] = ws
         if extra_headers:
             headers.update(extra_headers)
 
