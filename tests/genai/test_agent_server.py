@@ -1326,7 +1326,8 @@ def test_return_trace_header_case_insensitive(header_value):
         mock_span.assert_called_once()
 
 
-def test_agent_info_default_without_agent_info():
+def test_agent_info_default_without_agent_info(monkeypatch):
+    monkeypatch.delenv("DATABRICKS_APP_NAME", raising=False)
     server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
 
@@ -1340,10 +1341,10 @@ def test_agent_info_default_without_agent_info():
     assert "description" not in data
     assert "version" not in data
     assert "metadata" not in data
-    assert "tags" not in data
 
 
-def test_agent_info_default_without_responses_agent():
+def test_agent_info_default_without_responses_agent(monkeypatch):
+    monkeypatch.delenv("DATABRICKS_APP_NAME", raising=False)
     server = AgentServer()
     client = TestClient(server.app)
 
@@ -1361,7 +1362,7 @@ def test_agent_info_with_custom_agent_info():
         name="my-agent",
         description="A custom agent",
         version="2.0.0",
-        tags={"team": "ml"},
+        metadata={"team": "ml"},
     )
     server = AgentServer("ResponsesAgent", agent_info=info)
     client = TestClient(server.app)
@@ -1373,7 +1374,7 @@ def test_agent_info_with_custom_agent_info():
     assert data["description"] == "A custom agent"
     assert data["version"] == "2.0.0"
     assert data["agent_api"] == "responses"
-    assert data["tags"] == {"team": "ml"}
+    assert data["metadata"] == {"team": "ml"}
 
 
 def test_agent_info_agent_api_auto_set_for_responses_agent():
@@ -1414,8 +1415,6 @@ def test_agent_info_with_metadata_schemas():
 
 
 def test_agent_info_name_from_env_var():
-    from mlflow.types.agent_info import AgentInfo
-
     with patch.dict("os.environ", {"DATABRICKS_APP_NAME": "env-app-name"}):
         server = AgentServer("ResponsesAgent")
     assert server.agent_info.name == "env-app-name"

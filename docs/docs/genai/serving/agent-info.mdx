@@ -7,7 +7,7 @@ import { APILink } from "@site/src/components/APILink";
 
 # Agent Info
 
-<APILink fn="mlflow.types.AgentInfo">`AgentInfo`</APILink> is a Pydantic model that describes an agent's identity and interface. Pass it to <APILink fn="mlflow.genai.agent_server.AgentServer">`AgentServer`</APILink> to enrich the `GET /agent/info` discovery endpoint with metadata such as a description, version, custom schemas, and tags.
+<APILink fn="mlflow.types.AgentInfo">`AgentInfo`</APILink> is a Pydantic model that describes an agent's identity and interface. Pass it to <APILink fn="mlflow.genai.agent_server.AgentServer">`AgentServer`</APILink> to enrich the `GET /agent/info` discovery endpoint with metadata such as a description, version, and custom schemas.
 
 ## Fields
 
@@ -15,12 +15,11 @@ import { APILink } from "@site/src/components/APILink";
 |---|---|---|---|
 | `name` | `str` | `DATABRICKS_APP_NAME` env var or `"mlflow_agent_server"` | Server/agent name |
 | `use_case` | `str` | `"agent"` | Use case category |
-| `mlflow_version` | `str` | `mlflow.__version__` | MLflow version running the server |
+| `mlflow_version` | `str` | Installed MLflow version | MLflow version running the server |
 | `agent_api` | `str \| None` | `None` (auto-set to `"responses"` for `ResponsesAgent`) | Agent API protocol |
 | `description` | `str \| None` | `None` | Human-readable description |
 | `version` | `str \| None` | `None` | Agent version string |
-| `metadata` | `dict[str, Any] \| None` | `None` | Extensible dict (reserved keys: `custom_inputs_schema`, `custom_outputs_schema`) |
-| `tags` | `dict[str, str] \| None` | `None` | Arbitrary key-value metadata |
+| `metadata` | `dict[str, Any] \| None` | `None` | Extensible dict for additional information |
 
 Fields set to `None` are omitted from the `GET /agent/info` response.
 
@@ -35,7 +34,6 @@ server = AgentServer(
         name="rag-assistant",
         description="Retrieval-augmented QA over internal docs",
         version="2.0.0",
-        tags={"team": "ml-platform"},
     ),
 )
 app = server.app
@@ -50,14 +48,13 @@ app = server.app
   "mlflow_version": "3.6.0",
   "agent_api": "responses",
   "description": "Retrieval-augmented QA over internal docs",
-  "version": "2.0.0",
-  "tags": {"team": "ml-platform"}
+  "version": "2.0.0"
 }
 ```
 
 ## Custom Input/Output Schemas
 
-Use the `metadata` field with reserved keys `custom_inputs_schema` and `custom_outputs_schema` to advertise your agent's interface:
+By convention, use the `metadata` field with the keys `custom_inputs_schema` and `custom_outputs_schema` to advertise your agent's custom input/output JSON schemas:
 
 ```python
 from mlflow.genai.agent_server import AgentInfo, AgentServer
@@ -78,6 +75,27 @@ server = AgentServer(
         },
     ),
 )
+```
+
+`GET /agent/info` returns:
+
+```json
+{
+  "name": "schema-agent",
+  "use_case": "agent",
+  "mlflow_version": "3.6.0",
+  "agent_api": "responses",
+  "metadata": {
+    "custom_inputs_schema": {
+      "type": "object",
+      "properties": {"query": {"type": "string"}}
+    },
+    "custom_outputs_schema": {
+      "type": "object",
+      "properties": {"answer": {"type": "string"}}
+    }
+  }
+}
 ```
 
 ## Default Behavior

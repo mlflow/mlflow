@@ -118,12 +118,7 @@ class AgentServer:
         else:
             self.validator = BaseAgentValidator()
 
-        if agent_info is not None:
-            self.agent_info = agent_info
-        else:
-            self.agent_info = AgentInfo(
-                name=os.environ.get("DATABRICKS_APP_NAME", "mlflow_agent_server"),
-            )
+        self.agent_info = agent_info or AgentInfo()
         if self.agent_type == "ResponsesAgent" and self.agent_info.agent_api is None:
             self.agent_info.agent_api = "responses"
 

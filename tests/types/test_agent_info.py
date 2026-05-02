@@ -1,34 +1,46 @@
 import pytest
 
-import mlflow
 from mlflow.types.agent_info import AgentInfo
+from mlflow.version import VERSION
 
 
-def test_default_fields():
+def test_default_fields(monkeypatch):
+    monkeypatch.delenv("DATABRICKS_APP_NAME", raising=False)
     info = AgentInfo()
     assert info.name == "mlflow_agent_server"
     assert info.use_case == "agent"
-    assert info.mlflow_version == mlflow.__version__
+    assert info.mlflow_version == VERSION
     assert info.agent_api is None
     assert info.description is None
     assert info.version is None
     assert info.metadata is None
-    assert info.tags is None
 
 
-def test_model_dump_excludes_none():
+def test_name_from_databricks_app_name_env_var(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_APP_NAME", "from-env")
+    info = AgentInfo()
+    assert info.name == "from-env"
+
+
+def test_explicit_name_overrides_env_var(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_APP_NAME", "from-env")
+    info = AgentInfo(name="explicit")
+    assert info.name == "explicit"
+
+
+def test_model_dump_excludes_none(monkeypatch):
+    monkeypatch.delenv("DATABRICKS_APP_NAME", raising=False)
     info = AgentInfo()
     result = info.model_dump(exclude_none=True)
     assert result == {
         "name": "mlflow_agent_server",
         "use_case": "agent",
-        "mlflow_version": mlflow.__version__,
+        "mlflow_version": VERSION,
     }
     assert "agent_api" not in result
     assert "description" not in result
     assert "version" not in result
     assert "metadata" not in result
-    assert "tags" not in result
 
 
 def test_all_fields_populated():
@@ -44,19 +56,19 @@ def test_all_fields_populated():
                 "type": "object",
                 "properties": {"answer": {"type": "string"}},
             },
+            "team": "ml",
         },
-        tags={"team": "ml", "env": "prod"},
     )
     result = info.model_dump(exclude_none=True)
     assert result["name"] == "my-agent"
     assert result["use_case"] == "agent"
-    assert result["mlflow_version"] == mlflow.__version__
+    assert result["mlflow_version"] == VERSION
     assert result["agent_api"] == "responses"
     assert result["description"] == "A test agent"
     assert result["version"] == "1.0.0"
     assert result["metadata"]["custom_inputs_schema"]["properties"]["query"]["type"] == "string"
     assert result["metadata"]["custom_outputs_schema"]["properties"]["answer"]["type"] == "string"
-    assert result["tags"] == {"team": "ml", "env": "prod"}
+    assert result["metadata"]["team"] == "ml"
 
 
 def test_metadata_with_schemas():
@@ -101,7 +113,7 @@ def test_subclassing():
     [
         ("description", "A helpful agent"),
         ("version", "2.0.0"),
-        ("tags", {"team": "backend"}),
+        ("metadata", {"team": "backend"}),
     ],
 )
 def test_optional_fields_individually(field, value):
