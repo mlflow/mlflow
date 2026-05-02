@@ -112,7 +112,10 @@ export enum RunPageTabName {
   SYSTEM_METRIC_CHARTS = 'system-metrics',
   ARTIFACTS = 'artifacts',
   EVALUATIONS = 'evaluations',
+  PYTEST_RESULTS = 'pytest-results',
 }
+
+export const MLFLOW_RUN_TYPE_VALUE_PYTEST = 'pytest';
 
 export const MLFLOW_SYSTEM_METRIC_PREFIX = 'system/';
 
