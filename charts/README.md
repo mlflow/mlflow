@@ -212,3 +212,9 @@ helm upgrade mlflow ./charts --namespace mlflow -f my-values.yaml
 ```bash
 helm uninstall mlflow --namespace mlflow
 ```
+
+> **Note:** `helm uninstall` does not delete PersistentVolumeClaims. If `storage.enabled=true`, delete the PVC manually after uninstalling:
+>
+> ```bash
+> kubectl delete pvc -n mlflow --all
+> ```

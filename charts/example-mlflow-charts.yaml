@@ -41,6 +41,8 @@ mlflow:
 
 storage:
   enabled: true
+  # StorageClass to use. Set to match your cluster
+  # (e.g. "gp2" for standard EKS, "standard" for Kind/minikube).
   storageClassName: "gp2"
 
 # S3 credentials (or other artifact store credentials):
