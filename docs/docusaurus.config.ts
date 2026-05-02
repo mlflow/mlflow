@@ -33,13 +33,12 @@ const config: Config = {
 
   // change to throw when migration is done
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'throw',
   onBrokenAnchors: 'throw',
   onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
 
   future: {
     v4: true, // opt-in for Docusaurus v4 planned changes
-    experimental_faster: true, // turns Docusaurus Faster on globally
+    faster: true, // turns Docusaurus Faster on globally
   },
 
   // Even if you don't use internationalization, you can use this field to set
@@ -64,6 +63,9 @@ const config: Config = {
   themes: ['@docusaurus/theme-mermaid', '@signalwire/docusaurus-theme-llms-txt'],
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'throw',
+    },
   },
 
   presets: [

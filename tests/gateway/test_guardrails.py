@@ -11,7 +11,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
 from mlflow.tracing.client import TracingClient
-from mlflow.types.chat import ChatCompletionRequest
+from mlflow.types.chat import ChatCompletionResponse
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -218,7 +218,11 @@ async def test_sanitization_passes_on_good_content():
 
 
 @pytest.mark.asyncio
-async def test_sanitization_uses_json_object_response_format():
+async def test_sanitization_skips_response_format_when_no_schema_provided():
+    # When payload_schema is None (the default), sanitization omits response_format.
+    # Used by passthrough endpoints, where ChatCompletionRequest shares field names
+    # with provider-specific shapes (e.g. Anthropic also uses messages/max_tokens),
+    # making reliable detection impossible — so callers explicitly opt in via payload_schema.
     scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
     guard = JudgeGuardrail(
         scorer,
@@ -238,14 +242,84 @@ async def test_sanitization_uses_json_object_response_format():
     with mock.patch("mlflow.gateway.guardrails.send_request", side_effect=capture_send_request):
         await guard.process_request(_make_request())
 
-    assert captured[0]["payload"]["response_format"] == {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "sanitized_payload",
-            "strict": False,
-            "schema": ChatCompletionRequest.model_json_schema(),
-        },
+    assert "response_format" not in captured[0]["payload"]
+
+
+def _make_full_response(text="I'm a helpful assistant."):
+    """Return a response dict that satisfies ChatCompletionResponse validation."""
+    return {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "created": 123,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": text},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10},
     }
+
+
+@pytest.mark.asyncio
+async def test_sanitization_uses_response_format_for_chat_response():
+    scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.AFTER,
+        GuardrailAction.SANITIZATION,
+        "test",
+        action_llm_url="http://localhost:5000",
+        action_endpoint_name="ep-sanitizer",
+    )
+    sanitized = _make_full_response("cleaned")
+    captured: list[dict[str, Any]] = []
+
+    async def capture_send_request(*args, **kwargs):
+        captured.append(kwargs)
+        return {"choices": [{"message": {"content": json.dumps(sanitized)}}]}
+
+    with mock.patch("mlflow.gateway.guardrails.send_request", side_effect=capture_send_request):
+        await guard.process_response(
+            _make_request(),
+            _make_full_response("bad"),
+            payload_schema=ChatCompletionResponse.model_json_schema(),
+        )
+
+    assert captured[0]["payload"]["response_format"]["json_schema"]["schema"] == (
+        ChatCompletionResponse.model_json_schema()
+    )
+
+
+@pytest.mark.asyncio
+async def test_sanitization_skips_response_format_for_passthrough_payload():
+    scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        "test",
+        action_llm_url="http://localhost:5000",
+        action_endpoint_name="ep-sanitizer",
+    )
+    # Anthropic-style payload that doesn't conform to ChatCompletionRequest
+    anthropic_request = {
+        "messages": [{"role": "user", "content": "hello"}],
+        "max_tokens": 1024,
+    }
+    sanitized = {**anthropic_request}
+    captured: list[dict[str, Any]] = []
+
+    async def capture_send_request(*args, **kwargs):
+        captured.append(kwargs)
+        return {"choices": [{"message": {"content": json.dumps(sanitized)}}]}
+
+    with mock.patch("mlflow.gateway.guardrails.send_request", side_effect=capture_send_request):
+        await guard.process_request(anthropic_request)
+
+    assert "response_format" not in captured[0]["payload"]
 
 
 # ---------------------------------------------------------------------------

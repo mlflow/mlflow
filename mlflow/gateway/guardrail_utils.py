@@ -9,6 +9,7 @@ from fastapi import Request
 from mlflow.entities.gateway_guardrail import GuardrailStage
 from mlflow.gateway.guardrails import JudgeGuardrail
 from mlflow.gateway.schemas import chat
+from mlflow.types.chat import ChatCompletionResponse
 
 if TYPE_CHECKING:
     from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
@@ -55,12 +56,16 @@ async def run_pre_llm_guardrails(
     payload_dict: dict[str, Any],
     auth_headers: dict[str, str] | None = None,
     usage_tracking: bool = False,
+    payload_schema: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run pre-LLM guardrails on the request payload. Returns the (possibly modified) dict."""
     for guardrail in guardrails:
         if guardrail.stage == GuardrailStage.BEFORE:
             payload_dict = await guardrail.process_request(
-                payload_dict, auth_headers=auth_headers, usage_tracking=usage_tracking
+                payload_dict,
+                auth_headers=auth_headers,
+                usage_tracking=usage_tracking,
+                payload_schema=payload_schema,
             )
     return payload_dict
 
@@ -82,8 +87,39 @@ async def run_post_llm_guardrails(
         return response
 
     response_dict = response.model_dump()
+    schema = ChatCompletionResponse.model_json_schema()
     for guardrail in post_llm_guardrails:
         response_dict = await guardrail.process_response(
-            request_payload, response_dict, auth_headers=auth_headers, usage_tracking=usage_tracking
+            request_payload,
+            response_dict,
+            auth_headers=auth_headers,
+            usage_tracking=usage_tracking,
+            payload_schema=schema,
         )
     return chat.ResponsePayload(**response_dict)
+
+
+async def run_post_llm_guardrails_passthrough(
+    guardrails: list[JudgeGuardrail],
+    request_payload: dict[str, Any],
+    response: dict[str, Any],
+    auth_headers: dict[str, str] | None = None,
+    usage_tracking: bool = False,
+) -> dict[str, Any]:
+    """Run post-LLM guardrails for passthrough endpoints.
+
+    Like ``run_post_llm_guardrails`` but accepts and returns a plain ``dict``
+    instead of a ``chat.ResponsePayload``. No ``response_format`` schema constraint
+    is applied since passthrough responses are provider-specific formats.
+
+    Note: post-LLM guardrails are skipped for streaming responses. Configure
+    guardrails that must run on all responses to use the pre-LLM stage, or
+    disable streaming on the endpoint.
+    """
+    for guardrail in guardrails:
+        if guardrail.stage != GuardrailStage.AFTER:
+            continue
+        response = await guardrail.process_response(
+            request_payload, response, auth_headers=auth_headers, usage_tracking=usage_tracking
+        )
+    return response

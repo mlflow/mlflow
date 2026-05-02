@@ -14,6 +14,7 @@ from unittest import mock
 import jwt
 import pytest
 import requests
+from cachetools import TTLCache
 from cryptography.fernet import Fernet
 
 import mlflow
@@ -120,6 +121,26 @@ def test_validate_username_and_password(client, username, password):
 def test_proxy_artifact_path_detection():
     assert auth_module._is_proxy_artifact_path("/api/2.0/mlflow-artifacts/artifacts/foo")
     assert auth_module._is_proxy_artifact_path("/ajax-api/2.0/mlflow-artifacts/artifacts/foo")
+
+
+def test_is_unprotected_route_handles_static_prefix(monkeypatch):
+    # When ``_MLFLOW_STATIC_PREFIX`` is set, the health/static/favicon routes
+    # are served from e.g. ``/mlflow/health``. Health checks must not require
+    # auth on prefixed deployments.
+    monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
+    assert auth_module.is_unprotected_route("/health")
+    assert auth_module.is_unprotected_route("/favicon.ico")
+    assert auth_module.is_unprotected_route("/static/foo.js")
+    assert not auth_module.is_unprotected_route("/api/2.0/mlflow/users/list")
+
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+    assert auth_module.is_unprotected_route("/mlflow/health")
+    assert auth_module.is_unprotected_route("/mlflow/favicon.ico")
+    assert auth_module.is_unprotected_route("/mlflow/static/foo.js")
+    # Unprefixed forms still pass through (local dev / non-prefixed deployments).
+    assert auth_module.is_unprotected_route("/health")
+    # Protected routes stay protected even with the prefix.
+    assert not auth_module.is_unprotected_route("/mlflow/api/2.0/mlflow/users/list")
 
 
 def test_proxy_artifact_mpu_path_detection():
@@ -3100,10 +3121,16 @@ def test_webhook_admin_only_permissions(client, monkeypatch):
 
 @pytest.fixture
 def mock_auth_store():
+    if auth_module._USER_AUTH_CACHE is not None:
+        with auth_module._USER_AUTH_CACHE_LOCK:
+            auth_module._USER_AUTH_CACHE.clear()
     with mock.patch("mlflow.server.auth.store") as mock_store:
         mock_store.get_user.side_effect = lambda username: mock.Mock(username=username)
         mock_store.authenticate_user.return_value = True
         yield mock_store
+    if auth_module._USER_AUTH_CACHE is not None:
+        with auth_module._USER_AUTH_CACHE_LOCK:
+            auth_module._USER_AUTH_CACHE.clear()
 
 
 @pytest.fixture
@@ -3111,6 +3138,14 @@ def mock_auth_config():
     with mock.patch("mlflow.server.auth.auth_config") as mock_config:
         mock_config.admin_username = "admin"
         yield mock_config
+
+
+@pytest.fixture
+def enable_auth_cache():
+    # The credential cache is disabled by default; cache-behavior tests must opt in.
+    cache = TTLCache(maxsize=10000, ttl=60)
+    with mock.patch("mlflow.server.auth._USER_AUTH_CACHE", cache):
+        yield cache
 
 
 def _make_request(path, authorization=None):
@@ -3247,3 +3282,136 @@ def test_fastapi_malformed_authorization_header(mock_auth_store, mock_auth_confi
     user = _authenticate_fastapi_request(request)
 
     assert user is None
+
+
+# -- Basic auth credential cache --
+
+
+def test_basic_auth_caches_successful_credentials(
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
+
+    user_a = _authenticate_fastapi_request(request)
+    user_b = _authenticate_fastapi_request(request)
+
+    assert user_a.username == "alice"
+    assert user_b.username == "alice"
+    # Both PBKDF2 check and user fetch should run exactly once across the two requests.
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+    mock_auth_store.get_user.assert_called_once_with("alice")
+
+
+def test_basic_auth_cache_does_not_store_failed_credentials(
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    mock_auth_store.authenticate_user.return_value = False
+    credentials = base64.b64encode(b"alice:wrong").decode("ascii")
+    request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
+
+    assert _authenticate_fastapi_request(request) is None
+    assert _authenticate_fastapi_request(request) is None
+    assert mock_auth_store.authenticate_user.call_count == 2
+
+
+def test_basic_auth_cache_keyed_by_username_and_password(
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    alice = base64.b64encode(b"alice:password123").decode("ascii")
+    bob = base64.b64encode(b"bob:password123").decode("ascii")
+    alice_wrong = base64.b64encode(b"alice:other-password").decode("ascii")
+
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {bob}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice_wrong}"))
+
+    assert mock_auth_store.authenticate_user.call_args_list == [
+        mock.call("alice", "password123"),
+        mock.call("bob", "password123"),
+        mock.call("alice", "other-password"),
+    ]
+
+
+def test_basic_auth_returns_none_when_user_deleted_between_authenticate_and_get(
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
+):
+    # TOCTOU: authenticate_user returned True but the user disappeared before get_user.
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    mock_auth_store.get_user.side_effect = MlflowException("User not found")
+    credentials = base64.b64encode(b"ghost:password123").decode("ascii")
+    request = _make_request("/x", f"Basic {credentials}")
+
+    # Flask and FastAPI paths both must treat this as an auth failure, not surface
+    # a 500 and, critically, must not cache the (ghost, password123) pair.
+    assert _authenticate_fastapi_request(request) is None
+    if auth_module._USER_AUTH_CACHE is not None:
+        assert (
+            auth_module._auth_cache_key("ghost", "password123") not in auth_module._USER_AUTH_CACHE
+        )
+
+
+def test_flask_basic_auth_skips_get_user_when_cache_disabled(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    fake_flask_request = mock.Mock()
+    fake_flask_request.authorization.username = "alice"
+    fake_flask_request.authorization.password = "password123"
+
+    with (
+        mock.patch("mlflow.server.auth._USER_AUTH_CACHE", None),
+        mock.patch("mlflow.server.auth.request", fake_flask_request),
+    ):
+        result = auth_module.authenticate_request_basic_auth()
+
+    assert result is fake_flask_request.authorization
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+    # Cache disabled + Flask path only needs the yes/no answer → no user fetch.
+    mock_auth_store.get_user.assert_not_called()
+
+
+def test_flask_basic_auth_shares_cache_with_fastapi_path(
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    # Prime the cache via the FastAPI path.
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {credentials}"))
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+    # A subsequent Flask-side call for the same credentials must be served from
+    # cache — no second PBKDF2 verification, no second user fetch.
+    fake_flask_request = mock.Mock()
+    fake_flask_request.authorization.username = "alice"
+    fake_flask_request.authorization.password = "password123"
+    with mock.patch("mlflow.server.auth.request", fake_flask_request):
+        result = auth_module.authenticate_request_basic_auth()
+
+    assert result is fake_flask_request.authorization
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_invalidate_user_auth_cache_drops_only_matching_username(
+    enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    alice = base64.b64encode(b"alice:password123").decode("ascii")
+    alice_alt = base64.b64encode(b"alice:other-password").decode("ascii")
+    bob = base64.b64encode(b"bob:password123").decode("ascii")
+
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice_alt}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {bob}"))
+    assert mock_auth_store.authenticate_user.call_count == 3
+
+    auth_module._invalidate_user_auth_cache("alice")
+
+    # Alice's two cached credentials are re-checked; bob's cache entry stays hot.
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {alice_alt}"))
+    _authenticate_fastapi_request(_make_request("/x", f"Basic {bob}"))
+    assert mock_auth_store.authenticate_user.call_count == 5

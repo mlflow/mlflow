@@ -33,6 +33,9 @@
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "mlflow-codex": "./bundle/cli.js"
+  },
   "scripts": {
     "build": "tsc && npm run build:bundle",
     "build:bundle": "node esbuild.config.mjs",

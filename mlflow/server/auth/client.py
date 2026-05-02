@@ -179,16 +179,23 @@ class AuthServiceClient:
         )
         return User.from_json(resp["user"])
 
-    def update_user_password(self, username: str, password: str):
+    def update_user_password(
+        self, username: str, password: str, current_password: str | None = None
+    ):
         """
         Update the password of a specific user.
 
         Args:
             username: The username.
             password: The new password.
+            current_password: The user's current password. Required when a user
+                is changing their own password (self-service); the server
+                rejects the request otherwise. Admins changing someone else's
+                password may omit this argument.
 
         Raises:
-            mlflow.exceptions.RestException: if the user does not exist
+            mlflow.exceptions.RestException: if the user does not exist, or if
+                ``current_password`` is required and missing or incorrect.
 
         .. code-block:: bash
             :caption: Example
@@ -203,12 +210,21 @@ class AuthServiceClient:
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
 
+            # Admin path — no current_password needed.
             client.update_user_password("newuser", "anotherpassword")
+
+            # Self-service path — current_password required.
+            client.update_user_password(
+                "newuser", "thirdpassword", current_password="anotherpassword"
+            )
         """
+        body = {"username": username, "password": password}
+        if current_password is not None:
+            body["current_password"] = current_password
         self._request(
             UPDATE_USER_PASSWORD,
             "PATCH",
-            json={"username": username, "password": password},
+            json=body,
         )
 
     def update_user_admin(self, username: str, is_admin: bool):

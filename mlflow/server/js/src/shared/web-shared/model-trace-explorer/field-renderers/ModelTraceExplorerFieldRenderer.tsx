@@ -94,9 +94,8 @@ export const ModelTraceExplorerFieldRenderer = ({
         css={{
           display: 'flex',
           flexDirection: 'column',
-          gap: theme.spacing.sm,
+          gap: theme.spacing.xs,
           padding: theme.spacing.sm,
-          border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.borders.borderRadiusSm,
         }}
       >
