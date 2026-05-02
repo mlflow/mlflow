@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777539704406,
+  "lastUpdate": 1777692635196,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -539,6 +539,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.03619499999877,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "weichen.xu@databricks.com",
+            "name": "WeichenXu",
+            "username": "WeichenXu123"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "86f39f85486e678426ca6aba92acd343c810b89e",
+          "message": "Add Helm charts for deploying mlflow to kubernetes cluster (#21973)\n\nSigned-off-by: Weichen Xu <weichen.xu@databricks.com>",
+          "timestamp": "2026-05-02T11:28:52+08:00",
+          "tree_id": "e18a2457b33a6c7a6ca88bfbcfb3b04705f19569",
+          "url": "https://github.com/mlflow/mlflow/commit/86f39f85486e678426ca6aba92acd343c810b89e"
+        },
+        "date": 1777692634015,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.689458349998176,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.68467699999729,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.105003515625498,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 16.83660428571037,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.249702315785694,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 8.197710600006758,
             "unit": "ms"
           }
         ]
