@@ -169,6 +169,10 @@ jobs:
                 const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
                 const resultEvent = events.findLast(({ type }) => type === 'result');
                 if (resultEvent) {
+                  const seconds = (resultEvent.duration_ms / 1000).toFixed(1);
+                  const tokens = (resultEvent.usage?.input_tokens ?? 0) + (resultEvent.usage?.output_tokens ?? 0);
+                  const cost = (Math.round(resultEvent.total_cost_usd * 100) / 100).toFixed(2);
+                  resultLine += ` (${seconds}s, ${resultEvent.num_turns} turns, ${tokens} tokens, $${cost})`;
                   resultLine += `\n<details><summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
                 }
               } catch (e) {

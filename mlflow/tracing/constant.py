@@ -31,6 +31,7 @@ class TraceMetadataKey:
     # Gateway-specific metadata keys
     GATEWAY_ENDPOINT_ID = "mlflow.gateway.endpointId"
     GATEWAY_REQUEST_TYPE = "mlflow.gateway.requestType"
+    GATEWAY_CALLER = "mlflow.gateway.caller"
     # Store the user ID/name from authentication
     AUTH_USER_ID = "mlflow.auth.userId"
     AUTH_USERNAME = "mlflow.auth.username"

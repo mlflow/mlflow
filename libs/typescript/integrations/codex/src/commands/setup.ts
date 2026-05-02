@@ -13,7 +13,8 @@
  *   - Interactive runs prompt for project-local (`./.codex/`) vs user-level
  *     (`~/.codex/`), defaulting to project-local.
  *   - `--project` / `-p` forces project-local and skips the prompt.
- *   - `--non-interactive` without `--project` falls back to user-level.
+ *   - `--non-interactive` defaults to project-local, matching the interactive
+ *     default.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -93,8 +94,8 @@ function writeTracingConfig(
  *   --experiment-id <id>
  *
  * `projectLocal` is left undefined when `--project` is not passed so the
- * interactive flow can prompt for it (and non-interactive can fall back to
- * user-level).
+ * caller can apply its own default (interactive prompts; non-interactive
+ * defaults to project-local).
  */
 export function parseSetupArgs(
   args: string[],
@@ -175,7 +176,7 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
       ? merged.projectLocal
       : interactive
         ? await promptScope()
-        : false;
+        : true;
 
   const configPath = resolveConfigPath(projectLocal, merged);
   const tracingConfigPath = resolveTracingConfigPath(projectLocal, merged);

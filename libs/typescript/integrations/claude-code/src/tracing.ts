@@ -204,21 +204,37 @@ function getInputMessages(
 // ============================================================================
 
 /**
- * Set token usage on a span. Input = input_tokens + cache_creation (cache_read excluded).
+ * Normalize a Claude Code usage payload into the TOKEN_USAGE schema.
+ * Stores fields as the Anthropic API reports them, matching
+ * `mlflow.anthropic.autolog`: `input_tokens` is the non-cached input,
+ * cache tokens are exposed as separate optional keys so consumers can
+ * compute cache hit rate, and `total_tokens` follows the
+ * `mlflow.anthropic` convention of `input_tokens + output_tokens`
+ * (cache tokens excluded).
  */
+function buildUsageDict(usage: TokenUsage): Record<string, number> {
+  const inputTokens = usage.input_tokens ?? 0;
+  const outputTokens = usage.output_tokens ?? 0;
+
+  const usageDict: Record<string, number> = {
+    [TokenUsageKey.INPUT_TOKENS]: inputTokens,
+    [TokenUsageKey.OUTPUT_TOKENS]: outputTokens,
+    [TokenUsageKey.TOTAL_TOKENS]: inputTokens + outputTokens,
+  };
+  if (usage.cache_read_input_tokens !== undefined) {
+    usageDict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = usage.cache_read_input_tokens;
+  }
+  if (usage.cache_creation_input_tokens !== undefined) {
+    usageDict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = usage.cache_creation_input_tokens;
+  }
+  return usageDict;
+}
+
 function setTokenUsageAttribute(span: LiveSpan, usage: TokenUsage | undefined): void {
   if (!usage) {
     return;
   }
-
-  const inputTokens = (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
-  const outputTokens = usage.output_tokens ?? 0;
-
-  span.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
-    [TokenUsageKey.INPUT_TOKENS]: inputTokens,
-    [TokenUsageKey.OUTPUT_TOKENS]: outputTokens,
-    [TokenUsageKey.TOTAL_TOKENS]: inputTokens + outputTokens,
-  });
+  span.setAttribute(SpanAttributeKey.TOKEN_USAGE, buildUsageDict(usage));
 }
 
 // ============================================================================

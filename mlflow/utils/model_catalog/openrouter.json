@@ -4,7 +4,9 @@
     "anthropic/claude-3-haiku": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 200000
+        "max_input": 200000,
+        "max_output": 4096,
+        "max_tokens": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.25,
@@ -17,7 +19,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "anthropic/claude-3.5-sonnet": {
       "mode": "chat",
@@ -693,7 +695,9 @@
     "mancer/weaver": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 8000
+        "max_input": 8000,
+        "max_output": 2000,
+        "max_tokens": 2000
       },
       "pricing": {
         "input_per_million_tokens": 5.625,
@@ -706,12 +710,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "meta-llama/llama-3-70b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 8192
+        "max_input": 8192,
+        "max_output": 8000,
+        "max_tokens": 8000
       },
       "pricing": {
         "input_per_million_tokens": 0.59,
@@ -724,7 +730,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "minimax/minimax-m2": {
       "mode": "chat",
@@ -872,7 +878,9 @@
     "mistralai/mistral-7b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 8192
+        "max_input": 32768,
+        "max_output": 8191,
+        "max_tokens": 8191
       },
       "pricing": {
         "input_per_million_tokens": 0.13,
@@ -885,12 +893,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "mistralai/mistral-large": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 32000
+        "max_input": 128000,
+        "max_output": 8191,
+        "max_tokens": 8191
       },
       "pricing": {
         "input_per_million_tokens": 8.0,
@@ -903,7 +913,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "mistralai/mistral-large-2512": {
       "mode": "chat",
@@ -928,7 +938,9 @@
     "mistralai/mistral-small-3.1-24b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 32000
+        "max_input": 131072,
+        "max_output": 131072,
+        "max_tokens": 131072
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -941,12 +953,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "mistralai/mistral-small-3.2-24b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 32000
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -959,11 +973,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "mistralai/mixtral-8x22b-instruct": {
       "mode": "chat",
       "context_window": {
+        "max_input": 65536,
+        "max_output": 65536,
         "max_tokens": 65536
       },
       "pricing": {
@@ -977,7 +993,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "moonshotai/kimi-k2.5": {
       "mode": "chat",
@@ -1003,7 +1019,9 @@
     "openai/gpt-3.5-turbo": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 4095
+        "max_input": 16385,
+        "max_output": 4096,
+        "max_tokens": 4096
       },
       "pricing": {
         "input_per_million_tokens": 1.5,
@@ -1016,12 +1034,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "openai/gpt-3.5-turbo-16k": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 16383
+        "max_input": 16385,
+        "max_output": 4096,
+        "max_tokens": 4096
       },
       "pricing": {
         "input_per_million_tokens": 3.0,
@@ -1034,12 +1054,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "openai/gpt-4": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 8192
+        "max_input": 8191,
+        "max_output": 4096,
+        "max_tokens": 4096
       },
       "pricing": {
         "input_per_million_tokens": 30.0,
@@ -1052,7 +1074,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "openai/gpt-4.1": {
       "mode": "chat",
@@ -1794,7 +1816,9 @@
     "undi95/remm-slerp-l2-13b": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 6144
+        "max_input": 6144,
+        "max_output": 4096,
+        "max_tokens": 4096
       },
       "pricing": {
         "input_per_million_tokens": 1.875,
@@ -1807,7 +1831,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-04-27"
     },
     "x-ai/grok-4": {
       "mode": "chat",

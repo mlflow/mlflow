@@ -21,7 +21,6 @@ from mlflow.gateway.providers.utils import send_request
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.types.chat import ChatCompletionRequest, ChatCompletionResponse
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers import Scorer
@@ -211,14 +210,19 @@ class JudgeGuardrail(Guardrail):
         self,
         payload: dict[str, Any],
         rationale: str,
-        payload_model: type[ChatCompletionRequest] | type[ChatCompletionResponse],
         auth_headers: dict[str, str] | None = None,
         usage_tracking: bool = False,
+        payload_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Send the full payload to the action endpoint LLM for rewriting.
 
         Posts a chat request to ``action_llm_url`` which is the fully
         resolved gateway invocations URL.
+
+        When ``payload_schema`` is provided the sanitization request includes a
+        ``response_format`` constraint so the action LLM returns a JSON object
+        that matches the schema.  Pass ``None`` (the default) for passthrough or
+        request-side payloads where no schema constraint is needed.
         """
         if not self.action_llm_url or not self.action_endpoint_name:
             raise GuardrailViolation(
@@ -228,7 +232,7 @@ class JudgeGuardrail(Guardrail):
 
         url = self.action_llm_url
         path = f"gateway/{self.action_endpoint_name}/mlflow/invocations"
-        body = {
+        body: dict[str, Any] = {
             "messages": [
                 {
                     "role": "user",
@@ -238,15 +242,16 @@ class JudgeGuardrail(Guardrail):
                     ),
                 },
             ],
-            "response_format": {
+        }
+        if payload_schema is not None:
+            body["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
                     "name": "sanitized_payload",
                     "strict": False,
-                    "schema": payload_model.model_json_schema(),
+                    "schema": payload_schema,
                 },
-            },
-        }
+            }
 
         headers = (
             {k: v for k, v in auth_headers.items() if k.lower() in _ALLOWED_AUTH_HEADERS}
@@ -297,10 +302,10 @@ class JudgeGuardrail(Guardrail):
     async def _enforce(
         self,
         payload: dict[str, Any],
-        payload_model: type[ChatCompletionRequest] | type[ChatCompletionResponse],
         result: ScorerResult,
         auth_headers: dict[str, str] | None,
         usage_tracking: bool = False,
+        payload_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Block or sanitize *payload* based on *result*.
 
@@ -319,9 +324,9 @@ class JudgeGuardrail(Guardrail):
         return await self._sanitize(
             payload,
             rationale,
-            payload_model,
             auth_headers=auth_headers,
             usage_tracking=usage_tracking,
+            payload_schema=payload_schema,
         )
 
     async def process_request(
@@ -329,13 +334,14 @@ class JudgeGuardrail(Guardrail):
         request: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
         usage_tracking: bool = False,
+        payload_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if self.stage == GuardrailStage.AFTER:
             return request
 
         if not usage_tracking:
             result = await asyncio.to_thread(self._invoke_judge, inputs=request)
-            return await self._enforce(request, ChatCompletionRequest, result, auth_headers)
+            return await self._enforce(request, result, auth_headers, payload_schema=payload_schema)
 
         with mlflow.start_span(
             name=f"guardrail/{self.name}", span_type=SpanType.GUARDRAIL
@@ -346,7 +352,11 @@ class JudgeGuardrail(Guardrail):
                 passed = self._is_passing(result)
                 jspan.set_outputs({"passed": passed, "rationale": self._get_rationale(result)})
             output = await self._enforce(
-                request, ChatCompletionRequest, result, auth_headers, usage_tracking=usage_tracking
+                request,
+                result,
+                auth_headers,
+                usage_tracking=usage_tracking,
+                payload_schema=payload_schema,
             )
             gspan.set_outputs(output)
             return output
@@ -357,13 +367,16 @@ class JudgeGuardrail(Guardrail):
         response: dict[str, Any],
         auth_headers: dict[str, str] | None = None,
         usage_tracking: bool = False,
+        payload_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if self.stage == GuardrailStage.BEFORE:
             return response
 
         if not usage_tracking:
             result = await asyncio.to_thread(self._invoke_judge, inputs=request, outputs=response)
-            return await self._enforce(response, ChatCompletionResponse, result, auth_headers)
+            return await self._enforce(
+                response, result, auth_headers, payload_schema=payload_schema
+            )
 
         with mlflow.start_span(
             name=f"guardrail/{self.name}", span_type=SpanType.GUARDRAIL
@@ -377,10 +390,10 @@ class JudgeGuardrail(Guardrail):
                 jspan.set_outputs({"passed": passed, "rationale": self._get_rationale(result)})
             output = await self._enforce(
                 response,
-                ChatCompletionResponse,
                 result,
                 auth_headers,
                 usage_tracking=usage_tracking,
+                payload_schema=payload_schema,
             )
             gspan.set_outputs(output)
             return output
