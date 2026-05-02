@@ -101,9 +101,25 @@ By default this uses `SIMBAAlignmentOptimizer`; pass `optimizer=` to swap. The a
 
 ### 5. Run evaluation
 
+`mlflow.genai.evaluate` calls `predict_fn` with each row's `inputs` **as keyword arguments**, so the dict keys must match the `predict_fn` parameter names exactly. For `run_agent(user_input: str)` the dataset looks like:
+
 ```python
+import pandas as pd
 import mlflow.genai
 from mlflow.genai.scorers import Correctness, Safety
+
+eval_dataset = pd.DataFrame(
+    [
+        {
+            "inputs": {"user_input": "What is MLflow?"},
+            "expectations": "MLflow is an open-source ML lifecycle platform.",
+        },
+        {
+            "inputs": {"user_input": "What is Spark?"},
+            "expectations": "Spark is a distributed data processing engine.",
+        },
+    ]
+)
 
 results = mlflow.genai.evaluate(
     data=eval_dataset,
@@ -112,7 +128,7 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-Results land in the active experiment under Evaluations and are diff-able across agent versions.
+Accepted `data` shapes: a pandas/Spark DataFrame, a list of dicts, an `EvaluationDataset`, or a DataFrame of existing traces from `mlflow.search_traces(...)` (in which case `predict_fn` is omitted and scorers read from the trace). Results land in the active experiment under Evaluations and are diff-able across agent versions.
 
 ### 6. Optimize the agent's prompt
 
@@ -154,6 +170,8 @@ The `predict_fn` must call `PromptVersion.format` on a prompt referenced in `pro
 - Plan for at least ~30 feedback samples before alignment produces a meaningful refined judge.
 - `make_judge` instructions must contain at least one template variable, otherwise the call fails validation.
 - `make_judge(model=...)` accepts URIs like `"openai:/gpt-4o-mini"` or `"databricks:/..."`. `base_url` and `extra_headers` are not supported for Databricks-backed models.
+- For reproducible eval runs, pin the judge's sampling: `make_judge(..., inference_params={"temperature": 0})`. Without this, judge scores drift between runs and break diff-based regression checks.
+- `mlflow.genai.evaluate(predict_fn=...)` invokes `predict_fn` with `**inputs`, so each row's `inputs` dict keys must match the function's parameter names. A signature mismatch surfaces as `TypeError: got an unexpected keyword argument`, not a clear validation error.
 - Session-level scorers group traces that share a `session_id` (set on the trace's metadata, or as a `session_id` column on the evaluation dataset). A single trace — however many spans it contains — is still a turn-level trace, not a session.
 - `optimize_prompts` only edits prompt text. For tool / agent-logic rewrites, use Claude Code with this skill loaded.
 
