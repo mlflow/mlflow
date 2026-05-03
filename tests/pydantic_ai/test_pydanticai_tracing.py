@@ -18,6 +18,7 @@ from mlflow.pydantic_ai.autolog import (
     _get_mcp_server_attributes,
     _get_model_attributes,
     _get_tool_attributes,
+    _parse_usage,
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -550,3 +551,98 @@ def test_autolog_uses_private_tool_manager_path_on_old_pydantic_ai():
         patch("mlflow.pydantic_ai._tool_manager_uses_execute_tool_call", return_value=True),
     ):
         mlflow.pydantic_ai.autolog(log_traces=True)
+
+
+# ---------------------------------------------------------------------------
+# _parse_usage — Anthropic prompt-cache token surfacing
+# ---------------------------------------------------------------------------
+
+
+class _FakeRunUsageWithCache:
+    """Mimics pydantic-ai's `RunUsage` shape when Anthropic prompt caching
+    is active. `input_tokens` already includes the cached portion, per
+    genai-prices' `AbstractUsage` convention.
+    """
+
+    input_tokens = 1500
+    output_tokens = 50
+    total_tokens = 1550
+    cache_read_tokens = 1200
+    cache_write_tokens = 300
+
+
+class _FakeRunUsageNoCache:
+    """`RunUsage` on a non-Anthropic / cache-disabled run -- the cache
+    fields are present (pydantic-ai types them `int = 0`) but zero. Should
+    NOT result in `cache_*` keys being emitted.
+    """
+
+    input_tokens = 1500
+    output_tokens = 50
+    total_tokens = 1550
+    cache_read_tokens = 0
+    cache_write_tokens = 0
+
+
+class _FakeRunUsageWithoutCacheAttrs:
+    """An older or alternate usage shape that doesn't expose the
+    `cache_*` attributes at all -- `getattr` defaults must keep
+    `_parse_usage` backwards-compatible.
+    """
+
+    input_tokens = 1500
+    output_tokens = 50
+    total_tokens = 1550
+
+
+class _FakeStreamedResult:
+    """`StreamedRunResult` exposes `usage` as a method; this fixture
+    mirrors that shape to exercise the callable branch in `_parse_usage`.
+    """
+
+    def __init__(self, usage):
+        self._usage = usage
+
+    def usage(self):
+        return self._usage
+
+
+class _FakeRunResult:
+    """`RunResult` exposes `usage` as an attribute; covers the
+    non-callable branch.
+    """
+
+    def __init__(self, usage):
+        self.usage = usage
+
+
+def test_parse_usage_emits_anthropic_cache_keys_when_populated():
+    assert _parse_usage(_FakeRunResult(_FakeRunUsageWithCache())) == {
+        TokenUsageKey.INPUT_TOKENS: 1500,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 1550,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 1200,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 300,
+    }
+
+
+def test_parse_usage_omits_cache_keys_when_zero():
+    assert _parse_usage(_FakeRunResult(_FakeRunUsageNoCache())) == {
+        TokenUsageKey.INPUT_TOKENS: 1500,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 1550,
+    }
+
+
+def test_parse_usage_streamed_result_callable_usage_path():
+    usage = _parse_usage(_FakeStreamedResult(_FakeRunUsageWithCache()))
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 1200
+    assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 300
+
+
+def test_parse_usage_skips_cache_keys_when_attrs_missing():
+    assert _parse_usage(_FakeRunResult(_FakeRunUsageWithoutCacheAttrs())) == {
+        TokenUsageKey.INPUT_TOKENS: 1500,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 1550,
+    }

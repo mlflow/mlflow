@@ -471,11 +471,33 @@ def _parse_usage(result: Any) -> dict[str, int] | None:
         total_tokens = getattr(usage, "total_tokens")
         if total_tokens is None:
             total_tokens = input_tokens + output_tokens
-        return {
+        usage_dict: dict[str, int] = {
             TokenUsageKey.INPUT_TOKENS: input_tokens,
             TokenUsageKey.OUTPUT_TOKENS: output_tokens,
             TokenUsageKey.TOTAL_TOKENS: total_tokens,
         }
+        # Anthropic prompt-cache counts are exposed on pydantic-ai's RunUsage as
+        # `cache_read_tokens` / `cache_write_tokens`. Mirror what
+        # `mlflow.anthropic.autolog._parse_usage` does so the trace UI's Usage
+        # breakdown tooltip renders real numbers in the cache cells instead of
+        # "n/a" for pydantic-ai runs that exercised Anthropic caching.
+        #
+        # No `input_tokens` normalization is needed here (unlike
+        # `mlflow.anthropic.autolog`): pydantic-ai's RunUsage follows
+        # genai-prices' AbstractUsage convention where `input_tokens` already
+        # includes both cached and uncached portions, whereas Anthropic's raw
+        # SDK shape excludes cache tokens (which is why `mlflow.anthropic`
+        # adds them back in after extraction).
+        #
+        # Skip when zero -- pydantic-ai types these as `int = 0` (not
+        # Optional[int]), so an `is not None` check (the form
+        # `mlflow.anthropic.autolog` uses) would always pass and emit
+        # `cache_*: 0` for every non-Anthropic / cache-disabled run.
+        if cache_read := getattr(usage, "cache_read_tokens", 0):
+            usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+        if cache_write := getattr(usage, "cache_write_tokens", 0):
+            usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_write
+        return usage_dict
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")
     return None
