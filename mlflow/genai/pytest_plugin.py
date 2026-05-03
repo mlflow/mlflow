@@ -35,19 +35,22 @@ Mark tests with ``@pytest.mark.genai`` to opt into automatic run management::
 
 The plugin provides the following fixtures:
 
-- ``mlflow_experiment_name``: Override to set the experiment name (default: ``"pytest"``).
+- ``mlflow_experiment_name``: Override to set the experiment name
+  (checks ``--mlflow-experiment`` CLI, then ``MLFLOW_EXPERIMENT_NAME`` /
+  ``MLFLOW_EXPERIMENT_ID`` env vars, then falls back to ``"pytest"``).
 - ``mlflow_run``: The active child run for the current test case.
 - ``mlflow_evaluate``: Convenience wrapper around ``mlflow.genai.evaluate()``.
 
 CLI options:
 
-- ``--mlflow-experiment``: Set the MLflow experiment name (default: ``"pytest"``).
+- ``--mlflow-experiment``: Set the MLflow experiment name (overrides env vars).
 """
 
 from __future__ import annotations
 
 import datetime
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -65,6 +68,7 @@ MLFLOW_RUN_TYPE_TAG = "mlflow.runType"
 MLFLOW_RUN_TYPE_PYTEST = "pytest"
 MLFLOW_TEST_OUTCOME_TAG = "mlflow.test.outcome"
 MLFLOW_TEST_DURATION_TAG = "mlflow.test.duration"
+MLFLOW_TEST_NAME_TAG = "mlflow.test.name"
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +78,8 @@ MLFLOW_TEST_DURATION_TAG = "mlflow.test.duration"
 
 @dataclass(frozen=True)
 class _TestResult:
+    __test__ = False
+
     name: str
     outcome: str
     duration_s: float
@@ -95,7 +101,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption(
         "--mlflow-experiment",
         dest="mlflow_experiment",
-        default="pytest",
+        default=None,
         help="MLflow experiment name for this test session (default: 'pytest').",
     )
 
@@ -127,8 +133,24 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 @pytest.fixture(scope="session")
 def mlflow_experiment_name(request: pytest.FixtureRequest) -> str:
-    """Return the experiment name. Override this fixture to customise."""
-    return request.config.getoption("mlflow_experiment")
+    """Return the experiment name. Override this fixture to customise.
+
+    Resolution order:
+    1. ``--mlflow-experiment`` CLI option (if explicitly provided)
+    2. ``MLFLOW_EXPERIMENT_NAME`` environment variable
+    3. ``MLFLOW_EXPERIMENT_ID`` environment variable (used as-is; MLflow resolves it)
+    4. Fallback to ``"pytest"``
+    """
+    cli_value = request.config.getoption("mlflow_experiment")
+    if cli_value is not None:
+        return cli_value
+    env_name = os.environ.get("MLFLOW_EXPERIMENT_NAME")
+    if env_name:
+        return env_name
+    env_id = os.environ.get("MLFLOW_EXPERIMENT_ID")
+    if env_id:
+        return env_id
+    return "pytest"
 
 
 @pytest.fixture(scope="session")
@@ -161,6 +183,7 @@ def mlflow_run(_mlflow_session_run, request: pytest.FixtureRequest):
         nested=True,
     ) as child_run:
         mlflow.set_tag(MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_PYTEST)
+        mlflow.set_tag(MLFLOW_TEST_NAME_TAG, test_name)
         # Log parametrize params if present
         if hasattr(request.node, "callspec"):
             mlflow.log_params(
@@ -211,6 +234,12 @@ def pytest_runtest_call(item: pytest.Item):
     # Auto-create a session run if one doesn't exist yet
     if not item.config._mlflow_genai_parent_run_id:
         experiment_name = item.config.getoption("mlflow_experiment")
+        if experiment_name is None:
+            experiment_name = (
+                os.environ.get("MLFLOW_EXPERIMENT_NAME")
+                or os.environ.get("MLFLOW_EXPERIMENT_ID")
+                or "pytest"
+            )
         mlflow.set_experiment(experiment_name)
         timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
         parent_run = mlflow.start_run(run_name=f"pytest_{timestamp}")
@@ -228,6 +257,7 @@ def pytest_runtest_call(item: pytest.Item):
         nested=True,
     ) as child_run:
         mlflow.set_tag(MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_PYTEST)
+        mlflow.set_tag(MLFLOW_TEST_NAME_TAG, test_name)
         if hasattr(item, "callspec"):
             mlflow.log_params(
                 {k: str(v) for k, v in item.callspec.params.items()}
@@ -319,6 +349,25 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config: pytest.Config)
         metrics_str = ", ".join(f"{k}={v:.3f}" for k, v in r.metrics.items()) if r.metrics else ""
         line = f"{r.name:<50} {r.outcome:<10} {r.duration_s:<10.3f} {metrics_str}"
         terminalreporter.write_line(line)
+
+    # Log summary metrics to the parent run
+    if parent_run_id:
+        total_duration = sum(r.duration_s for r in results)
+        total = len(results)
+        pass_rate = passed / total if total > 0 else 0.0
+        try:
+            client = mlflow.MlflowClient()
+            summary_metrics = {
+                "test.pass_count": passed,
+                "test.fail_count": failed,
+                "test.skip_count": skipped,
+                "test.pass_rate": pass_rate,
+                "test.total_duration": total_duration,
+            }
+            for key, value in summary_metrics.items():
+                client.log_metric(parent_run_id, key, value)
+        except Exception:
+            _logger.debug("Failed to log summary metrics to parent run", exc_info=True)
 
     # End auto-started parent run if needed
     if getattr(config, "_mlflow_auto_started_parent", False):

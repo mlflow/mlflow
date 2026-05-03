@@ -10,6 +10,7 @@ from mlflow.genai.pytest_plugin import (
     MLFLOW_RUN_TYPE_PYTEST,
     MLFLOW_RUN_TYPE_TAG,
     MLFLOW_TEST_DURATION_TAG,
+    MLFLOW_TEST_NAME_TAG,
     MLFLOW_TEST_OUTCOME_TAG,
     TestResult,
 )
@@ -88,6 +89,7 @@ def test_constants():
     assert MLFLOW_RUN_TYPE_PYTEST == "pytest"
     assert MLFLOW_TEST_OUTCOME_TAG == "mlflow.test.outcome"
     assert MLFLOW_TEST_DURATION_TAG == "mlflow.test.duration"
+    assert MLFLOW_TEST_NAME_TAG == "mlflow.test.name"
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +212,7 @@ def pytester_with_plugin(pytester, tmp_path):
     pytester.makeconftest(
         f"""
 import mlflow
+
 mlflow.set_tracking_uri("sqlite:///{db_path}")
 pytest_plugins = ["mlflow.genai.pytest_plugin"]
 """
@@ -282,3 +285,84 @@ def test_will_pass():
     result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1, failed=1)
     result.stdout.fnmatch_lines(["*1 passed*1 failed*"])
+
+
+def test_experiment_name_from_env_var(pytester_with_plugin, monkeypatch):
+    pytester, db_path = pytester_with_plugin
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "env-experiment")
+    pytester.makepyfile(
+        """
+import pytest
+
+@pytest.mark.genai
+def test_env_exp():
+    assert True
+"""
+    )
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(["*env-experiment*"])
+
+
+def test_cli_option_overrides_env_var(pytester_with_plugin, monkeypatch):
+    pytester, db_path = pytester_with_plugin
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "env-experiment")
+    pytester.makepyfile(
+        """
+import pytest
+
+@pytest.mark.genai
+def test_cli_exp():
+    assert True
+"""
+    )
+    result = pytester.runpytest("-v", "--mlflow-experiment", "cli-experiment")
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(["*cli-experiment*"])
+
+
+def test_summary_metrics_logged_to_parent_run(pytester_with_plugin):
+    pytester, db_path = pytester_with_plugin
+    pytester.makepyfile(
+        """
+import pytest
+import mlflow
+
+@pytest.mark.genai
+def test_pass():
+    assert True
+
+@pytest.mark.genai
+def test_fail():
+    assert False
+"""
+    )
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(passed=1, failed=1)
+
+    # Verify summary metrics on the parent run
+    import mlflow
+
+    original_uri = mlflow.get_tracking_uri()
+    try:
+        mlflow.set_tracking_uri(f"sqlite:///{db_path}")
+        client = mlflow.MlflowClient()
+        experiment = client.get_experiment_by_name("pytest")
+        runs = client.search_runs(
+            experiment_ids=[experiment.experiment_id],
+            filter_string=f"tags.`{MLFLOW_RUN_TYPE_TAG}` = '{MLFLOW_RUN_TYPE_PYTEST}'",
+            order_by=["attributes.start_time ASC"],
+        )
+        # Find the parent run (no parent_id tag)
+        parent_runs = [
+            r for r in runs if r.data.tags.get("mlflow.parentRunId") is None
+        ]
+        assert len(parent_runs) == 1
+        parent = parent_runs[0]
+        assert parent.data.metrics["test.pass_count"] == 1
+        assert parent.data.metrics["test.fail_count"] == 1
+        assert parent.data.metrics["test.skip_count"] == 0
+        assert parent.data.metrics["test.pass_rate"] == 0.5
+        assert parent.data.metrics["test.total_duration"] > 0
+    finally:
+        mlflow.set_tracking_uri(original_uri)

@@ -138,4 +138,34 @@ describe('RunViewPytestResultsTab', () => {
       );
     });
   });
+
+  test('paginates through all child runs', async () => {
+    jest
+      .mocked(MlflowService.searchRuns)
+      .mockResolvedValueOnce({
+        runs: [createMockRun('run-1', 'test_page1', 'passed', '1.0')],
+        next_page_token: 'token-2',
+      } as any)
+      .mockResolvedValueOnce({
+        runs: [createMockRun('run-2', 'test_page2', 'failed', '2.0')],
+      } as any);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pytest-results-table')).toBeInTheDocument();
+    });
+
+    // Both pages should be rendered
+    expect(screen.getByText('test_page1')).toBeInTheDocument();
+    expect(screen.getByText('test_page2')).toBeInTheDocument();
+
+    // searchRuns called twice
+    expect(MlflowService.searchRuns).toHaveBeenCalledTimes(2);
+    expect(MlflowService.searchRuns).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page_token: 'token-2',
+      }),
+    );
+  });
 });

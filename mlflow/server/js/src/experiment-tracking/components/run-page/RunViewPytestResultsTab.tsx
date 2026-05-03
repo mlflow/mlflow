@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { CheckCircleIcon, ClockIcon, Tag, Typography, XCircleIcon, useDesignSystemTheme } from '@databricks/design-system';
+import type { TagColors } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
@@ -17,24 +18,37 @@ interface ChildTestRun {
   metrics: Record<string, number>;
 }
 
+const getOutcomeColor = (outcome: string): TagColors | undefined => {
+  if (outcome === 'passed') {
+    return 'teal';
+  }
+  if (outcome === 'failed') {
+    return 'coral';
+  }
+  if (outcome === 'skipped') {
+    return 'lemon';
+  }
+  return undefined;
+};
+
+const getOutcomeIcon = (outcome: string) => {
+  if (outcome === 'passed') {
+    return <CheckCircleIcon />;
+  }
+  if (outcome === 'failed') {
+    return <XCircleIcon />;
+  }
+  if (outcome === 'skipped') {
+    return <ClockIcon />;
+  }
+  return null;
+};
+
 const OutcomeBadge = ({ outcome }: { outcome: string }) => {
-  const { theme } = useDesignSystemTheme();
-
-  const colorMap = {
-    passed: theme.colors.green500 ?? '#10b981',
-    failed: theme.colors.red500 ?? '#ef4444',
-    skipped: theme.colors.yellow500 ?? '#f59e0b',
-  } satisfies Record<string, string>;
-
+  const icon = getOutcomeIcon(outcome);
   return (
-    <Tag
-      componentId="mlflow.pytest-results.outcome-badge"
-      css={{
-        backgroundColor: colorMap[outcome as keyof typeof colorMap] ?? theme.colors.grey400,
-        color: '#fff',
-        fontWeight: 600,
-      }}
-    >
+    <Tag componentId="mlflow.pytest-results.outcome-badge" color={getOutcomeColor(outcome)}>
+      {icon && <span css={{ display: 'inline-flex', alignItems: 'center', marginRight: 4 }}>{icon}</span>}
       {outcome}
     </Tag>
   );
@@ -53,32 +67,41 @@ export const RunViewPytestResultsTab = ({ runUuid }: { runUuid: string }) => {
     }
     setIsLoading(true);
     try {
-      const res = await MlflowService.searchRuns({
-        experiment_ids: [experimentId],
-        filter: `tags.\`${EXPERIMENT_PARENT_ID_TAG}\` = '${runUuid}'`,
-        order_by: ['attributes.start_time ASC'],
-        max_results: 200,
-      });
+      const allRuns: ChildTestRun[] = [];
+      let pageToken: string | undefined;
 
-      const runs: ChildTestRun[] = (res.runs ?? []).map((run: any) => {
-        const tags: Record<string, string> = {};
-        for (const tag of run.data?.tags ?? []) {
-          tags[tag.key] = tag.value;
-        }
-        const metrics: Record<string, number> = {};
-        for (const metric of run.data?.metrics ?? []) {
-          metrics[metric.key] = metric.value;
-        }
-        return {
-          runUuid: run.info.run_uuid ?? run.info.run_id,
-          runName: run.info.run_name ?? run.info.run_uuid ?? '',
-          outcome: tags[MLFLOW_TEST_OUTCOME_TAG] ?? 'unknown',
-          duration: tags[MLFLOW_TEST_DURATION_TAG] ?? '-',
-          metrics,
-        };
-      });
+      do {
+        const res = await MlflowService.searchRuns({
+          experiment_ids: [experimentId],
+          filter: `tags.\`${EXPERIMENT_PARENT_ID_TAG}\` = '${runUuid}'`,
+          order_by: ['attributes.start_time ASC'],
+          max_results: 200,
+          ...(pageToken ? { page_token: pageToken } : {}),
+        });
 
-      setChildRuns(runs);
+        const runs: ChildTestRun[] = (res.runs ?? []).map((run: any) => {
+          const tags: Record<string, string> = {};
+          for (const tag of run.data?.tags ?? []) {
+            tags[tag.key] = tag.value;
+          }
+          const metrics: Record<string, number> = {};
+          for (const metric of run.data?.metrics ?? []) {
+            metrics[metric.key] = metric.value;
+          }
+          return {
+            runUuid: run.info.run_uuid ?? run.info.run_id,
+            runName: run.info.run_name ?? run.info.run_uuid ?? '',
+            outcome: tags[MLFLOW_TEST_OUTCOME_TAG] ?? 'unknown',
+            duration: tags[MLFLOW_TEST_DURATION_TAG] ?? '-',
+            metrics,
+          };
+        });
+
+        allRuns.push(...runs);
+        pageToken = res.next_page_token;
+      } while (pageToken);
+
+      setChildRuns(allRuns);
       setHasError(false);
     } catch {
       setHasError(true);
