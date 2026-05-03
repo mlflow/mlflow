@@ -1,11 +1,12 @@
 """
 MLflow GenAI pytest plugin.
 
-Provides seamless integration between pytest and MLflow's GenAI evaluation framework.
-Automatically manages MLflow experiments and runs so that each pytest session creates
-a single parent run and each test case runs as a nested child run. Results from
-``mlflow.genai.evaluate`` calls inside tests are automatically grouped under the
-session run for easy review and aggregation.
+Provides integration between pytest and MLflow's GenAI evaluation framework.
+Tests marked with ``@pytest.mark.genai`` or using the ``mlflow_run`` fixture
+automatically run inside nested child MLflow runs. When a marked test is first
+encountered, the plugin creates a single session-scoped parent run and groups
+all subsequent child runs beneath it. Results from ``mlflow.genai.evaluate``
+calls inside these tests are grouped under the session run for review.
 
 Usage
 -----

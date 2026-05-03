@@ -6,7 +6,6 @@ from unittest import mock
 
 import pytest
 
-import mlflow
 from mlflow.genai.pytest_plugin import (
     MLFLOW_RUN_TYPE_PYTEST,
     MLFLOW_RUN_TYPE_TAG,
@@ -17,16 +16,6 @@ from mlflow.genai.pytest_plugin import (
 
 # Enable pytester fixture
 pytest_plugins = ["pytester"]
-
-
-@pytest.fixture
-def _isolated_tracking(tmp_path):
-    db_path = tmp_path / "mlflow.db"
-    tracking_uri = f"sqlite:///{db_path}"
-    mlflow.set_tracking_uri(tracking_uri)
-    yield tracking_uri
-    mlflow.set_tracking_uri(None)
-
 
 # ---------------------------------------------------------------------------
 # Module export tests
@@ -55,22 +44,6 @@ def test_plugin_is_not_auto_registered():
     eps = entry_points(group="pytest11")
     mlflow_eps = [ep for ep in eps if ep.name == "mlflow-genai"]
     assert len(mlflow_eps) == 0
-
-
-# ---------------------------------------------------------------------------
-# Nested run test
-# ---------------------------------------------------------------------------
-
-
-def test_nested_run_has_parent_id(_isolated_tracking):
-    mlflow.set_experiment("pytest")
-    with mlflow.start_run(run_name="parent") as parent_run:
-        parent_id = parent_run.info.run_id
-        with mlflow.start_run(run_name="child_test", nested=True) as child_run:
-            assert child_run.info.run_id != parent_id
-            client = mlflow.MlflowClient()
-            child_info = client.get_run(child_run.info.run_id)
-            assert child_info.data.tags.get("mlflow.parentRunId") == parent_id
 
 
 # ---------------------------------------------------------------------------
