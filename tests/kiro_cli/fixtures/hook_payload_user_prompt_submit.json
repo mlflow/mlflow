@@ -1,0 +1,6 @@
+{
+  "hook_event_name": "userPromptSubmit",
+  "cwd": "/home/user/project",
+  "session_id": "test-session-001",
+  "prompt": "What is 2 + 2?"
+}
