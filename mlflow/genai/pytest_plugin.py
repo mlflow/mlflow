@@ -9,15 +9,21 @@ session run for easy review and aggregation.
 
 Usage
 -----
-Install mlflow and add ``-p mlflow.genai.pytest_plugin`` to your pytest invocation or
-``pytest.ini``::
+This plugin is **opt-in** — it is NOT loaded automatically when mlflow is installed.
+Users must explicitly register it in one of the following ways:
+
+Register in ``conftest.py``::
+
+    pytest_plugins = ["mlflow.genai.pytest_plugin"]
+
+Or add to ``pytest.ini`` / ``pyproject.toml``::
 
     [pytest]
     addopts = -p mlflow.genai.pytest_plugin
 
-Or register it in ``conftest.py``::
+Or pass on the command line::
 
-    pytest_plugins = ["mlflow.genai.pytest_plugin"]
+    pytest -p mlflow.genai.pytest_plugin
 
 Mark tests with ``@pytest.mark.genai`` to opt into automatic run management::
 

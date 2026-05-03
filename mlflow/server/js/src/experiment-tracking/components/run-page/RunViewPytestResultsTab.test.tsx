@@ -11,15 +11,10 @@ jest.mock('../../sdk/MlflowService', () => ({
   },
 }));
 
-jest.mock('../../../common/utils/RoutingUtils', () => {
-  const actual = jest.requireActual<typeof import('../../../common/utils/RoutingUtils')>(
-    '../../../common/utils/RoutingUtils',
-  );
-  return {
-    ...actual,
-    useParams: () => ({ experimentId: 'exp-1', runUuid: 'parent-run' }),
-  };
-});
+jest.mock('../../../common/utils/RoutingUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/RoutingUtils')>('../../../common/utils/RoutingUtils'),
+  useParams: () => ({ experimentId: 'exp-1', runUuid: 'parent-run' }),
+}));
 
 const parentRunUuid = 'parent-run';
 

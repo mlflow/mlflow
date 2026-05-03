@@ -47,13 +47,14 @@ def test_plugin_module_exports():
     assert hasattr(pytest_plugin, "pytest_terminal_summary")
 
 
-def test_plugin_has_pytest11_entry_point():
+def test_plugin_is_not_auto_registered():
+    """The plugin must NOT be registered as a pytest11 entry point.
+    Users should opt in explicitly via pytest_plugins or -p."""
     from importlib.metadata import entry_points
 
     eps = entry_points(group="pytest11")
     mlflow_eps = [ep for ep in eps if ep.name == "mlflow-genai"]
-    assert len(mlflow_eps) == 1
-    assert mlflow_eps[0].value == "mlflow.genai.pytest_plugin"
+    assert len(mlflow_eps) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +238,7 @@ def pytester_with_plugin(pytester, tmp_path):
         f"""
 import mlflow
 mlflow.set_tracking_uri("sqlite:///{db_path}")
+pytest_plugins = ["mlflow.genai.pytest_plugin"]
 """
     )
     return pytester, db_path
