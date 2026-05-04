@@ -3,7 +3,7 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 
-# Span Log Levels
+# Logging
 
 Span log levels classify each span by severity, modeled on Python's standard `logging` module. They let you scan a busy trace at a glance: at the default threshold the trace renders unchanged, but bumping the **Minimum log level** filter in the UI hides noise (chain plumbing, output parsing) so you see only the user-visible operations — requests, responses, tool calls.
 

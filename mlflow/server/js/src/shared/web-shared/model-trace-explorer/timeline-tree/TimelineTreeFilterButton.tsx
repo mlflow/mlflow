@@ -205,7 +205,7 @@ export const TimelineTreeFilterButton = ({
                   values={{
                     link: (chunks: any) => (
                       <a
-                        href="https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels"
+                        href="https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/logging"
                         target="_blank"
                         rel="noopener noreferrer"
                       >

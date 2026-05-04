@@ -91,6 +91,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/app-instrumentation/distributed-tracing',
                   label: 'Distributed Tracing',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/logging',
+                  label: 'Logging',
+                },
               ],
             },
             {
