@@ -489,7 +489,7 @@ transformers:
     run: |
       # Run all Transformers tests except autologging
       pytest tests/transformers --ignore tests/transformers/test_transformers_autolog.py
-      uv pip uninstall accelerate
+      uv pip uninstall --system accelerate
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.40.2"
