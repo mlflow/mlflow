@@ -4614,6 +4614,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     # mlflow.traceTags attribute on the root span (OTLP path only).
                     if raw_tags := span_attributes.get(SpanAttributeKey.TRACE_TAGS):
                         parsed = _try_parse_json_string(raw_tags)
+                        # from_otel_proto applies dump_span_attribute_value to every attribute,
+                        # which JSON-encodes the string a second time. Parse once more to unwrap.
+                        if isinstance(parsed, str):
+                            parsed = _try_parse_json_string(parsed)
                         if isinstance(parsed, dict):
                             trace_tags = {str(k): str(v) for k, v in parsed.items()}
 
