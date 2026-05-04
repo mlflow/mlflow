@@ -60,6 +60,7 @@ def test_create_live_span():
             "mlflow.spanInputs": '{"input": 1}',
             "mlflow.spanOutputs": "2",
             "mlflow.spanType": '"LLM"',
+            "mlflow.spanLogLevel": "20",
             "key": "3",
             "non_serializable": json.dumps(str(non_serializable)),
         }

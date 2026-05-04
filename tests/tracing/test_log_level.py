@@ -5,6 +5,7 @@ import pytest
 import mlflow
 from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import Span, SpanType
+from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
@@ -25,8 +26,6 @@ from tests.tracing.helper import get_traces
         ("DEBUG", SpanLogLevel.DEBUG),
         ("info", SpanLogLevel.INFO),
         ("Warning", SpanLogLevel.WARNING),
-        ("WARN", SpanLogLevel.WARNING),
-        ("warn", SpanLogLevel.WARNING),
         ("  ERROR  ", SpanLogLevel.ERROR),
         (logging.INFO, SpanLogLevel.INFO),
         (logging.CRITICAL, SpanLogLevel.CRITICAL),
@@ -36,8 +35,9 @@ def test_from_value_accepts_enum_int_and_string_forms(value, expected):
     assert SpanLogLevel.from_value(value) is expected
 
 
-@pytest.mark.parametrize("value", ["NOPE", "TRACE", "FATAL", "INFOO", ""])
+@pytest.mark.parametrize("value", ["NOPE", "TRACE", "FATAL", "INFOO", "", "WARN", "warn"])
 def test_from_value_rejects_invalid_string(value):
+    # "WARN" is not a valid alias; only the full names are accepted.
     with pytest.raises(MlflowException, match="Invalid SpanLogLevel"):
         SpanLogLevel.from_value(value)
 
@@ -55,12 +55,21 @@ def test_from_value_rejects_invalid_type(value):
         SpanLogLevel.from_value(value)
 
 
-def test_log_level_unset_by_default():
+def test_log_level_constructor_default_for_unknown_span():
+    # No span_type provided -> defaults to UNKNOWN -> DEBUG via the constructor.
     with mlflow.start_span("s"):
         pass
     persisted = get_traces()[0].data.spans[0]
-    assert persisted.log_level is None
-    assert SpanAttributeKey.LOG_LEVEL not in persisted.attributes
+    assert persisted.log_level is SpanLogLevel.DEBUG
+    assert persisted.attributes[SpanAttributeKey.LOG_LEVEL] == int(SpanLogLevel.DEBUG)
+
+
+def test_log_level_constructor_default_for_info_span_type():
+    # CHAT_MODEL is in the INFO set -> constructor stamps INFO automatically.
+    with mlflow.start_span("s", span_type=SpanType.CHAT_MODEL):
+        pass
+    persisted = get_traces()[0].data.spans[0]
+    assert persisted.log_level is SpanLogLevel.INFO
 
 
 @pytest.mark.parametrize(
@@ -69,7 +78,7 @@ def test_log_level_unset_by_default():
         (SpanLogLevel.WARNING, SpanLogLevel.WARNING),
         (40, SpanLogLevel.ERROR),
         ("info", SpanLogLevel.INFO),
-        ("WARN", SpanLogLevel.WARNING),
+        ("CRITICAL", SpanLogLevel.CRITICAL),
     ],
 )
 def test_set_log_level_normalizes_input(set_value, expected):
@@ -89,8 +98,9 @@ def test_set_log_level_rejects_invalid_input():
         span.set_log_level("NOPE")
 
 
-def test_start_span_kwarg():
-    with mlflow.start_span("s", log_level="WARNING"):
+def test_start_span_kwarg_overrides_constructor_default():
+    # CHAT_MODEL would default to INFO; explicit kwarg should win.
+    with mlflow.start_span("s", span_type=SpanType.CHAT_MODEL, log_level="WARNING"):
         pass
     persisted = get_traces()[0].data.spans[0]
     assert persisted.log_level is SpanLogLevel.WARNING
@@ -148,48 +158,41 @@ def test_log_level_round_trips_through_to_dict_from_dict():
 @pytest.mark.parametrize(
     ("span_type", "expected"),
     [
+        # INFO set: user-visible semantic operations.
         (SpanType.LLM, SpanLogLevel.INFO),
         (SpanType.CHAT_MODEL, SpanLogLevel.INFO),
         (SpanType.AGENT, SpanLogLevel.INFO),
         (SpanType.TOOL, SpanLogLevel.INFO),
         (SpanType.RETRIEVER, SpanLogLevel.INFO),
         (SpanType.EMBEDDING, SpanLogLevel.INFO),
-        (SpanType.MEMORY, SpanLogLevel.INFO),
-        (SpanType.WORKFLOW, SpanLogLevel.INFO),
-        (SpanType.TASK, SpanLogLevel.INFO),
-        (SpanType.GUARDRAIL, SpanLogLevel.INFO),
-        (SpanType.EVALUATOR, SpanLogLevel.INFO),
-        (SpanType.UNKNOWN, SpanLogLevel.INFO),
+        # DEBUG set: internal/glue work and unclassified types.
         (SpanType.CHAIN, SpanLogLevel.DEBUG),
         (SpanType.PARSER, SpanLogLevel.DEBUG),
         (SpanType.RERANKER, SpanLogLevel.DEBUG),
-        # Custom (non-built-in) span types fall through to INFO.
-        ("MY_CUSTOM_TYPE", SpanLogLevel.INFO),
-        (None, SpanLogLevel.INFO),
+        (SpanType.MEMORY, SpanLogLevel.DEBUG),
+        (SpanType.WORKFLOW, SpanLogLevel.DEBUG),
+        (SpanType.TASK, SpanLogLevel.DEBUG),
+        (SpanType.GUARDRAIL, SpanLogLevel.DEBUG),
+        (SpanType.EVALUATOR, SpanLogLevel.DEBUG),
+        (SpanType.UNKNOWN, SpanLogLevel.DEBUG),
+        # Custom (non-built-in) span types fall through to DEBUG.
+        ("MY_CUSTOM_TYPE", SpanLogLevel.DEBUG),
+        (None, SpanLogLevel.DEBUG),
     ],
 )
 def test_default_log_level_for_span_type_mapping(span_type, expected):
     assert default_log_level_for_span_type(span_type) is expected
 
 
-def test_default_log_level_helper_threads_through_start_span_no_context():
-    # Mirrors the autolog pattern: stamp the helper's default at span creation time.
-    span = mlflow.start_span_no_context(
-        "s",
-        span_type=SpanType.CHAT_MODEL,
-        log_level=default_log_level_for_span_type(SpanType.CHAT_MODEL),
-    )
+def test_constructor_stamps_default_for_info_span_type():
+    span = mlflow.start_span_no_context("s", span_type=SpanType.CHAT_MODEL)
     span.end()
     persisted = get_traces()[0].data.spans[0]
     assert persisted.log_level is SpanLogLevel.INFO
 
 
-def test_default_log_level_helper_threads_debug_for_internal_span_types():
-    span = mlflow.start_span_no_context(
-        "s",
-        span_type=SpanType.PARSER,
-        log_level=default_log_level_for_span_type(SpanType.PARSER),
-    )
+def test_constructor_stamps_default_for_debug_span_type():
+    span = mlflow.start_span_no_context("s", span_type=SpanType.PARSER)
     span.end()
     persisted = get_traces()[0].data.spans[0]
     assert persisted.log_level is SpanLogLevel.DEBUG
@@ -208,3 +211,62 @@ def test_multi_span_trace_carries_per_span_levels():
     spans = {s.name: s for s in get_traces()[0].data.spans}
     assert spans["root"].log_level is SpanLogLevel.WARNING
     assert spans["inner"].log_level is SpanLogLevel.DEBUG
+
+
+# ---- Exception → ERROR bump --------------------------------------------------
+
+
+def test_exception_event_bumps_debug_span_to_error():
+    # PARSER defaults to DEBUG via the constructor; an exception event should
+    # promote it to ERROR so users with the filter at INFO/WARNING still see it.
+    with mlflow.start_span("s", span_type=SpanType.PARSER) as span:
+        span.add_event(SpanEvent.from_exception(ValueError("boom")))
+    persisted = get_traces()[0].data.spans[0]
+    assert persisted.log_level is SpanLogLevel.ERROR
+
+
+def test_exception_event_bumps_info_span_to_error():
+    with mlflow.start_span("s", span_type=SpanType.CHAT_MODEL) as span:
+        span.add_event(SpanEvent.from_exception(RuntimeError("boom")))
+    persisted = get_traces()[0].data.spans[0]
+    assert persisted.log_level is SpanLogLevel.ERROR
+
+
+def test_exception_event_does_not_demote_critical():
+    # User-set CRITICAL must be preserved when an exception fires.
+    with mlflow.start_span("s", log_level=SpanLogLevel.CRITICAL) as span:
+        span.add_event(SpanEvent.from_exception(RuntimeError("boom")))
+    persisted = get_traces()[0].data.spans[0]
+    assert persisted.log_level is SpanLogLevel.CRITICAL
+
+
+def test_record_exception_bumps_to_error():
+    # record_exception() goes through add_event under the hood, so the bump
+    # should fire here too.
+    span = mlflow.start_span_no_context("s", span_type=SpanType.PARSER)
+    span.record_exception(ValueError("boom"))
+    span.end()
+    persisted = get_traces()[0].data.spans[0]
+    assert persisted.log_level is SpanLogLevel.ERROR
+
+
+def test_traced_function_that_raises_is_promoted_to_error():
+    # A plain @mlflow.trace function that throws records an exception event via
+    # the decorator's error-handling path, which should promote the span.
+    @mlflow.trace
+    def fn():
+        raise ValueError("boom")
+
+    with pytest.raises(ValueError, match="boom"):
+        fn()
+
+    persisted = get_traces()[0].data.spans[0]
+    assert persisted.log_level is SpanLogLevel.ERROR
+
+
+def test_non_exception_event_does_not_bump_log_level():
+    # Plain (non-exception) events must not move the level.
+    with mlflow.start_span("s", span_type=SpanType.CHAT_MODEL) as span:
+        span.add_event(SpanEvent(name="my_event", attributes={"k": "v"}))
+    persisted = get_traces()[0].data.spans[0]
+    assert persisted.log_level is SpanLogLevel.INFO

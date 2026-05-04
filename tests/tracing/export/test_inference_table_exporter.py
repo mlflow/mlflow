@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import LiveSpan, Trace
+from mlflow.entities import LiveSpan, SpanLogLevel, Trace
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
@@ -116,6 +116,7 @@ def test_export_warn_invalid_attributes():
     assert stored_span.attributes == {
         "mlflow.traceRequestId": trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "valid": "value",
         "str": "a",
     }
