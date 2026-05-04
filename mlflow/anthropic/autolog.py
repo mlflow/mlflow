@@ -13,7 +13,6 @@ from mlflow.tracing.utils import (
     set_span_chat_tools,
     set_span_model_attribute,
 )
-from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -123,7 +122,6 @@ class TracingSession:
                 span_type=span_type,
                 inputs=self.inputs,
                 attributes={SpanAttributeKey.MESSAGE_FORMAT: "anthropic"},
-                log_level=default_log_level_for_span_type(span_type),
             )
             _set_tool_attribute(self.span, self.inputs)
 

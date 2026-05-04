@@ -10,7 +10,6 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import with_active_span
-from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -315,7 +314,6 @@ def patched_sync_stream_call(original, self, *args, **kwargs):
     span = mlflow.start_span_no_context(
         name=fullname,
         span_type=span_type,
-        log_level=default_log_level_for_span_type(span_type),
     )
 
     span.set_inputs(_construct_full_inputs(original, self, *args, **kwargs))

@@ -26,7 +26,6 @@ from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -315,7 +314,6 @@ def _start_span(
         span_type=span_type,
         inputs=inputs,
         attributes=attributes,
-        log_level=default_log_level_for_span_type(span_type),
     )
 
     # Associate run ID to the trace manually, because if a new run is created by

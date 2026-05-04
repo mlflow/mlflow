@@ -11,7 +11,6 @@ from mlflow.tracing.utils import (
     set_span_chat_tools,
     set_span_model_attribute,
 )
-from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -79,7 +78,6 @@ class TracingSession:
             span_type=SpanType.CHAT_MODEL,
             inputs=self.inputs,
             attributes={SpanAttributeKey.MESSAGE_FORMAT: "mistral"},
-            log_level=default_log_level_for_span_type(SpanType.CHAT_MODEL),
         )
 
         if (tools := self.inputs.get("tools")) is not None:

@@ -15,7 +15,6 @@ from mlflow.entities import LiveSpan, SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import set_span_chat_tools
-from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.utils.autologging_utils import safe_patch
 
 _BEDROCK_RUNTIME_SERVICE_NAME = "bedrock-runtime"
@@ -121,7 +120,6 @@ def _patched_invoke_model_with_response_stream(original, self, *args, **kwargs):
         # We assume it is LLM as using streaming for embedding is not common.
         span_type=SpanType.LLM,
         inputs=kwargs,
-        log_level=default_log_level_for_span_type(SpanType.LLM),
     )
 
     _extract_and_set_model_name(span, kwargs)
@@ -207,7 +205,6 @@ def _patched_converse_stream(original, self, *args, **kwargs):
         span_type=SpanType.CHAT_MODEL,
         inputs=kwargs,
         attributes=attributes,
-        log_level=default_log_level_for_span_type(SpanType.CHAT_MODEL),
     )
     _set_tool_attributes(span, kwargs)
 

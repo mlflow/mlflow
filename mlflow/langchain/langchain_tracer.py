@@ -31,7 +31,6 @@ from mlflow.tracing.utils import (
     maybe_set_prediction_context,
     set_span_chat_tools,
 )
-from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
@@ -137,7 +136,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 inputs=inputs,
                 attributes=serialized_attributes,
                 tags=dependencies_schemas,
-                log_level=default_log_level_for_span_type(span_type),
             )
 
             # Debugging purpose

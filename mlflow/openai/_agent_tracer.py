@@ -19,7 +19,6 @@ from mlflow.tracing.fluent import (
 )
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import construct_full_inputs
-from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import (
     ChatTool,
@@ -106,7 +105,6 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
                 # TODO: Trace object doesn't contain input/output. Can we get it somehow?
                 inputs="",
                 attributes=trace.metadata,
-                log_level=default_log_level_for_span_type(SpanType.AGENT),
             )
             token = set_span_in_context(mlflow_span)
 
@@ -143,7 +141,6 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
                 parent_span=parent_st.span if parent_st else None,
                 inputs=inputs,
                 attributes=attributes,
-                log_level=default_log_level_for_span_type(span_type),
             )
             token = set_span_in_context(mlflow_span)
 
