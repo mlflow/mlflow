@@ -335,19 +335,7 @@ export const RunViewMetricCharts = (props: RunViewMetricChartsProps) => {
   });
 
   useEffect(() => {
-    try {
-      const serialized = JSON.stringify(chartUIState);
-      // Skip localStorage persistence if the state is too large (>1MB) to prevent quota errors
-      if (serialized.length < 1_000_000) {
-        localStore.setItem('chartUIState', serialized);
-      }
-    } catch (e) {
-      if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
-        console.warn('localStorage quota exceeded — chart UI state will not be persisted');
-      } else {
-        throw e;
-      }
-    }
+    localStore.setItem('chartUIState', JSON.stringify(chartUIState));
   }, [chartUIState, localStore]);
 
   return (
