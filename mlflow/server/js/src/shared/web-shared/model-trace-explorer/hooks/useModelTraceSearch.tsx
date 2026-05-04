@@ -32,7 +32,7 @@ const getDefaultSpanFilterState = (treeNodes: ModelTraceSpanNode[]): SpanFilterS
     showParents: true,
     showExceptions: true,
     spanTypeDisplayState,
-    // DEBUG = 10 is the lowest level, so the default threshold shows every span.
+    // DEBUG is the lowest level, so the default threshold shows every span.
     minLogLevel: SpanLogLevel.DEBUG,
   };
 };

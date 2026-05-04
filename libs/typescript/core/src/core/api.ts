@@ -44,10 +44,10 @@ export interface SpanOptions {
 
   /**
    * Optional severity level to attach to the span. Accepts a SpanLogLevel
-   * enum value, its int value (matching Python's logging module), or its name
-   * (e.g. "INFO", "DEBUG"). If not provided, the span is left unclassified.
+   * enum value or its name (e.g. "INFO", "DEBUG"). If not provided, the span
+   * level is resolved from the span type at end time.
    */
-  logLevel?: SpanLogLevel | number | string;
+  logLevel?: SpanLogLevel | string;
 }
 
 /**

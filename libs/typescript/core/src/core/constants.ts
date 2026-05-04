@@ -20,11 +20,8 @@ export enum SpanType {
 }
 
 /**
- * Severity level for an MLflow trace span.
- *
- * Numeric values match Python's logging module (DEBUG=10 ... CRITICAL=50) so a
- * value sourced from a standard logger can be passed directly. The value is
- * persisted to the span's `mlflow.spanLogLevel` attribute as an int.
+ * Severity level for an MLflow trace span. The public tracing API accepts a
+ * `SpanLogLevel` member or its string name (e.g. "INFO").
  */
 export enum SpanLogLevel {
   DEBUG = 10,
@@ -35,9 +32,12 @@ export enum SpanLogLevel {
 }
 
 /**
- * Normalize an enum, int, or string into a SpanLogLevel.
+ * Normalize an enum or string into a SpanLogLevel. Raw integers are not
+ * accepted at the type level; the runtime number branch exists only because
+ * `SpanLogLevel` is a numeric enum and its members arrive as primitive
+ * numbers.
  */
-export function toSpanLogLevel(value: SpanLogLevel | number | string): SpanLogLevel {
+export function toSpanLogLevel(value: SpanLogLevel | string): SpanLogLevel {
   if (typeof value === 'number') {
     if (Object.values(SpanLogLevel).includes(value as SpanLogLevel)) {
       return value as SpanLogLevel;
@@ -61,7 +61,7 @@ export function toSpanLogLevel(value: SpanLogLevel | number | string): SpanLogLe
         .join(', ')}.`,
     );
   }
-  throw new Error(`SpanLogLevel must be a SpanLogLevel, number, or string; got ${typeof value}.`);
+  throw new Error(`SpanLogLevel must be a SpanLogLevel or string; got ${typeof value}.`);
 }
 
 /**
@@ -73,8 +73,7 @@ export const SpanAttributeKey = {
   INPUTS: 'mlflow.spanInputs',
   OUTPUTS: 'mlflow.spanOutputs',
   SPAN_TYPE: 'mlflow.spanType',
-  // Severity level of the span. Stored as an int matching Python's logging
-  // module (DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50). Absent
+  // Severity level of the span (one of the `SpanLogLevel` members). Absent
   // means the span was not classified.
   LOG_LEVEL: 'mlflow.spanLogLevel',
   // This attribute is used to store token usage information from LLM responses.

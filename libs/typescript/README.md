@@ -148,9 +148,8 @@ const tracedAnswer = mlflow.trace(
   { name: 'answer', spanType: mlflow.SpanType.CHAT_MODEL, logLevel: SpanLogLevel.INFO },
 );
 
-// String form and int form work too:
+// The string form works too:
 mlflow.startSpan({ name: 'plumbing', logLevel: 'DEBUG' });
-mlflow.startSpan({ name: 'critical-step', logLevel: 50 });
 ```
 
 When you use one of the autolog integrations (`@mlflow/openai`, `@mlflow/anthropic`, `@mlflow/gemini`, etc.), MLflow stamps a sensible default level on every span based on its type — you don't need to annotate manually.

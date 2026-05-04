@@ -292,10 +292,10 @@ export class LiveSpan extends Span {
   }
 
   /**
-   * Set the severity level of the span. Accepts a SpanLogLevel enum value, its
-   * int value (e.g. 20), or its name (e.g. "INFO").
+   * Set the severity level of the span. Accepts a SpanLogLevel enum value or
+   * its name (e.g. "INFO").
    */
-  setLogLevel(level: SpanLogLevel | number | string): void {
+  setLogLevel(level: SpanLogLevel | string): void {
     const normalized = toSpanLogLevel(level);
     this.setAttribute(SpanAttributeKey.LOG_LEVEL, normalized as number);
   }
@@ -503,7 +503,7 @@ export class NoOpSpan implements ISpan {
 
   // Implement all methods to do nothing
   setSpanType(_spanType: SpanType): void {}
-  setLogLevel(_level: SpanLogLevel | number | string): void {}
+  setLogLevel(_level: SpanLogLevel | string): void {}
   setInputs(_inputs: any): void {}
   setOutputs(_outputs: any): void {}
   setAttribute(_key: string, _value: any): void {}

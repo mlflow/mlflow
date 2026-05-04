@@ -10,9 +10,8 @@ class SpanLogLevel(IntEnum):
     """
     Log level (severity) for an MLflow trace span.
 
-    Numeric values match Python's :py:mod:`logging` module, so a value sourced
-    from a standard logger (e.g. ``logger.getEffectiveLevel()``) can be passed
-    directly into the MLflow tracing API.
+    The public tracing API accepts a :class:`SpanLogLevel` member or its
+    string name (e.g. ``"INFO"``).
     """
 
     DEBUG = 10
@@ -22,7 +21,7 @@ class SpanLogLevel(IntEnum):
     CRITICAL = 50
 
     @classmethod
-    def from_value(cls, value: SpanLogLevel | int | str) -> SpanLogLevel:
+    def from_value(cls, value: SpanLogLevel | str) -> SpanLogLevel:
         if isinstance(value, cls):
             return value
         if isinstance(value, str):
@@ -34,16 +33,7 @@ class SpanLogLevel(IntEnum):
                     f"{[m.name for m in cls]}.",
                     INVALID_PARAMETER_VALUE,
                 ) from None
-        if isinstance(value, int) and not isinstance(value, bool):
-            try:
-                return cls(value)
-            except ValueError:
-                raise MlflowException(
-                    f"Invalid SpanLogLevel value {value!r}. Expected one of "
-                    f"{[int(m) for m in cls]}.",
-                    INVALID_PARAMETER_VALUE,
-                ) from None
         raise MlflowException(
-            f"SpanLogLevel must be a SpanLogLevel, int, or str, got {type(value).__name__}.",
+            f"SpanLogLevel must be a SpanLogLevel or str, got {type(value).__name__}.",
             INVALID_PARAMETER_VALUE,
         )

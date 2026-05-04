@@ -18,20 +18,13 @@ from tests.tracing.helper import get_traces
     [
         (SpanLogLevel.DEBUG, SpanLogLevel.DEBUG),
         (SpanLogLevel.CRITICAL, SpanLogLevel.CRITICAL),
-        (10, SpanLogLevel.DEBUG),
-        (20, SpanLogLevel.INFO),
-        (30, SpanLogLevel.WARNING),
-        (40, SpanLogLevel.ERROR),
-        (50, SpanLogLevel.CRITICAL),
         ("DEBUG", SpanLogLevel.DEBUG),
         ("info", SpanLogLevel.INFO),
         ("Warning", SpanLogLevel.WARNING),
         ("  ERROR  ", SpanLogLevel.ERROR),
-        (logging.INFO, SpanLogLevel.INFO),
-        (logging.CRITICAL, SpanLogLevel.CRITICAL),
     ],
 )
-def test_from_value_accepts_enum_int_and_string_forms(value, expected):
+def test_from_value_accepts_enum_and_string_forms(value, expected):
     assert SpanLogLevel.from_value(value) is expected
 
 
@@ -42,15 +35,17 @@ def test_from_value_rejects_invalid_string(value):
         SpanLogLevel.from_value(value)
 
 
-@pytest.mark.parametrize("value", [0, 7, 100, -1])
-def test_from_value_rejects_invalid_int(value):
-    with pytest.raises(MlflowException, match="Invalid SpanLogLevel"):
+@pytest.mark.parametrize("value", [0, 7, 10, 20, 30, 40, 50, 100, -1, logging.INFO])
+def test_from_value_rejects_int(value):
+    # Raw integers — including the canonical 10/20/30/40/50 and `logging.*` —
+    # are rejected: the API surface is `SpanLogLevel | str` only. Use the enum
+    # member or its name string instead.
+    with pytest.raises(MlflowException, match="must be"):
         SpanLogLevel.from_value(value)
 
 
 @pytest.mark.parametrize("value", [None, 1.5, ["INFO"], object(), True, False])
 def test_from_value_rejects_invalid_type(value):
-    # bool is rejected even though it's an int subclass.
     with pytest.raises(MlflowException, match="must be"):
         SpanLogLevel.from_value(value)
 
@@ -76,7 +71,7 @@ def test_log_level_constructor_default_for_info_span_type():
     ("set_value", "expected"),
     [
         (SpanLogLevel.WARNING, SpanLogLevel.WARNING),
-        (40, SpanLogLevel.ERROR),
+        (SpanLogLevel.ERROR, SpanLogLevel.ERROR),
         ("info", SpanLogLevel.INFO),
         ("CRITICAL", SpanLogLevel.CRITICAL),
     ],

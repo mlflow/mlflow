@@ -575,13 +575,13 @@ class LiveSpan(Span):
         """Set the type of the span."""
         self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
 
-    def set_log_level(self, level: SpanLogLevel | int | str):
+    def set_log_level(self, level: SpanLogLevel | str):
         """
         Set the severity level of the span.
 
         Args:
-            level: A :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>`,
-                its int value (e.g. ``20``), or its name (e.g. ``"INFO"``).
+            level: A :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>` or
+                its name (e.g. ``"INFO"``).
         """
         normalized = SpanLogLevel.from_value(level)
         self.set_attribute(SpanAttributeKey.LOG_LEVEL, int(normalized))

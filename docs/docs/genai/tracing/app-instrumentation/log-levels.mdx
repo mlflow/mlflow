@@ -5,21 +5,21 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Span Log Levels
 
-Span log levels classify each span by severity, like Python's standard `logging` module. They let you scan a busy trace at a glance: at the default threshold the trace renders unchanged, but bumping the **Minimum log level** filter in the UI hides noise (chain plumbing, output parsing) so you see only the user-visible operations — requests, responses, tool calls.
+Span log levels classify each span by severity, modeled on Python's standard `logging` module. They let you scan a busy trace at a glance: at the default threshold the trace renders unchanged, but bumping the **Minimum log level** filter in the UI hides noise (chain plumbing, output parsing) so you see only the user-visible operations — requests, responses, tool calls.
 
-The five levels match Python's `logging` module by name and numeric value:
+The five levels share names with Python's `logging` module:
 
-| Level      | Numeric | Typical use                                      |
-| ---------- | ------- | ------------------------------------------------ |
-| `DEBUG`    | 10      | Internal/glue work — chain steps, parsers, etc.  |
-| `INFO`     | 20      | User-visible operations — LLM calls, tool calls. |
-| `WARNING`  | 30      | Recoverable issues you'd want to see in prod.    |
-| `ERROR`    | 40      | Failures.                                        |
-| `CRITICAL` | 50      | Hard stops worth paging on.                      |
+| Level      | Typical use                                      |
+| ---------- | ------------------------------------------------ |
+| `DEBUG`    | Internal/glue work — chain steps, parsers, etc.  |
+| `INFO`     | User-visible operations — LLM calls, tool calls. |
+| `WARNING`  | Recoverable issues you'd want to see in prod.    |
+| `ERROR`    | Failures.                                        |
+| `CRITICAL` | Hard stops worth paging on.                      |
 
 ## Setting the level on a span
 
-You can pass a level when you create the span. The kwarg accepts the enum value, its int, or its name.
+You can pass a level when you create the span. The kwarg accepts the enum value or its name.
 
 <TabsWrapper>
 <Tabs groupId="programming-language">
@@ -38,10 +38,6 @@ def answer(query: str) -> str:
 
 @mlflow.trace(log_level="DEBUG")  # string form
 def retrieve(query: str): ...
-
-
-with mlflow.start_span("custom_span", log_level=20) as span:  # int form
-    ...
 ```
 
 You can also set the level on a `LiveSpan` after creation:

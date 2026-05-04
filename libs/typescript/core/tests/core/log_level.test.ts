@@ -16,14 +16,9 @@ const newLiveSpan = (spanType: SpanType = SpanType.UNKNOWN): LiveSpan => {
 };
 
 describe('toSpanLogLevel', () => {
-  it.each<[SpanLogLevel | number | string, SpanLogLevel]>([
+  it.each<[SpanLogLevel | string, SpanLogLevel]>([
     [SpanLogLevel.DEBUG, SpanLogLevel.DEBUG],
     [SpanLogLevel.CRITICAL, SpanLogLevel.CRITICAL],
-    [10, SpanLogLevel.DEBUG],
-    [20, SpanLogLevel.INFO],
-    [30, SpanLogLevel.WARNING],
-    [40, SpanLogLevel.ERROR],
-    [50, SpanLogLevel.CRITICAL],
     ['DEBUG', SpanLogLevel.DEBUG],
     ['info', SpanLogLevel.INFO],
     ['Warning', SpanLogLevel.WARNING],
@@ -40,8 +35,12 @@ describe('toSpanLogLevel', () => {
     },
   );
 
-  it.each([0, 7, 100, -1])('rejects invalid int %p', (value) => {
-    expect(() => toSpanLogLevel(value)).toThrow(/Invalid SpanLogLevel/);
+  it.each([0, 7, 100, -1])('rejects unknown number %p (defensive runtime check)', (value) => {
+    // Raw numbers aren't part of the public type (`SpanLogLevel | string`),
+    // but `SpanLogLevel` is a numeric enum so members arrive as primitive
+    // numbers at runtime. The runtime branch validates them defensively;
+    // anything that isn't a known enum value throws.
+    expect(() => toSpanLogLevel(value as unknown as SpanLogLevel)).toThrow(/Invalid SpanLogLevel/);
   });
 });
 
@@ -69,9 +68,9 @@ describe('LiveSpan default applied at end()', () => {
 });
 
 describe('LiveSpan log-level accessors', () => {
-  it.each<[SpanLogLevel | number | string, SpanLogLevel]>([
+  it.each<[SpanLogLevel | string, SpanLogLevel]>([
     [SpanLogLevel.WARNING, SpanLogLevel.WARNING],
-    [40, SpanLogLevel.ERROR],
+    [SpanLogLevel.ERROR, SpanLogLevel.ERROR],
     ['info', SpanLogLevel.INFO],
     ['CRITICAL', SpanLogLevel.CRITICAL],
   ])('setLogLevel(%p) round-trips to %p', (input, expected) => {
