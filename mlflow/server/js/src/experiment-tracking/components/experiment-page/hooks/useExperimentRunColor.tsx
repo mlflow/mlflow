@@ -8,6 +8,7 @@ import {
   RUN_COLOR_ACTION_INITIALIZE_RUN_COLORS,
   RUN_COLOR_ACTION_SET_RUN_COLOR,
 } from '../../../reducers/RunColorReducer';
+import { safeSetItem } from '../../../../common/utils/LocalStorageUtils';
 
 const STORAGE_KEY = 'experimentRunColors';
 
@@ -52,15 +53,7 @@ export const useSaveExperimentRunColor = () => {
       if (groupUuid) {
         const colors = loadSavedColors();
         colors[groupUuid] = colorValue;
-        try {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(colors));
-        } catch (e) {
-          if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
-            console.warn('localStorage quota exceeded — run colors will not be persisted');
-          } else {
-            throw e;
-          }
-        }
+        safeSetItem(window.localStorage, STORAGE_KEY, JSON.stringify(colors), 'run colors');
       }
     },
     [dispatch],

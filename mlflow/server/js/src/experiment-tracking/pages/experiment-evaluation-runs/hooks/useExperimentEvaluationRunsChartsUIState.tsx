@@ -4,9 +4,10 @@ import { MetricEntitiesByName } from '../../../types';
 
 import { compact, first, isEmpty, uniq } from 'lodash';
 import type { RunsChartsUIConfigurationSetter } from '../../../components/runs-charts/hooks/useRunsChartsUIConfiguration';
-import type { RunsChartsCardConfig } from '../../../components/runs-charts/runs-charts.types';
-import { RunsChartType, RunsChartsBarCardConfig } from '../../../components/runs-charts/runs-charts.types';
+import type { RunsChartsBarCardConfig, RunsChartsCardConfig } from '../../../components/runs-charts/runs-charts.types';
+import { RunsChartType } from '../../../components/runs-charts/runs-charts.types';
 import type { ExperimentRunsChartsUIConfiguration } from '../../../components/experiment-page/models/ExperimentPageUIState';
+import { safeSetItem } from '../../../../common/utils/LocalStorageUtils';
 
 type UpdateChartStateAction = { type: 'UPDATE'; stateSetter: RunsChartsUIConfigurationSetter };
 type InitializeChartStateAction = { type: 'INITIALIZE'; initialConfig?: ExperimentEvaluationRunsChartsUIConfiguration };
@@ -151,15 +152,12 @@ const saveDataToStorage = async (
   storeIdentifier: string,
   dataToPersist: ExperimentEvaluationRunsChartsUIConfiguration,
 ) => {
-  try {
-    localStorage.setItem(createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
-  } catch (e) {
-    if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
-      console.warn('localStorage quota exceeded — evaluation chart state will not be persisted');
-    } else {
-      throw e;
-    }
-  }
+  safeSetItem(
+    localStorage,
+    createLocalStorageKey(storeIdentifier),
+    JSON.stringify(dataToPersist),
+    'evaluation chart state',
+  );
 };
 
 /**

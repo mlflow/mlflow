@@ -9,6 +9,7 @@ import type {
 import { RunsChartType } from '../../runs-charts/runs-charts.types';
 import { isEmpty, uniq } from 'lodash';
 import type { RunsChartsUIConfigurationSetter } from '../../runs-charts/hooks/useRunsChartsUIConfiguration';
+import { safeSetItem } from '../../../../common/utils/LocalStorageUtils';
 
 type UpdateChartStateAction = { type: 'UPDATE'; stateSetter: RunsChartsUIConfigurationSetter };
 type InitializeChartStateAction = { type: 'INITIALIZE'; initialConfig?: LoggedModelsChartsUIConfiguration };
@@ -149,15 +150,7 @@ const loadPersistedDataFromStorage = async (storeIdentifier: string) => {
 };
 
 const saveDataToStorage = async (storeIdentifier: string, dataToPersist: LoggedModelsChartsUIConfiguration) => {
-  try {
-    localStorage.setItem(createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
-  } catch (e) {
-    if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
-      console.warn('localStorage quota exceeded — chart UI state will not be persisted');
-    } else {
-      throw e;
-    }
-  }
+  safeSetItem(localStorage, createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist), 'chart UI state');
 };
 
 export const useExperimentLoggedModelsChartsUIState = (
