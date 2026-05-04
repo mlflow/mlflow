@@ -20,7 +20,7 @@ sklearn:
       pytest tests/sklearn/test_sklearn_autolog.py
 
       # Ensure sklearn autologging works without matplotlib
-      uv pip uninstall -q -y matplotlib
+      uv pip uninstall -q matplotlib
       pytest tests/sklearn/test_sklearn_autolog_without_matplotlib.py
 
 pytorch:
@@ -489,7 +489,7 @@ transformers:
     run: |
       # Run all Transformers tests except autologging
       pytest tests/transformers --ignore tests/transformers/test_transformers_autolog.py
-      uv pip uninstall -y accelerate
+      uv pip uninstall accelerate
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.40.2"
@@ -660,7 +660,7 @@ langchain:
       "< 1.2": ["langgraph-prebuilt<1.0.9"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
-      uv pip uninstall -y databricks-connect
+      uv pip uninstall databricks-connect
       uv pip install --system --no-deps --force-reinstall pyspark
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
@@ -693,7 +693,7 @@ langchain:
       "< 1.2": ["langgraph-prebuilt<1.0.9"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
-      uv pip uninstall -y databricks-connect
+      uv pip uninstall databricks-connect
       uv pip install --system --no-deps --force-reinstall pyspark
     run: |
       pytest tests/langchain/test_langchain_autolog.py
