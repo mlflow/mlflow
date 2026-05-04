@@ -420,6 +420,32 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
         MlflowClient().get_trace("1234567")
 
 
+@pytest.mark.parametrize(
+    "tags",
+    [{}, {TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO}],
+)
+def test_client_get_trace_throws_for_missing_location_metadata(
+    mock_store, mock_artifact_repo, tags
+):
+    mock_store.get_trace_info.return_value = TraceInfo(
+        trace_id="1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
+        tags=tags,
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because its span data is corrupted",
+    ):
+        MlflowClient().get_trace("1234567")
+
+    mock_artifact_repo.download_trace_data.assert_not_called()
+    mock_artifact_repo.download_archived_trace_data.assert_not_called()
+
+
 @pytest.mark.parametrize("include_spans", [True, False])
 @pytest.mark.parametrize("num_results", [0, 5])
 def test_client_search_traces_with_get_traces(
@@ -1278,7 +1304,12 @@ def test_set_trace_tag_on_logged_trace(mock_store):
 
 @pytest.mark.parametrize(
     "key",
-    [TraceTagKey.SPANS_LOCATION, TraceTagKey.ARCHIVE_LOCATION, MLFLOW_TRACE_ARCHIVING],
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+        TraceTagKey.ARCHIVAL_FAILURE,
+        MLFLOW_TRACE_ARCHIVING,
+    ],
 )
 def test_set_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypatch, key):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
@@ -1305,7 +1336,12 @@ def test_set_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypatch
 
 @pytest.mark.parametrize(
     "key",
-    [TraceTagKey.SPANS_LOCATION, TraceTagKey.ARCHIVE_LOCATION, MLFLOW_TRACE_ARCHIVING],
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+        TraceTagKey.ARCHIVAL_FAILURE,
+        MLFLOW_TRACE_ARCHIVING,
+    ],
 )
 def test_set_trace_tag_skips_immutable_internal_tags(mock_store, key):
     with patch("mlflow.tracing.client._logger") as mock_logger:
@@ -1339,7 +1375,12 @@ def test_delete_trace_tag_on_logged_trace(mock_store):
 
 @pytest.mark.parametrize(
     "key",
-    [TraceTagKey.SPANS_LOCATION, TraceTagKey.ARCHIVE_LOCATION, MLFLOW_TRACE_ARCHIVING],
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+        TraceTagKey.ARCHIVAL_FAILURE,
+        MLFLOW_TRACE_ARCHIVING,
+    ],
 )
 def test_delete_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypatch, key):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
@@ -1367,7 +1408,12 @@ def test_delete_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypa
 
 @pytest.mark.parametrize(
     "key",
-    [TraceTagKey.SPANS_LOCATION, TraceTagKey.ARCHIVE_LOCATION, MLFLOW_TRACE_ARCHIVING],
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+        TraceTagKey.ARCHIVAL_FAILURE,
+        MLFLOW_TRACE_ARCHIVING,
+    ],
 )
 def test_delete_trace_tag_skips_immutable_internal_tags(mock_store, key):
     with patch("mlflow.tracing.client._logger") as mock_logger:
