@@ -328,6 +328,9 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+    MLFLOW_TRACE_ARCHIVAL_FAILURE,
+    MLFLOW_TRACE_ARCHIVE_LOCATION,
+    MLFLOW_TRACE_SPANS_LOCATION,
 )
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -2372,6 +2375,20 @@ def _get_artifact_repo(run):
     return get_artifact_repository(run.info.artifact_uri)
 
 
+_HANDLER_BLOCKED_TRACE_TAGS = frozenset({
+    MLFLOW_TRACE_SPANS_LOCATION,
+    MLFLOW_TRACE_ARCHIVE_LOCATION,
+    MLFLOW_TRACE_ARCHIVAL_FAILURE,
+})
+
+
+def _validate_trace_tag_handler_mutation(key: str, operation: str) -> None:
+    if key in _HANDLER_BLOCKED_TRACE_TAGS:
+        raise MlflowException.invalid_parameter_value(
+            f"Tag '{key}' is immutable and cannot be {operation} on a trace."
+        )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _log_batch():
@@ -3893,6 +3910,7 @@ def _set_trace_tag(request_id):
             "value": [_assert_string],
         },
     )
+    _validate_trace_tag_handler_mutation(request_message.key, "set")
     _get_tracking_store().set_trace_tag(request_id, request_message.key, request_message.value)
     return _wrap_response(SetTraceTag.Response())
 
@@ -3911,6 +3929,7 @@ def _set_trace_tag_v3(trace_id):
             "value": [_assert_string],
         },
     )
+    _validate_trace_tag_handler_mutation(request_message.key, "set")
     _get_tracking_store().set_trace_tag(trace_id, request_message.key, request_message.value)
     return _wrap_response(SetTraceTagV3.Response())
 
@@ -3928,6 +3947,7 @@ def _delete_trace_tag(request_id):
             "key": [_assert_string, _assert_required],
         },
     )
+    _validate_trace_tag_handler_mutation(request_message.key, "deleted")
     _get_tracking_store().delete_trace_tag(request_id, request_message.key)
     return _wrap_response(DeleteTraceTag.Response())
 
@@ -3946,6 +3966,7 @@ def _delete_trace_tag_v3(trace_id):
             "key": [_assert_string, _assert_required],
         },
     )
+    _validate_trace_tag_handler_mutation(request_message.key, "deleted")
     _get_tracking_store().delete_trace_tag(trace_id, request_message.key)
     return _wrap_response(DeleteTraceTagV3.Response())
 

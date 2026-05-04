@@ -107,7 +107,6 @@ MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE = (
 MLFLOW_TRACE_SPANS_LOCATION = "mlflow.trace.spansLocation"
 MLFLOW_TRACE_ARCHIVE_LOCATION = "mlflow.trace.archiveLocation"
 MLFLOW_TRACE_ARCHIVAL_FAILURE = "mlflow.trace.archivalFailure"
-MLFLOW_TRACE_ARCHIVING = "mlflow.trace.archiving"
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
@@ -125,7 +124,6 @@ IMMUTABLE_TAGS = {
     MLFLOW_TRACE_SPANS_LOCATION,
     MLFLOW_TRACE_ARCHIVE_LOCATION,
     MLFLOW_TRACE_ARCHIVAL_FAILURE,
-    MLFLOW_TRACE_ARCHIVING,
 }
 
 # The list of tags generated from resolve_tags() that are required for tracing UI
