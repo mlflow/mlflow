@@ -23,6 +23,7 @@ from openai.types.chat import ChatCompletionMessageToolCall
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
@@ -75,6 +76,7 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.{}complete".format("a" if is_async else "")
     assert spans[0].span_type == SpanType.LLM
+    assert spans[0].log_level == SpanLogLevel.INFO
     assert spans[0].inputs == {"args": ["Hello"]}
     assert spans[0].outputs["text"] == "Hello"
 
