@@ -31,7 +31,7 @@ import {
   EVAL_RUNS_UNSELECTABLE_COLUMNS,
   EvalRunsTableKeyedColumnPrefix,
 } from './ExperimentEvaluationRunsTable.constants';
-import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
+import { parseEvalRunsTableKeyedColumnKey, getMetricDisplayName } from './ExperimentEvaluationRunsTable.utils';
 import { groupBy } from 'lodash';
 import { ExperimentEvaluationRunsTableGroupBySelector } from './ExperimentEvaluationRunsTableGroupBySelector';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
@@ -232,9 +232,12 @@ export const ExperimentEvaluationRunsTableControls = ({
                     </DialogComboboxSectionHeader>
                     {columns.map(([column, selected]) => {
                       const labelDescriptorForKnownColumn = EVAL_RUNS_COLUMN_LABELS[column as EvalRunsTableColumnId];
+                      const parsedKey = parseEvalRunsTableKeyedColumnKey(column)?.key;
                       const label = labelDescriptorForKnownColumn
                         ? intl.formatMessage(labelDescriptorForKnownColumn)
-                        : (parseEvalRunsTableKeyedColumnKey(column)?.key ?? column);
+                        : parsedKey
+                          ? getMetricDisplayName(parsedKey)
+                          : column;
 
                       if (EVAL_RUNS_UNSELECTABLE_COLUMNS.has(column)) {
                         return null;

@@ -3,6 +3,7 @@ import { FormattedMessage } from 'react-intl';
 import { useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName, MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_PYTEST } from '../../constants';
+import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 import { getTimeRangeQueryString } from '../../pages/experiment-page-tabs/side-nav/utils';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import { useState, useMemo, type ReactNode } from 'react';
@@ -85,7 +86,8 @@ export const RunViewModeSwitch = ({
   // Conditionally add pytest results tab if run has pytest runType tag
   const effectiveTabs = useMemo(() => {
     const isPytest = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value === MLFLOW_RUN_TYPE_VALUE_PYTEST;
-    if (isPytest && !visibleTabs.includes(RunPageTabName.PYTEST_RESULTS)) {
+    const hasParentRunId = Boolean(runTags?.[EXPERIMENT_PARENT_ID_TAG]?.value);
+    if (isPytest && !hasParentRunId && !visibleTabs.includes(RunPageTabName.PYTEST_RESULTS)) {
       return [...visibleTabs, RunPageTabName.PYTEST_RESULTS];
     }
     return visibleTabs;

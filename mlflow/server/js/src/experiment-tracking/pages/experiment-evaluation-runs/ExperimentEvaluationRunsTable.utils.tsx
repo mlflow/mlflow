@@ -1,6 +1,19 @@
 import type { RunEntity } from '../../types';
 import { EvalRunsTableKeyedColumnPrefix } from './ExperimentEvaluationRunsTable.constants';
 
+/**
+ * Human-readable display names for well-known metric keys.
+ */
+const METRIC_DISPLAY_NAMES: Record<string, string> = {
+  'test.pass_count': 'Pass Count',
+  'test.fail_count': 'Fail Count',
+  'test.skip_count': 'Skip Count',
+  'test.pass_rate': 'Pass Rate',
+  'test.total_duration': 'Total Duration',
+};
+
+export const getMetricDisplayName = (key: string): string => METRIC_DISPLAY_NAMES[key] ?? key;
+
 export const createEvalRunsTableKeyedColumnKey = (columnType: EvalRunsTableKeyedColumnPrefix, key: string): string =>
   [columnType, key].join('.');
 export const parseEvalRunsTableKeyedColumnKey = (

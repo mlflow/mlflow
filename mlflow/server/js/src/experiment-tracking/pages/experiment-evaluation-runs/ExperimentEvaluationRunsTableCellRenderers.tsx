@@ -24,7 +24,7 @@ import { useSaveExperimentRunColor } from '../../components/experiment-page/hook
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
 import { TimeAgo } from '@databricks/web-shared/browse';
-import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
+import { parseEvalRunsTableKeyedColumnKey, getMetricDisplayName } from './ExperimentEvaluationRunsTable.utils';
 import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
@@ -34,7 +34,12 @@ import {
   shouldEnableImprovedEvalRunsComparison,
   shouldShowEvalRunsIssuesPanel,
 } from '../../../common/utils/FeatureUtils';
-import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION } from '../../constants';
+import {
+  MLFLOW_RUN_TYPE_TAG,
+  MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+  MLFLOW_RUN_TYPE_VALUE_PYTEST,
+} from '../../constants';
+import { EXPERIMENT_PARENT_ID_TAG } from '../../components/experiment-page/utils/experimentPage.common-utils';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
 
@@ -83,6 +88,9 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const isIssueDetectionRun = tags.some(
     (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
   );
+  const isPytestParentRun =
+    tags.some((tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_PYTEST) &&
+    !tags.some((tag) => tag.key === EXPERIMENT_PARENT_ID_TAG);
   const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
 
   const handleClick = (e: React.MouseEvent) => {
@@ -92,6 +100,11 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
       const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
       navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
+      return;
+    }
+    // Pytest parent runs navigate to the run page (Test Results tab) instead of opening the right panel
+    if (isPytestParentRun) {
+      navigate(Routes.getRunPageTabRoute(experimentId, runUuid, RunPageTabName.PYTEST_RESULTS));
       return;
     }
     // Otherwise follow old behavior - open the right-side panel
@@ -129,6 +142,11 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       >
         {row.original.info.runName}
       </Typography.Link>
+      {isPytestParentRun && (
+        <Tag componentId="mlflow.eval-runs.pytest-badge" color="teal" css={{ flexShrink: 0 }}>
+          pytest
+        </Tag>
+      )}
       {!shouldEnableImprovedEvalRunsComparison() && (
         <div
           css={{
@@ -295,7 +313,13 @@ export const SortableHeaderCell = ({
 }: HeaderContext<RunEntityOrGroupData, unknown> & { title?: React.ReactElement }) => {
   const { theme } = useDesignSystemTheme();
 
-  const displayedKey = useMemo(() => parseEvalRunsTableKeyedColumnKey(column.id)?.key ?? column.id, [column.id]);
+  const displayedKey = useMemo(() => {
+    const parsed = parseEvalRunsTableKeyedColumnKey(column.id);
+    if (!parsed) {
+      return column.id;
+    }
+    return getMetricDisplayName(parsed.key);
+  }, [column.id]);
 
   return (
     <div

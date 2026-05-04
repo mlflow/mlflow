@@ -2,6 +2,9 @@ import { useInfiniteQuery } from '@databricks/web-shared/query-client';
 import type { SearchRunsApiResponse } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { useMemo } from 'react';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_PYTEST } from '../../../constants';
+import { EXPERIMENT_PARENT_ID_TAG } from '../utils/experimentPage.common-utils';
+import type { RunEntityOrGroupData } from '../../../pages/experiment-evaluation-runs/ExperimentEvaluationRunsPage.utils';
 
 export const useExperimentEvaluationRunsData = ({
   experimentId,
@@ -38,23 +41,36 @@ export const useExperimentEvaluationRunsData = ({
 
   const { evaluationRuns, trainingRuns } = useMemo(() => {
     if (!data?.pages) {
-      return { evaluationRuns: [], trainingRuns: [] };
+      return { evaluationRuns: [] as RunEntityOrGroupData[], trainingRuns: [] as RunEntityOrGroupData[] };
     }
     const allRuns = data.pages.flatMap((page) => page.runs || []);
-    return allRuns.reduce(
-      (acc, run) => {
-        const isTrainingRun = run.outputs?.modelOutputs?.length ?? 0;
 
-        if (isTrainingRun) {
-          acc.trainingRuns.push(run);
-        } else {
-          acc.evaluationRuns.push(run);
-        }
+    const regularEvalRuns: typeof allRuns = [];
+    const trainingRunsList: typeof allRuns = [];
 
-        return acc;
-      },
-      { evaluationRuns: [] as typeof allRuns, trainingRuns: [] as typeof allRuns },
-    );
+    for (const run of allRuns) {
+      // Filter out pytest child runs — they are shown via RunViewPytestResultsTab
+      const tags = run.data?.tags ?? [];
+      const isPytestChild =
+        tags.some((tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_PYTEST) &&
+        tags.some((tag) => tag.key === EXPERIMENT_PARENT_ID_TAG);
+
+      if (isPytestChild) {
+        continue;
+      }
+
+      const isTrainingRun = run.outputs?.modelOutputs?.length ?? 0;
+      if (isTrainingRun) {
+        trainingRunsList.push(run);
+      } else {
+        regularEvalRuns.push(run);
+      }
+    }
+
+    return {
+      evaluationRuns: regularEvalRuns as RunEntityOrGroupData[],
+      trainingRuns: trainingRunsList,
+    };
   }, [data]);
 
   return {
