@@ -94,10 +94,9 @@ class TracingSession:
         if not config.log_traces:
             return self
 
-        span_type = _get_span_type(self.original.__name__)
         self.span = mlflow.start_span_no_context(
             name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
-            span_type=span_type,
+            span_type=_get_span_type(self.original.__name__),
             inputs=self.inputs,
             attributes={SpanAttributeKey.MESSAGE_FORMAT: "gemini"},
         )

@@ -311,10 +311,7 @@ def patched_sync_stream_call(original, self, *args, **kwargs):
     # Use start_span_no_context (not `with start_span()`) because the span must remain
     # open after this function returns. The span ends later when the user finishes
     # iterating through the stream (handled by _StreamedRunResultSyncWrapper._finalize).
-    span = mlflow.start_span_no_context(
-        name=fullname,
-        span_type=span_type,
-    )
+    span = mlflow.start_span_no_context(name=fullname, span_type=span_type)
 
     span.set_inputs(_construct_full_inputs(original, self, *args, **kwargs))
     _set_span_attributes(span, self)

@@ -116,10 +116,9 @@ class TracingSession:
         config = AutoLoggingConfig.init(flavor_name=mlflow.anthropic.FLAVOR_NAME)
 
         if config.log_traces:
-            span_type = _get_span_type(self.original.__name__)
             self.span = start_span_no_context(
                 name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
-                span_type=span_type,
+                span_type=_get_span_type(self.original.__name__),
                 inputs=self.inputs,
                 attributes={SpanAttributeKey.MESSAGE_FORMAT: "anthropic"},
             )

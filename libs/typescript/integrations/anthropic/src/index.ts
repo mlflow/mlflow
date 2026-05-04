@@ -226,11 +226,7 @@ async function* wrapAsyncIterator(
 ): AsyncGenerator<any> {
   // Use startSpan for manual lifecycle management since withSpan doesn't support async generators
   const parentSpan = getCurrentActiveSpan();
-  const span = startSpan({
-    name,
-    spanType,
-    parent: parentSpan ?? undefined,
-  });
+  const span = startSpan({ name, spanType, parent: parentSpan ?? undefined });
   span.setInputs(inputs);
 
   let iterationError: Error | undefined;
