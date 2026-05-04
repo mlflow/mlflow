@@ -26,16 +26,12 @@ class SpanLogLevel(IntEnum):
         if isinstance(value, cls):
             return value
         if isinstance(value, str):
-            # "WARN" is a long-standing alias for "WARNING" in Python's logging module.
-            normalized = value.strip().upper()
-            if normalized == "WARN":
-                normalized = "WARNING"
             try:
-                return cls[normalized]
+                return cls[value.strip().upper()]
             except KeyError:
                 raise MlflowException(
                     f"Invalid SpanLogLevel name {value!r}. Expected one of "
-                    f"{[m.name for m in cls]} (or 'WARN').",
+                    f"{[m.name for m in cls]}.",
                     INVALID_PARAMETER_VALUE,
                 ) from None
         if isinstance(value, int) and not isinstance(value, bool):
