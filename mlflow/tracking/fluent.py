@@ -59,6 +59,7 @@ from mlflow.tracing.provider import (
 )
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
+from mlflow.tracking._uc_upsell import show_existing_experiment_upsell, show_new_experiment_upsell
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -244,12 +245,14 @@ def set_experiment(
 
     if (
         _MLFLOW_ENABLE_UC_TRACE_UPSELL.get()
-        and not is_newly_created
         and trace_location is None
         and is_databricks_uri(_resolve_tracking_uri())
         and MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH not in experiment.tags
     ):
-        _show_uc_upsell_message()
+        if is_newly_created:
+            show_new_experiment_upsell()
+        else:
+            show_existing_experiment_upsell()
 
     if trace_location is not None and trace_location.table_prefix is None:
         trace_location = UnityCatalog(
@@ -297,20 +300,6 @@ def _sync_trace_destination_and_provider(
         provider.reset()
 
     _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
-
-
-def _show_uc_upsell_message():
-    from mlflow.utils.logging_utils import eprint
-
-    yellow_bold = "\033[1;33m"
-    cyan = "\033[36m"
-    reset = "\033[0m"
-    doc_url = "https://docs.databricks.com/TODO"
-    eprint(
-        f"{yellow_bold}Migrate your traces to Unity Catalog for unlimited storage, "
-        f"fine-grained access controls, and queryability from notebooks, SQL, and "
-        f"dashboards. {cyan}Learn more: {doc_url}{reset}"
-    )
 
 
 def _resolve_experiment_to_trace_location(
