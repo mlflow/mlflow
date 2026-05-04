@@ -1159,10 +1159,6 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
-  "5KHGeG": {
-    "defaultMessage": "Hide low-severity spans. Each span gets a level based on its type: LLM, Chat, Tool, Retriever, Agent, and Embedding spans are Info; everything else is Debug. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels for more details.",
-    "description": "Tooltip explaining the minimum log level filter, including the autolog default mapping, exception-bump rule, and pre-3.13 backwards-compat note."
-  },
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
     "description": "Tooltip explaining why key name field is disabled in drawer edit"
@@ -5651,6 +5647,10 @@
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering"
   },
+  "Wr7htq": {
+    "defaultMessage": "Hide low-severity spans. Each span gets a level based on its type. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels for more details.",
+    "description": "Tooltip explaining the minimum log level filter, including the autolog default mapping, exception-bump rule, and pre-3.13 backwards-compat note."
+  },
   "Ws58cc": {
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
@@ -5826,6 +5826,10 @@
   "Y+bHa1": {
     "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
     "description": "Issue detection progress > Progress summary while running"
+  },
+  "Y/1i4Y": {
+    "defaultMessage": "{label}: {behavior}",
+    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -7710,10 +7714,6 @@
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
-  },
-  "iZyzUO": {
-    "defaultMessage": "{label}: {spanTypes}",
-    "description": "Helper text under the log-level slider showing which span types correspond to the currently selected level."
   },
   "iaomsd": {
     "defaultMessage": "collapse {title}",

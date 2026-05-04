@@ -29,22 +29,31 @@ const indexFromLogLevel = (level: SpanLogLevel): number => {
   return idx >= 0 ? idx : 0;
 };
 
-// Span types stamped at INFO by autolog defaults; everything else (chain glue,
-// parsers, internal/custom types) is DEBUG. Spans with an exception event are
-// auto-promoted to ERROR. Keep in sync with `defaultLogLevelForSpanType` in
-// `libs/typescript/core/src/core/log_level.ts` and the Python equivalent.
-const LEVEL_DESCRIPTIONS: Record<SpanLogLevel, { label: string; spanTypes: string }> = {
+// Helper text shown under the slider for each level. Frames the threshold in
+// terms of the *filtering effect* (what the user will see after picking it),
+// not the type-to-level mapping — that mapping lives in the docs and the
+// `defaultLogLevelForSpanType` helper.
+const LEVEL_DESCRIPTIONS: Record<SpanLogLevel, { label: string; behavior: string }> = {
   [SpanLogLevel.DEBUG]: {
     label: 'Debug',
-    spanTypes: 'Chain, Parser, Reranker, Memory, Workflow, Task, Unknown',
+    behavior: 'Show all spans regardless.',
   },
   [SpanLogLevel.INFO]: {
     label: 'Info',
-    spanTypes: 'LLM, Chat, Tool, Retriever, Agent, Embedding',
+    behavior: 'Filter to important span types such as LLM, Tool, Retriever, Agent, and Embedding.',
   },
-  [SpanLogLevel.WARNING]: { label: 'Warning', spanTypes: '(no autolog default)' },
-  [SpanLogLevel.ERROR]: { label: 'Error', spanTypes: 'Spans with an exception event' },
-  [SpanLogLevel.CRITICAL]: { label: 'Critical', spanTypes: '(no autolog default)' },
+  [SpanLogLevel.WARNING]: {
+    label: 'Warning',
+    behavior: 'Filter to spans with an explicit warning level or above.',
+  },
+  [SpanLogLevel.ERROR]: {
+    label: 'Error',
+    behavior: 'Filter to spans with an exception event.',
+  },
+  [SpanLogLevel.CRITICAL]: {
+    label: 'Critical',
+    behavior: 'Filter to spans with an explicit critical level.',
+  },
 };
 
 export const TimelineTreeFilterButton = ({
@@ -248,11 +257,11 @@ export const TimelineTreeFilterButton = ({
             </div>
             <Typography.Text size="sm" color="secondary">
               <FormattedMessage
-                defaultMessage="{label}: {spanTypes}"
-                description="Helper text under the log-level slider showing which span types correspond to the currently selected level."
+                defaultMessage="{label}: {behavior}"
+                description="Helper text under the log-level slider explaining how the currently selected level filters the trace view."
                 values={{
                   label: <strong>{description.label}</strong>,
-                  spanTypes: description.spanTypes,
+                  behavior: description.behavior,
                 }}
               />
             </Typography.Text>
