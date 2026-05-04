@@ -28,7 +28,6 @@ export {
 
 // Export entities
 export * from './core/constants';
-export { defaultLogLevelForSpanType } from './core/log_level';
 export type { LiveSpan, Span } from './core/entities/span';
 export type { Trace } from './core/entities/trace';
 export type { TraceInfo, TokenUsage } from './core/entities/trace_info';

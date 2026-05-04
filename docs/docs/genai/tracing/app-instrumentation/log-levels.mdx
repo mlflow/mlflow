@@ -85,8 +85,6 @@ Every span — whether you create it manually or it's created by an autolog inte
 
 So at the default UI threshold (DEBUG) you see everything, at INFO you see the user-visible operations and lose the chain plumbing, and at WARNING+ you only see spans you've explicitly marked above that level.
 
-The same mapping is exported as <APILink fn="mlflow.tracing.utils.default_log_level.default_log_level_for_span_type" /> if you want to query it from your own code.
-
 ### Spans with an exception event are bumped to ERROR
 
 If a span records an exception event — via the `@mlflow.trace` decorator catching an unhandled exception, an explicit `span.record_exception(...)` call, or a tracer-level error handler — MLflow automatically promotes the span's level to `ERROR` (unless it was already higher). This means a span that defaulted to `DEBUG` won't disappear from the trace explorer just because a user raised the verbosity filter past `INFO` — failures stay visible.
