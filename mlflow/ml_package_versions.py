@@ -429,7 +429,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.0",
-            "maximum": "5.4.1"
+            "maximum": "5.4.0"
         }
     },
     "johnsnowlabs": {
