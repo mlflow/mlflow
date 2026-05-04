@@ -281,10 +281,6 @@ export class LiveSpan extends Span {
     super(span, true);
     this.setAttribute(SpanAttributeKey.TRACE_ID, traceId);
     this.setAttribute(SpanAttributeKey.SPAN_TYPE, span_type);
-    // Default level based on span type. Callers that want a specific level
-    // (manual `startSpan({ logLevel })` or `trace`) call `setLogLevel` after
-    // construction, which overwrites this default.
-    this.setAttribute(SpanAttributeKey.LOG_LEVEL, defaultLogLevelForSpanType(span_type) as number);
   }
 
   /**
@@ -422,6 +418,13 @@ export class LiveSpan extends Span {
       // to OK if it is not ERROR.
       if (this.status.statusCode !== SpanStatusCode.ERROR) {
         this.setStatus(SpanStatusCode.OK);
+      }
+
+      // Resolve the log level from the final span_type if neither
+      // `setLogLevel` nor an exception bump set it during the span's lifetime.
+      // Mirrors the Python LiveSpan.end() behavior.
+      if (this.getAttribute(SpanAttributeKey.LOG_LEVEL) == null) {
+        this.setAttribute(SpanAttributeKey.LOG_LEVEL, defaultLogLevelForSpanType(this.spanType) as number);
       }
 
       // OTel SDK default end time to current time if not provided

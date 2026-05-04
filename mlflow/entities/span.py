@@ -564,13 +564,6 @@ class LiveSpan(Span):
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
-        # Set a default log level based on span type. set_span_type() re-stamps
-        # this when the type changes; set_log_level() flips _log_level_user_set
-        # and pins the value, so a user-supplied level is never clobbered.
-        self._log_level_user_set = False
-        self._attributes.set(
-            SpanAttributeKey.LOG_LEVEL, int(default_log_level_for_span_type(span_type))
-        )
         # Track the original span name for deduplication purposes during span logging.
         # Why: When traces contain multiple spans with identical names (e.g., multiple "LLM"
         # or "query" spans), it's difficult for users to distinguish between them in the UI
@@ -581,14 +574,6 @@ class LiveSpan(Span):
     def set_span_type(self, span_type: str):
         """Set the type of the span."""
         self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
-        # Re-stamp the type-derived default unless the user already pinned a
-        # level via set_log_level. The `start_span` / `start_span_no_context`
-        # fluent path calls set_span_type *before* applying any explicit
-        # log_level kwarg, so this preserves user intent in both orders.
-        if not self._log_level_user_set:
-            self.set_attribute(
-                SpanAttributeKey.LOG_LEVEL, int(default_log_level_for_span_type(span_type))
-            )
 
     def set_log_level(self, level: SpanLogLevel | int | str):
         """
@@ -600,7 +585,6 @@ class LiveSpan(Span):
         """
         normalized = SpanLogLevel.from_value(level)
         self.set_attribute(SpanAttributeKey.LOG_LEVEL, int(normalized))
-        self._log_level_user_set = True
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
@@ -895,13 +879,11 @@ class LiveSpan(Span):
         # OTel reserves the event name "exception" for exception events
         # (`SpanEvent.from_exception`). Bump the span's level so users with the
         # filter set above DEBUG/INFO still see anything that blew up. Preserve
-        # user-set CRITICAL. Pin the level so a subsequent set_span_type can't
-        # re-stamp it back to the type-derived default.
+        # user-set CRITICAL.
         if event.name == "exception":
             current = self._attributes.get(SpanAttributeKey.LOG_LEVEL)
             if current is None or int(current) < SpanLogLevel.ERROR:
                 self._attributes.set(SpanAttributeKey.LOG_LEVEL, int(SpanLogLevel.ERROR))
-            self._log_level_user_set = True
 
     def record_exception(self, exception: str | Exception):
         """
@@ -968,6 +950,18 @@ class LiveSpan(Span):
 
             if should_compute_cost_client_side():
                 set_span_cost_attribute(self)
+
+            # Resolve the log level from the final span_type if neither
+            # set_log_level nor an exception bump set it during the lifetime.
+            # Done here (rather than in __init__/set_span_type) so the
+            # resolution sees the canonical span_type without re-stamping
+            # logic, and so manual `start_span` and autolog flows behave
+            # identically.
+            if self._attributes.get(SpanAttributeKey.LOG_LEVEL) is None:
+                self._attributes.set(
+                    SpanAttributeKey.LOG_LEVEL,
+                    int(default_log_level_for_span_type(self.span_type)),
+                )
 
             # Apply span processors
             apply_span_processors(self)

@@ -45,7 +45,7 @@ describe('toSpanLogLevel', () => {
   });
 });
 
-describe('LiveSpan constructor default', () => {
+describe('LiveSpan default applied at end()', () => {
   it.each<[SpanType, SpanLogLevel]>([
     [SpanType.LLM, SpanLogLevel.INFO],
     [SpanType.CHAT_MODEL, SpanLogLevel.INFO],
@@ -58,10 +58,13 @@ describe('LiveSpan constructor default', () => {
     [SpanType.RERANKER, SpanLogLevel.DEBUG],
     [SpanType.MEMORY, SpanLogLevel.DEBUG],
     [SpanType.UNKNOWN, SpanLogLevel.DEBUG],
-  ])('stamps default %p for span type %p', (spanType, expected) => {
+  ])('resolves default %p for span type %p', (spanType, expected) => {
     const span = newLiveSpan(spanType);
-    expect(span.logLevel).toBe(expected);
+    // Mid-span: log level isn't resolved yet.
+    expect(span.logLevel).toBeNull();
     span.end();
+    // Post-end: type-derived default is applied.
+    expect(span.logLevel).toBe(expected);
   });
 });
 
@@ -88,20 +91,23 @@ describe('LiveSpan log-level accessors', () => {
 });
 
 describe('exception event bumps log level to ERROR', () => {
-  it('bumps DEBUG span to ERROR via addEvent', () => {
+  it('bumps an unset span to ERROR via addEvent (DEBUG-defaulting type)', () => {
     const span = newLiveSpan(SpanType.PARSER);
-    expect(span.logLevel).toBe(SpanLogLevel.DEBUG);
+    expect(span.logLevel).toBeNull();
     span.addEvent(new SpanEvent({ name: 'exception', attributes: { 'exception.message': 'boom' } }));
     expect(span.logLevel).toBe(SpanLogLevel.ERROR);
     span.end();
+    // Stays at ERROR after end(); the resolution branch only fires when unset.
+    expect(span.logLevel).toBe(SpanLogLevel.ERROR);
   });
 
-  it('bumps INFO span to ERROR via addEvent', () => {
+  it('bumps an unset span to ERROR via addEvent (INFO-defaulting type)', () => {
     const span = newLiveSpan(SpanType.CHAT_MODEL);
-    expect(span.logLevel).toBe(SpanLogLevel.INFO);
+    expect(span.logLevel).toBeNull();
     span.addEvent(new SpanEvent({ name: 'exception', attributes: { 'exception.message': 'boom' } }));
     expect(span.logLevel).toBe(SpanLogLevel.ERROR);
     span.end();
+    expect(span.logLevel).toBe(SpanLogLevel.ERROR);
   });
 
   it('preserves user-set CRITICAL', () => {
@@ -122,8 +128,10 @@ describe('exception event bumps log level to ERROR', () => {
   it('non-exception events do not bump the level', () => {
     const span = newLiveSpan(SpanType.CHAT_MODEL);
     span.addEvent(new SpanEvent({ name: 'my_event', attributes: { k: 'v' } }));
-    expect(span.logLevel).toBe(SpanLogLevel.INFO);
+    // Plain event must not pre-resolve the level; resolution waits until end().
+    expect(span.logLevel).toBeNull();
     span.end();
+    expect(span.logLevel).toBe(SpanLogLevel.INFO);
   });
 });
 
