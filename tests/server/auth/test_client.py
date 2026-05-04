@@ -130,11 +130,16 @@ def test_get_current_user(client, monkeypatch):
 
     resp = requests.get(url, auth=(username, password))
     assert resp.status_code == 200
-    assert resp.json()["user"] == {
+    body = resp.json()
+    assert body["user"] == {
         "id": created.id,
         "username": username,
         "is_admin": False,
     }
+    # ``is_basic_auth`` lets the frontend gate Basic-Auth-only flows
+    # (logout XHR, change-password) when a custom authorization_function
+    # is configured.
+    assert body["is_basic_auth"] is True
 
     resp = requests.get(url, auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
     assert resp.status_code == 200
@@ -142,6 +147,62 @@ def test_get_current_user(client, monkeypatch):
     assert admin_payload["username"] == ADMIN_USERNAME
     assert admin_payload["is_admin"] is True
 
+    resp = requests.get(url)
+    assert resp.status_code == 401
+
+
+def test_list_current_user_permissions(client, monkeypatch):
+    # /users/current/permissions returns the calling user's direct per-resource
+    # grants. Sender == target, so any authenticated user can read their own
+    # without an admin gate.
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        client.create_experiment_permission("exp-1", username, "EDIT")
+        client.create_registered_model_permission("model-x", username, "READ")
+        client.create_gateway_secret_permission("secret-1", username, "MANAGE")
+        client.create_gateway_endpoint_permission("endpoint-1", username, "READ")
+        client.create_gateway_model_definition_permission("md-1", username, "EDIT")
+
+    url = f"{client.tracking_uri}/api/3.0/mlflow/users/current/permissions"
+
+    resp = requests.get(url, auth=(username, password))
+    assert resp.status_code == 200
+    grants = resp.json()["permissions"]
+    # Each entry uses the unified ``resource_pattern`` shape - ready for a
+    # future migration that folds these tables into the role/permission model.
+    assert {(g["resource_type"], g["resource_pattern"], g["permission"]) for g in grants} == {
+        ("experiment", "exp-1", "EDIT"),
+        ("registered_model", "model-x", "READ"),
+        ("gateway_secret", "secret-1", "MANAGE"),
+        ("gateway_endpoint", "endpoint-1", "READ"),
+        ("gateway_model_definition", "md-1", "EDIT"),
+    }
+    # Every grant carries a ``workspace`` field. ``registered_model`` rows
+    # have it on the permission row natively; the others are resolved via
+    # the resource→workspace lookup. The lookup-based resources don't
+    # exist in the tracking store in this test, so their workspace falls
+    # back to ``None`` (which is the documented "deleted-or-unknown"
+    # path).
+    by_type = {g["resource_type"]: g for g in grants}
+    assert "workspace" in by_type["registered_model"]
+    assert by_type["registered_model"]["workspace"] == DEFAULT_WORKSPACE_NAME
+    assert by_type["experiment"]["workspace"] is None
+    assert by_type["gateway_secret"]["workspace"] is None
+    assert by_type["gateway_endpoint"]["workspace"] is None
+    assert by_type["gateway_model_definition"]["workspace"] is None
+
+    # An unrelated user sees their own (empty) list, not the target user's.
+    other_username = random_str()
+    other_password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(other_username, other_password)
+    resp = requests.get(url, auth=(other_username, other_password))
+    assert resp.status_code == 200
+    assert resp.json()["permissions"] == []
+
+    # Unauthenticated requests are rejected.
     resp = requests.get(url)
     assert resp.status_code == 401
 

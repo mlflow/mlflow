@@ -413,3 +413,55 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
     )
     assert resp.status_code == 403
     assert "Permission denied" in resp.text
+
+
+def test_list_current_user_permissions_no_active_workspace(workspace_client, monkeypatch):
+    # ``/users/current/permissions`` backs the global ``/account`` page,
+    # which has no active workspace - it must list registered-model
+    # grants across every workspace the user has them in. The
+    # active-workspace-aware ``list_registered_model_permissions`` would
+    # raise here, so the handler uses the cross-workspace variant.
+    client, tracking_uri = workspace_client
+
+    workspace_a = f"ws-a-{random_str()}"
+    workspace_b = f"ws-b-{random_str()}"
+    _create_workspace(tracking_uri, workspace_a)
+    _create_workspace(tracking_uri, workspace_b)
+    username, password = create_user(tracking_uri)
+
+    model_a = f"model-a-{random_str()}"
+    model_b = f"model-b-{random_str()}"
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        # Create one registered-model permission per workspace. We go
+        # through the REST endpoint directly because the typed client
+        # method doesn't accept a workspace header - the server reads it
+        # from the request to set the row's ``workspace`` column.
+        for workspace_name, model_name in [(workspace_a, model_a), (workspace_b, model_b)]:
+            resp = requests.post(
+                f"{tracking_uri}/api/2.0/mlflow/registered-models/permissions/create",
+                json={"name": model_name, "username": username, "permission": "READ"},
+                auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+                headers={WORKSPACE_HEADER_NAME: workspace_name},
+            )
+            assert resp.ok, (
+                f"create_registered_model_permission failed: {resp.status_code} {resp.text}"
+            )
+
+    url = f"{tracking_uri}/api/3.0/mlflow/users/current/permissions"
+
+    # Critical assertion: no ``X-MLFLOW-WORKSPACE`` header. On a
+    # workspaces-enabled deployment, ``list_registered_model_permissions``
+    # would raise here ("Active workspace is required"); the
+    # cross-workspace path must succeed and span both workspaces.
+    resp = requests.get(url, auth=(username, password))
+    assert resp.status_code == 200, resp.text
+    grants = resp.json()["permissions"]
+
+    # Each workspace's grant should be present, attributed correctly.
+    rm_grants = [g for g in grants if g["resource_type"] == "registered_model"]
+    assert {(g["resource_pattern"], g["workspace"]) for g in rm_grants} == {
+        (model_a, workspace_a),
+        (model_b, workspace_b),
+    }
+    for g in rm_grants:
+        assert g["permission"] == "READ"
