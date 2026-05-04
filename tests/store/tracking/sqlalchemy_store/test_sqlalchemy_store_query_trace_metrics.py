@@ -92,11 +92,9 @@ def test_query_trace_metrics_session_count_no_dimensions(store: SqlAlchemyStore)
             execution_duration=100,
             state=TraceStatus.OK,
             tags={TraceTagKey.TRACE_NAME: "test_trace"},
-            trace_metadata=(
-                {TraceMetadataKey.TRACE_SESSION: session_id}
-                if session_id is not None
-                else {}
-            ),
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id}
+            if session_id is not None
+            else {},
         )
         store.start_trace(trace_info)
 
@@ -600,11 +598,9 @@ def test_query_trace_metrics_session_count_with_time_interval(store: SqlAlchemyS
             execution_duration=100,
             state=TraceStatus.OK,
             tags={TraceTagKey.TRACE_NAME: "test_trace"},
-            trace_metadata=(
-                {TraceMetadataKey.TRACE_SESSION: session_id}
-                if session_id is not None
-                else {}
-            ),
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id}
+            if session_id is not None
+            else {},
         )
         store.start_trace(trace_info)
 
