@@ -1144,7 +1144,7 @@ def test_invoke_and_handle_tools_forwards_workspace_header():
             "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             side_effect=capture_and_raise,
         ),
-        pytest.raises(MlflowException),
+        pytest.raises(MlflowException, match="stop"),
     ):
         adapter._invoke_and_handle_tools(
             provider="gateway",
