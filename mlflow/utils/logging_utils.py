@@ -121,13 +121,17 @@ class SuppressLogFilter(logging.Filter):
 # Cloud storage presigned URLs (AWS S3, GCS, Azure SAS) embed credentials in
 # query parameters. urllib3 logs the full target URL on connection retries
 # (e.g. when DNS resolution fails), which leaks those credentials to stderr.
+# Only include provider-specific parameter names to avoid false positives on
+# generic names like "sig" or "Signature" that appear in non-cloud URLs.
 _SENSITIVE_QUERY_PARAM_NAMES = (
+    # AWS S3 presigned URL parameters
     "X-Amz-Signature",
     "X-Amz-Security-Token",
     "X-Amz-Credential",
+    # GCS presigned URL parameters
     "X-Goog-Signature",
     "X-Goog-Credential",
-    "Signature",
+    # Azure SAS token parameters
     "sig",
 )
 
@@ -145,8 +149,9 @@ class SensitiveQueryParamFilter(logging.Filter):
     """
     Logging filter that masks cloud storage credentials embedded in URL query
     strings. Attached to urllib3 to avoid leaking presigned URL credentials
-    (X-Amz-Signature, X-Amz-Security-Token, X-Amz-Credential, ...) when
-    urllib3 logs full URLs on connection failures or retries.
+    (X-Amz-Signature, X-Amz-Security-Token, X-Amz-Credential, X-Goog-Signature,
+    X-Goog-Credential, sig) when urllib3 logs full URLs on connection failures
+    or retries.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:

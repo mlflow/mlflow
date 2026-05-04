@@ -212,6 +212,15 @@ assert logging.getLogger("mlflow").isEnabledFor({expected_level})
             "just a normal log message without credentials",
         ),
         ("path?foo=bar&baz=qux", "path?foo=bar&baz=qux"),
+        # Generic "Signature" and "signature" params on non-cloud URLs must NOT be redacted.
+        (
+            "https://api.example.com/webhook?signature=abc123&nonce=xyz",
+            "https://api.example.com/webhook?signature=abc123&nonce=xyz",
+        ),
+        (
+            "https://api.example.com/v1/verify?Signature=deadbeef&timestamp=12345",
+            "https://api.example.com/v1/verify?Signature=deadbeef&timestamp=12345",
+        ),
     ],
 )
 def test_redact_sensitive_query_params(message: str, expected: str):
