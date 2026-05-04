@@ -102,11 +102,6 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
       return;
     }
-    // Pytest parent runs navigate to the run page (Test Results tab) instead of opening the right panel
-    if (isPytestParentRun) {
-      navigate(Routes.getRunPageTabRoute(experimentId, runUuid, RunPageTabName.PYTEST_RESULTS));
-      return;
-    }
     // Otherwise follow old behavior - open the right-side panel
     (meta as any).setSelectedRunUuid?.(runUuid);
   };
