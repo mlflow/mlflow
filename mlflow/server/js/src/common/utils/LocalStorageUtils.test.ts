@@ -1,4 +1,4 @@
-import { test, expect, jest } from '@jest/globals';
+import { test, expect } from '@jest/globals';
 import LocalStorageUtils from './LocalStorageUtils';
 import { ExperimentPagePersistedState } from '../../experiment-tracking/sdk/MlflowLocalStorageMessages';
 
@@ -61,43 +61,4 @@ test('Session scoped storage works', () => {
   });
 });
 
-test('QuotaExceededError is caught and does not crash the app', () => {
-  const originalSetItem = Storage.prototype.setItem;
-
-  // Simulate QuotaExceededError on every setItem call
-  Storage.prototype.setItem = jest.fn(() => {
-    throw new DOMException('Failed to execute setItem: quota exceeded', 'QuotaExceededError');
-  }) as any;
-
-  const store = LocalStorageUtils.getStoreForComponent('QuotaTest', 'big-run');
-
-  // setItem should NOT throw
-  expect(() => {
-    store.setItem('chartUIState', JSON.stringify({ charts: new Array(5000).fill({ type: 'LINE' }) }));
-  }).not.toThrow();
-
-  // saveComponentState should NOT throw
-  expect(() => {
-    store.saveComponentState({ compareRunCharts: new Array(3000).fill({ type: 'BAR', metricKey: 'x' }) });
-  }).not.toThrow();
-
-  // Restore
-  Storage.prototype.setItem = originalSetItem;
-});
-
-test('Without the QuotaExceededError guard, raw setItem WOULD throw', () => {
-  // This test proves the error is real — raw Storage.prototype.setItem throws
-  const originalSetItem = Storage.prototype.setItem;
-
-  Storage.prototype.setItem = jest.fn(() => {
-    throw new DOMException('Failed to execute setItem: quota exceeded', 'QuotaExceededError');
-  }) as any;
-
-  // Raw Storage.prototype.setItem DOES throw
-  expect(() => {
-    Storage.prototype.setItem.call(localStorage, 'test', 'value');
-  }).toThrow();
-
-  // Restore
-  Storage.prototype.setItem = originalSetItem;
-});
+// Quota-exceeded behavior is covered in LocalStorageUtils.quota.test.ts.

@@ -1,116 +1,124 @@
-import { test, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import LocalStorageUtils from './LocalStorageUtils';
+import { describe, test, expect, jest, afterEach } from '@jest/globals';
+import LocalStorageUtils, { safeSetItem } from './LocalStorageUtils';
 
 /**
- * These tests prove that QuotaExceededError crashes the app WITHOUT
- * the guard, and is gracefully handled WITH it. Non-quota errors
- * are still re-thrown so real bugs are not masked.
+ * Background: in real browsers, `localStorage.setItem` throws a DOMException
+ * with name 'QuotaExceededError' when storage is full. JSDOM doesn't enforce
+ * quotas, so we cannot reproduce that natively in Jest — instead we spy on
+ * `setItem` to throw the same error and assert that LocalStorageStore swallows
+ * it (quota errors) or re-throws it (everything else).
  */
 
-let originalSetItem: typeof Storage.prototype.setItem;
-
-beforeEach(() => {
-  originalSetItem = Storage.prototype.setItem;
-});
-
 afterEach(() => {
-  Storage.prototype.setItem = originalSetItem;
+  jest.restoreAllMocks();
 });
 
 function simulateFullStorage() {
-  Storage.prototype.setItem = jest.fn(() => {
+  const throwQuota = () => {
     throw new DOMException(
       "Failed to execute 'setItem' on 'Storage': Setting the value exceeded the quota.",
       'QuotaExceededError',
     );
-  }) as any;
+  };
+  jest.spyOn(localStorage, 'setItem').mockImplementation(throwQuota);
+  jest.spyOn(sessionStorage, 'setItem').mockImplementation(throwQuota);
 }
 
-test('PROOF: raw Storage.prototype.setItem throws QuotaExceededError when storage is full', () => {
-  simulateFullStorage();
+// The "no spies" describe block must run before "spied" — JSDOM's setItem
+// doesn't fully restore after a spy/mockRestore cycle (subsequent calls become
+// no-ops). Jest runs describe blocks in declaration order, so this ordering is
+// structural rather than positional.
+describe('no spies — real localStorage', () => {
+  test('Normal operation still works when storage is NOT full', () => {
+    const store = LocalStorageUtils.getStoreForComponent('QuotaTest', 'normal');
 
-  // This is what happens when storage is full — unguarded setItem crashes the app
-  expect(() => {
-    Storage.prototype.setItem.call(window.localStorage, 'anything', 'any value');
-  }).toThrow();
+    store.setItem('key1', 'value1');
+    expect(store.getItem('key1')).toEqual('value1');
+
+    store.saveComponentState({ searchInput: 'hello' });
+    expect(store.loadComponentState().searchInput).toEqual('hello');
+  });
 });
 
-test('FIX: LocalStorageStore.setItem does NOT throw when storage is full', () => {
-  const store = LocalStorageUtils.getStoreForComponent('ExperimentPage', '["413","414"]');
+describe('spied setItem — quota and error handling', () => {
+  test('FIX: LocalStorageStore.setItem does NOT throw when storage is full', () => {
+    const store = LocalStorageUtils.getStoreForComponent('ExperimentPage', '["413","414"]');
 
-  simulateFullStorage();
+    simulateFullStorage();
 
-  // This would have crashed the app before the fix
-  expect(() => {
-    store.setItem(
-      'ReactComponentState',
-      JSON.stringify({
-        compareRunCharts: new Array(3000).fill({
-          type: 'LINE',
-          metricKey: 'train/loss',
-          uuid: 'abc-123',
-          isGenerated: true,
-          deleted: false,
+    expect(() => {
+      store.setItem(
+        'ReactComponentState',
+        JSON.stringify({
+          compareRunCharts: new Array(3000).fill({
+            type: 'LINE',
+            metricKey: 'train/loss',
+            uuid: 'abc-123',
+            isGenerated: true,
+            deleted: false,
+          }),
         }),
-      }),
-    );
-  }).not.toThrow();
-});
+      );
+    }).not.toThrow();
+  });
 
-test('FIX: LocalStorageStore.saveComponentState does NOT throw when storage is full', () => {
-  const store = LocalStorageUtils.getStoreForComponent('ExperimentPage', '["413","414"]');
+  test('FIX: LocalStorageStore.saveComponentState does NOT throw when storage is full', () => {
+    const store = LocalStorageUtils.getStoreForComponent('ExperimentPage', '["413","414"]');
 
-  simulateFullStorage();
+    simulateFullStorage();
 
-  // saveComponentState calls setItem internally — should also be safe
-  expect(() => {
-    store.saveComponentState({
-      compareRunCharts: new Array(3000).fill({ type: 'BAR', metricKey: 'x' }),
-      compareRunSections: new Array(500).fill({ name: 'section', uuid: 'x' }),
+    expect(() => {
+      store.saveComponentState({
+        compareRunCharts: new Array(3000).fill({ type: 'BAR', metricKey: 'x' }),
+        compareRunSections: new Array(500).fill({ name: 'section', uuid: 'x' }),
+      });
+    }).not.toThrow();
+  });
+
+  test('FIX: sessionStorage setItem also does NOT throw when storage is full', () => {
+    const store = LocalStorageUtils.getSessionScopedStoreForComponent('ExperimentPage', '413');
+
+    simulateFullStorage();
+
+    expect(() => {
+      store.setItem('chartUIState', 'x'.repeat(10_000_000));
+    }).not.toThrow();
+  });
+
+  test('Non-quota DOMException errors are re-thrown (not swallowed)', () => {
+    jest.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('Access denied', 'SecurityError');
     });
-  }).not.toThrow();
-});
 
-test('FIX: sessionStorage setItem also does NOT throw when storage is full', () => {
-  const store = LocalStorageUtils.getSessionScopedStoreForComponent('ExperimentPage', '413');
-
-  simulateFullStorage();
-
-  expect(() => {
-    store.setItem('chartUIState', 'x'.repeat(10_000_000));
-  }).not.toThrow();
-});
-
-test('Non-quota DOMException errors are re-thrown (not swallowed)', () => {
-  Storage.prototype.setItem = jest.fn(() => {
-    throw new DOMException('Access denied', 'SecurityError');
-  }) as any;
-
-  // Call the prototype directly to test the guard — JSDOM's own setItem
-  // doesn't go through the prototype, but the guard logic is the same.
-  expect(() => {
     const store = LocalStorageUtils.getStoreForComponent('ExperimentPage', '["413"]');
-    Storage.prototype.setItem.call(window.localStorage, 'anything', 'value');
-  }).toThrow('Access denied');
-});
+    expect(() => store.setItem('anything', 'value')).toThrow('Access denied');
+  });
 
-test('Non-DOMException errors are re-thrown', () => {
-  Storage.prototype.setItem = jest.fn(() => {
-    throw new TypeError('Cannot read properties of null');
-  }) as any;
+  test('Non-DOMException errors are re-thrown', () => {
+    jest.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new TypeError('Cannot read properties of null');
+    });
 
-  expect(() => {
-    Storage.prototype.setItem.call(window.localStorage, 'anything', 'value');
-  }).toThrow(TypeError);
-});
+    const store = LocalStorageUtils.getStoreForComponent('ExperimentPage', '["413"]');
+    expect(() => store.setItem('anything', 'value')).toThrow(TypeError);
+  });
 
-test('Normal operation still works when storage is NOT full', () => {
-  // Prototype is restored by afterEach — verify real localStorage works
-  const store = LocalStorageUtils.getStoreForComponent('QuotaTest', 'normal');
+  test('safeSetItem swallows QuotaExceededError', () => {
+    simulateFullStorage();
+    expect(() => safeSetItem(window.localStorage, 'k', 'v', 'test state')).not.toThrow();
+  });
 
-  store.setItem('key1', 'value1');
-  expect(store.getItem('key1')).toEqual('value1');
+  test('safeSetItem re-throws non-quota DOMException', () => {
+    jest.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('Access denied', 'SecurityError');
+    });
+    expect(() => safeSetItem(window.localStorage, 'k', 'v', 'test state')).toThrow('Access denied');
+  });
 
-  store.saveComponentState({ searchInput: 'hello' });
-  expect(store.loadComponentState().searchInput).toEqual('hello');
+  test('safeSetItem re-throws non-DOMException', () => {
+    jest.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new TypeError('boom');
+    });
+    expect(() => safeSetItem(window.localStorage, 'k', 'v', 'test state')).toThrow(TypeError);
+  });
 });

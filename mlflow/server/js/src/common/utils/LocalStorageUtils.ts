@@ -79,19 +79,34 @@ class LocalStorageStore {
 
   /** Save the specified key-value pair in local storage. */
   setItem(key: any, value: any) {
-    try {
-      this.storageObj.setItem(this.withScopePrefix(key), value);
-    } catch (e) {
-      if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
-        console.warn('localStorage quota exceeded — state will not be persisted');
-      } else {
-        throw e;
-      }
-    }
+    safeSetItem(this.storageObj, this.withScopePrefix(key), value, `state for ${this.scope}`);
   }
 
   /** Fetch the value corresponding to the passed-in key from local storage. */
   getItem(key: any) {
     return this.storageObj.getItem(this.withScopePrefix(key));
+  }
+}
+
+function isQuotaExceededError(e: unknown): boolean {
+  return e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22);
+}
+
+/**
+ * Wrap `storage.setItem` so a full-storage error doesn't crash the app.
+ * Use this for any direct localStorage/sessionStorage write that bypasses
+ * LocalStorageStore. `label` is a human-readable description of what was
+ * being persisted, surfaced in the warning ("<label> will not be persisted").
+ */
+export function safeSetItem(storage: Storage, key: string, value: string, label: string) {
+  try {
+    storage.setItem(key, value);
+  } catch (e) {
+    if (isQuotaExceededError(e)) {
+      // eslint-disable-next-line no-console -- intentional user-visible warning when storage is full
+      console.warn(`localStorage quota exceeded — ${label} will not be persisted`);
+    } else {
+      throw e;
+    }
   }
 }
