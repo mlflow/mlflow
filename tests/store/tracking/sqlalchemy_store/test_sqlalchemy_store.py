@@ -13826,12 +13826,12 @@ def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
 
 
-def test_log_spans_then_start_trace_advances_trace_version(store: SqlAlchemyStore):
+def test_log_spans_then_start_trace_advances_db_payload_generation(store: SqlAlchemyStore):
     """
     A stale archival snapshot taken after log_spans() must lose once start_trace() updates the
-    same DB-backed trace and advances its trace_version.
+    same DB-backed trace and advances its db_payload_generation.
     """
-    experiment_id = store.create_experiment("test_log_spans_then_start_trace_trace_version")
+    experiment_id = store.create_experiment("test_log_spans_then_start_trace_db_payload_generation")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     span = create_test_span(
@@ -13846,8 +13846,8 @@ def test_log_spans_then_start_trace_advances_trace_version(store: SqlAlchemyStor
     store.log_spans(experiment_id, [span])
     snapshot = store._load_trace_archival_data(trace_id)
     assert snapshot is not None
-    _, trace_version, _ = snapshot
-    assert trace_version == 1
+    _, db_payload_generation, _ = snapshot
+    assert db_payload_generation == 1
 
     trace_info_for_start = TraceInfo(
         trace_id=trace_id,
@@ -13864,12 +13864,12 @@ def test_log_spans_then_start_trace_advances_trace_version(store: SqlAlchemyStor
         sql_trace_info = (
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
         )
-        assert sql_trace_info.trace_version == 2
+        assert sql_trace_info.db_payload_generation == 2
 
     assert not store._finalize_archived_trace(
         trace_id=trace_id,
         artifact_uri="file:///unused-archive-root",
-        trace_version=trace_version,
+        db_payload_generation=db_payload_generation,
     )
     assert store.get_trace_info(trace_id).tags[TraceTagKey.SPANS_LOCATION] == (
         SpansLocation.TRACKING_STORE.value
@@ -13914,8 +13914,8 @@ def test_log_spans_then_start_trace_rejects_archived_trace(store: SqlAlchemyStor
     assert trace_info.tags[TraceTagKey.ARCHIVE_LOCATION] == archive_location
 
 
-def test_advance_trace_versions_reports_deleted_traces(store: SqlAlchemyStore):
-    experiment_id = store.create_experiment("test_deleted_trace_version_bump")
+def test_advance_db_payload_generations_reports_deleted_traces(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_deleted_db_payload_generation_bump")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     _create_trace(store, trace_id, experiment_id, request_time=1_000)
@@ -13926,7 +13926,7 @@ def test_advance_trace_versions_reports_deleted_traces(store: SqlAlchemyStore):
             MlflowException,
             match=f"Cannot log spans to traces that no longer exist: '{trace_id}'",
         ) as exc_info:
-            store._advance_trace_versions_for_db_span_writes(session, [trace_id])
+            store._advance_db_payload_generations_for_db_span_writes(session, [trace_id])
 
     assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
@@ -15848,13 +15848,13 @@ def test_archive_traces_respects_workspace_retention_long_retention_allowlist(
     )
 
 
-def test_finalize_archived_trace_rejects_stale_snapshot_version(store: SqlAlchemyStore):
+def test_finalize_archived_trace_rejects_stale_snapshot_generation(store: SqlAlchemyStore):
     """
     Finalization must reject an archival snapshot when a later DB-backed write advances the same
-    trace_version before finalize runs.
+    db_payload_generation before finalize runs.
     """
-    exp_id = store.create_experiment("archive-stale-version")
-    trace_id = "tr-stale-version"
+    exp_id = store.create_experiment("archive-stale-generation")
+    trace_id = "tr-stale-generation"
     request_time = 40 * 24 * 60 * 60 * 1000
 
     _create_trace(store, trace_id, exp_id, request_time=request_time)
@@ -15862,7 +15862,7 @@ def test_finalize_archived_trace_rejects_stale_snapshot_version(store: SqlAlchem
         sql_trace_info = (
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
         )
-        assert sql_trace_info.trace_version == 0
+        assert sql_trace_info.db_payload_generation == 0
 
     store.log_spans(
         exp_id,
@@ -15880,13 +15880,13 @@ def test_finalize_archived_trace_rejects_stale_snapshot_version(store: SqlAlchem
             session
             .query(SqlTraceInfo)
             .filter(SqlTraceInfo.request_id == trace_id)
-            .update({SqlTraceInfo.trace_version: 0}, synchronize_session=False)
+            .update({SqlTraceInfo.db_payload_generation: 0}, synchronize_session=False)
         )
 
     snapshot = store._load_trace_archival_data(trace_id)
     assert snapshot is not None
-    _, trace_version, _ = snapshot
-    assert trace_version == 0
+    _, db_payload_generation, _ = snapshot
+    assert db_payload_generation == 0
 
     store.log_spans(
         exp_id,
@@ -15903,7 +15903,7 @@ def test_finalize_archived_trace_rejects_stale_snapshot_version(store: SqlAlchem
     assert not store._finalize_archived_trace(
         trace_id=trace_id,
         artifact_uri="file:///unused-archive-root",
-        trace_version=trace_version,
+        db_payload_generation=db_payload_generation,
     )
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
@@ -15912,7 +15912,7 @@ def test_finalize_archived_trace_rejects_stale_snapshot_version(store: SqlAlchem
         sql_trace_info = (
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
         )
-        assert sql_trace_info.trace_version == 1
+        assert sql_trace_info.db_payload_generation == 1
         contents = (
             session
             .query(SqlSpan.content)
@@ -16089,10 +16089,12 @@ def test_mark_trace_archival_failure_keeps_joined_tags_out_of_postgres_lock_quer
     assert "LEFT OUTER JOIN" not in postgres_sql
 
 
-def test_log_spans_advances_trace_version_for_multi_trace_batch(store: SqlAlchemyStore):
-    exp_id = store.create_experiment("archive-log-spans-version-batch")
-    first_trace_id = "tr-version-batch-1"
-    second_trace_id = "tr-version-batch-2"
+def test_log_spans_advances_db_payload_generation_for_multi_trace_batch(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("archive-log-spans-generation-batch")
+    first_trace_id = "tr-generation-batch-1"
+    second_trace_id = "tr-generation-batch-2"
     request_time = 44 * 24 * 60 * 60 * 1000
 
     store.log_spans(
@@ -16114,13 +16116,13 @@ def test_log_spans_advances_trace_version_for_multi_trace_batch(store: SqlAlchem
     )
 
     with store.ManagedSessionMaker() as session:
-        versions = dict(
+        db_payload_generations = dict(
             session
-            .query(SqlTraceInfo.request_id, SqlTraceInfo.trace_version)
+            .query(SqlTraceInfo.request_id, SqlTraceInfo.db_payload_generation)
             .filter(SqlTraceInfo.request_id.in_([first_trace_id, second_trace_id]))
             .all()
         )
-    assert versions == {first_trace_id: 1, second_trace_id: 1}
+    assert db_payload_generations == {first_trace_id: 1, second_trace_id: 1}
 
     store.log_spans(
         exp_id,
@@ -16141,13 +16143,13 @@ def test_log_spans_advances_trace_version_for_multi_trace_batch(store: SqlAlchem
     )
 
     with store.ManagedSessionMaker() as session:
-        versions = dict(
+        db_payload_generations = dict(
             session
-            .query(SqlTraceInfo.request_id, SqlTraceInfo.trace_version)
+            .query(SqlTraceInfo.request_id, SqlTraceInfo.db_payload_generation)
             .filter(SqlTraceInfo.request_id.in_([first_trace_id, second_trace_id]))
             .all()
         )
-    assert versions == {first_trace_id: 2, second_trace_id: 2}
+    assert db_payload_generations == {first_trace_id: 2, second_trace_id: 2}
 
 
 def test_finalize_archived_trace_rejects_writer_after_finalization(store: SqlAlchemyStore):
@@ -16170,11 +16172,11 @@ def test_finalize_archived_trace_rejects_writer_after_finalization(store: SqlAlc
 
     snapshot = store._load_trace_archival_data(trace_id)
     assert snapshot is not None
-    _, trace_version, _ = snapshot
+    _, db_payload_generation, _ = snapshot
     assert store._finalize_archived_trace(
         trace_id=trace_id,
         artifact_uri="file:///unused-archive-root",
-        trace_version=trace_version,
+        db_payload_generation=db_payload_generation,
     )
 
     with pytest.raises(
@@ -16457,7 +16459,7 @@ def test_archive_traces_stale_malformed_snapshot_does_not_mark_new_generation_te
 ):
     """
     A malformed archival snapshot must not mark the trace terminal once a later DB-backed write
-    repairs the trace and advances its trace_version before failure marking runs.
+    repairs the trace and advances its db_payload_generation before failure marking runs.
     """
     exp_id = store.create_experiment("archive-stale-malformed-snapshot")
     trace_id = "tr-stale-malformed-snapshot"
@@ -16522,7 +16524,7 @@ def test_archive_traces_stale_malformed_snapshot_does_not_mark_new_generation_te
         sql_trace_info = (
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
         )
-        assert sql_trace_info.trace_version == 2
+        assert sql_trace_info.db_payload_generation == 2
 
 
 def test_archive_traces_marks_serializer_failures_as_malformed_and_excludes_retries(

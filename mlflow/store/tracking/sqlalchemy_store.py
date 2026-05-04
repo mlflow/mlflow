@@ -3392,7 +3392,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     sql_assessments.append(sql_assessment)
                 trace_write_workspace = self._get_active_workspace()
                 # Lock the reread because this is the read half of a read-modify-write
-                # merge on trace_info, not a passive lookup. The trace_version bump below
+                # merge on trace_info, not a passive lookup. The db_payload_generation bump below
                 # coordinates DB-backed payload generation, but this row lock also prevents
                 # us from preserving top-level trace fields from a stale snapshot.
                 db_sql_trace_info = (
@@ -3415,9 +3415,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         f"Cannot update traces that are no longer DB-backed: '{trace_id}'.",
                         error_code=INVALID_STATE,
                     )
-                # Advance the version before staging ORM writes so a concurrent archival
+                # Advance the payload generation before staging ORM writes so a concurrent archival
                 # finalization cannot be hidden by autoflush re-publishing TRACKING_STORE.
-                self._advance_trace_versions_for_db_span_writes(session, [trace_id])
+                self._advance_db_payload_generations_for_db_span_writes(session, [trace_id])
 
                 db_sql_trace_info.experiment_id = trace_info.experiment_id
                 db_sql_trace_info.timestamp_ms = trace_info.request_time
@@ -4954,14 +4954,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             synchronize_session=False,
                         )
                     )
-            # Keep the authoritative archived/non-DB-backed check after the writes so the version
-            # bump closes the TOCTOU window; if it fails, the surrounding transaction rolls back
+            # Keep the authoritative archived/non-DB-backed check after the writes so the
+            # generation bump closes the TOCTOU window; if it fails, the surrounding transaction
+            # rolls back
             # the earlier span/metric/tag flushes.
-            self._advance_trace_versions_for_db_span_writes(session, all_trace_ids)
+            self._advance_db_payload_generations_for_db_span_writes(session, all_trace_ids)
 
-            # Re-publish TRACKING_STORE only after the conditional trace_version bump succeeds so
+            # Re-publish TRACKING_STORE only after the conditional db_payload_generation bump
+            # succeeds so
             # span writes, including span-only changes that did not update trace_info, commit
-            # atomically with the new DB-backed trace version.
+            # atomically with the new DB-backed payload generation.
             for trace_id in all_trace_ids:
                 session.merge(
                     SqlTraceTag(
@@ -5248,13 +5250,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             error_code=INVALID_STATE,
         )
 
-    def _advance_trace_versions_for_db_span_writes(
+    def _advance_db_payload_generations_for_db_span_writes(
         self, session: Session, trace_ids: Iterable[str]
     ) -> None:
         """
-        Atomically advance the DB-backed trace version for each touched trace.
+        Atomically advance the DB-backed payload generation for each touched trace.
 
-        The version bump is the writer-side guard against archival finalization: if a trace is
+        The generation bump is the writer-side guard against archival finalization: if a trace is
         no longer DB-backed at commit time, the conditional UPDATE affects fewer rows than
         expected and the whole write transaction must roll back.
         """
@@ -5277,7 +5279,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ~spans_outside_tracking_store,
             )
             .update(
-                {SqlTraceInfo.trace_version: SqlTraceInfo.trace_version + 1},
+                {SqlTraceInfo.db_payload_generation: SqlTraceInfo.db_payload_generation + 1},
                 synchronize_session=False,
             )
         )
@@ -5726,7 +5728,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         archival_data = self._load_trace_archival_data(trace_id)
         if archival_data is None:
             return False
-        trace_info, trace_version, span_rows = archival_data
+        trace_info, db_payload_generation, span_rows = archival_data
 
         try:
             archived_pb = self._serialize_trace_archival_span_rows_to_pb(span_rows)
@@ -5735,7 +5737,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             self._mark_trace_archival_failure(
                 trace_id=trace_id,
                 failure_reason=TraceArchivalFailureReason.MALFORMED_TRACE.value,
-                trace_version=trace_version,
+                db_payload_generation=db_payload_generation,
             )
             return False
 
@@ -5766,7 +5768,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             finalized = self._finalize_archived_trace(
                 trace_id=trace_id,
                 artifact_uri=artifact_uri,
-                trace_version=trace_version,
+                db_payload_generation=db_payload_generation,
             )
         except Exception as e:
             self._delete_unreferenced_archived_trace_payload(
@@ -5807,7 +5809,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 return None
 
             span_rows = sorted((span.span_id, span.content) for span in sql_trace_info.spans)
-            return trace_info, sql_trace_info.trace_version, span_rows
+            return trace_info, sql_trace_info.db_payload_generation, span_rows
 
     def _serialize_trace_archival_span_rows_to_pb(self, span_rows: list[tuple[str, str]]) -> bytes:
         try:
@@ -5931,7 +5933,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         *,
         trace_id: str,
         artifact_uri: str,
-        trace_version: int,
+        db_payload_generation: int,
     ) -> bool:
         with self.ManagedSessionMaker() as session:
             sql_trace_info = (
@@ -5944,11 +5946,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if sql_trace_info is None:
                 return False
 
-            if sql_trace_info.trace_version != trace_version:
+            if sql_trace_info.db_payload_generation != db_payload_generation:
                 return False
             if not self._is_trace_metadata_actionable_for_archival(sql_trace_info):
                 return False
-            # The trace_version check is the primary race guard; this cheap EXISTS probe is
+            # The db_payload_generation check is the primary race guard; this cheap EXISTS probe is
             # defense in depth that confirms DB-backed span content still exists without
             # triggering a second full load of potentially large span payloads.
             if not self._trace_has_non_empty_span_content(session, trace_id):
@@ -5986,7 +5988,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return True
 
     def _mark_trace_archival_failure(
-        self, *, trace_id: str, failure_reason: str, trace_version: int | None = None
+        self, *, trace_id: str, failure_reason: str, db_payload_generation: int | None = None
     ) -> None:
         with self.ManagedSessionMaker() as session:
             sql_trace_info = (
@@ -6003,7 +6005,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             if not self._is_sql_trace_db_backed(sql_trace_info):
                 return
-            if trace_version is not None and sql_trace_info.trace_version != trace_version:
+            if (
+                db_payload_generation is not None
+                and sql_trace_info.db_payload_generation != db_payload_generation
+            ):
                 return
 
             session.merge(
