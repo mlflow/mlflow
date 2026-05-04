@@ -25,7 +25,6 @@ import {
   SpanAttributeKey,
   TraceMetadataKey,
   TokenUsageKey,
-  defaultLogLevelForSpanType,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -96,7 +95,6 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     spanType: SpanType.AGENT,
     inputs: userPrompt,
     attributes: { model },
-    logLevel: defaultLogLevelForSpanType(SpanType.AGENT),
     ...(rootStartNs != null ? { startTimeNs: rootStartNs } : {}),
   });
 
@@ -124,7 +122,6 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
         messages: [{ role: 'user', content: userPrompt }],
       },
       attributes: { model },
-      logLevel: defaultLogLevelForSpanType(SpanType.LLM),
     });
     llmSpan.end({
       outputs: {
@@ -262,7 +259,6 @@ export function createChildSpans(
           startTimeNs: prevBoundaryNs ?? timestampNs,
           inputs: { model, messages },
           attributes: { model },
-          logLevel: defaultLogLevelForSpanType(SpanType.LLM),
         });
         llmSpan.end({
           outputs: {
@@ -289,7 +285,6 @@ export function createChildSpans(
         startTimeNs: timestampNs,
         inputs: args,
         attributes: { tool_name: funcName, tool_id: callId },
-        logLevel: defaultLogLevelForSpanType(SpanType.TOOL),
       });
       // Reflect tool failure in the span status so failed calls are visible
       // in the trace UI. Codex emits `exec_command_end` event_msg records

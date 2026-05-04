@@ -8,7 +8,6 @@ import {
   SpanType,
   type TokenUsage,
   type LiveSpan,
-  defaultLogLevelForSpanType,
 } from '@mlflow/core';
 
 const SUPPORTED_MODULES = ['models'];
@@ -92,7 +91,7 @@ function wrapWithTracing(fn: Function, methodName: string): Function {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },
-      { name: methodName, spanType, logLevel: defaultLogLevelForSpanType(spanType) },
+      { name: methodName, spanType },
     );
   };
 }

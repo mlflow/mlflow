@@ -1,29 +1,32 @@
 import { SpanLogLevel, SpanType } from './constants';
 
 /**
- * Span types whose autolog default is DEBUG. These represent internal/glue
- * work (chain steps, output parsing, reranking) that is rarely interesting
- * outside of debugging. Every other type -- including custom user-defined
- * types -- defaults to INFO so a user-visible operation isn't accidentally
- * hidden.
+ * Span types whose default level is INFO. These represent the user-visible
+ * semantic operations (model calls, tool calls, retrievals, agent turns, etc.)
+ * that should remain visible at the default UI threshold. Everything else --
+ * chain glue, output parsing, internal/custom types -- defaults to DEBUG.
  *
- * Mirrors the Python `_DEBUG_SPAN_TYPES` set in
+ * Mirrors the Python `_INFO_SPAN_TYPES` set in
  * `mlflow/tracing/utils/default_log_level.py`. Keep the two in sync.
  */
-const DEBUG_SPAN_TYPES: ReadonlySet<string> = new Set<string>([
-  SpanType.CHAIN,
-  SpanType.PARSER,
-  SpanType.RERANKER,
+const INFO_SPAN_TYPES: ReadonlySet<string> = new Set<string>([
+  SpanType.LLM,
+  SpanType.CHAT_MODEL,
+  SpanType.TOOL,
+  SpanType.RETRIEVER,
+  SpanType.AGENT,
+  SpanType.EMBEDDING,
 ]);
 
 /**
- * Return the default SpanLogLevel for an autolog-created span of the given
- * type, so the trace explorer's verbosity filter has a sensible value to
- * act on without users annotating every wrapped library call.
+ * Return the default SpanLogLevel for a span of the given type. Used by the
+ * `LiveSpan` constructor so every span -- autologged or manual -- gets a
+ * sensible level for the trace explorer's verbosity filter without users
+ * annotating every call.
  */
 export function defaultLogLevelForSpanType(spanType: string | undefined | null): SpanLogLevel {
-  if (spanType && DEBUG_SPAN_TYPES.has(spanType)) {
-    return SpanLogLevel.DEBUG;
+  if (spanType && INFO_SPAN_TYPES.has(spanType)) {
+    return SpanLogLevel.INFO;
   }
-  return SpanLogLevel.INFO;
+  return SpanLogLevel.DEBUG;
 }

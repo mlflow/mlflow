@@ -11,7 +11,6 @@ import {
   TokenUsage,
   LiveSpan,
   withSpan,
-  defaultLogLevelForSpanType,
 } from '@mlflow/core';
 
 const SUPPORTED_MODULES = ['Messages'];
@@ -108,7 +107,7 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },
-      { name, spanType, logLevel: defaultLogLevelForSpanType(spanType) },
+      { name, spanType },
     );
   };
 }
@@ -187,7 +186,7 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
               // eslint-disable-next-line @typescript-eslint/no-unsafe-return
               return message;
             },
-            { name, spanType, logLevel: defaultLogLevelForSpanType(spanType) },
+            { name, spanType },
           );
         };
       }
@@ -231,7 +230,6 @@ async function* wrapAsyncIterator(
     name,
     spanType,
     parent: parentSpan ?? undefined,
-    logLevel: defaultLogLevelForSpanType(spanType),
   });
   span.setInputs(inputs);
 

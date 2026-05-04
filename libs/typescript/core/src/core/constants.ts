@@ -35,8 +35,7 @@ export enum SpanLogLevel {
 }
 
 /**
- * Normalize an enum, int, or string into a SpanLogLevel. "WARN" is accepted
- * as an alias for "WARNING" (matching Python's logging module).
+ * Normalize an enum, int, or string into a SpanLogLevel.
  */
 export function toSpanLogLevel(value: SpanLogLevel | number | string): SpanLogLevel {
   if (typeof value === 'number') {
@@ -50,16 +49,16 @@ export function toSpanLogLevel(value: SpanLogLevel | number | string): SpanLogLe
     );
   }
   if (typeof value === 'string') {
-    const upper = value.trim().toUpperCase();
-    const normalized = upper === 'WARN' ? 'WARNING' : upper;
-    const matched = (SpanLogLevel as Record<string, SpanLogLevel | string>)[normalized];
+    const matched = (SpanLogLevel as Record<string, SpanLogLevel | string>)[
+      value.trim().toUpperCase()
+    ];
     if (typeof matched === 'number') {
       return matched;
     }
     throw new Error(
       `Invalid SpanLogLevel name ${JSON.stringify(value)}. Expected one of ${Object.keys(SpanLogLevel)
         .filter((k) => isNaN(Number(k)))
-        .join(', ')} (or 'WARN').`,
+        .join(', ')}.`,
     );
   }
   throw new Error(`SpanLogLevel must be a SpanLogLevel, number, or string; got ${typeof value}.`);

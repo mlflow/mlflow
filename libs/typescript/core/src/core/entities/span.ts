@@ -6,6 +6,7 @@ import {
 } from '@opentelemetry/api';
 import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-base';
 import { SpanAttributeKey, SpanLogLevel, SpanType, toSpanLogLevel, NO_OP_SPAN_TRACE_ID } from '../constants';
+import { defaultLogLevelForSpanType } from '../log_level';
 import { SpanEvent } from './span_event';
 import { SpanStatus, SpanStatusCode } from './span_status';
 import {
@@ -280,6 +281,10 @@ export class LiveSpan extends Span {
     super(span, true);
     this.setAttribute(SpanAttributeKey.TRACE_ID, traceId);
     this.setAttribute(SpanAttributeKey.SPAN_TYPE, span_type);
+    // Default level based on span type. Callers that want a specific level
+    // (manual `startSpan({ logLevel })` or `trace`) call `setLogLevel` after
+    // construction, which overwrites this default.
+    this.setAttribute(SpanAttributeKey.LOG_LEVEL, defaultLogLevelForSpanType(span_type) as number);
   }
 
   /**
@@ -292,8 +297,7 @@ export class LiveSpan extends Span {
 
   /**
    * Set the severity level of the span. Accepts a SpanLogLevel enum value, its
-   * int value (e.g. 20), or its name (e.g. "INFO"). "WARN" is accepted as an
-   * alias for "WARNING".
+   * int value (e.g. 20), or its name (e.g. "INFO").
    */
   setLogLevel(level: SpanLogLevel | number | string): void {
     const normalized = toSpanLogLevel(level);
@@ -347,6 +351,16 @@ export class LiveSpan extends Span {
     // Convert BigInt timestamp to HrTime for OpenTelemetry
     const timeInput = convertNanoSecondsToHrTime(event.timestamp);
     this._span.addEvent(event.name, event.attributes, timeInput);
+    // Promote the span to ERROR for exception events. Preserves user-set
+    // CRITICAL. (Inlined rather than extracted to a private method because
+    // TypeScript's structural typing makes adding privates a breaking API
+    // change for NoOpSpan, which sits behind the same union return type.)
+    if (event.name === 'exception') {
+      const current = this.getAttribute(SpanAttributeKey.LOG_LEVEL) as number | null | undefined;
+      if (current == null || current < (SpanLogLevel.ERROR as number)) {
+        this.setAttribute(SpanAttributeKey.LOG_LEVEL, SpanLogLevel.ERROR as number);
+      }
+    }
   }
 
   /**
@@ -355,6 +369,10 @@ export class LiveSpan extends Span {
    */
   recordException(error: Error): void {
     this._span.recordException(error);
+    const current = this.getAttribute(SpanAttributeKey.LOG_LEVEL) as number | null | undefined;
+    if (current == null || current < (SpanLogLevel.ERROR as number)) {
+      this.setAttribute(SpanAttributeKey.LOG_LEVEL, SpanLogLevel.ERROR as number);
+    }
   }
 
   /**

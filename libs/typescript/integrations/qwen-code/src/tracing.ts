@@ -27,7 +27,6 @@ import {
   SpanAttributeKey,
   TraceMetadataKey,
   TokenUsageKey,
-  defaultLogLevelForSpanType,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -89,7 +88,6 @@ export async function processTranscript(
     spanType: SpanType.AGENT,
     inputs: userPrompt,
     attributes: { model },
-    logLevel: defaultLogLevelForSpanType(SpanType.AGENT),
     ...(turnStartNs != null ? { startTimeNs: turnStartNs } : {}),
   });
 
@@ -214,7 +212,6 @@ function createLlmSpan(
     startTimeNs: prevBoundaryNs ?? assistantTimestampNs,
     inputs: { model, messages },
     attributes: { model },
-    logLevel: defaultLogLevelForSpanType(SpanType.LLM),
   });
 
   const record = turn[assistantIndex];
@@ -249,7 +246,6 @@ function createToolSpan(
     startTimeNs: callTimestampNs,
     inputs: call.args ?? {},
     attributes: { tool_name: call.name, tool_id: call.id },
-    logLevel: defaultLogLevelForSpanType(SpanType.TOOL),
   });
 
   // Reflect tool failure in the span status so failed calls are visible

@@ -16,7 +16,6 @@ import {
   startSpan,
   flushTraces,
   SpanStatusCode,
-  defaultLogLevelForSpanType,
   type SpanType as SpanTypeEnum,
 } from '@mlflow/core';
 
@@ -384,7 +383,6 @@ export function createMLflowService(
         messages: [{ role: 'user', content: cleanPrompt }],
       },
       spanType: SpanType.AGENT,
-      logLevel: defaultLogLevelForSpanType(SpanType.AGENT),
     });
     rootSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
     rootSpan.setAttribute(TraceMetadataKey.TRACE_SESSION, sessionKey);
@@ -543,7 +541,6 @@ export function createMLflowService(
           ...(model ? { 'mlflow.llm.model': model } : {}),
           ...(provider ? { 'mlflow.llm.provider': provider } : {}),
         },
-        logLevel: defaultLogLevelForSpanType(SpanType.LLM),
       });
       llmSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
 
@@ -644,7 +641,6 @@ export function createMLflowService(
           tool_name: toolName,
           ...(toolCallId ? { tool_id: toolCallId } : {}),
         },
-        logLevel: defaultLogLevelForSpanType(SpanType.TOOL),
       });
 
       trace.pendingTools.set(key, { span: toolSpan, name: toolName });
@@ -709,7 +705,6 @@ export function createMLflowService(
           agent_id: agentId,
           ...(label ? { label } : {}),
         },
-        logLevel: defaultLogLevelForSpanType(SpanType.AGENT),
       });
 
       trace.pendingSubagents.set(agentId, { span: subSpan, name: agentId });

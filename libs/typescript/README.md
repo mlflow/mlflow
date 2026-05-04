@@ -148,7 +148,7 @@ const tracedAnswer = mlflow.trace(
   { name: 'answer', spanType: mlflow.SpanType.CHAT_MODEL, logLevel: SpanLogLevel.INFO },
 );
 
-// String form ("WARN" is accepted as an alias for "WARNING") and int form work too:
+// String form and int form work too:
 mlflow.startSpan({ name: 'plumbing', logLevel: 'DEBUG' });
 mlflow.startSpan({ name: 'critical-step', logLevel: 50 });
 ```
