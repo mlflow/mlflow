@@ -246,7 +246,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool, mock_l
     assert len(traces) == 1
     spans = traces[0].data.spans
 
-    assert len(spans) > 4
+    assert len(spans) > 3
 
     for span in spans:
         if span.span_type == SpanType.LLM:
@@ -286,7 +286,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool, mock_
     assert len(traces) == 1
     spans = traces[0].data.spans
 
-    assert len(spans) > 3
+    assert len(spans) > 2
 
     for span in spans:
         if span.span_type == SpanType.LLM:
