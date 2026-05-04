@@ -12936,6 +12936,38 @@ def test_log_spans_token_usage_recomputes_when_parent_rollup_arrives_later(
     assert _get_trace_token_usage_metrics(store, trace_id) == parent_usage
 
 
+def test_log_spans_token_usage_replaces_existing_client_metadata(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_log_spans_token_usage_replaces_metadata")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    parent, children, parent_usage, _ = _create_rollup_token_usage_spans(trace_id)
+
+    # Create the trace through log_spans(), then simulate client-side trace processor metadata
+    # arriving before the server-side span aggregation runs for token-bearing spans.
+    bootstrap_span = create_test_span(
+        trace_id=trace_id,
+        name="bootstrap",
+        span_id=999,
+        span_type="CHAIN",
+    )
+    store.log_spans(experiment_id, [bootstrap_span])
+    with store.ManagedSessionMaker() as session:
+        session.merge(
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.TOKEN_USAGE,
+                value=json.dumps(parent_usage),
+            )
+        )
+
+    store.log_spans(experiment_id, [parent, *children])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == parent_usage
+    assert _get_trace_token_usage_metrics(store, trace_id) == parent_usage
+
+
 def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_update_token_usage")
     trace_id = f"tr-{uuid.uuid4().hex}"
