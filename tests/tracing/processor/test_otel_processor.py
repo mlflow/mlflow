@@ -1,5 +1,3 @@
-"""Tests for OtelSpanProcessor tag packing behaviour."""
-
 import json
 from unittest import mock
 
@@ -20,7 +18,7 @@ def _make_processor():
     return processor, exporter
 
 
-def _make_manager_trace(tags: dict) -> ManagerTrace:
+def _make_manager_trace(tags: dict[str, str]) -> ManagerTrace:
     from mlflow.entities import Trace, TraceData
 
     info = TraceInfo(
