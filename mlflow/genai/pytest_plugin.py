@@ -242,17 +242,11 @@ def mlflow_run(_mlflow_session_run, request: pytest.FixtureRequest):
 def mlflow_evaluate(request: pytest.FixtureRequest):
     """Convenience wrapper around ``mlflow.genai.evaluate()``.
 
-    Captures evaluation metrics on the test node for the terminal summary.
     Accepts the same arguments as ``mlflow.genai.evaluate()``.
     """
 
     def _evaluate(*args: Any, **kwargs: Any):
-        result = mlflow.genai.evaluate(*args, **kwargs)
-        if not hasattr(request.node, "_mlflow_eval_metrics"):
-            request.node._mlflow_eval_metrics = {}
-        if result and hasattr(result, "metrics") and result.metrics:
-            request.node._mlflow_eval_metrics.update(result.metrics)
-        return result
+        return mlflow.genai.evaluate(*args, **kwargs)
 
     return _evaluate
 
@@ -327,13 +321,21 @@ def pytest_runtest_makereport(item: pytest.Item, call):
         except Exception:
             _logger.debug("Failed to log test outcome tags", exc_info=True)
 
-    # Accumulate results for terminal summary
-    metrics = getattr(item, "_mlflow_eval_metrics", {})
+    # Fetch metrics from the child run instead of node attribute propagation
+    metrics: dict[str, float] = {}
+    if run_id:
+        try:
+            client = mlflow.MlflowClient()
+            run_data = client.get_run(run_id).data
+            metrics = dict(run_data.metrics) if run_data.metrics else {}
+        except Exception:
+            _logger.debug("Failed to fetch metrics from child run", exc_info=True)
+
     result = TestResult(
         name=item.name,
         outcome=test_outcome,
         duration_s=duration,
-        metrics=dict(metrics),
+        metrics=metrics,
         run_id=run_id,
     )
     item.config._mlflow_genai_results.append(result)
@@ -405,3 +407,15 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config: pytest.Config)
             mlflow.end_run()
         except Exception:
             _logger.debug("Failed to end auto-started parent run", exc_info=True)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Ensure auto-started parent runs are closed even if terminal_summary is skipped."""
+    config = session.config
+    if getattr(config, "_mlflow_auto_started_parent", False):
+        try:
+            mlflow.end_run()
+        except Exception:
+            _logger.debug("Failed to end auto-started parent run in sessionfinish", exc_info=True)
+        finally:
+            config._mlflow_auto_started_parent = False

@@ -83,12 +83,12 @@ export const RunViewModeSwitch = ({
   const currentTab = useRunViewActiveTab();
   const [removeTabMargin, setRemoveTabMargin] = useState(TABS_WITHOUT_MARGIN.includes(currentTab));
 
-  // Conditionally add pytest results tab if run has pytest runType tag
+  // For pytest parent runs, show only relevant tabs (like IssueDetectionRunDetailsPage pattern)
   const effectiveTabs = useMemo(() => {
     const isPytest = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value === MLFLOW_RUN_TYPE_VALUE_PYTEST;
     const hasParentRunId = Boolean(runTags?.[EXPERIMENT_PARENT_ID_TAG]?.value);
-    if (isPytest && !hasParentRunId && !visibleTabs.includes(RunPageTabName.PYTEST_RESULTS)) {
-      return [...visibleTabs, RunPageTabName.PYTEST_RESULTS];
+    if (isPytest && !hasParentRunId) {
+      return [RunPageTabName.OVERVIEW, RunPageTabName.PYTEST_RESULTS, RunPageTabName.EVALUATIONS];
     }
     return visibleTabs;
   }, [runTags, visibleTabs]);

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { RunViewPytestResultsTab } from './RunViewPytestResultsTab';
 import { MlflowService } from '../../sdk/MlflowService';
 
@@ -25,7 +26,7 @@ const createMockRun = (
   duration: string,
   metrics: Array<{ key: string; value: number }> = [],
 ) => ({
-  info: { run_uuid: runId, run_id: runId, run_name: runName },
+  info: { runUuid: runId, runName: runName, run_uuid: runId, run_id: runId, run_name: runName },
   data: {
     tags: [
       { key: 'mlflow.test.outcome', value: outcome },
@@ -37,14 +38,22 @@ const createMockRun = (
 });
 
 describe('RunViewPytestResultsTab', () => {
-  const renderComponent = () =>
-    renderWithIntl(
-      <MemoryRouter>
-        <DesignSystemProvider>
-          <RunViewPytestResultsTab runUuid={parentRunUuid} />
-        </DesignSystemProvider>
-      </MemoryRouter>,
+  const renderComponent = () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+    return renderWithIntl(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <DesignSystemProvider>
+            <RunViewPytestResultsTab runUuid={parentRunUuid} />
+          </DesignSystemProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
+  };
 
   beforeEach(() => {
     jest.mocked(MlflowService.searchRuns).mockReset();
