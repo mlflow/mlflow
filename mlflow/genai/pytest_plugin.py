@@ -49,6 +49,7 @@ CLI options:
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 import logging
 import os
@@ -149,6 +150,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config._mlflow_genai_results: list[TestResult] = []
     config._mlflow_genai_parent_run_id: str | None = None
     config._mlflow_genai_experiment_name: str | None = None
+    config._mlflow_genai_exit_stack: contextlib.ExitStack | None = None
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -265,16 +267,16 @@ def pytest_runtest_call(item: pytest.Item):
         yield
         return
 
-    # Auto-create a session run if one doesn't exist yet
+    # Auto-create a session run if one doesn't exist yet (using ExitStack for
+    # proper context management — closed in pytest_sessionfinish)
     if not item.config._mlflow_genai_parent_run_id:
         _resolve_experiment(item.config)
         timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
-        parent_run = mlflow.start_run(run_name=f"pytest_{timestamp}")
+        exit_stack = contextlib.ExitStack()
+        parent_run = exit_stack.enter_context(mlflow.start_run(run_name=f"pytest_{timestamp}"))
         mlflow.set_tag(MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_PYTEST)
         item.config._mlflow_genai_parent_run_id = parent_run.info.run_id
-        item.config._mlflow_auto_started_parent = True
-    else:
-        parent_run = None
+        item.config._mlflow_genai_exit_stack = exit_stack
 
     test_name = item.name
     with mlflow.start_run(
@@ -402,20 +404,24 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config: pytest.Config)
             _logger.debug("Failed to log summary metrics to parent run", exc_info=True)
 
     # End auto-started parent run if needed
-    if getattr(config, "_mlflow_auto_started_parent", False):
+    exit_stack = getattr(config, "_mlflow_genai_exit_stack", None)
+    if exit_stack is not None:
         try:
-            mlflow.end_run()
+            exit_stack.close()
         except Exception:
-            _logger.debug("Failed to end auto-started parent run", exc_info=True)
+            _logger.debug("Failed to close auto-started parent run", exc_info=True)
+        finally:
+            config._mlflow_genai_exit_stack = None
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """Ensure auto-started parent runs are closed even if terminal_summary is skipped."""
     config = session.config
-    if getattr(config, "_mlflow_auto_started_parent", False):
+    exit_stack = getattr(config, "_mlflow_genai_exit_stack", None)
+    if exit_stack is not None:
         try:
-            mlflow.end_run()
+            exit_stack.close()
         except Exception:
-            _logger.debug("Failed to end auto-started parent run in sessionfinish", exc_info=True)
+            _logger.debug("Failed to close auto-started parent run in sessionfinish", exc_info=True)
         finally:
-            config._mlflow_auto_started_parent = False
+            config._mlflow_genai_exit_stack = None
