@@ -89,7 +89,7 @@ def test_terminal_summary_prints_table():
     ]
     config._mlflow_genai_experiment_name = "my_exp"
     config._mlflow_genai_parent_run_id = "run-123"
-    config._mlflow_auto_started_parent = False
+    config._mlflow_genai_exit_stack = None
 
     reporter = mock.MagicMock()
     pytest_terminal_summary(reporter, 0, config)
