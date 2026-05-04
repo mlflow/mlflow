@@ -200,8 +200,19 @@ export const TimelineTreeFilterButton = ({
               componentId="shared.model-trace-explorer.log-level-tooltip"
               content={
                 <FormattedMessage
-                  defaultMessage="Hide low-severity spans. Each span gets a level based on its type. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels for more details."
+                  defaultMessage="Hide low-severity spans. Each span gets a level based on its type. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. <link>Learn more</link>."
                   description="Tooltip explaining the minimum log level filter, including the autolog default mapping, exception-bump rule, and pre-3.13 backwards-compat note."
+                  values={{
+                    link: (chunks: any) => (
+                      <a
+                        href="https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {chunks}
+                      </a>
+                    ),
+                  }}
                 />
               }
             />

@@ -5647,10 +5647,6 @@
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering"
   },
-  "Wr7htq": {
-    "defaultMessage": "Hide low-severity spans. Each span gets a level based on its type. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels for more details.",
-    "description": "Tooltip explaining the minimum log level filter, including the autolog default mapping, exception-bump rule, and pre-3.13 backwards-compat note."
-  },
   "Ws58cc": {
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
@@ -9358,6 +9354,10 @@
   "s35HDG": {
     "defaultMessage": "Used by {runNames} {hasMore, select, true {and other runs} other {}}",
     "description": "Experiment page > artifact compare view > label indicating which runs are using particular input field"
+  },
+  "s3t5pu": {
+    "defaultMessage": "Hide low-severity spans. Each span gets a level based on its type. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. <link>Learn more</link>.",
+    "description": "Tooltip explaining the minimum log level filter, including the autolog default mapping, exception-bump rule, and pre-3.13 backwards-compat note."
   },
   "s3vONV": {
     "defaultMessage": "{count, plural, one {# API key is} other {# API keys are}} currently in use by endpoints. Deleting will require attaching different keys to continue using those endpoints.",
