@@ -528,6 +528,27 @@ class MultipartDownloadMixin(ABC):
         """
 
 
+class PresignedUploadMixin(ABC):
+    """
+    Mixin that defines the API for artifact repositories that support presigned
+    URL uploads, i.e. generating presigned URLs for direct upload to cloud storage.
+    """
+
+    @abstractmethod
+    def create_presigned_upload_url(self, artifact_path, expiration=900):
+        """
+        Generate a presigned URL for uploading an artifact directly to cloud storage.
+
+        Args:
+            artifact_path: Relative path within the run's artifact directory
+                          (e.g. "models/model.pkl").
+            expiration: URL expiration time in seconds (default: 900).
+
+        Returns:
+            CreatePresignedUploadResponse with presigned_url and headers.
+        """
+
+
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(
@@ -543,7 +564,9 @@ def _validate_attachment_path(path: str) -> None:
         if str(parsed) != path:
             raise ValueError("Non-canonical UUID format")
     except (ValueError, AttributeError, TypeError):
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute/type validation failure
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,
+            error_class="ATTRIBUTE_NOT_FOUND",
         )

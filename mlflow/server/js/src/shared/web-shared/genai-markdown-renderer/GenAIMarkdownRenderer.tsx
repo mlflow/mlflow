@@ -230,7 +230,6 @@ const isCodeSnippetLanguage = (languageString: string): languageString is CodeSn
     case 'yaml':
       return true;
     default:
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const exhaust: never = typeCast;
       return false;
   }

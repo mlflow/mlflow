@@ -1246,7 +1246,7 @@ describe('buildAggregatesFromCountMetrics', () => {
       { assessmentName: 'score', assessmentValue: '10.0', count: 15 },
     ];
     const result = buildAggregatesFromCountMetrics(info, metricsData, []);
-    expect(result.currentNumericValues).toHaveLength(45);
+    expect(result.currentNumericAverage).toBeCloseTo((1 * 10 + 5 * 20 + 10 * 15) / 45);
     expect(result.currentNumericAggregate).toBeDefined();
     expect(result.currentNumericAggregate?.min).toBe(1);
     expect(result.currentNumericAggregate?.max).toBe(10);

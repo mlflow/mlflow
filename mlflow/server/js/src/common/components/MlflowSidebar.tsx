@@ -1,9 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  Avatar,
   BeakerIcon,
   Button,
   CloudModelIcon,
+  DropdownMenu,
   GearIcon,
   HomeIcon,
   ModelsIcon,
@@ -19,11 +21,15 @@ import {
   Tooltip,
   NewWindowIcon,
 } from '@databricks/design-system';
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { Location } from '../utils/RoutingUtils';
-import { Link, matchPath, useLocation, useParams, useSearchParams } from '../utils/RoutingUtils';
+import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
+import AccountRoutes from '../../account/routes';
+import { useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
+import { performLogout } from '../../account/auth-utils';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -31,13 +37,15 @@ import { useWorkflowType, WorkflowType } from '../contexts/WorkflowTypeContext';
 import { shouldEnableWorkflowBasedNavigation, shouldEnableWorkspaces } from '../utils/FeatureUtils';
 import { AssistantSparkleIcon } from '../../assistant/AssistantIconButton';
 import { useAssistant } from '../../assistant/AssistantContext';
-import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
-import { MlflowSidebarLink } from './MlflowSidebarLink';
+import { extractWorkspaceFromSearchParams, useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+import { SETTINGS_RETURN_TO_PARAM, SETTINGS_SECTION_GENERAL } from '../../settings/settingsSectionConstants';
+import { getSidebarItemStyles, MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
 import { DOCS_ROOT, GenAIDocsUrl, MLDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
 import { MlflowSidebarGatewayItems } from './MlflowSidebarGatewayItems';
+import { MlflowSidebarSettingsItems } from './MlflowSidebarSettingsItems';
 import { MlflowSidebarWorkflowSwitch } from './MlflowSidebarWorkflowSwitch';
 
 const isInsideExperiment = (location: Location) =>
@@ -51,7 +59,11 @@ const isExperimentsActive = (location: Location) =>
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
 const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
 const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', location.pathname));
-const isSettingsActive = (location: Location) => Boolean(matchPath('/settings/*', location.pathname));
+const isSettingsActive = (location: Location) =>
+  Boolean(
+    matchPath({ path: '/settings', end: true }, location.pathname) ||
+    matchPath('/settings/:section', location.pathname),
+  );
 
 type MlFlowSidebarMenuDropdownComponentId =
   | 'mlflow_sidebar.create_experiment_button'
@@ -98,6 +110,18 @@ export function MlflowSidebar({
     setShowSidebar(!showSidebar);
   }, [setShowSidebar, showSidebar]);
 
+  // One useCurrentUserQuery read here covers both the auth-availability flag
+  // and the username display - useIsAuthAvailable() would internally call
+  // the same query, which React Query dedupes but obscures the data flow.
+  const { data: currentUserData, isError: currentUserIsError, isLoading: currentUserIsLoading } = useCurrentUserQuery();
+  const username = currentUserData?.user?.username ?? '';
+  const isAuthAvailable = !currentUserIsError && (currentUserIsLoading || Boolean(currentUserData?.user));
+  // Logout uses an HTTP Basic Auth realm-cache trick that no-ops under
+  // custom ``authorization_function`` deployments, so hide it there.
+  const isBasicAuth = useIsBasicAuth();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate({ bypassWorkspacePrefix: true });
+
   // Persist the last selected experiment ID so the nested experiment view
   // stays visible when navigating away from experiment pages
   const lastSelectedExperimentIdRef = useRef<string | null>(null);
@@ -115,9 +139,15 @@ export function MlflowSidebar({
   // Use the current experimentId if inside an experiment, otherwise use the persisted one
   const activeExperimentId = isInsideExperiment(location) ? experimentId : lastSelectedExperimentIdRef.current;
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
+  const showNestedSettingsItems = isSettingsActive(location);
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
+
+  // Radix restores focus to the trigger on dismiss, but the browser
+  // keeps ``:focus-visible`` - leaving a stale outline. Skip auto-focus
+  // return on pointer dismiss; keyboard dismiss still restores focus.
+  const accountDropdownClosedByPointerRef = useRef(false);
 
   const handleAssistantToggle = useCallback(() => {
     if (isPanelOpen) {
@@ -236,8 +266,13 @@ export function MlflowSidebar({
   // Workspace support
   const workspacesEnabled = shouldEnableWorkspaces();
   const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+  // Global routes (e.g. /account) don't carry ``?workspace=`` in the URL but
+  // preserve the in-memory active workspace so the sidebar's workspace-scoped
+  // links resume in the same workspace. Fall back to the active workspace.
+  const activeWorkspace = useActiveWorkspace();
+  const effectiveWorkspace = workspaceFromUrl ?? activeWorkspace;
   // Only show workspace-specific menu items when: workspaces are disabled OR a workspace is selected
-  const showWorkspaceMenuItems = !workspacesEnabled || workspaceFromUrl !== null;
+  const showWorkspaceMenuItems = !workspacesEnabled || effectiveWorkspace !== null;
 
   // Select appropriate docs URL based on workflow type
   const docsUrl = enableWorkflowBasedNavigation
@@ -267,8 +302,6 @@ export function MlflowSidebar({
                   display: 'block',
                   height: theme.spacing.lg,
                   color: theme.colors.textPrimary,
-                  marginLeft: -(theme.spacing.sm + theme.spacing.xs),
-                  marginRight: -theme.spacing.lg,
                 }}
               />
             </Link>
@@ -318,21 +351,25 @@ export function MlflowSidebar({
           }}
         >
           {showWorkspaceMenuItems &&
-            menuItems.map(
-              ({ key, icon, linkProps, componentId, nestedItems }) =>
-                nestedItems ?? (
-                  <MlflowSidebarLink
-                    key={componentId}
-                    to={linkProps.to}
-                    componentId={componentId}
-                    isActive={linkProps.isActive}
-                    icon={icon}
-                    collapsed={!showSidebar}
-                  >
-                    {linkProps.children}
-                  </MlflowSidebarLink>
-                ),
-            )}
+            (showNestedSettingsItems ? (
+              <MlflowSidebarSettingsItems collapsed={!showSidebar} />
+            ) : (
+              menuItems.map(
+                ({ icon, linkProps, componentId, nestedItems }) =>
+                  nestedItems ?? (
+                    <MlflowSidebarLink
+                      key={componentId}
+                      to={linkProps.to}
+                      componentId={componentId}
+                      isActive={linkProps.isActive}
+                      icon={icon}
+                      collapsed={!showSidebar}
+                    >
+                      {linkProps.children}
+                    </MlflowSidebarLink>
+                  ),
+              )
+            ))}
         </ul>
         <div>
           {isLocalServer && (
@@ -400,16 +437,116 @@ export function MlflowSidebar({
               <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
             </span>
           </MlflowSidebarLink>
-          <MlflowSidebarLink
-            css={{ paddingBlock: theme.spacing.sm }}
-            to={ExperimentTrackingRoutes.settingsPageRoute}
-            componentId="mlflow.sidebar.settings_tab_link"
-            isActive={isSettingsActive}
-            icon={<GearIcon />}
-            collapsed={!showSidebar}
-          >
-            <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
-          </MlflowSidebarLink>
+          {showWorkspaceMenuItems && !showNestedSettingsItems && (
+            <MlflowSidebarLink
+              css={{ paddingBlock: theme.spacing.sm }}
+              to={`${ExperimentTrackingRoutes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(location.pathname + location.search)}`}
+              componentId="mlflow.sidebar.settings_tab_link"
+              isActive={isSettingsActive}
+              icon={<GearIcon />}
+              collapsed={!showSidebar}
+            >
+              <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
+            </MlflowSidebarLink>
+          )}
+          {isAuthAvailable && username && (
+            <div
+              css={{
+                marginTop: theme.spacing.sm,
+                paddingTop: theme.spacing.sm,
+                borderTop: `1px solid ${theme.colors.border}`,
+              }}
+            >
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  {/*
+                    Why a native ``<button>`` instead of DuBois ``Button``:
+                    the trigger has to be a full-width row whose content
+                    (avatar + optional username) is left-aligned when the
+                    sidebar is open, matching ``MlflowSidebarLink``'s row
+                    layout. DuBois ``Button`` (AntD-derived) wraps its
+                    label content in an internal flex span that centers
+                    it; that span doesn't yield to outer flex overrides,
+                    so an aligned full-width avatar+label fights the
+                    primitive's intent. ``getSidebarItemStyles`` is the
+                    shared style helper from ``MlflowSidebarLink`` so the
+                    raw button still picks up the same spacing / hover /
+                    focus / aria-current tokens, keeping the row visually
+                    consistent with the rest of the sidebar.
+                  */}
+                  <button
+                    type="button"
+                    aria-label={`Account menu for ${username}`}
+                    css={{
+                      ...getSidebarItemStyles(theme, !showSidebar),
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      // Suppress the UA dotted underline + help cursor that
+                      // ``Avatar`` inherits from its inner ``<abbr title>``.
+                      '& abbr[title]': {
+                        textDecoration: 'none',
+                        cursor: 'inherit',
+                      },
+                    }}
+                  >
+                    <Avatar type="user" size="sm" label={username} />
+                    {showSidebar && (
+                      <Typography.Text
+                        css={{
+                          flex: 1,
+                          textAlign: 'left',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {username}
+                      </Typography.Text>
+                    )}
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content
+                  align="start"
+                  side="top"
+                  minWidth={180}
+                  onPointerDownOutside={() => {
+                    accountDropdownClosedByPointerRef.current = true;
+                  }}
+                  onCloseAutoFocus={(event) => {
+                    if (accountDropdownClosedByPointerRef.current) {
+                      event.preventDefault();
+                      accountDropdownClosedByPointerRef.current = false;
+                    }
+                  }}
+                >
+                  <DropdownMenu.Item
+                    componentId="mlflow.sidebar.account"
+                    onPointerDown={() => {
+                      accountDropdownClosedByPointerRef.current = true;
+                    }}
+                    onClick={() => navigate(AccountRoutes.accountPageRoute)}
+                  >
+                    <FormattedMessage defaultMessage="Account" description="Sidebar account menu item" />
+                  </DropdownMenu.Item>
+                  {isBasicAuth && (
+                    <>
+                      <DropdownMenu.Separator />
+                      <DropdownMenu.Item
+                        componentId="mlflow.sidebar.logout"
+                        onPointerDown={() => {
+                          accountDropdownClosedByPointerRef.current = true;
+                        }}
+                        onClick={() => performLogout(queryClient)}
+                      >
+                        <FormattedMessage defaultMessage="Logout" description="Sidebar logout menu item" />
+                      </DropdownMenu.Item>
+                    </>
+                  )}
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            </div>
+          )}
         </div>
       </nav>
     </aside>

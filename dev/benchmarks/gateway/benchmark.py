@@ -24,6 +24,7 @@ from rich.progress import (  # type: ignore[import-not-found]
     MofNCompleteColumn,
     Progress,
     SpinnerColumn,
+    TaskID,
     TextColumn,
     TimeElapsedColumn,
 )
@@ -65,12 +66,15 @@ class RunResult:
 
 
 async def _send(
-    session: aiohttp.ClientSession, url: str, sem: asyncio.Semaphore
+    session: aiohttp.ClientSession,
+    url: str,
+    sem: asyncio.Semaphore,
+    auth: aiohttp.BasicAuth | None = None,
 ) -> tuple[float, str | None]:
     async with sem:
         t0 = time.perf_counter()
         try:
-            async with session.post(url, json=_BODY) as resp:
+            async with session.post(url, json=_BODY, auth=auth) as resp:
                 await resp.read()
                 ms = (time.perf_counter() - t0) * 1000
                 if resp.status == 200:
@@ -81,7 +85,12 @@ async def _send(
 
 
 async def _run_once(
-    url: str, n: int, max_concurrent: int, progress: Progress, task_id: int
+    url: str,
+    n: int,
+    max_concurrent: int,
+    progress: Progress,
+    task_id: TaskID,
+    auth: aiohttp.BasicAuth | None = None,
 ) -> RunResult:
     sem = asyncio.Semaphore(max_concurrent)
     connector = aiohttp.TCPConnector(
@@ -96,7 +105,7 @@ async def _run_once(
 
     async with aiohttp.ClientSession(connector=connector) as session:
         t0 = time.perf_counter()
-        for coro in asyncio.as_completed([_send(session, url, sem) for _ in range(n)]):
+        for coro in asyncio.as_completed([_send(session, url, sem, auth) for _ in range(n)]):
             ms, error = await coro
             if error:
                 result.failures[error] = result.failures.get(error, 0) + 1
@@ -117,19 +126,25 @@ async def _run_once(
     return result
 
 
-async def _warmup(url: str, n: int, max_concurrent: int) -> None:
+async def _warmup(
+    url: str, n: int, max_concurrent: int, auth: aiohttp.BasicAuth | None = None
+) -> None:
     sem = asyncio.Semaphore(max_concurrent)
     connector = aiohttp.TCPConnector(limit=max(max_concurrent * 2, 200))
     async with aiohttp.ClientSession(connector=connector) as session:
-        await asyncio.gather(*[_send(session, url, sem) for _ in range(n)])
+        await asyncio.gather(*[_send(session, url, sem, auth) for _ in range(n)])
 
 
 def run_benchmark(
-    url: str, n_requests: int = 2000, max_concurrent: int = 50, runs: int = 3
+    url: str,
+    n_requests: int = 2000,
+    max_concurrent: int = 50,
+    runs: int = 3,
+    auth: aiohttp.BasicAuth | None = None,
 ) -> list[RunResult]:
     warmup_n = min(max(50, max_concurrent), n_requests)
     console.print(f"  [dim]Warming up ({warmup_n} requests)...[/dim]")
-    asyncio.run(_warmup(url, warmup_n, max_concurrent))
+    asyncio.run(_warmup(url, warmup_n, max_concurrent, auth))
 
     results = []
     with Progress(
@@ -144,7 +159,7 @@ def run_benchmark(
         for i in range(runs):
             task_id = progress.add_task(f"  Run {i + 1}/{runs}", total=n_requests, live="")
             results.append(
-                asyncio.run(_run_once(url, n_requests, max_concurrent, progress, task_id))
+                asyncio.run(_run_once(url, n_requests, max_concurrent, progress, task_id, auth))
             )
     return results
 
@@ -312,13 +327,29 @@ def main() -> None:
         metavar="N",
         help="Fail (exit 1) if average P99 latency exceeds N ms",
     )
+    parser.add_argument(
+        "--auth-username",
+        default=None,
+        help="Basic auth username. If set together with --auth-password, sent on every request.",
+    )
+    parser.add_argument(
+        "--auth-password",
+        default=None,
+        help="Basic auth password. If set together with --auth-username, sent on every request.",
+    )
     args = parser.parse_args()
+
+    auth = (
+        aiohttp.BasicAuth(args.auth_username, args.auth_password)
+        if args.auth_username and args.auth_password
+        else None
+    )
 
     console.print(f"\n[bold]Benchmarking[/bold] {args.url}")
     console.print(
         f"  {args.requests} requests · {args.max_concurrent} concurrent · {args.runs} runs\n"
     )
-    results = run_benchmark(args.url, args.requests, args.max_concurrent, args.runs)
+    results = run_benchmark(args.url, args.requests, args.max_concurrent, args.runs, auth)
     print_results(results)
 
     if not check_thresholds(

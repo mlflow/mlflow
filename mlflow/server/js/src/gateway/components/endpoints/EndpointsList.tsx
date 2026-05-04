@@ -23,7 +23,7 @@ import { EndpointsColumnsButton, EndpointsColumn, DEFAULT_VISIBLE_COLUMNS } from
 import { EndpointBindingsDrawer } from './EndpointBindingsDrawer';
 import { BulkDeleteEndpointModal } from './BulkDeleteEndpointModal';
 import { EndpointRow } from './EndpointRow';
-import { QuickStartTemplates } from './QuickStartTemplates';
+import { QuickStartTemplates, QuickStartTemplatesCompact } from './QuickStartTemplates';
 import type { Endpoint, EndpointBinding } from '../../types';
 
 interface EndpointsListProps {
@@ -146,6 +146,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {endpoints.length > 0 && <QuickStartTemplatesCompact />}
       {duplicateError && (
         <Alert
           componentId="mlflow.gateway.endpoints-list.duplicate-error"
@@ -174,7 +175,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
         <EndpointsColumnsButton visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
         <div css={{ marginLeft: 'auto', display: 'flex', gap: theme.spacing.sm }}>
           <Link componentId="mlflow.gateway.endpoints-list.create-link" to={GatewayRoutes.createEndpointPageRoute}>
-            <Button componentId="mlflow.gateway.endpoints-list.create-button" type="primary">
+            <Button componentId="mlflow.gateway.endpoints.create-button" type="primary">
               <FormattedMessage
                 defaultMessage="Create"
                 description="Gateway > Endpoints list > Create endpoint button"
@@ -272,7 +273,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
             endpoint={endpoint}
             bindings={getBindingsForEndpoint(endpoint.endpoint_id)}
             visibleColumns={visibleColumns}
-            isSelected={!!rowSelection[endpoint.endpoint_id]}
+            isSelected={Boolean(rowSelection[endpoint.endpoint_id])}
             onSelectChange={() => handleSelectRow(endpoint.endpoint_id)}
             onViewBindings={() =>
               setBindingsDrawerEndpoint({

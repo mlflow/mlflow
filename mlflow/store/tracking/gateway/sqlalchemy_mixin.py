@@ -70,9 +70,12 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.telemetry.events import (
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
+    GatewayCreateGuardrailEvent,
+    GatewayCreateModelDefinitionEvent,
     GatewayCreateSecretEvent,
     GatewayDeleteBudgetPolicyEvent,
     GatewayDeleteEndpointEvent,
+    GatewayDeleteGuardrailEvent,
     GatewayDeleteSecretEvent,
     GatewayGetEndpointEvent,
     GatewayListBudgetPoliciesEvent,
@@ -80,6 +83,7 @@ from mlflow.telemetry.events import (
     GatewayListSecretsEvent,
     GatewayUpdateBudgetPolicyEvent,
     GatewayUpdateEndpointEvent,
+    GatewayUpdateGuardrailEvent,
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
@@ -360,6 +364,7 @@ class SqlAlchemyGatewayStoreMixin:
             sql_secrets = query.all()
             return [secret.to_mlflow_entity() for secret in sql_secrets]
 
+    @record_usage_event(GatewayCreateModelDefinitionEvent)
     def create_gateway_model_definition(
         self,
         name: str,
@@ -1364,6 +1369,7 @@ class SqlAlchemyGatewayStoreMixin:
 
     # Guardrail APIs
 
+    @record_usage_event(GatewayCreateGuardrailEvent)
     def create_gateway_guardrail(
         self,
         name: str,
@@ -1409,6 +1415,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
             return sql_guardrail.to_mlflow_entity()
 
+    @record_usage_event(GatewayDeleteGuardrailEvent)
     def delete_gateway_guardrail(self, guardrail_id: str) -> None:
         with self.ManagedSessionMaker() as session:
             sql_guardrail = self._get_entity_or_raise(
@@ -1477,6 +1484,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_config.to_mlflow_entity()
 
+    @record_usage_event(GatewayUpdateGuardrailEvent)
     def update_endpoint_guardrail_config(
         self,
         endpoint_id: str,

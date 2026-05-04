@@ -148,7 +148,7 @@ def _invoke_databricks_structured_output(
             raise MlflowException("Empty content in final response from Databricks judge")
         try:
             cleaned = _strip_markdown_code_blocks(content)
-            response_dict = json.loads(cleaned)
+            response_dict = json.loads(cleaned, strict=False)
             return output_schema(**response_dict)
         except json.JSONDecodeError as e:
             raise MlflowException(
@@ -264,7 +264,7 @@ def get_chat_completions_with_structured_output(
     )
     cleaned_response = _strip_markdown_code_blocks(output.response)
     try:
-        response_dict = json.loads(cleaned_response)
+        response_dict = json.loads(cleaned_response, strict=False)
     except json.JSONDecodeError as e:
         raise MlflowException(
             f"Failed to parse response from judge model. Response: {output.response}",

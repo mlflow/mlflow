@@ -18,7 +18,10 @@ import {
   TracesTableColumnType,
   TracesTableColumnGroup,
   FilterOperator,
+  shouldUseInfinitePaginatedTraces,
 } from '@databricks/web-shared/genai-traces-table';
+import { useTraceMetricsQuery } from '../../../../pages/experiment-overview/hooks/useTraceMetricsQuery';
+import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
@@ -46,8 +49,21 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => {
     useFilters: jest.fn(),
     useTableSort: jest.fn(),
     invalidateMlflowSearchTracesCache: jest.fn(),
+    shouldUseInfinitePaginatedTraces: jest.fn(),
   };
 });
+
+jest.mock('./hooks/useAssessmentCountMetrics', () => ({
+  useAssessmentCountMetrics: jest.fn(() => undefined),
+}));
+
+jest.mock('../../../../pages/experiment-overview/hooks/useTraceMetricsQuery', () => ({
+  useTraceMetricsQuery: jest.fn(() => ({ data: undefined, isLoading: false })),
+}));
+
+jest.mock('@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent', () => ({
+  useLogTelemetryEvent: jest.fn(() => jest.fn()),
+}));
 
 jest.mock('./hooks/useSetInitialTimeFilter', () => ({
   useSetInitialTimeFilter: jest.fn(),
@@ -70,7 +86,6 @@ jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
   ),
   shouldEnableTagGrouping: jest.fn().mockReturnValue(true),
 }));
-
 jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
   MlflowService: {
     getExperimentTraceInfoV3: jest.fn(),
@@ -508,6 +523,64 @@ describe('TracesV3Logs', () => {
       await waitForRoutesToBeRendered();
 
       expect(TracesV3EmptyState).toHaveBeenCalled();
+    });
+  });
+
+  describe('Trace count telemetry', () => {
+    let mockLogTelemetryEvent: jest.Mock;
+
+    beforeEach(() => {
+      mockLogTelemetryEvent = jest.fn();
+      jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
+      jest.mocked(shouldUseInfinitePaginatedTraces).mockReturnValue(true);
+      jest.mocked(useTraceMetricsQuery).mockReturnValue({
+        data: { data_points: [{ values: { COUNT: 42 } }] },
+        isLoading: false,
+      } as any);
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({ isInitialTimeFilterLoading: false });
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+    });
+
+    it('logs trace count telemetry once for a single experiment', async () => {
+      renderComponent({ experimentIds: ['telemetry-single-exp'] });
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => {
+        expect(mockLogTelemetryEvent).toHaveBeenCalledTimes(1);
+        expect(mockLogTelemetryEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            componentId: 'mlflow.traces-tab.trace-count',
+            componentViewId: 'telemetry-single-exp',
+            value: JSON.stringify({ totalTraces: 42 }),
+          }),
+        );
+      });
+    });
+
+    it('does not log trace count telemetry for multi-experiment views', async () => {
+      renderComponent({ experimentIds: ['telemetry-multi-exp-1', 'telemetry-multi-exp-2'] });
+      await waitForRoutesToBeRendered();
+
+      expect(mockLogTelemetryEvent).not.toHaveBeenCalledWith(
+        expect.objectContaining({ componentId: 'mlflow.traces-tab.trace-count' }),
+      );
     });
   });
 });

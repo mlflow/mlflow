@@ -10,7 +10,12 @@ a DISPLAY_NAME, and a default base URL.
 from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import EndpointConfig, EndpointType
-from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+    _client_provides_auth,
+)
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import stream_sse_data
@@ -227,11 +232,19 @@ class OpenAICompatibleProvider(BaseProvider):
     ) -> dict[str, str]:
         result_headers = self.headers.copy()
         if headers:
-            client_headers = {
-                k: v
-                for k, v in headers.items()
-                if k.lower() not in ("host", "content-length", "authorization")
-            }
+            if _client_provides_auth(headers):
+                # Preserve the client's own credentials for subscription-based tools
+                # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
+                result_headers.pop("Authorization", None)
+                client_headers = {
+                    k: v for k, v in headers.items() if k.lower() not in ("host", "content-length")
+                }
+            else:
+                client_headers = {
+                    k: v
+                    for k, v in headers.items()
+                    if k.lower() not in ("host", "content-length", "authorization")
+                }
             result_headers = client_headers | result_headers
         return result_headers
 

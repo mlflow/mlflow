@@ -506,7 +506,7 @@ def test_tracer_thread_safe():
         time.sleep(random.random() / 2 + 0.5)
         tracer.on_chain_end({"output": "test output"}, run_id=chain_run_id)
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=10, thread_name_prefix="test-langchain-tracer") as executor:
         futures = [executor.submit(worker_function, i) for i in range(10)]
         for future in futures:
             future.result()

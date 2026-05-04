@@ -13,10 +13,22 @@ from packaging.version import InvalidVersion, Version
 
 PACKAGE_NAMES = ["tracing", "skinny", "core", "gateway"]
 RELEASE_CUTOFF_DAYS = 14
+PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org").rstrip("/")
+
+
+def check_pypi_accessibility() -> None:
+    try:
+        response = requests.head(PYPI_URL, timeout=5)
+        response.raise_for_status()
+    except requests.exceptions.RequestException:
+        raise SystemExit(
+            f"Error: Cannot connect to {PYPI_URL}. "
+            "If it's not accessible, set the PYPI_URL environment variable to a PyPI proxy URL."
+        )
 
 
 def get_latest_major_version(package_name: str) -> int | None:
-    url = f"https://pypi.org/pypi/{package_name}/json"
+    url = f"{PYPI_URL}/pypi/{package_name}/json"
     response = requests.get(url)
     response.raise_for_status()
     data = response.json()
@@ -68,6 +80,7 @@ def update_max_major_version(raw: str, key: str, old_value: int, new_value: int)
 
 
 def main() -> None:
+    check_pypi_accessibility()
     for package_name in PACKAGE_NAMES:
         req_file_path = os.path.join("requirements", package_name + "-requirements.yaml")
         with open(req_file_path) as f:

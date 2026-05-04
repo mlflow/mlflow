@@ -25,6 +25,7 @@ export interface UseTraceCostBreakdownChartDataResult {
 
 export function useTraceCostBreakdownChartData(
   dimension: CostDimension = 'model',
+  { enabled = true }: { enabled?: boolean } = {},
 ): UseTraceCostBreakdownChartDataResult {
   const { experimentIds, startTimeMs, endTimeMs, filters } = useOverviewChartContext();
 
@@ -40,6 +41,7 @@ export function useTraceCostBreakdownChartData(
     aggregations: [{ aggregation_type: AggregationType.SUM }],
     dimensions: [dimensionKey],
     filters,
+    enabled,
   });
 
   const dataPoints = useMemo(() => data?.data_points || [], [data?.data_points]);

@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'use-sync-external-store/shim';
 import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
 
 const WORKSPACE_STORAGE_KEY = 'mlflow.activeWorkspace';
@@ -5,14 +6,43 @@ export const WORKSPACE_QUERY_PARAM = 'workspace';
 
 let activeWorkspace: string | null = null;
 
+// Subscribers for reactive consumption via ``useActiveWorkspace``. The
+// in-memory active workspace is set both by ``WorkspaceRouterSync`` (URL
+// changes) and by ``WorkspaceSelector`` (workspace switches on global
+// routes that don't navigate). React components reading the value need
+// to re-render on either path - a non-reactive ``getActiveWorkspace``
+// call covers the URL-change case (re-render is triggered by the
+// router), but not the in-place selector switch.
+const activeWorkspaceListeners = new Set<() => void>();
+
+const subscribeToActiveWorkspace = (listener: () => void): (() => void) => {
+  activeWorkspaceListeners.add(listener);
+  return () => {
+    activeWorkspaceListeners.delete(listener);
+  };
+};
+
 export const getActiveWorkspace = () => activeWorkspace;
 
 export const setActiveWorkspace = (workspace: string | null) => {
+  if (workspace === activeWorkspace) {
+    return;
+  }
   activeWorkspace = workspace;
   if (workspace) {
     setLastUsedWorkspace(workspace);
   }
+  activeWorkspaceListeners.forEach((listener) => listener());
 };
+
+/**
+ * Reactive read of the in-memory active workspace. Re-renders the
+ * caller whenever ``setActiveWorkspace`` mutates the value, including
+ * the global-route fast-path in ``WorkspaceSelector`` that doesn't do
+ * a URL navigation.
+ */
+export const useActiveWorkspace = (): string | null =>
+  useSyncExternalStore(subscribeToActiveWorkspace, getActiveWorkspace, getActiveWorkspace);
 
 /**
  * Get the last used workspace from localStorage.
@@ -23,6 +53,7 @@ export const getLastUsedWorkspace = (): string | null => {
     return null;
   }
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
   } catch {
     return null;
@@ -37,8 +68,10 @@ export const setLastUsedWorkspace = (workspace: string | null) => {
   if (typeof window !== 'undefined') {
     try {
       if (workspace) {
+        // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
         window.localStorage.setItem(WORKSPACE_STORAGE_KEY, workspace);
       } else {
+        // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
         window.localStorage.removeItem(WORKSPACE_STORAGE_KEY);
       }
     } catch {
@@ -48,7 +81,7 @@ export const setLastUsedWorkspace = (workspace: string | null) => {
 };
 
 // Workspace name validation constants (must match backend: mlflow/store/workspace/abstract_store.py)
-export const WORKSPACE_NAME_PATTERN = /^(?!.*--)[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+const WORKSPACE_NAME_PATTERN = /^(?!.*--)[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
 export const WORKSPACE_NAME_MIN_LENGTH = 2;
 export const WORKSPACE_NAME_MAX_LENGTH = 63;
 
@@ -98,7 +131,7 @@ const isAbsoluteUrl = (value: string) => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
  * Routes that never have workspace context. Root '/' is contextual.
  * Kept as an extension point for any future workspace-agnostic routes.
  */
-const ALWAYS_GLOBAL_ROUTES: string[] = [];
+const ALWAYS_GLOBAL_ROUTES: string[] = ['/account'];
 
 /** Check if pathname is always global (workspace-agnostic). */
 export const isGlobalRoute = (pathname: string): boolean => {

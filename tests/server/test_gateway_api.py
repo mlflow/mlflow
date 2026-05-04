@@ -16,7 +16,9 @@ from mlflow.entities import (
     GatewayEndpointModelConfig,
     GatewayModelLinkageType,
     RoutingStrategy,
+    SpanType,
 )
+from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
@@ -29,6 +31,7 @@ from mlflow.gateway.config import (
     OpenAIConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
+from mlflow.gateway.guardrails import _SANITIZE_BYPASS_HEADER, JudgeGuardrail
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import (
     FallbackProvider,
@@ -870,10 +873,12 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
 
         response = await invocations(endpoint.name, mock_request)
 
-        # Verify streaming was called and returns StreamingResponse
-        assert mock_provider.chat_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
+        # chat_stream is inside a lazy async generator; consume the body to trigger execution
+        async for _ in response.body_iterator:
+            pass
+        assert mock_provider.chat_stream.called
 
 
 def test_create_provider_from_endpoint_name_no_models(store: SqlAlchemyStore):
@@ -968,9 +973,12 @@ async def test_chat_completions_endpoint(store: SqlAlchemyStore):
     )
 
     # Patch the provider creation to return a mocked provider
-    with patch(
-        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
-    ) as mock_create_provider:
+    with (
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
+    ):
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
         mock_endpoint_config = GatewayEndpointConfig(
@@ -1019,6 +1027,7 @@ def test_response_timing_headers(store: SqlAlchemyStore):
         patch("mlflow.server.gateway_api._get_store", return_value=store),
         patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
         patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
@@ -1068,6 +1077,7 @@ def test_response_timing_headers_streaming(store: SqlAlchemyStore):
         patch("mlflow.server.gateway_api._get_store", return_value=store),
         patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
         patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
@@ -1110,6 +1120,7 @@ def test_response_timing_headers_error(store: SqlAlchemyStore):
         patch("mlflow.server.gateway_api._get_store", return_value=store),
         patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
         patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
@@ -1183,9 +1194,12 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
             ],
         )
 
-    with patch(
-        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
-    ) as mock_create_provider:
+    with (
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
+    ):
         mock_provider = MagicMock()
         mock_provider.chat_stream = MagicMock(return_value=mock_stream())
         mock_endpoint_config = GatewayEndpointConfig(
@@ -1195,10 +1209,12 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
 
         response = await chat_completions(mock_request)
 
-        # Verify streaming was called and returns StreamingResponse
-        assert mock_provider.chat_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
+        # chat_stream is inside a lazy async generator; consume the body to trigger execution
+        async for _ in response.body_iterator:
+            pass
+        assert mock_provider.chat_stream.called
 
 
 @pytest.mark.asyncio
@@ -1519,12 +1535,12 @@ async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await openai_passthrough_chat(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
 
+        assert mock_send_stream.called
         assert len(chunks) == 3
         assert b"Hello" in chunks[0]
         assert b"world" in chunks[1]
@@ -1588,12 +1604,12 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await openai_passthrough_responses(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
 
+        assert mock_send_stream.called
         assert len(chunks) == 8
         assert b"response.created" in chunks[0]
         assert b"response.output_item.added" in chunks[1]
@@ -1725,11 +1741,12 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await anthropic_passthrough_messages(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
+
+        assert mock_send_stream.called
 
         assert len(chunks) == 7
         assert b"message_start" in chunks[0]
@@ -1876,11 +1893,12 @@ async def test_gemini_passthrough_stream_generate_content(store: SqlAlchemyStore
             "gemini-stream-passthrough-endpoint", mock_request
         )
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
+
+        assert mock_send_stream.called
 
         assert len(chunks) == 3
         assert b"Hello" in chunks[0]
@@ -3004,3 +3022,504 @@ async def test_openai_passthrough_streaming_captures_chunks(store: SqlAlchemySto
     # Verify the outputs contain actual SSE data (not async generator object repr)
     assert "data:" in gateway_span.outputs[0]
     assert "chatcmpl-123" in gateway_span.outputs[0]
+
+
+# ─── Guardrail end-to-end scenarios ──────────────────────────────────────────
+
+
+class _SimpleScorer:
+    """Minimal scorer that returns 'yes' or 'no' and tracks call count."""
+
+    def __init__(self, *, passing: bool = True) -> None:
+        self.call_count = 0
+        self._passing = passing
+
+    def __call__(self, **kwargs) -> str:
+        self.call_count += 1
+        return "yes" if self._passing else "no"
+
+
+def _make_guardrail_judge(stage, action=GuardrailAction.VALIDATION, *, passing=True):
+    scorer = _SimpleScorer(passing=passing)
+    return JudgeGuardrail(
+        scorer=scorer,
+        stage=GuardrailStage(stage),
+        action=GuardrailAction(action),
+        name=f"test-{stage.lower()}",
+    )
+
+
+def _make_guardrail_chat_response(content: str = "Hello!") -> chat.ResponsePayload:
+    return chat.ResponsePayload(
+        id="resp-id",
+        object="chat.completion",
+        created=1234567890,
+        model="gpt-4",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content=content),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(prompt_tokens=5, completion_tokens=5, total_tokens=10),
+    )
+
+
+def _make_guardrail_mock_request(body: dict[str, Any], headers: dict[str, str] | None = None):
+    req = MagicMock()
+    req.state.cached_body = None
+    req.state.username = None
+    req.state.user_id = None
+    req.json = AsyncMock(return_value=body)
+    req.headers = headers or {}
+    req.base_url = "http://localhost:5000/"
+    return req
+
+
+_GUARDRAIL_SERIALIZED_SCORER = json.dumps({"name": "safety", "builtin_scorer_class": "Safety"})
+
+
+def _setup_db_guardrail(
+    store: SqlAlchemyStore,
+    endpoint_name: str,
+    stage: str,
+    action: str,
+    action_endpoint_name: str | None = None,
+    execution_order: int | None = None,
+    name: str | None = None,
+):
+    """Create scorer + guardrail in DB and attach it to the endpoint."""
+    guardrail_name = name or f"guardrail-{endpoint_name}-{stage}"
+    experiment_id = store.create_experiment(f"exp-{guardrail_name}")
+    scorer_ver = store.register_scorer(
+        experiment_id, f"scorer-{guardrail_name}", _GUARDRAIL_SERIALIZED_SCORER
+    )
+
+    action_endpoint_id = None
+    if action_endpoint_name:
+        action_endpoint_id = store.get_gateway_endpoint(name=action_endpoint_name).endpoint_id
+
+    guardrail = store.create_gateway_guardrail(
+        name=guardrail_name,
+        scorer_id=scorer_ver.scorer_id,
+        scorer_version=scorer_ver.scorer_version,
+        stage=GuardrailStage(stage),
+        action=GuardrailAction(action),
+        action_endpoint_id=action_endpoint_id,
+    )
+    endpoint = store.get_gateway_endpoint(name=endpoint_name)
+    store.add_guardrail_to_endpoint(
+        endpoint.endpoint_id, guardrail.guardrail_id, execution_order=execution_order
+    )
+    return guardrail, scorer_ver
+
+
+def _setup_guardrail_endpoint(store: SqlAlchemyStore, name: str):
+    secret = store.create_gateway_secret(
+        secret_name=f"key-{name}",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"model-{name}",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    return store.create_gateway_endpoint(
+        name=name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            )
+        ],
+    )
+
+
+@pytest.mark.asyncio
+async def test_invocations_bypass_header_skips_guardrails(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-bypass")
+    mock_response = _make_guardrail_chat_response("Bypass response")
+    mock_request = _make_guardrail_mock_request(
+        {"messages": [{"role": "user", "content": "hello"}]},
+        headers={_SANITIZE_BYPASS_HEADER: "1"},
+    )
+
+    with (
+        patch("mlflow.server.gateway_api._create_provider_from_endpoint_name") as mock_create,
+        patch("mlflow.server.gateway_api.load_guardrails") as mock_load,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.chat = AsyncMock(return_value=mock_response)
+        mock_create.return_value = (
+            mock_provider,
+            GatewayEndpointConfig(
+                endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+            ),
+        )
+        response = await invocations(endpoint.name, mock_request)
+        mock_load.assert_not_called()
+
+    assert response.choices[0].message.content == "Bypass response"
+
+
+@pytest.mark.asyncio
+async def test_invocations_bypass_header_wrong_value_runs_guardrails(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-bypass-wrong-val")
+    _setup_db_guardrail(store, "ep-bypass-wrong-val", "BEFORE", "VALIDATION")
+
+    mock_request = _make_guardrail_mock_request(
+        {"messages": [{"role": "user", "content": "hello"}]},
+        headers={_SANITIZE_BYPASS_HEADER: "true"},  # wrong value — must not bypass
+    )
+
+    blocking_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=blocking_scorer),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", AsyncMock()),
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
+
+    assert blocking_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_real_db_pre_llm_guardrail_passes(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-pre-llm-pass")
+    _setup_db_guardrail(store, "real-ep-pre-llm-pass", "BEFORE", "VALIDATION")
+
+    mock_response = _make_guardrail_chat_response("Safe response")
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+
+    passing_scorer = _SimpleScorer(passing=True)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=passing_scorer),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(return_value=mock_response),
+        ),
+    ):
+        response = await invocations(endpoint.name, mock_request)
+
+    assert response.choices[0].message.content == "Safe response"
+    assert passing_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_real_db_pre_llm_guardrail_blocks(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-pre-llm-block")
+    _setup_db_guardrail(store, "real-ep-pre-llm-block", "BEFORE", "VALIDATION")
+
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "bad input"}]
+    })
+
+    blocking_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=blocking_scorer),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(),
+        ) as mock_chat,
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
+
+    assert not mock_chat.called
+    assert blocking_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_real_db_post_llm_guardrail_blocks(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-post-llm-block")
+    _setup_db_guardrail(store, "real-ep-post-llm-block", "AFTER", "VALIDATION")
+
+    mock_response = _make_guardrail_chat_response("Unsafe output")
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+
+    blocking_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=blocking_scorer),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(return_value=mock_response),
+        ) as mock_chat,
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
+
+    assert mock_chat.called
+    assert blocking_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_invocations_before_sanitize_rewrites_request(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-sanitize-before")
+    sanitizer = _setup_guardrail_endpoint(store, "ep-sanitizer")
+    _setup_db_guardrail(
+        store, "ep-sanitize-before", "BEFORE", "SANITIZATION", action_endpoint_name=sanitizer.name
+    )
+
+    sanitized_body = {"messages": [{"role": "user", "content": "cleaned input"}]}
+    mock_response = _make_guardrail_chat_response("Response to cleaned input")
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "bad input"}]
+    })
+
+    failing_scorer = _SimpleScorer(passing=False)
+    captured_payloads: list[Any] = []
+
+    async def fake_chat(payload):
+        captured_payloads.append(payload)
+        return mock_response
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
+        patch(
+            "mlflow.gateway.guardrails.send_request",
+            AsyncMock(
+                return_value={"choices": [{"message": {"content": json.dumps(sanitized_body)}}]}
+            ),
+        ),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", side_effect=fake_chat),
+    ):
+        response = await invocations(endpoint.name, mock_request)
+
+    assert response.choices[0].message.content == "Response to cleaned input"
+    assert failing_scorer.call_count == 1
+    assert captured_payloads[0].messages[0].content == "cleaned input"
+
+
+@pytest.mark.asyncio
+async def test_invocations_after_sanitize_rewrites_response(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-sanitize-after")
+    sanitizer = _setup_guardrail_endpoint(store, "ep-sanitizer-after")
+    _setup_db_guardrail(
+        store, "ep-sanitize-after", "AFTER", "SANITIZATION", action_endpoint_name=sanitizer.name
+    )
+
+    sanitized_response = {
+        "id": "resp-sanitized",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gpt-4",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "polite output"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10},
+    }
+    mock_response = _make_guardrail_chat_response("rude output")
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+
+    failing_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
+        patch(
+            "mlflow.gateway.guardrails.send_request",
+            AsyncMock(
+                return_value={"choices": [{"message": {"content": json.dumps(sanitized_response)}}]}
+            ),
+        ),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(return_value=mock_response),
+        ),
+    ):
+        response = await invocations(endpoint.name, mock_request)
+
+    assert response.choices[0].message.content == "polite output"
+    assert failing_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_invocations_sanitize_no_action_endpoint_blocks(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-sanitize-no-ep")
+    _setup_db_guardrail(store, "ep-sanitize-no-ep", "BEFORE", "SANITIZATION")
+
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "bad input"}]
+    })
+    failing_scorer = _SimpleScorer(passing=False)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", AsyncMock()),
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_before_sanitize_rewrites_request(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-cc-sanitize-before")
+    sanitizer = _setup_guardrail_endpoint(store, "ep-cc-sanitizer")
+    _setup_db_guardrail(
+        store,
+        "ep-cc-sanitize-before",
+        "BEFORE",
+        "SANITIZATION",
+        action_endpoint_name=sanitizer.name,
+    )
+
+    sanitized_body = {"messages": [{"role": "user", "content": "cleaned input"}]}
+    mock_response = _make_guardrail_chat_response("Response to cleaned input")
+    mock_request = _make_guardrail_mock_request({
+        "model": endpoint.name,
+        "messages": [{"role": "user", "content": "bad input"}],
+    })
+
+    failing_scorer = _SimpleScorer(passing=False)
+    captured_payloads: list[Any] = []
+
+    async def fake_chat(payload):
+        captured_payloads.append(payload)
+        return mock_response
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
+        patch(
+            "mlflow.gateway.guardrails.send_request",
+            AsyncMock(
+                return_value={"choices": [{"message": {"content": json.dumps(sanitized_body)}}]}
+            ),
+        ),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", side_effect=fake_chat),
+    ):
+        from mlflow.server.gateway_api import chat_completions
+
+        response = await chat_completions(mock_request)
+
+    assert response.choices[0].message.content == "Response to cleaned input"
+    assert failing_scorer.call_count == 1
+    assert captured_payloads[0].messages[0].content == "cleaned input"
+
+
+@pytest.mark.asyncio
+async def test_guardrails_run_in_execution_order(store: SqlAlchemyStore):
+    endpoint = _setup_guardrail_endpoint(store, "ep-order-test")
+
+    # Register in reverse order (5→1) to ensure DB insertion order != execution order.
+    for i in range(5, 0, -1):
+        _setup_db_guardrail(
+            store,
+            "ep-order-test",
+            "BEFORE",
+            "VALIDATION",
+            execution_order=i,
+            name=f"g-order-{i}",
+        )
+
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+
+    call_order: list[str] = []
+
+    def make_scorer(label: str, passing: bool):
+        def scorer(**kwargs):
+            call_order.append(label)
+            return "yes" if passing else "no"
+
+        return scorer
+
+    # Guardrails 1-4 pass; guardrail 5 blocks — so all 5 must run in order 1→2→3→4→5.
+    scorers = [make_scorer(f"order-{i}", passing=(i < 5)) for i in range(1, 6)]
+    call_count = {"n": 0}
+
+    def model_validate_side_effect(serialized):
+        scorer = scorers[call_count["n"]]
+        call_count["n"] += 1
+        return scorer
+
+    with (
+        patch(
+            "mlflow.genai.scorers.base.Scorer.model_validate",
+            side_effect=model_validate_side_effect,
+        ),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", AsyncMock()),
+    ):
+        with pytest.raises(HTTPException, match="400"):
+            await invocations(endpoint.name, mock_request)
+
+    assert call_order == ["order-1", "order-2", "order-3", "order-4", "order-5"]
+
+
+@pytest.mark.asyncio
+async def test_guardrail_spans_created_when_usage_tracking_on(store: SqlAlchemyStore):
+    endpoint_name = "ep-guardrail-tracing"
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+
+    secret = store.create_gateway_secret(
+        secret_name=f"key-{endpoint_name}",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"model-{endpoint_name}",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            )
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+    _setup_db_guardrail(store, endpoint_name, "BEFORE", "VALIDATION", name="safety-check")
+
+    mock_response = _make_guardrail_chat_response("Safe response")
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+    passing_scorer = _SimpleScorer(passing=True)
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=passing_scorer),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(return_value=mock_response),
+        ),
+    ):
+        response = await invocations(endpoint.name, mock_request)
+
+    assert response.choices[0].message.content == "Safe response"
+
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+
+    span_map = {s.name: s for s in traces[0].data.spans}
+    assert "guardrail/safety-check" in span_map
+    assert "judge" in span_map
+
+    gspan = span_map["guardrail/safety-check"]
+    jspan = span_map["judge"]
+    assert gspan.span_type == SpanType.GUARDRAIL
+    assert jspan.span_type == SpanType.EVALUATOR
+    assert jspan.outputs["passed"] is True
+    assert jspan.parent_id == gspan.span_id

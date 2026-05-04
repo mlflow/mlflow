@@ -184,6 +184,36 @@ def test_delete_user(store):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+def test_delete_user_with_dependent_rows(store):
+    # Seeds a row in each of the eight tables that hold a non-nullable FK to
+    # users.id today. ``session.delete(user)`` only cleans up children whose
+    # relationship is declared on ``SqlUser`` with ``cascade="all, delete-orphan"``,
+    # so this guards against a regression in any of the existing cascades.
+    # When a new FK table is added, this test must be updated to seed it too —
+    # otherwise the missing cascade will only be caught at runtime.
+    username = random_str()
+    user = _user_maker(store, username, random_str())
+
+    _ep_maker(store, random_str(), username, READ.name)
+    _rmp_maker(store, random_str(), username, EDIT.name)
+    _sp_maker(store, random_str(), random_str(), username, READ.name)
+    _gsp_maker(store, random_str(), username, READ.name)
+    _gep_maker(store, random_str(), username, READ.name)
+    _gmdp_maker(store, random_str(), username, READ.name)
+    store.set_workspace_permission(DEFAULT_WORKSPACE_NAME, username, READ.name)
+    role = store.create_role(name=random_str(), workspace=DEFAULT_WORKSPACE_NAME)
+    store.assign_role_to_user(user_id=user.id, role_id=role.id)
+
+    store.delete_user(username)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"User with username={username} not found",
+    ) as exception_context:
+        store.get_user(username)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
 def test_create_experiment_permission(store):
     username1 = random_str()
     password1 = random_str()

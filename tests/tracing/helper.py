@@ -229,7 +229,9 @@ def score_in_model_serving(model_uri: str, model_input: dict[str, Any]):
         def _load_model():
             return mlflow.pyfunc.load_model(model_uri)
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="test-tracing-helper"
+        ) as executor:
             model = executor.submit(_load_model).result()
 
         # Score the model

@@ -8,6 +8,8 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
 import { setupTestRouter, testRoute, TestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+import { generatePath } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { RoutePaths } from '../../routes';
 
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 
@@ -19,6 +21,7 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
 
 // Mock FeatureUtils
 jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableIssueDetection: jest.fn(),
 }));
 
@@ -47,6 +50,21 @@ jest.mock('../../hooks/useExperimentQuery', () => ({
 const mockFetchOrFail = jest.mocked(fetchOrFail);
 const mockShouldEnableIssueDetection = jest.mocked(shouldEnableIssueDetection);
 
+const mockHasV4Location = jest.fn<() => boolean | undefined>();
+jest.mock('../experiment-page-tabs/SqlWarehouseContext', () => ({
+  useSqlWarehouseContextSafe: () => {
+    const v4 = mockHasV4Location();
+    return v4 !== undefined ? { hasV4Location: v4 } : null;
+  },
+}));
+
+const mockLocalStorageValue = jest.fn<() => boolean>();
+const mockSetLocalStorageValue = jest.fn();
+jest.mock('@databricks/web-shared/hooks', () => ({
+  ...jest.requireActual<Record<string, unknown>>('@databricks/web-shared/hooks'),
+  useLocalStorage: () => [mockLocalStorageValue(), mockSetLocalStorageValue],
+}));
+
 describe('ExperimentGenAIOverviewPage', () => {
   const { history } = setupTestRouter();
   const testExperimentId = 'test-experiment-456';
@@ -60,14 +78,19 @@ describe('ExperimentGenAIOverviewPage', () => {
       },
     });
 
-  const renderComponent = (initialUrl = `/experiments/${testExperimentId}/overview/usage`) => {
+  const defaultUrl = generatePath(RoutePaths.experimentPageTabOverview, {
+    experimentId: testExperimentId,
+    overviewTab: 'usage',
+  });
+
+  const renderComponent = (initialUrl = defaultUrl) => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
           <TestRouter
             history={history}
-            routes={[testRoute(<ExperimentGenAIOverviewPage />, `/experiments/:experimentId/overview/:overviewTab?`)]}
+            routes={[testRoute(<ExperimentGenAIOverviewPage />, RoutePaths.experimentPageTabOverview)]}
             initialEntries={[initialUrl]}
           />
         </DesignSystemProvider>
@@ -77,6 +100,8 @@ describe('ExperimentGenAIOverviewPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockHasV4Location.mockReturnValue(undefined);
+    mockLocalStorageValue.mockReturnValue(false);
     // Default mock for fetchOrFail to return empty data
     mockFetchOrFail.mockResolvedValue({
       json: () => Promise.resolve({ data_points: [] }),
@@ -230,7 +255,7 @@ describe('ExperimentGenAIOverviewPage', () => {
     it('should handle custom time range from URL parameters', async () => {
       const customStartTime = '2025-01-01T00:00:00.000Z';
       const customEndTime = '2025-01-07T23:59:59.999Z';
-      const urlWithParams = `/experiments/${testExperimentId}/overview/usage?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
+      const urlWithParams = `${defaultUrl}?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(
         customStartTime,
       )}&endTime=${encodeURIComponent(customEndTime)}`;
 

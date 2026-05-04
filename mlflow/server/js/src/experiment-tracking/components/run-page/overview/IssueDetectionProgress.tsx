@@ -96,14 +96,14 @@ export const IssueDetectionProgress = ({
   };
 
   const isJobSucceeded = jobStatus === JobStatus.SUCCEEDED;
-  const isJobFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT || !!jobStatusError;
+  const isJobFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT || Boolean(jobStatusError);
   const isJobCanceled = jobStatus === JobStatus.CANCELED;
-  const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
+  const jobComplete = isJobComplete(jobStatus) || Boolean(jobStatusError);
 
   const { issues } = useSearchIssuesQuery({
     experimentId: experimentId ?? '',
     sourceRunId: runUuid ?? '',
-    enabled: !!experimentId && !!runUuid,
+    enabled: Boolean(experimentId) && Boolean(runUuid),
     pollingEnabled: !jobComplete,
   });
 

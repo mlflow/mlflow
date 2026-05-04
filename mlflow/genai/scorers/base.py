@@ -1,4 +1,5 @@
 import functools
+import importlib
 import inspect
 import json
 import logging
@@ -16,6 +17,8 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
+    THIRD_PARTY_SCORER_ALLOWED_MODULES,
+    THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR,
 )
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
@@ -57,6 +60,7 @@ _ALLOWED_SCORERS_FOR_REGISTRATION = [
     ScorerKind.INSTRUCTIONS,
     ScorerKind.GUIDELINES,
     ScorerKind.MEMORY_AUGMENTED,
+    ScorerKind.THIRD_PARTY,
 ]
 
 
@@ -114,12 +118,17 @@ class SerializedScorer:
     # MemoryAugmentedJudge fields (for aligned judges)
     memory_augmented_judge_data: dict[str, Any] | None = None
 
+    # For RAGAS / DeepEval / TruLens / Phoenix wrappers. Shape:
+    #   {"module": ..., "class": ..., "metric_name": ..., "model": ..., "kwargs": {...}}
+    third_party_scorer_data: dict[str, Any] | None = None
+
     def __post_init__(self):
         """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
         has_decorator_fields = self.call_source is not None
         has_instructions_fields = self.instructions_judge_pydantic_data is not None
         has_memory_augmented_fields = self.memory_augmented_judge_data is not None
+        has_third_party_fields = self.third_party_scorer_data is not None
 
         # Count how many field types are present
         field_count = sum([
@@ -127,6 +136,7 @@ class SerializedScorer:
             has_decorator_fields,
             has_instructions_fields,
             has_memory_augmented_fields,
+            has_third_party_fields,
         ])
 
         if field_count == 0:
@@ -134,7 +144,8 @@ class SerializedScorer:
                 "SerializedScorer must have either builtin scorer fields "
                 "(builtin_scorer_class), decorator scorer fields (call_source), "
                 "instructions judge fields (instructions_judge_pydantic_data), "
-                "or memory augmented judge fields (memory_augmented_judge_data) present"
+                "memory augmented judge fields (memory_augmented_judge_data), "
+                "or third-party scorer fields (third_party_scorer_data) present"
             )
 
         if field_count > 1:
@@ -248,6 +259,25 @@ class Scorer(BaseModel):
 
         # Return cached dump if available (prevents re-serialization issues with dynamic functions)
         if self._cached_dump is not None:
+            return self._cached_dump
+
+        if self.kind == ScorerKind.THIRD_PARTY:
+            serialized = SerializedScorer(
+                name=self.name,
+                description=self.description,
+                aggregations=self.aggregations,
+                is_session_level_scorer=self.is_session_level_scorer,
+                mlflow_version=mlflow.__version__,
+                serialization_version=_SERIALIZATION_VERSION,
+                third_party_scorer_data={
+                    "module": type(self).__module__,
+                    "class": type(self).__name__,
+                    "metric_name": self._metric_name,
+                    "model": self._model,
+                    "kwargs": dict(self._metric_kwargs),
+                },
+            )
+            self._cached_dump = asdict(serialized)
             return self._cached_dump
 
         # Check if this is a decorator scorer
@@ -390,6 +420,70 @@ class Scorer(BaseModel):
             from mlflow.genai.judges.optimizers.memalign.optimizer import MemoryAugmentedJudge
 
             return MemoryAugmentedJudge._from_serialized(serialized)
+
+        elif serialized.third_party_scorer_data is not None:
+            data = serialized.third_party_scorer_data
+            module_path = data.get("module") or ""
+            class_name = data.get("class")
+            metric_name = data.get("metric_name")
+            if not any(
+                module_path == m or module_path.startswith(m + ".")
+                for m in THIRD_PARTY_SCORER_ALLOWED_MODULES
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': module '{module_path}' is not "
+                    f"in the allow-list {sorted(THIRD_PARTY_SCORER_ALLOWED_MODULES)}."
+                )
+            if not class_name or not metric_name:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': missing required fields in "
+                    f"third_party_scorer_data (class, metric_name)."
+                )
+            try:
+                module = importlib.import_module(module_path)
+            except ImportError as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': could not import "
+                    f"'{module_path}'. Is the underlying library installed? {e}"
+                )
+            scorer_class = getattr(module, class_name, None)
+            if scorer_class is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': class '{class_name}' not "
+                    f"found in module '{module_path}'."
+                )
+            init_kwargs: dict[str, Any] = dict(data.get("kwargs") or {})
+            # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)
+            # have no `metric_name` ClassVar — pass it as a kwarg; (b) concrete
+            # subclasses (`ExactMatch`) pin it via ClassVar and forward to
+            # `super().__init__`, so re-passing raises "multiple values".
+            class_metric_name = getattr(scorer_class, "metric_name", None)
+            if class_metric_name is None:
+                init_kwargs["metric_name"] = metric_name
+            elif class_metric_name != metric_name:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': stored metric_name "
+                    f"'{metric_name}' does not match class {module_path}.{class_name} "
+                    f"(ClassVar metric_name='{class_metric_name}'). The class may "
+                    f"have been renamed."
+                )
+            model = data.get("model")
+            if model is not None:
+                init_kwargs["model"] = model
+            try:
+                scorer_instance = scorer_class(**init_kwargs)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': failed to instantiate "
+                    f"{module_path}.{class_name}: {e}"
+                )
+            scorer_instance.name = serialized.name
+            if serialized.description is not None:
+                scorer_instance.description = serialized.description
+            if serialized.aggregations is not None:
+                scorer_instance.aggregations = serialized.aggregations
+            object.__setattr__(scorer_instance, "_cached_dump", asdict(serialized))
+            return scorer_instance
 
         # Invalid serialized data
         else:
@@ -922,10 +1016,39 @@ class Scorer(BaseModel):
         Create a copy of this scorer instance.
         """
         self._check_can_be_registered(
-            error_message="Scorer must be a builtin or decorator scorer to be copied."
+            error_message=(
+                "Scorer must be a builtin, decorator, or third-party scorer to be copied."
+            )
         )
 
-        copy = self.model_copy(deep=True)
+        if self.kind == ScorerKind.THIRD_PARTY:
+            # Rebuild via __init__ — some third-party metrics (e.g. RAGAS) hold
+            # `instructor`-wrapped clients whose __getattr__ recurses infinitely
+            # on deepcopy.
+            init_kwargs = dict(self._metric_kwargs)
+            # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)
+            # have no `metric_name` ClassVar — pass it as a kwarg; (b) concrete
+            # subclasses (`ExactMatch`) pin it via ClassVar and forward to
+            # `super().__init__`, so re-passing raises "multiple values".
+            class_metric_name = getattr(type(self), "metric_name", None)
+            if class_metric_name is None:
+                init_kwargs["metric_name"] = self._metric_name
+            elif class_metric_name != self._metric_name:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer {type(self).__name__}: instance "
+                    f"`_metric_name='{self._metric_name}'` does not match class "
+                    f"ClassVar `metric_name='{class_metric_name}'`."
+                )
+            if self._model is not None:
+                init_kwargs["model"] = self._model
+            copy = type(self)(**init_kwargs)
+            copy.name = self.name
+            if self.description is not None:
+                copy.description = self.description
+            if self.aggregations is not None:
+                copy.aggregations = self.aggregations
+        else:
+            copy = self.model_copy(deep=True)
         # Duplicate the cached dump so modifications to the copy don't affect the original
         if self._cached_dump is not None:
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
@@ -949,6 +1072,11 @@ class Scorer(BaseModel):
         if self.kind == ScorerKind.DECORATOR and not is_databricks_uri(get_tracking_uri()):
             raise MlflowException.invalid_parameter_value(
                 DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+            )
+
+        if self.kind == ScorerKind.THIRD_PARTY and is_databricks_uri(get_tracking_uri()):
+            raise MlflowException.invalid_parameter_value(
+                THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR
             )
 
         store = _get_scorer_store()

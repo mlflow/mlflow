@@ -37,7 +37,10 @@ export interface UseTraceCostOverTimeChartDataResult {
  *
  * @returns Processed chart data, loading state, and error state
  */
-export function useTraceCostOverTimeChartData(dimension: CostDimension = 'model'): UseTraceCostOverTimeChartDataResult {
+export function useTraceCostOverTimeChartData(
+  dimension: CostDimension = 'model',
+  { enabled = true }: { enabled?: boolean } = {},
+): UseTraceCostOverTimeChartDataResult {
   const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
     useOverviewChartContext();
 
@@ -54,6 +57,7 @@ export function useTraceCostOverTimeChartData(dimension: CostDimension = 'model'
     dimensions: [dimensionKey],
     timeIntervalSeconds,
     filters,
+    enabled,
   });
 
   const dataPoints = useMemo(() => data?.data_points || [], [data?.data_points]);

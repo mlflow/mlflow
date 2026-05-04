@@ -5,8 +5,10 @@ import requests
 
 from mlflow import MlflowException
 from mlflow.environment_variables import (
+    MLFLOW_AUTH_CONFIG_PATH,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
     MLFLOW_WORKSPACE_STORE_URI,
@@ -22,6 +24,7 @@ from tests.server.auth.auth_test_utils import (
     ADMIN_USERNAME,
     User,
     create_user,
+    write_isolated_auth_config,
 )
 from tests.tracking.integration_test_utils import _init_server
 
@@ -34,6 +37,7 @@ def clear_credentials(monkeypatch):
 
 @pytest.fixture
 def workspace_client(tmp_path):
+    auth_config_path = write_isolated_auth_config(tmp_path)
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
@@ -43,8 +47,11 @@ def workspace_client(tmp_path):
         app="mlflow.server.auth:create_app",
         extra_env={
             MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key",
+            MLFLOW_AUTH_CONFIG_PATH.name: str(auth_config_path),
             MLFLOW_ENABLE_WORKSPACES.name: "true",
             MLFLOW_WORKSPACE_STORE_URI.name: backend_uri,
+            # Force seeding on so tests don't depend on the caller's shell env.
+            MLFLOW_RBAC_SEED_DEFAULT_ROLES.name: "true",
         },
         server_type="flask",
     ) as url:
@@ -194,6 +201,37 @@ def _graphql_search_model_versions(
     payload = resp.json()
     assert payload.get("errors") in (None, [])
     return payload["data"]["mlflowSearchModelVersions"]["modelVersions"]
+
+
+def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
+    # The workspace_client fixture forces ``MLFLOW_RBAC_SEED_DEFAULT_ROLES=true`` in
+    # the server subprocess so this test is deterministic regardless of the caller's
+    # shell environment.
+    client, tracking_uri = workspace_client
+    workspace_name = f"team-{random_str(10)}"
+    _create_workspace(tracking_uri, workspace_name)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        roles = client.list_roles(workspace_name)
+
+    role_names = sorted(r.name for r in roles)
+    assert role_names == ["admin", "user"]
+
+    # Each role got its expected permission row. Look up by name and inspect.
+    by_name = {r.name: r for r in roles}
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        admin_perms = client.list_role_permissions(by_name["admin"].id)
+        user_perms = client.list_role_permissions(by_name["user"].id)
+
+    # Both roles use resource_type='workspace' (the workspace-wide grant form).
+    # MANAGE additionally grants workspace admin capability; USE is the
+    # workspace-membership level — read every resource and create new ones.
+    assert [(p.resource_type, p.resource_pattern, p.permission) for p in admin_perms] == [
+        ("workspace", "*", "MANAGE")
+    ]
+    assert [(p.resource_type, p.resource_pattern, p.permission) for p in user_perms] == [
+        ("workspace", "*", "USE")
+    ]
 
 
 def test_workspace_permission_set_and_list(workspace_setup, monkeypatch):
@@ -375,3 +413,55 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
     )
     assert resp.status_code == 403
     assert "Permission denied" in resp.text
+
+
+def test_list_current_user_permissions_no_active_workspace(workspace_client, monkeypatch):
+    # ``/users/current/permissions`` backs the global ``/account`` page,
+    # which has no active workspace - it must list registered-model
+    # grants across every workspace the user has them in. The
+    # active-workspace-aware ``list_registered_model_permissions`` would
+    # raise here, so the handler uses the cross-workspace variant.
+    client, tracking_uri = workspace_client
+
+    workspace_a = f"ws-a-{random_str()}"
+    workspace_b = f"ws-b-{random_str()}"
+    _create_workspace(tracking_uri, workspace_a)
+    _create_workspace(tracking_uri, workspace_b)
+    username, password = create_user(tracking_uri)
+
+    model_a = f"model-a-{random_str()}"
+    model_b = f"model-b-{random_str()}"
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        # Create one registered-model permission per workspace. We go
+        # through the REST endpoint directly because the typed client
+        # method doesn't accept a workspace header - the server reads it
+        # from the request to set the row's ``workspace`` column.
+        for workspace_name, model_name in [(workspace_a, model_a), (workspace_b, model_b)]:
+            resp = requests.post(
+                f"{tracking_uri}/api/2.0/mlflow/registered-models/permissions/create",
+                json={"name": model_name, "username": username, "permission": "READ"},
+                auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+                headers={WORKSPACE_HEADER_NAME: workspace_name},
+            )
+            assert resp.ok, (
+                f"create_registered_model_permission failed: {resp.status_code} {resp.text}"
+            )
+
+    url = f"{tracking_uri}/api/3.0/mlflow/users/current/permissions"
+
+    # Critical assertion: no ``X-MLFLOW-WORKSPACE`` header. On a
+    # workspaces-enabled deployment, ``list_registered_model_permissions``
+    # would raise here ("Active workspace is required"); the
+    # cross-workspace path must succeed and span both workspaces.
+    resp = requests.get(url, auth=(username, password))
+    assert resp.status_code == 200, resp.text
+    grants = resp.json()["permissions"]
+
+    # Each workspace's grant should be present, attributed correctly.
+    rm_grants = [g for g in grants if g["resource_type"] == "registered_model"]
+    assert {(g["resource_pattern"], g["workspace"]) for g in rm_grants} == {
+        (model_a, workspace_a),
+        (model_b, workspace_b),
+    }
+    for g in rm_grants:
+        assert g["permission"] == "READ"

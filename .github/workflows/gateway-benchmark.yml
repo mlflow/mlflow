@@ -107,3 +107,4 @@ jobs:
           name: benchmark-results-${{ matrix.backend }}-${{ github.run_id }}
           path: benchmark-results-${{ matrix.backend }}.json
           retention-days: 30
+          if-no-files-found: warn

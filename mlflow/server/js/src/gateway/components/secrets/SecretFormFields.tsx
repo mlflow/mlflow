@@ -21,6 +21,7 @@ export interface SecretFormFieldsProps {
   disabled?: boolean;
   componentId?: string;
   hideNameField?: boolean;
+  secretPlaceholders?: Record<string, string>;
 }
 
 export const SecretFormFields = ({
@@ -31,6 +32,7 @@ export const SecretFormFields = ({
   disabled,
   componentId = 'mlflow.gateway.secret-form',
   hideNameField = false,
+  secretPlaceholders,
 }: SecretFormFieldsProps) => {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
@@ -188,7 +190,7 @@ export const SecretFormFields = ({
               componentId={`${componentId}.secret`}
               value={value.secretFields[field.name] ?? ''}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleSecretFieldChange(field.name, e.target.value)}
-              placeholder={field.description}
+              placeholder={secretPlaceholders?.[field.name] ?? field.description}
               validationState={errors?.secretFields?.[field.name] ? 'error' : undefined}
               disabled={disabled}
             />

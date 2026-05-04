@@ -7,6 +7,10 @@ import { GuardrailsTabContent } from './GuardrailsTabContent';
 jest.mock('../../hooks/useGuardrailsQuery');
 jest.mock('../../hooks/useRemoveGuardrail');
 jest.mock('./AddGuardrailModal', () => ({ AddGuardrailModal: () => null }));
+jest.mock('./GuardrailDetailModal', () => ({ GuardrailDetailModal: () => null }));
+jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
+  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+}));
 
 const { useGuardrailsQuery } = jest.requireMock<typeof import('../../hooks/useGuardrailsQuery')>(
   '../../hooks/useGuardrailsQuery',
@@ -60,7 +64,7 @@ function setup(guardrails = mockGuardrails, isLoading = false) {
     error: undefined,
     refetch,
   });
-  jest.mocked(useRemoveGuardrail).mockReturnValue({ mutateAsync: jest.fn() as any, isPending: false } as any);
+  jest.mocked(useRemoveGuardrail).mockReturnValue({ mutateAsync: jest.fn() as any, isLoading: false } as any);
   return { refetch };
 }
 
@@ -86,8 +90,8 @@ describe('GuardrailsTabContent', () => {
     renderWithDesignSystem(<GuardrailsTabContent {...defaultProps} />);
     expect(screen.getByText('Safety')).toBeInTheDocument();
     expect(screen.getByText('PII Filter')).toBeInTheDocument();
-    expect(screen.getByText('Before LLM')).toBeInTheDocument();
-    expect(screen.getByText('After LLM')).toBeInTheDocument();
+    expect(screen.getByText('Pre-LLM Guardrails')).toBeInTheDocument();
+    expect(screen.getByText('Post-LLM Guardrails')).toBeInTheDocument();
     expect(screen.getByText('Block')).toBeInTheDocument();
     expect(screen.getByText('Sanitize')).toBeInTheDocument();
   });
@@ -107,18 +111,26 @@ describe('GuardrailsTabContent', () => {
     expect(screen.getByText(/No guardrails match your search/)).toBeInTheDocument();
   });
 
-  test('clicking delete opens confirmation modal', async () => {
+  test('clicking delete opens confirmation modal after selecting a row', async () => {
     setup();
     renderWithDesignSystem(<GuardrailsTabContent {...defaultProps} />);
-    const deleteButtons = screen.getAllByRole('button', { name: /Remove guardrail/i });
-    await userEvent.click(deleteButtons[0]);
-    expect(screen.getByText('Remove Guardrail')).toBeInTheDocument();
+
+    // Select the first row via its checkbox, then click the toolbar Delete button
+    const checkboxes = screen.getAllByRole('checkbox');
+    await userEvent.click(checkboxes[1]); // index 0 is "select all", index 1 is first row
+    await userEvent.click(screen.getByRole('button', { name: /^Delete/ }));
+
+    expect(screen.getByText(/Delete.*guardrail/i)).toBeInTheDocument();
   });
 
-  test('view buttons are disabled', () => {
+  test('clicking a guardrail name renders the row', async () => {
     setup();
     renderWithDesignSystem(<GuardrailsTabContent {...defaultProps} />);
-    const viewButtons = screen.getAllByRole('button', { name: /View and edit guardrail/i });
-    viewButtons.forEach((btn) => expect(btn).toBeDisabled());
+
+    const nameButton = screen.getByRole('button', { name: 'Safety' });
+    expect(nameButton).toBeInTheDocument();
+    await userEvent.click(nameButton);
+    // Row remains visible after click (modal is mocked out)
+    expect(screen.getByRole('button', { name: 'Safety' })).toBeInTheDocument();
   });
 });

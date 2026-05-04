@@ -111,7 +111,7 @@ import math
 import mlflow
 
 
-def invocation(x, y, exp=2):
+def invocation(x, exp=2):
     # Wrap an external function from the math library
     traced_pow = mlflow.trace(math.pow)
     raised = traced_pow(x, exp)
