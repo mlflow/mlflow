@@ -26,10 +26,49 @@ function flattenSpans(root: ModelTraceSpanNode): ModelTraceSpanNode[] {
 }
 
 /**
- * Span types that represent agent/node boundaries in agent frameworks.
+ * Span types that represent node boundaries in agent frameworks.
  * Spans under different parents of these types should NOT be consolidated.
+ *
+ * This set covers the standard MLflow span types that denote logical grouping:
+ * - AGENT, CHAIN: core multi-step orchestration types
+ * - WORKFLOW, TASK: used by frameworks (e.g., CrewAI, LangGraph) for
+ *   higher-level orchestration nodes
+ *
+ * Framework-specific span kinds (e.g., VoltAgent's entity.type, OpenInference's
+ * openinference.span.kind) are translated to these standard MLflow types by
+ * the backend's OTel schema translators before reaching the frontend.
  */
-const NODE_BOUNDARY_TYPES = new Set(['AGENT', 'CHAIN']);
+const NODE_BOUNDARY_TYPES = new Set(['AGENT', 'CHAIN', 'WORKFLOW', 'TASK']);
+
+/**
+ * Span attribute keys that frameworks use to signal agent/node identity.
+ * If a span carries any of these attributes, it is treated as a node boundary
+ * regardless of its type — this honors the framework's native boundary signal.
+ */
+const BOUNDARY_ATTRIBUTE_KEYS = [
+  'entity.name', // VoltAgent, Gemini CLI
+  'openinference.span.kind', // Arize / OpenInference
+  'graph.node.id', // Arize explicit graph annotations
+];
+
+/**
+ * Checks whether a span represents a node boundary — either by its type
+ * or by framework-specific attributes that signal agent/node identity.
+ */
+function isNodeBoundary(span: ModelTraceSpanNode): boolean {
+  if (NODE_BOUNDARY_TYPES.has(span.type ?? '')) {
+    return true;
+  }
+  const attrs = span.attributes;
+  if (attrs && !Array.isArray(attrs)) {
+    for (const key of BOUNDARY_ATTRIBUTE_KEYS) {
+      if (attrs[key] != null) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 /**
  * Gets the base aggregation key for a span using its type and name.
@@ -358,9 +397,9 @@ function buildWorkflowGraph(
     spanKeyMap.set(node, key);
 
     if (node.children) {
-      // If this node is an agent boundary, it becomes the new scope for children.
-      // Otherwise, pass through the current scope unchanged.
-      const childScope = NODE_BOUNDARY_TYPES.has(node.type ?? '') ? key : scopeKey;
+      // If this node is a framework-defined boundary, it becomes the new scope
+      // for children. Otherwise, pass through the current scope unchanged.
+      const childScope = isNodeBoundary(node) ? key : scopeKey;
       for (const child of node.children) {
         assignKeys(child, childScope);
       }
@@ -370,7 +409,7 @@ function buildWorkflowGraph(
   const rootKey = getBaseAggregationKey(rootNode);
   spanKeyMap.set(rootNode, rootKey);
   if (rootNode.children) {
-    const rootScope = NODE_BOUNDARY_TYPES.has(rootNode.type ?? '') ? rootKey : null;
+    const rootScope = isNodeBoundary(rootNode) ? rootKey : null;
     for (const child of rootNode.children) {
       assignKeys(child, rootScope);
     }
