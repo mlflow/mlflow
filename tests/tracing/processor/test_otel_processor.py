@@ -1,13 +1,14 @@
 """Tests for OtelSpanProcessor tag packing behaviour."""
+
 import json
 from unittest import mock
 
 from opentelemetry.sdk.trace.export import SpanExportResult
 
 from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
-from mlflow.tracing.constant import SpanAttributeKey, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.processor.otel import OtelSpanProcessor
-from mlflow.tracing.trace_manager import InMemoryTraceManager, ManagerTrace
+from mlflow.tracing.trace_manager import ManagerTrace
 
 from tests.tracing.helper import create_mock_otel_span
 
@@ -68,9 +69,7 @@ def test_on_end_skips_tag_packing_for_child_span():
     processor, _ = _make_processor()
     otel_trace_id = 0xDEADBEEF
 
-    child_span = create_mock_otel_span(
-        trace_id=otel_trace_id, span_id=0x5678, parent_id=0x1234
-    )
+    child_span = create_mock_otel_span(trace_id=otel_trace_id, span_id=0x5678, parent_id=0x1234)
     assert child_span.parent is not None
 
     with mock.patch.object(processor._trace_manager, "pop_trace") as mock_pop:

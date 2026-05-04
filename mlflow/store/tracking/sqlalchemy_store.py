@@ -4914,9 +4914,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # Restore user-defined tags carried via mlflow.traceTags on the root span
                 # (set by OtelSpanProcessor when the trace was exported over OTLP).
                 for tag_key, tag_value in agg.trace_tags.items():
-                    session.merge(
-                        SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value)
-                    )
+                    session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 
         return spans
 
