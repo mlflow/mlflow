@@ -57,6 +57,7 @@ export const EvaluationImageCellRenderer = ({ value }: EvaluationImageCellRender
             WebkitLineClamp: '7',
             width: '100%',
             height: '100%',
+            maxWidth: '100%',
           }}
         >
           <ImagePlot imageUrl={value.url} compressedImageUrl={value.compressed_url} />
