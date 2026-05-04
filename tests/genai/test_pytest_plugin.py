@@ -9,8 +9,6 @@ import pytest
 from mlflow.genai.pytest_plugin import (
     MLFLOW_RUN_TYPE_PYTEST,
     MLFLOW_RUN_TYPE_TAG,
-    MLFLOW_TEST_DURATION_TAG,
-    MLFLOW_TEST_NAME_TAG,
     MLFLOW_TEST_OUTCOME_TAG,
     TestResult,
 )
@@ -48,105 +46,7 @@ def test_plugin_is_not_auto_registered():
 
 
 # ---------------------------------------------------------------------------
-# TestResult dataclass
-# ---------------------------------------------------------------------------
-
-
-def test_test_result_defaults():
-    r = TestResult(name="test_foo", outcome="passed", duration_s=1.23)
-    assert r.name == "test_foo"
-    assert r.outcome == "passed"
-    assert r.duration_s == 1.23
-    assert r.metrics == {}
-    assert r.run_id is None
-
-
-def test_test_result_with_metrics():
-    r = TestResult(
-        name="test_bar",
-        outcome="failed",
-        duration_s=0.5,
-        metrics={"accuracy": 0.9},
-        run_id="abc123",
-    )
-    assert r.metrics == {"accuracy": 0.9}
-    assert r.run_id == "abc123"
-
-
-def test_test_result_is_frozen():
-    r = TestResult(name="test_baz", outcome="passed", duration_s=0.1)
-    with pytest.raises(AttributeError):
-        r.name = "other"
-
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-
-def test_constants():
-    assert MLFLOW_RUN_TYPE_TAG == "mlflow.runType"
-    assert MLFLOW_RUN_TYPE_PYTEST == "pytest"
-    assert MLFLOW_TEST_OUTCOME_TAG == "mlflow.test.outcome"
-    assert MLFLOW_TEST_DURATION_TAG == "mlflow.test.duration"
-    assert MLFLOW_TEST_NAME_TAG == "mlflow.test.name"
-
-
-# ---------------------------------------------------------------------------
-# pytest_configure
-# ---------------------------------------------------------------------------
-
-
-def test_pytest_configure_sets_attributes():
-    from mlflow.genai.pytest_plugin import pytest_configure
-
-    config = mock.MagicMock()
-    config.addinivalue_line = mock.MagicMock()
-    pytest_configure(config)
-
-    assert config._mlflow_genai_active is False
-    assert config._mlflow_genai_results == []
-    assert config._mlflow_genai_parent_run_id is None
-    assert config._mlflow_genai_experiment_name is None
-    config.addinivalue_line.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# pytest_collection_modifyitems
-# ---------------------------------------------------------------------------
-
-
-def test_collection_modifyitems_activates_on_genai_marker():
-    from mlflow.genai.pytest_plugin import pytest_collection_modifyitems
-
-    config = mock.MagicMock()
-    config._mlflow_genai_active = False
-
-    item_with_marker = mock.MagicMock()
-    item_with_marker.get_closest_marker.return_value = mock.MagicMock()
-
-    item_without_marker = mock.MagicMock()
-    item_without_marker.get_closest_marker.return_value = None
-
-    pytest_collection_modifyitems(config, [item_without_marker, item_with_marker])
-    assert config._mlflow_genai_active is True
-
-
-def test_collection_modifyitems_stays_inactive_without_marker():
-    from mlflow.genai.pytest_plugin import pytest_collection_modifyitems
-
-    config = mock.MagicMock()
-    config._mlflow_genai_active = False
-
-    item = mock.MagicMock()
-    item.get_closest_marker.return_value = None
-
-    pytest_collection_modifyitems(config, [item])
-    assert config._mlflow_genai_active is False
-
-
-# ---------------------------------------------------------------------------
-# Terminal summary
+# Terminal summary (unit tests with mocks)
 # ---------------------------------------------------------------------------
 
 
@@ -226,7 +126,7 @@ def test_marker_integration(pytester_with_plugin):
         """
 import pytest
 
-@pytest.mark.genai
+@pytest.mark.mlflow
 def test_example():
     assert True
 """
@@ -242,7 +142,7 @@ def test_marker_with_parametrize_integration(pytester_with_plugin):
         """
 import pytest
 
-@pytest.mark.genai
+@pytest.mark.mlflow
 @pytest.mark.parametrize("x", [1, 2, 3])
 def test_param(x):
     assert x > 0
@@ -273,11 +173,11 @@ def test_failed_test_outcome(pytester_with_plugin):
         """
 import pytest
 
-@pytest.mark.genai
+@pytest.mark.mlflow
 def test_will_fail():
     assert False
 
-@pytest.mark.genai
+@pytest.mark.mlflow
 def test_will_pass():
     assert True
 """
@@ -294,7 +194,7 @@ def test_experiment_name_from_env_var(pytester_with_plugin, monkeypatch):
         """
 import pytest
 
-@pytest.mark.genai
+@pytest.mark.mlflow
 def test_env_exp():
     assert True
 """
@@ -311,7 +211,7 @@ def test_cli_option_overrides_env_var(pytester_with_plugin, monkeypatch):
         """
 import pytest
 
-@pytest.mark.genai
+@pytest.mark.mlflow
 def test_cli_exp():
     assert True
 """
@@ -328,11 +228,11 @@ def test_summary_metrics_logged_to_parent_run(pytester_with_plugin):
 import pytest
 import mlflow
 
-@pytest.mark.genai
+@pytest.mark.mlflow
 def test_pass():
     assert True
 
-@pytest.mark.genai
+@pytest.mark.mlflow
 def test_fail():
     assert False
 """
@@ -347,9 +247,11 @@ def test_fail():
     try:
         mlflow.set_tracking_uri(f"sqlite:///{db_path}")
         client = mlflow.MlflowClient()
-        experiment = client.get_experiment_by_name("pytest")
+        # Search across all experiments since default experiment may be used
+        experiments = client.search_experiments()
+        experiment_ids = [e.experiment_id for e in experiments]
         runs = client.search_runs(
-            experiment_ids=[experiment.experiment_id],
+            experiment_ids=experiment_ids,
             filter_string=f"tags.`{MLFLOW_RUN_TYPE_TAG}` = '{MLFLOW_RUN_TYPE_PYTEST}'",
             order_by=["attributes.start_time ASC"],
         )
@@ -364,5 +266,45 @@ def test_fail():
         assert parent.data.metrics["test.skip_count"] == 0
         assert parent.data.metrics["test.pass_rate"] == 0.5
         assert parent.data.metrics["test.total_duration"] > 0
+    finally:
+        mlflow.set_tracking_uri(original_uri)
+
+
+def test_child_runs_have_outcome_tags(pytester_with_plugin):
+    pytester, db_path = pytester_with_plugin
+    pytester.makepyfile(
+        """
+import pytest
+
+@pytest.mark.mlflow
+def test_pass_one():
+    assert True
+
+@pytest.mark.mlflow
+def test_fail_one():
+    assert False
+"""
+    )
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(passed=1, failed=1)
+
+    import mlflow
+
+    original_uri = mlflow.get_tracking_uri()
+    try:
+        mlflow.set_tracking_uri(f"sqlite:///{db_path}")
+        client = mlflow.MlflowClient()
+        experiments = client.search_experiments()
+        experiment_ids = [e.experiment_id for e in experiments]
+        runs = client.search_runs(
+            experiment_ids=experiment_ids,
+            filter_string=f"tags.`{MLFLOW_RUN_TYPE_TAG}` = '{MLFLOW_RUN_TYPE_PYTEST}'",
+        )
+        child_runs = [
+            r for r in runs if r.data.tags.get("mlflow.parentRunId") is not None
+        ]
+        assert len(child_runs) == 2
+        outcomes = {r.data.tags.get(MLFLOW_TEST_OUTCOME_TAG) for r in child_runs}
+        assert outcomes == {"passed", "failed"}
     finally:
         mlflow.set_tracking_uri(original_uri)

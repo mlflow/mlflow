@@ -2738,7 +2738,7 @@ __metadata:
 
 "@databricks/design-system@file:./vendor/design-system::locator=%40mlflow%2Fmlflow%40workspace%3A.":
   version: 1.0.0-b11bd26b
-  resolution: "@databricks/design-system@file:./vendor/design-system#./vendor/design-system::hash=1cd434&locator=%40mlflow%2Fmlflow%40workspace%3A."
+  resolution: "@databricks/design-system@file:./vendor/design-system#./vendor/design-system::hash=e98932&locator=%40mlflow%2Fmlflow%40workspace%3A."
   dependencies:
     "@ant-design/icons": "npm:^4.7.0"
     "@babel/runtime": "npm:^7.28.4"
@@ -2783,7 +2783,7 @@ __metadata:
     moment: ^2.25.3
     react: "*"
     react-dom: "*"
-  checksum: 10c0/b31070dca01c61b9bf5a063557e9cda6f71d8be7272c01bb02fb2c0b11f14bf893fb45c21addcb846964e51752dcdb1b2a6000dbb9690cc95b9218f936dcee25
+  checksum: 10c0/0fd6aa791b4e9c06eca512fe2da683f5580369c36af0a97a5886a6eeda342a6f4810a84170fc2299dbedcd9ab8c49713acfe77f309d4dbbfb6afc742e7e9d985
   languageName: node
   linkType: hard
 
@@ -6832,9 +6832,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@radix-ui/react-tooltip-patch@patch:@radix-ui/react-tooltip@npm%3A1.0.7#../js/yarn/patches/@radix-ui-react-tooltip-npm-1.0.7-c7378e5c03.patch::locator=%40databricks%2Fdesign-system%40file%3A.%2Fvendor%2Fdesign-system%23.%2Fvendor%2Fdesign-system%3A%3Ahash%3D1cd434%26locator%3D%2540mlflow%252Fmlflow%2540workspace%253A.":
+"@radix-ui/react-tooltip-patch@patch:@radix-ui/react-tooltip@npm%3A1.0.7#../js/yarn/patches/@radix-ui-react-tooltip-npm-1.0.7-c7378e5c03.patch::locator=%40databricks%2Fdesign-system%40file%3A.%2Fvendor%2Fdesign-system%23.%2Fvendor%2Fdesign-system%3A%3Ahash%3De98932%26locator%3D%2540mlflow%252Fmlflow%2540workspace%253A.":
   version: 1.0.7
-  resolution: "@radix-ui/react-tooltip-patch@patch:@radix-ui/react-tooltip@npm%3A1.0.7#../js/yarn/patches/@radix-ui-react-tooltip-npm-1.0.7-c7378e5c03.patch::version=1.0.7&hash=8486cf&locator=%40databricks%2Fdesign-system%40file%3A.%2Fvendor%2Fdesign-system%23.%2Fvendor%2Fdesign-system%3A%3Ahash%3D1cd434%26locator%3D%2540mlflow%252Fmlflow%2540workspace%253A."
+  resolution: "@radix-ui/react-tooltip-patch@patch:@radix-ui/react-tooltip@npm%3A1.0.7#../js/yarn/patches/@radix-ui-react-tooltip-npm-1.0.7-c7378e5c03.patch::version=1.0.7&hash=8486cf&locator=%40databricks%2Fdesign-system%40file%3A.%2Fvendor%2Fdesign-system%23.%2Fvendor%2Fdesign-system%3A%3Ahash%3De98932%26locator%3D%2540mlflow%252Fmlflow%2540workspace%253A."
   dependencies:
     "@babel/runtime": "npm:^7.13.10"
     "@radix-ui/primitive": "npm:1.0.1"

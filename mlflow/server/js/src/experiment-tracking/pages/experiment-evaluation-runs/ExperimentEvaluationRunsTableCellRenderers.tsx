@@ -401,3 +401,51 @@ export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => 
 
   return <RunStatusIcon status={status} />;
 };
+
+export const RunTypeCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+
+  const tags = row.original.data?.tags ?? [];
+  const runTypeTag = tags.find((tag) => tag.key === MLFLOW_RUN_TYPE_TAG);
+
+  if (!runTypeTag) {
+    return (
+      <Tag componentId="mlflow.eval-runs.run-type-badge">
+        <FormattedMessage
+          defaultMessage="Evaluation"
+          description="Eval runs table > run type badge for normal evaluation runs"
+        />
+      </Tag>
+    );
+  }
+
+  if (runTypeTag.value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION) {
+    return (
+      <Tag componentId="mlflow.eval-runs.run-type-badge-issue" color="purple">
+        <FormattedMessage
+          defaultMessage="Issue Detection"
+          description="Eval runs table > run type badge for issue detection runs"
+        />
+      </Tag>
+    );
+  }
+
+  if (runTypeTag.value === MLFLOW_RUN_TYPE_VALUE_PYTEST) {
+    return (
+      <Tag componentId="mlflow.eval-runs.run-type-badge-pytest" color="teal">
+        <FormattedMessage defaultMessage="Pytest" description="Eval runs table > run type badge for pytest runs" />
+      </Tag>
+    );
+  }
+
+  return (
+    <Tag componentId="mlflow.eval-runs.run-type-badge">
+      <FormattedMessage
+        defaultMessage="Evaluation"
+        description="Eval runs table > run type badge for normal evaluation runs"
+      />
+    </Tag>
+  );
+};

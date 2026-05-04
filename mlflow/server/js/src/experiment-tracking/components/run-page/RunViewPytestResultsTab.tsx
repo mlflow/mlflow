@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircleIcon, ClockIcon, Tag, Typography, XCircleIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { useMemo } from 'react';
+import {
+  CheckCircleIcon,
+  ClockIcon,
+  Tag,
+  Typography,
+  XCircleIcon,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import type { TagColors } from '@databricks/design-system';
+import { useQuery } from '@databricks/web-shared/query-client';
 import { FormattedMessage } from 'react-intl';
 import { Link, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { MlflowService } from '../../sdk/MlflowService';
+import type { RunEntity } from '../../types';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 
 const MLFLOW_TEST_OUTCOME_TAG = 'mlflow.test.outcome';
@@ -17,6 +26,46 @@ interface ChildTestRun {
   duration: string;
   metrics: Record<string, number>;
 }
+
+const PYTEST_CHILD_RUNS_QUERY_KEY = 'PYTEST_CHILD_RUNS';
+
+const fetchAllChildRuns = async (experimentId: string, parentRunUuid: string): Promise<ChildTestRun[]> => {
+  const allRuns: ChildTestRun[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const res = await MlflowService.searchRuns({
+      experiment_ids: [experimentId],
+      filter: `tags.\`${EXPERIMENT_PARENT_ID_TAG}\` = '${parentRunUuid}'`,
+      order_by: ['attributes.start_time ASC'],
+      max_results: 200,
+      ...(pageToken ? { page_token: pageToken } : {}),
+    });
+
+    const runs: ChildTestRun[] = (res.runs ?? []).map((run: RunEntity) => {
+      const tags: Record<string, string> = {};
+      for (const tag of run.data?.tags ?? []) {
+        tags[tag.key] = tag.value;
+      }
+      const metrics: Record<string, number> = {};
+      for (const metric of run.data?.metrics ?? []) {
+        metrics[metric.key] = metric.value;
+      }
+      return {
+        runUuid: run.info.runUuid ?? run.info.runUuid ?? '',
+        runName: run.info.runName ?? run.info.runUuid ?? '',
+        outcome: tags[MLFLOW_TEST_OUTCOME_TAG] ?? 'unknown',
+        duration: tags[MLFLOW_TEST_DURATION_TAG] ?? '-',
+        metrics,
+      };
+    });
+
+    allRuns.push(...runs);
+    pageToken = res.next_page_token;
+  } while (pageToken);
+
+  return allRuns;
+};
 
 const getOutcomeColor = (outcome: string): TagColors | undefined => {
   if (outcome === 'passed') {
@@ -57,62 +106,17 @@ const OutcomeBadge = ({ outcome }: { outcome: string }) => {
 export const RunViewPytestResultsTab = ({ runUuid }: { runUuid: string }) => {
   const { theme } = useDesignSystemTheme();
   const { experimentId } = useParams<{ experimentId: string }>();
-  const [childRuns, setChildRuns] = useState<ChildTestRun[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
 
-  const loadChildRuns = useCallback(async () => {
-    if (!experimentId) {
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const allRuns: ChildTestRun[] = [];
-      let pageToken: string | undefined;
-
-      do {
-        const res = await MlflowService.searchRuns({
-          experiment_ids: [experimentId],
-          filter: `tags.\`${EXPERIMENT_PARENT_ID_TAG}\` = '${runUuid}'`,
-          order_by: ['attributes.start_time ASC'],
-          max_results: 200,
-          ...(pageToken ? { page_token: pageToken } : {}),
-        });
-
-        const runs: ChildTestRun[] = (res.runs ?? []).map((run: any) => {
-          const tags: Record<string, string> = {};
-          for (const tag of run.data?.tags ?? []) {
-            tags[tag.key] = tag.value;
-          }
-          const metrics: Record<string, number> = {};
-          for (const metric of run.data?.metrics ?? []) {
-            metrics[metric.key] = metric.value;
-          }
-          return {
-            runUuid: run.info.run_uuid ?? run.info.run_id,
-            runName: run.info.run_name ?? run.info.run_uuid ?? '',
-            outcome: tags[MLFLOW_TEST_OUTCOME_TAG] ?? 'unknown',
-            duration: tags[MLFLOW_TEST_DURATION_TAG] ?? '-',
-            metrics,
-          };
-        });
-
-        allRuns.push(...runs);
-        pageToken = res.next_page_token;
-      } while (pageToken);
-
-      setChildRuns(allRuns);
-      setHasError(false);
-    } catch {
-      setHasError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [experimentId, runUuid]);
-
-  useEffect(() => {
-    loadChildRuns();
-  }, [loadChildRuns]);
+  const {
+    data: childRuns = [],
+    isLoading,
+    error,
+  } = useQuery<ChildTestRun[], Error>({
+    queryKey: [PYTEST_CHILD_RUNS_QUERY_KEY, experimentId, runUuid],
+    queryFn: () => fetchAllChildRuns(experimentId ?? '', runUuid),
+    enabled: Boolean(experimentId),
+    refetchOnWindowFocus: false,
+  });
 
   const summary = useMemo(() => {
     const passed = childRuns.filter((r) => r.outcome === 'passed').length;
@@ -134,7 +138,7 @@ export const RunViewPytestResultsTab = ({ runUuid }: { runUuid: string }) => {
     );
   }
 
-  if (hasError) {
+  if (error) {
     return (
       <div css={{ padding: theme.spacing.md }}>
         <Typography.Text color="error">

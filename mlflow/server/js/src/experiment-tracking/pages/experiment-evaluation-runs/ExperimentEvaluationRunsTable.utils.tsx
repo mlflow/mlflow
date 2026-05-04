@@ -4,15 +4,16 @@ import { EvalRunsTableKeyedColumnPrefix } from './ExperimentEvaluationRunsTable.
 /**
  * Human-readable display names for well-known metric keys.
  */
-const METRIC_DISPLAY_NAMES: Record<string, string> = {
+const METRIC_DISPLAY_NAMES = {
   'test.pass_count': 'Pass Count',
   'test.fail_count': 'Fail Count',
   'test.skip_count': 'Skip Count',
   'test.pass_rate': 'Pass Rate',
   'test.total_duration': 'Total Duration',
-};
+} satisfies Record<string, string>;
 
-export const getMetricDisplayName = (key: string): string => METRIC_DISPLAY_NAMES[key] ?? key;
+export const getMetricDisplayName = (key: string): string =>
+  (METRIC_DISPLAY_NAMES as Record<string, string>)[key] ?? key;
 
 export const createEvalRunsTableKeyedColumnKey = (columnType: EvalRunsTableKeyedColumnPrefix, key: string): string =>
   [columnType, key].join('.');
