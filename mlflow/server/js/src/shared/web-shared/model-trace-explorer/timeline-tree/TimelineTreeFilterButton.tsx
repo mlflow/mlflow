@@ -71,7 +71,18 @@ export const TimelineTreeFilterButton = ({
         </Button>
       </Popover.Trigger>
       <Popover.Content align="start">
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, paddingBottom: theme.spacing.xs }}>
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.sm,
+            paddingBottom: theme.spacing.xs,
+            // Pin the popover width so per-level helper text under the slider
+            // (which varies in length) doesn't make the popover and slider
+            // visibly resize as the user drags.
+            width: 280,
+          }}
+        >
           <Typography.Text bold>
             <FormattedMessage
               defaultMessage="Filter"
@@ -120,7 +131,7 @@ export const TimelineTreeFilterButton = ({
               componentId="shared.model-trace-explorer.log-level-tooltip"
               content={
                 <FormattedMessage
-                  defaultMessage="Hide low-severity spans. Each span gets a level based on its type: LLM, Chat, Tool, Retriever, Agent, and Embedding spans are Info; everything else is Debug. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels for more details."
+                  defaultMessage="Hide low-severity spans. Each span gets a level based on its type. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels for more details."
                   description="Tooltip explaining the minimum log level filter, including the autolog default mapping, exception-bump rule, and pre-3.13 backwards-compat note."
                 />
               }
@@ -148,7 +159,13 @@ export const TimelineTreeFilterButton = ({
                   minLogLevel: LOG_LEVEL_ORDER[nextIndex],
                 })
               }
-              css={{ position: 'relative' }}
+              // Override the design-system's default 200px horizontal width via
+              // inline style (rather than css), so we don't clobber the sibling
+              // `display: flex` / `alignItems: center` defaults that
+              // `Slider.Track` relies on to expand. A `css={{width:'100%'}}` here
+              // would replace `getRootStyles()` entirely and collapse the track,
+              // making the thumb unable to reach the rightmost stop.
+              style={{ width: '100%' }}
             >
               <Slider.Track>
                 <Slider.Range />
