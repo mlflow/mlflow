@@ -746,6 +746,30 @@ describe('convertTraceInfoV3ToRunEvalEntry', () => {
     expect(result.inputsTitle).toEqual('Hello there');
   });
 
+  it('should extract user message from GenAI semantic convention input using request_preview', () => {
+    const genAIRequest = JSON.stringify([
+      { role: 'system', parts: [{ type: 'text', content: 'You are helpful' }] },
+      { role: 'user', parts: [{ type: 'text', content: 'What is MLflow?' }] },
+    ]);
+
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace_genai',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp_genai' } },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      client_request_id: 'client_genai',
+      request_preview: genAIRequest,
+      response_preview: '{}',
+      tags: {},
+      trace_metadata: {},
+      assessments: [],
+    };
+
+    const result = convertTraceInfoV3ToRunEvalEntry(traceInfo);
+
+    expect(result.inputsTitle).toEqual('What is MLflow?');
+  });
+
   it('should fallback to deprecated request field when request_preview is not available', () => {
     const openaiRequest = JSON.stringify({
       messages: [{ role: 'user', content: 'Using deprecated request field' }],

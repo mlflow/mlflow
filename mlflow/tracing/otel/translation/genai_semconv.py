@@ -55,20 +55,37 @@ class GenAiTranslator(OtelSchemaTranslator):
     LLM_PROVIDER_KEY = "gen_ai.provider.name"
     TOOL_DEFINITION_KEYS = ["gen_ai.tool.definitions"]
 
+    INFERENCE_OPERATION_DETAILS_EVENT_NAME = "gen_ai.client.inference.operation.details"
+
     def _decode_json_value(self, value: Any) -> Any:
         """Decode JSON-serialized string values."""
-        if isinstance(value, str):
+        while isinstance(value, str):
             try:
-                return json.loads(value)
+                decoded = json.loads(value)
             except (json.JSONDecodeError, TypeError):
-                pass
+                break
+            if decoded == value:
+                break
+            value = decoded
         return value
+
+    def _get_operation_details_event_value(self, events: list[dict[str, Any]], key: str) -> Any:
+        for event in events:
+            if event.get("name") != self.INFERENCE_OPERATION_DETAILS_EVENT_NAME:
+                continue
+            event_attrs = event.get("attributes", {})
+            if value := event_attrs.get(key):
+                return json.dumps(self._decode_json_value(value))
+        return None
 
     def get_input_value_from_events(self, events: list[dict[str, Any]]) -> Any:
         """
         Get input value from GenAI semantic convention events.
 
-        GenAI semantic convention events for LLM messages:
+        Latest GenAI semantic convention event:
+        - gen_ai.client.inference.operation.details with gen_ai.input.messages attribute
+
+        Legacy GenAI semantic convention events for LLM messages:
         - gen_ai.system.message
         - gen_ai.user.message
         - gen_ai.assistant.message
@@ -79,6 +96,9 @@ class GenAiTranslator(OtelSchemaTranslator):
         Returns:
             JSON-serialized list of input messages or None if not found
         """
+        if value := self._get_operation_details_event_value(events, "gen_ai.input.messages"):
+            return value
+
         messages = []
 
         for event in events:
@@ -106,7 +126,10 @@ class GenAiTranslator(OtelSchemaTranslator):
         """
         Get output value from GenAI semantic convention events.
 
-        GenAI semantic convention events for LLM responses:
+        Latest GenAI semantic convention event:
+        - gen_ai.client.inference.operation.details with gen_ai.output.messages attribute
+
+        Legacy GenAI semantic convention event for LLM responses:
         - gen_ai.choice
 
         Args:
@@ -115,6 +138,9 @@ class GenAiTranslator(OtelSchemaTranslator):
         Returns:
             JSON-serialized list of output messages or None if not found
         """
+        if value := self._get_operation_details_event_value(events, "gen_ai.output.messages"):
+            return value
+
         messages = []
 
         for event in events:
