@@ -1,12 +1,10 @@
 import {
-  ApplyDesignSystemContextOverrides,
   Button,
   Checkbox,
   FilterIcon,
   InfoTooltip,
   Popover,
-  SimpleSelect,
-  SimpleSelectOption,
+  Slider,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -17,6 +15,38 @@ import { SpanLogLevel } from '../ModelTrace.types';
 import { getDisplayNameForSpanType, getIconTypeForSpan } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerIcon } from '../ModelTraceExplorerIcon';
 
+// Slider tracks indices 0..4; map to/from the SpanLogLevel enum (10/20/30/40/50).
+const LOG_LEVEL_ORDER: readonly SpanLogLevel[] = [
+  SpanLogLevel.DEBUG,
+  SpanLogLevel.INFO,
+  SpanLogLevel.WARNING,
+  SpanLogLevel.ERROR,
+  SpanLogLevel.CRITICAL,
+];
+
+const indexFromLogLevel = (level: SpanLogLevel): number => {
+  const idx = LOG_LEVEL_ORDER.indexOf(level);
+  return idx >= 0 ? idx : 0;
+};
+
+// Span types stamped at INFO by autolog defaults; everything else (chain glue,
+// parsers, internal/custom types) is DEBUG. Spans with an exception event are
+// auto-promoted to ERROR. Keep in sync with `defaultLogLevelForSpanType` in
+// `libs/typescript/core/src/core/log_level.ts` and the Python equivalent.
+const LEVEL_DESCRIPTIONS: Record<SpanLogLevel, { label: string; spanTypes: string }> = {
+  [SpanLogLevel.DEBUG]: {
+    label: 'Debug',
+    spanTypes: 'Chain, Parser, Reranker, Memory, Workflow, Task, Unknown',
+  },
+  [SpanLogLevel.INFO]: {
+    label: 'Info',
+    spanTypes: 'LLM, Chat, Tool, Retriever, Agent, Embedding',
+  },
+  [SpanLogLevel.WARNING]: { label: 'Warning', spanTypes: '(no autolog default)' },
+  [SpanLogLevel.ERROR]: { label: 'Error', spanTypes: 'Spans with an exception event' },
+  [SpanLogLevel.CRITICAL]: { label: 'Critical', spanTypes: '(no autolog default)' },
+};
+
 export const TimelineTreeFilterButton = ({
   spanFilterState,
   setSpanFilterState,
@@ -25,6 +55,9 @@ export const TimelineTreeFilterButton = ({
   setSpanFilterState: (state: SpanFilterState) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const sliderIndex = indexFromLogLevel(spanFilterState.minLogLevel);
+  const currentLevel = LOG_LEVEL_ORDER[sliderIndex];
+  const description = LEVEL_DESCRIPTIONS[currentLevel];
 
   return (
     <Popover.Root componentId="shared.model-trace-explorer.timeline-tree-filter-popover">
@@ -76,59 +109,77 @@ export const TimelineTreeFilterButton = ({
               </Checkbox>
             );
           })}
-          <Typography.Text color="secondary">
-            <FormattedMessage
-              defaultMessage="Minimum log level"
-              description="Section label for the minimum span log level filter in the trace explorer."
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Minimum log level"
+                description="Section label for the minimum span log level filter in the trace explorer."
+              />
+            </Typography.Text>
+            <InfoTooltip
+              componentId="shared.model-trace-explorer.log-level-tooltip"
+              content={
+                <FormattedMessage
+                  defaultMessage="Hide low-severity spans. Each span gets a level based on its type: LLM, Chat, Tool, Retriever, Agent, and Embedding spans are Info; everything else is Debug. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels for more details."
+                  description="Tooltip explaining the minimum log level filter, including the autolog default mapping, exception-bump rule, and pre-3.13 backwards-compat note."
+                />
+              }
             />
-          </Typography.Text>
-          {/* Bump the design-system z-index so the Select's dropdown portal lands
-              above the parent filter Popover instead of being clipped behind it. */}
-          <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
-            <SimpleSelect
-              id="shared.model-trace-explorer.span-log-level-filter"
-              componentId="shared.model-trace-explorer.span-log-level-filter"
-              label="Minimum log level"
-              value={String(spanFilterState.minLogLevel)}
-              onChange={(e) =>
+          </div>
+          <div
+            aria-label="Minimum log level"
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.xs,
+              paddingTop: theme.spacing.xs,
+              paddingLeft: theme.spacing.sm,
+              paddingRight: theme.spacing.sm,
+            }}
+          >
+            <Slider.Root
+              min={0}
+              max={LOG_LEVEL_ORDER.length - 1}
+              step={1}
+              value={[sliderIndex]}
+              onValueChange={([nextIndex]) =>
                 setSpanFilterState({
                   ...spanFilterState,
-                  minLogLevel: Number(e.target.value) as SpanLogLevel,
+                  minLogLevel: LOG_LEVEL_ORDER[nextIndex],
                 })
               }
+              css={{ position: 'relative' }}
             >
-              <SimpleSelectOption value={String(SpanLogLevel.DEBUG)}>
-                <FormattedMessage
-                  defaultMessage="Debug"
-                  description="Option in the span log-level filter that shows all spans (DEBUG and above)."
-                />
-              </SimpleSelectOption>
-              <SimpleSelectOption value={String(SpanLogLevel.INFO)}>
-                <FormattedMessage
-                  defaultMessage="Info"
-                  description="Option in the span log-level filter that hides DEBUG-level spans."
-                />
-              </SimpleSelectOption>
-              <SimpleSelectOption value={String(SpanLogLevel.WARNING)}>
-                <FormattedMessage
-                  defaultMessage="Warning"
-                  description="Option in the span log-level filter that hides DEBUG and INFO spans."
-                />
-              </SimpleSelectOption>
-              <SimpleSelectOption value={String(SpanLogLevel.ERROR)}>
-                <FormattedMessage
-                  defaultMessage="Error"
-                  description="Option in the span log-level filter that hides everything below ERROR."
-                />
-              </SimpleSelectOption>
-              <SimpleSelectOption value={String(SpanLogLevel.CRITICAL)}>
-                <FormattedMessage
-                  defaultMessage="Critical"
-                  description="Option in the span log-level filter that shows only CRITICAL spans."
-                />
-              </SimpleSelectOption>
-            </SimpleSelect>
-          </ApplyDesignSystemContextOverrides>
+              <Slider.Track>
+                <Slider.Range />
+              </Slider.Track>
+              <Slider.Thumb aria-label="Minimum log level" />
+            </Slider.Root>
+            <div
+              css={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: theme.typography.fontSizeSm,
+                color: theme.colors.textSecondary,
+              }}
+            >
+              {LOG_LEVEL_ORDER.map((level) => (
+                <span key={level} css={{ opacity: level === currentLevel ? 1 : 0.7 }}>
+                  {LEVEL_DESCRIPTIONS[level].label}
+                </span>
+              ))}
+            </div>
+            <Typography.Text size="sm" color="secondary">
+              <FormattedMessage
+                defaultMessage="{label}: {spanTypes}"
+                description="Helper text under the log-level slider showing which span types correspond to the currently selected level."
+                values={{
+                  label: <strong>{description.label}</strong>,
+                  spanTypes: description.spanTypes,
+                }}
+              />
+            </Typography.Text>
+          </div>
           <Typography.Text color="secondary">
             <FormattedMessage
               defaultMessage="Settings"

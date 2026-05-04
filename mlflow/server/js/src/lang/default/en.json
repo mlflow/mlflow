@@ -127,10 +127,6 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
-  "+jkuNH": {
-    "defaultMessage": "Info",
-    "description": "Option in the span log-level filter that hides DEBUG-level spans."
-  },
   "+khKtf": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
@@ -1162,6 +1158,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5KHGeG": {
+    "defaultMessage": "Hide low-severity spans. Each span gets a level based on its type: LLM, Chat, Tool, Retriever, Agent, and Embedding spans are Info; everything else is Debug. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/log-levels for more details.",
+    "description": "Tooltip explaining the minimum log level filter, including the autolog default mapping, exception-bump rule, and pre-3.13 backwards-compat note."
   },
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
@@ -6831,10 +6831,6 @@
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
   },
-  "dkLDC6": {
-    "defaultMessage": "Error",
-    "description": "Option in the span log-level filter that hides everything below ERROR."
-  },
   "dl0TeT": {
     "defaultMessage": "Save",
     "description": "Experiment tracking > experiment page > runs > save tags button"
@@ -7715,6 +7711,10 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
   },
+  "iZyzUO": {
+    "defaultMessage": "{label}: {spanTypes}",
+    "description": "Helper text under the log-level slider showing which span types correspond to the currently selected level."
+  },
   "iaomsd": {
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
@@ -8014,10 +8014,6 @@
   "kIlkgf": {
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
-  },
-  "kNOPIj": {
-    "defaultMessage": "Critical",
-    "description": "Option in the span log-level filter that shows only CRITICAL spans."
   },
   "kNTkr+": {
     "defaultMessage": "Discard",
@@ -9079,10 +9075,6 @@
     "defaultMessage": "Hide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run"
   },
-  "qTr/Mj": {
-    "defaultMessage": "Debug",
-    "description": "Option in the span log-level filter that shows all spans (DEBUG and above)."
-  },
   "qVQYZH": {
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
@@ -9210,10 +9202,6 @@
   "rAJDzz": {
     "defaultMessage": "Transition existing {currentStage} model version to {archivedStage}",
     "description": "Description text for checkbox for archiving existing model versions\n                  in the toStage for model version stage transition request"
-  },
-  "rAhq4z": {
-    "defaultMessage": "Warning",
-    "description": "Option in the span log-level filter that hides DEBUG and INFO spans."
   },
   "rBIGDf": {
     "defaultMessage": "Sufficient",

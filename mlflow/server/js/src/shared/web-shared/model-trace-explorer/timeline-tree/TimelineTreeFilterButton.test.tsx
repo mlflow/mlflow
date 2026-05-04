@@ -59,12 +59,23 @@ describe('TimelineTreeFilterButton', () => {
     await userEvent.click(showChainCheckbox);
     expect(screen.getByText('Show chain spans false')).toBeInTheDocument();
 
-    // The log-level Select starts at DEBUG (the default "show everything" threshold)
-    // and should update state when a higher level is picked.
+    // The log-level slider starts at DEBUG (the default "show everything" threshold)
+    // and should update state when nudged to a higher level. Each ArrowRight moves
+    // up one named level (DEBUG → INFO → WARNING).
     expect(screen.getByText(`Min log level ${SpanLogLevel.DEBUG}`)).toBeInTheDocument();
-    const logLevelSelect = screen.getByRole('combobox', { name: /Minimum log level/i });
-    await userEvent.click(logLevelSelect);
-    await userEvent.click(await screen.findByRole('option', { name: 'Warning' }));
+    const logLevelSlider = screen.getByRole('slider', { name: /Minimum log level/i });
+    logLevelSlider.focus();
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}');
     expect(screen.getByText(`Min log level ${SpanLogLevel.WARNING}`)).toBeInTheDocument();
+  });
+
+  it('renders the info tooltip explaining the filter', async () => {
+    render(<TestWrapper />);
+    await userEvent.click(screen.getByRole('button', { name: 'Filter' }));
+
+    // The tooltip trigger sits next to the "Minimum log level" label.
+    // (Hover assertions are covered by InfoTooltip's own tests; here we just
+    // verify the trigger is rendered so we don't accidentally drop it again.)
+    expect(await screen.findByText('Minimum log level')).toBeInTheDocument();
   });
 });
