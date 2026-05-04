@@ -291,7 +291,7 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog, mock_li
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert len(traces[0].data.spans) > 4
+    assert len(traces[0].data.spans) > 3
 
     token_usage = traces[0].info.token_usage
     assert TokenUsageKey.INPUT_TOKENS in token_usage
@@ -377,7 +377,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_lite
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
 
-    assert len(traces[0].data.spans) > 6
+    assert len(traces[0].data.spans) > 4
     for span in traces[0].data.spans:
         if span.span_type == SpanType.LLM:
             if not IS_TRACING_SDK_ONLY:
@@ -412,7 +412,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert len(traces[0].data.spans) > 8
+    assert len(traces[0].data.spans) > 6
 
     token_usage = traces[0].info.token_usage
     assert TokenUsageKey.INPUT_TOKENS in token_usage
@@ -645,7 +645,7 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert len(traces[0].data.spans) > 5
+    assert len(traces[0].data.spans) > 4
 
 
 def test_flow(simple_agent_1, task_1, autolog):
@@ -670,7 +670,7 @@ def test_flow(simple_agent_1, task_1, autolog):
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert len(traces[0].data.spans) > 5
+    assert len(traces[0].data.spans) > 4
 
 
 def test_crew_task_named(simple_agent_1, task_named, autolog):

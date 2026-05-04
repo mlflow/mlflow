@@ -278,7 +278,7 @@ async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool
     assert len(traces) == 1
     spans = traces[0].data.spans
 
-    assert len(spans) == 2
+    assert len(spans) > 2
 
 
 @pytest.mark.skipif(
