@@ -1,0 +1,110 @@
+name: Helm Chart
+
+on:
+  push:
+    branches: [master, "branch-[0-9]+.[0-9]+"]
+    paths:
+      - charts/**
+      - docker/Dockerfile
+      - mlflow/server/**
+      - mlflow/tracking/**
+      - mlflow/cli/**
+  pull_request:
+    paths:
+      - charts/**
+      - docker/Dockerfile
+      - mlflow/server/**
+      - mlflow/tracking/**
+      - mlflow/cli/**
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+
+      - name: Lint
+        run: helm lint charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
+
+      - name: Render templates
+        run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        tls: [false, true]
+    name: e2e (tls=${{ matrix.tls }})
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+
+      - name: Get MLflow version
+        id: version
+        run: |
+          echo "version=$(grep '^appVersion' charts/Chart.yaml | awk '{print $2}' | tr -d '"')" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        env:
+          MLFLOW_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          docker build \
+            --build-arg VERSION=$MLFLOW_VERSION \
+            -t mlflow:ci \
+            docker/
+
+      - name: Load image into Kind
+        run: kind load docker-image mlflow:ci --name chart-testing
+
+      - name: Generate TLS certificate
+        if: matrix.tls == true
+        run: |
+          openssl req -x509 -newkey rsa:2048 -keyout tls.key -out tls.crt -days 1 -nodes \
+            -subj "/CN=localhost"
+          kubectl create secret tls mlflow-tls --cert=tls.crt --key=tls.key
+
+      - name: Deploy chart
+        env:
+          TLS_FLAGS: ${{ matrix.tls == true && '--set tls.enabled=true --set tls.secretName=mlflow-tls' || '' }}
+        run: |
+          helm install mlflow charts/ \
+            --set image.repository=mlflow \
+            --set image.tag=ci \
+            --set image.pullPolicy=Never \
+            --set fullnameOverride=mlflow \
+            --set mlflow.backendStoreUri=sqlite:////tmp/mlflow.db \
+            --set mlflow.artifactsDestination=/tmp/mlartifacts \
+            $TLS_FLAGS \
+            --wait \
+            --timeout 5m
+
+      - name: Verify MLflow is reachable
+        env:
+          SCHEME: ${{ matrix.tls == true && 'https' || 'http' }}
+          CURL_FLAGS: ${{ matrix.tls == true && '--insecure' || '' }}
+        run: |
+          kubectl port-forward svc/mlflow 5000:5000 &
+          curl --retry 10 --retry-connrefused --retry-delay 3 --fail $CURL_FLAGS ${SCHEME}://localhost:5000/health
+
+      - name: Print container logs
+        if: always()
+        run: kubectl logs -l app.kubernetes.io/name=mlflow --tail=-1

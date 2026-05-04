@@ -14,6 +14,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   push:
     branches:
       - master
@@ -94,7 +95,6 @@ jobs:
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
           # `-I` is used to avoid importing modules from user-specific site-packages
@@ -224,7 +224,6 @@ jobs:
             -r requirements/extra-ml-requirements.txt \
             'tensorflow<2.21'
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           uv run --no-sync pytest \
@@ -259,7 +258,6 @@ jobs:
             -r requirements/test-requirements.txt \
             pyspark langchain langchain-community
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -294,7 +292,6 @@ jobs:
             -r requirements/test-requirements.txt \
             torch transformers pyspark langchain langchain-experimental shap lightgbm xgboost
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -328,7 +325,6 @@ jobs:
             -r requirements/test-requirements.txt \
             deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm guardrails-ai
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run GenAI Tests (OSS)
         run: |
           uv run --no-sync pytest tests/genai
@@ -367,7 +363,6 @@ jobs:
             -r requirements/test-requirements.txt \
             tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -408,7 +403,6 @@ jobs:
             pyspark datasets tensorflow torch transformers openai \
             tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils
