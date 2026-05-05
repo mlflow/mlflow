@@ -78,10 +78,11 @@ mlflow.init({
   experimentId: '${experimentId}',
 });`;
 
-export const getTsFrameworkCode = (trackingUri: string, experimentId: string) => ({
-  openai: {
-    install: 'npm install @mlflow/openai openai',
-    code: `import { OpenAI } from 'openai';
+export const getTsFrameworkCode = (trackingUri: string, experimentId: string) =>
+  ({
+    openai: {
+      install: 'npm install @mlflow/openai openai',
+      code: `import { OpenAI } from 'openai';
 import { tracedOpenAI } from '@mlflow/openai';
 
 // Wrap the OpenAI client with the tracedOpenAI function
@@ -95,10 +96,10 @@ const response = await client.chat.completions.create({
     { role: 'user', content: "What's the weather like in Seattle?" },
   ],
 });`,
-  },
-  anthropic: {
-    install: 'npm install @mlflow/anthropic @anthropic-ai/sdk',
-    code: `import Anthropic from '@anthropic-ai/sdk';
+    },
+    anthropic: {
+      install: 'npm install @mlflow/anthropic @anthropic-ai/sdk',
+      code: `import Anthropic from '@anthropic-ai/sdk';
 import { tracedAnthropic } from '@mlflow/anthropic';
 
 // Wrap the Anthropic client with the tracedAnthropic function
@@ -110,10 +111,10 @@ const message = await client.messages.create({
   max_tokens: 1024,
   messages: [{ role: 'user', content: 'Hello, Claude' }],
 });`,
-  },
-  gemini: {
-    install: 'npm install @mlflow/gemini @google/genai',
-    code: `import { GoogleGenAI } from '@google/genai';
+    },
+    gemini: {
+      install: 'npm install @mlflow/gemini @google/genai',
+      code: `import { GoogleGenAI } from '@google/genai';
 import { tracedGemini } from '@mlflow/gemini';
 
 // Wrap the GoogleGenAI client with the tracedGemini function
@@ -124,11 +125,11 @@ const response = await client.models.generateContent({
   model: 'gemini-2.5-flash',
   contents: 'What is the capital of France?',
 });`,
-  },
-  vercel: {
-    install:
-      'npm install @mlflow/vercel ai @ai-sdk/openai @opentelemetry/exporter-trace-otlp-proto @opentelemetry/sdk-trace-node',
-    code: `import { MLflowSpanProcessor } from '@mlflow/vercel';
+    },
+    vercel: {
+      install:
+        'npm install @mlflow/vercel ai @ai-sdk/openai @opentelemetry/exporter-trace-otlp-proto @opentelemetry/sdk-trace-node',
+      code: `import { MLflowSpanProcessor } from '@mlflow/vercel';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { generateText } from 'ai';
@@ -154,10 +155,10 @@ const { text } = await generateText({
 });
 
 console.log(text);`,
-  },
-  custom: {
-    install: '',
-    code: `// Wrap any async function with mlflow.trace for automatic tracing
+    },
+    custom: {
+      install: '',
+      code: `// Wrap any async function with mlflow.trace for automatic tracing
 const processRequest = mlflow.trace(
   async (userInput: string) => {
     // Your application logic here
@@ -177,8 +178,8 @@ const processRequest = mlflow.trace(
 // Use the traced function
 const result = await processRequest("Hello, MLflow!");
 console.log("Processed:", result);`,
-  },
-} satisfies Record<string, { install: string; code: string }>);
+    },
+  }) satisfies Record<string, { install: string; code: string }>;
 
 export const QUICKSTART_CONTENT: Record<
   QUICKSTART_FLAVOR,
