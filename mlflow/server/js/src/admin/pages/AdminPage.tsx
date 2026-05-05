@@ -478,31 +478,22 @@ const AdminPage = () => {
 
   return (
     <ScrollablePageWrapper>
-      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-        <div css={{ padding: theme.spacing.md, paddingBottom: 0 }}>
-          <div
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: theme.spacing.xs,
-              marginBottom: theme.spacing.md,
-            }}
-          >
-            <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-              <div
-                css={{
-                  borderRadius: theme.borders.borderRadiusSm,
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  padding: theme.spacing.sm,
-                  display: 'flex',
-                }}
-              >
-                <UserIcon />
-              </div>
-              <Typography.Title withoutMargins level={2}>
-                <FormattedMessage defaultMessage="Platform Admin" description="Admin page title" />
-              </Typography.Title>
+      <div css={{ padding: theme.spacing.md, display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+            <div
+              css={{
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+                display: 'flex',
+              }}
+            >
+              <UserIcon />
             </div>
+            <Typography.Title withoutMargins level={2}>
+              <FormattedMessage defaultMessage="Platform Admin" description="Admin page title" />
+            </Typography.Title>
           </div>
         </div>
         <Tabs.Root
@@ -518,38 +509,19 @@ const AdminPage = () => {
             }
             setSearchParams(next, { replace: true });
           }}
-          css={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
         >
-          <div css={{ paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }}>
-            <Tabs.List>
-              <Tabs.Trigger value="users">
-                <FormattedMessage defaultMessage="Users" description="Admin users tab" />
-              </Tabs.Trigger>
-              <Tabs.Trigger value="roles">
-                <FormattedMessage defaultMessage="Roles" description="Admin roles tab" />
-              </Tabs.Trigger>
-            </Tabs.List>
-          </div>
-          <Tabs.Content
-            value="users"
-            css={{
-              flex: 1,
-              overflow: 'auto',
-              padding: theme.spacing.md,
-              paddingTop: theme.spacing.md,
-            }}
-          >
+          <Tabs.List>
+            <Tabs.Trigger value="users">
+              <FormattedMessage defaultMessage="Users" description="Admin users tab" />
+            </Tabs.Trigger>
+            <Tabs.Trigger value="roles">
+              <FormattedMessage defaultMessage="Roles" description="Admin roles tab" />
+            </Tabs.Trigger>
+          </Tabs.List>
+          <Tabs.Content value="users" css={{ paddingTop: theme.spacing.md }}>
             <UsersTab />
           </Tabs.Content>
-          <Tabs.Content
-            value="roles"
-            css={{
-              flex: 1,
-              overflow: 'auto',
-              padding: theme.spacing.md,
-              paddingTop: theme.spacing.md,
-            }}
-          >
+          <Tabs.Content value="roles" css={{ paddingTop: theme.spacing.md }}>
             <RolesTab />
           </Tabs.Content>
         </Tabs.Root>
