@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777886478920,
+  "lastUpdate": 1777949451644,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -701,6 +701,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.12106659998426,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sai.ravuri@swiggy.in",
+            "name": "Sai Nikitha Ravuri",
+            "username": "sairavuri-sudo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2f79947e2baa9d4aa64381b0a97d35b0cf755aed",
+          "message": "Fix `gateway_adapter` not forwarding workspace header to judge endpoints (#23047)\n\nSigned-off-by: Sai Ravuri <sai.ravuri@swiggy.in>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-05-05T02:46:54Z",
+          "tree_id": "a5214e23258faa8c53093f2463ed91fa40d00553",
+          "url": "https://github.com/mlflow/mlflow/commit/2f79947e2baa9d4aa64381b0a97d35b0cf755aed"
+        },
+        "date": 1777949450969,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.49618069999963,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.31878662857077,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.197824015873476,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 16.254108375001408,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.038917948275717,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.990167399999336,
             "unit": "ms"
           }
         ]
