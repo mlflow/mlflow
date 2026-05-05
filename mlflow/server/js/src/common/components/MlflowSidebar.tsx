@@ -28,7 +28,8 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import AccountRoutes from '../../account/routes';
-import { useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
+import AdminRoutes from '../../admin/routes';
+import { useCurrentUserIsAdmin, useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
 import { performLogout } from '../../account/auth-utils';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
@@ -140,6 +141,8 @@ export function MlflowSidebar({
   const activeExperimentId = isInsideExperiment(location) ? experimentId : lastSelectedExperimentIdRef.current;
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
+
+  const isAdmin = useCurrentUserIsAdmin();
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -529,6 +532,20 @@ export function MlflowSidebar({
                   >
                     <FormattedMessage defaultMessage="Account" description="Sidebar account menu item" />
                   </DropdownMenu.Item>
+                  {isAdmin && (
+                    <DropdownMenu.Item
+                      componentId="mlflow.sidebar.manage"
+                      onPointerDown={() => {
+                        accountDropdownClosedByPointerRef.current = true;
+                      }}
+                      onClick={() => navigate(AdminRoutes.adminPageRoute)}
+                    >
+                      <FormattedMessage
+                        defaultMessage="Manage"
+                        description="Sidebar account dropdown item linking to admin pages"
+                      />
+                    </DropdownMenu.Item>
+                  )}
                   {isBasicAuth && (
                     <>
                       <DropdownMenu.Separator />

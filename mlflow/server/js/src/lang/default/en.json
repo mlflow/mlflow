@@ -795,6 +795,10 @@
     "defaultMessage": "Text",
     "description": "Label for the text render mode of the prompt"
   },
+  "2ifJXM": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Bulk-delete button on the users table"
+  },
   "2igs1f": {
     "defaultMessage": "Compare",
     "description": "Compare evaluation runs action"
@@ -1075,6 +1079,10 @@
     "defaultMessage": "After your script runs, open the MLflow UI to review the recorded traces.",
     "description": "Introductory text for viewing traces in the MLflow UI"
   },
+  "4YBr1I": {
+    "defaultMessage": "Name",
+    "description": "Roles table name header"
+  },
   "4a2Kqx": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
@@ -1082,6 +1090,10 @@
   "4g2H7S": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the chat prompt content in the prompt creation modal"
+  },
+  "4iVjvu": {
+    "defaultMessage": "Create a user to get started.",
+    "description": "Empty state description for users table"
   },
   "4idqpX": {
     "defaultMessage": "Add",
@@ -2019,6 +2031,10 @@
     "defaultMessage": "Endpoints",
     "description": "Gateway side nav > Endpoints tab"
   },
+  "ABM9Yz": {
+    "defaultMessage": "Create User",
+    "description": "Button to create a new user"
+  },
   "ACNZd9": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments automatically identified as generative AI development"
@@ -2927,6 +2943,10 @@
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
   },
+  "Fs6pF+": {
+    "defaultMessage": "Create Role",
+    "description": "Button to create a new role"
+  },
   "Ft2NsS": {
     "defaultMessage": "High",
     "description": "Issue severity tag label for high severity"
@@ -2994,6 +3014,10 @@
   "GKVTw4": {
     "defaultMessage": "JSON",
     "description": "JSON select menu option for assessment data type"
+  },
+  "GKXuD6": {
+    "defaultMessage": "Platform Admin",
+    "description": "Admin page title"
   },
   "GKiPV1": {
     "defaultMessage": "Start Time:",
@@ -3498,6 +3522,10 @@
   "Jp79WH": {
     "defaultMessage": "X-axis",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis section label"
+  },
+  "Jq+dzd": {
+    "defaultMessage": "Delete",
+    "description": "Bulk-delete button on the users table (no rows selected)"
   },
   "Jrri/Y": {
     "defaultMessage": "Temperature",
@@ -4579,6 +4607,10 @@
     "defaultMessage": "No experiments found",
     "description": "Label for the empty state in the experiments table when no experiments are found"
   },
+  "QSrkjY": {
+    "defaultMessage": "Workspace Manager",
+    "description": "Roles table column flagging roles that grant workspace-level MANAGE"
+  },
   "QTlkBW": {
     "defaultMessage": "Path",
     "description": "Table header for the JSON property path column in the collapsible JSON viewer"
@@ -4879,6 +4911,10 @@
     "defaultMessage": "Time",
     "description": "Label for the time axis on the runs compare chart"
   },
+  "SOHtlg": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Bulk-delete button on the roles table"
+  },
   "SQUVnW": {
     "defaultMessage": "Dataset",
     "description": "Label for the dataset column in the evaluation runs table"
@@ -5030,6 +5066,10 @@
   "TQ3N+4": {
     "defaultMessage": "Select",
     "description": "Label for the checkbox column in the evaluation runs table"
+  },
+  "TQeU/X": {
+    "defaultMessage": "Username",
+    "description": "Users table username header"
   },
   "TRutFE": {
     "defaultMessage": "Click a graph node to navigate spans",
@@ -5546,6 +5586,10 @@
   "WWv3EQ": {
     "defaultMessage": "Options",
     "description": "Label for categorical options input"
+  },
+  "Wbpp7P": {
+    "defaultMessage": "Create a role to assign permissions to users.",
+    "description": "Empty state description for roles table"
   },
   "WcHytj": {
     "defaultMessage": "Total Cost",
@@ -6114,6 +6158,10 @@
   "ZwAzmu": {
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
+  },
+  "ZwyDx6": {
+    "defaultMessage": "Users",
+    "description": "Admin users tab"
   },
   "a+uNeX": {
     "defaultMessage": "Next",
@@ -7771,6 +7819,10 @@
     "defaultMessage": "Gateway returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > gateway error message"
   },
+  "jINNng": {
+    "defaultMessage": "Roles",
+    "description": "Admin roles tab"
+  },
   "jIrCsp": {
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
@@ -8183,9 +8235,17 @@
     "defaultMessage": "Cost Over Time",
     "description": "Title for the cost over time by model chart"
   },
+  "ljrrDi": {
+    "defaultMessage": "Admin",
+    "description": "Users table admin header"
+  },
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "lnxy2u": {
+    "defaultMessage": "Workspace",
+    "description": "Roles table workspace header"
   },
   "lo4NN3": {
     "defaultMessage": "This model will be deprecated on {date}",
@@ -8947,6 +9007,10 @@
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
   },
+  "qGqURi": {
+    "defaultMessage": "Manage",
+    "description": "Sidebar account dropdown item linking to admin pages"
+  },
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
@@ -9391,6 +9455,10 @@
     "defaultMessage": "Model Configuration",
     "description": "Section header for model configuration in prompt creation"
   },
+  "sYKPid": {
+    "defaultMessage": "Description",
+    "description": "Roles table description header"
+  },
   "sYkXR1": {
     "defaultMessage": "JSON body for the MLflow Invocations API. Use \"messages\" for chat or \"input\" for embeddings.",
     "description": "Request body tooltip for unified MLflow Invocations API"
@@ -9518,6 +9586,10 @@
   "tM4Ge6": {
     "defaultMessage": "Evaluation",
     "description": "Feature card title for evaluation"
+  },
+  "tMlCTg": {
+    "defaultMessage": "Roles",
+    "description": "Users table roles header — roles render as multiple <workspace> → <role_name> lines per user"
   },
   "tNL+F4": {
     "defaultMessage": "Full trace with an agent using the right part of the trace to use to judge",
@@ -9738,6 +9810,10 @@
   "v8UFxB": {
     "defaultMessage": "No datasets were recorded for this experiment's runs.",
     "description": "Message to indicate that no datasets were recorded for this experiment's runs."
+  },
+  "v9fbSW": {
+    "defaultMessage": "Delete",
+    "description": "Bulk-delete button on the roles table (no rows selected)"
   },
   "vBKFgp": {
     "defaultMessage": "X axis",
@@ -10363,6 +10439,10 @@
     "defaultMessage": "MLflow Model",
     "description": "Heading text for mlflow model artifact"
   },
+  "z3xE99": {
+    "defaultMessage": "No roles",
+    "description": "Empty state title for roles table"
+  },
   "z42Rsj": {
     "defaultMessage": "Source run",
     "description": "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
@@ -10442,6 +10522,10 @@
   "zRwy1a": {
     "defaultMessage": "An error occurred while updating the API key. Please try again.",
     "description": "Generic error message for API key update"
+  },
+  "zRxidQ": {
+    "defaultMessage": "No users",
+    "description": "Empty state title for users table"
   },
   "zUePVd": {
     "defaultMessage": "Inputs of the trace, derived from the root span's inputs",
