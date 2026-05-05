@@ -21,13 +21,11 @@ export const PYTHON_FRAMEWORK_OPTIONS: { key: QUICKSTART_FLAVOR; label: string }
   { key: 'anthropic', label: 'Anthropic' },
   { key: 'langchain', label: 'LangChain' },
   { key: 'langgraph', label: 'LangGraph' },
-  { key: 'llama_index', label: 'LlamaIndex' },
   { key: 'dspy', label: 'DSPy' },
   { key: 'litellm', label: 'LiteLLM' },
   { key: 'gemini', label: 'Gemini' },
   { key: 'bedrock', label: 'Bedrock' },
   { key: 'crewai', label: 'CrewAI' },
-  { key: 'autogen', label: 'AutoGen' },
   { key: 'custom', label: 'Custom' },
 ];
 
