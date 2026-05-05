@@ -59,7 +59,11 @@ from mlflow.environment_variables import (
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
-from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowNotImplementedException,
+    MlflowTraceDataCorrupted,
+)
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
@@ -1010,12 +1014,14 @@ def test_get_artifact_uri_for_trace_compatibility():
         status=TraceStatus.OK,
         tags={},
     )
-    with pytest.raises(MlflowException, match="Unable to determine trace artifact location"):
+    with pytest.raises(
+        MlflowTraceDataCorrupted,
+        match="Trace data is corrupted for request_id=tr-1234",
+    ):
         get_artifact_uri_for_trace(trace_info_no_tag)
     with pytest.raises(
-        MlflowException,
-        match="Unable to determine the archived trace location because this trace is missing "
-        "the archive location tag",
+        MlflowTraceDataCorrupted,
+        match="Trace data is corrupted for request_id=tr-1234",
     ):
         get_archive_uri_for_trace(trace_info_no_tag)
 
