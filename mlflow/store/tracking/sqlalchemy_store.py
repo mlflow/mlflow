@@ -81,6 +81,7 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
@@ -251,6 +252,8 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag,
     _validate_trace_archival_location,
+    _validate_trace_archival_repository_support,
+    _validate_trace_archival_retention_string,
     _validate_trace_tag,
 )
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
@@ -5456,7 +5459,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 "Trace archival config resolution returned no archival retention.",
                 error_code=INTERNAL_ERROR,
             )
-        self._validate_trace_archival_destination(trace_archival_config=trace_archival_config)
+        trace_archival_config = ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=_validate_trace_archival_repository_support(
+                    trace_archival_config.config.location,
+                    parameter_name="resolved_trace_archival_location",
+                ),
+                retention=_validate_trace_archival_retention_string(
+                    trace_archival_config.config.retention
+                ),
+            ),
+            append_workspace_prefix=trace_archival_config.append_workspace_prefix,
+        )
         broader_retention_millis = _parse_trace_archival_duration_millis(
             trace_archival_config.config.retention
         )
@@ -5621,30 +5635,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         patching the shared time utility.
         """
         return get_current_time_millis()
-
-    def _validate_trace_archival_destination(
-        self, *, trace_archival_config: ResolvedTraceArchivalConfig
-    ) -> None:
-        resolved_root = _validate_trace_archival_location(
-            trace_archival_config.config.location,
-            parameter_name="resolved_trace_archival_location",
-        )
-        if trace_archival_config.append_workspace_prefix and (
-            workspace_name := self._get_trace_archival_workspace_name()
-        ):
-            resolved_root = append_to_uri_path(resolved_root, WORKSPACES_DIR_NAME, workspace_name)
-
-        # Fail deterministic repository/config problems once per pass instead of misclassifying
-        # them as retryable per-trace archival errors.
-        get_artifact_repository(
-            append_to_uri_path(
-                resolved_root,
-                "0",
-                self.TRACE_FOLDER_NAME,
-                "preflight",
-                self.ARTIFACTS_FOLDER_NAME,
-            )
-        )
 
     def _get_trace_archival_workspace_name(self) -> str | None:
         """Return the workspace path segment for workspace-scoped archival roots."""

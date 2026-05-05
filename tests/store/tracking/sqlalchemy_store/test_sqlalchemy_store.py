@@ -15554,6 +15554,62 @@ def test_archive_traces_rejects_unregistered_archive_scheme_before_processing_ca
         )
 
 
+def test_archive_traces_rejects_unsupported_default_root_repository(store: SqlAlchemyStore):
+    class UnsupportedArchiveRepo(ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            raise NotImplementedError
+
+        def list_artifacts(self, path=None):
+            raise NotImplementedError
+
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+        return_value=UnsupportedArchiveRepo("dbfs:/archive/default"),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="does not support deleting archived payloads",
+        ) as exc_info:
+            store.archive_traces(
+                default_trace_archival_location="dbfs:/archive/default",
+                default_retention="1d",
+            )
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_archive_traces_rejects_unsupported_resolved_root_override(store: SqlAlchemyStore):
+    class UnsupportedArchiveRepo(ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            raise NotImplementedError
+
+        def list_artifacts(self, path=None):
+            raise NotImplementedError
+
+    with (
+        mock.patch.object(
+            store,
+            "resolve_trace_archival_config",
+            return_value=ResolvedTraceArchivalConfig(
+                config=TraceArchivalConfig(location="dbfs:/archive/override", retention="1d"),
+                append_workspace_prefix=False,
+            ),
+        ),
+        mock.patch(
+            "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+            return_value=UnsupportedArchiveRepo("dbfs:/archive/override"),
+        ),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="resolved_trace_archival_location",
+        ) as exc_info:
+            store.archive_traces(
+                default_trace_archival_location="s3://archive/default",
+                default_retention="1d",
+            )
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_archive_traces_raises_when_default_retention_exceeds_max_length(
     store: SqlAlchemyStore,
 ):
