@@ -35,6 +35,10 @@
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
     "description": "AI Gateway setup guide > Subtitle"
   },
+  "+8uMvO": {
+    "defaultMessage": "Enter new password",
+    "description": "Placeholder for the new-password input"
+  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -294,6 +298,10 @@
   "/hP8AG": {
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
+  },
+  "/icjNP": {
+    "defaultMessage": "Logged in as <strong>{username}</strong>",
+    "description": "Subtitle showing the currently authenticated username"
   },
   "/jhw7T": {
     "defaultMessage": "Clear filter",
@@ -819,6 +827,10 @@
     "defaultMessage": "Input",
     "description": "Evaluation review > evaluations list > input sort option label prefix"
   },
+  "2qOzHd": {
+    "defaultMessage": "Source",
+    "description": "Permissions table column header for the source (role name or 'Direct')"
+  },
   "2tQXw0": {
     "defaultMessage": "Key name cannot be changed.",
     "description": "Tooltip explaining why key name field is disabled"
@@ -858,6 +870,10 @@
   "3FZ8dZ": {
     "defaultMessage": "Rename",
     "description": "Text for rename button on the experiment view page header"
+  },
+  "3JAJtl": {
+    "defaultMessage": "Current password",
+    "description": "Label for the current-password field"
   },
   "3N1zOb": {
     "defaultMessage": "Disabled",
@@ -1202,6 +1218,10 @@
   "5e1r3Y": {
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
+  },
+  "5iPi6b": {
+    "defaultMessage": "No permissions",
+    "description": "Empty-state title for the permissions table"
   },
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
@@ -1627,6 +1647,10 @@
     "defaultMessage": "Save tags",
     "description": "Key-value tag editor modal > Manage Tag save button"
   },
+  "8061F9": {
+    "defaultMessage": "Roles",
+    "description": "Tab trigger for the user's roles"
+  },
   "80LQWB": {
     "defaultMessage": "Run example training code:",
     "description": "Instruction for running example training code in order to log MLflow 3 models"
@@ -1670,6 +1694,10 @@
   "8Gz0OE": {
     "defaultMessage": "Unhide group",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run group"
+  },
+  "8HwtfM": {
+    "defaultMessage": "New password",
+    "description": "Label for the new-password field"
   },
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
@@ -2187,6 +2215,10 @@
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
     "description": "Description for a quickstart guide on MLflow evaluation datasets"
   },
+  "BNc3Cn": {
+    "defaultMessage": "Confirm new password",
+    "description": "Placeholder for the confirm-password input"
+  },
   "BOz0T2": {
     "defaultMessage": "Select metric",
     "description": "Placeholder text for a metric selector when configuring a line chart"
@@ -2491,6 +2523,10 @@
     "defaultMessage": "Register model",
     "description": "Label for a CTA button for registering a ML model version from a logged model"
   },
+  "D2PQiu": {
+    "defaultMessage": "An error occurred while fetching your roles.",
+    "description": "Fallback description shown when the roles query has no error message"
+  },
   "D2svqS": {
     "defaultMessage": "overall error rate",
     "description": "Subtitle for overall tool error rate"
@@ -2730,6 +2766,10 @@
   "EiFPFP": {
     "defaultMessage": "Custom Guardrail",
     "description": "Custom guardrail type name"
+  },
+  "EjPmMR": {
+    "defaultMessage": "Workspace Manager",
+    "description": "Roles table column header for the workspace-admin marker (multi-tenant)"
   },
   "EkUD0b": {
     "defaultMessage": "No results",
@@ -3091,6 +3131,10 @@
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
   },
+  "HVeBoh": {
+    "defaultMessage": "Admin",
+    "description": "Roles table column header for the admin marker (single-tenant)"
+  },
   "HXbUkt": {
     "defaultMessage": "Child runs",
     "description": "Run page > Overview > Child runs"
@@ -3219,6 +3263,10 @@
     "defaultMessage": "Delete",
     "description": "OK button text for model version deletion modal in model versions view page"
   },
+  "ID3XkJ": {
+    "defaultMessage": "New password and confirmation do not match",
+    "description": "Validation error when new password and confirmation do not match"
+  },
   "IEORCP": {
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
     "description": "Breadcrumb title for compare runs page with multiple experiments"
@@ -3258,6 +3306,10 @@
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
     "description": "Text shown when there are no common artifacts between the runs"
+  },
+  "IWNUE0": {
+    "defaultMessage": "Failed to load roles",
+    "description": "Alert title shown when the roles query fails on the account page"
   },
   "IWuVOI": {
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
@@ -3334,6 +3386,10 @@
   "J45Atg": {
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in tag assignment modal"
+  },
+  "J75ziY": {
+    "defaultMessage": "No roles",
+    "description": "Empty-state title for the roles table on the account page"
   },
   "J7x8/9": {
     "defaultMessage": "Provider",
@@ -4179,6 +4235,10 @@
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
   },
+  "OJBFVt": {
+    "defaultMessage": "Showing role-derived permissions only - direct grants are unavailable.",
+    "description": "Alert description shown when only role-derived permissions are available because direct grants failed to load"
+  },
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
     "description": "Error count in tooltip"
@@ -4198,6 +4258,10 @@
   "OUPWd8": {
     "defaultMessage": "View chat session",
     "description": "Tooltip for the session id tag"
+  },
+  "OUR8+0": {
+    "defaultMessage": "Permissions",
+    "description": "Tab trigger for the user's permissions"
   },
   "OW3pF8": {
     "defaultMessage": "Show {count} more intermediate {count, plural, =1 {step} other {steps}}",
@@ -4383,9 +4447,17 @@
     "defaultMessage": "Model",
     "description": "Run page > Overview > Model used for issue detection"
   },
+  "Pe0JMj": {
+    "defaultMessage": "Failed to update password",
+    "description": "Generic error when password update fails for an unknown reason"
+  },
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
+  },
+  "Pgxfhl": {
+    "defaultMessage": "Role",
+    "description": "Roles table column header for the role name"
   },
   "PmPV+3": {
     "defaultMessage": "Models",
@@ -4663,6 +4735,10 @@
     "defaultMessage": "Do retrieved documents contain all necessary information?",
     "description": "Hint for RetrievalSufficiency template"
   },
+  "RekJb/": {
+    "defaultMessage": "Account",
+    "description": "Sidebar account menu item"
+  },
   "RgVN+O": {
     "defaultMessage": "View all",
     "description": "Home page news section view more link"
@@ -4930,6 +5006,10 @@
   "TCAbKZ": {
     "defaultMessage": "Save",
     "description": "Save webhook button"
+  },
+  "TI/9fP": {
+    "defaultMessage": "Showing direct grants only - role-derived permissions are unavailable.",
+    "description": "Alert description shown when only direct grants are available because role-derived permissions failed to load"
   },
   "TKtJIK": {
     "defaultMessage": "Page not found",
@@ -5651,6 +5731,10 @@
     "defaultMessage": "Prompt alias deleted",
     "description": "Webhook event label"
   },
+  "XiGiE1": {
+    "defaultMessage": "Workspace",
+    "description": "Permissions table column header for the workspace"
+  },
   "Xm5xxu": {
     "defaultMessage": "Request error",
     "description": "Error state title displayed in the logged models list page"
@@ -5974,6 +6058,10 @@
   "ZhHSRR": {
     "defaultMessage": "Evaluating traces: OFF",
     "description": "Status label for stopped scorer"
+  },
+  "Zj5ugd": {
+    "defaultMessage": "Permission",
+    "description": "Permissions table column header for the permission level"
   },
   "ZlokCq": {
     "defaultMessage": "Cancel",
@@ -6323,6 +6411,10 @@
     "defaultMessage": "The context sufficiency LLM judge determines whether the retrieved context is sufficient to generate the expected response.",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency judge."
   },
+  "blG8zm": {
+    "defaultMessage": "You have not been assigned to any roles.",
+    "description": "Empty-state description for the roles table on the account page"
+  },
   "bmBV9A": {
     "defaultMessage": "Average Value",
     "description": "Column header for average value"
@@ -6555,6 +6647,10 @@
     "defaultMessage": "Trace ID",
     "description": "Column label for trace ID"
   },
+  "cvatOm": {
+    "defaultMessage": "Account",
+    "description": "Account page title"
+  },
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
@@ -6582,6 +6678,10 @@
   "d4foU0": {
     "defaultMessage": "Learn more about configuring judges",
     "description": "Link text for configuring judges documentation"
+  },
+  "d6Mx+/": {
+    "defaultMessage": "Current password is required",
+    "description": "Validation error when the current-password field is empty"
   },
   "d72zLS": {
     "defaultMessage": "Toggle session grouping",
@@ -6751,9 +6851,17 @@
     "defaultMessage": "No metrics to display.",
     "description": "Text shown when there are no metrics to display"
   },
+  "eBXtz7": {
+    "defaultMessage": "Account",
+    "description": "Accessible label for the account-page icon avatar"
+  },
   "eCleLG": {
     "defaultMessage": "Failed to load API keys. Please check your connection and try again.",
     "description": "Gateway > API keys list > Error loading API keys"
+  },
+  "eD56/9": {
+    "defaultMessage": "Not logged in",
+    "description": "Alert title shown when the current user cannot be determined"
   },
   "eDoQXM": {
     "defaultMessage": "Sort: Created",
@@ -6871,13 +6979,25 @@
     "defaultMessage": "A Gateway endpoint routes your agent calls to any AI model, with built-in usage tracking through MLflow Tracing, budget controls, and more.",
     "description": "Gateway > Endpoints > Quick start description explaining what an endpoint is and how to get started"
   },
+  "eosMdD": {
+    "defaultMessage": "Logout",
+    "description": "Sidebar logout menu item"
+  },
   "erqoIC": {
     "defaultMessage": "Run Name:",
     "description": "Text for run name row header in the main table in the model comparison\n                page"
   },
+  "es3dwO": {
+    "defaultMessage": "Manager",
+    "description": "Tag content marking a workspace-admin role (multi-tenant)"
+  },
   "etvfuH": {
     "defaultMessage": "Root Cause Analysis",
     "description": "Root cause analysis section title"
+  },
+  "eumKln": {
+    "defaultMessage": "Update password",
+    "description": "Confirm button label in the change-password modal"
   },
   "evVfYj": {
     "defaultMessage": "Created:",
@@ -6934,6 +7054,10 @@
   "fMf88R": {
     "defaultMessage": "Columns",
     "description": "Run page > artifact view > logged table view > columns selector label"
+  },
+  "fMxD0i": {
+    "defaultMessage": "Admin",
+    "description": "Tag content marking an admin role (single-tenant)"
   },
   "fUB5d7": {
     "defaultMessage": "Session ID",
@@ -6998,6 +7122,10 @@
   "fjiojF": {
     "defaultMessage": "Pin run",
     "description": "A tooltip for the pin icon button in the runs table next to the not pinned run"
+  },
+  "fk8ASa": {
+    "defaultMessage": "Workspace",
+    "description": "Roles table column header for the workspace"
   },
   "flJNTA": {
     "defaultMessage": "You need to provide values for all defined inputs",
@@ -7250,6 +7378,10 @@
   "h48hnl": {
     "defaultMessage": "Send request",
     "description": "Send request button"
+  },
+  "h5Dryo": {
+    "defaultMessage": "Resource",
+    "description": "Permissions table column header for the resource"
   },
   "hBAhI8": {
     "defaultMessage": "Copy",
@@ -7571,6 +7703,10 @@
     "defaultMessage": "Loading API keys...",
     "description": "Loading message for API keys list"
   },
+  "iqy4oh": {
+    "defaultMessage": "Could not determine the current user. Please log in again.",
+    "description": "Alert description prompting the user to log in again"
+  },
   "iruFlr": {
     "defaultMessage": "Running the judge from the UI is only supported with {supportedProvider} endpoints, but the current model uses the {currentProvider} provider",
     "description": "Tooltip message when model provider is not supported. supportedProvider is the required provider type, currentProvider is what the model currently uses."
@@ -7582,6 +7718,10 @@
   "iwD/Dv": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text to cancel the flow to register the model"
+  },
+  "izKjfs": {
+    "defaultMessage": "No resource permissions to show.",
+    "description": "Empty-state description for the permissions table"
   },
   "izS5yQ": {
     "defaultMessage": "Learn more",
@@ -8127,6 +8267,10 @@
     "defaultMessage": "of",
     "description": "Connector between dict and value type"
   },
+  "mLeTrI": {
+    "defaultMessage": "Change password",
+    "description": "Button to open the change password modal"
+  },
   "mLr9U7": {
     "defaultMessage": "Learn more.",
     "description": "Link text for learning more about feedback"
@@ -8234,6 +8378,10 @@
   "mqqEUj": {
     "defaultMessage": "Delete assessment",
     "description": "Delete assessments modal title"
+  },
+  "mqxGJv": {
+    "defaultMessage": "Confirm password",
+    "description": "Label for the confirm-password field"
   },
   "mrGpVQ": {
     "defaultMessage": "Session time",
@@ -8935,6 +9083,10 @@
     "defaultMessage": "An error occurred while creating the API key. Please try again.",
     "description": "Generic error message for API key creation"
   },
+  "r18Mlx": {
+    "defaultMessage": "Change password",
+    "description": "Title of the change-password modal"
+  },
   "r26KQf": {
     "defaultMessage": "Edit Budget Policy",
     "description": "Title for edit budget policy modal"
@@ -9099,6 +9251,10 @@
     "defaultMessage": "Masked Key:",
     "description": "Masked API key label"
   },
+  "rwkyYE": {
+    "defaultMessage": "Password cannot be empty",
+    "description": "Validation error when the new-password field is empty"
+  },
   "rxMHgr": {
     "defaultMessage": "Stage transition",
     "description": "Title for a model version stage transition modal"
@@ -9110,6 +9266,10 @@
   "rzIPYc": {
     "defaultMessage": "You are exceeding a limit of {limit} aliases assigned to the single model version",
     "description": "Alias editor > Warning about exceeding aliases limit"
+  },
+  "s+Flkm": {
+    "defaultMessage": "Failed to load direct permissions",
+    "description": "Alert title shown when the direct-permissions query fails"
   },
   "s2G/vI": {
     "defaultMessage": "All users",
@@ -9154,6 +9314,10 @@
   "sD3+jL": {
     "defaultMessage": "Failed to save webhook",
     "description": "Generic error message informing the user that webhook saving failed"
+  },
+  "sDAqfh": {
+    "defaultMessage": "Failed to load role-derived permissions",
+    "description": "Alert title shown when the roles query fails on the permissions section"
   },
   "sDqD2S": {
     "defaultMessage": "The dataset is an array. To see a preview of the dataset, view the dataset in the training notebook.",
@@ -9759,6 +9923,10 @@
     "defaultMessage": "Provider",
     "description": "Label for model provider input"
   },
+  "wKE2q+": {
+    "defaultMessage": "Direct",
+    "description": "Source label for a per-resource permission granted directly to the user (not via a role)"
+  },
   "wKNdFh": {
     "defaultMessage": "Run judge on session",
     "description": "Title for run judge modal in sessions view"
@@ -10110,6 +10278,10 @@
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",
     "description": "Tooltip message when model is not selected"
+  },
+  "yNjPQQ": {
+    "defaultMessage": "Enter current password",
+    "description": "Placeholder for the current-password input"
   },
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",
