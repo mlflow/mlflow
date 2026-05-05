@@ -12,12 +12,14 @@ This directory ships incrementally as a stack of PRs.
 |---|---|---|
 | 1 | Scaffolding: package layout, agent prompts, README. | landed |
 | 2 | Core orchestrator logic + CLI dry-run | landed |
-| 3 | GitHub Actions workflow + posting + GitHub App identity | this PR |
-| 4 | Helpers-index refresh workflow | future |
-| 5 | Activation: flip dry-run default off, smoke test | future |
+| 3 | GitHub Actions workflow + posting + GitHub App identity | landed |
+| 4 | Helpers-index refresh workflow | landed |
+| 5 | Activation: flip dry-run default off | this PR |
 
-The workflow is wired up but the dry-run default is still on; Stack 5 flips
-`--no-dry-run` to enable posting.
+Once this stack lands, `/review` posts comments live as `mlflow-reviewer[bot]`
+on `mlflow/mlflow` PRs (subject to the App being installed and the
+Anthropic API key being configured). See the GitHub App registration runbook
+below.
 
 ## Architecture (forward-looking)
 
