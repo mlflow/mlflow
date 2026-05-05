@@ -450,6 +450,12 @@ describe('TracesV3Logs', () => {
       renderComponent({ additionalFilters });
       await waitForRoutesToBeRendered();
 
+      expect(useMlflowTracesTableMetadata).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          networkFilters: additionalFilters,
+        }),
+      );
+
       // Should have called useSearchMlflowTraces with combined filters (additionalFilters + userFilters)
       await waitFor(() => {
         expect(searchTracesMock).toHaveBeenCalledWith(

@@ -222,7 +222,6 @@ const TracesV3LogsImpl = React.memo(
       locations: traceSearchLocations,
       timeRange,
       filterByLoggedModelId: loggedModelId,
-      networkFilters: additionalFilters,
       disabled: isQueryDisabled,
     });
 
