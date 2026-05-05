@@ -460,6 +460,11 @@ def _run_server(
                 "Errors will be surfaced at job invocation time."
             )
 
+        if job_execution_enabled:
+            from mlflow.server.jobs.executor_registry import validate_executor_config
+
+            validate_executor_config()
+
     if app_name == "basic-auth" and job_execution_enabled:
         # Generate the token here (before forking uvicorn workers) so that all
         # worker processes and job subprocesses share the same token.

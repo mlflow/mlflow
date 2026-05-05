@@ -65,6 +65,8 @@ class JobFunctionMetadata:
     transient_error_classes: list[type[Exception]] | None = None
     python_env: _PythonEnv | None = None
     exclusive: bool | list[str] = False
+    resource_requests: dict[str, str] | None = None
+    resource_limits: dict[str, str] | None = None
 
 
 def job(
@@ -74,6 +76,8 @@ def job(
     python_version: str | None = None,
     pip_requirements: list[str] | None = None,
     exclusive: bool | list[str] = False,
+    resource_requests: dict[str, str] | None = None,
+    resource_limits: dict[str, str] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
@@ -92,6 +96,8 @@ def job(
         exclusive: (optional) If True, only one instance of this job with the same params
             can run at a time. If a list of parameter names is provided, only those
             parameters are considered when determining exclusivity. Default is False.
+        resource_requests: (optional) Resource requests metadata for executor backends.
+        resource_limits: (optional) Resource limits metadata for executor backends.
     """
     from mlflow.utils import PYTHON_VERSION
     from mlflow.utils.requirements_utils import _parse_requirements
@@ -129,6 +135,8 @@ def job(
             transient_error_classes=transient_error_classes,
             python_env=python_env,
             exclusive=exclusive,
+            resource_requests=resource_requests,
+            resource_limits=resource_limits,
         )
         return fn
 

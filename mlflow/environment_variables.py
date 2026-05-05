@@ -1478,6 +1478,38 @@ MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVa
 #: (default: ``30``)
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
 
+#: Specifies the default job executor backend name.
+#: (default: ``"local"``)
+MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
+    "MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", str, "local"
+)
+
+#: Reserved for routing custom scorer jobs to a non-default backend. Validated
+#: at startup but not yet consulted by job submission until the executor router
+#: lands.
+MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
+    "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None
+)
+
+#: Default timeout in seconds applied by the executor framework when a job
+#: submission does not specify one explicitly.
+#: (default: ``3600.0``)
+MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT", float, 3600.0
+)
+
+#: Time-to-live in seconds for the short-lived RUNNING job lease used by
+#: recovery logic.
+#: (default: ``60.0``)
+MLFLOW_SERVER_JOB_LEASE_TTL = _EnvironmentVariable("MLFLOW_SERVER_JOB_LEASE_TTL", float, 60.0)
+
+#: Retention window in seconds for terminal job rows managed by the executor
+#: framework.
+#: (default: ``86400.0``)
+MLFLOW_SERVER_COMPLETED_JOB_TTL = _EnvironmentVariable(
+    "MLFLOW_SERVER_COMPLETED_JOB_TTL", float, 86400.0
+)
+
 
 #: Enable automatic run resumption for Serverless GPU Compute (SGC) jobs on Databricks.
 #: When enabled, MLflow will check for the SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID job
