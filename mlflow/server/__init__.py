@@ -495,12 +495,17 @@ def _run_server(
                 "Errors will be surfaced at job invocation time."
             )
 
-    if job_execution_enabled and MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
-        from mlflow.tracing.trace_rollup_service import (
-            validate_and_resolve_sql_trace_rollup_schedule,
-        )
+        if job_execution_enabled:
+            from mlflow.server.jobs.executor_registry import validate_executor_config
 
-        validate_and_resolve_sql_trace_rollup_schedule()
+            validate_executor_config()
+
+            if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+                from mlflow.tracing.trace_rollup_service import (
+                    validate_and_resolve_sql_trace_rollup_schedule,
+                )
+
+                validate_and_resolve_sql_trace_rollup_schedule()
 
     if app_name == "basic-auth" and job_execution_enabled:
         # Generate the token here (before forking uvicorn workers) so that all
