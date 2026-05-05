@@ -1,0 +1,20 @@
+[project]
+name = "mlflow-reviewer-orchestrator"
+version = "0.1.0"
+description = "MLflow code review bot orchestrator. Posts adversarial-checklist reviews on PRs when a maintainer comments /review."
+requires-python = ">=3.10"
+dependencies = [
+  "anthropic>=0.40",
+  "httpx",
+  "pydantic>=2",
+]
+
+[project.scripts]
+mlflow-reviewer = "orchestrator.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
