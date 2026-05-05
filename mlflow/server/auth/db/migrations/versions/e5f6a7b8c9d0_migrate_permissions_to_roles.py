@@ -56,6 +56,13 @@ _LEGACY_WORKSPACE_PERMISSION_REWRITE = {
     "EDIT": "USE",
 }
 
+# Permission values legal in ``role_permissions`` post-migration. Hardcoded here
+# (rather than imported from ``mlflow.server.auth.permissions``) because Alembic
+# migrations are frozen snapshots — they must keep working even if the application
+# code's permission set later drifts.
+_VALID_RESOURCE_PERMISSIONS = frozenset({"READ", "USE", "EDIT", "MANAGE"})
+_VALID_WORKSPACE_PERMISSIONS = frozenset({"USE", "MANAGE"})
+
 # revision identifiers, used by Alembic.
 revision = "e5f6a7b8c9d0"
 down_revision = "c3d4e5f6a7b8"
@@ -177,8 +184,15 @@ def _backfill_table(conn, select_sql: str, row_to_mirror) -> None:
 
 
 def _resource_row(row, workspace, resource_type, resource_pattern):
-    """Mirror a concrete-resource legacy row, dropping ``NO_PERMISSIONS`` denies."""
-    if row.permission == _DROPPED_PERMISSION:
+    """Mirror a concrete-resource legacy row, dropping ``NO_PERMISSIONS`` denies.
+
+    Rows whose ``permission`` is not in the simplified resource grant set
+    (``READ``/``USE``/``EDIT``/``MANAGE``) are dropped — defensive against
+    corrupted legacy data. ``NO_PERMISSIONS`` is the only such value we
+    expect to see (it's documented as the deny form), but anything else
+    would also be invalid post-migration.
+    """
+    if row.permission not in _VALID_RESOURCE_PERMISSIONS:
         return None
     return (row.user_id, workspace, resource_type, resource_pattern, row.permission)
 
@@ -187,11 +201,15 @@ def _workspace_row(row):
     """Mirror a ``workspace_permissions`` row into a ``resource_type='*'`` grant.
 
     ``NO_PERMISSIONS`` rows are skipped; ``READ`` and ``EDIT`` are rewritten to ``USE``
-    to fit the simplified USE/MANAGE-only workspace tier.
+    to fit the simplified USE/MANAGE-only workspace tier. Rows whose value falls
+    outside the legacy 5-tier set after rewriting are also skipped — defensive
+    against corrupted legacy data.
     """
     if row.permission == _DROPPED_PERMISSION:
         return None
     permission = _LEGACY_WORKSPACE_PERMISSION_REWRITE.get(row.permission, row.permission)
+    if permission not in _VALID_WORKSPACE_PERMISSIONS:
+        return None
     return (row.user_id, row.workspace, "*", "*", permission)
 
 

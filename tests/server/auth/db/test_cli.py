@@ -1,5 +1,6 @@
 import sqlite3
 from pathlib import Path
+from urllib.parse import quote
 
 from click.testing import CliRunner
 
@@ -229,3 +230,56 @@ def test_upgrade_filters_legacy_rows_per_simplified_model(tmp_path: Path) -> Non
         ("carol", "experiment", "exp-3", "MANAGE"),
         ("dan", "*", "*", "MANAGE"),
     ]
+
+
+def test_upgrade_encodes_scorer_names_with_special_characters(tmp_path: Path) -> None:
+    """Scorer names may contain ``/`` (validated only against empty/whitespace)
+    and other URL-special chars. The migration URL-encodes the name component
+    of the scorer compound key so the resulting ``resource_pattern`` is
+    unambiguous, and the runtime store uses the same encoding — verify the
+    round-trip survives the migration.
+    """
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "c3d4e5f6a7b8"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0, res.output
+
+    scorer_names = [
+        "plain-name",
+        "with/slash",
+        "with%percent",
+        "with space and #hash",
+    ]
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO users (id, username, password_hash, is_admin) VALUES (?, ?, ?, ?)",
+            (1, "alice", "h", False),
+        )
+        cursor.executemany(
+            "INSERT INTO scorer_permissions (experiment_id, scorer_name, user_id, permission)"
+            " VALUES (?, ?, ?, ?)",
+            [("exp-42", name, 1, "READ") for name in scorer_names],
+        )
+        conn.commit()
+
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT rp.resource_pattern FROM role_permissions rp "
+            "WHERE rp.resource_type = 'scorer' "
+            "ORDER BY rp.resource_pattern"
+        )
+        patterns = [row[0] for row in cursor.fetchall()]
+
+    expected = sorted(f"exp-42/{quote(name, safe='')}" for name in scorer_names)
+    assert patterns == expected

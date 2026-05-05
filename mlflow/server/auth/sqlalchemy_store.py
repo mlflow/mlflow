@@ -492,6 +492,44 @@ class SqlAlchemyStore:
                 for pattern, permission in rows
             ]
 
+    def list_all_registered_model_permissions(
+        self, username: str
+    ) -> list[RegisteredModelPermission]:
+        """
+        Cross-workspace variant for callers without an active workspace
+        (e.g. the global ``/users/current/permissions`` endpoint backing
+        the ``/account`` page). Mirrors ``list_registered_model_permissions``
+        but skips the workspace filter so the returned rows span every
+        workspace the user has grants in — each row carries its own
+        ``workspace`` value (taken from the synthetic role's workspace),
+        so the caller can still attribute correctly.
+        """
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            rows = (
+                session
+                .query(
+                    SqlRole.workspace,
+                    SqlRolePermission.resource_pattern,
+                    SqlRolePermission.permission,
+                )
+                .join(SqlRolePermission, SqlRole.id == SqlRolePermission.role_id)
+                .filter(
+                    SqlRole.name == self._synthetic_user_role_name(user.id),
+                    SqlRolePermission.resource_type == "registered_model",
+                )
+                .all()
+            )
+            return [
+                RegisteredModelPermission(
+                    workspace=workspace,
+                    name=pattern,
+                    user_id=user.id,
+                    permission=permission,
+                )
+                for workspace, pattern, permission in rows
+            ]
+
     def update_registered_model_permission(
         self, name: str, username: str, permission: str
     ) -> RegisteredModelPermission:
@@ -756,9 +794,14 @@ class SqlAlchemyStore:
     ) -> Permission | None:
         """
         Highest **role-based** permission ``username`` has on ``workspace_name``
-        where the role grant is workspace-wide (``resource_type='workspace'``,
-        ``resource_pattern='*'``). Returns ``None`` when there are no such
-        grants.
+        where the role grant is workspace-wide. Returns ``None`` when there are
+        no such grants.
+
+        Includes both forms of workspace-wide grant:
+        ``(resource_type='workspace', resource_pattern='*')`` — the admin grant
+        — and ``(resource_type='*', resource_pattern='*')`` — the per-user
+        grant the migration emits for legacy ``workspace_permissions`` rows
+        and the form the seeded ``user`` role uses.
 
         Complements ``get_workspace_permission`` — that helper reads the
         ``workspace_permissions`` table directly, this one reads role grants.
@@ -775,7 +818,7 @@ class SqlAlchemyStore:
                 .filter(
                     SqlUserRoleAssignment.user_id == user.id,
                     SqlRole.workspace == workspace_name,
-                    SqlRolePermission.resource_type == "workspace",
+                    SqlRolePermission.resource_type.in_(("workspace", "*")),
                     SqlRolePermission.resource_pattern == "*",
                 )
                 .distinct()
@@ -1075,17 +1118,22 @@ class SqlAlchemyStore:
     def _list_per_resource_permissions(self, username: str, resource_type: str):
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
+            user_id = user.id
             rows = (
                 session
                 .query(SqlRolePermission.resource_pattern, SqlRolePermission.permission)
                 .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
                 .filter(
-                    SqlRole.name == self._synthetic_user_role_name(user.id),
+                    SqlRole.name == self._synthetic_user_role_name(user_id),
                     SqlRolePermission.resource_type == resource_type,
                 )
                 .all()
             )
-            return user, rows
+            # Read ``user.id`` while the session is still open and return the
+            # plain int — callers that build entity objects outside the session
+            # block would otherwise hit ``DetachedInstanceError`` on attribute
+            # access.
+            return user_id, rows
 
     def _delete_per_resource_permissions_for_resource(
         self, resource_type: str, resource_pattern: str
@@ -1139,9 +1187,9 @@ class SqlAlchemyStore:
             )
 
     def list_gateway_secret_permissions(self, username: str) -> list[GatewaySecretPermission]:
-        user, rows = self._list_per_resource_permissions(username, "gateway_secret")
+        user_id, rows = self._list_per_resource_permissions(username, "gateway_secret")
         return [
-            GatewaySecretPermission(secret_id=p, user_id=user.id, permission=perm)
+            GatewaySecretPermission(secret_id=p, user_id=user_id, permission=perm)
             for p, perm in rows
         ]
 
@@ -1214,9 +1262,9 @@ class SqlAlchemyStore:
             )
 
     def list_gateway_endpoint_permissions(self, username: str) -> list[GatewayEndpointPermission]:
-        user, rows = self._list_per_resource_permissions(username, "gateway_endpoint")
+        user_id, rows = self._list_per_resource_permissions(username, "gateway_endpoint")
         return [
-            GatewayEndpointPermission(endpoint_id=p, user_id=user.id, permission=perm)
+            GatewayEndpointPermission(endpoint_id=p, user_id=user_id, permission=perm)
             for p, perm in rows
         ]
 
@@ -1297,10 +1345,10 @@ class SqlAlchemyStore:
     def list_gateway_model_definition_permissions(
         self, username: str
     ) -> list[GatewayModelDefinitionPermission]:
-        user, rows = self._list_per_resource_permissions(username, "gateway_model_definition")
+        user_id, rows = self._list_per_resource_permissions(username, "gateway_model_definition")
         return [
             GatewayModelDefinitionPermission(
-                model_definition_id=p, user_id=user.id, permission=perm
+                model_definition_id=p, user_id=user_id, permission=perm
             )
             for p, perm in rows
         ]
