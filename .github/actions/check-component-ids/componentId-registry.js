@@ -1879,6 +1879,7 @@ module.exports = {
   "mlflow.traces.issue-detection.view-traces-link": "",
   "mlflow.traces.onboarding.docs_link": "",
   "mlflow.traces.onboarding.framework_selector": "",
+  "mlflow.traces.onboarding.integrations_link": "",
   "mlflow.traces.onboarding.language_selector": "",
   "mlflow.traces.onboarding.npm_link": "",
   "mlflow.traces.onboarding.step1.connect.copy": "",

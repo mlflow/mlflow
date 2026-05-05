@@ -286,6 +286,23 @@ const InstrumentStep = ({
           ))}
         </SegmentedControlGroup>
       </div>
+      <Typography.Paragraph color="secondary" css={{ fontSize: 12, marginBottom: theme.spacing.sm }}>
+        <FormattedMessage
+          defaultMessage="Don't see your framework? <a>Browse all integrations</a>."
+          description="Link to MLflow tracing integrations doc page below the framework selector"
+          values={{
+            a: (text: string) => (
+              <Typography.Link
+                componentId="mlflow.traces.onboarding.integrations_link"
+                href="https://mlflow.org/docs/latest/genai/tracing/integrations"
+                openInNewTab
+              >
+                {text}
+              </Typography.Link>
+            ),
+          }}
+        />
+      </Typography.Paragraph>
 
       {language === 'python' ? (
         <CodeBlock
