@@ -43,7 +43,7 @@ export const TracesViewTableNoTracesQuickstart = ({
   const tsConnectCode = getTsConnectCode(trackingUri, experimentId || '<experiment-id>');
 
   const pythonCode = QUICKSTART_CONTENT[selectedPythonFramework].getCodeSource();
-  const tsFramework = TS_FRAMEWORK_CODE[selectedTsFramework];
+  const tsFramework = TS_FRAMEWORK_CODE[selectedTsFramework as keyof typeof TS_FRAMEWORK_CODE];
   const frameworkOptions = language === 'python' ? PYTHON_FRAMEWORK_OPTIONS : TS_FRAMEWORK_OPTIONS;
   const selectedFramework = language === 'python' ? selectedPythonFramework : selectedTsFramework;
 
