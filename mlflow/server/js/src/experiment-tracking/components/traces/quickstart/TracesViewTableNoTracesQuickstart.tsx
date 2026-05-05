@@ -348,25 +348,10 @@ const InstrumentStep = ({
         </div>
       ) : (
         <>
-          {/* Framework selector */}
-          <div css={{ marginBottom: theme.spacing.sm }}>
-            <SegmentedControlGroup
-              name="mlflow.traces.onboarding.framework-selector"
-              componentId="mlflow.traces.onboarding.framework_selector"
-              value={selectedFramework}
-              onChange={(event) => onSelectFramework(event.target.value)}
-            >
-              {frameworkOptions.map(({ key, label }) => (
-                <SegmentedControlButton key={key} value={key}>
-                  {label}
-                </SegmentedControlButton>
-              ))}
-            </SegmentedControlGroup>
-          </div>
           <Typography.Paragraph color="secondary" css={{ fontSize: 12, marginBottom: theme.spacing.sm }}>
             <FormattedMessage
               defaultMessage="Don't see your framework? <a>Browse all integrations</a>."
-              description="Link to MLflow tracing integrations doc page below the framework selector"
+              description="Link to MLflow tracing integrations doc page above the framework selector"
               values={{
                 a: (text: string) => (
                   <Typography.Link
@@ -380,6 +365,22 @@ const InstrumentStep = ({
               }}
             />
           </Typography.Paragraph>
+          {/* Framework selector */}
+          <div css={{ marginBottom: theme.spacing.sm }}>
+            <SegmentedControlGroup
+              spaced
+              name="mlflow.traces.onboarding.framework-selector"
+              componentId="mlflow.traces.onboarding.framework_selector"
+              value={selectedFramework}
+              onChange={(event) => onSelectFramework(event.target.value)}
+            >
+              {frameworkOptions.map(({ key, label }) => (
+                <SegmentedControlButton key={key} value={key}>
+                  {label}
+                </SegmentedControlButton>
+              ))}
+            </SegmentedControlGroup>
+          </div>
 
           {language === 'python' ? (
             <CodeBlock
