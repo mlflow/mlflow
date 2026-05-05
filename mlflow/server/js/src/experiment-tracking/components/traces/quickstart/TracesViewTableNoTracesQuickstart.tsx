@@ -41,6 +41,7 @@ export const TracesViewTableNoTracesQuickstart = ({
   const [language, setLanguage] = useState<Language>('python');
   const [selectedPythonFramework, setSelectedPythonFramework] = useState<QUICKSTART_FLAVOR>('openai');
   const [selectedTsFramework, setSelectedTsFramework] = useState<string>('openai');
+  const [videoFailed, setVideoFailed] = useState(false);
 
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   const trackingUri = `http://${hostname}:<port>`;
@@ -91,32 +92,35 @@ export const TracesViewTableNoTracesQuickstart = ({
         />
       </Typography.Paragraph>
 
-      {/* Video preview */}
-      <div
-        css={{
-          width: '100%',
-          marginBottom: theme.spacing.lg * 2,
-          borderRadius: theme.borders.borderRadiusMd,
-          overflow: 'hidden',
-          border: `1px solid ${theme.colors.border}`,
-          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
-        }}
-      >
-        <video
-          src={TRACING_VIDEO_URL}
-          autoPlay
-          muted
-          playsInline
-          onEnded={(event) => {
-            const video = event.currentTarget;
-            video.currentTime = TRACING_VIDEO_START_SEC;
-            video.play().catch(() => {
-              // Autoplay restrictions can reject; ignore since the video is muted.
-            });
+      {/* Video preview (hidden if the remote video fails to load, e.g. offline) */}
+      {!videoFailed && (
+        <div
+          css={{
+            width: '100%',
+            marginBottom: theme.spacing.lg * 2,
+            borderRadius: theme.borders.borderRadiusMd,
+            overflow: 'hidden',
+            border: `1px solid ${theme.colors.border}`,
+            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
           }}
-          css={{ width: '100%', display: 'block' }}
-        />
-      </div>
+        >
+          <video
+            src={TRACING_VIDEO_URL}
+            autoPlay
+            muted
+            playsInline
+            onError={() => setVideoFailed(true)}
+            onEnded={(event) => {
+              const video = event.currentTarget;
+              video.currentTime = TRACING_VIDEO_START_SEC;
+              video.play().catch(() => {
+                // Autoplay restrictions can reject; ignore since the video is muted.
+              });
+            }}
+            css={{ width: '100%', display: 'block' }}
+          />
+        </div>
+      )}
 
       {/* Language selector */}
       <div css={{ width: '100%', marginBottom: theme.spacing.lg }}>
