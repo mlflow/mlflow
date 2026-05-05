@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   SegmentedControlButton,
   SegmentedControlGroup,
@@ -15,6 +15,9 @@ import {
   TS_INSTALL_CODE,
   getTsConnectCode,
   TS_FRAMEWORK_CODE,
+  OTEL_INSTALL_CODE,
+  OTEL_INSTRUMENT_CODE,
+  getOtelEnvCode,
   type QUICKSTART_FLAVOR,
 } from './TraceTableQuickstart.utils';
 import { CodeBlock } from './components/CodeBlock';
@@ -41,6 +44,7 @@ export const TracesViewTableNoTracesQuickstart = ({
   const trackingUri = `http://${hostname}:<port>`;
   const pythonConnectCode = getPythonConnectCode(trackingUri, experimentName || 'my-experiment');
   const tsConnectCode = getTsConnectCode(trackingUri, experimentId || '<experiment-id>');
+  const otelEnvCode = getOtelEnvCode(trackingUri, experimentId || '<experiment-id>');
 
   const pythonCode = QUICKSTART_CONTENT[selectedPythonFramework].getCodeSource();
   const tsFramework = TS_FRAMEWORK_CODE[selectedTsFramework as keyof typeof TS_FRAMEWORK_CODE];
@@ -116,6 +120,7 @@ export const TracesViewTableNoTracesQuickstart = ({
           language={language}
           pythonConnectCode={pythonConnectCode}
           tsConnectCode={tsConnectCode}
+          otelEnvCode={otelEnvCode}
         />
         <InstrumentStep
           theme={theme}
@@ -140,62 +145,97 @@ const ConnectStep = ({
   language,
   pythonConnectCode,
   tsConnectCode,
+  otelEnvCode,
 }: {
   theme: ReturnType<typeof useDesignSystemTheme>['theme'];
   language: Language;
   pythonConnectCode: string;
   tsConnectCode: string;
+  otelEnvCode: string;
 }) => {
+  const title = (() => {
+    if (language === 'python') {
+      return (
+        <FormattedMessage
+          defaultMessage="Connect to the tracking server"
+          description="Step 1 title for Python traces onboarding"
+        />
+      );
+    }
+    if (language === 'typescript') {
+      return (
+        <FormattedMessage
+          defaultMessage="Install and initialize the MLflow TypeScript SDK"
+          description="Step 1 title for TypeScript traces onboarding"
+        />
+      );
+    }
+    return (
+      <FormattedMessage
+        defaultMessage="Configure OpenTelemetry export"
+        description="Step 1 title for OpenTelemetry traces onboarding"
+      />
+    );
+  })();
+
+  const description = (() => {
+    if (language === 'python') {
+      return (
+        <FormattedMessage
+          defaultMessage="Configure your Python environment to send traces to this MLflow server."
+          description="Step 1 description for Python traces onboarding"
+        />
+      );
+    }
+    if (language === 'typescript') {
+      return (
+        <FormattedMessage
+          defaultMessage="Install the <a>MLflow tracing SDK</a> for TypeScript using npm, then initialize it in your application."
+          description="Step 1 description for TypeScript traces onboarding"
+          values={{
+            a: (text: string) => (
+              <Typography.Link
+                componentId="mlflow.traces.onboarding.npm_link"
+                href="https://www.npmjs.com/package/@mlflow/core"
+                openInNewTab
+              >
+                {text}
+              </Typography.Link>
+            ),
+          }}
+        />
+      );
+    }
+    return (
+      <FormattedMessage
+        defaultMessage="Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference."
+        description="Step 1 description for OpenTelemetry traces onboarding"
+        values={{
+          a: (text: string) => (
+            <Typography.Link
+              componentId="mlflow.traces.onboarding.otel_docs_link"
+              href="https://mlflow.org/docs/latest/genai/tracing/opentelemetry/export"
+              openInNewTab
+            >
+              {text}
+            </Typography.Link>
+          ),
+        }}
+      />
+    );
+  })();
+
   return (
-    <StepSection
-      theme={theme}
-      stepNumber={1}
-      title={
-        language === 'python' ? (
-          <FormattedMessage
-            defaultMessage="Connect to the tracking server"
-            description="Step 1 title for Python traces onboarding"
-          />
-        ) : (
-          <FormattedMessage
-            defaultMessage="Install and initialize the MLflow TypeScript SDK"
-            description="Step 1 title for TypeScript traces onboarding"
-          />
-        )
-      }
-      description={
-        language === 'python' ? (
-          <FormattedMessage
-            defaultMessage="Configure your Python environment to send traces to this MLflow server."
-            description="Step 1 description for Python traces onboarding"
-          />
-        ) : (
-          <FormattedMessage
-            defaultMessage="Install the <a>MLflow tracing SDK</a> for TypeScript using npm, then initialize it in your application."
-            description="Step 1 description for TypeScript traces onboarding"
-            values={{
-              a: (text: string) => (
-                <Typography.Link
-                  componentId="mlflow.traces.onboarding.npm_link"
-                  href="https://www.npmjs.com/package/@mlflow/core"
-                  openInNewTab
-                >
-                  {text}
-                </Typography.Link>
-              ),
-            }}
-          />
-        )
-      }
-    >
-      {language === 'python' ? (
+    <StepSection theme={theme} stepNumber={1} title={title} description={description}>
+      {language === 'python' && (
         <CodeBlock
           theme={theme}
           code={pythonConnectCode}
           language="python"
           componentId="mlflow.traces.onboarding.step1.copy"
         />
-      ) : (
+      )}
+      {language === 'typescript' && (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           <CodeBlock
             theme={theme}
@@ -210,6 +250,14 @@ const ConnectStep = ({
             componentId="mlflow.traces.onboarding.step1.connect.copy"
           />
         </div>
+      )}
+      {language === 'opentelemetry' && (
+        <CodeBlock
+          theme={theme}
+          code={otelEnvCode}
+          language="bash"
+          componentId="mlflow.traces.onboarding.step1.otel_env.copy"
+        />
       )}
     </StepSection>
   );
@@ -242,6 +290,35 @@ const InstrumentStep = ({
     borderRadius: 3,
   } as const;
 
+  let description: ReactNode;
+  if (language === 'python') {
+    description = (
+      <FormattedMessage
+        defaultMessage="Choose your framework and add one line to enable automatic tracing, or use the {code} decorator for custom functions."
+        description="Step 2 description for Python traces onboarding"
+        values={{ code: <code css={codeStyle}>@mlflow.trace</code> }}
+      />
+    );
+  } else if (language === 'typescript') {
+    description = (
+      <FormattedMessage
+        defaultMessage="Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions."
+        description="Step 2 description for TypeScript traces onboarding"
+        values={{
+          code: <code css={codeStyle}>@mlflow/openai</code>,
+          trace: <code css={codeStyle}>mlflow.trace()</code>,
+        }}
+      />
+    );
+  } else {
+    description = (
+      <FormattedMessage
+        defaultMessage="Install the OpenTelemetry SDK and instrument your application. Spans will be exported to MLflow via OTLP using the env vars set above."
+        description="Step 2 description for OpenTelemetry traces onboarding"
+      />
+    );
+  }
+
   return (
     <StepSection
       theme={theme}
@@ -252,82 +329,84 @@ const InstrumentStep = ({
           description="Step 2 title for traces onboarding"
         />
       }
-      description={
-        language === 'python' ? (
-          <FormattedMessage
-            defaultMessage="Choose your framework and add one line to enable automatic tracing, or use the {code} decorator for custom functions."
-            description="Step 2 description for Python traces onboarding"
-            values={{ code: <code css={codeStyle}>@mlflow.trace</code> }}
-          />
-        ) : (
-          <FormattedMessage
-            defaultMessage="Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions."
-            description="Step 2 description for TypeScript traces onboarding"
-            values={{
-              code: <code css={codeStyle}>@mlflow/openai</code>,
-              trace: <code css={codeStyle}>mlflow.trace()</code>,
-            }}
-          />
-        )
-      }
+      description={description}
     >
-      {/* Framework selector */}
-      <div css={{ marginBottom: theme.spacing.sm }}>
-        <SegmentedControlGroup
-          name="mlflow.traces.onboarding.framework-selector"
-          componentId="mlflow.traces.onboarding.framework_selector"
-          value={selectedFramework}
-          onChange={(event) => onSelectFramework(event.target.value)}
-        >
-          {frameworkOptions.map(({ key, label }) => (
-            <SegmentedControlButton key={key} value={key}>
-              {label}
-            </SegmentedControlButton>
-          ))}
-        </SegmentedControlGroup>
-      </div>
-      <Typography.Paragraph color="secondary" css={{ fontSize: 12, marginBottom: theme.spacing.sm }}>
-        <FormattedMessage
-          defaultMessage="Don't see your framework? <a>Browse all integrations</a>."
-          description="Link to MLflow tracing integrations doc page below the framework selector"
-          values={{
-            a: (text: string) => (
-              <Typography.Link
-                componentId="mlflow.traces.onboarding.integrations_link"
-                href="https://mlflow.org/docs/latest/genai/tracing/integrations"
-                openInNewTab
-              >
-                {text}
-              </Typography.Link>
-            ),
-          }}
-        />
-      </Typography.Paragraph>
-
-      {language === 'python' ? (
-        <CodeBlock
-          theme={theme}
-          code={pythonCode}
-          language="python"
-          componentId="mlflow.traces.onboarding.step2.copy"
-        />
-      ) : (
+      {language === 'opentelemetry' ? (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          {tsFramework.install && (
-            <CodeBlock
-              theme={theme}
-              code={tsFramework.install}
-              language="bash"
-              componentId="mlflow.traces.onboarding.step2.install.copy"
-            />
-          )}
           <CodeBlock
             theme={theme}
-            code={tsFramework.code}
-            language="typescript"
-            componentId="mlflow.traces.onboarding.step2.code.copy"
+            code={OTEL_INSTALL_CODE}
+            language="bash"
+            componentId="mlflow.traces.onboarding.step2.otel_install.copy"
+          />
+          <CodeBlock
+            theme={theme}
+            code={OTEL_INSTRUMENT_CODE}
+            language="python"
+            componentId="mlflow.traces.onboarding.step2.otel_code.copy"
           />
         </div>
+      ) : (
+        <>
+          {/* Framework selector */}
+          <div css={{ marginBottom: theme.spacing.sm }}>
+            <SegmentedControlGroup
+              name="mlflow.traces.onboarding.framework-selector"
+              componentId="mlflow.traces.onboarding.framework_selector"
+              value={selectedFramework}
+              onChange={(event) => onSelectFramework(event.target.value)}
+            >
+              {frameworkOptions.map(({ key, label }) => (
+                <SegmentedControlButton key={key} value={key}>
+                  {label}
+                </SegmentedControlButton>
+              ))}
+            </SegmentedControlGroup>
+          </div>
+          <Typography.Paragraph color="secondary" css={{ fontSize: 12, marginBottom: theme.spacing.sm }}>
+            <FormattedMessage
+              defaultMessage="Don't see your framework? <a>Browse all integrations</a>."
+              description="Link to MLflow tracing integrations doc page below the framework selector"
+              values={{
+                a: (text: string) => (
+                  <Typography.Link
+                    componentId="mlflow.traces.onboarding.integrations_link"
+                    href="https://mlflow.org/docs/latest/genai/tracing/integrations"
+                    openInNewTab
+                  >
+                    {text}
+                  </Typography.Link>
+                ),
+              }}
+            />
+          </Typography.Paragraph>
+
+          {language === 'python' ? (
+            <CodeBlock
+              theme={theme}
+              code={pythonCode}
+              language="python"
+              componentId="mlflow.traces.onboarding.step2.copy"
+            />
+          ) : (
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              {tsFramework.install && (
+                <CodeBlock
+                  theme={theme}
+                  code={tsFramework.install}
+                  language="bash"
+                  componentId="mlflow.traces.onboarding.step2.install.copy"
+                />
+              )}
+              <CodeBlock
+                theme={theme}
+                code={tsFramework.code}
+                language="typescript"
+                componentId="mlflow.traces.onboarding.step2.code.copy"
+              />
+            </div>
+          )}
+        </>
       )}
     </StepSection>
   );

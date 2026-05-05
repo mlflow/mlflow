@@ -1,6 +1,6 @@
 import { SegmentedControlButton, SegmentedControlGroup } from '@databricks/design-system';
 
-export type Language = 'python' | 'typescript';
+export type Language = 'python' | 'typescript' | 'opentelemetry';
 
 export const LanguageTab = ({
   language,
@@ -12,6 +12,7 @@ export const LanguageTab = ({
   const tabs: { key: Language; label: string }[] = [
     { key: 'python', label: 'Python' },
     { key: 'typescript', label: 'TypeScript' },
+    { key: 'opentelemetry', label: 'OpenTelemetry' },
   ];
 
   return (

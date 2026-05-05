@@ -1882,12 +1882,16 @@ module.exports = {
   "mlflow.traces.onboarding.integrations_link": "",
   "mlflow.traces.onboarding.language_selector": "",
   "mlflow.traces.onboarding.npm_link": "",
+  "mlflow.traces.onboarding.otel_docs_link": "",
   "mlflow.traces.onboarding.step1.connect.copy": "",
   "mlflow.traces.onboarding.step1.copy": "",
   "mlflow.traces.onboarding.step1.install.copy": "",
+  "mlflow.traces.onboarding.step1.otel_env.copy": "",
   "mlflow.traces.onboarding.step2.code.copy": "",
   "mlflow.traces.onboarding.step2.copy": "",
   "mlflow.traces.onboarding.step2.install.copy": "",
+  "mlflow.traces.onboarding.step2.otel_code.copy": "",
+  "mlflow.traces.onboarding.step2.otel_install.copy": "",
 
   // -- mlflow.traces-tab --
   "mlflow.traces-tab.trace-count": "",

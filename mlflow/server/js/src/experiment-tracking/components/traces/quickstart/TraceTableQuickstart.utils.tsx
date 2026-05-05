@@ -43,6 +43,29 @@ mlflow.set_experiment("${experimentName}")`;
 
 export const TS_INSTALL_CODE = 'npm install @mlflow/core';
 
+export const OTEL_INSTALL_CODE =
+  'pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http';
+
+export const getOtelEnvCode = (trackingUri: string, experimentId: string) =>
+  `export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=${trackingUri}/v1/traces
+export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=${experimentId}`;
+
+export const OTEL_INSTRUMENT_CODE = `from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+# Endpoint and headers are picked up from the env vars set above.
+provider = TracerProvider()
+provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+trace.set_tracer_provider(provider)
+
+# Instrument your application using any OpenTelemetry SDK or auto-instrumentation.
+tracer = trace.get_tracer(__name__)
+with tracer.start_as_current_span("my-app") as span:
+    span.set_attribute("input", "hello")
+    # ... your application logic ...`;
+
 export const getTsConnectCode = (trackingUri: string, experimentId: string) =>
   `import * as mlflow from '@mlflow/core';
 
