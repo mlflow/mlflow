@@ -10,11 +10,11 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
 )
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
-
-_logger = logging.getLogger(__name__)
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
+
+_logger = logging.getLogger(__name__)
 
 
 class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
