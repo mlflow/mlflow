@@ -86,7 +86,7 @@ const client = tracedOpenAI(new OpenAI());
 
 // Invoke the client as usual
 const response = await client.chat.completions.create({
-  model: 'o4-mini',
+  model: 'gpt-5-nano',
   messages: [
     { role: 'system', content: 'You are a helpful weather assistant.' },
     { role: 'user', content: "What's the weather like in Seattle?" },
@@ -151,7 +151,7 @@ messages = [
 ]
 
 # Inputs and outputs of the API request will be logged in a trace
-client.chat.completions.create(model="gpt-4o-mini", messages=messages)`,
+client.chat.completions.create(model="gpt-5-nano", messages=messages)`,
   },
   langchain: {
     // the autologging integration was really introduced in
@@ -200,7 +200,7 @@ from typing import Annotated
 mlflow.langchain.autolog()
 
 # Ensure that the "OPENAI_API_KEY" environment variable is set
-model = ChatOpenAI(model="gpt-4o-mini")
+model = ChatOpenAI(model="gpt-5-nano")
 
 # Define a minimal LangGraph workflow
 class GraphState(dict):
@@ -259,7 +259,7 @@ mlflow.dspy.autolog()
 
 # Configure the LLM to use. Please ensure that
 # the OPENAI_API_KEY environment variable is set
-lm = dspy.LM("openai/gpt-4o-mini")
+lm = dspy.LM("openai/gpt-5-nano")
 dspy.configure(lm=lm)
 
 # Define a simple chain-of-thought model and run it
@@ -339,7 +339,7 @@ from autogen import AssistantAgent, UserProxyAgent
 mlflow.autogen.autolog()
 
 # Ensure that the "OPENAI_API_KEY" environment variable is set
-llm_config = { "model": "gpt-4o-mini", "api_key": os.environ["OPENAI_API_KEY"] }
+llm_config = { "model": "gpt-5-nano", "api_key": os.environ["OPENAI_API_KEY"] }
 assistant = AssistantAgent("assistant", llm_config = llm_config)
 user_proxy = UserProxyAgent("user_proxy", code_execution_config = False)
 
@@ -368,7 +368,7 @@ client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 # Inputs and outputs of API calls will be logged as a trace
 message = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5",
     max_tokens=1024,
     messages=[
         {"role": "user", "content": "Hello, Claude"},
@@ -396,7 +396,7 @@ bedrock = boto3.client(
     region_name="<REPLACE_WITH_YOUR_AWS_REGION>",
 )
 
-model = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+model = "anthropic.claude-sonnet-4-5-20250929-v1:0"
 messages = [{ "role": "user", "content": [{"text": "Hello!"}]}]
 
 # All intermediate executions within the chat session will be logged
@@ -421,7 +421,7 @@ mlflow.litellm.autolog()
 messages = [{"role": "user", "content": "Hello!"}]
 
 # Inputs and outputs of the API request will be logged in a trace
-litellm.completion(model="gpt-4o-mini", messages=messages)`,
+litellm.completion(model="gpt-5-nano", messages=messages)`,
   },
   gemini: {
     minVersion: '2.18.0',
@@ -442,7 +442,7 @@ mlflow.gemini.autolog()
 client = genai.Client(api_key="GEMINI_API_KEY")
 
 # Inputs and outputs of the API request will be logged in a trace
-client.models.generate_content(model="gemini-1.5-flash", contents="Hello!")`,
+client.models.generate_content(model="gemini-2.5-flash", contents="Hello!")`,
   },
   custom: {
     minVersion: '2.14.3',
