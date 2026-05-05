@@ -541,7 +541,7 @@ export function MlflowSidebar({
                       onClick={() => navigate(AdminRoutes.adminPageRoute)}
                     >
                       <FormattedMessage
-                        defaultMessage="Platform Admin"
+                        defaultMessage="Manage"
                         description="Sidebar account dropdown item linking to admin pages"
                       />
                     </DropdownMenu.Item>

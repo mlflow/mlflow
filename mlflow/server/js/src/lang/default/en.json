@@ -3003,10 +3003,6 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
   },
-  "GFn9WX": {
-    "defaultMessage": "Platform Admin",
-    "description": "Sidebar account dropdown item linking to admin pages"
-  },
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
@@ -9010,6 +9006,10 @@
   "qEq4S6": {
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
+  },
+  "qGqURi": {
+    "defaultMessage": "Manage",
+    "description": "Sidebar account dropdown item linking to admin pages"
   },
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
