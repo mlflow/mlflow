@@ -23,7 +23,9 @@ import {
 import { CodeBlock } from './components/CodeBlock';
 import { StepSection } from './components/StepSection';
 import { LanguageTab, type Language } from './components/LanguageTab';
-import demoVideo from '@mlflow/mlflow/src/common/static/videos/demo-experiment.mp4';
+
+const TRACING_VIDEO_START_SEC = 24;
+const TRACING_VIDEO_URL = `https://mlflow.org/docs/latest/images/llms/tracing/tracing-top.mp4#t=${TRACING_VIDEO_START_SEC}`;
 
 export const TracesViewTableNoTracesQuickstart = ({
   baseComponentId,
@@ -100,7 +102,20 @@ export const TracesViewTableNoTracesQuickstart = ({
           boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
         }}
       >
-        <video src={demoVideo} autoPlay loop muted playsInline css={{ width: '100%', display: 'block' }} />
+        <video
+          src={TRACING_VIDEO_URL}
+          autoPlay
+          muted
+          playsInline
+          onEnded={(event) => {
+            const video = event.currentTarget;
+            video.currentTime = TRACING_VIDEO_START_SEC;
+            video.play().catch(() => {
+              // Autoplay restrictions can reject; ignore since the video is muted.
+            });
+          }}
+          css={{ width: '100%', display: 'block' }}
+        />
       </div>
 
       {/* Language selector */}
