@@ -216,7 +216,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
             />
           </div>
           <Typography.Paragraph css={{ color: theme.colors.textSecondary, marginTop: theme.spacing.sm }}>
-            To make this a workspace admin role, add a permission with resource type <strong>workspace</strong>,
+            To make this a workspace manager role, add a permission with resource type <strong>workspace</strong>,
             resource pattern <strong>{ALL_RESOURCE_PATTERN_LABEL}</strong>, and permission <strong>MANAGE</strong> in
             the next section.
           </Typography.Paragraph>

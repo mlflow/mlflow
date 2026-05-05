@@ -8,7 +8,7 @@ export const getAdminRouteDefs = () => {
       path: AdminRoutePaths.adminPage,
       element: createLazyRouteElement(() => import('./pages/AdminPage')),
       pageId: AdminPageId.adminPage,
-      handle: { getPageTitle: () => 'Admin' } satisfies DocumentTitleHandle,
+      handle: { getPageTitle: () => 'Platform Admin' } satisfies DocumentTitleHandle,
     },
     {
       path: AdminRoutePaths.roleDetailPage,
