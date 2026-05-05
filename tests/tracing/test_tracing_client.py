@@ -83,6 +83,62 @@ def test_batch_get_traces_without_location():
     mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
 
 
+def test_batch_get_traces_without_location_for_archive_repo():
+    mock_store = Mock()
+    archived_trace = Trace(
+        info=TraceInfo(
+            trace_id="id1",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=1000,
+            state=TraceState.OK,
+            tags={
+                TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO,
+                TraceTagKey.ARCHIVE_LOCATION: "s3://bucket/archive/id1",
+            },
+        ),
+        data=TraceData(spans=[]),
+    )
+    mock_store.batch_get_trace_infos.return_value = [archived_trace.info]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with patch.object(
+            TracingClient, "_download_spans_from_artifact_repo", return_value=archived_trace
+        ) as mock_download:
+            traces = client.batch_get_traces(["id1"])
+
+    assert traces == [archived_trace]
+    mock_store.batch_get_trace_infos.assert_called_once_with(["id1"])
+    mock_store.batch_get_traces.assert_not_called()
+    mock_download.assert_called_once_with(archived_trace.info)
+
+
+@pytest.mark.parametrize(
+    "tags",
+    [{}, {TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO}],
+)
+def test_batch_get_traces_skips_traces_with_missing_location_metadata(tags):
+    mock_store = Mock()
+    trace_info = TraceInfo(
+        trace_id="id1",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        state=TraceState.OK,
+        tags=tags,
+    )
+    mock_store.batch_get_trace_infos.return_value = [trace_info]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with patch("mlflow.tracing.client._logger") as mock_logger:
+            mock_logger.isEnabledFor.return_value = False
+            traces = client.batch_get_traces(["id1"])
+
+    assert traces == []
+    mock_store.batch_get_traces.assert_not_called()
+    mock_logger.warning.assert_called_once()
+
+
 def test_batch_get_traces_empty():
     mock_store = Mock()
 

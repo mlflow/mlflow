@@ -76,6 +76,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
+    MlflowTraceDataException,
     MlflowTracingException,
     _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
@@ -306,8 +307,10 @@ from mlflow.telemetry.utils import (
     fetch_ui_telemetry_config,
     is_telemetry_disabled,
 )
+from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
+    get_archive_uri_for_trace,
     get_artifact_uri_for_trace,
 )
 from mlflow.tracking._model_registry import utils as registry_utils
@@ -325,6 +328,9 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+    MLFLOW_TRACE_ARCHIVAL_FAILURE,
+    MLFLOW_TRACE_ARCHIVE_LOCATION,
+    MLFLOW_TRACE_SPANS_LOCATION,
 )
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -478,8 +484,17 @@ def _get_trace_artifact_repo(trace_info: TraceInfo):
     Args:
         trace_info: The trace info object containing metadata about the trace.
     """
-    artifact_uri = get_artifact_uri_for_trace(trace_info)
+    return _get_trace_repo_from_uri(get_artifact_uri_for_trace(trace_info))
 
+
+def _get_trace_archive_repo(trace_info: TraceInfo):
+    """
+    Resolve the artifact repository that stores archived trace payloads.
+    """
+    return _get_trace_repo_from_uri(get_archive_uri_for_trace(trace_info))
+
+
+def _get_trace_repo_from_uri(artifact_uri: str):
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         # If the artifact location is a proxied run artifact root (e.g. mlflow-artifacts://...),
         # we need to resolve it to the actual artifact location.
@@ -2360,6 +2375,20 @@ def _get_artifact_repo(run):
     return get_artifact_repository(run.info.artifact_uri)
 
 
+_HANDLER_BLOCKED_TRACE_TAGS = frozenset({
+    MLFLOW_TRACE_SPANS_LOCATION,
+    MLFLOW_TRACE_ARCHIVE_LOCATION,
+    MLFLOW_TRACE_ARCHIVAL_FAILURE,
+})
+
+
+def _validate_trace_tag_handler_mutation(key: str, operation: str) -> None:
+    if key in _HANDLER_BLOCKED_TRACE_TAGS:
+        raise MlflowException.invalid_parameter_value(
+            f"Tag '{key}' is immutable and cannot be {operation} on a trace."
+        )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _log_batch():
@@ -3881,6 +3910,7 @@ def _set_trace_tag(request_id):
             "value": [_assert_string],
         },
     )
+    _validate_trace_tag_handler_mutation(request_message.key, "set")
     _get_tracking_store().set_trace_tag(request_id, request_message.key, request_message.value)
     return _wrap_response(SetTraceTag.Response())
 
@@ -3899,6 +3929,7 @@ def _set_trace_tag_v3(trace_id):
             "value": [_assert_string],
         },
     )
+    _validate_trace_tag_handler_mutation(request_message.key, "set")
     _get_tracking_store().set_trace_tag(trace_id, request_message.key, request_message.value)
     return _wrap_response(SetTraceTagV3.Response())
 
@@ -3916,6 +3947,7 @@ def _delete_trace_tag(request_id):
             "key": [_assert_string, _assert_required],
         },
     )
+    _validate_trace_tag_handler_mutation(request_message.key, "deleted")
     _get_tracking_store().delete_trace_tag(request_id, request_message.key)
     return _wrap_response(DeleteTraceTag.Response())
 
@@ -3934,6 +3966,7 @@ def _delete_trace_tag_v3(trace_id):
             "key": [_assert_string, _assert_required],
         },
     )
+    _validate_trace_tag_handler_mutation(request_message.key, "deleted")
     _get_tracking_store().delete_trace_tag(trace_id, request_message.key)
     return _wrap_response(DeleteTraceTagV3.Response())
 
@@ -3995,6 +4028,8 @@ def _fetch_trace_data_from_store(
         # allow partial so the frontend can render in-progress traces
         trace = store.get_trace(request_id, allow_partial=True)
         return trace.data.to_dict()
+    except MlflowTraceDataException:
+        raise
     except MlflowTracingException:
         return None
     except MlflowNotImplementedException:
@@ -4011,6 +4046,8 @@ def _fetch_trace_data_from_store(
                     f"Trace with id={request_id} not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
+    except MlflowTraceDataException:
+        raise
     # For stores that don't support batch get traces, or if trace data is not in the store,
     # return None to signal fallback to artifact repository
     except (MlflowTracingException, MlflowNotImplementedException):
@@ -4067,7 +4104,12 @@ def get_trace_artifact_handler() -> Response:
     trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
         trace_info = store.get_trace_info(request_id)
-        trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
+        if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.ARCHIVE_REPO.value:
+            trace_data = (
+                _get_trace_archive_repo(trace_info).download_archived_trace_data().to_dict()
+            )
+        else:
+            trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
     buf = io.BytesIO()
