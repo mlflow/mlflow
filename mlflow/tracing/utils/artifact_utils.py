@@ -1,10 +1,13 @@
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.exceptions import MlflowTraceDataCorrupted
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 
 TRACE_DATA_FILE_NAME = "traces.json"
+
+
+def _get_trace_request_id(trace_info: TraceInfo) -> str | None:
+    return getattr(trace_info, "trace_id", getattr(trace_info, "request_id", None))
 
 
 def get_artifact_uri_for_trace(trace_info: TraceInfo):
@@ -22,10 +25,7 @@ def get_artifact_uri_for_trace(trace_info: TraceInfo):
     """
     # Both TraceInfo and TraceInfoV3 access tags the same way
     if MLFLOW_ARTIFACT_LOCATION not in trace_info.tags:
-        raise MlflowException(
-            "Unable to determine trace artifact location.",
-            error_code=INTERNAL_ERROR,
-        )
+        raise MlflowTraceDataCorrupted(request_id=_get_trace_request_id(trace_info))
     return trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
 
 
@@ -40,9 +40,5 @@ def get_archive_uri_for_trace(trace_info: TraceInfo):
         The archival URI string for the archived trace payload.
     """
     if TraceTagKey.ARCHIVE_LOCATION not in trace_info.tags:
-        raise MlflowException(
-            "Unable to determine the archived trace location because this trace is missing "
-            "the archive location tag.",
-            error_code=INTERNAL_ERROR,
-        )
+        raise MlflowTraceDataCorrupted(request_id=_get_trace_request_id(trace_info))
     return trace_info.tags[TraceTagKey.ARCHIVE_LOCATION]
