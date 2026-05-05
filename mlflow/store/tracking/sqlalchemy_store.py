@@ -4610,16 +4610,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 if span.parent_id is None:
                     root_span_dict = span_dict
-                    # Extract user-defined tags packed by OtelSpanProcessor from the
-                    # mlflow.traceTags attribute on the root span (OTLP path only).
-                    if raw_tags := span_attributes.get(SpanAttributeKey.TRACE_TAGS):
-                        parsed = _try_parse_json_string(raw_tags)
-                        # from_otel_proto applies dump_span_attribute_value to every attribute,
-                        # which JSON-encodes the string a second time. Parse once more to unwrap.
-                        if isinstance(parsed, str):
-                            parsed = _try_parse_json_string(parsed)
-                        if isinstance(parsed, dict):
-                            trace_tags = {str(k): str(v) for k, v in parsed.items()}
+                    # Extract user-defined tags emitted by OtelSpanProcessor as
+                    # individual "mlflow.traceTag.<key>" attributes on the root span (OTLP path).
+                    # from_otel_proto JSON-encodes every attribute value once, so one
+                    # _try_parse_json_string call is sufficient to unwrap the plain string value.
+                    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+                    for attr_key, attr_value in span_attributes.items():
+                        if attr_key.startswith(prefix):
+                            tag_key = attr_key[len(prefix):]
+                            trace_tags[tag_key] = str(_try_parse_json_string(str(attr_value)))
 
             trace_aggregates[trace_id] = _TraceAggregate(
                 min_start_ms=min_start_ms,
@@ -4911,8 +4910,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         value=SpansLocation.TRACKING_STORE.value,
                     )
                 )
-                # Restore user-defined tags carried via mlflow.traceTags on the root span
-                # (set by OtelSpanProcessor when the trace was exported over OTLP).
+                # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
+                # span (set by OtelSpanProcessor when the trace was exported over OTLP).
                 for tag_key, tag_value in agg.trace_tags.items():
                     session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 

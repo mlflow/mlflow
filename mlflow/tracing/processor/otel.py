@@ -3,18 +3,35 @@ import logging
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
-from mlflow.entities.span import create_mlflow_span, dump_span_attribute_value
+from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_OTEL_GENAI_SEMCONV,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
 )
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+    TraceTagKey,
+)
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
+
+# System-managed tag keys that should not be re-emitted as OTLP attributes — they are either
+# set by the server or are not meaningful across the OTLP boundary.
+_SYSTEM_TAG_KEYS = frozenset({
+    TraceTagKey.TRACE_NAME,
+    TraceTagKey.EVAL_REQUEST_ID,
+    TraceTagKey.SPANS_LOCATION,
+    TraceTagKey.SOURCE_SCORER_NAME,
+    TraceTagKey.LINKED_PROMPTS,
+    *IMMUTABLE_TAGS,
+})
 
 
 class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
@@ -67,16 +84,16 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
 
         if self._should_register_traces and not span.parent:
             manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
-            # Pack user-defined tags onto the root span so they survive OTLP export
+            # Emit user-defined tags as individual span attributes so they survive OTLP export
             # and can be restored to trace tag rows on the server side.
             if (
                 manager_trace is not None
                 and manager_trace.trace.info.tags
                 and span._attributes is not None
             ):
-                span._attributes[SpanAttributeKey.TRACE_TAGS] = dump_span_attribute_value(
-                    manager_trace.trace.info.tags
-                )
+                for key, value in manager_trace.trace.info.tags.items():
+                    if key not in _SYSTEM_TAG_KEYS:
+                        span._attributes[SpanAttributeKey.TRACE_TAG_PREFIX + key] = value
 
         if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get():
             span = self._translate_span(span)

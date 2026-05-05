@@ -4,7 +4,7 @@ from unittest import mock
 from opentelemetry.sdk.trace.export import SpanExportResult
 
 from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceTagKey
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.trace_manager import ManagerTrace
 
@@ -33,7 +33,7 @@ def _make_manager_trace(tags: dict[str, str]) -> ManagerTrace:
     return ManagerTrace(trace=Trace(info=info, data=TraceData()), prompts=[], is_remote_trace=False)
 
 
-def test_on_end_packs_tags_onto_root_span():
+def test_on_end_emits_per_tag_attributes():
     processor, _ = _make_processor()
     otel_trace_id = 0xDEADBEEF
 
@@ -45,12 +45,11 @@ def test_on_end_packs_tags_onto_root_span():
     with mock.patch.object(processor._trace_manager, "pop_trace", return_value=manager_trace):
         processor.on_end(root_span)
 
-    packed = root_span._attributes.get(SpanAttributeKey.TRACE_TAGS)
-    assert packed is not None
-    assert json.loads(packed) == {"env": "production", "version": "1.0"}
+    assert root_span._attributes.get(SpanAttributeKey.TRACE_TAG_PREFIX + "env") == "production"
+    assert root_span._attributes.get(SpanAttributeKey.TRACE_TAG_PREFIX + "version") == "1.0"
 
 
-def test_on_end_skips_tag_packing_when_no_tags():
+def test_on_end_skips_tag_emission_when_no_tags():
     processor, _ = _make_processor()
     otel_trace_id = 0xDEADBEEF
 
@@ -60,10 +59,12 @@ def test_on_end_skips_tag_packing_when_no_tags():
     with mock.patch.object(processor._trace_manager, "pop_trace", return_value=manager_trace):
         processor.on_end(root_span)
 
-    assert SpanAttributeKey.TRACE_TAGS not in root_span._attributes
+    assert not any(
+        k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX) for k in root_span._attributes
+    )
 
 
-def test_on_end_skips_tag_packing_for_child_span():
+def test_on_end_skips_tag_emission_for_child_span():
     processor, _ = _make_processor()
     otel_trace_id = 0xDEADBEEF
 
@@ -74,7 +75,9 @@ def test_on_end_skips_tag_packing_for_child_span():
         processor.on_end(child_span)
         mock_pop.assert_not_called()
 
-    assert SpanAttributeKey.TRACE_TAGS not in child_span._attributes
+    assert not any(
+        k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX) for k in child_span._attributes
+    )
 
 
 def test_on_end_handles_missing_trace_gracefully():
@@ -86,4 +89,34 @@ def test_on_end_handles_missing_trace_gracefully():
     with mock.patch.object(processor._trace_manager, "pop_trace", return_value=None):
         processor.on_end(root_span)
 
-    assert SpanAttributeKey.TRACE_TAGS not in root_span._attributes
+    assert not any(
+        k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX) for k in root_span._attributes
+    )
+
+
+def test_on_end_filters_system_tags():
+    processor, _ = _make_processor()
+    otel_trace_id = 0xDEADBEEF
+
+    root_span = create_mock_otel_span(trace_id=otel_trace_id, span_id=0x1234)
+    tags = {
+        "user_tag": "keep_me",
+        TraceTagKey.TRACE_NAME: "my-trace",
+        TraceTagKey.EVAL_REQUEST_ID: "req-123",
+        TraceTagKey.SPANS_LOCATION: "TRACKING_STORE",
+        TraceTagKey.SOURCE_SCORER_NAME: "scorer",
+        TraceTagKey.LINKED_PROMPTS: json.dumps([{"name": "p", "version": "1"}]),
+        "mlflow.user": "alice",
+        "mlflow.artifactLocation": "s3://bucket",
+    }
+    manager_trace = _make_manager_trace(tags=tags)
+
+    with mock.patch.object(processor._trace_manager, "pop_trace", return_value=manager_trace):
+        processor.on_end(root_span)
+
+    assert root_span._attributes.get(SpanAttributeKey.TRACE_TAG_PREFIX + "user_tag") == "keep_me"
+    system_attrs = [
+        k for k in root_span._attributes if k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX)
+        and k != SpanAttributeKey.TRACE_TAG_PREFIX + "user_tag"
+    ]
+    assert system_attrs == []
