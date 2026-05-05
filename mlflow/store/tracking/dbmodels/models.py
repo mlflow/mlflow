@@ -755,6 +755,11 @@ class SqlTraceInfo(Base):
     """
     Response preview: `String` (limit 1000 characters). Could be *null*. Newly added in V3 format.
     """
+    db_payload_generation = Column(Integer, nullable=False, server_default="0")
+    """
+    DB-backed trace payload generation used for concurrency coordination.
+    Defaults to 0.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("request_id", name="trace_info_pk"),

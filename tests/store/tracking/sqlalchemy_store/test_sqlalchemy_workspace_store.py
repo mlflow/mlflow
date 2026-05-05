@@ -26,10 +26,13 @@ from mlflow.entities import (
     Param,
     RunStatus,
     RunTag,
+    TraceInfo,
     ViewType,
 )
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
@@ -806,42 +809,47 @@ def test_get_trace_is_workspace_scoped(workspace_tracking_store):
         assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
-def test_log_spans_update_is_workspace_scoped(workspace_tracking_store):
+def test_start_trace_conflict_update_is_workspace_scoped(workspace_tracking_store):
     trace_id = f"tr-{uuid.uuid4().hex}"
     initial_span = create_test_span(
         trace_id=trace_id,
         start_ns=2_000_000_000,
         end_ns=3_000_000_000,
     )
-    earlier_span = create_test_span(
-        trace_id=trace_id,
-        span_id=222,
-        start_ns=1_000_000_000,
-        end_ns=4_000_000_000,
-    )
 
     with WorkspaceContext("team-a"):
-        exp_id = workspace_tracking_store.create_experiment("trace-exp-workspace-guard")
+        exp_id = workspace_tracking_store.create_experiment("trace-exp-start-trace-workspace-guard")
         workspace_tracking_store.log_spans(exp_id, [initial_span])
-        original_trace = workspace_tracking_store.get_trace(trace_id)
+
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=1_000,
+            execution_duration=2_000,
+            state=TraceState.OK,
+            tags={"custom_tag": "value"},
+            trace_metadata={"source": "test"},
+        )
 
         call_state = {"count": 0}
 
         def workspace_side_effect(*_args, **_kwargs):
             call_state["count"] += 1
-            return "team-a" if call_state["count"] == 1 else "team-b"
+            return "team-a" if call_state["count"] <= 2 else "team-b"
 
         with mock.patch.object(
             WorkspaceAwareSqlAlchemyStore,
             "_get_active_workspace",
             side_effect=workspace_side_effect,
         ):
-            workspace_tracking_store.log_spans(exp_id, [earlier_span])
+            updated_trace = workspace_tracking_store.start_trace(trace_info)
 
-        updated_trace = workspace_tracking_store.get_trace(trace_id)
-        assert updated_trace.info.request_time == original_trace.info.request_time
-        assert updated_trace.info.execution_duration == original_trace.info.execution_duration
-        assert len(updated_trace.data.spans) == 2
+        assert call_state["count"] == 2
+        fetched_trace = workspace_tracking_store.get_trace_info(trace_id)
+        assert updated_trace.trace_id == trace_id
+        assert fetched_trace.request_time == 1_000
+        assert fetched_trace.execution_duration == 2_000
+        assert fetched_trace.tags["custom_tag"] == "value"
 
 
 def test_validate_artifact_root_allows_missing_global_root(workspace_tracking_store):
