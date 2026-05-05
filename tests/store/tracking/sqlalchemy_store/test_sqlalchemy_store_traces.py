@@ -7,9 +7,11 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+import sqlalchemy
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from sqlalchemy.dialects import mssql, mysql, postgresql
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 import mlflow
@@ -39,8 +41,10 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
+    RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
 from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
@@ -7807,3 +7811,700 @@ def test_archive_traces_keeps_archive_now_when_matching_traces_are_transiently_b
         SpansLocation.ARCHIVE_REPO.value
     )
     assert TraceExperimentTagKey.ARCHIVE_NOW in store.get_experiment(exp_id).tags
+
+
+def test_log_spans_then_start_trace_advances_db_payload_generation(store: SqlAlchemyStore):
+    """
+    A stale archival snapshot taken after log_spans() must lose once start_trace() updates the
+    same DB-backed trace and advances its db_payload_generation.
+    """
+    experiment_id = store.create_experiment("test_log_spans_then_start_trace_db_payload_generation")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+    store.log_spans(experiment_id, [span])
+    snapshot = store._load_trace_archival_data(trace_id)
+    assert snapshot is not None
+    _, db_payload_generation, _ = snapshot
+    assert db_payload_generation == 1
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info_for_start)
+
+    with store.ManagedSessionMaker() as session:
+        sql_trace_info = (
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        )
+        assert sql_trace_info.db_payload_generation == 2
+
+    assert not store._finalize_archived_trace(
+        trace_id=trace_id,
+        artifact_uri="file:///unused-archive-root",
+        db_payload_generation=db_payload_generation,
+    )
+    assert store.get_trace_info(trace_id).tags[TraceTagKey.SPANS_LOCATION] == (
+        SpansLocation.TRACKING_STORE.value
+    )
+
+
+def test_log_spans_then_start_trace_rejects_archived_trace(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_preserve_archived_trace_tags")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    archive_location = "s3://bucket/archive/traces.pb"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+    store.log_spans(experiment_id, [span])
+    store.set_trace_tag(trace_id, TraceTagKey.SPANS_LOCATION, SpansLocation.ARCHIVE_REPO.value)
+    store.set_trace_tag(trace_id, TraceTagKey.ARCHIVE_LOCATION, archive_location)
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    with pytest.raises(
+        MlflowException, match=f"Cannot update traces that are no longer DB-backed: '{trace_id}'"
+    ) as exc_info:
+        store.start_trace(trace_info_for_start)
+
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_STATE)
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.ARCHIVE_REPO.value
+    assert trace_info.tags[TraceTagKey.ARCHIVE_LOCATION] == archive_location
+
+
+def test_advance_db_payload_generations_reports_deleted_traces(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_deleted_db_payload_generation_bump")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    _create_trace(store, trace_id, experiment_id, request_time=1_000)
+    store.delete_traces(experiment_id=experiment_id, trace_ids=[trace_id])
+
+    with store.ManagedSessionMaker() as session:
+        with pytest.raises(
+            MlflowException,
+            match=f"Cannot log spans to traces that no longer exist: '{trace_id}'",
+        ) as exc_info:
+            store._advance_db_payload_generations_for_db_span_writes(session, [trace_id])
+
+    assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_log_spans_then_start_trace_reports_deleted_conflicting_trace(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_deleted_conflicting_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+
+    original_trace_query = store._trace_query
+
+    class DeletingQuery:
+        def __init__(self, query):
+            self._query = query
+
+        def filter(self, *args, **kwargs):
+            self._query = self._query.filter(*args, **kwargs)
+            return self
+
+        def one_or_none(self):
+            with mock.patch.object(store, "_trace_query", original_trace_query):
+                store.delete_traces(experiment_id=experiment_id, trace_ids=[trace_id])
+            return self._query.one_or_none()
+
+    def deleting_trace_query(session, for_update_or_delete=False, workspace=None):
+        query = original_trace_query(
+            session,
+            for_update_or_delete=for_update_or_delete,
+            workspace=workspace,
+        )
+        if for_update_or_delete:
+            return DeletingQuery(query)
+        return query
+
+    with mock.patch.object(store, "_trace_query", side_effect=deleting_trace_query):
+        with pytest.raises(
+            MlflowException,
+            match=f"Trace with ID '{trace_id}' no longer exists.",
+        ) as exc_info:
+            store.start_trace(trace_info_for_start)
+
+    assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_log_spans_then_start_trace_uses_locking_reread(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_locking_reread")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    store.log_spans(
+        experiment_id,
+        [
+            create_test_span(
+                trace_id=trace_id,
+                name="llm_call",
+                span_id=111,
+                status=trace_api.StatusCode.OK,
+                start_ns=1_000_000_000,
+                end_ns=2_000_000_000,
+                trace_num=12345,
+            )
+        ],
+    )
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+
+    original_trace_query = store._trace_query
+    seen_locking_calls = []
+
+    def tracked_trace_query(session, for_update_or_delete=False, workspace=None):
+        seen_locking_calls.append(for_update_or_delete)
+        return original_trace_query(
+            session,
+            for_update_or_delete=for_update_or_delete,
+            workspace=workspace,
+        )
+
+    with mock.patch.object(store, "_trace_query", side_effect=tracked_trace_query):
+        store.start_trace(trace_info_for_start)
+
+    assert True in seen_locking_calls
+
+
+@pytest.mark.skipif(
+    mlflow.get_tracking_uri().startswith("mysql"),
+    reason="MySQL does not support concurrent log_spans calls for now",
+)
+def test_finalize_archived_trace_rejects_stale_snapshot_generation(store: SqlAlchemyStore):
+    """
+    Finalization must reject an archival snapshot when a later DB-backed write advances the same
+    db_payload_generation before finalize runs.
+    """
+    exp_id = store.create_experiment("archive-stale-generation")
+    trace_id = "tr-stale-generation"
+    request_time = 40 * 24 * 60 * 60 * 1000
+
+    _create_trace(store, trace_id, exp_id, request_time=request_time)
+    with store.ManagedSessionMaker() as session:
+        sql_trace_info = (
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        )
+        assert sql_trace_info.db_payload_generation == 0
+
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id,
+                span_id=411,
+                start_ns=request_time * 1_000_000,
+                end_ns=(request_time + 1_000) * 1_000_000,
+            )
+        ],
+    )
+    with store.ManagedSessionMaker() as session:
+        (
+            session
+            .query(SqlTraceInfo)
+            .filter(SqlTraceInfo.request_id == trace_id)
+            .update({SqlTraceInfo.db_payload_generation: 0}, synchronize_session=False)
+        )
+
+    snapshot = store._load_trace_archival_data(trace_id)
+    assert snapshot is not None
+    _, db_payload_generation, _ = snapshot
+    assert db_payload_generation == 0
+
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id,
+                span_id=412,
+                start_ns=(request_time + 2_000) * 1_000_000,
+                end_ns=(request_time + 3_000) * 1_000_000,
+            )
+        ],
+    )
+
+    assert not store._finalize_archived_trace(
+        trace_id=trace_id,
+        artifact_uri="file:///unused-archive-root",
+        db_payload_generation=db_payload_generation,
+    )
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+    assert TraceTagKey.ARCHIVE_LOCATION not in trace_info.tags
+    with store.ManagedSessionMaker() as session:
+        sql_trace_info = (
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        )
+        assert sql_trace_info.db_payload_generation == 1
+        contents = (
+            session
+            .query(SqlSpan.content)
+            .filter(SqlSpan.trace_id == trace_id)
+            .order_by(SqlSpan.span_id.asc())
+            .all()
+        )
+        assert len(contents) == 2
+        assert all(content != "" for (content,) in contents)
+
+
+def test_archive_traces_upload_race_cleans_payload_and_retries_safely(store: SqlAlchemyStore):
+    """
+    If archival uploads a payload and then loses the finalize race to a later DB-backed write, the
+    pass must delete the uploaded payload, leave the trace in TRACKING_STORE, and succeed on retry.
+    """
+    exp_id = store.create_experiment("archive-upload-race")
+    trace_id = "tr-upload-race"
+    now_millis = 41 * 24 * 60 * 60 * 1000
+    request_time = now_millis - 2 * 24 * 60 * 60 * 1000
+
+    _create_trace(store, trace_id, exp_id, request_time=request_time)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id,
+                span_id=420,
+                start_ns=request_time * 1_000_000,
+                end_ns=(request_time + 1_000) * 1_000_000,
+            )
+        ],
+    )
+
+    from mlflow.store.artifact.artifact_repo import ArtifactRepository
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+    from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+    original_upload_archived_trace_data_bytes = ArtifactRepository.upload_archived_trace_data_bytes
+    uploaded_uris = []
+
+    def upload_bytes_and_mutate(self, data):
+        uploaded_uris.append(self.artifact_uri)
+        original_upload_archived_trace_data_bytes(self, data)
+        store.log_spans(
+            exp_id,
+            [
+                create_test_span(
+                    trace_id,
+                    span_id=421,
+                    start_ns=(request_time + 2_000) * 1_000_000,
+                    end_ns=(request_time + 3_000) * 1_000_000,
+                )
+            ],
+        )
+
+    with TempDir() as tmp:
+        archive_root = Path(tmp.path("archive"))
+        archive_root.mkdir()
+        with mock.patch.object(
+            ArtifactRepository, "upload_archived_trace_data_bytes", new=upload_bytes_and_mutate
+        ):
+            archived = _archive_traces(
+                store,
+                default_trace_archival_location=archive_root.as_uri(),
+                default_retention="1d",
+                now_millis=now_millis,
+            )
+
+        assert archived == 0
+        trace_info = store.get_trace_info(trace_id)
+        assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+        assert TraceTagKey.ARCHIVE_LOCATION not in trace_info.tags
+        assert len(uploaded_uris) == 1
+        staged_payload_path = (
+            Path(local_file_uri_to_path(uploaded_uris[0])) / TRACE_ARCHIVAL_FILENAME
+        )
+        assert not staged_payload_path.exists()
+        assert len(store.get_trace(trace_id).data.spans) == 2
+
+        archived_retry = _archive_traces(
+            store,
+            default_trace_archival_location=archive_root.as_uri(),
+            default_retention="1d",
+            now_millis=now_millis,
+        )
+
+        assert archived_retry == 1
+        archived_trace_info = store.get_trace_info(trace_id)
+        assert (
+            archived_trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.ARCHIVE_REPO.value
+        )
+        assert archived_trace_info.tags[TraceTagKey.ARCHIVE_LOCATION]
+        assert archived_trace_info.tags[TraceTagKey.ARCHIVE_LOCATION] == uploaded_uris[0]
+        archived_trace_data = get_artifact_repository(
+            archived_trace_info.tags[TraceTagKey.ARCHIVE_LOCATION]
+        ).download_archived_trace_data()
+        assert len(archived_trace_data.spans) == 2
+
+
+def test_trace_query_for_update_uses_backend_specific_lock_clause(store: SqlAlchemyStore):
+    """
+    Locking trace queries should compile to the backend-specific row-lock clause used by the
+    archival finalize/failure paths.
+    """
+    exp_id = store.create_experiment("archive-trace-query-lock")
+    trace_id = "tr-archive-trace-query-lock"
+    _create_trace(store, trace_id, exp_id, request_time=42 * 24 * 60 * 60 * 1000)
+
+    with store.ManagedSessionMaker() as session:
+        with mock.patch.object(store, "db_type", POSTGRES):
+            postgres_sql = str(
+                store
+                ._trace_query(session, for_update_or_delete=True)
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .statement.compile(
+                    dialect=postgresql.dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+        with mock.patch.object(store, "db_type", MYSQL):
+            mysql_sql = str(
+                store
+                ._trace_query(session, for_update_or_delete=True)
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .statement.compile(
+                    dialect=mysql.dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+        with mock.patch.object(store, "db_type", MSSQL):
+            mssql_sql = str(
+                store
+                ._trace_query(session, for_update_or_delete=True)
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .statement.compile(
+                    dialect=mssql.dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+    assert "FOR UPDATE" in postgres_sql
+    assert "FOR UPDATE" in mysql_sql
+    assert "WITH (UPDLOCK, ROWLOCK)" in mssql_sql
+
+
+def test_mark_trace_archival_failure_keeps_joined_tags_out_of_postgres_lock_query(
+    store: SqlAlchemyStore,
+):
+    """
+    The archival-failure locking query must avoid a joined tag load so PostgreSQL can apply
+    FOR UPDATE without rejecting a LEFT OUTER JOIN on the nullable collection side.
+    """
+    exp_id = store.create_experiment("archive-trace-failure-lock")
+    trace_id = "tr-archive-trace-failure-lock"
+    _create_trace(store, trace_id, exp_id, request_time=45 * 24 * 60 * 60 * 1000)
+
+    with store.ManagedSessionMaker() as session:
+        with mock.patch.object(store, "db_type", POSTGRES):
+            postgres_sql = str(
+                store
+                ._trace_query(session, for_update_or_delete=True)
+                .options(sqlalchemy.orm.selectinload(SqlTraceInfo.tags))
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .statement.compile(
+                    dialect=postgresql.dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+    assert "FOR UPDATE" in postgres_sql
+    assert "LEFT OUTER JOIN" not in postgres_sql
+
+
+def test_log_spans_advances_db_payload_generation_for_multi_trace_batch(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("archive-log-spans-generation-batch")
+    first_trace_id = "tr-generation-batch-1"
+    second_trace_id = "tr-generation-batch-2"
+    request_time = 44 * 24 * 60 * 60 * 1000
+
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                first_trace_id,
+                span_id=432,
+                start_ns=request_time * 1_000_000,
+                end_ns=(request_time + 1_000) * 1_000_000,
+            ),
+            create_test_span(
+                second_trace_id,
+                span_id=433,
+                start_ns=(request_time + 1_000) * 1_000_000,
+                end_ns=(request_time + 2_000) * 1_000_000,
+            ),
+        ],
+    )
+
+    with store.ManagedSessionMaker() as session:
+        db_payload_generations = dict(
+            session
+            .query(SqlTraceInfo.request_id, SqlTraceInfo.db_payload_generation)
+            .filter(SqlTraceInfo.request_id.in_([first_trace_id, second_trace_id]))
+            .all()
+        )
+    assert db_payload_generations == {first_trace_id: 1, second_trace_id: 1}
+
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                first_trace_id,
+                span_id=434,
+                start_ns=(request_time + 2_000) * 1_000_000,
+                end_ns=(request_time + 3_000) * 1_000_000,
+            ),
+            create_test_span(
+                second_trace_id,
+                span_id=435,
+                start_ns=(request_time + 3_000) * 1_000_000,
+                end_ns=(request_time + 4_000) * 1_000_000,
+            ),
+        ],
+    )
+
+    with store.ManagedSessionMaker() as session:
+        db_payload_generations = dict(
+            session
+            .query(SqlTraceInfo.request_id, SqlTraceInfo.db_payload_generation)
+            .filter(SqlTraceInfo.request_id.in_([first_trace_id, second_trace_id]))
+            .all()
+        )
+    assert db_payload_generations == {first_trace_id: 2, second_trace_id: 2}
+
+
+def test_finalize_archived_trace_rejects_writer_after_finalization(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("archive-reject-log-spans-after-finalize")
+    trace_id = "tr-archive-reject-log-spans-after-finalize"
+    request_time = 43 * 24 * 60 * 60 * 1000
+
+    _create_trace(store, trace_id, exp_id, request_time=request_time)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id,
+                span_id=430,
+                start_ns=request_time * 1_000_000,
+                end_ns=(request_time + 1_000) * 1_000_000,
+            )
+        ],
+    )
+
+    snapshot = store._load_trace_archival_data(trace_id)
+    assert snapshot is not None
+    _, db_payload_generation, _ = snapshot
+    assert store._finalize_archived_trace(
+        trace_id=trace_id,
+        artifact_uri="file:///unused-archive-root",
+        db_payload_generation=db_payload_generation,
+    )
+
+    with pytest.raises(
+        MlflowException, match=f"Cannot log spans to archived traces: '{trace_id}'"
+    ) as exc_info:
+        store.log_spans(
+            exp_id,
+            [
+                create_test_span(
+                    trace_id,
+                    span_id=431,
+                    start_ns=(request_time + 2_000) * 1_000_000,
+                    end_ns=(request_time + 3_000) * 1_000_000,
+                )
+            ],
+        )
+
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_STATE)
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.ARCHIVE_REPO.value
+    assert trace_info.tags[TraceTagKey.ARCHIVE_LOCATION] == "file:///unused-archive-root"
+
+
+def test_archive_traces_stale_malformed_snapshot_does_not_mark_new_generation_terminal(
+    store: SqlAlchemyStore,
+):
+    """
+    A malformed archival snapshot must not mark the trace terminal once a later DB-backed write
+    repairs the trace and advances its db_payload_generation before failure marking runs.
+    """
+    exp_id = store.create_experiment("archive-stale-malformed-snapshot")
+    trace_id = "tr-stale-malformed-snapshot"
+    now_millis = 51 * 24 * 60 * 60 * 1000
+    request_time = now_millis - 2 * 24 * 60 * 60 * 1000
+
+    _create_trace(store, trace_id, exp_id, request_time=request_time)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id,
+                span_id=531,
+                start_ns=request_time * 1_000_000,
+                end_ns=(request_time + 1_000) * 1_000_000,
+            )
+        ],
+    )
+
+    with store.ManagedSessionMaker() as session:
+        (
+            session
+            .query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == "0000000000000213")
+            .update({SqlSpan.content: "not-json"}, synchronize_session=False)
+        )
+
+    original_serialize = store._serialize_trace_archival_span_rows_to_pb
+
+    def serialize_after_repair(span_rows):
+        store.log_spans(
+            exp_id,
+            [
+                create_test_span(
+                    trace_id,
+                    span_id=531,
+                    start_ns=request_time * 1_000_000,
+                    end_ns=(request_time + 2_000) * 1_000_000,
+                )
+            ],
+        )
+        return original_serialize(span_rows)
+
+    with TempDir() as tmp:
+        archive_root = Path(tmp.path("archive"))
+        archive_root.mkdir()
+        with mock.patch.object(
+            store, "_serialize_trace_archival_span_rows_to_pb", side_effect=serialize_after_repair
+        ):
+            archived = _archive_traces(
+                store,
+                default_trace_archival_location=archive_root.as_uri(),
+                default_retention="1d",
+                now_millis=now_millis,
+            )
+
+    assert archived == 0
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+    assert TraceTagKey.ARCHIVAL_FAILURE not in trace_info.tags
+    with store.ManagedSessionMaker() as session:
+        sql_trace_info = (
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        )
+        assert sql_trace_info.db_payload_generation == 2
+
+
+def test_archive_traces_keeps_unsupported_archive_repository_retryable(
+    store: SqlAlchemyStore,
+):
+    exp_fail = store.create_experiment("archive-unsupported-repository")
+    exp_success = store.create_experiment("archive-supported-repository")
+    fail_trace_id = "tr-unsupported-repository"
+    success_trace_id = "tr-supported-repository"
+    now_millis = 57 * 24 * 60 * 60 * 1000
+
+    _create_trace(store, fail_trace_id, exp_fail, request_time=now_millis - 2 * 24 * 60 * 60 * 1000)
+    _create_trace(
+        store, success_trace_id, exp_success, request_time=now_millis - 24 * 60 * 60 * 1000
+    )
+    store.log_spans(exp_fail, [create_test_span(fail_trace_id, span_id=571)])
+    store.log_spans(exp_success, [create_test_span(success_trace_id, span_id=572)])
+    for exp_id in (exp_fail, exp_success):
+        store.set_experiment_tag(
+            exp_id, ExperimentTag(TraceExperimentTagKey.ARCHIVE_NOW, json.dumps({}))
+        )
+
+    from mlflow.store.artifact.artifact_repo import ArtifactRepository
+
+    original_upload_archived_trace_data_bytes = ArtifactRepository.upload_archived_trace_data_bytes
+
+    def upload_bytes_unsupported(self, data):
+        if fail_trace_id in self.artifact_uri:
+            raise MlflowNotImplementedException(
+                "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace "
+                "payloads."
+            )
+        return original_upload_archived_trace_data_bytes(self, data)
+
+    with TempDir() as tmp:
+        archive_root = Path(tmp.path("archive"))
+        archive_root.mkdir()
+        with mock.patch.object(
+            ArtifactRepository,
+            "upload_archived_trace_data_bytes",
+            new=upload_bytes_unsupported,
+        ):
+            archived = _archive_traces(
+                store,
+                default_trace_archival_location=archive_root.as_uri(),
+                default_retention="365d",
+                now_millis=now_millis,
+            )
+
+    assert archived == 1
+    fail_trace_info = store.get_trace_info(fail_trace_id)
+    assert fail_trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+    assert TraceTagKey.ARCHIVAL_FAILURE not in fail_trace_info.tags
+    success_trace_info = store.get_trace_info(success_trace_id)
+    assert success_trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.ARCHIVE_REPO.value
+    assert TraceExperimentTagKey.ARCHIVE_NOW in store.get_experiment(exp_fail).tags
+    assert TraceExperimentTagKey.ARCHIVE_NOW not in store.get_experiment(exp_success).tags
