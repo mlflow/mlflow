@@ -9,14 +9,18 @@ import json
 import re
 import sys
 import tempfile
-from collections.abc import AsyncIterator
+import time
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from skills.github import GitHubClient, Job, JobStep, get_github_token
 
 MAX_LOG_TOKENS = 100_000
 CHARS_PER_TOKEN = 2
+LOG_CACHE_DIR = Path(tempfile.gettempdir()) / "analyze-ci"
+LOG_CACHE_TTL_SECONDS = 3 * 86400
 
 
 @dataclass
@@ -26,6 +30,9 @@ class JobLogs:
     job_url: str
     failed_step: str | None
     logs: str
+    raw_log_path: Path
+    package_versions_path: Path | None
+    conclusion: str | None
 
 
 @dataclass
@@ -47,33 +54,96 @@ def to_seconds(ts: str) -> str:
     return ts[:19]  # "2026-01-05T07:17:56.1234567Z" -> "2026-01-05T07:17:56"
 
 
-async def iter_job_logs(
-    client: GitHubClient,
-    job: Job,
-    failed_step: JobStep,
-) -> AsyncIterator[str]:
-    """Yield log lines filtered by time range."""
-    if not failed_step.started_at or not failed_step.completed_at:
-        raise ValueError(f"Failed step missing timestamps for job {job.id}")
+def prune_old_cached_logs() -> None:
+    """Delete cached raw logs older than LOG_CACHE_TTL_SECONDS and empty run dirs."""
+    if not LOG_CACHE_DIR.exists():
+        return
+    cutoff = time.time() - LOG_CACHE_TTL_SECONDS
+    for cached_file in LOG_CACHE_DIR.rglob("*"):
+        if cached_file.is_file() and cached_file.stat().st_mtime < cutoff:
+            cached_file.unlink()
+    for run_dir in LOG_CACHE_DIR.iterdir():
+        if run_dir.is_dir() and not any(run_dir.iterdir()):
+            run_dir.rmdir()
 
+
+async def download_raw_log(client: GitHubClient, job: Job) -> Path:
+    """Download the full raw log to the cache dir, or return cached path if present."""
+    log_path = LOG_CACHE_DIR / str(job.run_id) / f"{job.id}.log"
+    if log_path.exists():
+        log(f"Using cached raw log at {log_path}")
+        return log_path
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    # Write to a temp file and rename on success so an interrupted download
+    # doesn't leave a partial file that future runs would silently reuse.
+    tmp_path = log_path.with_suffix(".log.tmp")
     async with await client.get_raw(f"{job.url}/logs") as response:
         response.raise_for_status()
+        with tmp_path.open("wb") as f:
+            async for chunk in response.content.iter_chunked(64 * 1024):
+                f.write(chunk)
+    tmp_path.rename(log_path)
+    log(f"Saved raw log to {log_path}")
+    return log_path
 
-        # ISO 8601 timestamps are lexicographically sortable, so we can compare as strings
-        start_secs = to_seconds(failed_step.started_at)
-        end_secs = to_seconds(failed_step.completed_at)
-        in_range = False
 
-        async for line_bytes in response.content:
-            line_str = line_bytes.decode("utf-8").rstrip("\r\n")
-            if TIMESTAMP_PATTERN.match(line_str):
-                ts_secs = to_seconds(line_str)
+def iter_step_lines(log_path: Path, failed_step: JobStep) -> Iterator[str]:
+    """Yield lines from the saved log file filtered to the failed step's time range."""
+    if not failed_step.started_at or not failed_step.completed_at:
+        raise ValueError("Failed step missing timestamps")
+
+    # ISO 8601 timestamps are lexicographically sortable, so we can compare as strings
+    start_secs = to_seconds(failed_step.started_at)
+    end_secs = to_seconds(failed_step.completed_at)
+    in_range = False
+
+    with log_path.open("r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.rstrip("\r\n")
+            if TIMESTAMP_PATTERN.match(line):
+                ts_secs = to_seconds(line)
                 if ts_secs > end_secs:
                     return  # Past end time, stop reading
                 in_range = ts_secs >= start_secs
-                line_str = line_str.split(" ", 1)[1]  # strip timestamp
+                # Use partition so a bare-timestamp line (no trailing content) yields ""
+                _, _, line = line.partition(" ")
             if in_range:
-                yield line_str
+                yield line
+
+
+PACKAGE_VERSIONS_BEGIN_MARKER = ">>> package versions"
+PACKAGE_VERSIONS_END_MARKER = "<<< package versions"
+
+
+def extract_package_versions(log_path: Path) -> Path | None:
+    """Save the show-versions action's package list block next to the raw log."""
+    out_path = log_path.with_suffix(".package-versions.txt")
+    if out_path.exists():
+        log(f"Using cached package versions at {out_path}")
+        return out_path
+
+    captured: list[str] = []
+    capturing = False
+    terminated = False
+    with log_path.open("r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.rstrip("\r\n")
+            content = TIMESTAMP_PATTERN.sub("", line)
+            if not capturing:
+                if content == PACKAGE_VERSIONS_BEGIN_MARKER:
+                    capturing = True
+                continue
+            if content == PACKAGE_VERSIONS_END_MARKER:
+                terminated = True
+                break
+            captured.append(content)
+
+    if not terminated or not captured:
+        return None
+    with out_path.open("w", encoding="utf-8") as f:
+        f.write("\n".join(captured) + "\n")
+    log(f"Saved package versions to {out_path}")
+    return out_path
 
 
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
@@ -88,12 +158,12 @@ PYTEST_SKIP_SECTIONS = {
 }
 
 
-async def compact_logs(lines: AsyncIterator[str]) -> str:
+def compact_logs(lines: Iterable[str]) -> str:
     """Clean logs: strip timestamps, ANSI colors, and filter noisy pytest sections."""
     result: list[str] = []
     skip_section = False
 
-    async for line in lines:
+    for line in lines:
         line = ANSI_PATTERN.sub("", line)
         if match := PYTEST_SECTION_PATTERN.match(line.strip()):
             section_name = match.group(1).strip().lower()
@@ -179,20 +249,33 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
 
 async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
     log(f"Fetching logs for '{job.workflow_name} / {job.name}'")
+    raw_log_path = await download_raw_log(client, job)
+    package_versions_path = extract_package_versions(raw_log_path)
 
     failed_step = next((s for s in job.steps if s.conclusion == "failure"), None)
     if not failed_step:
-        raise ValueError(f"No failed step found for job {job.id}")
-    cleaned_logs = await compact_logs(iter_job_logs(client, job, failed_step))
+        return JobLogs(
+            workflow_name=job.workflow_name,
+            job_name=job.name,
+            job_url=job.html_url,
+            failed_step=None,
+            logs="",
+            raw_log_path=raw_log_path,
+            package_versions_path=package_versions_path,
+            conclusion=job.conclusion,
+        )
+    cleaned_logs = compact_logs(iter_step_lines(raw_log_path, failed_step))
     truncated_logs = truncate_logs(cleaned_logs)
-    failed_step_name = failed_step.name
 
     return JobLogs(
         workflow_name=job.workflow_name,
         job_name=job.name,
         job_url=job.html_url,
-        failed_step=failed_step_name,
+        failed_step=failed_step.name,
         logs=truncated_logs,
+        raw_log_path=raw_log_path,
+        package_versions_path=package_versions_path,
+        conclusion=job.conclusion,
     )
 
 
@@ -230,6 +313,17 @@ def format_single_job_for_analysis(job: JobLogs) -> str:
 
 
 async def analyze_single_job(job: JobLogs) -> AnalysisResult:
+    if job.failed_step is None:
+        text = (
+            f"## {job.workflow_name} / {job.job_name}\n"
+            f"URL: {job.job_url}\n"
+            f"Conclusion: {job.conclusion}\n\n"
+            f"Job has no failure to analyze. Raw log cached at {job.raw_log_path}"
+        )
+        if job.package_versions_path:
+            text = f"{text}\nPackage versions: {job.package_versions_path}"
+        return AnalysisResult(text=text, total_cost_usd=None, usage=None)
+
     formatted_logs = format_single_job_for_analysis(job)
     prompt = f"Analyze this CI failure:\n\n{formatted_logs}"
 
@@ -259,8 +353,13 @@ async def analyze_single_job(job: JobLogs) -> AnalysisResult:
             )
 
     data = json.loads(stdout)
+    text = data.get("result", "")
+    # Surface the raw log path so downstream agents can grep it for deeper analysis
+    text = f"{text}\n\nRaw log: {job.raw_log_path}"
+    if job.package_versions_path:
+        text = f"{text}\nPackage versions: {job.package_versions_path}"
     return AnalysisResult(
-        text=data.get("result", ""),
+        text=text,
         total_cost_usd=data.get("total_cost_usd"),
         usage=data.get("usage"),
     )
@@ -289,6 +388,7 @@ async def analyze_jobs(jobs: list[JobLogs], debug: bool = False) -> str:
 
 
 async def cmd_analyze_async(urls: list[str], debug: bool = False) -> None:
+    prune_old_cached_logs()
     github_token = get_github_token()
     async with GitHubClient(github_token) as client:
         # Resolve URLs to job targets

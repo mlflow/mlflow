@@ -57,7 +57,10 @@ from mlflow import tracing  # noqa: F401
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.utils.lazy_load import LazyLoader
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
+from mlflow.utils.logging_utils import (
+    _configure_mlflow_loggers,
+    _install_sensitive_query_param_filter,
+)
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
 anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
@@ -160,6 +163,8 @@ if TYPE_CHECKING:
         transformers,
         xgboost,
     )
+
+_install_sensitive_query_param_filter()
 
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)

@@ -247,6 +247,9 @@ class PyFuncBackend(FlavorBackend):
         """
         Serve pyfunc model locally.
         """
+        if enable_mlserver:
+            mlserver.warn_mlserver_deprecated()
+
         local_path = _download_artifact_from_uri(model_uri)
 
         server_implementation = mlserver if enable_mlserver else scoring_server
@@ -403,6 +406,9 @@ class PyFuncBackend(FlavorBackend):
         enable_mlserver=False,
         base_image=None,
     ):
+        if enable_mlserver:
+            mlserver.warn_mlserver_deprecated()
+
         os.makedirs(output_dir, exist_ok=True)
         _logger.debug("Created all folders in path", extra={"output_directory": output_dir})
 

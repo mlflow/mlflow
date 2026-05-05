@@ -653,7 +653,9 @@ class TracingClient:
             )
             return assessment
 
-        # If the trace is the active trace, add the assessment to it in-memory
+        # If the trace is the active trace, add the assessment to it in-memory.
+        # Exception: remote (distributed) traces use a dummy in-memory entry that is discarded
+        # when the context exits, so assessments must be persisted directly to the backend.
         if trace_id == mlflow.get_active_trace_id():
             with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
                 if trace is None:
@@ -661,6 +663,9 @@ class TracingClient:
                         f"Trace {trace_id} is active but not found in the in-memory buffer. "
                         "Something is wrong with trace handling. Skipping assessment logging."
                     )
+                    return assessment
+                if trace.is_remote_trace:
+                    return self.store.create_assessment(assessment)
                 trace.info.assessments.append(assessment)
             return assessment
         return self.store.create_assessment(assessment)

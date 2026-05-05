@@ -303,6 +303,27 @@ class SqlAlchemyStore:
             )
             return [p.to_mlflow_entity() for p in perms]
 
+    def list_all_registered_model_permissions(
+        self, username: str
+    ) -> list[RegisteredModelPermission]:
+        """
+        Cross-workspace variant for callers without an active workspace
+        (e.g. the global ``/users/current/permissions`` endpoint backing
+        the ``/account`` page). Mirrors ``list_registered_model_permissions``
+        but skips the workspace filter so the returned rows span every
+        workspace the user has grants in - each row carries its own
+        ``workspace`` value, so the caller can still attribute correctly.
+        """
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session
+                .query(SqlRegisteredModelPermission)
+                .filter(SqlRegisteredModelPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
     def update_registered_model_permission(
         self, name: str, username: str, permission: str
     ) -> RegisteredModelPermission:

@@ -115,8 +115,8 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
-#: When true, newly created workspaces are seeded with three default RBAC roles
-#: (``workspace-admin``, ``editor``, ``viewer``) that super-admins can assign to other
+#: When true, newly created workspaces are seeded with two default RBAC roles
+#: (``admin``, ``user``) that super-admins can assign to other
 #: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already
 #: bypasses RBAC, so the creator is not assigned to any role. Set to ``False`` to skip
 #: seeding entirely — no roles are created and no grants are issued.
@@ -849,6 +849,11 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
 #: function is passed as predict_fn, it will be wrapped with asyncio.run() with this timeout.
 #: (default: ``300``)
 MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
+
+#: Timeout in seconds for LLM calls during mlflow.genai.evaluate. When an LLM is used as a scorer.
+#: This controls how long to wait for an LLM response before timing out.
+#: (default: ``60``)
+MLFLOW_GENAI_EVAL_LLM_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_LLM_TIMEOUT", int, 60)
 
 #: Number of sessions (or individual traces when no session metadata exists) to sample
 #: for the triage phase of ``mlflow.genai.discover_issues()``. (default: ``100``)
