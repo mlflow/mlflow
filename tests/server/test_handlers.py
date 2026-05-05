@@ -4722,6 +4722,92 @@ def test_list_budget_windows_zero_spend():
     assert window["current_spend"] == 0.0
 
 
+def test_list_budget_windows_workspace_scoped_filters_workspace_policies():
+    tracker = InMemoryBudgetTracker()
+    global_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-global",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+    )
+    ws_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-ws",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=50.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+        workspace="team-a",
+    )
+    other_ws_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-other",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=75.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+        workspace="team-b",
+    )
+    tracker.refresh_policies([global_policy, ws_policy, other_ws_policy])
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        WorkspaceContext("team-a"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    policy_ids = {w["budget_policy_id"] for w in response.json["windows"]}
+    assert policy_ids == {"bp-global", "bp-ws"}
+
+
+def test_list_budget_windows_no_workspace_returns_all():
+    tracker = InMemoryBudgetTracker()
+    global_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-global",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+    )
+    ws_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-ws",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=50.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+        workspace="team-a",
+    )
+    tracker.refresh_policies([global_policy, ws_policy])
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    policy_ids = {w["budget_policy_id"] for w in response.json["windows"]}
+    assert policy_ids == {"bp-global", "bp-ws"}
+
+
 def test_create_issue_with_all_fields():
     request_message = CreateIssue()
     request_message.experiment_id = "exp-123"

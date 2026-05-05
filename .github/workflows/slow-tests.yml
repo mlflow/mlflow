@@ -71,7 +71,6 @@ jobs:
             -r requirements/extra-ml-requirements.txt \
             langchain_experimental "pyarrow<18"
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}

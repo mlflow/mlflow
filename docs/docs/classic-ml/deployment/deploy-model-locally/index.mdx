@@ -257,6 +257,15 @@ inference server in Kubernetes-native frameworks like [Seldon Core](https://docs
 [KServe (formerly known as KFServing)](https://kserve.github.io/website), hence which provides advanced features such as canary deployment and
 auto scaling out of the box.
 
+:::warning[MLServer integration is deprecated]
+
+The MLflow MLServer integration (`--enable-mlserver` / `enable_mlserver=True`) is deprecated and will be removed in **MLflow 3.13**.
+Seldon, the company that maintained MLServer, is in [liquidation](https://github.com/SeldonIO/MLServer/issues/2404#issuecomment-4210286631), and the
+[MLServer project is no longer actively maintained](https://github.com/SeldonIO/MLServer/commits/master/). Use the default FastAPI scoring server
+or deploy your model to a managed serving platform instead.
+
+:::
+
 <Table>
   <thead>
     <tr>

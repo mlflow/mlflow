@@ -210,7 +210,9 @@ ENABLE_MLSERVER = click.option(
     is_flag=True,
     default=False,
     help=(
-        "Enable serving with MLServer through the v2 inference protocol. "
+        "[DEPRECATED] Enable serving with MLServer through the v2 inference protocol. "
+        "MLServer is no longer actively maintained and this flag will be removed in "
+        "MLflow 3.13. "
         "You can use environment variables to configure MLServer. "
         "(See https://mlserver.readthedocs.io/en/latest/reference/settings.html)"
     ),

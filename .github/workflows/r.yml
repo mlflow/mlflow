@@ -18,6 +18,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
