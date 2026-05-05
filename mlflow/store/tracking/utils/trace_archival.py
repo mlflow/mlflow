@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 
+from mlflow.entities import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.utils.validation import (
     _parse_trace_archival_duration_config,
@@ -65,6 +66,25 @@ class _TraceArchiveCandidate:
     trace_id: str
     experiment_id: str
     timestamp_ms: int
+
+
+@dataclass(frozen=True)
+class _TraceDeleteSelection:
+    trace_id: str
+    archived_artifact_uri: str | None = None
+
+
+@dataclass(frozen=True)
+class _TraceSpanSnapshot:
+    content: str
+    parent_span_id: int | None
+    start_time_unix_nano: int
+
+
+@dataclass(frozen=True)
+class _TraceReadSnapshot:
+    trace_info: TraceInfo
+    spans: list[_TraceSpanSnapshot]
 
 
 def _parse_trace_archival_duration_millis(value: str | None) -> int | None:

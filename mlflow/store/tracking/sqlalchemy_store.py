@@ -176,6 +176,9 @@ from mlflow.store.tracking.utils.trace_archival import (
     _parse_experiment_trace_archival_retention_millis,
     _parse_trace_archival_duration_millis,
     _TraceArchiveCandidate,
+    _TraceDeleteSelection,
+    _TraceReadSnapshot,
+    _TraceSpanSnapshot,
 )
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.telemetry.events import UpdateIssueEvent
@@ -4037,28 +4040,89 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             filters = [SqlTraceInfo.experiment_id == int(experiment_id)]
-            if max_timestamp_millis:
+            if max_timestamp_millis is not None:
                 filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
             if trace_ids:
                 filters.append(SqlTraceInfo.request_id.in_(trace_ids))
-            if max_traces:
+            if max_traces is not None:
                 limited_subquery = (
                     self
                     ._trace_query(session)
                     .with_entities(SqlTraceInfo.request_id)
                     .filter(*filters)
-                    .order_by(SqlTraceInfo.timestamp_ms)
+                    .order_by(SqlTraceInfo.timestamp_ms, SqlTraceInfo.request_id)
                     .limit(max_traces)
                     .subquery()
                 )
                 filters.append(SqlTraceInfo.request_id.in_(select(limited_subquery.c.request_id)))
 
-            return (
+            selected_traces = self._select_archived_traces_for_delete(
+                session=session,
+                filters=filters,
+            )
+            deleted = (
                 self
                 ._trace_query(session, for_update_or_delete=True)
                 .filter(and_(*filters))
-                .delete(synchronize_session="fetch")
+                .delete(synchronize_session=False)
             )
+
+        self._delete_archived_trace_payloads(selected_traces)
+        return deleted
+
+    def _select_archived_traces_for_delete(
+        self,
+        *,
+        session: Session,
+        filters: list[ColumnElement[bool]],
+    ) -> list[_TraceDeleteSelection]:
+        spans_location_tag = aliased(SqlTraceTag)
+        archive_location_tag = aliased(SqlTraceTag)
+        rows = (
+            self
+            ._trace_query(session, for_update_or_delete=True)
+            .outerjoin(
+                spans_location_tag,
+                and_(
+                    spans_location_tag.request_id == SqlTraceInfo.request_id,
+                    spans_location_tag.key == TraceTagKey.SPANS_LOCATION,
+                ),
+            )
+            .outerjoin(
+                archive_location_tag,
+                and_(
+                    archive_location_tag.request_id == SqlTraceInfo.request_id,
+                    archive_location_tag.key == TraceTagKey.ARCHIVE_LOCATION,
+                ),
+            )
+            .with_entities(SqlTraceInfo.request_id, archive_location_tag.value)
+            .filter(and_(*filters), spans_location_tag.value == SpansLocation.ARCHIVE_REPO.value)
+            .all()
+        )
+        return [
+            _TraceDeleteSelection(
+                trace_id=trace_id,
+                archived_artifact_uri=archived_artifact_uri,
+            )
+            for trace_id, archived_artifact_uri in rows
+        ]
+
+    def _delete_archived_trace_payloads(
+        self, selected_traces: list[_TraceDeleteSelection]
+    ) -> None:
+        for selected_trace in selected_traces:
+            if selected_trace.archived_artifact_uri is None:
+                continue
+            try:
+                get_artifact_repository(selected_trace.archived_artifact_uri).delete_artifacts(
+                    TRACE_ARCHIVAL_FILENAME
+                )
+            except Exception:
+                _logger.warning(
+                    "Failed to clean up archived payload for deleted trace %s.",
+                    selected_trace.trace_id,
+                    exc_info=True,
+                )
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
@@ -5068,7 +5132,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 self
                 ._trace_query(session)
                 .options(
-                    joinedload(SqlTraceInfo.spans),
                     selectinload(SqlTraceInfo.tags),
                     selectinload(SqlTraceInfo.request_metadata),
                     selectinload(SqlTraceInfo.assessments),
@@ -5077,18 +5140,43 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .one_or_none()
             )
 
-            if sql_trace_info:
-                trace_info = sql_trace_info.to_mlflow_entity()
-                spans = self._get_spans_with_trace_info(
-                    trace_info, sql_trace_info.spans, allow_partial=allow_partial
-                )
-                if allow_partial or spans:
-                    return Trace(info=trace_info, data=TraceData(spans=spans))
-            else:
+            if sql_trace_info is None:
                 raise MlflowException(
                     message=f"Trace with ID {trace_id} is not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
+
+            trace_info = sql_trace_info.to_mlflow_entity()
+            span_snapshots = []
+            traces_with_cleared_payloads: set[str] = set()
+            if (
+                trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+                == SpansLocation.TRACKING_STORE.value
+            ):
+                tracking_store_span_snapshots, traces_with_cleared_payloads = (
+                    self._load_tracking_store_span_snapshots(session, [trace_id])
+                )
+                span_snapshots = tracking_store_span_snapshots.get(trace_id, [])
+            trace_snapshot = _TraceReadSnapshot(
+                trace_info=trace_info,
+                spans=span_snapshots,
+            )
+
+        # If archival finalized after we read trace_info but before we loaded spans, reread
+        # metadata so archived traces dispatch to archive storage instead of empty DB payloads.
+        trace_snapshot = self._refresh_transitioning_trace_snapshot(
+            trace_snapshot,
+            traces_with_cleared_payloads=traces_with_cleared_payloads,
+        )
+
+        spans = self._get_spans_with_trace_info(
+            trace_snapshot.trace_info,
+            trace_snapshot.spans,
+            allow_partial=allow_partial,
+        )
+        if allow_partial or spans:
+            return Trace(info=trace_snapshot.trace_info, data=TraceData(spans=spans))
+        return None
 
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
@@ -5109,12 +5197,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             value=SqlTraceInfo.request_id,
         )
         with self.ManagedSessionMaker() as session:
-            # Load traces and their spans in one go
+            # Load trace metadata first; DB-backed span rows are fetched separately only for traces
+            # that still read from the tracking store.
             sql_trace_infos = (
                 self
                 ._trace_query(session)
                 .options(
-                    joinedload(SqlTraceInfo.spans),
                     selectinload(SqlTraceInfo.tags),
                     selectinload(SqlTraceInfo.request_metadata),
                     selectinload(SqlTraceInfo.assessments),
@@ -5123,18 +5211,45 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .order_by(order_case)
                 .all()
             )
+            trace_infos = [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
+            tracking_store_trace_ids = [
+                trace_info.trace_id
+                for trace_info in trace_infos
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+                == SpansLocation.TRACKING_STORE.value
+            ]
+            tracking_store_span_snapshots, traces_with_cleared_payloads = (
+                self._load_tracking_store_span_snapshots(session, tracking_store_trace_ids)
+            )
+            trace_snapshots = [
+                _TraceReadSnapshot(
+                    trace_info=trace_info,
+                    spans=tracking_store_span_snapshots.get(trace_info.trace_id, []),
+                )
+                for trace_info in trace_infos
+            ]
 
-            traces = []
-            for sql_trace_info in sql_trace_infos:
-                trace_info = sql_trace_info.to_mlflow_entity()
-                # batch_get_traces is depended by search_traces, so we need to return
-                # complete traces only
-                if spans := self._get_spans_with_trace_info(
-                    trace_info, sql_trace_info.spans, allow_partial=False
-                ):
-                    traces.append(Trace(info=trace_info, data=TraceData(spans=spans)))
+        # If archival finalized after we read trace_info but before we loaded spans, reread
+        # metadata so archived traces dispatch to archive storage instead of empty DB payloads.
+        trace_snapshots = [
+            self._refresh_transitioning_trace_snapshot(
+                trace_snapshot,
+                traces_with_cleared_payloads=traces_with_cleared_payloads,
+            )
+            for trace_snapshot in trace_snapshots
+        ]
 
-            return traces
+        traces = []
+        for trace_snapshot in trace_snapshots:
+            trace_info = trace_snapshot.trace_info
+            # batch_get_traces is depended by search_traces, so we need to return
+            # complete traces only.
+            if spans := self._get_spans_with_trace_info(
+                trace_info, trace_snapshot.spans, allow_partial=False
+            ):
+                traces.append(Trace(info=trace_info, data=TraceData(spans=spans)))
+
+        return traces
 
     def batch_get_trace_infos(
         self, trace_ids: list[str], location: str | None = None
@@ -6137,7 +6252,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return _ArchiveNowRemainingState.TERMINAL_FAILURES_ONLY
 
     def _get_spans_with_trace_info(
-        self, trace_info: TraceInfo, spans: list[SqlSpan], allow_partial: bool = True
+        self, trace_info: TraceInfo, spans: list[_TraceSpanSnapshot], allow_partial: bool = True
     ) -> list[Span] | None:
         spans_location = trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
         if spans_location == SpansLocation.ARCHIVE_REPO.value:
@@ -6149,12 +6264,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if spans_location != SpansLocation.TRACKING_STORE.value:
             raise MlflowTracingException("Trace data not stored in tracking store")
 
-        sql_spans = sorted(
+        span_snapshots = sorted(
             spans,
-            key=lambda s: (
+            key=lambda span: (
                 # Root spans come first, then sort by start time
-                0 if s.parent_span_id is None else 1,
-                s.start_time_unix_nano,
+                0 if span.parent_span_id is None else 1,
+                span.start_time_unix_nano,
             ),
         )
         # check whether all spans are logged before returning if not allow partial
@@ -6163,17 +6278,83 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         ):
             trace_stats = json.loads(trace_stats)
             num_spans = trace_stats.get(TraceSizeStatsKey.NUM_SPANS, 0)
-            if len(sql_spans) < num_spans:
+            if len(span_snapshots) < num_spans:
                 _logger.debug(
                     f"Trace {trace_info.trace_id} is not fully exported yet, "
-                    f"expecting {num_spans} spans but got {len(sql_spans)}"
+                    f"expecting {num_spans} spans but got {len(span_snapshots)}"
                 )
                 return
 
         return [
-            Span.from_dict(translate_loaded_span(json.loads(sql_span.content)))
-            for sql_span in sql_spans
+            Span.from_dict(translate_loaded_span(json.loads(span.content)))
+            for span in span_snapshots
         ]
+
+    def _load_tracking_store_span_snapshots(
+        self, session: Session, trace_ids: Iterable[str]
+    ) -> tuple[dict[str, list[_TraceSpanSnapshot]], set[str]]:
+        trace_ids = list(dict.fromkeys(trace_ids))
+        if not trace_ids:
+            return {}, set()
+
+        span_snapshots_by_trace_id: dict[str, list[_TraceSpanSnapshot]] = defaultdict(list)
+        traces_with_cleared_payloads: set[str] = set()
+        rows = (
+            session.query(
+                SqlSpan.trace_id,
+                SqlSpan.content,
+                SqlSpan.parent_span_id,
+                SqlSpan.start_time_unix_nano,
+            )
+            .filter(SqlSpan.trace_id.in_(trace_ids))
+            .all()
+        )
+        for trace_id, content, parent_span_id, start_time_unix_nano in rows:
+            if content == "":
+                traces_with_cleared_payloads.add(trace_id)
+                continue
+            span_snapshots_by_trace_id[trace_id].append(
+                _TraceSpanSnapshot(
+                    content=content,
+                    parent_span_id=parent_span_id,
+                    start_time_unix_nano=start_time_unix_nano,
+                )
+            )
+        return span_snapshots_by_trace_id, traces_with_cleared_payloads
+
+    def _refresh_transitioning_trace_snapshot(
+        self,
+        trace_snapshot: _TraceReadSnapshot,
+        *,
+        traces_with_cleared_payloads: set[str],
+    ) -> _TraceReadSnapshot:
+        """
+        Refresh a DB-backed read snapshot when archival may have finalized mid-read.
+
+        A trace can be observed as TRACKING_STORE in the initial metadata read, then have its
+        span payloads cleared and its tags flipped to ARCHIVE_REPO before the span rows are
+        loaded. When that happens, reread the trace metadata and return an archive-backed
+        snapshot so the caller can fetch spans from the archive repository instead of treating
+        the cleared DB rows as missing data.
+        """
+        trace_info = trace_snapshot.trace_info
+        if (
+            trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != SpansLocation.TRACKING_STORE.value
+            or trace_info.trace_id not in traces_with_cleared_payloads
+        ):
+            return trace_snapshot
+
+        refreshed_trace_info = self.get_trace_info(trace_info.trace_id)
+        if (
+            refreshed_trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+            == SpansLocation.TRACKING_STORE.value
+        ):
+            return trace_snapshot
+
+        return _TraceReadSnapshot(
+            trace_info=refreshed_trace_info,
+            spans=[],
+        )
 
     #######################################################################################
     # Entity Association Methods

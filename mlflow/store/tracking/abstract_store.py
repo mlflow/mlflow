@@ -317,7 +317,7 @@ class AbstractStore(GatewayStoreMixin):
             raise MlflowException.invalid_parameter_value(
                 "Either `max_timestamp_millis` or `trace_ids` must be specified.",
             )
-        if max_timestamp_millis and trace_ids:
+        if max_timestamp_millis is not None and trace_ids:
             raise MlflowException.invalid_parameter_value(
                 "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
             )
