@@ -27,6 +27,7 @@ from openai.types.responses.response_output_text import ResponseOutputText
 from openai.types.responses.response_text_delta_event import ResponseTextDeltaEvent
 
 import mlflow
+from mlflow.entities import SpanType
 from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
 
 from tests.tracing.helper import get_traces, purge_traces
