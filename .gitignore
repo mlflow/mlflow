@@ -143,5 +143,7 @@ gunicorn.conf.py
 !.claude/rules/
 !.claude/scripts/
 !.claude/orchestrator/
+.claude/orchestrator/uv.lock
+.claude/orchestrator/.venv/
 !.claude/settings.json
 !.claude/statusline.sh

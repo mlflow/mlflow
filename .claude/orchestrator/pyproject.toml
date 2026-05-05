@@ -9,6 +9,11 @@ dependencies = [
   "pydantic>=2",
 ]
 
+[project.optional-dependencies]
+test = [
+  "pytest>=8",
+]
+
 [project.scripts]
 mlflow-reviewer = "orchestrator.cli:main"
 
