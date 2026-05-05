@@ -22,7 +22,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.attachments import Attachment
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     build_otel_context,
     decode_id,
@@ -116,14 +116,20 @@ class Span:
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
         self._attachments: dict[str, Attachment] = {}
-        self._links: list["Link"] = [
-            Link(
-                trace_id=f"tr-{otel_link.context.trace_id:032x}",
-                span_id=f"{otel_link.context.span_id:016x}",
-                attributes=dict(otel_link.attributes) if otel_link.attributes else None,
-            )
-            for otel_link in getattr(otel_span, "links", ())
-        ]
+        # Skip materializing links for v4 UC traces since linked trace IDs
+        # cannot be resolved via UC trace APIs yet.
+        request_id = self._attributes.get(SpanAttributeKey.REQUEST_ID)
+        if request_id and request_id.startswith(TRACE_ID_V4_PREFIX):
+            self._links: list["Link"] = []
+        else:
+            self._links: list["Link"] = [
+                Link(
+                    trace_id=f"tr-{otel_link.context.trace_id:032x}",
+                    span_id=f"{otel_link.context.span_id:016x}",
+                    attributes=dict(otel_link.attributes) if otel_link.attributes else None,
+                )
+                for otel_link in getattr(otel_span, "links", ())
+            ]
 
     @cached_property
     def trace_id(self) -> str:
@@ -245,7 +251,14 @@ class Span:
         Returns:
             A list of all links of the span.
         """
-        return list(self._links)
+        return [
+            Link(
+                trace_id=link.trace_id,
+                span_id=link.span_id,
+                attributes=dict(link.attributes) if link.attributes else None,
+            )
+            for link in self._links
+        ]
 
     def __repr__(self):
         return (
@@ -967,7 +980,8 @@ class LiveSpan(Span):
             ) from e
 
         self._links.append(link)
-        self._span.add_link(otel_context, link.attributes)
+        if hasattr(self._span, "add_link"):
+            self._span.add_link(otel_context, link.attributes)
 
     def record_exception(self, exception: str | Exception):
         """
