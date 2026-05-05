@@ -1,5 +1,6 @@
 import copy
 import logging
+from collections.abc import Iterable
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
@@ -60,12 +61,13 @@ def _get_embedding_batch_size(litellm_model: str) -> int:
     return _DEFAULT_EMBEDDING_BATCH_SIZE
 
 
-def _examples_fingerprint(
-    examples: list["dspy.Example"],
+def _generate_fingerprint(
+    examples: Iterable["dspy.Example"],
 ) -> frozenset[tuple[str | None, int | None]]:
-    """Set of (assessment_id, last_update_time_ms) for the resolved examples of a
-    trace. Used to detect whether the in-memory representation of a trace matches
-    its current state.
+    """Set of (assessment_id, last_update_time_ms) for a collection of resolved examples.
+    Used to detect whether the in-memory representation of a trace matches its current
+    state — the same shape applies whether the examples come from a fresh
+    ``trace_to_dspy_example`` call or from in-memory episodic memory filtered by trace_id.
     """
     return frozenset(
         (
@@ -499,25 +501,12 @@ class MemoryAugmentedJudge(Judge):
         return new_judge
 
     def _in_memory_fingerprint(self, trace_id: str) -> frozenset[tuple[str | None, int | None]]:
-        """Fingerprint of the trace as currently represented in episodic memory.
-        Compared against _examples_fingerprint(...) of freshly-resolved examples
-        from the same trace to decide whether the trace needs refreshing.
-        """
-        return frozenset(
-            (
-                getattr(ex, "_assessment_id", None),
-                getattr(ex, "_last_update_time_ms", None),
-            )
-            for ex in self._episodic_memory
-            if getattr(ex, "_trace_id", None) == trace_id
+        return _generate_fingerprint(
+            ex for ex in self._episodic_memory if getattr(ex, "_trace_id", None) == trace_id
         )
 
     def _apply_unalign_inplace(self, trace_ids_to_remove: set[str]) -> None:
-        """Drop episodic examples whose trace_id is in the set, prune their entries
-        from _episodic_trace_ids, and filter semantic guidelines via the same
-        source_trace_ids logic. Mutates self. Does not rebuild the episodic
-        search index — the caller decides when to rebuild.
-        """
+        # Mutates self; does not rebuild the episodic search index (caller's responsibility).
         self._episodic_memory = [
             ex
             for ex in self._episodic_memory
@@ -692,13 +681,11 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 embedding_dim=self._embedding_dim,
             )
 
-            # Dedupe incoming traces by trace_id (handles align(judge, [t, t])).
-            incoming = {trace.info.trace_id: trace for trace in traces}
-
-            # Build resolved examples once per incoming trace; we reuse them for both
-            # change detection and (if not skipped) memory updates.
-            new_examples_by_trace = {
-                tid: trace_to_dspy_example(trace, judge) for tid, trace in incoming.items()
+            # Build resolved examples once per incoming trace; reused for both change
+            # detection and memory updates. Last-write-wins on duplicate trace_ids gives
+            # us in-batch dedup for free (handles align(judge, [t, t])).
+            examples_by_trace = {
+                trace.info.trace_id: trace_to_dspy_example(trace, judge) for trace in traces
             }
 
             # Classify each trace as: skip (identical to memory), refresh (already in
@@ -706,8 +693,8 @@ class MemAlignOptimizer(AlignmentOptimizer):
             trace_ids_to_refresh: set[str] = set()
             examples_to_align: list["dspy.Example"] = []
             skipped_count = 0
-            for tid, examples in new_examples_by_trace.items():
-                new_fp = _examples_fingerprint(examples)
+            for tid, examples in examples_by_trace.items():
+                new_fp = _generate_fingerprint(examples)
                 old_fp = memory_judge._in_memory_fingerprint(tid)
                 if not old_fp:
                     examples_to_align.extend(examples)
@@ -717,21 +704,19 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 else:
                     skipped_count += 1
 
-            # Short-circuit when re-aligning on traces already faithfully represented
-            # in memory (Scenario A: no LM call, no index rebuild). Distinguished
-            # from the "no valid feedback" error case below by skipped_count > 0.
-            if not trace_ids_to_refresh and not examples_to_align and skipped_count > 0:
-                _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
-                return memory_judge
-
-            # Validate before mutating: refusal to retract via re-align is intentional
-            # — users should call unalign() to remove traces from memory.
+            no_valid_feedback_msg = (
+                f"No valid feedback records found in traces. "
+                f"Ensure traces contain human assessments with name '{judge.name}'"
+            )
             if not examples_to_align:
-                raise MlflowException(
-                    f"No valid feedback records found in traces. "
-                    f"Ensure traces contain human assessments with name '{judge.name}'",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+                if trace_ids_to_refresh:
+                    # Refresh produced zero examples — user emptied assessments on a
+                    # trace already in memory. Use unalign(traces=...) to retract.
+                    raise MlflowException(no_valid_feedback_msg, error_code=INVALID_PARAMETER_VALUE)
+                if skipped_count > 0:
+                    _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
+                    return memory_judge
+                raise MlflowException(no_valid_feedback_msg, error_code=INVALID_PARAMETER_VALUE)
 
             if trace_ids_to_refresh:
                 memory_judge._apply_unalign_inplace(trace_ids_to_refresh)
