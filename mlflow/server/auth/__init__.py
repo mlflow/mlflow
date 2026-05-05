@@ -18,6 +18,7 @@ import logging
 import re
 import secrets
 import threading
+from dataclasses import asdict, dataclass
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -198,6 +199,7 @@ from mlflow.server.auth.routes import (
     AJAX_GET_CURRENT_USER,
     AJAX_GET_ROLE,
     AJAX_GET_USER,
+    AJAX_LIST_CURRENT_USER_PERMISSIONS,
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
     AJAX_LIST_ROLES,
@@ -249,6 +251,7 @@ from mlflow.server.auth.routes import (
     GET_USER,
     HOME,
     INVOKE_SCORER,
+    LIST_CURRENT_USER_PERMISSIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
@@ -623,11 +626,18 @@ def _get_resource_workspace(
     resource_id: str,
     fetcher: Callable[[str], Any],
     resource_label: str,
+    silent: bool = False,
 ) -> str | None:
     """
     Get the workspace name for a resource, using a cache to avoid repeated lookups.
 
-    The resource→workspace relationship is immutable, so caching is safe.
+    The resource->workspace relationship is immutable, so caching is safe.
+
+    Args:
+        silent: When True, suppress the lookup-failure warning. Set by
+            non-authorization callers (e.g. listing endpoints) where a
+            ``None`` return is an expected outcome for deleted resources
+            rather than a security-relevant error.
     """
     # Use a cache key that includes the resource_label to avoid collisions between
     # experiments and registered models that might have the same ID/name.
@@ -645,12 +655,13 @@ def _get_resource_workspace(
         resource = fetcher(resource_id)
         workspace_name = getattr(resource, "workspace", None)
     except MlflowException as e:
-        _logger.warning(
-            "Failed to determine workspace for %s '%s': %s. Denying access for security.",
-            resource_label,
-            resource_id,
-            e,
-        )
+        if not silent:
+            _logger.warning(
+                "Failed to determine workspace for %s '%s': %s. Denying access for security.",
+                resource_label,
+                resource_id,
+                e,
+            )
         workspace_name = None
 
     if cache_key is None:
@@ -2001,6 +2012,9 @@ BEFORE_REQUEST_VALIDATORS.update({
     # authenticated user may read it.
     (GET_CURRENT_USER, "GET"): lambda: True,
     (AJAX_GET_CURRENT_USER, "GET"): lambda: True,
+    # Same goes for /current/permissions.
+    (LIST_CURRENT_USER_PERMISSIONS, "GET"): lambda: True,
+    (AJAX_LIST_CURRENT_USER_PERMISSIONS, "GET"): lambda: True,
     (LIST_USERS, "GET"): validate_can_list_users,
     (AJAX_LIST_USERS, "GET"): validate_can_list_users,
     (CREATE_USER, "POST"): validate_can_create_user,
@@ -3206,9 +3220,131 @@ def get_current_user():
     # no way to know *which* user the browser authenticated as. This endpoint
     # returns minimal identity info (no password hash, no permission arrays)
     # for the currently authenticated user.
+    #
+    # ``is_basic_auth`` lets the frontend gate Basic-Auth-only affordances
+    # (the logout XHR trick and the change-password modal) on deployments
+    # that swap in a custom ``authorization_function``.
     username = authenticate_request().username
     user = store.get_user(username)
-    return jsonify({"user": {"id": user.id, "username": user.username, "is_admin": user.is_admin}})
+    is_basic_auth = auth_config.authorization_function == DEFAULT_AUTHORIZATION_FUNCTION
+    return jsonify({
+        "user": {"id": user.id, "username": user.username, "is_admin": user.is_admin},
+        "is_basic_auth": is_basic_auth,
+    })
+
+
+@dataclass
+class _UserDirectPermission:
+    """Wire schema for one row of ``GET /users/current/permissions``."""
+
+    resource_type: str
+    resource_pattern: str
+    permission: str
+    workspace: str | None
+
+
+def _list_user_direct_permissions(username: str) -> list[_UserDirectPermission]:
+    # Returns each grant under ``resource_pattern`` (matching
+    # ``RolePermission``), enriched with the resource's workspace.
+    # ``workspace`` is ``None`` when the resource has been deleted -
+    # ``silent=True`` on the workspace lookup so deleted-resource grants
+    # don't flood logs with security warnings on this listing endpoint.
+    #
+    # Drift risk: this helper iterates ``store.list_*_permissions(username)``
+    # for every resource type. The four id-based listings (experiment,
+    # gateway_*) only filter by ``user_id`` today;
+    # ``list_all_registered_model_permissions`` is the explicit
+    # cross-workspace variant (the workspace-aware
+    # ``list_registered_model_permissions`` would raise on workspaces-enabled
+    # deployments without an active workspace, since ``/account`` is a
+    # global route). If any of the id-based methods gains a workspace filter
+    # in the future, this endpoint will silently break the same way. Follow-up:
+    # add a regression test or runtime assertion that walks every list method
+    # invoked here and proves it works when the active workspace is unset.
+    grants: list[_UserDirectPermission] = [
+        _UserDirectPermission(
+            resource_type="experiment",
+            resource_pattern=p.experiment_id,
+            permission=p.permission,
+            workspace=_get_resource_workspace(
+                p.experiment_id,
+                _get_tracking_store().get_experiment,
+                "experiment",
+                silent=True,
+            ),
+        )
+        for p in store.list_experiment_permissions(username)
+    ]
+    # Use the cross-workspace variant: ``/account`` is a global route
+    # (no ``X-MLFLOW-WORKSPACE`` header), so the active-workspace-aware
+    # ``list_registered_model_permissions`` would raise on
+    # workspaces-enabled deployments. ``list_all_registered_model_permissions``
+    # returns one row per (workspace, model) grant; each carries its own
+    # ``workspace`` value.
+    grants.extend(
+        _UserDirectPermission(
+            resource_type="registered_model",
+            resource_pattern=p.name,
+            permission=p.permission,
+            workspace=p.workspace,
+        )
+        for p in store.list_all_registered_model_permissions(username)
+    )
+    grants.extend(
+        _UserDirectPermission(
+            resource_type="gateway_secret",
+            resource_pattern=p.secret_id,
+            permission=p.permission,
+            workspace=_get_resource_workspace(
+                p.secret_id,
+                lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+                "gateway_secret",
+                silent=True,
+            ),
+        )
+        for p in store.list_gateway_secret_permissions(username)
+    )
+    grants.extend(
+        _UserDirectPermission(
+            resource_type="gateway_endpoint",
+            resource_pattern=p.endpoint_id,
+            permission=p.permission,
+            workspace=_get_resource_workspace(
+                p.endpoint_id,
+                lambda eid: _get_tracking_store().get_gateway_endpoint(endpoint_id=eid),
+                "gateway_endpoint",
+                silent=True,
+            ),
+        )
+        for p in store.list_gateway_endpoint_permissions(username)
+    )
+    grants.extend(
+        _UserDirectPermission(
+            resource_type="gateway_model_definition",
+            resource_pattern=p.model_definition_id,
+            permission=p.permission,
+            workspace=_get_resource_workspace(
+                p.model_definition_id,
+                lambda mdid: _get_tracking_store().get_gateway_model_definition(
+                    model_definition_id=mdid
+                ),
+                "gateway_model_definition",
+                silent=True,
+            ),
+        )
+        for p in store.list_gateway_model_definition_permissions(username)
+    )
+    return grants
+
+
+@catch_mlflow_exception
+def list_current_user_permissions():
+    # Sender == target, no admin gate. Roles + role permissions are exposed
+    # separately via /users/roles/list - the frontend unions both views.
+    username = authenticate_request().username
+    return jsonify({
+        "permissions": [asdict(grant) for grant in _list_user_direct_permissions(username)]
+    })
 
 
 @catch_mlflow_exception
@@ -4035,6 +4171,12 @@ def create_app(app: Flask = app):
         app.add_url_rule(
             rule=rule,
             view_func=get_current_user,
+            methods=["GET"],
+        )
+    for rule in [LIST_CURRENT_USER_PERMISSIONS, AJAX_LIST_CURRENT_USER_PERMISSIONS]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_current_user_permissions,
             methods=["GET"],
         )
     for rule in [UPDATE_USER_PASSWORD, AJAX_UPDATE_USER_PASSWORD]:

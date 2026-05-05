@@ -10,7 +10,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-16T01:41:37.643362469Z"
+exclude-newer = "2026-04-20T04:06:21.793640847Z"
 exclude-newer-span = "P14D"
 
 [options.exclude-newer-package]
@@ -4474,7 +4474,7 @@ requires-dist = [
     { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<10" },
     { name = "kubernetes", marker = "extra == 'extras'" },
     { name = "kubernetes", marker = "extra == 'kubernetes'" },
-    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.25,<=1.2.15" },
+    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.26,<=1.2.15" },
     { name = "matplotlib", specifier = "<4" },
     { name = "mlflow-dbstore", marker = "extra == 'sqlserver'" },
     { name = "mlflow-jfrog-plugin", marker = "extra == 'jfrog'" },

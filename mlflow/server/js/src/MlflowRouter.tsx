@@ -24,6 +24,7 @@ import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tra
 import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/route-defs';
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { getGatewayRouteDefs } from './gateway/route-defs';
+import { getAccountRouteDefs } from './account/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
 import { AssistantProvider, AssistantRouteContextProvider } from './assistant';
@@ -167,8 +168,11 @@ export const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: 
     const isOnGlobalRoute = isRootPath || isGlobalRoute(location.pathname);
 
     if (isOnGlobalRoute) {
-      // Clear active workspace on global routes (workspace selector, settings)
-      if (activeWorkspace) {
+      // The workspace selector (root '/') clears the in-memory active
+      // workspace so the user is in selector mode. Other global routes
+      // (e.g. /account) leave the active workspace alone so navigating
+      // back to a workspace-scoped page resumes in the same workspace.
+      if (isRootPath && activeWorkspace) {
         setActiveWorkspace(null);
       }
       return;
@@ -206,6 +210,7 @@ export const MlflowRouter = () => {
       ...getExperimentTrackingRouteDefs(),
       ...getModelRegistryRouteDefs(),
       ...getGatewayRouteDefs(),
+      ...getAccountRouteDefs(),
       ...getCommonRouteDefs(),
     ],
     [],
