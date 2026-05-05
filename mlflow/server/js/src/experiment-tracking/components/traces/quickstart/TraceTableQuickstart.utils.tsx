@@ -31,6 +31,9 @@ export const PYTHON_FRAMEWORK_OPTIONS: { key: QUICKSTART_FLAVOR; label: string }
 
 export const TS_FRAMEWORK_OPTIONS: { key: string; label: string }[] = [
   { key: 'openai', label: 'OpenAI' },
+  { key: 'anthropic', label: 'Anthropic' },
+  { key: 'gemini', label: 'Gemini' },
+  { key: 'vercel', label: 'Vercel AI SDK' },
   { key: 'custom', label: 'Custom' },
 ];
 
@@ -92,6 +95,49 @@ const response = await client.chat.completions.create({
     { role: 'user', content: "What's the weather like in Seattle?" },
   ],
 });`,
+  },
+  anthropic: {
+    install: 'npm install @mlflow/anthropic @anthropic-ai/sdk',
+    code: `import Anthropic from '@anthropic-ai/sdk';
+import { tracedAnthropic } from '@mlflow/anthropic';
+
+// Wrap the Anthropic client with the tracedAnthropic function
+const client = tracedAnthropic(new Anthropic());
+
+// Invoke the client as usual
+const message = await client.messages.create({
+  model: 'claude-sonnet-4-5',
+  max_tokens: 1024,
+  messages: [{ role: 'user', content: 'Hello, Claude' }],
+});`,
+  },
+  gemini: {
+    install: 'npm install @mlflow/gemini @google/genai',
+    code: `import { GoogleGenAI } from '@google/genai';
+import { tracedGemini } from '@mlflow/gemini';
+
+// Wrap the GoogleGenAI client with the tracedGemini function
+const client = tracedGemini(new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }));
+
+// Invoke the client as usual
+const response = await client.models.generateContent({
+  model: 'gemini-2.5-flash',
+  contents: 'What is the capital of France?',
+});`,
+  },
+  vercel: {
+    install: 'npm install ai @ai-sdk/openai',
+    code: `import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+// Pass experimental_telemetry: { isEnabled: true } to record traces
+const { text } = await generateText({
+  model: openai('gpt-5-nano'),
+  prompt: 'What is MLflow?',
+  experimental_telemetry: { isEnabled: true },
+});
+
+console.log(text);`,
   },
   custom: {
     install: '',
