@@ -4618,7 +4618,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     for attr_key, attr_value in span_attributes.items():
                         if attr_key.startswith(prefix):
                             tag_key = attr_key[len(prefix):]
-                            trace_tags[tag_key] = str(_try_parse_json_string(str(attr_value)))
+                            tag_value = str(_try_parse_json_string(str(attr_value)))
+                            try:
+                                tag_key, tag_value = _validate_trace_tag(tag_key, tag_value)
+                            except Exception:
+                                _logger.debug(
+                                    "Skipping invalid trace tag from OTLP attribute %r", attr_key
+                                )
+                                continue
+                            trace_tags[tag_key] = tag_value
 
             trace_aggregates[trace_id] = _TraceAggregate(
                 min_start_ms=min_start_ms,
