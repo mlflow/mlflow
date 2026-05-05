@@ -6,11 +6,10 @@ MLflow 3.12.0 includes several major features and improvements
 
 ### Major New Features
 
-- **🖼️ Multimodal Tracing**: Users can now store multimodal content in tracing spans as artifact attachments instead of inline binary data.  We've also patched the UI to support the new mlflow-attachment:// style URI, with rich rendering available for PDFs, audio, and images.
+- **🖼️ Multimodal Tracing**: Users can now store multimodal content in tracing spans as artifact attachments instead of inline binary data. We've also patched the UI to support the new mlflow-attachment:// style URI, with rich rendering available for PDFs, audio, and images.
 - **🤖 Codex, Gemini, Qwen coding agent tracing support**: Similar to our Claude Code tracing integration, we've now added support for the Codex, Gemini, and Qwen coding agent platforms as well!
 - **🛡️ Gateway guardrails**: You can now set guardrails on your gateway endpoints to prevent unsafe or non-compliant model inputs and outputs. Try it out in the MLflow UI!
 - **⚡ Trace table pagination**: The traces tab is now paginated, rather than fetching all traces up to a limit of 1000. This improves initial load time, and makes the page feel more responsive overall.
-
 
 ### Breaking Changes
 
