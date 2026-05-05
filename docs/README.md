@@ -37,8 +37,8 @@ This command starts a local development server and opens up a browser window. Mo
 
 In order to build the full MLflow documentation (i.e. the contents of https://mlflow.org/docs/latest/), please follow the following steps:
 
-1. Run `npm run build-api-docs` in order to build the API reference and copy the generated HTML to `static/api_reference`.
-   a. To speed up the build locally, you can run `npm run build-api-docs:no-r` to skip building R documentation
+1. Run `npm run build-api-docs` in order to build the API reference and copy the generated HTML to `static/api_reference`. By default, Java and R API docs are skipped to keep builds lightweight.
+   a. If you need to build Java and R API docs, run `npm run build-api-docs:all`.
 2. Run `npm run convert-notebooks` to convert `.ipynb` files to `.mdx` files. The generated files are git-ignored.
 3. **⚠️ Important!** Run `export DOCS_BASE_URL=/docs/latest` (or wherever the docs are expected to be served). This configures the [Docusaurus baseUrl](https://docusaurus.io/docs/api/docusaurus-config#baseUrl), and the site may not render correctly if this is improperly set.
 4. Finally, run `npm run build`. This generates static files in the `build` directory, which can then be served.

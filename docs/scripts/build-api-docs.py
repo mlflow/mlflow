@@ -8,15 +8,19 @@ import click
 @click.command()
 @click.option("--with-r", "with_r", is_flag=True, default=False, help="Build R documentation")
 @click.option(
+    "--with-java", "with_java", is_flag=True, default=False, help="Build Java documentation"
+)
+@click.option(
     "--with-ts", "with_ts", is_flag=True, default=True, help="Build TypeScript documentation"
 )
-def main(with_r, with_ts):
+def main(with_r, with_java, with_ts):
     try:
         # Run "make rsthtml" in "api_reference" subfolder
         print("Building API reference documentation...")
         subprocess.run(["make", "clean"], check=True, cwd="api_reference")
         subprocess.run(["make", "rsthtml"], check=True, cwd="api_reference")
-        subprocess.run(["make", "javadocs"], check=True, cwd="api_reference")
+        if with_java:
+            subprocess.run(["make", "javadocs"], check=True, cwd="api_reference")
         if with_r:
             subprocess.run(["make", "rdocs"], check=True, cwd="api_reference")
         if with_ts:

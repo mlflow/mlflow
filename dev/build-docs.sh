@@ -14,6 +14,8 @@
 #         - If --build-api-docs is provided, then the API docs are built.
 #         - If --with-r-docs is also provided, the build includes R docs;
 #           otherwise, R docs are skipped.
+#         - If --with-java-docs is also provided, the build includes Java docs;
+#           otherwise, Java docs are skipped.
 #   5. Converts notebooks to MDX.
 #   6. Exports the DOCS_BASE_URL environment variable (default: /docs/latest) so
 #      that Docusaurus uses the proper base URL.
@@ -26,13 +28,15 @@
 #
 # Options:
 #   --build-api-docs        Opt in to build the API docs (default: do not build)
-#   --with-r-docs           When building API docs, include R documentation 
+#   --with-r-docs           When building API docs, include R documentation
 #                           (default: skip R docs)
+#   --with-java-docs        When building API docs, include Java documentation
+#                           (default: skip Java docs)
 #   --docs-base-url URL     Override the default DOCS_BASE_URL (default: /docs/latest)
 #   -h, --help              Display this help message and exit
 #
 # Example:
-#   ./dev/build-docs.sh --build-api-docs --with-r-docs --docs-base-url /docs/latest
+#   ./dev/build-docs.sh --build-api-docs --with-r-docs --with-java-docs --docs-base-url /docs/latest
 # =============================================================================
 
 # Exit immediately if a command exits with a non-zero status,
@@ -62,6 +66,7 @@ log_error()   { echo -e "${BOLD}${RED}[ERROR]${NC} $1"; }
 # -----------------------------------------------------------------------------
 BUILD_API_DOCS=false
 WITH_R_DOCS=false
+WITH_JAVA_DOCS=false
 # Default DOCS_BASE_URL is set as expected when running from within the docs folder.
 # Note: When running from the project root, since we change into docs/,
 # the effective reference becomes: <root>/docs/docs/latest.
@@ -76,13 +81,15 @@ Usage: $0 [options]
 
 Options:
   --build-api-docs        Opt in to build the API docs (default: do not build)
-  --with-r-docs           When building API docs, include R documentation 
+  --with-r-docs           When building API docs, include R documentation
                           (default: skip R docs)
+  --with-java-docs        When building API docs, include Java documentation
+                          (default: skip Java docs)
   --docs-base-url URL     Override the default DOCS_BASE_URL (default: /docs/latest)
   -h, --help              Display this help and exit
 
 Example:
-  $0 --build-api-docs --with-r-docs --docs-base-url /docs/latest
+  $0 --build-api-docs --with-r-docs --with-java-docs --docs-base-url /docs/latest
 EOF
 }
 
@@ -97,6 +104,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --with-r-docs)
       WITH_R_DOCS=true
+      shift
+      ;;
+    --with-java-docs)
+      WITH_JAVA_DOCS=true
       shift
       ;;
     --docs-base-url)
@@ -178,16 +189,20 @@ log_success "Dependencies installed."
 # -----------------------------------------------------------------------------
 # Optionally build the API documentation.
 # This step is opt-in via the --build-api-docs flag.
-# If building API docs, the --with-r-docs flag controls whether R docs are included.
+# If building API docs, --with-r-docs and --with-java-docs control whether R and
+# Java docs are included.
 # -----------------------------------------------------------------------------
 if [ "$BUILD_API_DOCS" = true ]; then
+    API_DOC_FLAGS=()
     if [ "$WITH_R_DOCS" = true ]; then
-        log_info "Building API docs including R documentation..."
-        npm run build-api-docs
-    else
-        log_info "Building API docs without R documentation..."
-        npm run build-api-docs:no-r
+        API_DOC_FLAGS+=("--with-r")
     fi
+    if [ "$WITH_JAVA_DOCS" = true ]; then
+        API_DOC_FLAGS+=("--with-java")
+    fi
+
+    log_info "Building API docs with flags: ${API_DOC_FLAGS[*]:-(none)}"
+    uv run --group docs --with-requirements ../requirements/torch.txt --extra gateway scripts/build-api-docs.py "${API_DOC_FLAGS[@]}"
     log_success "API docs built successfully."
 else
     log_info "Skipping API docs build phase."

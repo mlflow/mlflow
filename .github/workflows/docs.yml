@@ -93,7 +93,7 @@ jobs:
           GTM_ID: "GTM-TEST"
           API_REFERENCE_PREFIX: https://${{ steps.alias.outputs.value }}--mlflow-docs-preview.netlify.app/docs/
         run: |
-          npm run build-all -- --no-r --use-npm
+          npm run build-all -- --use-npm
       - name: Check API inventory
         run: |
           if [ -n "$(git status --porcelain api_reference/api_inventory.txt)" ]; then

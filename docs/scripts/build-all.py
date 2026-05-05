@@ -51,14 +51,11 @@ def build_docs(package_manager, version):
     default=False,
     help="Whether or not to use NPM as a package manager (in case yarn in unavailable)",
 )
+@click.option("--with-r", "with_r", is_flag=True, default=False, help="Build R documentation")
 @click.option(
-    "--no-r",
-    "no_r",
-    is_flag=True,
-    default=False,
-    help="Whether or not to skip building R documentation.",
+    "--with-java", "with_java", is_flag=True, default=False, help="Build Java documentation"
 )
-def main(use_npm, no_r):
+def main(use_npm, with_r, with_java):
     gtm_id = os.environ.get("GTM_ID")
 
     assert gtm_id, (
@@ -66,9 +63,25 @@ def main(use_npm, no_r):
     )
 
     package_manager = ["npm", "run"] if use_npm else ["yarn"]
-    build_command = ["build-api-docs:no-r"] if no_r else ["build-api-docs"]
-
-    subprocess.check_call(package_manager + build_command)
+    if with_r and with_java:
+        subprocess.check_call(package_manager + ["build-api-docs:all"])
+    elif with_r or with_java:
+        api_doc_flags = ["--with-r"] if with_r else ["--with-java"]
+        subprocess.check_call([
+            "uv",
+            "run",
+            "--group",
+            "docs",
+            "--with-requirements",
+            "../requirements/torch.txt",
+            "--extra",
+            "gateway",
+            "scripts/build-api-docs.py",
+            *api_doc_flags,
+        ])
+        subprocess.check_call(package_manager + ["update-api-modules"])
+    else:
+        subprocess.check_call(package_manager + ["build-api-docs"])
     subprocess.check_call(package_manager + ["convert-notebooks"])
 
     output_path = Path("_build")

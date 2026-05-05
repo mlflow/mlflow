@@ -134,8 +134,8 @@ uv run bash dev/run-python-skinny-tests.sh
 # Build documentation site (needs gateway extras for API doc generation)
 uv run --all-extras bash dev/build-docs.sh --build-api-docs
 
-# Build with R docs included
-uv run --all-extras bash dev/build-docs.sh --build-api-docs --with-r-docs
+# Build with R and Java docs included (skipped by default)
+uv run --all-extras bash dev/build-docs.sh --build-api-docs --with-r-docs --with-java-docs
 
 # Serve documentation locally (after building)
 cd docs && npm run serve --port 8080
