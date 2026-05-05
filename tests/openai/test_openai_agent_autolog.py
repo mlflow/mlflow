@@ -558,7 +558,11 @@ async def test_autolog_agent_run_streamed_discarded_result_finalizes_span():
     def _start_and_discard():
         with _patch_stream_response(stream_events):
             result = Runner.run_streamed(agent, "Hello")
-            result.run_loop_task.cancel()
+            # Cancel the background task so it does not keep `result` alive.
+            # Use the public `cancel()` API to stay version-agnostic across
+            # `openai-agents` releases (older versions exposed the task as
+            # `_run_impl_task`, newer ones as `run_loop_task`).
+            result.cancel()
 
     _start_and_discard()
     for _ in range(5):
