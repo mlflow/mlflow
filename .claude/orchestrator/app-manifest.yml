@@ -1,0 +1,38 @@
+# GitHub App registration manifest for mlflow-reviewer.
+#
+# This file is reference documentation, not a script. The App is registered
+# manually once at https://github.com/settings/apps/new (or under the org
+# settings page) using the values below. After registration:
+#
+#   1. Generate a private key in the App settings; store as repo secret
+#      `MLFLOW_REVIEWER_APP_KEY` on mlflow/mlflow.
+#   2. Note the App ID; set as repo variable `MLFLOW_REVIEWER_APP_ID` on
+#      mlflow/mlflow.
+#   3. Install the App on mlflow/mlflow.
+#   4. Add the Anthropic API key as repo secret `ANTHROPIC_API_KEY`.
+#   5. Configure the monthly Anthropic spend cap ($750) in the Anthropic console.
+#   6. Upload a logo for `mlflow-reviewer[bot]` in the App settings.
+#   7. Stack 5 flips the workflow's --dry-run default off.
+
+name: mlflow-reviewer
+slug: mlflow-reviewer  # produces login `mlflow-reviewer[bot]`
+description: |
+  Posts adversarial-checklist code reviews on MLflow PRs. Triggered by a
+  maintainer commenting `/review` (with optional flags `--lite`, `--no-cache`,
+  `--hybrid`).
+url: https://github.com/mlflow/mlflow
+
+# Repository permissions the App requests when installed.
+permissions:
+  # Read PR metadata, diff, file contents.
+  contents: read
+  pull_requests: write   # post inline review comments
+  issues: write          # post the top-level summary comment + reactions
+  metadata: read
+
+# Webhook events the App subscribes to (none for M1; the workflow handles
+# the trigger via issue_comment, not a webhook to a hosted service).
+default_events: []
+
+# The App is installed on a specific repository, not the whole org.
+public: false

@@ -10,13 +10,14 @@ This directory ships incrementally as a stack of PRs.
 
 | Stack | Scope | Status |
 |---|---|---|
-| 1 | Scaffolding: package layout, agent prompts, README. No behavior. | this PR |
-| 2 | Core orchestrator logic + CLI dry-run | future |
-| 3 | GitHub Actions workflow + posting + GitHub App identity | future |
+| 1 | Scaffolding: package layout, agent prompts, README. | landed |
+| 2 | Core orchestrator logic + CLI dry-run | landed |
+| 3 | GitHub Actions workflow + posting + GitHub App identity | this PR |
 | 4 | Helpers-index refresh workflow | future |
 | 5 | Activation: flip dry-run default off, smoke test | future |
 
-Stack 1 introduces the directory and the agent prompts. Nothing runs in CI yet.
+The workflow is wired up but the dry-run default is still on; Stack 5 flips
+`--no-dry-run` to enable posting.
 
 ## Architecture (forward-looking)
 
@@ -90,12 +91,35 @@ ANTHROPIC_API_KEY=sk-... mlflow-reviewer 22962 --dry-run
 
 Emits JSON to stdout instead of posting.
 
-## Production trigger (post-Stack 3)
+## Production trigger
 
 A maintainer comments `/review` on a PR. The workflow at
-`.github/workflows/review.yml` picks up the `issue_comment` event, validates the
-comment author and rate limits, then runs the orchestrator with the bot's GitHub App
-installation token and the Anthropic API key from repo secrets.
+`.github/workflows/mlflow-reviewer.yml` picks up the `issue_comment` event, validates
+the comment author and per-PR rate limit, then runs the orchestrator with the bot's
+GitHub App installation token and the Anthropic API key from repo secrets.
+
+## GitHub App registration (one-time setup)
+
+The bot posts as `mlflow-reviewer[bot]`, a registered GitHub App. To activate:
+
+1. **Register the App.** Go to <https://github.com/settings/apps/new> (or under the
+   org settings page) and use the values from `app-manifest.yml` as a reference.
+   Important fields:
+   - Name: `mlflow-reviewer` (yields login `mlflow-reviewer[bot]`).
+   - Permissions: `contents: read`, `pull_requests: write`, `issues: write`,
+     `metadata: read`.
+   - Webhooks: disabled (the workflow handles the trigger via `issue_comment`).
+2. **Generate a private key.** From the App's settings page, Generate a private key.
+   Add it to the `mlflow/mlflow` repository secrets as `MLFLOW_REVIEWER_APP_KEY`.
+3. **Note the App ID.** Add it as a repository variable named `MLFLOW_REVIEWER_APP_ID`.
+4. **Install the App** on `mlflow/mlflow`.
+5. **Add the Anthropic API key** as repo secret `ANTHROPIC_API_KEY`.
+6. **Configure the monthly Anthropic spend cap** ($750) in the Anthropic console.
+7. **Upload a logo** for the App (1MB, square PNG/JPG); shows up next to bot
+   comments.
+8. **Stack 5 activation.** Once the above is done, the workflow's `--no-dry-run`
+   flag in `.github/workflows/mlflow-reviewer.yml` activates posting. Test on a
+   closed PR or a fork before pointing at live mlflow.
 
 ## Cost model
 

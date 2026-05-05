@@ -46,6 +46,11 @@ from orchestrator.judges import (
     reviewer_opinion_user_message,
     spotter_user_message,
 )
+from orchestrator.posting import (
+    already_reviewed_at_sha,
+    post_inline_comment,
+    post_summary_comment,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -239,6 +244,24 @@ async def run_review(
     github = GitHubClient(repo=config.repo, bot_login=config.bot_login)
 
     pr = github.get_pr_metadata(config.pr_number)
+
+    if not config.no_cache and already_reviewed_at_sha(
+        config.repo, config.pr_number, pr.head_sha, bot_login=config.bot_login
+    ):
+        summary = (
+            f"PR #{pr.number} already reviewed at head_sha={pr.head_sha}; "
+            "skipping. Use --no-cache to force a fresh run."
+        )
+        _logger.info(summary)
+        return ReviewOutput(
+            pr_number=pr.number,
+            head_sha=pr.head_sha,
+            mode=config.mode,
+            posted=[],
+            skipped=[],
+            summary=summary,
+        )
+
     diff = github.get_pr_diff(config.pr_number)
     files = _read_files_at_head(github, pr.changed_paths, pr.head_sha)
     threads = github.get_review_threads(config.pr_number, pr_author=pr.author_login)
@@ -275,6 +298,8 @@ async def run_review(
 
     if config.dry_run:
         _emit_dry_run_json(pr, posted, skipped, summary)
+    else:
+        _post_findings(config.repo, pr, posted, skipped, config.mode.value)
 
     return ReviewOutput(
         pr_number=pr.number,
@@ -284,6 +309,33 @@ async def run_review(
         skipped=skipped,
         summary=summary,
     )
+
+
+def _post_findings(
+    repo: str,
+    pr: PRMetadata,
+    posted: list[FilterDecision],
+    skipped: list[FilterDecision],
+    mode: str,
+) -> None:
+    for decision in posted:
+        try:
+            comment = post_inline_comment(repo, pr.number, pr.head_sha, decision.finding)
+            _logger.info("Posted inline: %s", comment.html_url)
+        except Exception:
+            _logger.exception(
+                "Failed to post inline comment for %s:%s",
+                decision.finding.path,
+                decision.finding.line,
+            )
+    summary_comment = post_summary_comment(
+        repo,
+        pr,
+        posted_count=len(posted),
+        skipped_count=len(skipped),
+        mode=mode,
+    )
+    _logger.info("Posted summary: %s", summary_comment.html_url)
 
 
 def _emit_dry_run_json(
