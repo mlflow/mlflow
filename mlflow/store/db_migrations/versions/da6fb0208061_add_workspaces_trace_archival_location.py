@@ -18,6 +18,15 @@ depends_on = None
 
 
 def upgrade():
+    db_payload_generation_column = sa.Column(
+        "db_payload_generation", sa.Integer(), nullable=False, server_default="0"
+    )
+    if op.get_bind().dialect.name == "sqlite":
+        with op.batch_alter_table("trace_info", schema=None) as batch_op:
+            batch_op.add_column(db_payload_generation_column)
+    else:
+        op.add_column("trace_info", db_payload_generation_column)
+
     with op.batch_alter_table("workspaces", schema=None) as batch_op:
         batch_op.add_column(sa.Column("trace_archival_location", sa.Text(), nullable=True))
         batch_op.add_column(
@@ -26,6 +35,12 @@ def upgrade():
 
 
 def downgrade():
+    if op.get_bind().dialect.name == "sqlite":
+        with op.batch_alter_table("trace_info", schema=None) as batch_op:
+            batch_op.drop_column("db_payload_generation")
+    else:
+        op.drop_column("trace_info", "db_payload_generation")
+
     with op.batch_alter_table("workspaces", schema=None) as batch_op:
         batch_op.drop_column("trace_archival_retention")
         batch_op.drop_column("trace_archival_location")
