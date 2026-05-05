@@ -78,9 +78,9 @@ mlflow.init({
   experimentId: '${experimentId}',
 });`;
 
-export const TS_FRAMEWORK_CODE = {
+export const getTsFrameworkCode = (trackingUri: string, experimentId: string) => ({
   openai: {
-    install: 'npm install @mlflow/openai',
+    install: 'npm install @mlflow/openai openai',
     code: `import { OpenAI } from 'openai';
 import { tracedOpenAI } from '@mlflow/openai';
 
@@ -126,9 +126,25 @@ const response = await client.models.generateContent({
 });`,
   },
   vercel: {
-    install: 'npm install ai @ai-sdk/openai',
-    code: `import { generateText } from 'ai';
+    install:
+      'npm install @mlflow/vercel ai @ai-sdk/openai @opentelemetry/exporter-trace-otlp-proto @opentelemetry/sdk-trace-node',
+    code: `import { MLflowSpanProcessor } from '@mlflow/vercel';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { generateText } from 'ai';
 import { openai } from '@ai-sdk/openai';
+
+const provider = new NodeTracerProvider({
+  spanProcessors: [
+    new MLflowSpanProcessor(
+      new OTLPTraceExporter({
+        url: '${trackingUri}/api/2.0/otel/v1/traces',
+        headers: { 'x-mlflow-experiment-id': '${experimentId}' },
+      }),
+    ),
+  ],
+});
+provider.register();
 
 // Pass experimental_telemetry: { isEnabled: true } to record traces
 const { text } = await generateText({
@@ -162,7 +178,7 @@ const processRequest = mlflow.trace(
 const result = await processRequest("Hello, MLflow!");
 console.log("Processed:", result);`,
   },
-} satisfies Record<string, { install: string; code: string }>;
+} satisfies Record<string, { install: string; code: string }>);
 
 export const QUICKSTART_CONTENT: Record<
   QUICKSTART_FLAVOR,

@@ -14,7 +14,7 @@ import {
   getPythonConnectCode,
   TS_INSTALL_CODE,
   getTsConnectCode,
-  TS_FRAMEWORK_CODE,
+  getTsFrameworkCode,
   OTEL_INSTALL_CODE,
   OTEL_INSTRUMENT_CODE,
   getOtelEnvCode,
@@ -47,7 +47,8 @@ export const TracesViewTableNoTracesQuickstart = ({
   const otelEnvCode = getOtelEnvCode(trackingUri, experimentId || '<experiment-id>');
 
   const pythonCode = QUICKSTART_CONTENT[selectedPythonFramework].getCodeSource();
-  const tsFramework = TS_FRAMEWORK_CODE[selectedTsFramework as keyof typeof TS_FRAMEWORK_CODE];
+  const tsFrameworkCode = getTsFrameworkCode(trackingUri, experimentId || '<experiment-id>');
+  const tsFramework = tsFrameworkCode[selectedTsFramework as keyof typeof tsFrameworkCode];
   const frameworkOptions = language === 'python' ? PYTHON_FRAMEWORK_OPTIONS : TS_FRAMEWORK_OPTIONS;
   const selectedFramework = language === 'python' ? selectedPythonFramework : selectedTsFramework;
 
