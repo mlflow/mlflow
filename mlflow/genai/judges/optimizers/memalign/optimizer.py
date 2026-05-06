@@ -520,10 +520,7 @@ class MemoryAugmentedJudge(Judge):
         # remove set, or if it has no recorded sources (user-provided guidelines).
         # A cross-trace guideline aggregates signal from each of its source traces,
         # so refreshing one source doesn't invalidate the signal that came from the
-        # others. The tradeoff is that the guideline's text may briefly reflect a
-        # now-stale version of one source, but that staleness is recoverable on the
-        # next align() round (the LM re-distills from the refreshed examples),
-        # whereas signal lost by over-aggressive dropping is not.
+        # others.
         self._semantic_memory = [
             g
             for g in self._semantic_memory
