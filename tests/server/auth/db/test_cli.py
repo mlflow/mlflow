@@ -20,22 +20,16 @@ def test_upgrade(tmp_path: Path) -> None:
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = cursor.fetchall()
 
-    # The legacy per-resource permission tables are created by earlier migrations
-    # and intentionally retained by ``e5f6a7b8c9d0`` so operators can still roll
-    # back without restoring from backup. A future migration will drop them.
+    # The legacy per-resource permission tables were retained by ``e5f6a7b8c9d0``
+    # for rollback safety and dropped by ``f6a7b8c9d0e1_drop_legacy_permission_tables``.
+    # Post-graduation, only the role_permissions / role / user-assignment tables
+    # remain alongside the alembic version + users tables.
     assert sorted(tables) == sorted([
         ("alembic_version_auth",),
         ("users",),
         ("roles",),
         ("role_permissions",),
         ("user_role_assignments",),
-        ("experiment_permissions",),
-        ("registered_model_permissions",),
-        ("scorer_permissions",),
-        ("gateway_secret_permissions",),
-        ("gateway_endpoint_permissions",),
-        ("gateway_model_definition_permissions",),
-        ("workspace_permissions",),
     ])
 
 
@@ -65,16 +59,16 @@ def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
     assert "user_role_assignments" in tables
     assert "experiments" in tables
     assert "runs" in tables
-    # Legacy per-resource permission tables are intentionally retained by the
-    # ``e5f6a7b8c9d0`` migration so operators can still roll back without
-    # restoring from backup.
-    assert "experiment_permissions" in tables
-    assert "registered_model_permissions" in tables
-    assert "scorer_permissions" in tables
-    assert "gateway_secret_permissions" in tables
-    assert "gateway_endpoint_permissions" in tables
-    assert "gateway_model_definition_permissions" in tables
-    assert "workspace_permissions" in tables
+    # Legacy per-resource permission tables are dropped by
+    # ``f6a7b8c9d0e1_drop_legacy_permission_tables`` after the simplified RBAC
+    # model has bedded in.
+    assert "experiment_permissions" not in tables
+    assert "registered_model_permissions" not in tables
+    assert "scorer_permissions" not in tables
+    assert "gateway_secret_permissions" not in tables
+    assert "gateway_endpoint_permissions" not in tables
+    assert "gateway_model_definition_permissions" not in tables
+    assert "workspace_permissions" not in tables
 
 
 def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
@@ -138,14 +132,12 @@ def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
     assert "roles" in tables
     assert "role_permissions" in tables
     assert "user_role_assignments" in tables
-    # Legacy tables are intentionally retained by ``e5f6a7b8c9d0`` so operators
-    # can still roll back without restoring from backup. A future migration
-    # will drop them once the simplified RBAC model has bedded in.
-    assert "experiment_permissions" in tables
-    assert "scorer_permissions" in tables
-    assert "registered_model_permissions" in tables
-    assert "workspace_permissions" in tables
-    assert version[0] == "e5f6a7b8c9d0"
+    # Legacy tables are dropped by ``f6a7b8c9d0e1_drop_legacy_permission_tables``.
+    assert "experiment_permissions" not in tables
+    assert "scorer_permissions" not in tables
+    assert "registered_model_permissions" not in tables
+    assert "workspace_permissions" not in tables
+    assert version[0] == "f6a7b8c9d0e1"
     assert user == ("testuser", 1)
 
 
@@ -438,11 +430,19 @@ def test_upgrade_then_downgrade_then_upgrade_is_idempotent(tmp_path: Path) -> No
         )
         conn.commit()
 
-    # Snapshot legacy state pre-upgrade so we can verify it survives.
+    # Snapshot legacy state pre-upgrade so we can verify it survives the
+    # backfill (before the drop migration retires the tables).
     legacy_snapshot = _snapshot_legacy_tables(db)
 
-    # First upgrade.
-    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    # First upgrade — pin to the backfill revision (NOT ``head``) so the
+    # legacy tables still exist for the rollback-contract assertions below.
+    # ``f6a7b8c9d0e1_drop_legacy_permission_tables`` drops them at head; that
+    # path is exercised by ``test_drop_migration_removes_legacy_tables``.
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "e5f6a7b8c9d0"],
+        catch_exceptions=False,
+    )
     assert res.exit_code == 0, res.output
     rp_after_first_upgrade = _snapshot_role_permissions(db)
     assert rp_after_first_upgrade, "first upgrade produced no role_permissions rows"
@@ -471,8 +471,13 @@ def test_upgrade_then_downgrade_then_upgrade_is_idempotent(tmp_path: Path) -> No
     # Legacy contents survive the downgrade — that's the rollback contract.
     assert _snapshot_legacy_tables(db) == legacy_snapshot
 
-    # Re-run upgrade. Output must match the first run row-for-row.
-    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    # Re-run upgrade (still pinned to the backfill revision). Output must match
+    # the first run row-for-row.
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "e5f6a7b8c9d0"],
+        catch_exceptions=False,
+    )
     assert res.exit_code == 0, res.output
     assert _snapshot_role_permissions(db) == rp_after_first_upgrade
 
@@ -517,3 +522,58 @@ def _snapshot_legacy_tables(db: Path) -> dict[str, list[tuple[object, ...]]]:
             cursor.execute(query)
             snapshot[table] = cursor.fetchall()
     return snapshot
+
+
+def test_drop_migration_removes_legacy_tables(tmp_path: Path) -> None:
+    """``f6a7b8c9d0e1_drop_legacy_permission_tables`` is the graduation step
+    for the simplification migration: once the simplified RBAC model has bedded
+    in (target: MLflow 3.X+2 — see #23087), the seven retained pre-RBAC tables
+    are dropped. Pin the upgrade-then-downgrade contract:
+
+    - Upgrading to ``f6a7b8c9d0e1`` removes every legacy table from the schema.
+    - Downgrading rebuilds the schemas (so older revisions remain
+      introspectable) but does **not** restore the row data — the contract is
+      "no rollback after this point without restoring from backup."
+    """
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables_after_upgrade = {t[0] for t in cursor.fetchall()}
+        cursor.execute("SELECT version_num FROM alembic_version_auth;")
+        version_after_upgrade = cursor.fetchone()[0]
+
+    legacy_tables = {
+        "experiment_permissions",
+        "registered_model_permissions",
+        "scorer_permissions",
+        "gateway_secret_permissions",
+        "gateway_endpoint_permissions",
+        "gateway_model_definition_permissions",
+        "workspace_permissions",
+    }
+    assert tables_after_upgrade.isdisjoint(legacy_tables)
+    assert version_after_upgrade == "f6a7b8c9d0e1"
+
+    # Downgrade to the previous revision rebuilds the table schemas but with
+    # no row data — operators rolling back here must restore from backup if
+    # they need the original grants.
+    _alembic_downgrade(db_url, "e5f6a7b8c9d0")
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables_after_downgrade = {t[0] for t in cursor.fetchall()}
+        legacy_row_counts = {
+            table: cursor.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in legacy_tables
+        }
+
+    assert legacy_tables.issubset(tables_after_downgrade)
+    assert all(count == 0 for count in legacy_row_counts.values())

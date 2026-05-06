@@ -55,36 +55,13 @@ from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_password, _validate_username
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-# Pre-RBAC permission tables retained on disk by
-# ``e5f6a7b8c9d0_migrate_permissions_to_roles``. The runtime no longer reads or
-# writes these tables — they exist solely so operators can roll back the
-# simplification migration without restoring from backup. Their FKs to
-# ``users.id`` are non-cascading from earlier migrations
-# (``8606fa83a998_initial_migration``), so ``delete_user`` must scrub the user's
-# rows here before deleting the user row itself.
-#
-# GRADUATION LEVER. When the drop migration
-# (``f6a7b8c9d0e1_drop_legacy_permission_tables``, scheduled for MLflow 3.X+2 —
-# tracking: https://github.com/mlflow/mlflow/issues/23087) lands and removes
-# these tables from the schema, this tuple becomes ``()`` and the loop in
-# ``delete_user`` below becomes a no-op. The graduation PR should:
-#   1. Add ``f6a7b8c9d0e1_drop_legacy_permission_tables`` that ``op.drop_table``s
-#      every entry in this tuple.
-#   2. Set this tuple to ``()`` (or remove the constant + loop entirely).
-#   3. Update ``test_auth_and_tracking_store_coexist`` and
-#      ``test_upgrade_from_legacy_database`` to assert the tables are absent
-#      post-upgrade.
-#   4. Drop ``test_delete_user_clears_retained_legacy_permission_rows`` —
-#      cleanup-by-cascade is sufficient once the legacy FKs are gone.
-_RETAINED_LEGACY_PERMISSION_TABLES: tuple[str, ...] = (
-    "experiment_permissions",
-    "registered_model_permissions",
-    "scorer_permissions",
-    "gateway_secret_permissions",
-    "gateway_endpoint_permissions",
-    "gateway_model_definition_permissions",
-    "workspace_permissions",
-)
+# Pre-RBAC permission tables were retained on disk by ``e5f6a7b8c9d0`` for
+# rollback safety and dropped by ``f6a7b8c9d0e1_drop_legacy_permission_tables``
+# once the simplified RBAC model had bedded in. Tuple kept as an empty constant
+# so ``delete_user``'s loop remains explicit (and remains a no-op for any future
+# legacy-table additions that need transient cleanup); it can be removed
+# entirely whenever the surrounding code is next touched.
+_RETAINED_LEGACY_PERMISSION_TABLES: tuple[str, ...] = ()
 
 
 class SqlAlchemyStore:
@@ -204,10 +181,11 @@ class SqlAlchemyStore:
             synthetic_name = self._synthetic_user_role_name(user.id)
             for role in session.query(SqlRole).filter(SqlRole.name == synthetic_name).all():
                 session.delete(role)
-            # Scrub the user's rows from the retained legacy permission tables.
-            # See ``_RETAINED_LEGACY_PERMISSION_TABLES`` (top of module) for why
-            # this loop exists and the steps to retire it once the drop migration
-            # ships. When that constant is empty, this is a no-op.
+            # ``_RETAINED_LEGACY_PERMISSION_TABLES`` is empty post-graduation
+            # (``f6a7b8c9d0e1_drop_legacy_permission_tables`` retired the legacy
+            # tables that this loop used to scrub). Loop kept as a no-op so the
+            # call site stays explicit; can be removed wholesale next time this
+            # function is touched.
             for table in _RETAINED_LEGACY_PERMISSION_TABLES:
                 session.execute(
                     text(f"DELETE FROM {table} WHERE user_id = :uid"),
