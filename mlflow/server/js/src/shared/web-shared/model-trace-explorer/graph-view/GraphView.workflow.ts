@@ -79,6 +79,25 @@ function getBaseAggregationKey(span: ModelTraceSpanNode): string {
 }
 
 /**
+ * Gets a unique scope key for a boundary node. Uses boundary attribute values
+ * (e.g. entity.name, graph.node.id) when available for semantic identity,
+ * falling back to the span's unique key (span ID) to guarantee uniqueness.
+ * This prevents same-named sibling boundary nodes from sharing a scope.
+ */
+function getBoundaryScopeKey(span: ModelTraceSpanNode): string {
+  const attrs = span.attributes;
+  if (attrs && !Array.isArray(attrs)) {
+    for (const attrKey of BOUNDARY_ATTRIBUTE_KEYS) {
+      const val = attrs[attrKey];
+      if (val != null) {
+        return `${getBaseAggregationKey(span)}[${String(val)}]`;
+      }
+    }
+  }
+  return `${getBaseAggregationKey(span)}[${span.key}]`;
+}
+
+/**
  * Detects cycles via iterative DFS and marks cycle-causing edges as back-edges.
  * Uses the standard white/gray/black coloring: an edge to a gray (in-stack)
  * node is a back-edge. After this runs, the remaining forward edges form a DAG.
@@ -398,8 +417,9 @@ function buildWorkflowGraph(
 
     if (node.children) {
       // If this node is a framework-defined boundary, it becomes the new scope
-      // for children. Otherwise, pass through the current scope unchanged.
-      const childScope = isNodeBoundary(node) ? key : scopeKey;
+      // for children. Uses a unique scope key (incorporating span ID or boundary
+      // attributes) so same-named sibling boundaries create distinct scopes.
+      const childScope = isNodeBoundary(node) ? getBoundaryScopeKey(node) : scopeKey;
       for (const child of node.children) {
         assignKeys(child, childScope);
       }
@@ -409,7 +429,7 @@ function buildWorkflowGraph(
   const rootKey = getBaseAggregationKey(rootNode);
   spanKeyMap.set(rootNode, rootKey);
   if (rootNode.children) {
-    const rootScope = isNodeBoundary(rootNode) ? rootKey : null;
+    const rootScope = isNodeBoundary(rootNode) ? getBoundaryScopeKey(rootNode) : null;
     for (const child of rootNode.children) {
       assignKeys(child, rootScope);
     }

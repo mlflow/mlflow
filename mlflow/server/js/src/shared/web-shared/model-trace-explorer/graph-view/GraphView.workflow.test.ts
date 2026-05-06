@@ -200,4 +200,53 @@ describe('computeWorkflowLayout', () => {
     // llm under root_agent and llm under sub_agent should be separate
     expect(llmNodes).toHaveLength(2);
   });
+
+  it('separates children under same-named sibling AGENT parents', () => {
+    // Root -> [AgentA, AgentB] both named "subagent" with different keys
+    // Each has a child "llm" — they should NOT be merged
+    const root = makeSpan({ title: 'orchestrator', type: 'UNKNOWN', start: 0 }, [
+      makeSpan({ title: 'subagent', type: 'AGENT', key: 'agent-1', start: 10 }, [
+        makeSpan({ title: 'llm', type: 'LLM', key: 'llm1', start: 15 }),
+      ]),
+      makeSpan({ title: 'subagent', type: 'AGENT', key: 'agent-2', start: 20 }, [
+        makeSpan({ title: 'llm', type: 'LLM', key: 'llm2', start: 25 }),
+      ]),
+    ]);
+
+    const layout = computeWorkflowLayout(root);
+    const llmNodes = layout.nodes.filter((n) => n.displayName === 'llm');
+    expect(llmNodes).toHaveLength(2);
+    expect(llmNodes[0].count).toBe(1);
+    expect(llmNodes[1].count).toBe(1);
+  });
+
+  it('separates children under same-named boundaries with different attribute values', () => {
+    // Two boundaries with same type/name but different entity.name values
+    const root = makeSpan({ title: 'root', type: 'UNKNOWN', start: 0 }, [
+      makeSpan(
+        {
+          title: 'worker',
+          type: 'UNKNOWN',
+          key: 'w1',
+          start: 10,
+          attributes: { 'entity.name': 'worker-alpha' },
+        },
+        [makeSpan({ title: 'llm', type: 'LLM', key: 'llm1', start: 15 })],
+      ),
+      makeSpan(
+        {
+          title: 'worker',
+          type: 'UNKNOWN',
+          key: 'w2',
+          start: 20,
+          attributes: { 'entity.name': 'worker-beta' },
+        },
+        [makeSpan({ title: 'llm', type: 'LLM', key: 'llm2', start: 25 })],
+      ),
+    ]);
+
+    const layout = computeWorkflowLayout(root);
+    const llmNodes = layout.nodes.filter((n) => n.displayName === 'llm');
+    expect(llmNodes).toHaveLength(2);
+  });
 });
