@@ -70,7 +70,7 @@ await mlflow.withSpan(
 </Tabs>
 </TabsWrapper>
 
-## Defaults
+## Default Log Level
 
 Every span, whether created manually or by an autolog integration (`mlflow.openai.autolog()`, `mlflow.langchain.autolog()`, etc.), is assigned a default level based on its span type. This ensures the verbosity filter works out of the box without you annotating anything. The default is applied in the span constructor, and can be overridden by passing an explicit `log_level` keyword argument.
 
@@ -104,7 +104,7 @@ The existing **Show all parent spans** and **Show exceptions** toggles still app
 
 Some spans may not have an `mlflow.spanLogLevel` attribute. This can happen for traces logged before span log levels were introduced, or for spans produced by third-party tracers that do not assign a level. The UI treats these spans as `DEBUG`, so they remain visible at the default threshold. Raising the threshold to `INFO` or higher hides them along with other `DEBUG` spans. To make a specific span visible again, you can explicitly set its level using `set_log_level`.
 
-## Related
+## API References
 
 - <APILink fn="mlflow.entities.SpanLogLevel" /> — the level enum.
 - <APILink fn="mlflow.start_span" /> / <APILink fn="mlflow.start_span_no_context" /> / <APILink fn="mlflow.trace" /> — public APIs that accept the `log_level` kwarg.
