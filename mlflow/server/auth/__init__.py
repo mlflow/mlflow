@@ -203,6 +203,7 @@ from mlflow.server.auth.routes import (
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
     AJAX_LIST_ROLES,
+    AJAX_LIST_USER_PERMISSIONS,
     AJAX_LIST_USER_ROLES,
     AJAX_LIST_USERS,
     AJAX_REMOVE_ROLE_PERMISSION,
@@ -255,6 +256,7 @@ from mlflow.server.auth.routes import (
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
+    LIST_USER_PERMISSIONS,
     LIST_USER_ROLES,
     LIST_USER_WORKSPACE_PERMISSIONS,
     LIST_USERS,
@@ -2092,6 +2094,11 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_UNASSIGN_ROLE, "DELETE"): validate_can_manage_roles,
     (LIST_USER_ROLES, "GET"): validate_can_view_user_roles,
     (AJAX_LIST_USER_ROLES, "GET"): validate_can_view_user_roles,
+    # Same authorization shape as ``LIST_USER_ROLES``: super admins
+    # bypass; self can view their own grants; workspace admins can
+    # view grants for users in workspaces they administer.
+    (LIST_USER_PERMISSIONS, "GET"): validate_can_view_user_roles,
+    (AJAX_LIST_USER_PERMISSIONS, "GET"): validate_can_view_user_roles,
     (LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
     (AJAX_LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
 })
@@ -3348,6 +3355,24 @@ def list_current_user_permissions():
 
 
 @catch_mlflow_exception
+def list_user_permissions():
+    # Admin / self / workspace-admin-of-target view of one user's direct
+    # grants. Mirrors ``list_user_roles``'s response-scoping: workspace
+    # admins see only grants whose ``workspace`` they administer; super
+    # admins and the user themselves see everything.
+    username = _get_request_param("username")
+    grants = _list_user_direct_permissions(username)
+
+    requester = authenticate_request().username
+    requester_user = store.get_user(requester)
+    if not (requester_user.is_admin or requester == username):
+        admin_workspaces = store.list_workspace_admin_workspaces(requester_user.id)
+        grants = [g for g in grants if g.workspace in admin_workspaces]
+
+    return jsonify({"permissions": [asdict(g) for g in grants]})
+
+
+@catch_mlflow_exception
 def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
@@ -4177,6 +4202,12 @@ def create_app(app: Flask = app):
         app.add_url_rule(
             rule=rule,
             view_func=list_current_user_permissions,
+            methods=["GET"],
+        )
+    for rule in [LIST_USER_PERMISSIONS, AJAX_LIST_USER_PERMISSIONS]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_user_permissions,
             methods=["GET"],
         )
     for rule in [UPDATE_USER_PASSWORD, AJAX_UPDATE_USER_PASSWORD]:
