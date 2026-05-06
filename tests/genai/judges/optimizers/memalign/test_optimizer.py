@@ -902,5 +902,30 @@ def test_realign_with_all_empty_assessments_raises(sample_judge, sample_traces):
                 )
         refreshed = [_refresh(t) for t in sample_traces[:3]]
 
-        with pytest.raises(MlflowException, match="No valid feedback records found"):
+        with pytest.raises(MlflowException, match="Cannot retract feedback"):
             optimizer.align(judge_v1, refreshed)
+
+
+def test_realign_with_partial_empty_assessments_raises(sample_judge, sample_traces):
+    # Even when some incoming traces are valid, any trace whose previously-aligned
+    # assessments have been emptied must block the entire call — retractions go
+    # through unalign(), not through a side-effect of align().
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        v1_trace_ids = set(judge_v1._episodic_trace_ids)
+        v1_episodic_count = len(judge_v1._episodic_memory)
+
+        target = sample_traces[0]
+        for assessment in target.info.assessments:
+            mlflow.delete_assessment(
+                trace_id=target.info.trace_id, assessment_id=assessment.assessment_id
+            )
+        emptied = _refresh(target)
+
+        with pytest.raises(MlflowException, match="Cannot retract feedback"):
+            optimizer.align(judge_v1, [emptied, sample_traces[1], sample_traces[3]])
+
+        # No state mutation on the prior judge.
+        assert set(judge_v1._episodic_trace_ids) == v1_trace_ids
+        assert len(judge_v1._episodic_memory) == v1_episodic_count

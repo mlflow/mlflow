@@ -688,15 +688,22 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 trace.info.trace_id: trace_to_dspy_example(trace, judge) for trace in traces
             }
 
-            # Classify each trace as: skip (identical to memory), refresh (already in
-            # memory but content/assessments changed), or new (not in memory).
+            # Classify each trace as: emptied-from-memory (retraction attempt),
+            # skip (identical to memory), refresh (in memory but assessments changed),
+            # or new (not in memory).
+            trace_ids_with_empty_assessments: set[str] = set()
             trace_ids_to_refresh: set[str] = set()
             examples_to_align: list["dspy.Example"] = []
             skipped_count = 0
             for tid, examples in examples_by_trace.items():
                 new_fp = _generate_fingerprint(examples)
                 old_fp = memory_judge._in_memory_fingerprint(tid)
-                if not old_fp:
+                if not examples and old_fp:
+                    # Trace was previously aligned and now has zero resolvable
+                    # assessments — block the call regardless of what other traces
+                    # are doing. Retraction goes through unalign(), not align().
+                    trace_ids_with_empty_assessments.add(tid)
+                elif not old_fp:
                     examples_to_align.extend(examples)
                 elif old_fp != new_fp:
                     trace_ids_to_refresh.add(tid)
@@ -704,19 +711,24 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 else:
                     skipped_count += 1
 
-            no_valid_feedback_msg = (
-                f"No valid feedback records found in traces. "
-                f"Ensure traces contain human assessments with name '{judge.name}'"
-            )
+            if trace_ids_with_empty_assessments:
+                raise MlflowException(
+                    f"Cannot retract feedback by re-aligning with empty assessments. "
+                    f"{len(trace_ids_with_empty_assessments)} trace(s) had their human "
+                    f"assessments removed: {sorted(trace_ids_with_empty_assessments)}. "
+                    f"Use unalign(traces=...) to remove traces from memory.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
             if not examples_to_align:
-                if trace_ids_to_refresh:
-                    # Refresh produced zero examples — user emptied assessments on a
-                    # trace already in memory. Use unalign(traces=...) to retract.
-                    raise MlflowException(no_valid_feedback_msg, error_code=INVALID_PARAMETER_VALUE)
                 if skipped_count > 0:
                     _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
                     return memory_judge
-                raise MlflowException(no_valid_feedback_msg, error_code=INVALID_PARAMETER_VALUE)
+                raise MlflowException(
+                    f"No valid feedback records found in traces. "
+                    f"Ensure traces contain human assessments with name '{judge.name}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
             if trace_ids_to_refresh:
                 memory_judge._apply_unalign_inplace(trace_ids_to_refresh)
