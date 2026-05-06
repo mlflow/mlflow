@@ -17,6 +17,7 @@ import type {
 // ``./hooks``. The canonical home is account/hooks.
 export {
   useCurrentUserIsAdmin,
+  useCurrentUserIsWorkspaceAdmin,
   useCurrentUserQuery,
   useIsAuthAvailable,
   useIsBasicAuth,
@@ -108,12 +109,17 @@ export const useUpdateAdmin = () => {
 };
 
 // Role queries and mutations
-export const useRolesQuery = (workspace?: string) => {
+export const useRolesQuery = (workspace?: string, options: { enabled?: boolean } = {}) => {
   return useQuery({
     queryKey: [...AdminQueryKeys.roles, workspace],
     queryFn: () => AdminApi.listRoles(workspace),
     retry: false,
     refetchOnWindowFocus: false,
+    // Default-on. Callers pass ``enabled: false`` to skip the request when
+    // they know it would 403 (e.g. a workspace admin without an active
+    // workspace selected — ``validate_can_list_roles`` rejects unscoped
+    // requests for non-platform-admins).
+    enabled: options.enabled !== false,
   });
 };
 

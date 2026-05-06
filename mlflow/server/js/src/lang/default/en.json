@@ -5311,6 +5311,10 @@
     "defaultMessage": "Ground truth values annotated to the trace",
     "description": "Tooltip description for the Expectation column group in the traces table"
   },
+  "UsvDLH": {
+    "defaultMessage": "Select a workspace",
+    "description": "Roles tab empty state shown to workspace admins without an active workspace"
+  },
   "UtUq/x": {
     "defaultMessage": "Registered models",
     "description": "Header title for the registered models column in the logged model list table"
@@ -5978,6 +5982,10 @@
   "Yhydp3": {
     "defaultMessage": "Relevance",
     "description": "Evaluation results > known type of evaluation result assessment > relevance assessment. Used to indicate if the result is relevant to query in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Relevance: moderate\""
+  },
+  "YjUyVr": {
+    "defaultMessage": "Pick a workspace from the workspace selector to see roles you can manage.",
+    "description": "Roles tab empty state body when no workspace is selected"
   },
   "YkcoeV": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",

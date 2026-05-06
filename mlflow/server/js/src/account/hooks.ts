@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { AccountApi } from './api';
+import { isWorkspaceAdminRole } from './types';
 import type { UpdatePasswordRequest } from './types';
 
 export const useCurrentUserQuery = () => {
@@ -14,6 +16,20 @@ export const useCurrentUserQuery = () => {
 export const useCurrentUserIsAdmin = () => {
   const { data } = useCurrentUserQuery();
   return Boolean(data?.user?.is_admin);
+};
+
+/**
+ * True when the current user holds a workspace-admin role
+ * (``(workspace, *, MANAGE)``) in at least one workspace. Composes
+ * existing self-authorized queries; no new endpoint required. Returns
+ * false while the queries are still loading so auth-gated UI doesn't
+ * flash visible before we know the answer.
+ */
+export const useCurrentUserIsWorkspaceAdmin = (): boolean => {
+  const { data: currentUser } = useCurrentUserQuery();
+  const username = currentUser?.user?.username ?? '';
+  const { data: rolesData } = useUserRolesQuery(username);
+  return useMemo(() => (rolesData?.roles ?? []).some(isWorkspaceAdminRole), [rolesData]);
 };
 
 /**

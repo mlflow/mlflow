@@ -29,7 +29,12 @@ import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import AccountRoutes from '../../account/routes';
 import AdminRoutes from '../../admin/routes';
-import { useCurrentUserIsAdmin, useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
+import {
+  useCurrentUserIsAdmin,
+  useCurrentUserIsWorkspaceAdmin,
+  useCurrentUserQuery,
+  useIsBasicAuth,
+} from '../../account/hooks';
 import { performLogout } from '../../account/auth-utils';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
@@ -142,7 +147,13 @@ export function MlflowSidebar({
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
 
+  // Show the Manage entry to platform admins AND to workspace admins
+  // (users holding ``(workspace, *, MANAGE)`` in any workspace). Both
+  // groups can use the /admin page; backend validators handle the
+  // scoped behavior beyond that.
   const isAdmin = useCurrentUserIsAdmin();
+  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
+  const canManage = isAdmin || isWorkspaceAdmin;
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -532,7 +543,7 @@ export function MlflowSidebar({
                   >
                     <FormattedMessage defaultMessage="Account" description="Sidebar account menu item" />
                   </DropdownMenu.Item>
-                  {isAdmin && (
+                  {canManage && (
                     <DropdownMenu.Item
                       componentId="mlflow.sidebar.manage"
                       onPointerDown={() => {
