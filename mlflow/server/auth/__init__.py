@@ -1466,8 +1466,19 @@ def validate_can_read_user():
 
 
 def validate_can_list_users():
-    # only admins can list all users, but admins won't reach this validator
-    return False
+    """
+    Authorization for the ``/mlflow/users/list`` endpoint. Platform admins always
+    pass (handled by ``_before_request``). Workspace admins (users holding
+    ``(workspace, *, MANAGE)`` in at least one workspace) are also allowed: the
+    ``users`` payload (``id``, ``username``, ``is_admin``) carries no per-workspace
+    data, and workspace admins need to see all usernames so they can assign
+    outside users to roles in the workspaces they manage.
+    """
+    username = authenticate_request().username
+    user = store.get_user(username)
+    if user.is_admin:
+        return True
+    return bool(store.list_workspace_admin_workspaces(user.id))
 
 
 def validate_can_create_user():

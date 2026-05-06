@@ -2131,6 +2131,28 @@ def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_
         assert auth_module.validate_can_list_roles() is False
 
 
+@pytest.mark.parametrize(
+    ("actor", "expected"),
+    [
+        # Super admin always passes — also bypasses _before_request in production,
+        # but we exercise the validator's defensive `is_admin` short-circuit here.
+        ("super_admin", True),
+        # Workspace admins (in any workspace) need to see all usernames so they
+        # can grant roles to outsiders into the workspaces they manage.
+        ("ws_admin_foo", True),
+        ("ws_admin_bar", True),
+        # A bare member of a workspace is not a workspace admin.
+        ("ws_member_foo", False),
+        # A user with no presence anywhere stays denied.
+        ("outsider", False),
+    ],
+)
+def test_validate_can_list_users(role_auth_setup, actor, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        assert auth_module.validate_can_list_users() is expected
+
+
 def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup):
     # A user can always read their own role list, even one with no roles.
     # Using ``outsider`` (zero roles) exercises the self-short-circuit without
