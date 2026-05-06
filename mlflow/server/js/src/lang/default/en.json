@@ -2247,6 +2247,10 @@
     "defaultMessage": "You have <strong>{unsyncedDataEntriesCount}</strong> unsaved evaluated {unsyncedDataEntriesCount, plural, =1 {value} other {values}}. Click \"Save\" button or press {keyCombination} keys to synchronize the artifact data.",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > pending changes indicator"
   },
+  "BXkADi": {
+    "defaultMessage": "Install the OpenTelemetry SDK and instrument your application. Spans will be exported to MLflow via OTLP using the env vars set above.",
+    "description": "Step 2 description for OpenTelemetry traces onboarding"
+  },
   "BY1k4W": {
     "defaultMessage": "Original logged model: {originalModelLink}",
     "description": "Tooltip text with link to the original logged model"
@@ -5499,6 +5503,10 @@
     "defaultMessage": "Search chat sessions by input",
     "description": "Placeholder text for the search input in the chat sessions table"
   },
+  "W8A4OF": {
+    "defaultMessage": "Configure OpenTelemetry export",
+    "description": "Step 1 title for OpenTelemetry traces onboarding"
+  },
   "W8bOkn": {
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
@@ -6727,6 +6735,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "d9VoXo": {
+    "defaultMessage": "Don't see your framework? <a>Browse all integrations</a>.",
+    "description": "Link to MLflow tracing integrations doc page above the framework selector"
+  },
   "dEGUt+": {
     "defaultMessage": "Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like correctness, latency, and other quality concerns in your agent.",
     "description": "Detect issues guidance popover message"
@@ -7790,6 +7802,10 @@
   "j8JWDD": {
     "defaultMessage": "Enter issue description",
     "description": "Placeholder text for issue description field"
+  },
+  "jClVwe": {
+    "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
+    "description": "Step 1 description for OpenTelemetry traces onboarding"
   },
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
