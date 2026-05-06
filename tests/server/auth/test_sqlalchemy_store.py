@@ -1182,3 +1182,73 @@ def test_per_user_grants_isolated_across_workspaces(store, monkeypatch):
     assert (
         store.get_role_permission_for_resource(user.id, "registered_model", "model-1", ws_b) is None
     )
+
+
+def test_delete_user_clears_retained_legacy_permission_rows(store):
+    """``e5f6a7b8c9d0`` retains the legacy permission tables on disk (they hold
+    pre-migration data for rollback). Their FKs to ``users.id`` are non-cascading
+    in earlier migrations, so a user with surviving legacy rows can't be deleted
+    on strict FK backends (e.g. PostgreSQL) unless ``delete_user`` first clears
+    them. Simulate that state by inserting raw rows into every legacy table and
+    confirm ``delete_user`` cleans them up rather than orphaning or erroring.
+    """
+    from sqlalchemy import text
+
+    username = random_str()
+    user = _user_maker(store, username, random_str())
+
+    legacy_inserts = {
+        "experiment_permissions": (
+            "INSERT INTO experiment_permissions (experiment_id, user_id, permission)"
+            " VALUES (:eid, :uid, 'READ')"
+        ),
+        "registered_model_permissions": (
+            "INSERT INTO registered_model_permissions (workspace, name, user_id, permission)"
+            " VALUES ('ws-default', :rid, :uid, 'READ')"
+        ),
+        "scorer_permissions": (
+            "INSERT INTO scorer_permissions"
+            " (experiment_id, scorer_name, user_id, permission)"
+            " VALUES (:eid, :sname, :uid, 'READ')"
+        ),
+        "gateway_secret_permissions": (
+            "INSERT INTO gateway_secret_permissions (secret_id, user_id, permission)"
+            " VALUES (:gid, :uid, 'READ')"
+        ),
+        "gateway_endpoint_permissions": (
+            "INSERT INTO gateway_endpoint_permissions (endpoint_id, user_id, permission)"
+            " VALUES (:eid, :uid, 'READ')"
+        ),
+        "gateway_model_definition_permissions": (
+            "INSERT INTO gateway_model_definition_permissions"
+            " (model_definition_id, user_id, permission)"
+            " VALUES (:mid, :uid, 'READ')"
+        ),
+        "workspace_permissions": (
+            "INSERT INTO workspace_permissions (workspace, user_id, permission)"
+            " VALUES ('ws-default', :uid, 'USE')"
+        ),
+    }
+    with store.ManagedSessionMaker() as session:
+        for stmt in legacy_inserts.values():
+            session.execute(
+                text(stmt),
+                {
+                    "uid": user.id,
+                    "eid": random_str(),
+                    "rid": random_str(),
+                    "sname": random_str(),
+                    "gid": random_str(),
+                    "mid": random_str(),
+                },
+            )
+
+    store.delete_user(username)
+
+    with store.ManagedSessionMaker() as session:
+        for table in legacy_inserts:
+            count = session.execute(
+                text(f"SELECT COUNT(*) FROM {table} WHERE user_id = :uid"),
+                {"uid": user.id},
+            ).scalar()
+            assert count == 0, f"legacy rows in {table} not cleaned up by delete_user"

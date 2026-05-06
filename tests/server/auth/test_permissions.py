@@ -191,11 +191,14 @@ def test_validate_workspace_wide_grant_rejects_other_tiers(permission):
         _validate_permission_for_resource_type(permission, "*")
 
 
-def test_validate_workspace_admin_grant_accepts_only_manage():
+def test_validate_workspace_admin_grant_accepts_manage():
     _validate_permission_for_resource_type(MANAGE.name, "workspace")
-    for permission in (READ.name, USE.name, EDIT.name, NO_PERMISSIONS.name):
-        with pytest.raises(MlflowException, match="resource_type='workspace'"):
-            _validate_permission_for_resource_type(permission, "workspace")
+
+
+@pytest.mark.parametrize("permission", [READ.name, USE.name, EDIT.name, NO_PERMISSIONS.name])
+def test_validate_workspace_admin_grant_rejects_other_tiers(permission):
+    with pytest.raises(MlflowException, match="resource_type='workspace'"):
+        _validate_permission_for_resource_type(permission, "workspace")
 
 
 def test_validate_permission_for_resource_type_rejects_unknown():

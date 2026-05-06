@@ -2262,3 +2262,106 @@ def test_validate_can_manage_roles_propagates_param_coercion_errors(role_auth_se
     ):
         with pytest.raises(MlflowException, match="must be an integer"):
             auth_module.validate_can_manage_roles()
+
+
+def test_role_permission_resolver_honors_default_workspace_autogrant(monkeypatch):
+    """Resource-level resolution must fall back to ``default_permission`` for an
+    ungranted user in the configured default workspace when
+    ``grant_default_workspace_access=true``. Without this, deployments that
+    relied on the implicit auto-grant pre-simplification suddenly see
+    ``NO_PERMISSIONS`` for resources in the default workspace.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=READ.name,
+            grant_default_workspace_access=True,
+        ),
+        raising=False,
+    )
+
+    default_workspace = "team-default"
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name=default_workspace), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def get_role_permission_for_resource(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_resource_workspace",
+        lambda *args, **kwargs: default_workspace,
+    )
+
+    role_perm = auth_module._role_permission_for(
+        username="alice",
+        resource_type="experiment",
+        resource_key="exp-1",
+        workspace_lookup_id="exp-1",
+        workspace_fetcher=lambda _id: SimpleNamespace(),
+        workspace_label="experiment",
+    )
+    perm = auth_module._get_role_permission_or_default(role_perm)
+    assert perm.name == READ.name
+
+
+def test_role_permission_resolver_denies_in_non_default_workspace(monkeypatch):
+    """The auto-grant only applies to the configured default workspace. An
+    ungranted user in any other workspace must still get ``NO_PERMISSIONS``,
+    even if ``grant_default_workspace_access`` is enabled.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=READ.name,
+            grant_default_workspace_access=True,
+        ),
+        raising=False,
+    )
+
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name="team-default"), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def get_role_permission_for_resource(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_resource_workspace",
+        lambda *args, **kwargs: "other-workspace",
+    )
+
+    role_perm = auth_module._role_permission_for(
+        username="alice",
+        resource_type="experiment",
+        resource_key="exp-1",
+        workspace_lookup_id="exp-1",
+        workspace_fetcher=lambda _id: SimpleNamespace(),
+        workspace_label="experiment",
+    )
+    perm = auth_module._get_role_permission_or_default(role_perm)
+    assert perm.name == NO_PERMISSIONS.name

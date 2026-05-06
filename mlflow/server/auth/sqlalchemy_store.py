@@ -1,7 +1,7 @@
 import re
 from urllib.parse import quote, unquote
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, text
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import selectinload, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -151,6 +151,25 @@ class SqlAlchemyStore:
             synthetic_name = self._synthetic_user_role_name(user.id)
             for role in session.query(SqlRole).filter(SqlRole.name == synthetic_name).all():
                 session.delete(role)
+            # Legacy permission tables are retained on disk by ``e5f6a7b8c9d0`` for
+            # rollback and have non-cascading FKs to ``users.id`` from earlier
+            # migrations. Without an explicit cleanup, deleting a user with
+            # pre-migration grants would fail on strict FK backends (PostgreSQL
+            # by default). The auth server doesn't read these tables post-migration,
+            # so removing the user's rows is safe.
+            for table in (
+                "experiment_permissions",
+                "registered_model_permissions",
+                "scorer_permissions",
+                "gateway_secret_permissions",
+                "gateway_endpoint_permissions",
+                "gateway_model_definition_permissions",
+                "workspace_permissions",
+            ):
+                session.execute(
+                    text(f"DELETE FROM {table} WHERE user_id = :uid"),
+                    {"uid": user.id},
+                )
             session.flush()
             session.delete(user)
 
@@ -210,6 +229,10 @@ class SqlAlchemyStore:
                     session.add(role)
                     session.flush()
             except IntegrityError:
+                # No other-assignee check needed here: the SAVEPOINT only
+                # rolls back when our own INSERT lost the race for the same
+                # ``(workspace, __user_<user_id>__)`` tuple, so the recovered
+                # row is guaranteed to be this user's synthetic role.
                 role = (
                     session
                     .query(SqlRole)

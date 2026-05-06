@@ -488,6 +488,21 @@ def _coerce_int_param(param: str, raw: object) -> int:
         )
 
 
+def _user_inherits_default_workspace_grant(workspace_name: str) -> bool:
+    """
+    True if the request workspace is the configured default workspace *and* the
+    auth server is opted into auto-granting ``default_permission`` there
+    (``auth_config.grant_default_workspace_access``). Used as a fallback for the
+    resource-permission resolver and create-gate so deployments that relied on
+    the pre-simplification implicit "default workspace is open" behavior keep
+    working when configured.
+    """
+    if not auth_config.grant_default_workspace_access:
+        return False
+    default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
+    return default_workspace is not None and workspace_name == default_workspace.name
+
+
 def _get_role_permission_or_default(
     role_permission_func: Callable[[], Permission | None],
 ) -> Permission:
@@ -815,10 +830,17 @@ def _role_permission_for(
         )
         if perm is not None:
             return perm
-        # No grant in the resolved workspace. With workspaces enabled this is a deny
-        # (mirrors the pre-refactor semantics where absent-workspace-permission meant
-        # NO_PERMISSIONS). Without workspaces, let the default apply.
-        return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        # No grant in the resolved workspace. With workspaces disabled, fall through
+        # to the configured default. With workspaces enabled, deny — *unless* the
+        # operator opted into ``grant_default_workspace_access`` and this is the
+        # default workspace, in which case the user inherits ``default_permission``
+        # so deployments that relied on the implicit auto-grant pre-simplification
+        # don't lose resource-level access.
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return None
+        if _user_inherits_default_workspace_grant(workspace_name):
+            return get_permission(auth_config.default_permission)
+        return NO_PERMISSIONS
 
     return _role_perm
 
@@ -869,6 +891,9 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
             perm = store.get_role_permission_for_resource(user.id, "*", "*", workspace_name)
             if perm is not None:
                 return perm
+            # Honor the default-workspace auto-grant when configured.
+            if _user_inherits_default_workspace_grant(workspace_name):
+                return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
 
     return get_permission(auth_config.default_permission)
