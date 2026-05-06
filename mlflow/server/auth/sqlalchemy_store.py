@@ -824,14 +824,18 @@ class SqlAlchemyStore:
 
     def get_workspace_permission(self, workspace_name: str, username: str) -> Permission | None:
         """
-        Get the **direct** workspace permission for a user — the row in the
-        ``workspace_permissions`` table, if any.
+        Get the user's **direct** workspace permission — the
+        ``('workspace', '*', PERMISSION)`` grant on their synthetic
+        ``__user_<id>__`` role for ``workspace_name``, if any. Pre-migration this
+        was a row in the legacy ``workspace_permissions`` table; the
+        ``e5f6a7b8c9d0`` migration moved it to ``role_permissions`` under the
+        synthetic role, which is what this method now queries.
 
-        Does NOT include role-based grants. Callers that need the full
-        authorization picture should also consult
-        ``get_role_workspace_permission`` and ``max_permission``-merge the
-        two. See ``mlflow.server.auth.__init__._workspace_permission`` for
-        the canonical aggregation.
+        Does NOT include grants conferred by other (admin-managed) roles.
+        Callers that need the full authorization picture should also consult
+        ``get_role_workspace_permission`` and ``max_permission``-merge the two.
+        See ``mlflow.server.auth.__init__._workspace_permission`` for the
+        canonical aggregation.
         """
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
@@ -860,16 +864,17 @@ class SqlAlchemyStore:
         where the role grant is workspace-wide. Returns ``None`` when there are
         no such grants.
 
-        Includes both forms of workspace-wide grant:
-        ``(resource_type='workspace', resource_pattern='*')`` — the admin grant
-        — and ``(resource_type='*', resource_pattern='*')`` — the per-user
-        grant the migration emits for legacy ``workspace_permissions`` rows
-        and the form the seeded ``user`` role uses.
+        The simplified model uses a single workspace-wide grant slot,
+        ``(resource_type='workspace', resource_pattern='*')``. The permission
+        tier (USE for regular member, MANAGE for workspace admin) carries the
+        admin signal — both seeded roles (``user`` and ``admin``) and migrated
+        legacy ``workspace_permissions`` rows land in this slot.
 
-        Complements ``get_workspace_permission`` — that helper reads the
-        ``workspace_permissions`` table directly, this one reads role grants.
-        Both are first-class authorization sources; callers that need the
-        effective workspace-level permission should max-merge the two.
+        Complements ``get_workspace_permission`` — that helper restricts to the
+        user's own synthetic ``__user_<id>__`` role, this one walks every role
+        the user is assigned to (admin-managed and synthetic alike). Callers
+        that need the effective workspace-level permission should max-merge the
+        two.
         """
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
@@ -922,21 +927,27 @@ class SqlAlchemyStore:
                 )
                 .first()
             )
-            if existing is not None:
-                raise MlflowException(
-                    f"Scorer permission (experiment_id={experiment_id}, "
-                    f"scorer_name={scorer_name}, username={username}) already exists.",
-                    RESOURCE_ALREADY_EXISTS,
-                )
-            session.add(
-                SqlRolePermission(
-                    role_id=role.id,
-                    resource_type=RESOURCE_TYPE_SCORER,
-                    resource_pattern=pattern,
-                    permission=permission,
-                )
+            duplicate_message = (
+                f"Scorer permission (experiment_id={experiment_id}, "
+                f"scorer_name={scorer_name}, username={username}) already exists."
             )
-            session.flush()
+            if existing is not None:
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS)
+            try:
+                with session.begin_nested():
+                    session.add(
+                        SqlRolePermission(
+                            role_id=role.id,
+                            resource_type=RESOURCE_TYPE_SCORER,
+                            resource_pattern=pattern,
+                            permission=permission,
+                        )
+                    )
+                    session.flush()
+            except IntegrityError as e:
+                # Concurrent create lost the unique-constraint race. Surface as
+                # a clean RESOURCE_ALREADY_EXISTS instead of a 500.
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS) from e
             return ScorerPermission(
                 experiment_id=experiment_id,
                 scorer_name=scorer_name,
@@ -1848,12 +1859,12 @@ class SqlAlchemyStore:
         """
         Return the set of workspaces where ``user_id`` is a workspace admin.
 
-        A user is a workspace admin in ``workspace`` if they have a role in
-        ``workspace`` with either:
-        - ``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``, or
-        - ``(resource_type='*', resource_pattern='*', permission=MANAGE)`` — the form
-          that the migration emits for pre-RBAC ``workspace_permissions`` rows with
-          ``permission=MANAGE``.
+        A user is a workspace admin in ``workspace`` if they have any role in
+        ``workspace`` carrying a
+        ``(resource_type='workspace', resource_pattern='*', permission=MANAGE)``
+        grant — the simplified model's single admin shape, used by both the
+        seeded ``admin`` role and migrated legacy ``workspace_permissions(MANAGE)``
+        rows.
         """
         rows = (
             session

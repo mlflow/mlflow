@@ -939,7 +939,7 @@ def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, m
 
 
 def test_filter_experiment_ids_workspace_scope_role(workspace_permission_setup, monkeypatch):
-    # Role with (resource_type='*', '*', USE) should grant read access to all experiments.
+    # Role with ('workspace', '*', USE) should grant read access to all experiments.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id

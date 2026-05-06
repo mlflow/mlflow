@@ -604,10 +604,11 @@ def _user_can_create_in_workspace() -> bool:
     the simplified two-tier workspace model). Resource-specific grants don't
     confer create rights — only workspace-wide grants do.
 
-    ``_workspace_permission`` already max-merges every workspace-wide grant
-    source (legacy ``workspace_permissions`` rows, ``resource_type='workspace'``
-    admin role grants, and ``resource_type='*'`` per-user role grants), so a
-    single lookup is sufficient.
+    ``_workspace_permission`` already max-merges every grant on the unified
+    ``('workspace', '*')`` slot — across the user's own synthetic role
+    (where migrated legacy ``workspace_permissions`` rows and seeded
+    workspace-member grants live) and any admin-managed roles the user is
+    assigned to — so a single lookup is sufficient.
     """
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True

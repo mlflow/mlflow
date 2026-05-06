@@ -101,12 +101,12 @@ def test_get_role_workspace_permission_ignores_resource_specific_grants(store):
     assert store.get_role_workspace_permission("ws1", username) is None
 
 
-def test_get_role_workspace_permission_returns_manage_grant(store):
-    # Under the simplified two-tier workspace model, ``resource_type='workspace'``
-    # accepts only ``MANAGE`` (the workspace-admin form). ``USE`` is carried by
-    # ``resource_type='*'`` instead, which ``get_role_workspace_permission`` does
-    # not consult — so this helper effectively returns either ``MANAGE`` or
-    # ``None``.
+def test_get_role_workspace_permission_returns_admin_or_member_grant(store):
+    # Under the simplified two-tier workspace model, the unified
+    # ``('workspace', '*')`` slot accepts either ``USE`` (regular workspace
+    # member) or ``MANAGE`` (workspace admin). ``get_role_workspace_permission``
+    # walks every grant on this slot for roles the user is assigned to and
+    # returns the max — covering both tiers.
     username = random_str()
     user = store.create_user(username, random_str())
 
@@ -115,6 +115,16 @@ def test_get_role_workspace_permission_returns_manage_grant(store):
     store.assign_role_to_user(user.id, admin_role.id)
 
     assert store.get_role_workspace_permission("ws1", username) == MANAGE
+
+    # Also pin the USE case: a separate user with only the workspace-member
+    # tier should resolve to USE, not None.
+    member_username = random_str()
+    member = store.create_user(member_username, random_str())
+    member_role = store.create_role(name="ws-member", workspace="ws1")
+    store.add_role_permission(member_role.id, "workspace", "*", USE.name)
+    store.assign_role_to_user(member.id, member_role.id)
+
+    assert store.get_role_workspace_permission("ws1", member_username) == USE
 
 
 def test_get_role_workspace_permission_scopes_to_requested_workspace(store):
