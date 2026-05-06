@@ -16,7 +16,13 @@ import {
 } from '@databricks/design-system';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { Link, useParams, useSearchParams } from '../../common/utils/RoutingUtils';
-import { useUserPermissionsQuery, useUserRolesQuery, useUsersQuery, useWithSettingsReturnTo } from '../hooks';
+import {
+  useCurrentUserIsAdmin,
+  useUserPermissionsQuery,
+  useUserRolesQuery,
+  useUsersQuery,
+  useWithSettingsReturnTo,
+} from '../hooks';
 import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import AdminRoutes from '../routes';
 import { EditAccessModal } from '../components/EditAccessModal';
@@ -34,7 +40,7 @@ const UserDetailPage = () => {
   const tabFromUrl = searchParams.get('tab');
   const activeTab = tabFromUrl === 'permissions' ? 'permissions' : 'roles';
 
-  const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
+  const { data: rolesData, isLoading: rolesLoading, error: rolesErrorRaw } = useUserRolesQuery(username);
   const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username);
   // ``useUsersQuery`` is admin-only; we use it just to surface the
   // ``is_admin`` flag for this user. Failing this should not block the
@@ -42,6 +48,13 @@ const UserDetailPage = () => {
   const { data: usersData } = useUsersQuery();
   const { workspacesEnabled } = useWorkspacesEnabled();
   const withReturnTo = useWithSettingsReturnTo();
+  // For workspace managers viewing a user outside their workspaces,
+  // ``validate_can_view_user_roles`` 403s — that's expected, not a failure.
+  // Hide the red error banner for non-admins so the page degrades to an
+  // empty "no visible roles" state instead of looking broken; platform
+  // admins still see real fetch failures.
+  const isAdmin = useCurrentUserIsAdmin();
+  const rolesError = isAdmin ? rolesErrorRaw : null;
 
   const [editAccessOpen, setEditAccessOpen] = useState(false);
 
@@ -50,7 +63,14 @@ const UserDetailPage = () => {
   const directPermissions = directPermsData?.permissions ?? [];
 
   const rolesEmptyState =
-    roles.length === 0 ? <Empty title="No roles" description="This user has not been assigned to any roles." /> : null;
+    roles.length === 0 ? (
+      <Empty
+        title="No roles"
+        description={
+          isAdmin ? 'This user has not been assigned to any roles.' : 'No roles visible in workspaces you manage.'
+        }
+      />
+    ) : null;
 
   if (!username) {
     return (
