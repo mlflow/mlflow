@@ -3,9 +3,9 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 
-# Logging
+# Setting Log Levels on Spans
 
-Span log levels classify each span by severity, modeled on Python's standard `logging` module. They let you scan a busy trace at a glance: at the default threshold the trace renders unchanged, but bumping the **Minimum log level** filter in the UI hides noise (chain plumbing, output parsing) so you see only the user-visible operations — requests, responses, tool calls.
+Span log levels classify each span by severity, modeled on Python's standard `logging` module. They let you scan a busy trace at a glance: at the default threshold the trace renders unchanged, but bumping the **Minimum log level** filter in the UI hides noise (chain plumbing, output parsing) so you see only the user-visible operations, such as requests, responses, tool calls.
 
 The five levels share names with Python's `logging` module:
 
@@ -72,22 +72,25 @@ await mlflow.withSpan(
 
 ## Defaults
 
-Every span — whether you create it manually or it's created by an autolog integration (`mlflow.openai.autolog()`, `mlflow.langchain.autolog()`, etc.) — gets a default level based on its span type, so the verbosity filter works out of the box without you annotating anything. The default is applied in the span constructor; passing an explicit `log_level` kwarg overrides it.
+Every span, whether created manually or by an autolog integration (`mlflow.openai.autolog()`, `mlflow.langchain.autolog()`, etc.), is assigned a default level based on its span type. This ensures the verbosity filter works out of the box without you annotating anything. The default is applied in the span constructor, and can be overridden by passing an explicit `log_level` keyword argument.
 
 | Span type                                              | Default |
 | ------------------------------------------------------ | ------- |
 | `LLM`, `CHAT_MODEL`, `TOOL`, `RETRIEVER`, `AGENT`, `EMBEDDING` | `INFO`  |
 | Everything else (`CHAIN`, `PARSER`, `RERANKER`, `MEMORY`, `WORKFLOW`, `TASK`, `EVALUATOR`, `UNKNOWN`, custom types) | `DEBUG` |
 
-So at the default UI threshold (DEBUG) you see everything, at INFO you see the user-visible operations and lose the chain plumbing, and at WARNING+ you only see spans you've explicitly marked above that level.
+So at the default UI threshold (`DEBUG`) you see everything, at `INFO` you see the user-visible operations and lose the chain plumbing, and at `WARNING`+ you only see spans you've explicitly marked above that level.
 
-### Spans with an exception event are bumped to ERROR
+### Spans with an exception event are bumped to `ERROR`
 
-If a span records an exception event — via the `@mlflow.trace` decorator catching an unhandled exception, an explicit `span.record_exception(...)` call, or a tracer-level error handler — MLflow automatically promotes the span's level to `ERROR` (unless it was already higher). This means a span that defaulted to `DEBUG` won't disappear from the trace explorer just because a user raised the verbosity filter past `INFO` — failures stay visible.
+When a span records an exception event, MLflow automatically elevates its level to `ERROR` (unless it is already at a higher severity). Exception events may arise from:
+- An unhandled exception captured by the @mlflow.trace decorator
+- An explicit call to span.record_exception(...)
+- A tracer-level error handler
 
-A user-set `CRITICAL` is preserved; the bump only fires when the current level is below `ERROR`.
+This ensures that failures remain visible in the trace explorer, even when the user raises the verbosity filter.
 
-## The UI filter
+## Applying Log Level Filter on UI
 
 Open a trace in the MLflow UI and click **Filter** above the timeline tree. The popover has a **Minimum log level** slider (with a "?" tooltip explaining the rules):
 
@@ -99,7 +102,7 @@ The existing **Show all parent spans** and **Show exceptions** toggles still app
 
 ## Backwards compatibility
 
-Spans persisted before MLflow 3.13 (or spans from third-party tracers that don't stamp a level) have no `mlflow.spanLogLevel` attribute. The UI treats them as `DEBUG` so they remain visible at the default threshold and don't disappear unexpectedly when you bump the filter. If you raise the threshold to `INFO` or higher, those unclassified spans will be filtered out — at which point you can opt in by stamping levels manually with `set_log_level`.
+Some spans may not have an `mlflow.spanLogLevel` attribute. This can happen for traces logged before span log levels were introduced, or for spans produced by third-party tracers that do not assign a level. The UI treats these spans as `DEBUG`, so they remain visible at the default threshold. Raising the threshold to `INFO` or higher hides them along with other `DEBUG` spans. To make a specific span visible again, you can explicitly set its level using `set_log_level`.
 
 ## Related
 
