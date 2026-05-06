@@ -58,9 +58,7 @@ def test_on_end_skips_tag_emission_when_no_tags():
     with mock.patch.object(processor._trace_manager, "pop_trace", return_value=manager_trace):
         processor.on_end(root_span)
 
-    assert not any(
-        k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX) for k in root_span._attributes
-    )
+    assert not any(k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX) for k in root_span._attributes)
 
 
 def test_on_end_skips_tag_emission_for_child_span():
@@ -74,9 +72,7 @@ def test_on_end_skips_tag_emission_for_child_span():
         processor.on_end(child_span)
         mock_pop.assert_not_called()
 
-    assert not any(
-        k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX) for k in child_span._attributes
-    )
+    assert not any(k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX) for k in child_span._attributes)
 
 
 def test_on_end_handles_missing_trace_gracefully():
@@ -88,9 +84,7 @@ def test_on_end_handles_missing_trace_gracefully():
     with mock.patch.object(processor._trace_manager, "pop_trace", return_value=None):
         processor.on_end(root_span)
 
-    assert not any(
-        k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX) for k in root_span._attributes
-    )
+    assert not any(k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX) for k in root_span._attributes)
 
 
 def test_on_end_filters_mlflow_prefixed_tags():
@@ -112,7 +106,8 @@ def test_on_end_filters_mlflow_prefixed_tags():
 
     assert root_span._attributes.get(SpanAttributeKey.TRACE_TAG_PREFIX + "user_tag") == "keep_me"
     mlflow_tag_attrs = [
-        k for k in root_span._attributes
+        k
+        for k in root_span._attributes
         if k.startswith(SpanAttributeKey.TRACE_TAG_PREFIX)
         and k != SpanAttributeKey.TRACE_TAG_PREFIX + "user_tag"
     ]

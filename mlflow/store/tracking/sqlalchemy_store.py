@@ -4617,7 +4617,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     prefix = SpanAttributeKey.TRACE_TAG_PREFIX
                     for attr_key, attr_value in span_attributes.items():
                         if attr_key.startswith(prefix):
-                            tag_key = attr_key[len(prefix):]
+                            tag_key = attr_key[len(prefix) :]
                             tag_value = str(_try_parse_json_string(attr_value))
                             try:
                                 tag_key, tag_value = _validate_trace_tag(tag_key, tag_value)
