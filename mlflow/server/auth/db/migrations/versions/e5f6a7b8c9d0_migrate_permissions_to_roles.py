@@ -225,17 +225,18 @@ def _workspace_row(row):
     ``EDIT`` don't have a single equivalent shape:
 
     - ``NO_PERMISSIONS`` is skipped.
-    - ``READ`` is rewritten to a single ``('*', '*', USE)`` grant. The
+    - ``READ`` is rewritten to a single ``('workspace', '*', USE)`` grant. The
       pre-simplification "see workspace but cannot create" semantic is no
       longer expressible as a single grant; operators that relied on it should
       switch to ``default_permission=READ`` after migration.
-    - ``EDIT`` fans out to one workspace-wide ``('*', '*', USE)`` grant plus a
-      type-wildcard ``EDIT`` grant on every concrete resource type, so the user
-      keeps the same effective per-resource capability they had pre-simplification.
-      The workspace ``USE`` row is what gives them workspace visibility and
-      create rights; the type-wildcard ``EDIT`` rows are what the resource
-      resolver matches on for read/update/etc.
-    - ``USE`` and ``MANAGE`` migrate as a single grant unchanged.
+    - ``EDIT`` fans out to one workspace-wide ``('workspace', '*', USE)`` grant
+      plus a type-wildcard ``EDIT`` grant on every concrete resource type, so
+      the user keeps the same effective per-resource capability they had
+      pre-simplification. The workspace ``USE`` row is what gives them
+      workspace visibility and create rights; the type-wildcard ``EDIT`` rows
+      are what the resource resolver matches on for read/update/etc.
+    - ``USE`` and ``MANAGE`` migrate as a single ``('workspace', '*', PERMISSION)``
+      grant unchanged.
 
     Returns a list of ``(user_id, workspace, resource_type, resource_pattern,
     permission)`` tuples (possibly empty for dropped rows).
@@ -244,20 +245,21 @@ def _workspace_row(row):
         return []
     if row.permission == "EDIT":
         return [
-            (row.user_id, row.workspace, "*", "*", "USE"),
+            (row.user_id, row.workspace, "workspace", "*", "USE"),
             *((row.user_id, row.workspace, rt, "*", "EDIT") for rt in _FAN_OUT_RESOURCE_TYPES),
         ]
     permission = _LEGACY_WORKSPACE_PERMISSION_REWRITE.get(row.permission, row.permission)
     if permission not in _VALID_WORKSPACE_PERMISSIONS:
         return []
-    return [(row.user_id, row.workspace, "*", "*", permission)]
+    return [(row.user_id, row.workspace, "workspace", "*", permission)]
 
 
 def upgrade() -> None:
     conn = op.get_bind()
     default = DEFAULT_WORKSPACE_NAME
 
-    # workspace_permissions → (resource_type='*', resource_pattern='*', permission)
+    # workspace_permissions → (resource_type='workspace', resource_pattern='*', permission)
+    # plus per-type EDIT fan-out for legacy EDIT rows; see ``_workspace_row``.
     _backfill_table(
         conn,
         "SELECT user_id, workspace, permission FROM workspace_permissions",

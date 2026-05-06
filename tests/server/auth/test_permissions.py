@@ -181,24 +181,27 @@ def test_validate_resource_grant_rejects_no_permissions(resource_type):
 
 
 @pytest.mark.parametrize("permission", [USE.name, MANAGE.name])
-def test_validate_workspace_wide_grant_accepts_use_or_manage(permission):
-    _validate_permission_for_resource_type(permission, "*")
+def test_validate_workspace_grant_accepts_use_or_manage(permission):
+    """The unified workspace slot accepts USE (regular member) and MANAGE
+    (admin); the permission tier distinguishes the two without needing a
+    separate ``resource_type`` discriminant.
+    """
+    _validate_permission_for_resource_type(permission, "workspace")
 
 
 @pytest.mark.parametrize("permission", [READ.name, EDIT.name, NO_PERMISSIONS.name])
-def test_validate_workspace_wide_grant_rejects_other_tiers(permission):
-    with pytest.raises(MlflowException, match="resource_type='\\*'"):
-        _validate_permission_for_resource_type(permission, "*")
-
-
-def test_validate_workspace_admin_grant_accepts_manage():
-    _validate_permission_for_resource_type(MANAGE.name, "workspace")
-
-
-@pytest.mark.parametrize("permission", [READ.name, USE.name, EDIT.name, NO_PERMISSIONS.name])
-def test_validate_workspace_admin_grant_rejects_other_tiers(permission):
+def test_validate_workspace_grant_rejects_other_tiers(permission):
     with pytest.raises(MlflowException, match="resource_type='workspace'"):
         _validate_permission_for_resource_type(permission, "workspace")
+
+
+def test_validate_resource_type_rejects_legacy_any_discriminant():
+    """The legacy ``resource_type='*'`` slot was retired in favor of the
+    unified ``'workspace'`` slot. Any write attempting the old shape should be
+    rejected at the validator level so stale callers fail loudly.
+    """
+    with pytest.raises(MlflowException, match="Invalid resource type"):
+        _validate_permission_for_resource_type(USE.name, "*")
 
 
 def test_validate_permission_for_resource_type_rejects_unknown():

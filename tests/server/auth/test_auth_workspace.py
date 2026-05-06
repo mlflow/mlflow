@@ -100,12 +100,13 @@ def test_seed_default_workspace_roles_happy_path(monkeypatch):
     assert names == ["admin", "user"]
     assert all(r["workspace"] == workspace_name for r in created_roles)
 
-    # The simplified two-tier model: ``admin`` carries the workspace-admin grant
-    # (resource_type='workspace', MANAGE), ``user`` carries the workspace-wide
-    # access+create grant (resource_type='*', USE).
+    # The simplified two-tier model lives in a single ``resource_type='workspace'``
+    # slot: ``admin`` carries MANAGE (admin grant), ``user`` carries USE (regular
+    # member). The permission tier distinguishes the two without needing a separate
+    # ``resource_type`` discriminant.
     assert [(p["resource_type"], p["permission"]) for p in added_perms] == [
         ("workspace", MANAGE.name),
-        ("*", USE.name),
+        ("workspace", USE.name),
     ]
     assert all(p["resource_pattern"] == "*" for p in added_perms)
 
@@ -798,7 +799,7 @@ def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monk
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     role = store.create_role(name="ws-contributor", workspace="team-a")
-    store.add_role_permission(role.id, "*", "*", USE.name)
+    store.add_role_permission(role.id, "workspace", "*", USE.name)
     store.assign_role_to_user(user_id, role.id)
 
     with workspace_context.WorkspaceContext("team-a"):
@@ -946,7 +947,7 @@ def test_filter_experiment_ids_workspace_scope_role(workspace_permission_setup, 
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     role = store.create_role(name="ws-user", workspace="team-a")
-    store.add_role_permission(role.id, "*", "*", "USE")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user_id, role.id)
 
     token = workspace_context.set_server_request_workspace("team-a")
@@ -1752,17 +1753,17 @@ def test_role_grant_permission_level_determines_use_capability(
 def test_role_workspace_wide_grant_applies_to_gateway_endpoints(
     workspace_permission_setup, granted
 ):
-    """``(*, *, X)`` grants apply to every resource type in the workspace —
-    including gateway endpoints. Confirms the workspace-wide short-circuit
-    isn't accidentally gated behind resource_type=='experiment' or similar,
-    which would silently lock workspace admins out of gateway resources.
-    Workspace-wide grants accept only USE / MANAGE under the simplified model.
+    """``('workspace', '*', X)`` grants apply to every resource type in the
+    workspace — including gateway endpoints. Confirms the workspace-wide
+    short-circuit isn't accidentally gated behind resource_type=='experiment'
+    or similar, which would silently lock workspace admins out of gateway
+    resources. The simplified workspace slot accepts only USE / MANAGE.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    _assign_role_with_permission(store, username, "team-a", "*", granted)
+    _assign_role_with_permission(store, username, "team-a", "workspace", granted)
 
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/gateway/endpoints/get",
@@ -1781,15 +1782,15 @@ def test_role_workspace_wide_grant_applies_to_gateway_endpoints(
 def test_role_workspace_wide_grant_implies_use_on_gateway_endpoint(
     workspace_permission_setup, granted
 ):
-    """``(*, *, {USE, MANAGE})`` both imply USE → gateway endpoint invocation
-    allowed. The simplified model collapses the prior READ workspace tier into
-    USE, so a workspace-wide grant always confers can_use.
+    """``('workspace', '*', {USE, MANAGE})`` both imply USE → gateway endpoint
+    invocation allowed. The simplified model collapses the prior READ workspace
+    tier into USE, so a workspace-wide grant always confers can_use.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    _assign_role_with_permission(store, username, "team-a", "*", granted)
+    _assign_role_with_permission(store, username, "team-a", "workspace", granted)
 
     with auth_module.app.test_request_context("/"):
         assert auth_module._validate_gateway_use_permission("endpoint-1", username) is True

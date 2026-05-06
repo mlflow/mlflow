@@ -225,12 +225,12 @@ def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
 
     # The simplified two-tier model: ``admin`` carries the workspace-admin grant
     # (resource_type='workspace', MANAGE), while ``user`` carries the
-    # workspace-wide access+create grant (resource_type='*', USE).
+    # workspace-wide access+create grant (resource_type='workspace', USE).
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in admin_perms] == [
         ("workspace", "*", "MANAGE")
     ]
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in user_perms] == [
-        ("*", "*", "USE")
+        ("workspace", "*", "USE")
     ]
 
 

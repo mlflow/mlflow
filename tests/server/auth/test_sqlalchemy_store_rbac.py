@@ -398,7 +398,7 @@ def test_get_role_permission_workspace_admin(store, user):
 
 def test_workspace_permission_applies_across_resource_types(store, user):
     role = store.create_role(name="user", workspace="ws1")
-    store.add_role_permission(role.id, "*", "*", "USE")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, role.id)
 
     # USE on the workspace-wide grant form propagates to every resource type.
@@ -409,7 +409,7 @@ def test_workspace_permission_applies_across_resource_types(store, user):
 
 def test_workspace_permission_respects_union_with_specific(store, user):
     role = store.create_role(name="mixed", workspace="ws1")
-    store.add_role_permission(role.id, "*", "*", "USE")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.add_role_permission(role.id, "experiment", "42", "EDIT")
     store.assign_role_to_user(user.id, role.id)
 
@@ -431,7 +431,7 @@ def test_is_workspace_admin(store, user):
 def test_is_workspace_admin_requires_manage(store, user):
     # A non-MANAGE workspace-wide grant does not make the user a WP admin.
     role = store.create_role(name="ws-user", workspace="ws1")
-    store.add_role_permission(role.id, "*", "*", "USE")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, role.id)
 
     assert store.is_workspace_admin(user.id, "ws1") is False
@@ -442,7 +442,7 @@ def test_list_role_grants_for_user_in_workspace(store, user):
     role = store.create_role(name="multi", workspace="ws1")
     store.add_role_permission(role.id, "experiment", "42", "EDIT")
     store.add_role_permission(role.id, "experiment", "*", "READ")
-    store.add_role_permission(role.id, "*", "*", "USE")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     # Unrelated grant on another resource type.
     store.add_role_permission(role.id, "registered_model", "*", "MANAGE")
     store.assign_role_to_user(user.id, role.id)
@@ -489,7 +489,7 @@ def test_list_workspace_admin_workspaces(store, user):
 def test_list_workspace_admin_workspaces_ignores_non_manage(store, user):
     # A workspace-wide grant with a non-MANAGE permission should not count.
     role = store.create_role(name="user", workspace="ws1")
-    store.add_role_permission(role.id, "*", "*", "USE")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, role.id)
 
     assert store.list_workspace_admin_workspaces(user.id) == set()
@@ -661,7 +661,7 @@ def test_resolver_workspace_grant_propagates_at_every_level(store, user, granted
     access across the workspace.
     """
     role = store.create_role(name=f"ws-{granted}", workspace="ws1")
-    store.add_role_permission(role.id, "*", "*", granted)
+    store.add_role_permission(role.id, "workspace", "*", granted)
     store.assign_role_to_user(user.id, role.id)
 
     for resource_type in _CONCRETE_RESOURCE_TYPES:
@@ -755,7 +755,7 @@ def test_resolver_union_mixes_workspace_and_resource_grants(store, user):
     covers it. Specific grants only promote, never downgrade.
     """
     r_ws = store.create_role(name="ws-user", workspace="ws1")
-    store.add_role_permission(r_ws.id, "*", "*", "USE")
+    store.add_role_permission(r_ws.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, r_ws.id)
 
     r_specific = store.create_role(name="one-reader", workspace="ws1")

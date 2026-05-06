@@ -226,21 +226,21 @@ def test_upgrade_filters_legacy_rows_per_simplified_model(tmp_path: Path) -> Non
 
     # alice: experiment READ preserved, workspace READ rewritten to USE
     # bob:   experiment NO_PERMISSIONS skipped, workspace EDIT fans out to
-    #        ('*','*','USE') + ('<each resource_type>','*','EDIT')
+    #        ('workspace','*','USE') + ('<each resource_type>','*','EDIT')
     # carol: experiment MANAGE preserved, workspace NO_PERMISSIONS skipped
     # dan:   workspace MANAGE preserved
     assert rows == [
-        ("alice", "*", "*", "USE"),
         ("alice", "experiment", "exp-1", "READ"),
-        ("bob", "*", "*", "USE"),
+        ("alice", "workspace", "*", "USE"),
         ("bob", "experiment", "*", "EDIT"),
         ("bob", "gateway_endpoint", "*", "EDIT"),
         ("bob", "gateway_model_definition", "*", "EDIT"),
         ("bob", "gateway_secret", "*", "EDIT"),
         ("bob", "registered_model", "*", "EDIT"),
         ("bob", "scorer", "*", "EDIT"),
+        ("bob", "workspace", "*", "USE"),
         ("carol", "experiment", "exp-3", "MANAGE"),
-        ("dan", "*", "*", "MANAGE"),
+        ("dan", "workspace", "*", "MANAGE"),
     ]
 
 
@@ -296,14 +296,17 @@ def test_upgrade_workspace_edit_fans_out_to_per_type_grants(tmp_path: Path) -> N
         rows = cursor.fetchall()
 
     # All seven grants land in alice's synthetic role for ``ws-team-a``.
+    # Sorted by ``rp.resource_type`` then ``rp.resource_pattern`` (the query's
+    # ORDER BY clause) — so per-type EDIT rows come first alphabetically and
+    # the workspace-wide USE anchor comes last.
     assert rows == [
-        ("ws-team-a", "*", "*", "USE"),
         ("ws-team-a", "experiment", "*", "EDIT"),
         ("ws-team-a", "gateway_endpoint", "*", "EDIT"),
         ("ws-team-a", "gateway_model_definition", "*", "EDIT"),
         ("ws-team-a", "gateway_secret", "*", "EDIT"),
         ("ws-team-a", "registered_model", "*", "EDIT"),
         ("ws-team-a", "scorer", "*", "EDIT"),
+        ("ws-team-a", "workspace", "*", "USE"),
     ]
 
 

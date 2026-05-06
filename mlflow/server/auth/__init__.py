@@ -888,7 +888,7 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():
             user = store.get_user(username)
-            perm = store.get_role_permission_for_resource(user.id, "*", "*", workspace_name)
+            perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
             if perm is not None:
                 return perm
             # Honor the default-workspace auto-grant when configured.
@@ -1634,7 +1634,9 @@ def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str,
             return False
         username = authenticate_request().username
         user = store.get_user(username)
-        workspace_perm = store.get_role_permission_for_resource(user.id, "*", "*", workspace_name)
+        workspace_perm = store.get_role_permission_for_resource(
+            user.id, "workspace", "*", workspace_name
+        )
         return workspace_perm is not None and workspace_perm.can_use
 
     return _validate_can_use_model_definitions(model_configs)
@@ -2578,26 +2580,26 @@ def filter_list_workspaces(resp: Response) -> None:
 # any of these roles. The two roles exist as ready-made scaffolding for the
 # admin to hand out to other users.
 #
-# Workspace permissions in the simplified model collapse to two tiers:
-# - ``admin`` (MANAGE on ``resource_type='workspace'``): full authority,
-#   including role/user management within the workspace.
-# - ``user`` (USE on ``resource_type='*'``): read every resource in the workspace
+# Workspace permissions in the simplified model collapse to two tiers, both
+# stored in the unified ``resource_type='workspace'`` slot:
+# - ``admin`` (MANAGE on ``('workspace', '*')``): full authority, including
+#   role/user management within the workspace.
+# - ``user`` (USE on ``('workspace', '*')``): read every resource in the workspace
 #   plus the ability to create new experiments / registered models. The
 #   creator-as-owner mechanism then grants the creator MANAGE on what they
 #   create — so users manage their own resources without gaining write or
 #   delete on resources owned by others.
-_WORKSPACE_ADMIN_GRANT = ("workspace", "*")
-_WORKSPACE_USER_GRANT = ("*", "*")
+_WORKSPACE_GRANT = ("workspace", "*")
 _DEFAULT_WORKSPACE_ROLES = (
     (
         "admin",
-        _WORKSPACE_ADMIN_GRANT,
+        _WORKSPACE_GRANT,
         MANAGE.name,
         "Full MANAGE authority over the workspace.",
     ),
     (
         "user",
-        _WORKSPACE_USER_GRANT,
+        _WORKSPACE_GRANT,
         USE.name,
         (
             "Read every resource in the workspace and create new experiments "

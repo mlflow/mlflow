@@ -49,7 +49,7 @@ def test_set_workspace_permission_rejects_resource_only_tiers(store):
     store.create_user(username, random_str())
 
     for invalid in (READ.name, EDIT.name, "NO_PERMISSIONS"):
-        with pytest.raises(MlflowException, match="resource_type='\\*'"):
+        with pytest.raises(MlflowException, match="resource_type='workspace'"):
             store.set_workspace_permission(workspace, username, invalid)
 
 

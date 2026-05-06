@@ -35,7 +35,6 @@ from mlflow.server.auth.entities import (
 )
 from mlflow.server.auth.permissions import (
     MANAGE,
-    RESOURCE_TYPE_ANY,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
@@ -411,7 +410,7 @@ class SqlAlchemyStore:
                 return
             session.query(SqlRolePermission).filter(
                 SqlRolePermission.role_id.in_(role_ids),
-                SqlRolePermission.resource_type == RESOURCE_TYPE_ANY,
+                SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                 SqlRolePermission.resource_pattern == "*",
             ).delete(synchronize_session=False)
 
@@ -626,7 +625,7 @@ class SqlAlchemyStore:
             .query(SqlRole, SqlRolePermission)
             .join(SqlRolePermission, SqlRolePermission.role_id == SqlRole.id)
             .filter(
-                SqlRolePermission.resource_type == RESOURCE_TYPE_ANY,
+                SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                 SqlRolePermission.resource_pattern == "*",
             )
         )
@@ -670,7 +669,7 @@ class SqlAlchemyStore:
     def set_workspace_permission(
         self, workspace_name: str, username: str, permission: str
     ) -> WorkspacePermission:
-        _validate_permission_for_resource_type(permission, RESOURCE_TYPE_ANY)
+        _validate_permission_for_resource_type(permission, RESOURCE_TYPE_WORKSPACE)
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
@@ -679,7 +678,7 @@ class SqlAlchemyStore:
                 .query(SqlRolePermission)
                 .filter(
                     SqlRolePermission.role_id == role.id,
-                    SqlRolePermission.resource_type == RESOURCE_TYPE_ANY,
+                    SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                     SqlRolePermission.resource_pattern == "*",
                 )
                 .first()
@@ -688,7 +687,7 @@ class SqlAlchemyStore:
                 session.add(
                     SqlRolePermission(
                         role_id=role.id,
-                        resource_type=RESOURCE_TYPE_ANY,
+                        resource_type=RESOURCE_TYPE_WORKSPACE,
                         resource_pattern="*",
                         permission=permission,
                     )
@@ -717,7 +716,7 @@ class SqlAlchemyStore:
                     .query(SqlRolePermission)
                     .filter(
                         SqlRolePermission.role_id == role.id,
-                        SqlRolePermission.resource_type == RESOURCE_TYPE_ANY,
+                        SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                         SqlRolePermission.resource_pattern == "*",
                     )
                     .first()
@@ -780,7 +779,7 @@ class SqlAlchemyStore:
                     .filter(
                         SqlUserRoleAssignment.user_id == user.id,
                         SqlRole.workspace.in_(synthetic_workspaces),
-                        SqlRolePermission.resource_type == RESOURCE_TYPE_ANY,
+                        SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                         SqlRolePermission.resource_pattern == "*",
                     )
                     .all()
@@ -811,7 +810,7 @@ class SqlAlchemyStore:
                 .filter(
                     SqlRole.workspace == workspace_name,
                     SqlRole.name == role_name,
-                    SqlRolePermission.resource_type == RESOURCE_TYPE_ANY,
+                    SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                     SqlRolePermission.resource_pattern == "*",
                 )
                 .first()
@@ -849,10 +848,7 @@ class SqlAlchemyStore:
                 .filter(
                     SqlUserRoleAssignment.user_id == user.id,
                     SqlRole.workspace == workspace_name,
-                    SqlRolePermission.resource_type.in_((
-                        RESOURCE_TYPE_WORKSPACE,
-                        RESOURCE_TYPE_ANY,
-                    )),
+                    SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                     SqlRolePermission.resource_pattern == "*",
                 )
                 .distinct()
@@ -1584,10 +1580,7 @@ class SqlAlchemyStore:
         _validate_permission_for_resource_type(permission, resource_type)
         # Workspace-scope and type-wildcard grants only support the "*" pattern. Any
         # other pattern would be silently ignored by the resolver, so reject it up front.
-        if (
-            resource_type in (RESOURCE_TYPE_WORKSPACE, RESOURCE_TYPE_ANY)
-            and resource_pattern != "*"
-        ):
+        if resource_type == RESOURCE_TYPE_WORKSPACE and resource_pattern != "*":
             raise MlflowException.invalid_parameter_value(
                 f"resource_type='{resource_type}' requires resource_pattern='*'. "
                 f"Got resource_pattern='{resource_pattern}'."
@@ -1790,10 +1783,7 @@ class SqlAlchemyStore:
                     # ``resource_type='workspace'`` = workspace admin;
                     # ``resource_type='*'`` = default per-user grant on every resource
                     # type (mirrors the former workspace_permissions semantics).
-                    if (
-                        rp.resource_type in (RESOURCE_TYPE_WORKSPACE, RESOURCE_TYPE_ANY)
-                        and rp.resource_pattern == "*"
-                    ):
+                    if rp.resource_type == RESOURCE_TYPE_WORKSPACE and rp.resource_pattern == "*":
                         best_permission_name = (
                             max_permission(best_permission_name, rp.permission)
                             if best_permission_name is not None
@@ -1833,7 +1823,7 @@ class SqlAlchemyStore:
             .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
             .filter(
                 SqlUserRoleAssignment.user_id == user_id,
-                SqlRolePermission.resource_type.in_((RESOURCE_TYPE_WORKSPACE, RESOURCE_TYPE_ANY)),
+                SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                 SqlRolePermission.resource_pattern == "*",
                 SqlRolePermission.permission == MANAGE.name,
             )
@@ -1899,10 +1889,7 @@ class SqlAlchemyStore:
                     or_(
                         SqlRolePermission.resource_type == resource_type,
                         and_(
-                            SqlRolePermission.resource_type.in_((
-                                RESOURCE_TYPE_WORKSPACE,
-                                RESOURCE_TYPE_ANY,
-                            )),
+                            SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                             SqlRolePermission.resource_pattern == "*",
                         ),
                     ),
