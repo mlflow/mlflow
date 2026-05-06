@@ -1,0 +1,127 @@
+name: mlflow-reviewer
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: mlflow-reviewer-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: |
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/review') &&
+      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Generate App installation token (multi-repo)
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.MLFLOW_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.MLFLOW_REVIEWER_APP_KEY }}
+          owner: mlflow
+
+      - name: React eyes on trigger comment
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          gh api \
+            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -X POST -f content=eyes || true
+
+      - name: Enforce per-PR daily rate limit
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          set -e
+          PR=${{ github.event.issue.number }}
+          since=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
+          count=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
+            --jq "[.[] | select(.user.login == \"mlflow-reviewer[bot]\") | select(.created_at > \"$since\")] | length")
+          if [ "$count" -ge 5 ]; then
+            echo "Rate limit hit: $count bot comments in the last 24h on PR $PR (max 5)."
+            exit 1
+          fi
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: refs/pull/${{ github.event.issue.number }}/head
+          fetch-depth: 0
+          path: mlflow
+          token: ${{ steps.app_token.outputs.token }}
+
+      - name: Checkout mlflow/internal (orchestrator code)
+        uses: actions/checkout@v4
+        with:
+          repository: mlflow/internal
+          path: internal
+          token: ${{ steps.app_token.outputs.token }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install orchestrator
+        working-directory: internal/mlflow-reviewer
+        run: uv pip install -e ".[test]" --system
+
+      - name: Parse review flags
+        id: flags
+        env:
+          BODY: ${{ github.event.comment.body }}
+        run: |
+          set -e
+          flags=""
+          if echo "$BODY" | grep -q -- '--lite'; then flags="$flags --lite"; fi
+          if echo "$BODY" | grep -q -- '--no-cache'; then flags="$flags --no-cache"; fi
+          if echo "$BODY" | grep -q -- '--hybrid'; then flags="$flags --hybrid"; fi
+          echo "flags=$flags" >> "$GITHUB_OUTPUT"
+
+      - name: Run mlflow-reviewer (dry-run; activation PR flips this)
+        working-directory: mlflow
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          mlflow-reviewer ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            ${{ steps.flags.outputs.flags }}
+
+      - name: React +1 on success
+        if: success()
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          gh api \
+            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -X POST -f content=+1 || true
+
+      - name: React -1 and post failure comment on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          gh api \
+            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -X POST -f content=-1 || true
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh api \
+            "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
+            -X POST -f body="\`mlflow-reviewer\` failed. See [run logs]($run_url).
+---
+Posted by \`mlflow-reviewer\` (auto-generated)." || true
