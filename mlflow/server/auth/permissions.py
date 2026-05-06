@@ -80,28 +80,43 @@ PERMISSION_PRIORITY = {
     MANAGE.name: 4,
 }
 
+# Resource-type discriminants for `role_permissions.resource_type`. Use these
+# constants instead of string literals so call sites are searchable and typo-safe.
+#
+# Concrete resource types — grants apply to a single named resource:
+RESOURCE_TYPE_EXPERIMENT = "experiment"
+RESOURCE_TYPE_REGISTERED_MODEL = "registered_model"
+RESOURCE_TYPE_SCORER = "scorer"
+RESOURCE_TYPE_GATEWAY_SECRET = "gateway_secret"
+RESOURCE_TYPE_GATEWAY_ENDPOINT = "gateway_endpoint"
+RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION = "gateway_model_definition"
+
+# Special: workspace-wide permissions that apply to all resources in the role's
+# workspace. ``resource_pattern`` must be ``"*"``. ``permission=MANAGE``
+# additionally grants role/user management capabilities (workspace-admin).
+RESOURCE_TYPE_WORKSPACE = "workspace"
+
+# Special: a "default" permission on every resource of every type in the role's
+# workspace. ``resource_pattern`` must be ``"*"``. Used for the per-user
+# workspace-wide grant that replaces the legacy ``workspace_permissions`` table.
+#
+# Nominally distinct from ``RESOURCE_TYPE_WORKSPACE``, but the workspace-admin
+# helpers (``is_workspace_admin`` / ``list_workspace_admin_workspaces``) treat
+# ``permission=MANAGE`` on ``resource_type="*"`` as admin-equivalent too, to
+# preserve the legacy semantic where a MANAGE entry in ``workspace_permissions``
+# conferred workspace-admin rights. Lower permission levels (READ/USE/EDIT) on
+# ``resource_type="*"`` are a bare resource-access grant and do *not* imply admin.
+RESOURCE_TYPE_ANY = "*"
+
 VALID_RESOURCE_TYPES = frozenset({
-    "experiment",
-    "registered_model",
-    "scorer",
-    "gateway_secret",
-    "gateway_endpoint",
-    "gateway_model_definition",
-    # Special: workspace-wide permissions that apply to all resources in the role's
-    # workspace. resource_pattern must be "*". permission=MANAGE additionally grants
-    # role/user management capabilities within the workspace (workspace-admin).
-    "workspace",
-    # Special: a "default" permission on every resource of every type in the role's
-    # workspace. resource_pattern must be "*". Used for the per-user workspace-wide
-    # grant that replaces the legacy `workspace_permissions` table.
-    #
-    # Nominally distinct from `resource_type="workspace"`, but the workspace-admin
-    # helpers (``is_workspace_admin`` / ``list_workspace_admin_workspaces``) treat
-    # ``permission=MANAGE`` on ``resource_type="*"`` as admin-equivalent too, to
-    # preserve the legacy semantic where a MANAGE entry in ``workspace_permissions``
-    # conferred workspace-admin rights. Lower permission levels (READ/USE/EDIT) on
-    # ``resource_type="*"`` are a bare resource-access grant and do *not* imply admin.
-    "*",
+    RESOURCE_TYPE_EXPERIMENT,
+    RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_SCORER,
+    RESOURCE_TYPE_GATEWAY_SECRET,
+    RESOURCE_TYPE_GATEWAY_ENDPOINT,
+    RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
+    RESOURCE_TYPE_WORKSPACE,
+    RESOURCE_TYPE_ANY,
 })
 
 
@@ -148,18 +163,18 @@ def _validate_permission_for_resource_type(permission: str, resource_type: str) 
     """
     _validate_permission(permission)
     _validate_resource_type(resource_type)
-    if resource_type == "workspace":
+    if resource_type == RESOURCE_TYPE_WORKSPACE:
         if permission != MANAGE.name:
             raise MlflowException(
-                f"Invalid permission '{permission}' for resource_type='workspace'. "
+                f"Invalid permission '{permission}' for resource_type='{RESOURCE_TYPE_WORKSPACE}'. "
                 f"Workspace-admin grants accept only '{MANAGE.name}'.",
                 INVALID_PARAMETER_VALUE,
             )
         return
-    if resource_type == "*":
+    if resource_type == RESOURCE_TYPE_ANY:
         if permission not in WORKSPACE_GRANTABLE_PERMISSIONS:
             raise MlflowException(
-                f"Invalid permission '{permission}' for resource_type='*'. "
+                f"Invalid permission '{permission}' for resource_type='{RESOURCE_TYPE_ANY}'. "
                 f"Workspace-wide grants accept only: "
                 f"{tuple(sorted(WORKSPACE_GRANTABLE_PERMISSIONS))}.",
                 INVALID_PARAMETER_VALUE,

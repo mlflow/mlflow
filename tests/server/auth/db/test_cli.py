@@ -2,9 +2,11 @@ import sqlite3
 from pathlib import Path
 from urllib.parse import quote
 
+from alembic.command import downgrade as alembic_downgrade
 from click.testing import CliRunner
 
 from mlflow.server.auth.db import cli
+from mlflow.server.auth.db.utils import _get_alembic_config
 
 
 def test_upgrade(tmp_path: Path) -> None:
@@ -283,3 +285,159 @@ def test_upgrade_encodes_scorer_names_with_special_characters(tmp_path: Path) ->
 
     expected = sorted(f"exp-42/{quote(name, safe='')}" for name in scorer_names)
     assert patterns == expected
+
+
+def _alembic_downgrade(db_url: str, revision: str) -> None:
+    import sqlalchemy
+
+    engine = sqlalchemy.create_engine(db_url)
+    cfg = _get_alembic_config(db_url)
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        alembic_downgrade(cfg, revision)
+    engine.dispose()
+
+
+def test_upgrade_then_downgrade_then_upgrade_is_idempotent(tmp_path: Path) -> None:
+    """End-to-end exercise of the ``e5f6a7b8c9d0`` migration's upgrade/downgrade
+    pair. Seeds legacy rows of every kind, runs upgrade, downgrades back to the
+    pre-backfill revision, and re-runs upgrade. Pins three invariants:
+
+    1. ``downgrade()`` removes every synthetic ``__user_<id>__`` role plus its
+       ``role_permissions`` and ``user_role_assignments`` rows, but leaves the
+       legacy per-resource tables untouched (rollback safety — operators can
+       resume on the legacy code path without restoring from backup).
+    2. The legacy table contents survive the round trip byte-for-byte, so
+       re-running ``upgrade()`` produces the same ``role_permissions`` output as
+       the first run (idempotent backfill).
+    3. The downgrade does *not* delete admin-managed roles whose names happen
+       to start/end with underscores (regression for the ``__user_admin__``
+       false-positive risk that ``_SYNTHETIC_ROLE_NAME_RE`` guards against).
+    """
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    # Step to the revision immediately before the backfill, then seed legacy data.
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "c3d4e5f6a7b8"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.executemany(
+            "INSERT INTO users (id, username, password_hash, is_admin) VALUES (?, ?, ?, ?)",
+            [
+                (1, "alice", "h", False),
+                (2, "bob", "h", False),
+            ],
+        )
+        cursor.executemany(
+            "INSERT INTO experiment_permissions (experiment_id, user_id, permission)"
+            " VALUES (?, ?, ?)",
+            [("exp-1", 1, "READ"), ("exp-2", 2, "MANAGE")],
+        )
+        cursor.executemany(
+            "INSERT INTO registered_model_permissions (workspace, name, user_id, permission)"
+            " VALUES (?, ?, ?, ?)",
+            [("ws-default", "model-1", 1, "EDIT")],
+        )
+        cursor.executemany(
+            "INSERT INTO scorer_permissions (experiment_id, scorer_name, user_id, permission)"
+            " VALUES (?, ?, ?, ?)",
+            [("exp-1", "scorer-a", 1, "USE")],
+        )
+        cursor.executemany(
+            "INSERT INTO workspace_permissions (workspace, user_id, permission) VALUES (?, ?, ?)",
+            [("ws-default", 1, "READ"), ("ws-default", 2, "MANAGE")],
+        )
+        # An admin-managed role whose name starts/ends with underscores but
+        # is not a synthetic per-user role. Downgrade must leave it alone.
+        cursor.execute(
+            "INSERT INTO roles (id, workspace, name) VALUES (?, ?, ?)",
+            (999, "ws-default", "__user_admin__"),
+        )
+        conn.commit()
+
+    # Snapshot legacy state pre-upgrade so we can verify it survives.
+    legacy_snapshot = _snapshot_legacy_tables(db)
+
+    # First upgrade.
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+    rp_after_first_upgrade = _snapshot_role_permissions(db)
+    assert rp_after_first_upgrade, "first upgrade produced no role_permissions rows"
+
+    # Sanity: legacy tables still hold their pre-upgrade contents.
+    assert _snapshot_legacy_tables(db) == legacy_snapshot
+
+    # Downgrade one step (back to the pre-backfill revision).
+    _alembic_downgrade(db_url, "c3d4e5f6a7b8")
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name FROM roles WHERE name LIKE '__user_%'")
+        surviving_underscore_roles = cursor.fetchall()
+        cursor.execute("SELECT COUNT(*) FROM role_permissions")
+        rp_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM user_role_assignments")
+        ura_count = cursor.fetchone()[0]
+
+    # All synthetic roles are gone; the admin role with the lookalike name stays.
+    assert surviving_underscore_roles == [(999, "__user_admin__")]
+    # Synthetic roles owned every role_permissions / user_role_assignments row, so
+    # both should now be empty.
+    assert rp_count == 0
+    assert ura_count == 0
+    # Legacy contents survive the downgrade — that's the rollback contract.
+    assert _snapshot_legacy_tables(db) == legacy_snapshot
+
+    # Re-run upgrade. Output must match the first run row-for-row.
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+    assert _snapshot_role_permissions(db) == rp_after_first_upgrade
+
+
+def _snapshot_role_permissions(db: Path) -> list[tuple[object, ...]]:
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT u.username, rp.resource_type, rp.resource_pattern, rp.permission "
+            "FROM role_permissions rp "
+            "JOIN roles r ON r.id = rp.role_id "
+            "JOIN user_role_assignments ura ON ura.role_id = r.id "
+            "JOIN users u ON u.id = ura.user_id "
+            "ORDER BY u.username, rp.resource_type, rp.resource_pattern, rp.permission"
+        )
+        return cursor.fetchall()
+
+
+def _snapshot_legacy_tables(db: Path) -> dict[str, list[tuple[object, ...]]]:
+    queries = {
+        "experiment_permissions": (
+            "SELECT experiment_id, user_id, permission FROM experiment_permissions "
+            "ORDER BY experiment_id, user_id"
+        ),
+        "registered_model_permissions": (
+            "SELECT workspace, name, user_id, permission FROM registered_model_permissions "
+            "ORDER BY workspace, name, user_id"
+        ),
+        "scorer_permissions": (
+            "SELECT experiment_id, scorer_name, user_id, permission FROM scorer_permissions "
+            "ORDER BY experiment_id, scorer_name, user_id"
+        ),
+        "workspace_permissions": (
+            "SELECT workspace, user_id, permission FROM workspace_permissions "
+            "ORDER BY workspace, user_id"
+        ),
+    }
+    snapshot: dict[str, list[tuple[object, ...]]] = {}
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        for table, query in queries.items():
+            cursor.execute(query)
+            snapshot[table] = cursor.fetchall()
+    return snapshot

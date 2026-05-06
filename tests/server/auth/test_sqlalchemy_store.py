@@ -1063,3 +1063,122 @@ def test_delete_gateway_model_definition_permissions_for_model_definition(store)
     with pytest.raises(MlflowException, match=r"not found") as exception_context:
         store.get_gateway_model_definition_permission(model_definition_id1, username2)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+# ---------------------------------------------------------------------------
+# Per-user (synthetic role) logic
+#
+# The store represents per-user grants as ``role_permissions`` rows on a
+# synthetic ``__user_<id>__`` role scoped to a workspace. The tests above
+# exercise the create/get/update/delete API surface through this representation
+# implicitly, but the per-user invariants below are what protect the design
+# from regressions. A change that broke any of these would silently leak grants
+# across users / workspaces or fragment a single user's grants across multiple
+# synthetic roles.
+# ---------------------------------------------------------------------------
+
+
+def _count_synthetic_roles_for(store, user_id: int) -> int:
+    from mlflow.server.auth.db.models import SqlRole
+
+    name = store._synthetic_user_role_name(user_id)
+    with store.ManagedSessionMaker() as session:
+        return session.query(SqlRole).filter(SqlRole.name == name).count()
+
+
+def test_per_user_grant_does_not_leak_to_other_users(store):
+    user_a = _user_maker(store, random_str(), random_str())
+    user_b = _user_maker(store, random_str(), random_str())
+    experiment_id = random_str()
+
+    store.create_experiment_permission(experiment_id, user_a.username, MANAGE.name)
+
+    granted = store.get_experiment_permission(experiment_id, user_a.username)
+    assert granted.user_id == user_a.id
+    assert granted.permission == MANAGE.name
+
+    with pytest.raises(MlflowException, match=r"not found") as exc:
+        store.get_experiment_permission(experiment_id, user_b.username)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_per_user_grants_share_one_synthetic_role(store):
+    user = _user_maker(store, random_str(), random_str())
+
+    # Three grants on different resource types for the same user in the default
+    # workspace. All must land on the same synthetic role row, not three.
+    store.create_experiment_permission(random_str(), user.username, READ.name)
+    store.create_registered_model_permission(random_str(), user.username, EDIT.name)
+    store.create_scorer_permission(random_str(), random_str(), user.username, USE.name)
+
+    assert _count_synthetic_roles_for(store, user.id) == 1
+
+
+def test_per_user_grants_use_one_synthetic_role_per_workspace(store, monkeypatch):
+    from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+    from mlflow.server.auth.db.models import SqlRole
+    from mlflow.utils.workspace_context import WorkspaceContext
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    user = _user_maker(store, random_str(), random_str())
+
+    workspaces = [f"ws-{random_str()}" for _ in range(2)]
+    for ws in workspaces:
+        with WorkspaceContext(ws):
+            store.create_registered_model_permission(f"model-{ws}", user.username, USE.name)
+
+    # Distinct synthetic roles: one per workspace.
+    name = store._synthetic_user_role_name(user.id)
+    with store.ManagedSessionMaker() as session:
+        observed_workspaces = sorted(
+            workspace
+            for (workspace,) in session.query(SqlRole.workspace).filter(SqlRole.name == name).all()
+        )
+    assert observed_workspaces == sorted(workspaces)
+
+
+def test_per_user_grants_resolved_via_role_resolver(store):
+    user_a = _user_maker(store, random_str(), random_str())
+    user_b = _user_maker(store, random_str(), random_str())
+    experiment_id = random_str()
+
+    store.create_experiment_permission(experiment_id, user_a.username, EDIT.name)
+
+    # User A's grant resolves through the unified resolver — the same mechanism
+    # the runtime authz uses, not a per-resource fallback.
+    perm = store.get_role_permission_for_resource(
+        user_a.id, "experiment", experiment_id, DEFAULT_WORKSPACE_NAME
+    )
+    assert perm is not None
+    assert perm.name == EDIT.name
+
+    # User B has no grant on this experiment — resolver returns None.
+    assert (
+        store.get_role_permission_for_resource(
+            user_b.id, "experiment", experiment_id, DEFAULT_WORKSPACE_NAME
+        )
+        is None
+    )
+
+
+def test_per_user_grants_isolated_across_workspaces(store, monkeypatch):
+    from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+    from mlflow.utils.workspace_context import WorkspaceContext
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    user = _user_maker(store, random_str(), random_str())
+    ws_a = f"ws-{random_str()}"
+    ws_b = f"ws-{random_str()}"
+
+    with WorkspaceContext(ws_a):
+        store.create_registered_model_permission("model-1", user.username, MANAGE.name)
+
+    # In ws_a the grant is visible.
+    assert (
+        store.get_role_permission_for_resource(user.id, "registered_model", "model-1", ws_a).name
+        == MANAGE.name
+    )
+    # In ws_b the grant must not leak.
+    assert (
+        store.get_role_permission_for_resource(user.id, "registered_model", "model-1", ws_b) is None
+    )
