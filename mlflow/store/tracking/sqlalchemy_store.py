@@ -4548,7 +4548,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session_id = None
             user_id = None
             root_span_dict = None
-            trace_tags: dict[str, str] = {}
+            trace_tags_from_root_attr: dict[str, str] = {}
             for span in trace_spans:
                 span_dict = translate_span_when_storing(span)
                 span_cost = None
@@ -4618,7 +4618,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     for attr_key, attr_value in span_attributes.items():
                         if attr_key.startswith(prefix):
                             tag_key = attr_key[len(prefix):]
-                            tag_value = str(_try_parse_json_string(str(attr_value)))
+                            tag_value = str(_try_parse_json_string(attr_value))
                             try:
                                 tag_key, tag_value = _validate_trace_tag(tag_key, tag_value)
                             except Exception:
@@ -4626,7 +4626,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                     "Skipping invalid trace tag from OTLP attribute %r", attr_key
                                 )
                                 continue
-                            trace_tags[tag_key] = tag_value
+                            trace_tags_from_root_attr[tag_key] = tag_value
 
             trace_aggregates[trace_id] = _TraceAggregate(
                 min_start_ms=min_start_ms,
@@ -4638,7 +4638,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session_id=session_id,
                 user_id=user_id,
                 root_span_dict=root_span_dict,
-                trace_tags=trace_tags,
+                trace_tags=trace_tags_from_root_attr,
             )
 
         with self.ManagedSessionMaker() as session:

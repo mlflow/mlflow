@@ -9,29 +9,12 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_OTEL_GENAI_SEMCONV,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
 )
-from mlflow.tracing.constant import (
-    TRACE_SCHEMA_VERSION,
-    TRACE_SCHEMA_VERSION_KEY,
-    SpanAttributeKey,
-    TraceTagKey,
-)
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
-from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
-
-# System-managed tag keys that should not be re-emitted as OTLP attributes — they are either
-# set by the server or are not meaningful across the OTLP boundary.
-_SYSTEM_TAG_KEYS = frozenset({
-    TraceTagKey.TRACE_NAME,
-    TraceTagKey.EVAL_REQUEST_ID,
-    TraceTagKey.SPANS_LOCATION,
-    TraceTagKey.SOURCE_SCORER_NAME,
-    TraceTagKey.LINKED_PROMPTS,
-    *IMMUTABLE_TAGS,
-})
 
 
 class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
@@ -92,7 +75,7 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
                 and span._attributes is not None
             ):
                 for key, value in manager_trace.trace.info.tags.items():
-                    if key not in _SYSTEM_TAG_KEYS:
+                    if not key.startswith("mlflow."):
                         span._attributes[SpanAttributeKey.TRACE_TAG_PREFIX + key] = value
 
         if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get():
