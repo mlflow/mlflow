@@ -91,11 +91,6 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/app-instrumentation/distributed-tracing',
                   label: 'Distributed Tracing',
                 },
-                {
-                  type: 'doc',
-                  id: 'tracing/app-instrumentation/logging',
-                  label: 'Logging',
-                },
               ],
             },
             {
@@ -157,6 +152,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/observe-with-traces/masking',
                   label: 'Redact Sensitive Data',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/logging',
+                  label: 'Setting Log Levels',
                 },
                 {
                   type: 'doc',
