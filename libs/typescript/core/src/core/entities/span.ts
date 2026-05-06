@@ -5,7 +5,13 @@ import {
   SpanStatusCode as OTelSpanStatusCode,
 } from '@opentelemetry/api';
 import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-base';
-import { SpanAttributeKey, SpanLogLevel, SpanType, toSpanLogLevel, NO_OP_SPAN_TRACE_ID } from '../constants';
+import {
+  SpanAttributeKey,
+  SpanLogLevel,
+  SpanType,
+  toSpanLogLevel,
+  NO_OP_SPAN_TRACE_ID,
+} from '../constants';
 import { defaultLogLevelForSpanType } from '../log_level';
 import { SpanEvent } from './span_event';
 import { SpanStatus, SpanStatusCode } from './span_status';
@@ -424,7 +430,10 @@ export class LiveSpan extends Span {
       // `setLogLevel` nor an exception bump set it during the span's lifetime.
       // Mirrors the Python LiveSpan.end() behavior.
       if (this.getAttribute(SpanAttributeKey.LOG_LEVEL) == null) {
-        this.setAttribute(SpanAttributeKey.LOG_LEVEL, defaultLogLevelForSpanType(this.spanType) as number);
+        this.setAttribute(
+          SpanAttributeKey.LOG_LEVEL,
+          defaultLogLevelForSpanType(this.spanType) as number,
+        );
       }
 
       // OTel SDK default end time to current time if not provided

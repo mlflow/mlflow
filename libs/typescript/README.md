@@ -143,10 +143,11 @@ Tag spans with a severity level so users (or you) can filter by **Minimum log le
 ```typescript
 import { SpanLogLevel } from '@mlflow/core';
 
-const tracedAnswer = mlflow.trace(
-  (query: string) => llm.generate(query),
-  { name: 'answer', spanType: mlflow.SpanType.CHAT_MODEL, logLevel: SpanLogLevel.INFO },
-);
+const tracedAnswer = mlflow.trace((query: string) => llm.generate(query), {
+  name: 'answer',
+  spanType: mlflow.SpanType.CHAT_MODEL,
+  logLevel: SpanLogLevel.INFO,
+});
 
 // The string form works too:
 mlflow.startSpan({ name: 'plumbing', logLevel: 'DEBUG' });

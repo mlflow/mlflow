@@ -93,7 +93,9 @@ describe('exception event bumps log level to ERROR', () => {
   it('bumps an unset span to ERROR via addEvent (DEBUG-defaulting type)', () => {
     const span = newLiveSpan(SpanType.PARSER);
     expect(span.logLevel).toBeNull();
-    span.addEvent(new SpanEvent({ name: 'exception', attributes: { 'exception.message': 'boom' } }));
+    span.addEvent(
+      new SpanEvent({ name: 'exception', attributes: { 'exception.message': 'boom' } }),
+    );
     expect(span.logLevel).toBe(SpanLogLevel.ERROR);
     span.end();
     // Stays at ERROR after end(); the resolution branch only fires when unset.
@@ -103,7 +105,9 @@ describe('exception event bumps log level to ERROR', () => {
   it('bumps an unset span to ERROR via addEvent (INFO-defaulting type)', () => {
     const span = newLiveSpan(SpanType.CHAT_MODEL);
     expect(span.logLevel).toBeNull();
-    span.addEvent(new SpanEvent({ name: 'exception', attributes: { 'exception.message': 'boom' } }));
+    span.addEvent(
+      new SpanEvent({ name: 'exception', attributes: { 'exception.message': 'boom' } }),
+    );
     expect(span.logLevel).toBe(SpanLogLevel.ERROR);
     span.end();
     expect(span.logLevel).toBe(SpanLogLevel.ERROR);
@@ -112,7 +116,9 @@ describe('exception event bumps log level to ERROR', () => {
   it('preserves user-set CRITICAL', () => {
     const span = newLiveSpan(SpanType.PARSER);
     span.setLogLevel(SpanLogLevel.CRITICAL);
-    span.addEvent(new SpanEvent({ name: 'exception', attributes: { 'exception.message': 'boom' } }));
+    span.addEvent(
+      new SpanEvent({ name: 'exception', attributes: { 'exception.message': 'boom' } }),
+    );
     expect(span.logLevel).toBe(SpanLogLevel.CRITICAL);
     span.end();
   });

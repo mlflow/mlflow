@@ -56,7 +56,9 @@ export function toSpanLogLevel(value: SpanLogLevel | string): SpanLogLevel {
       return matched;
     }
     throw new Error(
-      `Invalid SpanLogLevel name ${JSON.stringify(value)}. Expected one of ${Object.keys(SpanLogLevel)
+      `Invalid SpanLogLevel name ${JSON.stringify(value)}. Expected one of ${Object.keys(
+        SpanLogLevel,
+      )
         .filter((k) => isNaN(Number(k)))
         .join(', ')}.`,
     );
