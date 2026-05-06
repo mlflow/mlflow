@@ -637,14 +637,17 @@ class LiveSpan(Span):
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
-        self._links: list["Link"] = [
-            Link(
-                trace_id=f"tr-{otel_link.context.trace_id:032x}",
-                span_id=f"{otel_link.context.span_id:016x}",
-                attributes=dict(otel_link.attributes) if otel_link.attributes else None,
-            )
-            for otel_link in getattr(otel_span, "links", ())
-        ]
+        if trace_id.startswith(TRACE_ID_V4_PREFIX):
+            self._links: list["Link"] = []
+        else:
+            self._links: list["Link"] = [
+                Link(
+                    trace_id=f"tr-{otel_link.context.trace_id:032x}",
+                    span_id=f"{otel_link.context.span_id:016x}",
+                    attributes=dict(otel_link.attributes) if otel_link.attributes else None,
+                )
+                for otel_link in getattr(otel_span, "links", ())
+            ]
         # Track the original span name for deduplication purposes during span logging.
         # Why: When traces contain multiple spans with identical names (e.g., multiple "LLM"
         # or "query" spans), it's difficult for users to distinguish between them in the UI
@@ -979,7 +982,13 @@ class LiveSpan(Span):
                 INVALID_PARAMETER_VALUE,
             ) from e
 
-        self._links.append(link)
+        self._links.append(
+            Link(
+                trace_id=link.trace_id,
+                span_id=link.span_id,
+                attributes=dict(link.attributes) if link.attributes else None,
+            )
+        )
         if hasattr(self._span, "add_link"):
             self._span.add_link(otel_context, link.attributes)
 
@@ -1074,7 +1083,14 @@ class LiveSpan(Span):
         span = Span(self._span)
         # Shallow copies so the immutable span is independent of further LiveSpan mutations
         span._attachments = dict(self._attachments)
-        span._links = list(self._links)
+        span._links = [
+            Link(
+                trace_id=link.trace_id,
+                span_id=link.span_id,
+                attributes=dict(link.attributes) if link.attributes else None,
+            )
+            for link in self._links
+        ]
         return span
 
     @classmethod

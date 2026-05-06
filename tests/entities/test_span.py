@@ -999,10 +999,43 @@ def test_span_links_property_returns_deep_copy():
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("test_span") as otel_span:
         live_span = create_mlflow_span(otel_span, trace_id=trace_id)
-        live_span.add_link(Link(trace_id="tr-abc", span_id="aabbccddeeff0011", attributes={"k": "v"}))
+        live_span.add_link(
+            Link(trace_id="tr-abc", span_id="aabbccddeeff0011", attributes={"k": "v"})
+        )
 
     immutable_span = live_span.to_immutable_span()
     links = immutable_span.links
     links[0].attributes["k"] = "mutated"
+
+    assert immutable_span.links[0].attributes["k"] == "v"
+
+
+def test_add_link_clones_on_insert():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        live_span = create_mlflow_span(otel_span, trace_id=trace_id)
+        link = Link(trace_id="tr-abc", span_id="aabbccddeeff0011", attributes={"k": "v"})
+        live_span.add_link(link)
+        link.attributes["k"] = "mutated"
+
+    assert live_span.links[0].attributes["k"] == "v"
+
+
+def test_to_immutable_span_deep_copies_links():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        live_span = create_mlflow_span(otel_span, trace_id=trace_id)
+        live_span.add_link(
+            Link(trace_id="tr-abc", span_id="aabbccddeeff0011", attributes={"k": "v"})
+        )
+
+    immutable_span = live_span.to_immutable_span()
+    live_span._links[0].attributes["k"] = "mutated"
 
     assert immutable_span.links[0].attributes["k"] == "v"
