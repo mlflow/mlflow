@@ -79,6 +79,19 @@ jobs:
             exit 1
           fi
 
+      - name: Tag PR as reviewed by NaiLaOpus
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          gh label create nailaopus-reviewed \
+            --repo ${{ github.repository }} \
+            --color ededed \
+            --description "PR was reviewed by NaiLaOpus[bot] at least once" \
+            2>/dev/null || true
+          gh issue edit ${{ steps.ctx.outputs.pr }} \
+            --repo ${{ github.repository }} \
+            --add-label nailaopus-reviewed || true
+
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
