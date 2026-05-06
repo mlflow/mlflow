@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778042109132,
+  "lastUpdate": 1778062901715,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -917,6 +917,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.83331580000015,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rahul.rajesh.bhat@gmail.com",
+            "name": "Rahul Rajesh",
+            "username": "rrtheonlyone"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bab283da6c597220f7fd6118a7a99599aea17dc5",
+          "message": "Add log levels for Trace Spans with UI switch to filter (#23017)\n\nSigned-off-by: Rahul Rajesh <rahul.rajesh.bhat@gmail.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nSigned-off-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
+          "timestamp": "2026-05-06T19:19:50+09:00",
+          "tree_id": "6b05c8220c4cd5eedf7119431bf687634d11b16c",
+          "url": "https://github.com/mlflow/mlflow/commit/bab283da6c597220f7fd6118a7a99599aea17dc5"
+        },
+        "date": 1778062900437,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 46.447564749998804,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.331289857143798,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.357503068965496,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.06912489090962,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.53338294999973,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 25.474908799998275,
             "unit": "ms"
           }
         ]
