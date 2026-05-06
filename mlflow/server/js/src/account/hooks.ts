@@ -30,7 +30,11 @@ export const useCurrentUserIsAdmin = () => {
 export const useCurrentUserAdminWorkspaces = (): Set<string> => {
   const { data: currentUser } = useCurrentUserQuery();
   const username = currentUser?.user?.username ?? '';
-  const { data: rolesData } = useUserRolesQuery(username);
+  // Platform admins short-circuit on ``is_admin`` everywhere; their
+  // workspace-admin set is unused. Skip the fetch to save a request per page load.
+  const { data: rolesData } = useUserRolesQuery(username, {
+    enabled: !currentUser?.user?.is_admin,
+  });
 
   const computed = useMemo(() => {
     if (!rolesData) {

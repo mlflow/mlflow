@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -307,7 +307,7 @@ const RolesTab = () => {
   // will accept a delete for.
   const isAdmin = useCurrentUserIsAdmin();
   const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
-  const canDeleteRoles = isAdmin || isWorkspaceAdmin;
+  const canManageRoles = isAdmin || isWorkspaceAdmin;
   const activeWorkspace = useActiveWorkspace();
   const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
   const queryEnabled = isAdmin || Boolean(activeWorkspace);
@@ -414,7 +414,7 @@ const RolesTab = () => {
           gap: theme.spacing.sm,
         }}
       >
-        {canDeleteRoles && (
+        {canManageRoles && (
           <Button
             componentId="admin.roles.bulk_delete_button"
             danger
@@ -435,9 +435,11 @@ const RolesTab = () => {
             )}
           </Button>
         )}
-        <Button componentId="admin.roles.create_button" type="primary" onClick={() => setShowCreateModal(true)}>
-          <FormattedMessage defaultMessage="Create Role" description="Button to create a new role" />
-        </Button>
+        {canManageRoles && (
+          <Button componentId="admin.roles.create_button" type="primary" onClick={() => setShowCreateModal(true)}>
+            <FormattedMessage defaultMessage="Create Role" description="Button to create a new role" />
+          </Button>
+        )}
       </div>
       <Table
         scrollable
@@ -450,7 +452,7 @@ const RolesTab = () => {
         }}
       >
         <TableRow isHeader>
-          {canDeleteRoles && (
+          {canManageRoles && (
             <TableHeader componentId="admin.roles.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
               <Checkbox
                 componentId="admin.roles.select_all"
@@ -478,7 +480,7 @@ const RolesTab = () => {
         </TableRow>
         {roles.map((role) => (
           <TableRow key={role.id}>
-            {canDeleteRoles && (
+            {canManageRoles && (
               <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
                 <Checkbox
                   componentId="admin.roles.select_row"
@@ -535,6 +537,17 @@ const AdminPage = () => {
 
   const isAdmin = useCurrentUserIsAdmin();
   const activeWorkspace = useActiveWorkspace();
+
+  // The route definition's static ``getPageTitle`` is set by ``MlflowRootRoute``
+  // *after* this component's effects (parent effects run after children's), so
+  // we override on a microtask to land last and reflect the workspace-manager
+  // header in the browser tab.
+  useEffect(() => {
+    const desired = isAdmin ? 'Platform Admin - MLflow' : 'Workspace Manager - MLflow';
+    queueMicrotask(() => {
+      document.title = desired;
+    });
+  }, [isAdmin]);
 
   return (
     <ScrollablePageWrapper>

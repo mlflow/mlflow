@@ -258,6 +258,21 @@ describe('useCurrentUserAdminWorkspaces', () => {
     expect(result.current.size).toBe(0);
   });
 
+  it('skips listUserRoles for platform admins (they short-circuit elsewhere)', async () => {
+    mockedApi.getCurrentUser.mockResolvedValueOnce({
+      user: { id: 1, username: 'admin', is_admin: true },
+      is_basic_auth: true,
+    });
+
+    const { result } = renderHook(() => useCurrentUserAdminWorkspaces(), {
+      wrapper: makeWrapper(),
+    });
+    // Wait for currentUserQuery to resolve, then assert no roles fetch fired.
+    await waitFor(() => expect(mockedApi.getCurrentUser).toHaveBeenCalled());
+    expect(mockedApi.listUserRoles).not.toHaveBeenCalled();
+    expect(result.current.size).toBe(0);
+  });
+
   it('returns an empty set while the queries are still loading', () => {
     mockedApi.getCurrentUser.mockReturnValueOnce(new Promise(() => {}));
     const { result } = renderHook(() => useCurrentUserAdminWorkspaces(), {
