@@ -1279,6 +1279,10 @@
     "defaultMessage": "Cost",
     "description": "Label for the cost section"
   },
+  "62puUb": {
+    "defaultMessage": "Run your application and traces will appear here automatically. For more information, visit the <a>MLflow Tracing documentation</a>.",
+    "description": "Step 3 description for traces onboarding"
+  },
   "64SfR8": {
     "defaultMessage": "enter a model identifier",
     "description": "Link text to switch to direct model identifier input"
@@ -1386,10 +1390,6 @@
   "6csnxr": {
     "defaultMessage": "Delete",
     "description": "Gateway > Endpoints list > Delete button"
-  },
-  "6d5JTO": {
-    "defaultMessage": "No traces recorded",
-    "description": "Message displayed when there are no traces logged to the experiment"
   },
   "6ejdmD": {
     "defaultMessage": "Requests",
@@ -1506,6 +1506,10 @@
   "7FI4Hp": {
     "defaultMessage": "View full trace",
     "description": "Button to view a full trace within a chat session"
+  },
+  "7FcqHP": {
+    "defaultMessage": "Configure your Python environment to send traces to this MLflow server.",
+    "description": "Step 1 description for Python traces onboarding"
   },
   "7FvLl2": {
     "defaultMessage": "Ignore outliers",
@@ -2258,6 +2262,10 @@
   "BWpQZ7": {
     "defaultMessage": "You have <strong>{unsyncedDataEntriesCount}</strong> unsaved evaluated {unsyncedDataEntriesCount, plural, =1 {value} other {values}}. Click \"Save\" button or press {keyCombination} keys to synchronize the artifact data.",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > pending changes indicator"
+  },
+  "BXkADi": {
+    "defaultMessage": "Install the OpenTelemetry SDK and instrument your application. Spans will be exported to MLflow via OTLP using the env vars set above.",
+    "description": "Step 2 description for OpenTelemetry traces onboarding"
   },
   "BY1k4W": {
     "defaultMessage": "Original logged model: {originalModelLink}",
@@ -3206,6 +3214,10 @@
   "Hem4uh": {
     "defaultMessage": "Compare this run with other evaluation runs",
     "description": "Tooltip for the compare button on the run detail page"
+  },
+  "HfHGT4": {
+    "defaultMessage": "Start tracing your LLM application",
+    "description": "Title for the empty state when no traces are recorded"
   },
   "HfcIG/": {
     "defaultMessage": "Does the assistant follow the provided guidelines throughout the conversation?",
@@ -4463,6 +4475,10 @@
     "defaultMessage": "Clear selection",
     "description": "Clear model selection"
   },
+  "PYGkI3": {
+    "defaultMessage": "Install the <a>MLflow tracing SDK</a> for TypeScript using npm, then initialize it in your application.",
+    "description": "Step 1 description for TypeScript traces onboarding"
+  },
   "PZGZHV": {
     "defaultMessage": "Experiment ID",
     "description": "Label for displaying the current experiment in view"
@@ -4718,6 +4734,10 @@
   "R3TrL7": {
     "defaultMessage": "Provider",
     "description": "Provider label"
+  },
+  "R6dCZ5": {
+    "defaultMessage": "View your traces",
+    "description": "Step 3 title for traces onboarding"
   },
   "R7s1xC": {
     "defaultMessage": "Provider is required",
@@ -5247,6 +5267,10 @@
     "defaultMessage": "Expectations",
     "description": "Label for the expectations section in the assessments pane"
   },
+  "UbY9E3": {
+    "defaultMessage": "Choose your framework and add one line to enable automatic tracing, or use the {code} decorator for custom functions.",
+    "description": "Step 2 description for Python traces onboarding"
+  },
   "Uf0z53": {
     "defaultMessage": "Cancel",
     "description": "Cancel button in unified trace tag assignment modal"
@@ -5518,6 +5542,10 @@
   "W7HqWM": {
     "defaultMessage": "Search chat sessions by input",
     "description": "Placeholder text for the search input in the chat sessions table"
+  },
+  "W8A4OF": {
+    "defaultMessage": "Configure OpenTelemetry export",
+    "description": "Step 1 title for OpenTelemetry traces onboarding"
   },
   "W8bOkn": {
     "defaultMessage": "250",
@@ -5825,7 +5853,15 @@
   },
   "Y/1i4Y": {
     "defaultMessage": "{label}: {behavior}",
-    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
+    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view.",
+  },
+  "Y+dLul": {
+    "defaultMessage": "Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions.",
+    "description": "Step 2 description for TypeScript traces onboarding"
+  },
+  "Y+nCpQ": {
+    "defaultMessage": "Pending",
+    "description": "Label indicating this onboarding step is not yet completed"
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -6751,6 +6787,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "d9VoXo": {
+    "defaultMessage": "Don't see your framework? <a>Browse all integrations</a>.",
+    "description": "Link to MLflow tracing integrations doc page above the framework selector"
+  },
   "dEGUt+": {
     "defaultMessage": "Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like correctness, latency, and other quality concerns in your agent.",
     "description": "Detect issues guidance popover message"
@@ -7479,6 +7519,10 @@
     "defaultMessage": "Delete ({count})",
     "description": "Gateway > Endpoints list > Delete button with count"
   },
+  "hPDXO7": {
+    "defaultMessage": "Add tracing to your application",
+    "description": "Step 2 title for traces onboarding"
+  },
   "hR27A2": {
     "defaultMessage": "View full dashboard",
     "description": "Link to view full usage dashboard"
@@ -7779,6 +7823,10 @@
     "defaultMessage": "Learn more",
     "description": "Learn more link text"
   },
+  "j/BF11": {
+    "defaultMessage": "Connect to the tracking server",
+    "description": "Step 1 title for Python traces onboarding"
+  },
   "j/pJM6": {
     "defaultMessage": "Last Modified",
     "description": "Label name for the last modified time under details tab on the model view page"
@@ -7806,6 +7854,10 @@
   "j8JWDD": {
     "defaultMessage": "Enter issue description",
     "description": "Placeholder text for issue description field"
+  },
+  "jClVwe": {
+    "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
+    "description": "Step 1 description for OpenTelemetry traces onboarding"
   },
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
@@ -7886,6 +7938,10 @@
   "jhjCgW": {
     "defaultMessage": "Agent versions",
     "description": "Label for the agent versions tab in the MLflow experiment navbar"
+  },
+  "ji3A2G": {
+    "defaultMessage": "Install and initialize the MLflow TypeScript SDK",
+    "description": "Step 1 title for TypeScript traces onboarding"
   },
   "jiIft9": {
     "defaultMessage": "Settings",
@@ -8459,10 +8515,6 @@
     "defaultMessage": "Value",
     "description": "Field label for assessment value in a creation form"
   },
-  "msYDmK": {
-    "defaultMessage": "This tab displays all the traces logged to this {isRun, select, true {run} other {experiment}}. Follow the steps below to log your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>.",
-    "description": "Message that explains the function of the 'Traces' tab in the MLflow UI. This message is followed by a tutorial explaining how to get started with MLflow Tracing."
-  },
   "msllnR": {
     "defaultMessage": "Datasets used",
     "description": "Label for the datasets used by a logged model on the logged model details page"
@@ -8794,6 +8846,10 @@
   "olpQcl": {
     "defaultMessage": "Model",
     "description": "Section title for model configuration"
+  },
+  "oooj//": {
+    "defaultMessage": "Select your development language",
+    "description": "Language selector heading for traces onboarding"
   },
   "opUoF8": {
     "defaultMessage": "Retrieval relevance",
@@ -10390,6 +10446,10 @@
   "ySuIn+": {
     "defaultMessage": "State",
     "description": "Column label for state"
+  },
+  "yWRwlk": {
+    "defaultMessage": "Traces show you how your LLM calls behave: what they cost, how they perform, and where things go wrong. Get started in a few minutes.",
+    "description": "Subtitle for the empty state when no traces are recorded"
   },
   "ydoHrJ": {
     "defaultMessage": "Output",
