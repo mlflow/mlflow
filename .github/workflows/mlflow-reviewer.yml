@@ -87,7 +87,6 @@ jobs:
         run: |
           set -e
           flags=""
-          if echo "$BODY" | grep -q -- '--lite'; then flags="$flags --lite"; fi
           if echo "$BODY" | grep -q -- '--no-cache'; then flags="$flags --no-cache"; fi
           if echo "$BODY" | grep -q -- '--hybrid'; then flags="$flags --hybrid"; fi
           echo "flags=$flags" >> "$GITHUB_OUTPUT"
