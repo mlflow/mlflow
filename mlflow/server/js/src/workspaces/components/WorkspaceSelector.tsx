@@ -14,10 +14,14 @@ import { uniqBy } from 'lodash';
 import { shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
 import {
   extractWorkspaceFromSearchParams,
+  isGlobalRoute,
+  setActiveWorkspace,
   setLastUsedWorkspace,
+  useActiveWorkspace,
   validateWorkspaceName,
   WORKSPACE_QUERY_PARAM,
 } from '../utils/WorkspaceUtils';
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useLocation, useNavigate, useSearchParams } from '../../common/utils/RoutingUtils';
 import Routes from '../../experiment-tracking/routes';
 import { useWorkspaces } from '../hooks/useWorkspaces';
@@ -29,8 +33,14 @@ export const WorkspaceSelector = () => {
   const [searchParams] = useSearchParams();
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate({ bypassWorkspacePrefix: true });
-  // Extract workspace from query param
-  const currentWorkspace = extractWorkspaceFromSearchParams(searchParams);
+  const queryClient = useQueryClient();
+  // Extract workspace from query param. On global routes (e.g. /account)
+  // the URL doesn't carry a workspace, so fall back to the in-memory active
+  // workspace - that way the trigger keeps showing the user's workspace
+  // context across the global-page intermission.
+  const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+  const activeWorkspace = useActiveWorkspace();
+  const currentWorkspace = workspaceFromUrl ?? activeWorkspace;
 
   // Fetch workspaces using custom hook
   const { workspaces, isLoading, isError, refetch } = useWorkspaces(workspacesEnabled);
@@ -51,14 +61,36 @@ export const WorkspaceSelector = () => {
 
       // Persist to localStorage for UI hints
       setLastUsedWorkspace(nextWorkspace);
+      // Flip the in-memory singleton that ``FetchUtils`` reads to populate
+      // the ``X-MLFLOW-WORKSPACE`` header so requests on the next render
+      // already carry the new workspace. ``WorkspaceRouterSync`` will also
+      // call this on the URL change below; doing it here is belt-and-
+      // suspenders against the brief render between the two.
+      setActiveWorkspace(nextWorkspace);
 
-      // Hard reload to cleanly switch workspace context (clears all caches)
+      if (isGlobalRoute(location.pathname)) {
+        // Global routes (e.g. /account) are workspace-agnostic - the URL
+        // doesn't carry ``?workspace=``, so just stay on the page. The
+        // active workspace update above is enough.
+        return;
+      }
+
+      // Client-side navigation keeps the chrome (sidebar + avatar widget)
+      // mounted instead of blanking via ``window.location.reload()``. The
+      // sidebar's avatar dropdown was visibly flickering off and back on
+      // during a hard reload, since ``/users/current`` had to refetch from
+      // scratch before the trigger could render.
       const currentSection = getNavigationSection(location.pathname);
       const targetPath = currentSection || '/';
-      window.location.hash = `#${targetPath}?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(nextWorkspace)}`;
-      window.location.reload();
+      navigate(`${targetPath}?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(nextWorkspace)}`);
+
+      // Workspace is a header-level context (not part of any queryKey in
+      // this app), so every cached query is now stale relative to the new
+      // ``X-MLFLOW-WORKSPACE``. Blanket-invalidate so consumers refetch
+      // with the new context.
+      queryClient.invalidateQueries();
     },
-    [currentWorkspace, location.pathname],
+    [currentWorkspace, location.pathname, navigate, queryClient],
   );
 
   // Refresh workspaces when combobox is opened to catch label selector changes

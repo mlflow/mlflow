@@ -211,6 +211,7 @@ class TraceMetricKey:
     """
 
     TRACE_COUNT = "trace_count"
+    SESSION_COUNT = "session_count"
     LATENCY = "latency"
     INPUT_TOKENS = "input_tokens"
     OUTPUT_TOKENS = "output_tokens"
