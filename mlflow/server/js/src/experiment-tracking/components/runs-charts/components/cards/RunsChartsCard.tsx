@@ -9,6 +9,7 @@ import type {
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
   RunsChartsScatterCardConfig,
+  RunsChartsVideoCardConfig,
 } from '../../runs-charts.types';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsChartsBarChartCard } from './RunsChartsBarChartCard';
@@ -25,6 +26,7 @@ import type {
 import { RunsChartsDifferenceChartCard } from './RunsChartsDifferenceChartCard';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsImageChartCard } from './RunsChartsImageChartCard';
+import { RunsChartsVideoChartCard } from './RunsChartsVideoChartCard';
 import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 
 export interface RunsChartsCardProps
@@ -158,6 +160,16 @@ const RunsChartsCardRaw = ({
     return (
       <RunsChartsImageChartCard
         config={cardConfig as RunsChartsImageCardConfig}
+        chartRunData={chartRunData}
+        {...commonChartProps}
+      />
+    );
+  }
+
+  if (cardConfig.type === RunsChartType.VIDEO) {
+    return (
+      <RunsChartsVideoChartCard
+        config={cardConfig as RunsChartsVideoCardConfig}
         chartRunData={chartRunData}
         {...commonChartProps}
       />

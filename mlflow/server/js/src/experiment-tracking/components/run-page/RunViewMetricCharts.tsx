@@ -44,7 +44,6 @@ import {
   NodeLevelMetricsFilterContextProvider,
   useNodeLevelMetricsFilterState,
 } from './node-level-metric-charts/contexts/NodeLevelMetricsFilterContext';
-import { RunViewVideosSection } from './overview/RunViewVideosSection';
 
 interface RunViewMetricChartsProps {
   metricKeys: string[];
@@ -291,7 +290,6 @@ const RunViewMetricChartsImpl = ({
           overflow: 'auto',
         }}
       >
-        {mode === 'model' && <RunViewVideosSection runUuid={runInfo.runUuid ?? ''} />}
         <NodeLevelMetricsFilterContextProvider value={filterState}>
           <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunViewChartTooltipBody}>
             <RunsChartsDraggableCardsGridContextProvider visibleChartCards={visibleChartCards}>
@@ -305,7 +303,7 @@ const RunViewMetricChartsImpl = ({
                 removeChart={removeChart}
                 addNewChartCard={addNewChartCard}
                 search={chartsSearchFilter ?? ''}
-                supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR, RunsChartType.IMAGE]}
+                supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR, RunsChartType.IMAGE, RunsChartType.VIDEO]}
                 setFullScreenChart={setFullScreenChart}
                 autoRefreshEnabled={autoRefreshEnabled}
                 globalLineChartConfig={chartUIState.globalLineChartConfig}
@@ -333,7 +331,7 @@ const RunViewMetricChartsImpl = ({
           onSubmit={submitForm}
           onCancel={() => setConfiguredCardConfig(null)}
           groupBy={null}
-          supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR, RunsChartType.IMAGE]}
+          supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR, RunsChartType.IMAGE, RunsChartType.VIDEO]}
           globalLineChartConfig={chartUIState.globalLineChartConfig}
         />
       )}
