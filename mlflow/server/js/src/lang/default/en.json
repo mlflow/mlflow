@@ -795,10 +795,6 @@
     "defaultMessage": "Process {evaluableRowCount} rows without evaluation output",
     "description": "Experiment page > artifact compare view > run column header > \"Evaluate all\" button tooltip"
   },
-  "2gvIco": {
-    "defaultMessage": "Workspace: {workspace}",
-    "description": "Subtitle on the admin page identifying the active workspace for workspace managers"
-  },
   "2gxV/O": {
     "defaultMessage": "Evaluation not available when grouping is enabled",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > title"
@@ -5319,10 +5315,6 @@
     "defaultMessage": "Ground truth values annotated to the trace",
     "description": "Tooltip description for the Expectation column group in the traces table"
   },
-  "UsvDLH": {
-    "defaultMessage": "Select a workspace",
-    "description": "Roles tab empty state shown to workspace admins without an active workspace"
-  },
   "UtUq/x": {
     "defaultMessage": "Registered models",
     "description": "Header title for the registered models column in the logged model list table"
@@ -5991,10 +5983,6 @@
     "defaultMessage": "Relevance",
     "description": "Evaluation results > known type of evaluation result assessment > relevance assessment. Used to indicate if the result is relevant to query in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Relevance: moderate\""
   },
-  "YjUyVr": {
-    "defaultMessage": "Pick a workspace from the workspace selector to see roles you can manage.",
-    "description": "Roles tab empty state body when no workspace is selected"
-  },
   "YkcoeV": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to compare-experiments page on compare runs page"
@@ -6134,6 +6122,10 @@
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
     "description": "Label for the relative axis on the runs compare chart"
+  },
+  "ZbEDiu": {
+    "defaultMessage": "Workspace: {workspaces}",
+    "description": "Subtitle on the admin page identifying the single workspace a workspace manager administers"
   },
   "Zbff/R": {
     "defaultMessage": "Unified interface for accessing multiple LLM providers.",
@@ -7374,6 +7366,10 @@
   "gUhc5g": {
     "defaultMessage": "You need to evaluate the resulting output first",
     "description": "Experiment page > new run modal > invalid state - result not evaluated"
+  },
+  "gUnBuA": {
+    "defaultMessage": "Workspaces: {workspaces}",
+    "description": "Subtitle on the admin page listing all workspaces a workspace manager administers"
   },
   "gVxisd": {
     "defaultMessage": "Tag \"{value}\" already exists.",

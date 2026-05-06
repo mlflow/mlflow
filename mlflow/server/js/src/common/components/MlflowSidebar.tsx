@@ -30,8 +30,8 @@ import GatewayRoutes from '../../gateway/routes';
 import AccountRoutes from '../../account/routes';
 import AdminRoutes from '../../admin/routes';
 import {
-  useCurrentUserAdminWorkspaces,
   useCurrentUserIsAdmin,
+  useCurrentUserIsWorkspaceAdmin,
   useCurrentUserQuery,
   useIsBasicAuth,
 } from '../../account/hooks';
@@ -147,12 +147,12 @@ export function MlflowSidebar({
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
 
-  // Hide Manage for workspace admins when the active workspace isn't one
-  // they manage — otherwise /admin's Roles tab would 403 and dead-end them.
+  // Manage is globally accessible to platform admins and to anyone holding
+  // a workspace-admin role anywhere — /admin lists roles across all
+  // workspaces the user manages, not just the active one.
   const isAdmin = useCurrentUserIsAdmin();
-  const adminWorkspaces = useCurrentUserAdminWorkspaces();
-  const activeWorkspace = useActiveWorkspace();
-  const canManage = isAdmin || (activeWorkspace !== null && adminWorkspaces.has(activeWorkspace));
+  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
+  const canManage = isAdmin || isWorkspaceAdmin;
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -282,6 +282,7 @@ export function MlflowSidebar({
   // Global routes (e.g. /account) don't carry ``?workspace=`` in the URL but
   // preserve the in-memory active workspace so the sidebar's workspace-scoped
   // links resume in the same workspace. Fall back to the active workspace.
+  const activeWorkspace = useActiveWorkspace();
   const effectiveWorkspace = workspaceFromUrl ?? activeWorkspace;
   // Only show workspace-specific menu items when: workspaces are disabled OR a workspace is selected
   const showWorkspaceMenuItems = !workspacesEnabled || effectiveWorkspace !== null;

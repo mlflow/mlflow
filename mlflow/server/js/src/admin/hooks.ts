@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useCallback, useMemo } from 'react';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useSearchParams } from '../common/utils/RoutingUtils';
 import { SETTINGS_RETURN_TO_PARAM } from '../settings/settingsSectionConstants';
 import { AccountQueryKeys } from '../account/hooks';
@@ -119,6 +119,34 @@ export const useRolesQuery = (workspace?: string, options: { enabled?: boolean }
     // Callers pass ``enabled: false`` to skip a fetch they know will 403.
     enabled: options.enabled !== false,
   });
+};
+
+/**
+ * Roles across multiple workspaces. Workspace managers don't have an
+ * unscoped ``list_roles`` endpoint (``validate_can_list_roles`` rejects
+ * non-admin requests without a workspace), so we fan out one query per
+ * workspace they manage and merge the results client-side. ``useQueries``
+ * shares cache entries with ``useRolesQuery``'s queryKey shape, so a
+ * subsequent ``useRolesQuery(ws)`` call elsewhere reads from the same
+ * cache. The N+1 here is bounded by the number of workspaces the user
+ * manages, which is small in practice.
+ */
+export const useRolesInWorkspacesQuery = (workspaces: ReadonlySet<string>) => {
+  const sortedWorkspaces = useMemo(() => Array.from(workspaces).sort(), [workspaces]);
+  const results = useQueries({
+    queries: sortedWorkspaces.map((workspace) => ({
+      queryKey: [...AdminQueryKeys.roles, workspace],
+      queryFn: () => AdminApi.listRoles(workspace),
+      retry: false,
+      refetchOnWindowFocus: false,
+    })),
+  });
+  return useMemo(() => {
+    const isLoading = results.some((r) => r.isLoading);
+    const error = results.find((r) => r.error)?.error ?? null;
+    const roles = results.flatMap((r) => r.data?.roles ?? []);
+    return { isLoading, error, data: { roles } };
+  }, [results]);
 };
 
 export const useRoleDetailQuery = (roleId: number) => {

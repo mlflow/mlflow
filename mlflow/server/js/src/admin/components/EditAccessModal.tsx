@@ -15,16 +15,17 @@ import { LongFormSection } from '../../common/components/long-form/LongFormSecti
 import { AdminApi } from '../api';
 import {
   AdminQueryKeys,
+  useCurrentUserAdminWorkspaces,
   useCurrentUserIsAdmin,
   useGrantUserPermission,
   useRevokeUserPermission,
+  useRolesInWorkspacesQuery,
   useRolesQuery,
   useUserPermissionsQuery,
   useUserRolesQuery,
   useUsersQuery,
 } from '../hooks';
 import { AccountQueryKeys } from '../../account/hooks';
-import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
@@ -73,14 +74,14 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
   const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
-  // Roles list is needed for the Review step's name lookup (the form uses
-  // the dropdown's own label, but the Review step renders by id).
-  // Workspace admins must pass a workspace; suppress when none is active
-  // to avoid a guaranteed 403.
-  const activeWorkspace = useActiveWorkspace();
-  const rolesListWorkspace = isCurrentUserAdmin ? undefined : (activeWorkspace ?? undefined);
-  const rolesListEnabled = isCurrentUserAdmin || Boolean(activeWorkspace);
-  const { data: rolesListData } = useRolesQuery(rolesListWorkspace, { enabled: rolesListEnabled });
+  // Roles list for the Review step's name lookup (the form uses the
+  // dropdown's own label, but the Review step renders by id). Platform
+  // admins fetch unscoped; workspace managers fan out across the
+  // workspaces they administer.
+  const adminWorkspaces = useCurrentUserAdminWorkspaces();
+  const adminRolesQuery = useRolesQuery(undefined, { enabled: isCurrentUserAdmin });
+  const workspaceRolesQuery = useRolesInWorkspacesQuery(isCurrentUserAdmin ? new Set<string>() : adminWorkspaces);
+  const rolesListData = isCurrentUserAdmin ? adminRolesQuery.data : workspaceRolesQuery.data;
 
   const currentRoleIds = useMemo<number[]>(() => (rolesData?.roles ?? []).map((r) => r.id), [rolesData]);
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(

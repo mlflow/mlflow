@@ -19,7 +19,6 @@ import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
-import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { performLogout } from '../auth-utils';
 import { ConfirmationModal } from '../ConfirmationModal';
 import AdminRoutes from '../routes';
@@ -32,6 +31,7 @@ import {
   useUsersQuery,
   useDeleteUser,
   useRolesQuery,
+  useRolesInWorkspacesQuery,
   useDeleteRole,
   useUserRolesQuery,
   useWithSettingsReturnTo,
@@ -299,18 +299,17 @@ const UsersTab = () => {
 
 const RolesTab = () => {
   const { theme } = useDesignSystemTheme();
-  // Mutations are authorized per-target-workspace by ``validate_can_manage_roles``,
-  // so ``canManageRoles`` checks the *active* workspace, not just whether the
-  // user admins something somewhere. A wp-admin of A who is currently in B
-  // (member only) would otherwise see Create / bulk-delete CTAs that 403 on
-  // submit.
+  // Platform admins fetch roles unscoped; workspace managers fan out one
+  // query per workspace they administer and merge. Every visible row is
+  // therefore in a workspace the user can manage, so bulk-delete is safe.
   const isAdmin = useCurrentUserIsAdmin();
   const adminWorkspaces = useCurrentUserAdminWorkspaces();
-  const activeWorkspace = useActiveWorkspace();
-  const canManageRoles = isAdmin || (activeWorkspace !== null && adminWorkspaces.has(activeWorkspace));
-  const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
-  const queryEnabled = isAdmin || Boolean(activeWorkspace);
-  const { data: rolesData, isLoading, error: queryError } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
+  const canManageRoles = isAdmin || adminWorkspaces.size > 0;
+  const adminRolesQuery = useRolesQuery(undefined, { enabled: isAdmin });
+  const workspaceRolesQuery = useRolesInWorkspacesQuery(isAdmin ? new Set<string>() : adminWorkspaces);
+  const rolesData = isAdmin ? adminRolesQuery.data : workspaceRolesQuery.data;
+  const isLoading = isAdmin ? adminRolesQuery.isLoading : workspaceRolesQuery.isLoading;
+  const queryError = isAdmin ? adminRolesQuery.error : workspaceRolesQuery.error;
   const deleteRole = useDeleteRole();
   const withReturnTo = useWithSettingsReturnTo();
 
@@ -338,26 +337,6 @@ const RolesTab = () => {
     clearSelection();
     setBulkDeleteOpen(false);
   };
-
-  // No active workspace + non-admin: skip the guaranteed 403, prompt instead.
-  if (!queryEnabled) {
-    return (
-      <Empty
-        title={
-          <FormattedMessage
-            defaultMessage="Select a workspace"
-            description="Roles tab empty state shown to workspace admins without an active workspace"
-          />
-        }
-        description={
-          <FormattedMessage
-            defaultMessage="Pick a workspace from the workspace selector to see roles you can manage."
-            description="Roles tab empty state body when no workspace is selected"
-          />
-        }
-      />
-    );
-  }
 
   if (isLoading) {
     return (
@@ -535,7 +514,8 @@ const AdminPage = () => {
   const activeTab = tabFromUrl === 'roles' ? 'roles' : 'users';
 
   const isAdmin = useCurrentUserIsAdmin();
-  const activeWorkspace = useActiveWorkspace();
+  const adminWorkspaces = useCurrentUserAdminWorkspaces();
+  const sortedAdminWorkspaces = useMemo(() => Array.from(adminWorkspaces).sort(), [adminWorkspaces]);
 
   // The route definition's static ``getPageTitle`` is set by ``MlflowRootRoute``
   // *after* this component's effects (parent effects run after children's), so
@@ -574,13 +554,28 @@ const AdminPage = () => {
               )}
             </Typography.Title>
           </div>
-          {!isAdmin && activeWorkspace && (
+          {!isAdmin && sortedAdminWorkspaces.length > 0 && (
             <Typography.Text color="secondary">
-              <FormattedMessage
-                defaultMessage="Workspace: {workspace}"
-                description="Subtitle on the admin page identifying the active workspace for workspace managers"
-                values={{ workspace: <code>{activeWorkspace}</code> }}
-              />
+              {sortedAdminWorkspaces.length === 1 ? (
+                <FormattedMessage
+                  defaultMessage="Workspace: {workspaces}"
+                  description="Subtitle on the admin page identifying the single workspace a workspace manager administers"
+                  values={{ workspaces: <code>{sortedAdminWorkspaces[0]}</code> }}
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Workspaces: {workspaces}"
+                  description="Subtitle on the admin page listing all workspaces a workspace manager administers"
+                  values={{
+                    workspaces: sortedAdminWorkspaces.map((ws, i) => (
+                      <span key={ws}>
+                        {i > 0 ? ', ' : ''}
+                        <code>{ws}</code>
+                      </span>
+                    )),
+                  }}
+                />
+              )}
             </Typography.Text>
           )}
         </div>

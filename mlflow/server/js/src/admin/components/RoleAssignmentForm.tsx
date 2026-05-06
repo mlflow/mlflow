@@ -11,8 +11,12 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
-import { useCurrentUserIsAdmin, useRolesQuery } from '../hooks';
-import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+import {
+  useCurrentUserAdminWorkspaces,
+  useCurrentUserIsAdmin,
+  useRolesInWorkspacesQuery,
+  useRolesQuery,
+} from '../hooks';
 import type { Role } from '../types';
 
 export interface RoleAssignmentValue {
@@ -41,13 +45,16 @@ const formatRoleLabel = (role: Role): string =>
 export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignmentFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
-  // Workspace admins must pass a workspace; suppress when none is active
-  // to avoid a guaranteed 403.
+  // Platform admins fetch unscoped (every workspace); workspace managers
+  // fan out to one query per workspace they administer and merge.
   const isAdmin = useCurrentUserIsAdmin();
-  const activeWorkspace = useActiveWorkspace();
-  const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
-  const queryEnabled = isAdmin || Boolean(activeWorkspace);
-  const { data: rolesData, isLoading, error } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
+  const adminWorkspaces = useCurrentUserAdminWorkspaces();
+  const adminRolesQuery = useRolesQuery(undefined, { enabled: isAdmin });
+  const workspaceRolesQuery = useRolesInWorkspacesQuery(isAdmin ? new Set<string>() : adminWorkspaces);
+  const rolesData = isAdmin ? adminRolesQuery.data : workspaceRolesQuery.data;
+  const isLoading = isAdmin ? adminRolesQuery.isLoading : workspaceRolesQuery.isLoading;
+  const error = isAdmin ? adminRolesQuery.error : workspaceRolesQuery.error;
+  const queryEnabled = isAdmin || adminWorkspaces.size > 0;
   const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
@@ -89,9 +96,7 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
       <div>
         <FieldLabel>Roles</FieldLabel>
         {!queryEnabled ? (
-          <Typography.Text color="secondary">
-            Select a workspace from the workspace selector to choose roles.
-          </Typography.Text>
+          <Typography.Text color="secondary">No roles available.</Typography.Text>
         ) : isLoading ? (
           <div css={{ padding: theme.spacing.sm }}>
             <Spinner size="small" />
