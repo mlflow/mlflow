@@ -515,6 +515,15 @@ class MemoryAugmentedJudge(Judge):
         self._episodic_trace_ids = [
             tid for tid in self._episodic_trace_ids if tid not in trace_ids_to_remove
         ]
+        # Drop a guideline only when ALL of its source traces are being removed —
+        # i.e., retain ``g`` if ``source_trace_ids`` has at least one tid outside the
+        # remove set, or if it has no recorded sources (user-provided guidelines).
+        # A cross-trace guideline aggregates signal from each of its source traces,
+        # so refreshing one source doesn't invalidate the signal that came from the
+        # others. The tradeoff is that the guideline's text may briefly reflect a
+        # now-stale version of one source, but that staleness is recoverable on the
+        # next align() round (the LM re-distills from the refreshed examples),
+        # whereas signal lost by over-aggressive dropping is not.
         self._semantic_memory = [
             g
             for g in self._semantic_memory
@@ -656,14 +665,31 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
     def align(self, judge: Judge, traces: list[Trace]) -> MemoryAugmentedJudge:
         """
-        Align judge with human feedback from traces.
+        Align a judge with human feedback from traces.
+
+        When ``judge`` is already a :py:class:`MemoryAugmentedJudge` (e.g., the
+        result of a prior ``align`` call), per-trace behavior is:
+
+        - Traces whose human assessments are byte-identical to what is already
+          in memory are skipped — no LM call, no index rebuild.
+        - Traces in memory whose assessments have been edited, added, or
+          partially removed are refreshed: stale episodes are dropped and
+          replaced with examples derived from the current trace state.
+        - Traces not yet in memory are added.
+        - Traces whose human assessments have been *fully* removed raise
+          :py:class:`MlflowException`. To remove a trace's contribution to
+          memory, call :py:meth:`MemoryAugmentedJudge.unalign` directly —
+          re-aligning with empty assessments is not a supported retraction
+          path. Likewise, traces that have never had any human assessments
+          for ``judge.name`` raise rather than being silently skipped.
 
         Args:
-            judge: Judge to align
-            traces: Traces containing human feedback
+            judge: Judge to align (or re-align if already a
+                :py:class:`MemoryAugmentedJudge`).
+            traces: Traces containing human feedback.
 
         Returns:
-            Memory-augmented judge aligned with feedback
+            Memory-augmented judge aligned with feedback.
         """
         try:
             if not traces:
@@ -689,27 +715,31 @@ class MemAlignOptimizer(AlignmentOptimizer):
             }
 
             # Classify each trace as: emptied-from-memory (retraction attempt),
-            # skip (identical to memory), refresh (in memory but assessments changed),
-            # or new (not in memory).
+            # never-had-feedback (user error), skip (identical to memory), refresh
+            # (in memory but assessments changed), or new (not in memory).
             trace_ids_with_empty_assessments: set[str] = set()
+            trace_ids_with_no_feedback: set[str] = set()
             trace_ids_to_refresh: set[str] = set()
             examples_to_align: list["dspy.Example"] = []
-            skipped_count = 0
             for tid, examples in examples_by_trace.items():
                 new_fp = _generate_fingerprint(examples)
                 old_fp = memory_judge._in_memory_fingerprint(tid)
-                if not examples and old_fp:
-                    # Trace was previously aligned and now has zero resolvable
-                    # assessments — block the call regardless of what other traces
-                    # are doing. Retraction goes through unalign(), not align().
-                    trace_ids_with_empty_assessments.add(tid)
+                if not examples:
+                    # Any trace that resolves to zero examples blocks the call. We
+                    # split the two cases so the error message points at the right
+                    # remediation: unalign() for retraction, log_feedback() for
+                    # missing feedback. Both are loud rather than silently dropped
+                    # because mixing one with valid traces would otherwise hide a
+                    # likely user bug (wrong trace IDs / missing feedback / etc.).
+                    if old_fp:
+                        trace_ids_with_empty_assessments.add(tid)
+                    else:
+                        trace_ids_with_no_feedback.add(tid)
                 elif not old_fp:
                     examples_to_align.extend(examples)
                 elif old_fp != new_fp:
                     trace_ids_to_refresh.add(tid)
                     examples_to_align.extend(examples)
-                else:
-                    skipped_count += 1
 
             if trace_ids_with_empty_assessments:
                 raise MlflowException(
@@ -720,15 +750,19 @@ class MemAlignOptimizer(AlignmentOptimizer):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            if not examples_to_align:
-                if skipped_count > 0:
-                    _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
-                    return memory_judge
+            if trace_ids_with_no_feedback:
                 raise MlflowException(
-                    f"No valid feedback records found in traces. "
-                    f"Ensure traces contain human assessments with name '{judge.name}'",
+                    f"No valid feedback records found for {len(trace_ids_with_no_feedback)} "
+                    f"trace(s): {sorted(trace_ids_with_no_feedback)}. Ensure traces contain "
+                    f"human assessments with name '{judge.name}'.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
+
+            if not examples_to_align:
+                # Reachable only when every incoming trace was a no-op skip; the
+                # raises above already cover all empty-example paths.
+                _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
+                return memory_judge
 
             if trace_ids_to_refresh:
                 memory_judge._apply_unalign_inplace(trace_ids_to_refresh)

@@ -929,3 +929,16 @@ def test_realign_with_partial_empty_assessments_raises(sample_judge, sample_trac
         # No state mutation on the prior judge.
         assert set(judge_v1._episodic_trace_ids) == v1_trace_ids
         assert len(judge_v1._episodic_memory) == v1_episodic_count
+
+
+def test_align_with_partial_no_feedback_traces_raises(sample_judge, sample_traces):
+    # A trace that was never previously aligned and has no human assessments is
+    # treated as user error (likely wrong trace IDs / missing feedback) and blocks
+    # the call regardless of whether other valid traces are present.
+    no_feedback_trace_id = _start_test_trace("no_feedback_span")
+    no_feedback_trace = mlflow.get_trace(no_feedback_trace_id)
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        with pytest.raises(MlflowException, match="No valid feedback records found"):
+            optimizer.align(sample_judge, [no_feedback_trace, sample_traces[0]])
