@@ -267,7 +267,26 @@ When multiple presets are combined, the same scorer type can appear more than on
 Deduplication happens in two places:
 
 - **In the `Preset` class** — both `__init__` and `__add__` deduplicate using `(type(scorer), scorer.name)` as the key, so the preset is always clean whenever scorers are added or combined.
-- **In `validate_scorers()`** — when multiple presets are passed directly in a list (e.g., `scorers=[Agent(), SafetyPreset()]`) without using `+`, `__add__` is never called. `validate_scorers()` flattens and deduplicates as a safety net.
+- **In `validate_scorers()`** — when multiple presets are passed directly in a list (e.g., `scorers=[Agent(), SafetyPreset()]`) without using `+`, `__add__` is never called. `validate_scorers()` flattens and deduplicates as a safety net:
+
+```python
+def validate_scorers(scorers: list[Any]) -> list[Scorer]:
+    from mlflow.genai.scorers.presets import Preset
+
+    # 1. Flatten presets into individual scorers
+    flat = []
+    for item in scorers:
+        if isinstance(item, Preset):
+            flat.extend(item)
+        else:
+            flat.append(item)
+
+    # 2. Deduplicate by (type, name)
+    flat = Preset._deduplicate(flat)
+
+    # 3. Existing validation on the flattened list
+    ...
+```
 
 Scorers of the same class with different names are preserved (e.g., two `Guidelines` with different rules). Only true duplicates — same class and same name — are removed.
 
