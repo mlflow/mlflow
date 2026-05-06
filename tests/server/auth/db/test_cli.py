@@ -150,8 +150,10 @@ def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
 
 
 def test_upgrade_filters_legacy_rows_per_simplified_model(tmp_path: Path) -> None:
-    """Migration drops resource-scope ``NO_PERMISSIONS`` rows and rewrites
-    workspace-scope ``READ`` / ``EDIT`` rows to ``USE``. Other values pass through.
+    """Migration drops resource-scope ``NO_PERMISSIONS`` rows; workspace-scope
+    ``READ`` rewrites to a single ``USE`` grant; workspace-scope ``EDIT`` fans
+    out to ``USE`` plus a type-wildcard ``EDIT`` grant on every concrete
+    resource type; other values pass through.
 
     Walks the migration chain in two steps: first up to the revision **before**
     the backfill so the legacy tables exist with the expected schema, seeds
@@ -192,8 +194,9 @@ def test_upgrade_filters_legacy_rows_per_simplified_model(tmp_path: Path) -> Non
                 ("exp-3", 3, "MANAGE"),
             ],
         )
-        # Workspace-scope rows: NO_PERMISSIONS dropped, READ / EDIT rewritten
-        # to USE, USE / MANAGE preserved.
+        # Workspace-scope rows: NO_PERMISSIONS dropped; READ rewrites to a
+        # single USE row; EDIT fans out to USE + per-resource-type EDIT;
+        # USE / MANAGE migrate unchanged.
         cursor.executemany(
             "INSERT INTO workspace_permissions (workspace, user_id, permission) VALUES (?, ?, ?)",
             [
@@ -222,15 +225,85 @@ def test_upgrade_filters_legacy_rows_per_simplified_model(tmp_path: Path) -> Non
         rows = cursor.fetchall()
 
     # alice: experiment READ preserved, workspace READ rewritten to USE
-    # bob:   experiment NO_PERMISSIONS skipped, workspace EDIT rewritten to USE
+    # bob:   experiment NO_PERMISSIONS skipped, workspace EDIT fans out to
+    #        ('*','*','USE') + ('<each resource_type>','*','EDIT')
     # carol: experiment MANAGE preserved, workspace NO_PERMISSIONS skipped
     # dan:   workspace MANAGE preserved
     assert rows == [
         ("alice", "*", "*", "USE"),
         ("alice", "experiment", "exp-1", "READ"),
         ("bob", "*", "*", "USE"),
+        ("bob", "experiment", "*", "EDIT"),
+        ("bob", "gateway_endpoint", "*", "EDIT"),
+        ("bob", "gateway_model_definition", "*", "EDIT"),
+        ("bob", "gateway_secret", "*", "EDIT"),
+        ("bob", "registered_model", "*", "EDIT"),
+        ("bob", "scorer", "*", "EDIT"),
         ("carol", "experiment", "exp-3", "MANAGE"),
         ("dan", "*", "*", "MANAGE"),
+    ]
+
+
+def test_upgrade_workspace_edit_fans_out_to_per_type_grants(tmp_path: Path) -> None:
+    """Workspace ``EDIT`` had no single equivalent in the simplified two-tier
+    model (workspace tier is USE / MANAGE only). To preserve the user's
+    pre-simplification per-resource EDIT capability, the migration emits one
+    workspace-wide ``USE`` grant (for visibility + create) plus a type-wildcard
+    ``EDIT`` grant on every concrete resource type. Together those reproduce
+    the legacy "EDIT on every resource in this workspace" behavior without
+    smuggling EDIT into the workspace tier itself.
+
+    This test is a focused pin for the fan-out so a future migration tweak
+    that drops a resource type (or collapses EDIT back to USE) is caught.
+    """
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "c3d4e5f6a7b8"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO users (id, username, password_hash, is_admin) VALUES (?, ?, ?, ?)",
+            (1, "alice", "h", False),
+        )
+        cursor.execute(
+            "INSERT INTO workspace_permissions (workspace, user_id, permission) VALUES (?, ?, ?)",
+            ("ws-team-a", 1, "EDIT"),
+        )
+        conn.commit()
+
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT r.workspace, rp.resource_type, rp.resource_pattern, rp.permission "
+            "FROM role_permissions rp "
+            "JOIN roles r ON r.id = rp.role_id "
+            "JOIN user_role_assignments ura ON ura.role_id = r.id "
+            "JOIN users u ON u.id = ura.user_id "
+            "WHERE u.username = 'alice' "
+            "ORDER BY rp.resource_type, rp.resource_pattern"
+        )
+        rows = cursor.fetchall()
+
+    # All seven grants land in alice's synthetic role for ``ws-team-a``.
+    assert rows == [
+        ("ws-team-a", "*", "*", "USE"),
+        ("ws-team-a", "experiment", "*", "EDIT"),
+        ("ws-team-a", "gateway_endpoint", "*", "EDIT"),
+        ("ws-team-a", "gateway_model_definition", "*", "EDIT"),
+        ("ws-team-a", "gateway_secret", "*", "EDIT"),
+        ("ws-team-a", "registered_model", "*", "EDIT"),
+        ("ws-team-a", "scorer", "*", "EDIT"),
     ]
 
 

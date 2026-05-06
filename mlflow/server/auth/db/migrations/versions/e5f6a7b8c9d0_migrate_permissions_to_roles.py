@@ -23,10 +23,13 @@ The simplified permission model is enforced during backfill:
   ``gateway_*``) with ``permission='NO_PERMISSIONS'`` are skipped — an absent
   grant combined with the configured ``default_permission`` already expresses
   "no access", so an explicit deny row is no longer supported.
-- Workspace-level rows are normalised to the two-tier USE/MANAGE model:
-  ``NO_PERMISSIONS`` rows are skipped, and ``READ`` / ``EDIT`` rows are rewritten
-  to ``USE`` (preserves access; the read-only and edit-but-not-delete tiers no
-  longer exist at workspace scope).
+- Workspace-level rows are normalised to the two-tier USE / MANAGE model:
+  ``NO_PERMISSIONS`` rows are skipped; ``READ`` rows rewrite to a single
+  ``USE`` grant (the pre-simplification "see workspace but cannot create" tier
+  is no longer expressible as a single grant); ``EDIT`` rows fan out to one
+  workspace-wide ``USE`` grant plus a type-wildcard ``EDIT`` grant on every
+  concrete resource type, preserving the user's effective per-resource EDIT
+  capability without smuggling EDIT into the workspace tier itself.
 
 Workspace scoping for legacy tables without a ``workspace`` column
 (``experiment_permissions``, ``scorer_permissions``, ``gateway_*``): those
@@ -49,12 +52,29 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 _DROPPED_PERMISSION = "NO_PERMISSIONS"
 
 # Mapping applied to workspace-level rows during backfill to enforce the simplified
-# USE/MANAGE-only workspace tier. Rows whose value is not in this map (i.e. USE,
-# MANAGE) are migrated unchanged; rows whose value is _DROPPED_PERMISSION are skipped.
+# USE/MANAGE-only workspace tier. ``READ`` rewrites to ``USE`` because the legacy
+# "see workspace but cannot create" tier is no longer expressible at workspace scope.
+# ``EDIT`` is handled specially in ``_workspace_row`` (fan-out to type-wildcard EDIT
+# grants) so it does not appear here. Rows whose value is not in this map (i.e. USE,
+# MANAGE) are migrated unchanged; ``NO_PERMISSIONS`` is skipped.
 _LEGACY_WORKSPACE_PERMISSION_REWRITE = {
     "READ": "USE",
-    "EDIT": "USE",
 }
+
+# Concrete resource types that ``workspace_permissions(EDIT)`` fans out to.
+# Pre-simplification, a workspace EDIT grant gave the user EDIT on every resource
+# in the workspace via the workspace-level fallback. The simplified model has no
+# workspace-scope EDIT (workspace tier is USE/MANAGE only), so the migration
+# preserves the capability by emitting one type-wildcard EDIT grant per resource
+# type plus a workspace-wide USE grant for create rights and visibility.
+_FAN_OUT_RESOURCE_TYPES = (
+    "experiment",
+    "registered_model",
+    "scorer",
+    "gateway_secret",
+    "gateway_endpoint",
+    "gateway_model_definition",
+)
 
 # Permission values legal in ``role_permissions`` post-migration. Hardcoded here
 # (rather than imported from ``mlflow.server.auth.permissions``) because Alembic
@@ -169,18 +189,17 @@ def _insert_role_permission_if_missing(
 def _backfill_table(conn, select_sql: str, row_to_mirror) -> None:
     """Copy rows from a legacy table into ``role_permissions``.
 
-    ``row_to_mirror`` may return ``None`` to skip a row (used to drop rows that
-    no longer fit the simplified permission model — see module docstring).
+    ``row_to_mirror`` returns a (possibly empty) list of grant tuples for each
+    legacy row. Empty list = drop. Multiple tuples = fan out (used for
+    workspace ``EDIT`` rows; see ``_workspace_row``).
     """
     for row in conn.execute(text(select_sql)):
-        mirrored = row_to_mirror(row)
-        if mirrored is None:
-            continue
-        user_id, workspace, resource_type, resource_pattern, permission = mirrored
-        role_id = _get_or_create_synthetic_role(conn, user_id, workspace)
-        _insert_role_permission_if_missing(
-            conn, role_id, resource_type, resource_pattern, permission
-        )
+        for mirrored in row_to_mirror(row):
+            user_id, workspace, resource_type, resource_pattern, permission = mirrored
+            role_id = _get_or_create_synthetic_role(conn, user_id, workspace)
+            _insert_role_permission_if_missing(
+                conn, role_id, resource_type, resource_pattern, permission
+            )
 
 
 def _resource_row(row, workspace, resource_type, resource_pattern):
@@ -190,27 +209,48 @@ def _resource_row(row, workspace, resource_type, resource_pattern):
     (``READ``/``USE``/``EDIT``/``MANAGE``) are dropped — defensive against
     corrupted legacy data. ``NO_PERMISSIONS`` is the only such value we
     expect to see (it's documented as the deny form), but anything else
-    would also be invalid post-migration.
+    would also be invalid post-migration. Returns a list with at most one
+    tuple (empty = drop) so the call site can handle resource and workspace
+    rows uniformly.
     """
     if row.permission not in _VALID_RESOURCE_PERMISSIONS:
-        return None
-    return (row.user_id, workspace, resource_type, resource_pattern, row.permission)
+        return []
+    return [(row.user_id, workspace, resource_type, resource_pattern, row.permission)]
 
 
 def _workspace_row(row):
-    """Mirror a ``workspace_permissions`` row into a ``resource_type='*'`` grant.
+    """Mirror a ``workspace_permissions`` row into one or more role_permissions grants.
 
-    ``NO_PERMISSIONS`` rows are skipped; ``READ`` and ``EDIT`` are rewritten to ``USE``
-    to fit the simplified USE/MANAGE-only workspace tier. Rows whose value falls
-    outside the legacy 5-tier set after rewriting are also skipped — defensive
-    against corrupted legacy data.
+    The simplified workspace tier is USE / MANAGE only, so legacy ``READ`` and
+    ``EDIT`` don't have a single equivalent shape:
+
+    - ``NO_PERMISSIONS`` is skipped.
+    - ``READ`` is rewritten to a single ``('*', '*', USE)`` grant. The
+      pre-simplification "see workspace but cannot create" semantic is no
+      longer expressible as a single grant; operators that relied on it should
+      switch to ``default_permission=READ`` after migration.
+    - ``EDIT`` fans out to one workspace-wide ``('*', '*', USE)`` grant plus a
+      type-wildcard ``EDIT`` grant on every concrete resource type, so the user
+      keeps the same effective per-resource capability they had pre-simplification.
+      The workspace ``USE`` row is what gives them workspace visibility and
+      create rights; the type-wildcard ``EDIT`` rows are what the resource
+      resolver matches on for read/update/etc.
+    - ``USE`` and ``MANAGE`` migrate as a single grant unchanged.
+
+    Returns a list of ``(user_id, workspace, resource_type, resource_pattern,
+    permission)`` tuples (possibly empty for dropped rows).
     """
     if row.permission == _DROPPED_PERMISSION:
-        return None
+        return []
+    if row.permission == "EDIT":
+        return [
+            (row.user_id, row.workspace, "*", "*", "USE"),
+            *((row.user_id, row.workspace, rt, "*", "EDIT") for rt in _FAN_OUT_RESOURCE_TYPES),
+        ]
     permission = _LEGACY_WORKSPACE_PERMISSION_REWRITE.get(row.permission, row.permission)
     if permission not in _VALID_WORKSPACE_PERMISSIONS:
-        return None
-    return (row.user_id, row.workspace, "*", "*", permission)
+        return []
+    return [(row.user_id, row.workspace, "*", "*", permission)]
 
 
 def upgrade() -> None:
