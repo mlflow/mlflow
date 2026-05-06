@@ -40,31 +40,29 @@ import { isWorkspaceAdminRole } from '../types';
 import { CreateUserModal } from '../components/CreateUserModal';
 import { CreateRoleModal } from '../components/CreateRoleModal';
 
-// Renders one line per role assigned to a user, formatted as
-// `<workspace> → <role_name>`. Mirrors the `<scope> → <value>` shape used
-// elsewhere in the admin UI (e.g. the Account page's permission lines like
-// `experiment:* → READ`). Each row issues its own request — React Query
-// caches per-username so subsequent re-renders don't re-fetch.
-// ``enabled`` is false for workspace managers to avoid an N+1 burst of
-// mostly-403 requests (one fetch per visible user row).
-const UserRolesCell = ({ username, enabled }: { username: string; enabled: boolean }) => {
+// One ``useUserRolesQuery`` per row. Produces an N+1 burst on the Users
+// tab — accepted as a v1 trade-off since the per-row signal is genuinely
+// useful for both platform admins and workspace managers; a backend
+// "list users with my visible roles" endpoint would fold this into one
+// request and is the natural follow-up. ``showErrorOnFailure`` lets the
+// parent ask for a red signal on real fetch failures (platform admins
+// reviewing user state) while workspace managers silently fall back to
+// ``—`` when ``validate_can_view_user_roles`` 403s for users outside
+// their workspaces.
+const UserRolesCell = ({ username, showErrorOnFailure }: { username: string; showErrorOnFailure: boolean }) => {
   const { theme } = useDesignSystemTheme();
-  const { data, isLoading, error } = useUserRolesQuery(username, { enabled });
-  if (!enabled) {
-    return <Typography.Text color="secondary">—</Typography.Text>;
-  }
+  const { data, isLoading, error } = useUserRolesQuery(username);
   if (isLoading) {
     return <Spinner size="small" />;
   }
-  if (error) {
-    // Only platform admins reach this branch; surface real fetch failures.
+  if (error && showErrorOnFailure) {
     return (
       <Typography.Text color="error" size="sm">
         Failed to load
       </Typography.Text>
     );
   }
-  const roles = data?.roles ?? [];
+  const roles = error ? [] : (data?.roles ?? []);
   if (roles.length === 0) {
     return <Typography.Text color="secondary">—</Typography.Text>;
   }
@@ -266,7 +264,7 @@ const UsersTab = () => {
               </Link>
             </TableCell>
             <TableCell css={{ flex: 2 }}>
-              <UserRolesCell username={user.username} enabled={isAdmin} />
+              <UserRolesCell username={user.username} showErrorOnFailure={isAdmin} />
             </TableCell>
             <TableCell css={{ flex: 1 }}>
               {user.is_admin ? (
