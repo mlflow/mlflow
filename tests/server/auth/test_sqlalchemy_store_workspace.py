@@ -3,7 +3,7 @@ import pytest
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.entities import WorkspacePermission
-from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ
+from mlflow.server.auth.permissions import EDIT, MANAGE, READ, USE
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -29,14 +29,28 @@ def test_set_workspace_permission_creates_and_updates(store):
     username = random_str()
     user = store.create_user(username, random_str())
 
-    perm = store.set_workspace_permission(workspace, username, READ.name)
+    perm = store.set_workspace_permission(workspace, username, USE.name)
     assert isinstance(perm, WorkspacePermission)
     assert perm.workspace == workspace
     assert perm.user_id == user.id
-    assert perm.permission == READ.name
+    assert perm.permission == USE.name
 
     updated = store.set_workspace_permission(workspace, username, MANAGE.name)
     assert updated.permission == MANAGE.name
+
+
+def test_set_workspace_permission_rejects_resource_only_tiers(store):
+    """Workspace grants accept only USE / MANAGE under the simplified model;
+    READ / EDIT / NO_PERMISSIONS are rejected up front by the scope-aware
+    validator.
+    """
+    workspace = "team-strict"
+    username = random_str()
+    store.create_user(username, random_str())
+
+    for invalid in (READ.name, EDIT.name, "NO_PERMISSIONS"):
+        with pytest.raises(MlflowException, match="resource_type='workspace'"):
+            store.set_workspace_permission(workspace, username, invalid)
 
 
 def test_get_workspace_permission_precedence(store):
@@ -46,9 +60,9 @@ def test_get_workspace_permission_precedence(store):
 
     assert store.get_workspace_permission(workspace, username) is None
 
-    store.set_workspace_permission(workspace, username, READ.name)
+    store.set_workspace_permission(workspace, username, USE.name)
     perm = store.get_workspace_permission(workspace, username)
-    assert perm == READ
+    assert perm == USE
 
 
 def test_get_role_workspace_permission_returns_none_when_no_role(store):
@@ -87,21 +101,30 @@ def test_get_role_workspace_permission_ignores_resource_specific_grants(store):
     assert store.get_role_workspace_permission("ws1", username) is None
 
 
-def test_get_role_workspace_permission_takes_max_across_roles(store):
-    # Two roles in the same workspace with different workspace-wide
-    # permissions → the helper returns the higher of the two.
+def test_get_role_workspace_permission_returns_admin_or_member_grant(store):
+    # Under the simplified two-tier workspace model, the unified
+    # ``('workspace', '*')`` slot accepts either ``USE`` (regular workspace
+    # member) or ``MANAGE`` (workspace admin). ``get_role_workspace_permission``
+    # walks every grant on this slot for roles the user is assigned to and
+    # returns the max — covering both tiers.
     username = random_str()
     user = store.create_user(username, random_str())
 
-    read_role = store.create_role(name="ws-reader", workspace="ws1")
-    store.add_role_permission(read_role.id, "workspace", "*", READ.name)
-    store.assign_role_to_user(user.id, read_role.id)
+    admin_role = store.create_role(name="ws-admin", workspace="ws1")
+    store.add_role_permission(admin_role.id, "workspace", "*", MANAGE.name)
+    store.assign_role_to_user(user.id, admin_role.id)
 
-    edit_role = store.create_role(name="ws-editor", workspace="ws1")
-    store.add_role_permission(edit_role.id, "workspace", "*", EDIT.name)
-    store.assign_role_to_user(user.id, edit_role.id)
+    assert store.get_role_workspace_permission("ws1", username) == MANAGE
 
-    assert store.get_role_workspace_permission("ws1", username) == EDIT
+    # Also pin the USE case: a separate user with only the workspace-member
+    # tier should resolve to USE, not None.
+    member_username = random_str()
+    member = store.create_user(member_username, random_str())
+    member_role = store.create_role(name="ws-member", workspace="ws1")
+    store.add_role_permission(member_role.id, "workspace", "*", USE.name)
+    store.assign_role_to_user(member.id, member_role.id)
+
+    assert store.get_role_workspace_permission("ws1", member_username) == USE
 
 
 def test_get_role_workspace_permission_scopes_to_requested_workspace(store):
@@ -125,8 +148,8 @@ def test_list_workspace_permissions(store):
     user = store.create_user(username, random_str())
     other_user = store.create_user(other_username, random_str())
 
-    p1 = store.set_workspace_permission(workspace, username, READ.name)
-    p2 = store.set_workspace_permission(workspace, other_username, EDIT.name)
+    p1 = store.set_workspace_permission(workspace, username, USE.name)
+    p2 = store.set_workspace_permission(workspace, other_username, MANAGE.name)
     p3 = store.set_workspace_permission(other_workspace, username, MANAGE.name)
 
     perms = store.list_workspace_permissions(workspace)
@@ -148,7 +171,7 @@ def test_delete_workspace_permission(store):
     username = random_str()
     store.create_user(username, random_str())
 
-    store.set_workspace_permission(workspace, username, READ.name)
+    store.set_workspace_permission(workspace, username, USE.name)
 
     store.delete_workspace_permission(workspace, username)
     assert store.get_workspace_permission(workspace, username) is None
@@ -169,8 +192,8 @@ def test_delete_workspace_permissions_for_workspace(store):
     username = random_str()
     store.create_user(username, random_str())
 
-    store.set_workspace_permission(workspace, username, READ.name)
-    store.set_workspace_permission(other_workspace, username, EDIT.name)
+    store.set_workspace_permission(workspace, username, USE.name)
+    store.set_workspace_permission(other_workspace, username, MANAGE.name)
 
     store.delete_workspace_permissions_for_workspace(workspace)
 
@@ -186,13 +209,13 @@ def test_list_accessible_workspace_names(store):
     store.create_user(username, random_str())
     store.create_user(other_user, random_str())
 
-    store.set_workspace_permission("workspace-read", username, READ.name)
-    store.set_workspace_permission("workspace-edit", username, EDIT.name)
-    store.set_workspace_permission("workspace-no-access", username, NO_PERMISSIONS.name)
-    store.set_workspace_permission("workspace-other", other_user, READ.name)
+    store.set_workspace_permission("workspace-use", username, USE.name)
+    store.set_workspace_permission("workspace-manage", username, MANAGE.name)
+    # No grant for `workspace-no-access` — absence should keep it hidden.
+    store.set_workspace_permission("workspace-other", other_user, USE.name)
 
     accessible = store.list_accessible_workspace_names(username)
-    assert accessible == {"workspace-read", "workspace-edit"}
+    assert accessible == {"workspace-use", "workspace-manage"}
 
     assert store.list_accessible_workspace_names(other_user) == {
         "workspace-other",
@@ -228,27 +251,15 @@ def test_list_accessible_workspace_names_includes_role_with_no_permissions(store
 
 
 def test_list_accessible_workspace_names_combines_legacy_and_role_sources(store):
-    # Legacy READ on ws1 + role assignment in ws2 → both surface.
+    # Legacy USE on ws1 + role assignment in ws2 → both surface.
     username = random_str()
     user = store.create_user(username, random_str())
 
-    store.set_workspace_permission("ws1", username, READ.name)
+    store.set_workspace_permission("ws1", username, USE.name)
     role = store.create_role(name="viewer", workspace="ws2")
     store.assign_role_to_user(user.id, role.id)
 
     assert store.list_accessible_workspace_names(username) == {"ws1", "ws2"}
-
-
-def test_list_accessible_workspace_names_legacy_no_permissions_still_hides(store):
-    # Legacy NO_PERMISSIONS row should not make a workspace visible — the legacy
-    # branch still filters by ``can_read``. Regression guard for the carve-out that
-    # only the role-based branch unconditionally counts membership.
-    username = random_str()
-    store.create_user(username, random_str())
-
-    store.set_workspace_permission("ws1", username, NO_PERMISSIONS.name)
-
-    assert store.list_accessible_workspace_names(username) == set()
 
 
 def test_list_accessible_workspace_names_role_in_other_workspace_doesnt_leak(store):
@@ -266,12 +277,12 @@ def test_list_accessible_workspace_names_role_in_other_workspace_doesnt_leak(sto
 
 
 def test_list_accessible_workspace_names_combines_legacy_and_role_same_workspace(store):
-    # Overlap: a user has BOTH a legacy READ and a role assignment in the same
+    # Overlap: a user has BOTH a legacy USE grant and a role assignment in the same
     # workspace. Deduplication should collapse to a single entry.
     username = random_str()
     user = store.create_user(username, random_str())
 
-    store.set_workspace_permission("ws1", username, READ.name)
+    store.set_workspace_permission("ws1", username, USE.name)
     role = store.create_role(name="viewer", workspace="ws1")
     store.assign_role_to_user(user.id, role.id)
 

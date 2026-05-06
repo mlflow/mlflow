@@ -74,6 +74,7 @@ from mlflow.entities.session import Session
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_log_level import SpanLogLevel
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -124,6 +125,7 @@ __all__ = [
     "LiveSpan",
     "NoOpSpan",
     "SpanEvent",
+    "SpanLogLevel",
     "SpanStatus",
     "SpanType",
     "Trace",
