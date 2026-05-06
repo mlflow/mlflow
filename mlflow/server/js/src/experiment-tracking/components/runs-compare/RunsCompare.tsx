@@ -51,6 +51,7 @@ import { RunsChartsGlobalChartSettingsDropdown } from '../runs-charts/components
 import { RunsChartsDraggableCardsGridContextProvider } from '../runs-charts/components/RunsChartsDraggableCardsGridContext';
 import { RunsChartsFilterInput } from '../runs-charts/components/RunsChartsFilterInput';
 import { RUNS_CHARTS_UI_Z_INDEX } from '../runs-charts/utils/runsCharts.const';
+import { RunsCompareVideoSection } from './RunsCompareVideoSection';
 
 export interface RunsCompareProps {
   comparedRuns: RunRowType[];
@@ -410,6 +411,7 @@ const RunsCompareImpl = ({
         />
       </div>
       <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunsChartsTooltipBody}>
+        <RunsCompareVideoSection chartRunData={chartData} />
         <RunsChartsDraggableCardsGridContextProvider visibleChartCards={visibleChartCards}>
           <RunsChartsSectionAccordion
             compareRunSections={compareRunSections}

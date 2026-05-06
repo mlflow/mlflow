@@ -44,6 +44,7 @@ import {
   NodeLevelMetricsFilterContextProvider,
   useNodeLevelMetricsFilterState,
 } from './node-level-metric-charts/contexts/NodeLevelMetricsFilterContext';
+import { RunViewVideosSection } from './overview/RunViewVideosSection';
 
 interface RunViewMetricChartsProps {
   metricKeys: string[];
@@ -290,6 +291,7 @@ const RunViewMetricChartsImpl = ({
           overflow: 'auto',
         }}
       >
+        {mode === 'model' && <RunViewVideosSection runUuid={runInfo.runUuid ?? ''} />}
         <NodeLevelMetricsFilterContextProvider value={filterState}>
           <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunViewChartTooltipBody}>
             <RunsChartsDraggableCardsGridContextProvider visibleChartCards={visibleChartCards}>
