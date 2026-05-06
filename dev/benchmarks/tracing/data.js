@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777975894053,
+  "lastUpdate": 1778029806860,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -809,6 +809,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.88274360000014,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xshen.shc@gmail.com",
+            "name": "Xiang Shen",
+            "username": "xsh310"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f06c16826aaa88eb501914b7515acbbaaf083bc",
+          "message": "Add UC traces upsell message for set_experiment calls on Databricks (#23038)\n\nSigned-off-by: Xiang Shen <xshen.shc@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-05-06T01:06:21Z",
+          "tree_id": "76e8a2da1a7bf9e1c57ce061359ef7d7adca7d92",
+          "url": "https://github.com/mlflow/mlflow/commit/3f06c16826aaa88eb501914b7515acbbaaf083bc"
+        },
+        "date": 1778029805815,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 40.58284580000162,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.401910742857872,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.58039711290394,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 24.243511464287288,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.502310322033356,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 50.97342299999923,
             "unit": "ms"
           }
         ]
