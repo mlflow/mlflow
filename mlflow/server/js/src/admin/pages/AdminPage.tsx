@@ -521,6 +521,13 @@ const AdminPage = () => {
   const tabFromUrl = searchParams.get('tab');
   const activeTab = tabFromUrl === 'roles' ? 'roles' : 'users';
 
+  // Title and subtitle differ for platform admins vs. workspace managers.
+  // For workspace managers we show the active workspace by name so the
+  // page makes the scope explicit; the body of the page is already scoped
+  // server-side via ``validate_can_list_roles`` and friends.
+  const isAdmin = useCurrentUserIsAdmin();
+  const activeWorkspace = useActiveWorkspace();
+
   return (
     <ScrollablePageWrapper>
       <div css={{ padding: theme.spacing.md, display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
@@ -537,9 +544,25 @@ const AdminPage = () => {
               <UserIcon />
             </div>
             <Typography.Title withoutMargins level={2}>
-              <FormattedMessage defaultMessage="Platform Admin" description="Admin page title" />
+              {isAdmin ? (
+                <FormattedMessage defaultMessage="Platform Admin" description="Admin page title for platform admins" />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Workspace Manager"
+                  description="Admin page title for non-platform-admins (workspace admins)"
+                />
+              )}
             </Typography.Title>
           </div>
+          {!isAdmin && activeWorkspace && (
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Workspace: {workspace}"
+                description="Subtitle on the admin page identifying the active workspace for workspace managers"
+                values={{ workspace: <code>{activeWorkspace}</code> }}
+              />
+            </Typography.Text>
+          )}
         </div>
         <Tabs.Root
           componentId="admin.tabs"

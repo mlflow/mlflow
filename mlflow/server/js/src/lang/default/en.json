@@ -539,6 +539,10 @@
     "defaultMessage": "Using controls above, select at least one artifact containing table.",
     "description": "Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint"
   },
+  "19v9XQ": {
+    "defaultMessage": "Workspace Manager",
+    "description": "Admin page title for non-platform-admins (workspace admins)"
+  },
   "1BIc9x": {
     "defaultMessage": "Launch Demo",
     "description": "Demo banner launch button"
@@ -562,6 +566,10 @@
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
+  },
+  "1Q2i/2": {
+    "defaultMessage": "Platform Admin",
+    "description": "Admin page title for platform admins"
   },
   "1RAM3C": {
     "defaultMessage": "Failed to delete some API keys. Please try again.",
@@ -786,6 +794,10 @@
   "2gmOVq": {
     "defaultMessage": "Process {evaluableRowCount} rows without evaluation output",
     "description": "Experiment page > artifact compare view > run column header > \"Evaluate all\" button tooltip"
+  },
+  "2gvIco": {
+    "defaultMessage": "Workspace: {workspace}",
+    "description": "Subtitle on the admin page identifying the active workspace for workspace managers"
   },
   "2gxV/O": {
     "defaultMessage": "Evaluation not available when grouping is enabled",
@@ -3022,10 +3034,6 @@
   "GKVTw4": {
     "defaultMessage": "JSON",
     "description": "JSON select menu option for assessment data type"
-  },
-  "GKXuD6": {
-    "defaultMessage": "Platform Admin",
-    "description": "Admin page title"
   },
   "GKiPV1": {
     "defaultMessage": "Start Time:",

@@ -19,17 +19,35 @@ export const useCurrentUserIsAdmin = () => {
 };
 
 /**
- * True when the current user holds a workspace-admin role
- * (``(workspace, *, MANAGE)``) in at least one workspace. Composes
- * existing self-authorized queries; no new endpoint required. Returns
- * false while the queries are still loading so auth-gated UI doesn't
- * flash visible before we know the answer.
+ * The set of workspaces in which the current user holds a workspace-admin
+ * role (``(workspace, *, MANAGE)``). Mirrors the backend
+ * ``store.list_workspace_admin_workspaces``. Composes self-authorized
+ * queries — no admin-only endpoint required. Returns an empty set while
+ * the underlying queries are still loading so auth-gated UI doesn't flash
+ * visible before we know the answer.
  */
-export const useCurrentUserIsWorkspaceAdmin = (): boolean => {
+export const useCurrentUserAdminWorkspaces = (): Set<string> => {
   const { data: currentUser } = useCurrentUserQuery();
   const username = currentUser?.user?.username ?? '';
   const { data: rolesData } = useUserRolesQuery(username);
-  return useMemo(() => (rolesData?.roles ?? []).some(isWorkspaceAdminRole), [rolesData]);
+  return useMemo(() => {
+    const result = new Set<string>();
+    for (const role of rolesData?.roles ?? []) {
+      if (isWorkspaceAdminRole(role)) {
+        result.add(role.workspace);
+      }
+    }
+    return result;
+  }, [rolesData]);
+};
+
+/**
+ * True when the current user is a workspace admin in at least one
+ * workspace. Thin wrapper over ``useCurrentUserAdminWorkspaces`` for
+ * call sites that only need the boolean.
+ */
+export const useCurrentUserIsWorkspaceAdmin = (): boolean => {
+  return useCurrentUserAdminWorkspaces().size > 0;
 };
 
 /**

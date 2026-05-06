@@ -16,6 +16,7 @@ import type {
 // Re-export account-side hooks so admin pages can keep importing them via
 // ``./hooks``. The canonical home is account/hooks.
 export {
+  useCurrentUserAdminWorkspaces,
   useCurrentUserIsAdmin,
   useCurrentUserIsWorkspaceAdmin,
   useCurrentUserQuery,
