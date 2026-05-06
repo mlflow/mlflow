@@ -123,3 +123,8 @@ GATEWAY_SUPPORTED_MODELS = _get_ajax_path("/mlflow/gateway/supported-models", ve
 GATEWAY_PROVIDER_CONFIG = _get_ajax_path("/mlflow/gateway/provider-config", version=3)
 GATEWAY_SECRETS_CONFIG = _get_ajax_path("/mlflow/gateway/secrets/config", version=3)
 INVOKE_SCORER = _get_ajax_path("/mlflow/scorer/invoke", version=3)
+
+GET_ONLINE_SCORING_CONFIGS_AJAX = _get_ajax_path("/mlflow/scorers/online-configs", version=3)
+GET_ONLINE_SCORING_CONFIGS_REST = _get_rest_path("/mlflow/scorers/online-configs", version=3)
+UPSERT_ONLINE_SCORING_CONFIG_AJAX = _get_ajax_path("/mlflow/scorers/online-config", version=3)
+UPSERT_ONLINE_SCORING_CONFIG_REST = _get_rest_path("/mlflow/scorers/online-config", version=3)

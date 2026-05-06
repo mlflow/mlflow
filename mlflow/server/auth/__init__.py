@@ -245,6 +245,8 @@ from mlflow.server.auth.routes import (
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_MODEL_VERSION_ARTIFACT,
+    GET_ONLINE_SCORING_CONFIGS_AJAX,
+    GET_ONLINE_SCORING_CONFIGS_REST,
     GET_REGISTERED_MODEL_PERMISSION,
     GET_ROLE,
     GET_SCORER_PERMISSION,
@@ -276,6 +278,8 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
+    UPSERT_ONLINE_SCORING_CONFIG_AJAX,
+    UPSERT_ONLINE_SCORING_CONFIG_REST,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
@@ -1266,6 +1270,15 @@ def validate_can_manage_scorer_permission():
     return _get_permission_from_scorer_permission_request().can_manage
 
 
+def validate_can_read_online_scoring_configs():
+    authenticate_request()
+    return True
+
+
+def validate_can_update_online_scoring_config():
+    return _get_permission_from_scorer_name().can_update
+
+
 def sender_is_admin():
     """Validate if the sender is admin"""
     username = authenticate_request().username
@@ -1987,7 +2000,6 @@ BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
-    if "/scorers/online-config" not in http_path
 }
 
 # Auth-related routes
@@ -2105,6 +2117,11 @@ BEFORE_REQUEST_VALIDATORS.update({
     (LIST_WORKSPACE_PERMISSIONS, "POST"): validate_can_modify_workspace_permission,
     (LIST_WORKSPACE_PERMISSIONS, "DELETE"): validate_can_modify_workspace_permission,
     (LIST_USER_WORKSPACE_PERMISSIONS, "GET"): sender_is_admin,
+    # Online scoring config endpoints
+    (GET_ONLINE_SCORING_CONFIGS_AJAX, "GET"): validate_can_read_online_scoring_configs,
+    (GET_ONLINE_SCORING_CONFIGS_REST, "GET"): validate_can_read_online_scoring_configs,
+    (UPSERT_ONLINE_SCORING_CONFIG_AJAX, "PUT"): validate_can_update_online_scoring_config,
+    (UPSERT_ONLINE_SCORING_CONFIG_REST, "PUT"): validate_can_update_online_scoring_config,
 })
 
 # Precompile workspace parameterized paths (e.g., workspace_name) for fast matching.
@@ -3017,7 +3034,6 @@ AFTER_REQUEST_HANDLERS = {
     for method in methods
     if handler is not None
     and "/graphql" not in http_path
-    and "/scorers/online-config" not in http_path
     and "/mlflow/server-info" not in http_path
     and http_path not in _AJAX_GATEWAY_PATHS
 }
